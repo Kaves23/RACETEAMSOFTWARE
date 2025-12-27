@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Race Team ERP – Settings</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="style.css" rel="stylesheet">
+
+  <!-- Local override: tighter MLO list rows (applies to this page) -->
+  <style>
+    .mlo-table th, .mlo-table td { padding: .18rem .42rem !important; }
+    .chip {
+      display:inline-flex; align-items:center; gap:.35rem;
+      padding:.18rem .45rem; border:1px solid rgba(255,255,255,.12);
+      border-radius:999px; font-size:.78rem; color:#e0e3e6;
+      background: rgba(255,255,255,.04);
+      white-space:nowrap;
+    }
+    .muted { color: rgba(224,227,230,.70); }
+    .kpi-mini { font-size:.78rem; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    .btn-ghost { border:1px solid rgba(255,255,255,.12); background:transparent; color:#e0e3e6; }
+    .btn-ghost:hover { background: rgba(255,255,255,.06); }
+    .form-hint { font-size:.78rem; color: rgba(224,227,230,.65); }
+    .danger-zone { border:1px solid rgba(255,0,0,.22); background: rgba(255,0,0,.04); }
+  </style>
+</head>
+
+<body>
+  <div class="container-fluid">
+    <div class="row">
+      <!-- Sidebar -->
+      <nav class="col-md-2 d-none d-md-block sidebar">
+        <ul class="nav flex-column">
+          <li class="nav-item"><a class="nav-link" href="index.html">Dashboard</a></li>
+          <li class="nav-item"><a class="nav-link" href="events.html">Events</a></li>
+          <li class="nav-item"><a class="nav-link" href="tasks.html">Tasks</a></li>
+          <li class="nav-item"><a class="nav-link" href="assets.html">Assets</a></li>
+          <li class="nav-item"><a class="nav-link" href="inventory.html">Inventory</a></li>
+          <li class="nav-item"><a class="nav-link" href="expenses.html">Finance</a></li>
+
+          <li class="nav-section">Race Control</li>
+          <li class="nav-item"><a class="nav-link" href="performance.html">Performance</a></li>
+          <li class="nav-item"><a class="nav-link" href="strategy.html">Strategy</a></li>
+          <li class="nav-item"><a class="nav-link" href="incidents.html">Incidents</a></li>
+          <li class="nav-item"><a class="nav-link" href="integrations.html">Integrations</a></li>
+
+          <li class="nav-section">Admin</li>
+          <li class="nav-item"><a class="nav-link" href="settings.html">Settings</a></li>
+        </ul>
+      </nav>
+
+      <!-- Main -->
+      <main class="col-md-10 ms-sm-auto px-4">
+        <div class="d-flex justify-content-between align-items-center">
+          <h1 class="my-3">Settings</h1>
+          <div class="d-flex align-items-center gap-2">
+            <span class="chip kpi-mini">Storage: <span id="storageStatus" class="mono">OK</span></span>
+            <button class="btn btn-sm btn-ghost" id="btnResetSettings" type="button" title="Reseed drivers/staff/roles/calendar to demo defaults">Reset Demo Settings</button>
+          </div>
+        </div>
+
+        <!-- Tri-pane (MLO-style) -->
+        <div class="mlo-shell" id="settingsShell">
+          <!-- LEFT -->
+          <section class="mlo-pane mlo-pane-left" aria-label="Settings navigation">
+            <div class="mlo-pane-header">
+              <div class="d-flex justify-content-between align-items-center">
+                <div class="mlo-title">Settings</div>
+                <span class="badge text-bg-secondary" id="leftBadge">—</span>
+              </div>
+            </div>
+            <div class="mlo-pane-content">
+              <div class="mlo-section-label">Directory</div>
+              <ul class="mlo-tree" id="settingsTree">
+                <li class="mlo-tree-item active" data-section="drivers">
+                  Drivers <span class="badge text-bg-secondary float-end" id="countDrivers">0</span>
+                </li>
+                <li class="mlo-tree-item" data-section="staff">
+                  Crew / Staff <span class="badge text-bg-secondary float-end" id="countStaff">0</span>
+                </li>
+                <li class="mlo-tree-item" data-section="roles">
+                  Roles <span class="badge text-bg-secondary float-end" id="countRoles">0</span>
+                </li>
+              </ul>
+
+              <div class="mlo-section-label mt-3">System</div>
+              <ul class="mlo-tree" id="systemTree">
+                <li class="mlo-tree-item" data-section="calendar">Google Calendar</li>
+                <li class="mlo-tree-item" data-section="backup">Backup / Restore</li>
+              </ul>
+
+              <div class="mt-3 form-hint">
+                Drivers and staff records are used by Events (attendance + crew roster).
+              </div>
+            </div>
+          </section>
+
+          <div class="mlo-resizer" data-resize="left" title="Drag to resize"></div>
+
+          <!-- MIDDLE -->
+          <section class="mlo-pane mlo-pane-mid" aria-label="Settings list">
+            <div class="mlo-pane-header">
+              <div class="d-flex flex-wrap align-items-center gap-1">
+                <input id="listSearch" type="text" class="form-control form-control-sm" placeholder="Search…" style="max-width: 240px;">
+                <select id="activeFilter" class="form-select form-select-sm" style="max-width: 170px;">
+                  <option value="">Active: All</option>
+                  <option value="true">Active only</option>
+                  <option value="false">Inactive only</option>
+                </select>
+
+                <select id="contextFilter" class="form-select form-select-sm" style="max-width: 220px; display:none;">
+                  <option value="">Filter: All</option>
+                </select>
+
+                <select id="groupBy" class="form-select form-select-sm" style="max-width: 180px;">
+                  <option value="">Group: None</option>
+                  <option value="role">Group: Role</option>
+                  <option value="class">Group: Class</option>
+                </select>
+
+                <button class="btn btn-sm btn-outline-light mlo-btn" id="btnAdd" type="button">Add</button>
+              </div>
+            </div>
+
+            <div class="mlo-pane-content" style="padding:0;">
+              <table class="table table-dark table-hover mlo-table" style="margin:0;">
+                <thead id="listThead"></thead>
+                <tbody id="listTbody"></tbody>
+              </table>
+
+              <div class="p-3 muted" id="emptyState" style="display:none;">
+                No records match the current filters.
+              </div>
+            </div>
+          </section>
+
+          <div class="mlo-resizer" data-resize="right" title="Drag to resize"></div>
+
+          <!-- RIGHT -->
+          <section class="mlo-pane mlo-pane-right mlo-inspector" aria-label="Inspector">
+            <div class="mlo-pane-header">
+              <div class="d-flex justify-content-between align-items-center">
+                <div class="mlo-title">Inspector</div>
+                <span class="badge text-bg-secondary" id="inspectorBadge">No selection</span>
+              </div>
+            </div>
+
+            <div class="mlo-pane-content">
+              <!-- DRIVER FORM -->
+              <form id="formDriver" autocomplete="off" style="display:none;">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <div class="chip">Driver</div>
+                  <div class="d-flex gap-1">
+                    <button class="btn btn-sm btn-ghost" id="btnSave" type="button">Save</button>
+                    <button class="btn btn-sm btn-ghost" id="btnDuplicate" type="button">Duplicate</button>
+                    <button class="btn btn-sm btn-outline-danger" id="btnDelete" type="button">Delete</button>
+                  </div>
+                </div>
+
+                <div class="row g-2">
+                  <div class="col-4">
+                    <label class="form-label">ID</label>
+                    <input class="form-control form-control-sm" id="d_id" readonly>
+                  </div>
+                  <div class="col-8">
+                    <label class="form-label">Display Name</label>
+                    <input class="form-control form-control-sm" id="d_displayName" placeholder="e.g., Xander Smith (#77)">
+                  </div>
+
+                  <div class="col-6">
+                    <label class="form-label">First Name</label>
+                    <input class="form-control form-control-sm" id="d_firstName">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Last Name</label>
+                    <input class="form-control form-control-sm" id="d_lastName">
+                  </div>
+
+                  <div class="col-4">
+                    <label class="form-label">Race No.</label>
+                    <input class="form-control form-control-sm" id="d_raceNumber" placeholder="77">
+                  </div>
+                  <div class="col-4">
+                    <label class="form-label">Class</label>
+                    <input class="form-control form-control-sm" id="d_class" placeholder="OK-J / OK-N / etc.">
+                  </div>
+                  <div class="col-4">
+                    <label class="form-label">Active</label>
+                    <select class="form-select form-select-sm" id="d_active">
+                      <option value="true">Yes</option>
+                      <option value="false">No</option>
+                    </select>
+                  </div>
+
+                  <div class="col-6">
+                    <label class="form-label">Email</label>
+                    <input class="form-control form-control-sm" id="d_email" placeholder="driver@email.com">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Phone</label>
+                    <input class="form-control form-control-sm" id="d_phone" placeholder="+27…">
+                  </div>
+
+                  <div class="col-6">
+                    <label class="form-label">Emergency Contact Name</label>
+                    <input class="form-control form-control-sm" id="d_emergencyName">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Emergency Contact Phone</label>
+                    <input class="form-control form-control-sm" id="d_emergencyPhone">
+                  </div>
+
+                  <div class="col-12">
+                    <label class="form-label">Notes</label>
+                    <textarea class="form-control form-control-sm" id="d_notes" rows="4" placeholder="Medical notes, tyre preferences, etc."></textarea>
+                  </div>
+                </div>
+              </form>
+
+              <!-- STAFF FORM -->
+              <form id="formStaff" autocomplete="off" style="display:none;">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <div class="chip">Crew / Staff</div>
+                  <div class="d-flex gap-1">
+                    <button class="btn btn-sm btn-ghost" id="btnSave2" type="button">Save</button>
+                    <button class="btn btn-sm btn-ghost" id="btnDuplicate2" type="button">Duplicate</button>
+                    <button class="btn btn-sm btn-outline-danger" id="btnDelete2" type="button">Delete</button>
+                  </div>
+                </div>
+
+                <div class="row g-2">
+                  <div class="col-4">
+                    <label class="form-label">ID</label>
+                    <input class="form-control form-control-sm" id="s_id" readonly>
+                  </div>
+                  <div class="col-8">
+                    <label class="form-label">Full Name</label>
+                    <input class="form-control form-control-sm" id="s_fullName" placeholder="e.g., Stephen Selepe">
+                  </div>
+
+                  <div class="col-6">
+                    <label class="form-label">Primary Role</label>
+                    <input class="form-control form-control-sm" id="s_primaryRole" placeholder="Mechanic / Engineer / Team Manager">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Active</label>
+                    <select class="form-select form-select-sm" id="s_active">
+                      <option value="true">Yes</option>
+                      <option value="false">No</option>
+                    </select>
+                  </div>
+
+                  <div class="col-6">
+                    <label class="form-label">Email</label>
+                    <input class="form-control form-control-sm" id="s_email">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Phone</label>
+                    <input class="form-control form-control-sm" id="s_phone">
+                  </div>
+
+                  <div class="col-12">
+                    <label class="form-label">Certifications / Permits</label>
+                    <textarea class="form-control form-control-sm" id="s_certs" rows="3" placeholder="Scrutineering, safety, rigging, etc."></textarea>
+                  </div>
+
+                  <div class="col-12">
+                    <label class="form-label">Notes</label>
+                    <textarea class="form-control form-control-sm" id="s_notes" rows="4"></textarea>
+                  </div>
+                </div>
+              </form>
+
+              <!-- ROLE FORM -->
+              <form id="formRole" autocomplete="off" style="display:none;">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <div class="chip">Role</div>
+                  <div class="d-flex gap-1">
+                    <button class="btn btn-sm btn-ghost" id="btnSave3" type="button">Save</button>
+                    <button class="btn btn-sm btn-ghost" id="btnDuplicate3" type="button">Duplicate</button>
+                    <button class="btn btn-sm btn-outline-danger" id="btnDelete3" type="button">Delete</button>
+                  </div>
+                </div>
+
+                <div class="row g-2">
+                  <div class="col-4">
+                    <label class="form-label">ID</label>
+                    <input class="form-control form-control-sm" id="r_id" readonly>
+                  </div>
+                  <div class="col-8">
+                    <label class="form-label">Role Name</label>
+                    <input class="form-control form-control-sm" id="r_name" placeholder="Race Engineer / Mechanic / Team Manager">
+                  </div>
+
+                  <div class="col-4">
+                    <label class="form-label">Active</label>
+                    <select class="form-select form-select-sm" id="r_active">
+                      <option value="true">Yes</option>
+                      <option value="false">No</option>
+                    </select>
+                  </div>
+                  <div class="col-8">
+                    <label class="form-label">Description</label>
+                    <input class="form-control form-control-sm" id="r_desc" placeholder="Short definition / responsibilities">
+                  </div>
+                </div>
+              </form>
+
+              <!-- CALENDAR FORM -->
+              <form id="formCalendar" autocomplete="off" style="display:none;">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <div class="chip">Google Calendar</div>
+                  <div class="d-flex gap-1">
+                    <button class="btn btn-sm btn-ghost" id="btnSaveCal" type="button">Save</button>
+                  </div>
+                </div>
+
+                <div class="row g-2">
+                  <div class="col-12">
+                    <label class="form-label">Timezone</label>
+                    <input class="form-control form-control-sm" id="c_tz" value="Africa/Johannesburg">
+                    <div class="form-hint">Default is Africa/Johannesburg. Used for .ics and future Google sync.</div>
+                  </div>
+
+                  <div class="col-6">
+                    <label class="form-label">Export Mode</label>
+                    <select class="form-select form-select-sm" id="c_mode">
+                      <option value="all_day">All-day events</option>
+                      <option value="timed">Timed events</option>
+                    </select>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Default Duration (minutes)</label>
+                    <input class="form-control form-control-sm" id="c_duration" type="number" min="15" step="15" value="60">
+                  </div>
+
+                  <div class="col-12">
+                    <label class="form-label">Default Calendar Name (optional)</label>
+                    <input class="form-control form-control-sm" id="c_calName" placeholder="e.g., Team Calendar">
+                  </div>
+
+                  <div class="col-12">
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" id="c_includeRoster" checked>
+                      <label class="form-check-label" for="c_includeRoster">Include roster (drivers + crew) in exported event description</label>
+                    </div>
+                  </div>
+
+                  <div class="col-12">
+                    <div class="danger-zone p-2 rounded">
+                      <div class="form-hint mb-1"><strong>Note:</strong> This prototype does not do OAuth sync yet.</div>
+                      <div class="form-hint">Exports are provided as Google “create event” links and downloadable .ics files.</div>
+                    </div>
+                  </div>
+                </div>
+              </form>
+
+              <!-- BACKUP -->
+              <div id="formBackup" style="display:none;">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <div class="chip">Backup / Restore</div>
+                  <div class="d-flex gap-1">
+                    <button class="btn btn-sm btn-ghost" id="btnExportAll" type="button">Export</button>
+                    <button class="btn btn-sm btn-ghost" id="btnDownloadAll" type="button">Download JSON</button>
+                  </div>
+                </div>
+
+                <div class="mb-2">
+                  <label class="form-label">Export JSON</label>
+                  <textarea class="form-control form-control-sm mono" id="backupText" rows="10" placeholder="Click Export to generate JSON"></textarea>
+                  <div class="form-hint">Exports all <span class="mono">rts_*</span> keys from localStorage.</div>
+                </div>
+
+                <div class="mb-2">
+                  <label class="form-label">Restore from JSON</label>
+                  <textarea class="form-control form-control-sm mono" id="restoreText" rows="8" placeholder='Paste JSON export here, then click Restore'></textarea>
+                  <div class="d-flex gap-2 mt-2">
+                    <button class="btn btn-sm btn-outline-warning" id="btnRestore" type="button">Restore</button>
+                    <button class="btn btn-sm btn-outline-danger" id="btnWipeRts" type="button">Wipe rts_* keys</button>
+                  </div>
+                  <div class="form-hint mt-2">Wipe removes all app data stored in this browser for this prototype.</div>
+                </div>
+              </div>
+
+              <!-- EMPTY -->
+              <div id="inspectorEmpty" class="muted">
+                Select a section on the left, then select a record in the list.
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="core.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+  (function(){
+    const KEYS = {
+      drivers: 'rts_drivers_v1',
+      staff: 'rts_staff_v1',
+      roles: 'rts_roles_v1',
+      calendar: 'rts_calendar_v1',
+      ui: 'rts_settings_ui_v1',
+      pane: 'rts_settings_panes_v1'
+    };
+
+    function nowISODate(){
+      const d = new Date();
+      const pad = (n)=> String(n).padStart(2,'0');
+      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    }
+    function uid(prefix){
+      return (prefix || 'id') + '_' + Math.random().toString(16).slice(2) + '_' + Date.now().toString(16);
+    }
+    function asBool(v){ return String(v) === 'true'; }
+
+    function seedDrivers(){
+      return [
+        { id: uid('drv'), displayName:'Xander Smith (#77)', firstName:'Xander', lastName:'Smith', raceNumber:'77', class:'OK-J', email:'', phone:'', emergencyName:'', emergencyPhone:'', notes:'', active:true },
+        { id: uid('drv'), displayName:'Chase Lennon (#12)', firstName:'Chase', lastName:'Lennon', raceNumber:'12', class:'OK-N', email:'', phone:'', emergencyName:'', emergencyPhone:'', notes:'', active:true },
+        { id: uid('drv'), displayName:'Driver #34', firstName:'', lastName:'', raceNumber:'34', class:'OK-J', email:'', phone:'', emergencyName:'', emergencyPhone:'', notes:'', active:true },
+        { id: uid('drv'), displayName:'Driver #9', firstName:'', lastName:'', raceNumber:'9', class:'OK-N', email:'', phone:'', emergencyName:'', emergencyPhone:'', notes:'', active:true },
+        { id: uid('drv'), displayName:'Driver #5', firstName:'', lastName:'', raceNumber:'5', class:'OK-J', email:'', phone:'', emergencyName:'', emergencyPhone:'', notes:'', active:true },
+      ];
+    }
+
+    function seedStaff(){
+      return [
+        { id: uid('stf'), fullName:'Team Manager', primaryRole:'Team Manager', email:'', phone:'', certs:'', notes:'', active:true },
+        { id: uid('stf'), fullName:'Race Engineer', primaryRole:'Race Engineer', email:'', phone:'', certs:'', notes:'', active:true },
+        { id: uid('stf'), fullName:'Lead Mechanic', primaryRole:'Mechanic', email:'', phone:'', certs:'', notes:'', active:true },
+        { id: uid('stf'), fullName:'Parts Controller', primaryRole:'Inventory Controller', email:'', phone:'', certs:'', notes:'', active:true },
+        { id: uid('stf'), fullName:'Media & Comms', primaryRole:'Comms', email:'', phone:'', certs:'', notes:'', active:true }
+      ];
+    }
+
+    function seedRoles(){
+      const names = [
+        'Team Principal',
+        'Team Manager',
+        'Race Engineer',
+        'Mechanic / Technician',
+        'Parts & Inventory Controller',
+        'Finance / Admin',
+        'Media / Comms',
+        'Driver Coach'
+      ];
+      return names.map(n => ({ id: uid('rol'), name:n, desc:'', active:true }));
+    }
+
+    function seedCalendar(){
+      return {
+        timezone: 'Africa/Johannesburg',
+        mode: 'all_day',               // all_day | timed
+        defaultDurationMinutes: 60,
+        includeRosterInDescription: true,
+        calendarName: ''
+      };
+    }
+
+    // State
+    let drivers = RTS.safeLoadJSON(KEYS.drivers, null);
+    let staff = RTS.safeLoadJSON(KEYS.staff, null);
+    let roles = RTS.safeLoadJSON(KEYS.roles, null);
+    let calendar = RTS.safeLoadJSON(KEYS.calendar, null);
+
+    if (!Array.isArray(drivers)) drivers = seedDrivers();
+    if (!Array.isArray(staff)) staff = seedStaff();
+    if (!Array.isArray(roles)) roles = seedRoles();
+    if (!calendar || typeof calendar !== 'object') calendar = seedCalendar();
+
+    RTS.safeSaveJSON(KEYS.drivers, drivers);
+    RTS.safeSaveJSON(KEYS.staff, staff);
+    RTS.safeSaveJSON(KEYS.roles, roles);
+    RTS.safeSaveJSON(KEYS.calendar, calendar);
+
+    let ui = RTS.safeLoadJSON(KEYS.ui, {
+      section: 'drivers',
+      search: '',
+      active: '',
+      context: '',
+      groupBy: '',
+      selectedId: '',
+      paneLeftWidth: 260,
+      paneRightWidth: 380
+    });
+
+    // Elements
+    const els = {
+      shell: document.getElementById('settingsShell'),
+      storageStatus: document.getElementById('storageStatus'),
+      btnReset: document.getElementById('btnResetSettings'),
+
+      settingsTree: document.getElementById('settingsTree'),
+      systemTree: document.getElementById('systemTree'),
+
+      countDrivers: document.getElementById('countDrivers'),
+      countStaff: document.getElementById('countStaff'),
+      countRoles: document.getElementById('countRoles'),
+
+      leftBadge: document.getElementById('leftBadge'),
+
+      search: document.getElementById('listSearch'),
+      activeFilter: document.getElementById('activeFilter'),
+      contextFilter: document.getElementById('contextFilter'),
+      groupBy: document.getElementById('groupBy'),
+      btnAdd: document.getElementById('btnAdd'),
+
+      thead: document.getElementById('listThead'),
+      tbody: document.getElementById('listTbody'),
+      empty: document.getElementById('emptyState'),
+
+      // Inspector blocks
+      emptyInspector: document.getElementById('inspectorEmpty'),
+      badge: document.getElementById('inspectorBadge'),
+      formDriver: document.getElementById('formDriver'),
+      formStaff: document.getElementById('formStaff'),
+      formRole: document.getElementById('formRole'),
+      formCalendar: document.getElementById('formCalendar'),
+      formBackup: document.getElementById('formBackup'),
+
+      // Driver fields
+      d_id: document.getElementById('d_id'),
+      d_displayName: document.getElementById('d_displayName'),
+      d_firstName: document.getElementById('d_firstName'),
+      d_lastName: document.getElementById('d_lastName'),
+      d_raceNumber: document.getElementById('d_raceNumber'),
+      d_class: document.getElementById('d_class'),
+      d_active: document.getElementById('d_active'),
+      d_email: document.getElementById('d_email'),
+      d_phone: document.getElementById('d_phone'),
+      d_emergencyName: document.getElementById('d_emergencyName'),
+      d_emergencyPhone: document.getElementById('d_emergencyPhone'),
+      d_notes: document.getElementById('d_notes'),
+      btnSave: document.getElementById('btnSave'),
+      btnDuplicate: document.getElementById('btnDuplicate'),
+      btnDelete: document.getElementById('btnDelete'),
+
+      // Staff fields
+      s_id: document.getElementById('s_id'),
+      s_fullName: document.getElementById('s_fullName'),
+      s_primaryRole: document.getElementById('s_primaryRole'),
+      s_active: document.getElementById('s_active'),
+      s_email: document.getElementById('s_email'),
+      s_phone: document.getElementById('s_phone'),
+      s_certs: document.getElementById('s_certs'),
+      s_notes: document.getElementById('s_notes'),
+      btnSave2: document.getElementById('btnSave2'),
+      btnDuplicate2: document.getElementById('btnDuplicate2'),
+      btnDelete2: document.getElementById('btnDelete2'),
+
+      // Role fields
+      r_id: document.getElementById('r_id'),
+      r_name: document.getElementById('r_name'),
+      r_active: document.getElementById('r_active'),
+      r_desc: document.getElementById('r_desc'),
+      btnSave3: document.getElementById('btnSave3'),
+      btnDuplicate3: document.getElementById('btnDuplicate3'),
+      btnDelete3: document.getElementById('btnDelete3'),
+
+      // Calendar fields
+      c_tz: document.getElementById('c_tz'),
+      c_mode: document.getElementById('c_mode'),
+      c_duration: document.getElementById('c_duration'),
+      c_calName: document.getElementById('c_calName'),
+      c_includeRoster: document.getElementById('c_includeRoster'),
+      btnSaveCal: document.getElementById('btnSaveCal'),
+
+      // Backup fields
+      backupText: document.getElementById('backupText'),
+      restoreText: document.getElementById('restoreText'),
+      btnExportAll: document.getElementById('btnExportAll'),
+      btnDownloadAll: document.getElementById('btnDownloadAll'),
+      btnRestore: document.getElementById('btnRestore'),
+      btnWipeRts: document.getElementById('btnWipeRts'),
+    };
+
+    function persistUI(){
+      RTS.safeSaveJSON(KEYS.ui, ui);
+    }
+
+    function setTreeActive(container, predicate){
+      [...container.querySelectorAll('.mlo-tree-item')].forEach(li => {
+        const ok = predicate(li);
+        li.classList.toggle('active', !!ok);
+      });
+    }
+
+    function getDataset(){
+      if (ui.section === 'drivers') return drivers;
+      if (ui.section === 'staff') return staff;
+      if (ui.section === 'roles') return roles;
+      return [];
+    }
+
+    function saveDataset(){
+      if (ui.section === 'drivers') RTS.safeSaveJSON(KEYS.drivers, drivers);
+      if (ui.section === 'staff') RTS.safeSaveJSON(KEYS.staff, staff);
+      if (ui.section === 'roles') RTS.safeSaveJSON(KEYS.roles, roles);
+    }
+
+    function updateCounts(){
+      els.countDrivers.textContent = String(drivers.length);
+      els.countStaff.textContent = String(staff.length);
+      els.countRoles.textContent = String(roles.length);
+
+      const total = drivers.length + staff.length + roles.length;
+      els.leftBadge.textContent = String(total);
+    }
+
+    function showInspector(kind){
+      els.emptyInspector.style.display = 'none';
+      els.formDriver.style.display = (kind === 'driver') ? '' : 'none';
+      els.formStaff.style.display = (kind === 'staff') ? '' : 'none';
+      els.formRole.style.display = (kind === 'role') ? '' : 'none';
+      els.formCalendar.style.display = (kind === 'calendar') ? '' : 'none';
+      els.formBackup.style.display = (kind === 'backup') ? '' : 'none';
+      if (!kind) els.emptyInspector.style.display = '';
+    }
+
+    function hydrateCalendar(){
+      els.c_tz.value = calendar.timezone || 'Africa/Johannesburg';
+      els.c_mode.value = calendar.mode || 'all_day';
+      els.c_duration.value = String(calendar.defaultDurationMinutes || 60);
+      els.c_calName.value = calendar.calendarName || '';
+      els.c_includeRoster.checked = !!calendar.includeRosterInDescription;
+      els.badge.textContent = 'Calendar';
+      showInspector('calendar');
+    }
+
+    function hydrateBackup(){
+      els.backupText.value = '';
+      els.restoreText.value = '';
+      els.badge.textContent = 'Backup / Restore';
+      showInspector('backup');
+    }
+
+    function hydrateRecord(rec){
+      if (!rec){
+        els.badge.textContent = 'No selection';
+        showInspector(null);
+        ui.selectedId = '';
+        persistUI();
+        return;
+      }
+      ui.selectedId = rec.id;
+      persistUI();
+
+      if (ui.section === 'drivers'){
+        els.badge.textContent = 'Driver';
+        showInspector('driver');
+        els.d_id.value = rec.id || '';
+        els.d_displayName.value = rec.displayName || '';
+        els.d_firstName.value = rec.firstName || '';
+        els.d_lastName.value = rec.lastName || '';
+        els.d_raceNumber.value = rec.raceNumber || '';
+        els.d_class.value = rec.class || '';
+        els.d_active.value = String(!!rec.active);
+        els.d_email.value = rec.email || '';
+        els.d_phone.value = rec.phone || '';
+        els.d_emergencyName.value = rec.emergencyName || '';
+        els.d_emergencyPhone.value = rec.emergencyPhone || '';
+        els.d_notes.value = rec.notes || '';
+        return;
+      }
+
+      if (ui.section === 'staff'){
+        els.badge.textContent = 'Crew / Staff';
+        showInspector('staff');
+        els.s_id.value = rec.id || '';
+        els.s_fullName.value = rec.fullName || '';
+        els.s_primaryRole.value = rec.primaryRole || '';
+        els.s_active.value = String(!!rec.active);
+        els.s_email.value = rec.email || '';
+        els.s_phone.value = rec.phone || '';
+        els.s_certs.value = rec.certs || '';
+        els.s_notes.value = rec.notes || '';
+        return;
+      }
+
+      if (ui.section === 'roles'){
+        els.badge.textContent = 'Role';
+        showInspector('role');
+        els.r_id.value = rec.id || '';
+        els.r_name.value = rec.name || '';
+        els.r_desc.value = rec.desc || '';
+        els.r_active.value = String(!!rec.active);
+        return;
+      }
+    }
+
+    function readFromInspector(){
+      if (ui.section === 'drivers'){
+        return {
+          id: els.d_id.value || uid('drv'),
+          displayName: els.d_displayName.value.trim() || 'Driver',
+          firstName: els.d_firstName.value.trim(),
+          lastName: els.d_lastName.value.trim(),
+          raceNumber: els.d_raceNumber.value.trim(),
+          class: els.d_class.value.trim(),
+          email: els.d_email.value.trim(),
+          phone: els.d_phone.value.trim(),
+          emergencyName: els.d_emergencyName.value.trim(),
+          emergencyPhone: els.d_emergencyPhone.value.trim(),
+          notes: els.d_notes.value,
+          active: asBool(els.d_active.value)
+        };
+      }
+      if (ui.section === 'staff'){
+        return {
+          id: els.s_id.value || uid('stf'),
+          fullName: els.s_fullName.value.trim() || 'Staff',
+          primaryRole: els.s_primaryRole.value.trim(),
+          email: els.s_email.value.trim(),
+          phone: els.s_phone.value.trim(),
+          certs: els.s_certs.value,
+          notes: els.s_notes.value,
+          active: asBool(els.s_active.value)
+        };
+      }
+      if (ui.section === 'roles'){
+        return {
+          id: els.r_id.value || uid('rol'),
+          name: els.r_name.value.trim() || 'Role',
+          desc: els.r_desc.value.trim(),
+          active: asBool(els.r_active.value)
+        };
+      }
+      return null;
+    }
+
+    function upsert(){
+      const rec = readFromInspector();
+      if (!rec) return;
+
+      let list = getDataset();
+      const idx = list.findIndex(x => x.id === rec.id);
+      if (idx >= 0) list[idx] = rec;
+      else list.unshift(rec);
+
+      // write back to correct array ref
+      if (ui.section === 'drivers') drivers = list;
+      if (ui.section === 'staff') staff = list;
+      if (ui.section === 'roles') roles = list;
+
+      saveDataset();
+      updateCounts();
+      renderList();
+      hydrateRecord(rec);
+    }
+
+    function duplicateSelected(){
+      const list = getDataset();
+      const src = list.find(x => x.id === ui.selectedId);
+      if (!src) return;
+      const copy = JSON.parse(JSON.stringify(src));
+      copy.id = uid(ui.section === 'drivers' ? 'drv' : ui.section === 'staff' ? 'stf' : 'rol');
+      // hint uniqueness
+      if (ui.section === 'drivers') copy.displayName = (copy.displayName || 'Driver') + ' (Copy)';
+      if (ui.section === 'staff') copy.fullName = (copy.fullName || 'Staff') + ' (Copy)';
+      if (ui.section === 'roles') copy.name = (copy.name || 'Role') + ' (Copy)';
+
+      list.unshift(copy);
+      if (ui.section === 'drivers') drivers = list;
+      if (ui.section === 'staff') staff = list;
+      if (ui.section === 'roles') roles = list;
+
+      saveDataset();
+      updateCounts();
+      renderList();
+      hydrateRecord(copy);
+    }
+
+    function deleteSelected(){
+      const list = getDataset();
+      const src = list.find(x => x.id === ui.selectedId);
+      if (!src) return;
+      if (!confirm('Delete this record?')) return;
+
+      const next = list.filter(x => x.id !== ui.selectedId);
+      if (ui.section === 'drivers') drivers = next;
+      if (ui.section === 'staff') staff = next;
+      if (ui.section === 'roles') roles = next;
+
+      saveDataset();
+      updateCounts();
+      ui.selectedId = '';
+      persistUI();
+      renderList();
+      hydrateRecord(null);
+    }
+
+    function addNew(){
+      if (ui.section === 'calendar' || ui.section === 'backup') return;
+      let rec;
+      if (ui.section === 'drivers'){
+        rec = { id: uid('drv'), displayName:'New Driver', firstName:'', lastName:'', raceNumber:'', class:'', email:'', phone:'', emergencyName:'', emergencyPhone:'', notes:'', active:true };
+        drivers.unshift(rec);
+        RTS.safeSaveJSON(KEYS.drivers, drivers);
+      } else if (ui.section === 'staff'){
+        rec = { id: uid('stf'), fullName:'New Staff', primaryRole:'', email:'', phone:'', certs:'', notes:'', active:true };
+        staff.unshift(rec);
+        RTS.safeSaveJSON(KEYS.staff, staff);
+      } else if (ui.section === 'roles'){
+        rec = { id: uid('rol'), name:'New Role', desc:'', active:true };
+        roles.unshift(rec);
+        RTS.safeSaveJSON(KEYS.roles, roles);
+      }
+      updateCounts();
+      renderList();
+      hydrateRecord(rec);
+    }
+
+    function renderHead(){
+      let html = '';
+      if (ui.section === 'drivers'){
+        html = `
+          <tr>
+            <th style="width:64px;">#</th>
+            <th>Driver</th>
+            <th style="width:90px;">No.</th>
+            <th style="width:140px;">Class</th>
+            <th style="width:220px;">Email</th>
+            <th style="width:100px;">Active</th>
+          </tr>`;
+      } else if (ui.section === 'staff'){
+        html = `
+          <tr>
+            <th style="width:64px;">#</th>
+            <th>Name</th>
+            <th style="width:200px;">Primary Role</th>
+            <th style="width:240px;">Email</th>
+            <th style="width:100px;">Active</th>
+          </tr>`;
+      } else if (ui.section === 'roles'){
+        html = `
+          <tr>
+            <th style="width:64px;">#</th>
+            <th>Role</th>
+            <th>Description</th>
+            <th style="width:100px;">Active</th>
+          </tr>`;
+      } else {
+        html = `<tr><th>Item</th><th>Details</th></tr>`;
+      }
+      els.thead.innerHTML = `<thead>${html}</thead>`;
+    }
+
+    function normalizeSearch(s){ return (s || '').toLowerCase().trim(); }
+
+    function matchesActive(rec){
+      if (ui.active === '') return true;
+      return String(!!rec.active) === ui.active;
+    }
+
+    function getClassFilterOptions(){
+      const set = new Set((drivers||[]).map(d => d.class).filter(Boolean));
+      return [...set].sort();
+    }
+
+    function getRoleFilterOptions(){
+      const set = new Set((staff||[]).map(s => s.primaryRole).filter(Boolean));
+      return [...set].sort();
+    }
+
+    function updateContextFilter(){
+      // show context filter only for drivers/staff
+      if (ui.section === 'drivers'){
+        els.contextFilter.style.display = '';
+        const opts = getClassFilterOptions();
+        els.contextFilter.innerHTML = `<option value="">Class: All</option>` + opts.map(x => `<option value="${x}">${x}</option>`).join('');
+        if (!opts.includes(ui.context)) ui.context = '';
+        els.contextFilter.value = ui.context || '';
+        els.groupBy.innerHTML = `
+          <option value="">Group: None</option>
+          <option value="class">Group: Class</option>
+          <option value="active">Group: Active</option>
+        `;
+        if (!['','class','active'].includes(ui.groupBy)) ui.groupBy = '';
+        els.groupBy.value = ui.groupBy || '';
+        return;
+      }
+      if (ui.section === 'staff'){
+        els.contextFilter.style.display = '';
+        const opts = getRoleFilterOptions();
+        els.contextFilter.innerHTML = `<option value="">Role: All</option>` + opts.map(x => `<option value="${x}">${x}</option>`).join('');
+        if (!opts.includes(ui.context)) ui.context = '';
+        els.contextFilter.value = ui.context || '';
+        els.groupBy.innerHTML = `
+          <option value="">Group: None</option>
+          <option value="role">Group: Role</option>
+          <option value="active">Group: Active</option>
+        `;
+        if (!['','role','active'].includes(ui.groupBy)) ui.groupBy = '';
+        els.groupBy.value = ui.groupBy || '';
+        return;
+      }
+
+      els.contextFilter.style.display = 'none';
+      els.contextFilter.innerHTML = `<option value="">Filter: All</option>`;
+      ui.context = '';
+      els.groupBy.innerHTML = `
+        <option value="">Group: None</option>
+        <option value="active">Group: Active</option>
+      `;
+      if (!['','active'].includes(ui.groupBy)) ui.groupBy = '';
+      els.groupBy.value = ui.groupBy || '';
+    }
+
+    function groupKeyFor(rec){
+      if (!ui.groupBy) return '';
+      if (ui.groupBy === 'class') return rec.class || '(No class)';
+      if (ui.groupBy === 'role') return rec.primaryRole || '(No role)';
+      if (ui.groupBy === 'active') return rec.active ? 'Active' : 'Inactive';
+      return '';
+    }
+
+    function renderList(){
+      renderHead();
+
+      const search = normalizeSearch(ui.search);
+      let list = getDataset().slice();
+
+      // context filter
+      if (ui.section === 'drivers' && ui.context){
+        list = list.filter(d => (d.class || '') === ui.context);
+      }
+      if (ui.section === 'staff' && ui.context){
+        list = list.filter(s => (s.primaryRole || '') === ui.context);
+      }
+
+      // active filter
+      list = list.filter(matchesActive);
+
+      // search
+      if (search){
+        list = list.filter(rec => JSON.stringify(rec).toLowerCase().includes(search));
+      }
+
+      els.tbody.innerHTML = '';
+      els.empty.style.display = (list.length === 0) ? '' : 'none';
+
+      const rows = [];
+      const byGroup = new Map();
+      if (ui.groupBy){
+        for (const rec of list){
+          const k = groupKeyFor(rec);
+          if (!byGroup.has(k)) byGroup.set(k, []);
+          byGroup.get(k).push(rec);
+        }
+      }
+
+      function addGroupHeader(title){
+        rows.push(`
+          <tr class="mlo-group-row"><td colspan="10"><span class="chip">${title || '(Group)'}</span></td></tr>
+        `);
+      }
+
+      function addRow(rec, idx){
+        const selected = (rec.id === ui.selectedId) ? 'mlo-row-selected' : '';
+        if (ui.section === 'drivers'){
+          rows.push(`
+            <tr class="${selected}" data-id="${rec.id}">
+              <td>${idx}</td>
+              <td>${escapeHTML(rec.displayName || (rec.firstName+' '+rec.lastName).trim() || 'Driver')}</td>
+              <td>${escapeHTML(rec.raceNumber || '')}</td>
+              <td>${escapeHTML(rec.class || '')}</td>
+              <td class="muted">${escapeHTML(rec.email || '')}</td>
+              <td>${rec.active ? '<span class="badge bg-success">Yes</span>' : '<span class="badge bg-secondary">No</span>'}</td>
+            </tr>
+          `);
+        } else if (ui.section === 'staff'){
+          rows.push(`
+            <tr class="${selected}" data-id="${rec.id}">
+              <td>${idx}</td>
+              <td>${escapeHTML(rec.fullName || 'Staff')}</td>
+              <td>${escapeHTML(rec.primaryRole || '')}</td>
+              <td class="muted">${escapeHTML(rec.email || '')}</td>
+              <td>${rec.active ? '<span class="badge bg-success">Yes</span>' : '<span class="badge bg-secondary">No</span>'}</td>
+            </tr>
+          `);
+        } else if (ui.section === 'roles'){
+          rows.push(`
+            <tr class="${selected}" data-id="${rec.id}">
+              <td>${idx}</td>
+              <td>${escapeHTML(rec.name || 'Role')}</td>
+              <td class="muted">${escapeHTML(rec.desc || '')}</td>
+              <td>${rec.active ? '<span class="badge bg-success">Yes</span>' : '<span class="badge bg-secondary">No</span>'}</td>
+            </tr>
+          `);
+        }
+      }
+
+      if (ui.groupBy){
+        let counter = 1;
+        for (const [k, arr] of [...byGroup.entries()].sort((a,b)=> (a[0]||'').localeCompare(b[0]||''))){
+          addGroupHeader(k);
+          for (const rec of arr){
+            addRow(rec, counter++);
+          }
+        }
+      } else {
+        list.forEach((rec, i) => addRow(rec, i+1));
+      }
+
+      els.tbody.innerHTML = rows.join('');
+
+      // bind row clicks
+      els.tbody.querySelectorAll('tr[data-id]').forEach(tr => {
+        tr.addEventListener('click', () => {
+          const id = tr.getAttribute('data-id');
+          ui.selectedId = id;
+          persistUI();
+          renderList();
+          const rec = getDataset().find(x => x.id === id);
+          hydrateRecord(rec || null);
+        });
+      });
+    }
+
+    function escapeHTML(s){
+      return String(s ?? '').replace(/[&<>"']/g, (m) => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'
+      }[m]));
+    }
+
+    function switchSection(section){
+      ui.section = section;
+      ui.search = ui.search || '';
+      ui.active = ui.active || '';
+      ui.selectedId = '';
+      persistUI();
+
+      // tree highlight
+      setTreeActive(els.settingsTree, li => li.dataset.section === section);
+      setTreeActive(els.systemTree, li => li.dataset.section === section);
+
+      // add button only for list sections
+      els.btnAdd.disabled = (section === 'calendar' || section === 'backup');
+      els.btnAdd.textContent = (section === 'drivers') ? 'Add Driver' :
+                               (section === 'staff') ? 'Add Staff' :
+                               (section === 'roles') ? 'Add Role' : 'Add';
+
+      // context filter + grouping options
+      updateContextFilter();
+
+      // inspector content
+      if (section === 'calendar'){
+        hydrateCalendar();
+      } else if (section === 'backup'){
+        hydrateBackup();
+      } else {
+        hydrateRecord(null);
+      }
+
+      // list render
+      els.search.value = ui.search || '';
+      els.activeFilter.value = ui.active || '';
+      els.contextFilter.value = ui.context || '';
+      els.groupBy.value = ui.groupBy || '';
+      renderList();
+    }
+
+    function bindTrees(){
+      els.settingsTree.querySelectorAll('.mlo-tree-item').forEach(li => {
+        li.addEventListener('click', () => switchSection(li.dataset.section));
+      });
+      els.systemTree.querySelectorAll('.mlo-tree-item').forEach(li => {
+        li.addEventListener('click', () => switchSection(li.dataset.section));
+      });
+    }
+
+    function bindControls(){
+      els.search.value = ui.search || '';
+      els.activeFilter.value = ui.active || '';
+      els.groupBy.value = ui.groupBy || '';
+
+      els.search.addEventListener('input', () => {
+        ui.search = els.search.value;
+        persistUI();
+        renderList();
+      });
+      els.activeFilter.addEventListener('change', () => {
+        ui.active = els.activeFilter.value;
+        persistUI();
+        renderList();
+      });
+      els.contextFilter.addEventListener('change', () => {
+        ui.context = els.contextFilter.value;
+        persistUI();
+        renderList();
+      });
+      els.groupBy.addEventListener('change', () => {
+        ui.groupBy = els.groupBy.value;
+        persistUI();
+        renderList();
+      });
+
+      els.btnAdd.addEventListener('click', addNew);
+
+      // Driver buttons
+      els.btnSave.addEventListener('click', upsert);
+      els.btnDuplicate.addEventListener('click', duplicateSelected);
+      els.btnDelete.addEventListener('click', deleteSelected);
+
+      // Staff buttons
+      els.btnSave2.addEventListener('click', upsert);
+      els.btnDuplicate2.addEventListener('click', duplicateSelected);
+      els.btnDelete2.addEventListener('click', deleteSelected);
+
+      // Roles buttons
+      els.btnSave3.addEventListener('click', upsert);
+      els.btnDuplicate3.addEventListener('click', duplicateSelected);
+      els.btnDelete3.addEventListener('click', deleteSelected);
+
+      // Calendar save
+      els.btnSaveCal.addEventListener('click', () => {
+        calendar = {
+          timezone: els.c_tz.value.trim() || 'Africa/Johannesburg',
+          mode: els.c_mode.value,
+          defaultDurationMinutes: Math.max(15, parseInt(els.c_duration.value || '60', 10) || 60),
+          includeRosterInDescription: !!els.c_includeRoster.checked,
+          calendarName: els.c_calName.value.trim()
+        };
+        RTS.safeSaveJSON(KEYS.calendar, calendar);
+        alert('Calendar settings saved.');
+      });
+
+      // Backup
+      function exportAll(){
+        const out = {};
+        for (let i = 0; i < localStorage.length; i++){
+          const k = localStorage.key(i);
+          if (k && k.startsWith('rts_')){
+            out[k] = RTS.safeLoadJSON(k, localStorage.getItem(k));
+          }
+        }
+        const payload = {
+          exported_at: new Date().toISOString(),
+          note: 'Race Team OS prototype export',
+          data: out
+        };
+        els.backupText.value = JSON.stringify(payload, null, 2);
+      }
+
+      function downloadText(filename, content){
+        const blob = new Blob([content], {type:'application/json;charset=utf-8'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      }
+
+      els.btnExportAll.addEventListener('click', exportAll);
+      els.btnDownloadAll.addEventListener('click', () => {
+        if (!els.backupText.value.trim()) exportAll();
+        downloadText(`rts_export_${nowISODate()}.json`, els.backupText.value);
+      });
+
+      els.btnRestore.addEventListener('click', () => {
+        const raw = els.restoreText.value.trim();
+        if (!raw) return alert('Paste export JSON first.');
+        let obj;
+        try { obj = JSON.parse(raw); } catch(e){ return alert('Invalid JSON.'); }
+        const data = obj && obj.data ? obj.data : null;
+        if (!data || typeof data !== 'object') return alert('Export JSON missing ".data" object.');
+
+        // restore rts_* keys
+        Object.keys(data).forEach(k => {
+          try { localStorage.setItem(k, JSON.stringify(data[k])); } catch(_e){}
+        });
+
+        // reload in-memory + rerender
+        drivers = RTS.safeLoadJSON(KEYS.drivers, seedDrivers());
+        staff = RTS.safeLoadJSON(KEYS.staff, seedStaff());
+        roles = RTS.safeLoadJSON(KEYS.roles, seedRoles());
+        calendar = RTS.safeLoadJSON(KEYS.calendar, seedCalendar());
+        updateCounts();
+        switchSection(ui.section || 'drivers');
+        alert('Restore complete. (If another tab is open, refresh it.)');
+      });
+
+      els.btnWipeRts.addEventListener('click', () => {
+        if (!confirm('This will delete ALL rts_* data for this prototype in this browser. Continue?')) return;
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++){
+          const k = localStorage.key(i);
+          if (k && k.startsWith('rts_')) keysToRemove.push(k);
+        }
+        keysToRemove.forEach(k => RTS.safeRemoveItem(k));
+        // reseed
+        drivers = seedDrivers(); staff = seedStaff(); roles = seedRoles(); calendar = seedCalendar();
+        RTS.safeSaveJSON(KEYS.drivers, drivers);
+        RTS.safeSaveJSON(KEYS.staff, staff);
+        RTS.safeSaveJSON(KEYS.roles, roles);
+        RTS.safeSaveJSON(KEYS.calendar, calendar);
+        ui = { section:'drivers', search:'', active:'', context:'', groupBy:'', selectedId:'' };
+        persistUI();
+        updateCounts();
+        switchSection('drivers');
+        alert('Wiped and reseeded.');
+      });
+
+      // Reset demo settings button (non-destructive to other modules)
+      els.btnReset.addEventListener('click', () => {
+        if (!confirm('Reset Drivers/Staff/Roles/Calendar to demo defaults?')) return;
+        drivers = seedDrivers();
+        staff = seedStaff();
+        roles = seedRoles();
+        calendar = seedCalendar();
+        RTS.safeSaveJSON(KEYS.drivers, drivers);
+        RTS.safeSaveJSON(KEYS.staff, staff);
+        RTS.safeSaveJSON(KEYS.roles, roles);
+        RTS.safeSaveJSON(KEYS.calendar, calendar);
+        updateCounts();
+        switchSection(ui.section || 'drivers');
+      });
+    }
+
+    function initStorageIndicator(){
+      try {
+        const k = 'rts_storage_test';
+        localStorage.setItem(k, '1');
+        localStorage.removeItem(k);
+        els.storageStatus.textContent = 'OK';
+      } catch(e){
+        els.storageStatus.textContent = 'BLOCKED';
+      }
+    }
+
+    function init(){
+      RTS.setActiveNav();
+      initStorageIndicator();
+      updateCounts();
+
+      bindTrees();
+      bindControls();
+
+      // Tri-pane resizers (shared util)
+      RTS.initTriPaneResizers(els.shell, KEYS.pane);
+
+      // Restore section selection
+      switchSection(ui.section || 'drivers');
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+  })();
+  </script>
+</body>
+</html>

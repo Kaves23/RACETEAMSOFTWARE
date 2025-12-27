@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Race Team OS – Inventory</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="style.css" rel="stylesheet" />
+</head>
+<body>
+  <div class="container-fluid">
+    <div class="row">
+      <nav class="col-md-2 d-none d-md-block sidebar">
+        <ul class="nav flex-column">
+          <li class="nav-item"><a class="nav-link" href="index.html">Dashboard</a></li>
+          <li class="nav-item"><a class="nav-link" href="events.html">Events</a></li>
+          <li class="nav-item"><a class="nav-link" href="tasks.html">Tasks</a></li>
+          <li class="nav-item"><a class="nav-link" href="assets.html">Assets</a></li>
+          <li class="nav-item"><a class="nav-link" href="inventory.html">Inventory</a></li>
+          <li class="nav-item"><a class="nav-link" href="expenses.html">Finance</a></li>
+          <li class="nav-section">Race Control</li>
+          <li class="nav-item"><a class="nav-link" href="performance.html">Performance</a></li>
+          <li class="nav-item"><a class="nav-link" href="strategy.html">Strategy</a></li>
+          <li class="nav-item"><a class="nav-link" href="incidents.html">Incidents</a></li>
+          <li class="nav-item"><a class="nav-link" href="integrations.html">Integrations</a></li>
+        </ul>
+      </nav>
+
+      <main class="col-md-10 ms-sm-auto px-4">
+        <h1 class="my-3">Inventory</h1>
+
+        <div class="mlo-shell" id="invShell">
+          <!-- LEFT -->
+          <section class="mlo-pane mlo-pane-left" aria-label="Inventory navigation">
+            <div class="mlo-pane-header">
+              <div class="d-flex justify-content-between align-items-center">
+                <div class="mlo-title">Perspectives</div>
+                <span class="badge text-bg-secondary" id="invCountBadge">0</span>
+              </div>
+            </div>
+            <div class="mlo-pane-content">
+              <div class="mlo-section-label">Smart lists</div>
+              <ul class="mlo-tree" id="invPerspectiveList">
+                <li class="active" data-perspective="all">All Items</li>
+                <li data-perspective="low">Low Stock</li>
+                <li data-perspective="out">Out of Stock</li>
+                <li data-perspective="recent">Recently Used</li>
+              </ul>
+
+              <div class="mlo-section-label mt-3">Locations</div>
+              <ul class="mlo-tree" id="invLocationList"></ul>
+
+              <div class="mlo-section-label mt-3">Suppliers</div>
+              <ul class="mlo-tree" id="invSupplierList"></ul>
+            </div>
+          </section>
+
+          <div class="mlo-resizer" data-resize="left" title="Drag to resize"></div>
+
+          <!-- MIDDLE -->
+          <section class="mlo-pane mlo-pane-mid" aria-label="Inventory list">
+            <div class="mlo-pane-header">
+              <div class="d-flex flex-wrap align-items-center gap-1">
+                <input id="invSearch" type="text" class="form-control form-control-sm" placeholder="Search…" style="max-width: 220px;">
+                <select id="invLocation" class="form-select form-select-sm" style="max-width: 200px;"></select>
+                <select id="invSupplier" class="form-select form-select-sm" style="max-width: 200px;"></select>
+                <select id="invGroup" class="form-select form-select-sm" style="max-width: 190px;">
+                  <option value="">Group: None</option>
+                  <option value="location">Group: Location</option>
+                  <option value="supplier">Group: Supplier</option>
+                  <option value="category">Group: Category</option>
+                  <option value="low">Group: Low Stock</option>
+                </select>
+                <button class="btn btn-sm btn-outline-light mlo-btn" id="btnAddInv" type="button">Add Item</button>
+              </div>
+            </div>
+
+            <div class="mlo-pane-content" style="padding:0;">
+              <table class="table table-dark table-hover mlo-table" style="margin:0;">
+                <thead>
+                  <tr>
+                    <th style="width:60px;">#</th>
+                    <th>Item</th>
+                    <th style="width:120px;">Qty</th>
+                    <th style="width:90px;">UoM</th>
+                    <th style="width:120px;">Reorder</th>
+                    <th style="width:170px;">Supplier</th>
+                    <th style="width:170px;">Location</th>
+                  </tr>
+                </thead>
+                <tbody id="invTbody"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <div class="mlo-resizer" data-resize="right" title="Drag to resize"></div>
+
+          <!-- RIGHT -->
+          <section class="mlo-pane mlo-pane-right mlo-inspector" aria-label="Inventory inspector">
+            <div class="mlo-pane-header">
+              <div class="d-flex justify-content-between align-items-center">
+                <div class="mlo-title">Inspector</div>
+                <span class="badge text-bg-secondary" id="invInspectorBadge">No selection</span>
+              </div>
+            </div>
+            <div class="mlo-pane-content">
+              <form id="invForm" autocomplete="off">
+                <div class="row g-2">
+                  <div class="col-4">
+                    <label class="form-label">ID</label>
+                    <input id="f_inv_id" class="form-control form-control-sm" type="text" readonly>
+                  </div>
+                  <div class="col-8">
+                    <label class="form-label">Item</label>
+                    <input id="f_inv_name" class="form-control form-control-sm" type="text" placeholder="e.g. Chain lube">
+                  </div>
+
+                  <div class="col-4">
+                    <label class="form-label">Qty on hand</label>
+                    <input id="f_inv_qty" class="form-control form-control-sm" type="number" step="0.01" min="0">
+                  </div>
+                  <div class="col-4">
+                    <label class="form-label">UoM</label>
+                    <input id="f_inv_uom" class="form-control form-control-sm" type="text" placeholder="L, ea, set">
+                  </div>
+                  <div class="col-4">
+                    <label class="form-label">Reorder point</label>
+                    <input id="f_inv_reorder" class="form-control form-control-sm" type="number" step="0.01" min="0">
+                  </div>
+
+                  <div class="col-6">
+                    <label class="form-label">Category</label>
+                    <input id="f_inv_cat" class="form-control form-control-sm" type="text" placeholder="Consumables / Tyres / Spares">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Location</label>
+                    <input id="f_inv_loc" class="form-control form-control-sm" type="text" placeholder="Workshop / Trailer bin">
+                  </div>
+
+                  <div class="col-6">
+                    <label class="form-label">Supplier</label>
+                    <input id="f_inv_supplier" class="form-control form-control-sm" type="text" placeholder="Preferred supplier">
+                  </div>
+                  <div class="col-3">
+                    <label class="form-label">Lead time (days)</label>
+                    <input id="f_inv_lead" class="form-control form-control-sm" type="number" step="1" min="0">
+                  </div>
+                  <div class="col-3">
+                    <label class="form-label">Unit cost</label>
+                    <input id="f_inv_cost" class="form-control form-control-sm" type="number" step="0.01" min="0">
+                  </div>
+
+                  <div class="col-12">
+                    <label class="form-label">Burn rate notes</label>
+                    <textarea id="f_inv_burn" class="form-control form-control-sm" rows="2" placeholder="Typical usage per event, per driver, etc."></textarea>
+                  </div>
+
+                  <div class="col-12">
+                    <label class="form-label">Notes</label>
+                    <textarea id="f_inv_notes" class="form-control form-control-sm" rows="4" placeholder="Serial ranges, storage instructions, safety notes …"></textarea>
+                  </div>
+
+                  <div class="col-12 d-flex gap-1 mt-1">
+                    <button class="btn btn-sm btn-primary mlo-btn" id="btnSaveInv" type="button">Save</button>
+                    <button class="btn btn-sm btn-outline-light mlo-btn" id="btnDupInv" type="button">Duplicate</button>
+                    <button class="btn btn-sm btn-outline-danger mlo-btn" id="btnDelInv" type="button">Delete</button>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="core.js"></script>
+  <script>
+  (function(){
+    RTS.setActiveNav();
+
+    const LS_INV = 'rts.inventory.v4';
+    const LS_UI = 'rts.inventory.ui.v4';
+    const LS_PANES = 'rts.inventory.panes.v4';
+
+    const LOCATIONS = ['Workshop','Trailer – Bin A','Trailer – Bin B','Pit Box','Spare Parts Room'];
+    const SUPPLIERS = ['FTW Imports','OTK Spares SA','FuelCo','Fasteners Direct','Tyre Supplier'];
+    const CATS = ['Consumables','Spares','Tyres','Tools & PPE'];
+    const UOMS = ['ea','L','ml','set','box'];
+
+    function seed(){
+      const names = ['Chain lube','2T oil','Fuel (98)','Tyre sets (slick)','Tyre sets (wet)','Sprocket 82T','Sprocket 84T','Chain 219','Brake fluid','Cable ties','Rags','Spark plugs','Carb jets','Nuts & bolts kit','Gloves','Cleaning spray'];
+      const out = [];
+      for (let i=1;i<=200;i++){
+        const n = names[i % names.length];
+        const cat = CATS[i % CATS.length];
+        const loc = LOCATIONS[i % LOCATIONS.length];
+        const sup = SUPPLIERS[i % SUPPLIERS.length];
+        const u = UOMS[i % UOMS.length];
+        const reorder = (i % 7 === 0) ? 10 : (i % 5 === 0) ? 2 : 5;
+        const qty = Math.max(0, reorder + (i % 17) - 8);
+        out.push({
+          id: i,
+          name: `${n} ${i}`,
+          qty,
+          uom: u,
+          reorder,
+          supplier: sup,
+          location: loc,
+          category: cat,
+          leadDays: (i % 10) + 1,
+          unitCost: Math.round((15 + (i % 40)) * 10) / 10,
+          burn: '',
+          notes: '',
+          lastUsedTs: Date.now() - (i % 30) * 86400000
+        });
+      }
+      return out;
+    }
+
+    const defaultUI = {
+      perspective: 'all',
+      locationPick: '',
+      supplierPick: '',
+      search: '',
+      location: '',
+      supplier: '',
+      groupBy: '',
+      selectedId: null
+    };
+
+    let items = RTS.safeLoadJSON(LS_INV, null);
+    if (!Array.isArray(items) || items.length === 0) items = seed();
+    let ui = RTS.deepMerge(defaultUI, RTS.safeLoadJSON(LS_UI, {}));
+
+    const el = {
+      shell: document.getElementById('invShell'),
+      badge: document.getElementById('invCountBadge'),
+      ibadge: document.getElementById('invInspectorBadge'),
+      perspectives: document.getElementById('invPerspectiveList'),
+      locTree: document.getElementById('invLocationList'),
+      supTree: document.getElementById('invSupplierList'),
+      tbody: document.getElementById('invTbody'),
+      search: document.getElementById('invSearch'),
+      location: document.getElementById('invLocation'),
+      supplier: document.getElementById('invSupplier'),
+      group: document.getElementById('invGroup'),
+      add: document.getElementById('btnAddInv'),
+      save: document.getElementById('btnSaveInv'),
+      dup: document.getElementById('btnDupInv'),
+      del: document.getElementById('btnDelInv'),
+      f: {
+        id: document.getElementById('f_inv_id'),
+        name: document.getElementById('f_inv_name'),
+        qty: document.getElementById('f_inv_qty'),
+        uom: document.getElementById('f_inv_uom'),
+        reorder: document.getElementById('f_inv_reorder'),
+        cat: document.getElementById('f_inv_cat'),
+        loc: document.getElementById('f_inv_loc'),
+        supplier: document.getElementById('f_inv_supplier'),
+        lead: document.getElementById('f_inv_lead'),
+        cost: document.getElementById('f_inv_cost'),
+        burn: document.getElementById('f_inv_burn'),
+        notes: document.getElementById('f_inv_notes')
+      }
+    };
+
+    function persist(){
+      RTS.safeSaveJSON(LS_INV, items);
+      RTS.safeSaveJSON(LS_UI, ui);
+    }
+
+    function rebuildTrees(){
+      const uniqLoc = Array.from(new Set(items.map(i=>i.location))).sort();
+      const uniqSup = Array.from(new Set(items.map(i=>i.supplier))).sort();
+
+      el.location.innerHTML = '<option value="">Location: All</option>' + uniqLoc.map(v=>`<option>${v}</option>`).join('');
+      el.supplier.innerHTML = '<option value="">Supplier: All</option>' + uniqSup.map(v=>`<option>${v}</option>`).join('');
+
+      el.locTree.innerHTML = '';
+      const liAllL = document.createElement('li'); liAllL.textContent = 'All locations'; liAllL.dataset.location = ''; if (!ui.locationPick) liAllL.classList.add('active');
+      el.locTree.appendChild(liAllL);
+      uniqLoc.forEach(v => {
+        const li = document.createElement('li'); li.textContent = v; li.dataset.location = v; if (ui.locationPick === v) li.classList.add('active');
+        el.locTree.appendChild(li);
+      });
+
+      el.supTree.innerHTML = '';
+      const liAllS = document.createElement('li'); liAllS.textContent = 'All suppliers'; liAllS.dataset.supplier = ''; if (!ui.supplierPick) liAllS.classList.add('active');
+      el.supTree.appendChild(liAllS);
+      uniqSup.forEach(v => {
+        const li = document.createElement('li'); li.textContent = v; li.dataset.supplier = v; if (ui.supplierPick === v) li.classList.add('active');
+        el.supTree.appendChild(li);
+      });
+    }
+
+    function applyFilters(list){
+      let out = list.slice();
+
+      if (ui.perspective === 'low') out = out.filter(i => i.qty > 0 && i.qty <= i.reorder);
+      if (ui.perspective === 'out') out = out.filter(i => i.qty <= 0);
+      if (ui.perspective === 'recent') out = out.filter(i => (Date.now() - (i.lastUsedTs||0)) <= 7*86400000);
+
+      if (ui.locationPick) out = out.filter(i => i.location === ui.locationPick);
+      if (ui.supplierPick) out = out.filter(i => i.supplier === ui.supplierPick);
+
+      if (ui.search){
+        const q = ui.search.toLowerCase();
+        out = out.filter(i => (`${i.name} ${i.category} ${i.supplier} ${i.location}`).toLowerCase().includes(q));
+      }
+      if (ui.location) out = out.filter(i => i.location === ui.location);
+      if (ui.supplier) out = out.filter(i => i.supplier === ui.supplier);
+
+      return out;
+    }
+
+    function groupKey(it){
+      switch(ui.groupBy){
+        case 'location': return it.location || '—';
+        case 'supplier': return it.supplier || '—';
+        case 'category': return it.category || '—';
+        case 'low': return (it.qty <= it.reorder) ? 'Low / At risk' : 'OK';
+        default: return '';
+      }
+    }
+
+    function render(){
+      el.search.value = ui.search || '';
+      el.location.value = ui.location || '';
+      el.supplier.value = ui.supplier || '';
+      el.group.value = ui.groupBy || '';
+
+      const filtered = applyFilters(items);
+      el.badge.textContent = String(filtered.length);
+      el.tbody.innerHTML = '';
+
+      let rows = filtered.slice().sort((a,b) => (a.name||'').localeCompare(b.name||''));
+      if (ui.groupBy){
+        rows.sort((a,b) => {
+          const ga = groupKey(a); const gb = groupKey(b);
+          if (ga !== gb) return ga.localeCompare(gb);
+          return (a.name||'').localeCompare(b.name||'');
+        });
+      }
+
+      let idx = 0;
+      let lastGroup = null;
+      rows.forEach(it => {
+        const g = ui.groupBy ? groupKey(it) : '';
+        if (ui.groupBy && g !== lastGroup){
+          lastGroup = g;
+          const trG = document.createElement('tr');
+          trG.className = 'mlo-group-row';
+          trG.innerHTML = `<td colspan="7">${g}</td>`;
+          el.tbody.appendChild(trG);
+        }
+        idx += 1;
+        const tr = document.createElement('tr');
+        tr.dataset.id = String(it.id);
+        if (ui.selectedId === it.id) tr.classList.add('mlo-row-selected');
+        const isLow = (it.qty > 0 && it.qty <= it.reorder);
+        const qtyLabel = `${it.qty}${it.qty <= 0 ? ' (OUT)' : (isLow ? ' (LOW)' : '')}`;
+        tr.innerHTML = `
+          <td>${idx}</td>
+          <td>${it.name}</td>
+          <td>${qtyLabel}</td>
+          <td>${it.uom}</td>
+          <td>${it.reorder}</td>
+          <td>${it.supplier}</td>
+          <td>${it.location}</td>
+        `;
+        tr.addEventListener('click', () => select(it.id));
+        el.tbody.appendChild(tr);
+      });
+
+      hydrate(items.find(x => x.id === ui.selectedId) || null);
+      persist();
+    }
+
+    function hydrate(it){
+      if (!it){
+        el.ibadge.textContent = 'No selection';
+        Object.values(el.f).forEach(inp => inp.value='');
+        return;
+      }
+      el.ibadge.textContent = `Item #${it.id}`;
+      el.f.id.value = it.id;
+      el.f.name.value = it.name || '';
+      el.f.qty.value = it.qty;
+      el.f.uom.value = it.uom || '';
+      el.f.reorder.value = it.reorder;
+      el.f.cat.value = it.category || '';
+      el.f.loc.value = it.location || '';
+      el.f.supplier.value = it.supplier || '';
+      el.f.lead.value = it.leadDays || 0;
+      el.f.cost.value = it.unitCost || 0;
+      el.f.burn.value = it.burn || '';
+      el.f.notes.value = it.notes || '';
+    }
+
+    function select(id){
+      ui.selectedId = id;
+      render();
+    }
+
+    function nextId(){
+      return items.reduce((m, it) => Math.max(m, it.id||0), 0) + 1;
+    }
+
+    function add(){
+      const id = nextId();
+      const it = { id, name: `New item ${id}`, qty: 0, uom: 'ea', reorder: 1, supplier: '—', location: 'Workshop', category: 'Consumables', leadDays: 3, unitCost: 0, burn: '', notes: '', lastUsedTs: Date.now() };
+      items.unshift(it);
+      rebuildTrees();
+      ui.selectedId = id;
+      render();
+    }
+
+    function save(){
+      const id = parseInt(el.f.id.value, 10);
+      const idx = items.findIndex(x => x.id === id);
+      if (idx < 0) return;
+      const cur = items[idx];
+      items[idx] = {
+        ...cur,
+        name: el.f.name.value.trim() || cur.name,
+        qty: parseFloat(el.f.qty.value || 0),
+        uom: el.f.uom.value.trim() || cur.uom,
+        reorder: parseFloat(el.f.reorder.value || 0),
+        category: el.f.cat.value.trim(),
+        location: el.f.loc.value.trim() || 'Workshop',
+        supplier: el.f.supplier.value.trim() || '—',
+        leadDays: parseInt(el.f.lead.value || 0, 10),
+        unitCost: parseFloat(el.f.cost.value || 0),
+        burn: el.f.burn.value,
+        notes: el.f.notes.value
+      };
+      rebuildTrees();
+      render();
+    }
+
+    function dup(){
+      const sel = items.find(x => x.id === ui.selectedId);
+      if (!sel) return;
+      const copy = { ...sel, id: nextId(), name: sel.name + ' (Copy)' };
+      items.unshift(copy);
+      rebuildTrees();
+      ui.selectedId = copy.id;
+      render();
+    }
+
+    function del(){
+      const sel = items.find(x => x.id === ui.selectedId);
+      if (!sel) return;
+      items = items.filter(x => x.id !== sel.id);
+      ui.selectedId = null;
+      rebuildTrees();
+      render();
+    }
+
+    function bind(){
+      el.perspectives.querySelectorAll('li').forEach(li => {
+        li.addEventListener('click', () => {
+          el.perspectives.querySelectorAll('li').forEach(x => x.classList.remove('active'));
+          li.classList.add('active');
+          ui.perspective = li.dataset.perspective;
+          render();
+        });
+      });
+
+      el.locTree.addEventListener('click', (e)=>{
+        const li = e.target.closest('li'); if (!li) return;
+        el.locTree.querySelectorAll('li').forEach(x=>x.classList.remove('active'));
+        li.classList.add('active');
+        ui.locationPick = li.dataset.location || '';
+        render();
+      });
+      el.supTree.addEventListener('click', (e)=>{
+        const li = e.target.closest('li'); if (!li) return;
+        el.supTree.querySelectorAll('li').forEach(x=>x.classList.remove('active'));
+        li.classList.add('active');
+        ui.supplierPick = li.dataset.supplier || '';
+        render();
+      });
+
+      function onInputs(){
+        ui.search = el.search.value;
+        ui.location = el.location.value;
+        ui.supplier = el.supplier.value;
+        ui.groupBy = el.group.value;
+        render();
+      }
+      el.search.addEventListener('input', onInputs);
+      el.location.addEventListener('change', onInputs);
+      el.supplier.addEventListener('change', onInputs);
+      el.group.addEventListener('change', onInputs);
+
+      el.add.addEventListener('click', add);
+      el.save.addEventListener('click', save);
+      el.dup.addEventListener('click', dup);
+      el.del.addEventListener('click', del);
+    }
+
+    function init(){
+      rebuildTrees();
+      bind();
+      RTS.initTriPaneResizers(el.shell, LS_PANES);
+      render();
+    }
+    document.addEventListener('DOMContentLoaded', init);
+  })();
+  </script>
+</body>
+</html>

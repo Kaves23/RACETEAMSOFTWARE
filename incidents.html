@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Race Team OS – Incidents</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="style.css" rel="stylesheet" />
+</head>
+<body>
+  <div class="container-fluid">
+    <div class="row">
+      <nav class="col-md-2 d-none d-md-block sidebar">
+        <ul class="nav flex-column">
+          <li class="nav-item"><a class="nav-link" href="index.html">Dashboard</a></li>
+          <li class="nav-item"><a class="nav-link" href="events.html">Events</a></li>
+          <li class="nav-item"><a class="nav-link" href="tasks.html">Tasks</a></li>
+          <li class="nav-item"><a class="nav-link" href="assets.html">Assets</a></li>
+          <li class="nav-item"><a class="nav-link" href="inventory.html">Inventory</a></li>
+          <li class="nav-item"><a class="nav-link" href="expenses.html">Finance</a></li>
+          <li class="nav-section">Race Control</li>
+          <li class="nav-item"><a class="nav-link" href="performance.html">Performance</a></li>
+          <li class="nav-item"><a class="nav-link" href="strategy.html">Strategy</a></li>
+          <li class="nav-item"><a class="nav-link" href="incidents.html">Incidents</a></li>
+          <li class="nav-item"><a class="nav-link" href="integrations.html">Integrations</a></li>
+          <li class="nav-item"><a class="nav-link" href="settings.html">Settings</a></li>
+        </ul>
+      </nav>
+
+      <main class="col-md-10 ms-sm-auto px-4">
+        <h1 class="my-3">Incidents</h1>
+
+        <div class="mlo-shell" id="incShell">
+          <!-- LEFT -->
+          <section class="mlo-pane mlo-pane-left" aria-label="Incident navigation">
+            <div class="mlo-pane-header">
+              <div class="d-flex justify-content-between align-items-center">
+                <div class="mlo-title">Perspectives</div>
+                <span class="badge text-bg-secondary" id="inCountBadge">0</span>
+              </div>
+            </div>
+            <div class="mlo-pane-content">
+              <div class="mlo-section-label">Smart lists</div>
+              <ul class="mlo-tree" id="inPerspectiveList">
+                <li class="active" data-perspective="open">Open</li>
+                <li data-perspective="all">All Incidents</li>
+                <li data-perspective="resolved">Resolved</li>
+                <li data-perspective="critical">Critical Only</li>
+              </ul>
+
+              <div class="mlo-section-label mt-3">Severity</div>
+              <ul class="mlo-tree" id="inSeverityList"></ul>
+            </div>
+          </section>
+
+          <div class="mlo-resizer" data-resize="left" title="Drag to resize"></div>
+
+          <!-- MIDDLE -->
+          <section class="mlo-pane mlo-pane-mid" aria-label="Incident list">
+            <div class="mlo-pane-header">
+              <div class="d-flex flex-wrap align-items-center gap-1">
+                <input id="inSearch" type="text" class="form-control form-control-sm" placeholder="Search…" style="max-width: 220px;">
+                <select id="inStatus" class="form-select form-select-sm" style="max-width: 170px;">
+                  <option value="">Status: All</option>
+                  <option>Open</option>
+                  <option>Monitoring</option>
+                  <option>Resolved</option>
+                </select>
+                <select id="inEvent" class="form-select form-select-sm" style="max-width: 260px;"><option value="">All events</option></select>
+                <select id="inGroup" class="form-select form-select-sm" style="max-width: 180px;">
+                  <option value="">Group: None</option>
+                  <option value="event">Group: Event</option>
+                  <option value="severity">Group: Severity</option>
+                  <option value="owner">Group: Owner</option>
+                </select>
+                <button class="btn btn-sm btn-outline-light mlo-btn" id="btnAddInc" type="button">Add Incident</button>
+              </div>
+            </div>
+
+            <div class="mlo-pane-content" style="padding:0;">
+              <table class="table table-dark table-hover mlo-table" style="margin:0;">
+                <thead>
+                  <tr>
+                    <th style="width:60px;">#</th>
+                    <th>Title</th>
+                    <th style="width:220px;">Event</th>
+                    <th style="width:120px;">Severity</th>
+                    <th style="width:140px;">Status</th>
+                    <th style="width:190px;">Owner</th>
+                    <th style="width:130px;">Timecode</th>
+                  </tr>
+                </thead>
+                <tbody id="inTbody"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <div class="mlo-resizer" data-resize="right" title="Drag to resize"></div>
+
+          <!-- RIGHT -->
+          <section class="mlo-pane mlo-pane-right mlo-inspector" aria-label="Incident inspector">
+            <div class="mlo-pane-header">
+              <div class="d-flex justify-content-between align-items-center">
+                <div>
+                  <div class="mlo-title">Inspector</div>
+                  <div class="text-secondary" style="font-size:0.78rem;">Track-limit / off-track / mechanical / comms</div>
+                </div>
+                <span class="badge text-bg-secondary" id="inInspectorBadge">No selection</span>
+              </div>
+              <div class="d-flex flex-wrap gap-1 mt-1">
+                <a class="btn btn-sm btn-outline-light mlo-btn" id="btnOpenEvent" href="events.html">Open Event</a>
+                <a class="btn btn-sm btn-outline-light mlo-btn" id="btnOpenTasks" href="tasks.html">Tasks</a>
+                <a class="btn btn-sm btn-outline-light mlo-btn" id="btnOpenPerformance" href="performance.html">Performance</a>
+              </div>
+            </div>
+
+            <div class="mlo-pane-content">
+              <form id="inForm" autocomplete="off">
+                <div class="row g-2">
+                  <div class="col-4">
+                    <label class="form-label">ID</label>
+                    <input id="f_in_id" class="form-control form-control-sm" type="text" readonly>
+                  </div>
+                  <div class="col-8">
+                    <label class="form-label">Title</label>
+                    <input id="f_in_title" class="form-control form-control-sm" type="text" placeholder="e.g. Overheating after lap 6">
+                  </div>
+
+                  <div class="col-7">
+                    <label class="form-label">Event</label>
+                    <select id="f_in_event" class="form-select form-select-sm"></select>
+                  </div>
+                  <div class="col-5">
+                    <label class="form-label">Severity</label>
+                    <select id="f_in_sev" class="form-select form-select-sm">
+                      <option>Low</option>
+                      <option>Medium</option>
+                      <option>High</option>
+                      <option>Critical</option>
+                    </select>
+                  </div>
+
+                  <div class="col-7">
+                    <label class="form-label">Owner</label>
+                    <select id="f_in_owner" class="form-select form-select-sm"></select>
+                    <input id="f_in_owner_custom" class="form-control form-control-sm mt-1" type="text" placeholder="Custom owner (optional)">
+                  </div>
+                  <div class="col-5">
+                    <label class="form-label">Status</label>
+                    <select id="f_in_status" class="form-select form-select-sm">
+                      <option>Open</option>
+                      <option>Monitoring</option>
+                      <option>Resolved</option>
+                    </select>
+                  </div>
+
+                  <div class="col-6">
+                    <label class="form-label">Telemetry snapshot</label>
+                    <input id="f_in_tele" class="form-control form-control-sm" type="text" placeholder="e.g. Water 108°C, RPM 9,800">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Video timecode</label>
+                    <input id="f_in_tc" class="form-control form-control-sm" type="text" placeholder="mm:ss.ms">
+                  </div>
+
+                  <div class="col-12">
+                    <label class="form-label">Narrative</label>
+                    <textarea id="f_in_desc" class="form-control form-control-sm" rows="3" placeholder="What happened, when, under what conditions, symptoms, driver feedback…"></textarea>
+                  </div>
+
+                  <div class="col-12">
+                    <label class="form-label">Corrective actions</label>
+                    <textarea id="f_in_actions" class="form-control form-control-sm" rows="3" placeholder="Work order reference, parts, tests, validation steps…"></textarea>
+                  </div>
+
+                  <div class="col-12">
+                    <div class="mlo-section-label">Attachments</div>
+                    <div id="inAttachList" class="d-grid gap-1"></div>
+                    <div class="d-flex flex-wrap gap-1 mt-1">
+                      <button class="btn btn-sm btn-outline-light mlo-btn" id="btnInAttachDrive" type="button">Drive</button>
+                      <input id="inAttachName" class="form-control form-control-sm" style="max-width:180px;" type="text" placeholder="Name">
+                      <input id="inAttachUrl" class="form-control form-control-sm" style="min-width:260px; flex:1;" type="url" placeholder="https://...">
+                      <button class="btn btn-sm btn-outline-light mlo-btn" id="btnInAttachAdd" type="button">Add link</button>
+                    </div>
+                  </div>
+
+                  <div class="col-12 d-flex gap-1 mt-1">
+                    <button class="btn btn-sm btn-primary mlo-btn" id="btnSaveInc" type="button">Save</button>
+                    <button class="btn btn-sm btn-outline-light mlo-btn" id="btnDupInc" type="button">Duplicate</button>
+                    <button class="btn btn-sm btn-outline-danger mlo-btn" id="btnDelInc" type="button">Delete</button>
+                  </div>
+
+                  <div class="col-12">
+                    <div class="text-secondary" style="font-size:0.75rem;">
+                      Stored locally (prototype). Attachments support Google Drive Picker when enabled in Settings.
+                    </div>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="core.js"></script>
+  <script>
+  (function(){
+    'use strict';
+
+    RTS.setActiveNav();
+
+    const LS_DATA = 'rts.incidents.v4';
+    const LS_UI = 'rts.incidents.ui.v4';
+    const LS_PANES = 'rts.incidents.panes.v4';
+
+    const settings = RTS.getSettings();
+    const STAFF = Array.isArray(settings.staff) ? settings.staff : [];
+
+    let EVENTS = RTS.safeLoadJSON('rts.events.v4', []);
+    if(!Array.isArray(EVENTS)) EVENTS = [];
+    if(EVENTS.length === 0){
+      EVENTS = [{ id: 0, title: '—', start:'', end:'', type:'', status:'', venue:'' }];
+    }
+
+    const SEV = ['Low','Medium','High','Critical'];
+    const STATUS = ['Open','Monitoring','Resolved'];
+
+    function escapeHtml(s){
+      return String(s ?? '')
+        .replaceAll('&','&amp;')
+        .replaceAll('<','&lt;')
+        .replaceAll('>','&gt;')
+        .replaceAll('"','&quot;')
+        .replaceAll("'",'&#039;');
+    }
+
+    function nowISO(){
+      return new Date().toISOString();
+    }
+
+    function findEventById(id){
+      const sid = String(id ?? '');
+      return EVENTS.find(e => String(e.id) === sid) || null;
+    }
+
+    function findEventByTitle(title){
+      const t = String(title ?? '').trim().toLowerCase();
+      if(!t) return null;
+      return EVENTS.find(e => String(e.title||'').trim().toLowerCase() === t) || null;
+    }
+
+    function eventTitle(id){
+      const ev = findEventById(id);
+      return ev ? (ev.title || '—') : '—';
+    }
+
+    function ownerLabel(inc){
+      if(!inc) return '—';
+      if(inc.ownerStaffId){
+        const st = STAFF.find(s => String(s.id) === String(inc.ownerStaffId));
+        if(st) return `${st.name || '—'}${st.role ? ' ('+st.role+')' : ''}`;
+      }
+      if(inc.ownerText) return inc.ownerText;
+      return '—';
+    }
+
+    function normalizeAttachments(x){
+      if(!x) return;
+
+      // legacy: x.attach as a single URL string
+      if(typeof x.attach === 'string' && x.attach.trim()){
+        x.attachments = x.attachments || [];
+        if(typeof x.attachments === 'string') x.attachments = [];
+        if(Array.isArray(x.attachments) && x.attachments.length === 0){
+          x.attachments.push({ provider:'url', name:'Attachment', url:x.attach.trim(), addedAt: nowISO() });
+        }
+      }
+
+      // legacy: attachments as newline list of URLs
+      if(typeof x.attachments === 'string' && x.attachments.trim()){
+        const lines = x.attachments.split(/\n+/).map(s=>s.trim()).filter(Boolean);
+        x.attachments = lines.map((url,i)=>({ provider:'url', name:'Attachment '+(i+1), url, addedAt: nowISO() }));
+      }
+
+      if(!Array.isArray(x.attachments)) x.attachments = [];
+      delete x.attach;
+    }
+
+    function normalizeIncident(x){
+      if(!x) return;
+
+      // event migration (legacy: x.event as title string)
+      if(!x.eventId && x.event){
+        const ev = findEventByTitle(x.event);
+        x.eventId = ev ? ev.id : '';
+        x.eventTitle = x.event;
+      }
+      if(x.eventId && !x.eventTitle){
+        x.eventTitle = eventTitle(x.eventId);
+      }
+      if(!x.eventTitle) x.eventTitle = x.event ? String(x.event) : '';
+      delete x.event;
+
+      // owner migration (legacy: x.owner as free text)
+      if(!x.ownerStaffId && x.owner){
+        const nm = String(x.owner).trim().toLowerCase();
+        const st = STAFF.find(s => String(s.name||'').trim().toLowerCase() === nm);
+        if(st) x.ownerStaffId = st.id;
+        else x.ownerText = x.owner;
+      }
+      if(!x.ownerText && x.owner && !x.ownerStaffId) x.ownerText = x.owner;
+      delete x.owner;
+
+      // housekeeping
+      if(!x.createdAt) x.createdAt = nowISO();
+      if(!x.updatedAt) x.updatedAt = x.createdAt;
+      normalizeAttachments(x);
+    }
+
+    function seedIncidents(){
+      const out = [];
+      const fallbackOwner = STAFF[0] ? STAFF[0].id : '';
+      for(let i=1;i<=50;i++){
+        const sev = SEV[i % SEV.length];
+        const st = (i % 6 === 0) ? 'Resolved' : ((i % 4 === 0) ? 'Monitoring' : 'Open');
+        const ev = EVENTS[i % EVENTS.length];
+        out.push({
+          id: i,
+          title: (sev==='Critical' ? 'Safety-critical: Brake fade' : (sev==='High' ? 'Overheating / loss of power' : (sev==='Medium' ? 'Handling imbalance after tyre heat' : 'Minor vibration / noise'))),
+          eventId: ev ? ev.id : '',
+          eventTitle: ev ? (ev.title || '—') : '—',
+          severity: sev,
+          status: st,
+          ownerStaffId: fallbackOwner,
+          ownerText: '',
+          telemetry: 'RPM 9,800; Water 108°C; Oil 132°C',
+          timecode: `0${i%5}:${String((i*7)%60).padStart(2,'0')}.${String((i*13)%100).padStart(2,'0')}`,
+          desc: '',
+          actions: '',
+          attachments: [],
+          createdAt: nowISO(),
+          updatedAt: nowISO(),
+        });
+      }
+      return out;
+    }
+
+    const defaultUI = {
+      perspective: 'open',
+      severityPick: '',
+      search: '',
+      eventId: '',
+      status: '',
+      groupBy: '',
+      selectedId: null
+    };
+
+    let incidents = RTS.safeLoadJSON(LS_DATA, null);
+    if(!Array.isArray(incidents) || incidents.length === 0) incidents = seedIncidents();
+    incidents.forEach(normalizeIncident);
+
+    let ui = RTS.deepMerge(defaultUI, RTS.safeLoadJSON(LS_UI, {}));
+
+    // Deep-linking: incidents.html?event=<eventId|eventTitle>&select=<incidentId>
+    const qEvent = RTS.getQueryParam('event');
+    if(qEvent){
+      const idNum = Number(qEvent);
+      if(!Number.isNaN(idNum) && String(idNum) !== '0'){
+        ui.eventId = String(idNum);
+      } else {
+        const ev = findEventByTitle(qEvent);
+        if(ev) ui.eventId = String(ev.id);
+      }
+    }
+    const qSel = RTS.getQueryParam('select');
+    if(qSel){
+      const idNum = Number(qSel);
+      if(!Number.isNaN(idNum)) ui.selectedId = idNum;
+    }
+
+    const el = {
+      shell: document.getElementById('incShell'),
+      badge: document.getElementById('inCountBadge'),
+      pList: document.getElementById('inPerspectiveList'),
+      sList: document.getElementById('inSeverityList'),
+      tbody: document.getElementById('inTbody'),
+      search: document.getElementById('inSearch'),
+      status: document.getElementById('inStatus'),
+      event: document.getElementById('inEvent'),
+      group: document.getElementById('inGroup'),
+      add: document.getElementById('btnAddInc'),
+      save: document.getElementById('btnSaveInc'),
+      dup: document.getElementById('btnDupInc'),
+      del: document.getElementById('btnDelInc'),
+      ib: document.getElementById('inInspectorBadge'),
+      openEvent: document.getElementById('btnOpenEvent'),
+      openTasks: document.getElementById('btnOpenTasks'),
+      openPerf: document.getElementById('btnOpenPerformance'),
+      f: {
+        id: document.getElementById('f_in_id'),
+        title: document.getElementById('f_in_title'),
+        event: document.getElementById('f_in_event'),
+        sev: document.getElementById('f_in_sev'),
+        owner: document.getElementById('f_in_owner'),
+        ownerCustom: document.getElementById('f_in_owner_custom'),
+        status: document.getElementById('f_in_status'),
+        tele: document.getElementById('f_in_tele'),
+        tc: document.getElementById('f_in_tc'),
+        desc: document.getElementById('f_in_desc'),
+        actions: document.getElementById('f_in_actions'),
+        attachList: document.getElementById('inAttachList'),
+        btnAttachDrive: document.getElementById('btnInAttachDrive'),
+        attachName: document.getElementById('inAttachName'),
+        attachUrl: document.getElementById('inAttachUrl'),
+        btnAttachAdd: document.getElementById('btnInAttachAdd')
+      }
+    };
+
+    function persist(){
+      RTS.safeSaveJSON(LS_DATA, incidents);
+      RTS.safeSaveJSON(LS_UI, ui);
+    }
+
+    function buildLeftSeverity(){
+      el.sList.innerHTML = '';
+      const mk = (label, sev) => {
+        const li = document.createElement('li');
+        li.textContent = label;
+        li.dataset.sev = sev;
+        li.classList.toggle('active', (ui.severityPick||'') === (sev||''));
+        return li;
+      };
+      el.sList.appendChild(mk('All severities', ''));
+      SEV.forEach(s => el.sList.appendChild(mk(s, s)));
+    }
+
+    function buildEventOptions(selectEl, includeAll){
+      const opts = [];
+      if(includeAll) opts.push(`<option value="">All events</option>`);
+      const sorted = EVENTS.slice().sort((a,b)=> String(a.title||'').localeCompare(String(b.title||'')));
+      sorted.forEach(ev => {
+        opts.push(`<option value="${escapeHtml(String(ev.id))}">${escapeHtml(ev.title || '—')}</option>`);
+      });
+      selectEl.innerHTML = opts.join('');
+    }
+
+    function buildOwnerOptions(){
+      const opts = [`<option value="">— Unassigned —</option>`, `<option value="custom">Custom…</option>`];
+      STAFF.slice()
+        .sort((a,b)=> String(a.name||'').localeCompare(String(b.name||'')))
+        .forEach(s => {
+          const label = `${s.name || '—'}${s.role ? ' ('+s.role+')' : ''}`;
+          opts.push(`<option value="${escapeHtml(String(s.id))}">${escapeHtml(label)}</option>`);
+        });
+      el.f.owner.innerHTML = opts.join('');
+    }
+
+    function itemFromId(id){
+      const idNum = Number(id);
+      return incidents.find(i => Number(i.id) === idNum) || null;
+    }
+
+    function applyFilters(list){
+      let out = list.slice();
+      if (ui.perspective === 'open') out = out.filter(i => i.status !== 'Resolved');
+      if (ui.perspective === 'resolved') out = out.filter(i => i.status === 'Resolved');
+      if (ui.perspective === 'critical') out = out.filter(i => i.severity === 'Critical');
+      if (ui.severityPick) out = out.filter(i => i.severity === ui.severityPick);
+      if (ui.status) out = out.filter(i => i.status === ui.status);
+      if (ui.eventId) out = out.filter(i => String(i.eventId||'') === String(ui.eventId));
+      if (ui.search){
+        const q = ui.search.toLowerCase();
+        out = out.filter(i => {
+          const hay = `${i.title||''} ${i.eventTitle||''} ${ownerLabel(i)} ${i.severity||''} ${i.status||''} ${i.telemetry||''} ${i.timecode||''}`.toLowerCase();
+          return hay.includes(q);
+        });
+      }
+      return out;
+    }
+
+    function groupKey(it){
+      switch(ui.groupBy){
+        case 'event': return it.eventTitle || eventTitle(it.eventId) || '—';
+        case 'severity': return it.severity || '—';
+        case 'owner': return ownerLabel(it) || '—';
+        default: return '';
+      }
+    }
+
+    function render(){
+      // control values
+      el.search.value = ui.search || '';
+      el.status.value = ui.status || '';
+      el.group.value = ui.groupBy || '';
+
+      // filters
+      buildEventOptions(el.event, true);
+      el.event.value = ui.eventId || '';
+
+      // counts
+      const filtered = applyFilters(incidents);
+      el.badge.textContent = String(filtered.length);
+
+      // list order
+      let rows = filtered.slice();
+      if (ui.groupBy){
+        rows.sort((a,b) => {
+          const ga = groupKey(a), gb = groupKey(b);
+          if (ga !== gb) return String(ga).localeCompare(String(gb));
+          return String(a.title||'').localeCompare(String(b.title||''));
+        });
+      } else {
+        rows.sort((a,b) => String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
+      }
+
+      el.tbody.innerHTML = '';
+      let lastG = null;
+      let n = 0;
+      rows.forEach(it => {
+        const g = ui.groupBy ? groupKey(it) : '';
+        if (ui.groupBy && g !== lastG){
+          lastG = g;
+          const trG = document.createElement('tr');
+          trG.className = 'mlo-group-row';
+          trG.innerHTML = `<td colspan="7">${escapeHtml(g)}</td>`;
+          el.tbody.appendChild(trG);
+        }
+
+        n += 1;
+        const tr = document.createElement('tr');
+        tr.dataset.id = String(it.id);
+        if (ui.selectedId === it.id) tr.classList.add('mlo-row-selected');
+
+        const evName = it.eventTitle || eventTitle(it.eventId);
+        tr.innerHTML = `
+          <td>${n}</td>
+          <td>${escapeHtml(it.title || '')}</td>
+          <td>${escapeHtml(evName || '—')}</td>
+          <td>${escapeHtml(it.severity || '')}</td>
+          <td>${escapeHtml(it.status || '')}</td>
+          <td>${escapeHtml(ownerLabel(it))}</td>
+          <td>${escapeHtml(it.timecode || '')}</td>
+        `;
+        tr.addEventListener('click', () => select(it.id));
+        el.tbody.appendChild(tr);
+      });
+
+      // ensure selection exists
+      if(ui.selectedId !== null && !incidents.some(i => i.id === ui.selectedId)){
+        ui.selectedId = null;
+      }
+      hydrate(itemFromId(ui.selectedId));
+      persist();
+    }
+
+    function hydrate(it){
+      // static inspector options
+      buildEventOptions(el.f.event, false);
+      buildOwnerOptions();
+
+      if (!it){
+        el.ib.textContent = 'No selection';
+        el.openEvent.href = 'events.html';
+        el.openTasks.href = 'tasks.html';
+        el.openPerf.href = 'performance.html';
+
+        Object.values(el.f).forEach(x => {
+          if (x && 'value' in x) x.value = '';
+        });
+        el.f.attachList.innerHTML = '';
+        return;
+      }
+
+      el.ib.textContent = `Incident #${it.id}`;
+
+      el.f.id.value = String(it.id);
+      el.f.title.value = it.title || '';
+      el.f.event.value = String(it.eventId || '');
+      el.f.sev.value = it.severity || 'Low';
+      el.f.status.value = it.status || 'Open';
+      el.f.tele.value = it.telemetry || '';
+      el.f.tc.value = it.timecode || '';
+      el.f.desc.value = it.desc || '';
+      el.f.actions.value = it.actions || '';
+
+      if(it.ownerStaffId){
+        el.f.owner.value = String(it.ownerStaffId);
+        el.f.ownerCustom.value = it.ownerText || '';
+      } else if(it.ownerText){
+        el.f.owner.value = 'custom';
+        el.f.ownerCustom.value = it.ownerText;
+      } else {
+        el.f.owner.value = '';
+        el.f.ownerCustom.value = '';
+      }
+
+      // deep links
+      const evId = it.eventId ? String(it.eventId) : '';
+      el.openEvent.href = evId ? `events.html?select=${encodeURIComponent(evId)}` : 'events.html';
+      el.openTasks.href = evId ? `tasks.html?event=${encodeURIComponent(evId)}` : 'tasks.html';
+      el.openPerf.href = evId ? `performance.html?event=${encodeURIComponent(evId)}` : 'performance.html';
+
+      renderAttachments(it);
+    }
+
+    function select(id){
+      ui.selectedId = Number(id);
+      render();
+    }
+
+    function nextId(){
+      return incidents.reduce((m,i)=>Math.max(m, Number(i.id)||0), 0) + 1;
+    }
+
+    function add(){
+      const id = nextId();
+      const evId = ui.eventId || String(EVENTS[0]?.id ?? '');
+      const ev = findEventById(evId);
+      const owner = STAFF[0] ? STAFF[0].id : '';
+      const it = {
+        id,
+        title: `New Incident ${id}`,
+        eventId: evId,
+        eventTitle: ev ? (ev.title || '—') : '—',
+        severity: 'Medium',
+        status: 'Open',
+        ownerStaffId: owner,
+        ownerText: '',
+        telemetry: '',
+        timecode: '',
+        desc: '',
+        actions: '',
+        attachments: [],
+        createdAt: nowISO(),
+        updatedAt: nowISO(),
+      };
+      incidents.unshift(it);
+      ui.selectedId = id;
+      render();
+    }
+
+    function save(){
+      const id = Number(el.f.id.value);
+      const it = itemFromId(id);
+      if(!it) return;
+
+      const evId = String(el.f.event.value || '');
+      const ev = findEventById(evId);
+
+      it.title = (el.f.title.value || '').trim() || it.title || `Incident ${it.id}`;
+      it.eventId = evId;
+      it.eventTitle = ev ? (ev.title || '—') : (it.eventTitle || '—');
+      it.severity = el.f.sev.value;
+      it.status = el.f.status.value;
+
+      const ownerSel = String(el.f.owner.value || '');
+      if(ownerSel === 'custom'){
+        it.ownerStaffId = '';
+        it.ownerText = (el.f.ownerCustom.value || '').trim();
+      } else if(ownerSel){
+        it.ownerStaffId = ownerSel;
+        it.ownerText = '';
+      } else {
+        it.ownerStaffId = '';
+        it.ownerText = '';
+      }
+
+      it.telemetry = (el.f.tele.value || '').trim();
+      it.timecode = (el.f.tc.value || '').trim();
+      it.desc = el.f.desc.value || '';
+      it.actions = el.f.actions.value || '';
+      it.updatedAt = nowISO();
+
+      normalizeAttachments(it);
+      render();
+    }
+
+    function dup(){
+      const src = itemFromId(ui.selectedId);
+      if(!src) return;
+      const id = nextId();
+      const copy = JSON.parse(JSON.stringify(src));
+      copy.id = id;
+      copy.title = `${src.title || 'Incident'} (Copy)`;
+      copy.createdAt = nowISO();
+      copy.updatedAt = nowISO();
+      incidents.unshift(copy);
+      ui.selectedId = id;
+      render();
+    }
+
+    function del(){
+      const src = itemFromId(ui.selectedId);
+      if(!src) return;
+      incidents = incidents.filter(i => i.id !== src.id);
+      ui.selectedId = null;
+      render();
+    }
+
+    function renderAttachments(it){
+      el.f.attachList.innerHTML = '';
+      if(!it) return;
+      normalizeAttachments(it);
+
+      if(!it.attachments.length){
+        const e = document.createElement('div');
+        e.className = 'text-secondary';
+        e.style.fontSize = '0.8rem';
+        e.textContent = 'No attachments.';
+        el.f.attachList.appendChild(e);
+        return;
+      }
+
+      it.attachments.forEach((a, idx) => {
+        const row = document.createElement('div');
+        row.className = 'd-flex align-items-center justify-content-between gap-2 rts-attach-item';
+
+        const left = document.createElement('div');
+        left.style.minWidth = '0';
+
+        const name = document.createElement('div');
+        name.className = 'rts-attach-name';
+        name.textContent = a.name || (a.provider === 'gdrive' ? ('Drive file ' + (a.id || '')) : 'Attachment');
+
+        const meta = document.createElement('div');
+        meta.className = 'rts-attach-meta';
+        meta.textContent = (a.provider === 'gdrive' ? 'Google Drive' : 'Link') + (a.mimeType ? (' • ' + a.mimeType) : '');
+
+        left.appendChild(name);
+        left.appendChild(meta);
+
+        const right = document.createElement('div');
+        right.className = 'd-flex gap-1 flex-shrink-0';
+
+        const open = document.createElement('a');
+        open.className = 'btn btn-sm btn-outline-light mlo-btn';
+        open.textContent = 'Open';
+        open.target = '_blank';
+        open.rel = 'noopener';
+        open.href = a.url || '#';
+
+        const rm = document.createElement('button');
+        rm.className = 'btn btn-sm btn-outline-danger mlo-btn';
+        rm.textContent = 'Remove';
+        rm.type = 'button';
+        rm.addEventListener('click', () => {
+          it.attachments.splice(idx, 1);
+          persist();
+          renderAttachments(it);
+        });
+
+        right.appendChild(open);
+        right.appendChild(rm);
+
+        row.appendChild(left);
+        row.appendChild(right);
+        el.f.attachList.appendChild(row);
+      });
+    }
+
+    function bind(){
+      // perspectives
+      el.pList.querySelectorAll('li').forEach(li => {
+        li.addEventListener('click', () => {
+          el.pList.querySelectorAll('li').forEach(x => x.classList.remove('active'));
+          li.classList.add('active');
+          ui.perspective = li.dataset.perspective;
+          render();
+        });
+      });
+
+      // severity
+      el.sList.addEventListener('click', (e) => {
+        const li = e.target.closest('li');
+        if(!li) return;
+        ui.severityPick = li.dataset.sev || '';
+        buildLeftSeverity();
+        render();
+      });
+
+      // filters
+      el.search.addEventListener('input', () => { ui.search = el.search.value; render(); });
+      el.status.addEventListener('change', () => { ui.status = el.status.value; render(); });
+      el.event.addEventListener('change', () => { ui.eventId = el.event.value; render(); });
+      el.group.addEventListener('change', () => { ui.groupBy = el.group.value; render(); });
+
+      // actions
+      el.add.addEventListener('click', add);
+      el.save.addEventListener('click', save);
+      el.dup.addEventListener('click', dup);
+      el.del.addEventListener('click', del);
+
+      // owner custom enable/disable hint
+      el.f.owner.addEventListener('change', () => {
+        const v = String(el.f.owner.value || '');
+        if(v === 'custom'){
+          el.f.ownerCustom.removeAttribute('disabled');
+          el.f.ownerCustom.focus();
+        } else {
+          el.f.ownerCustom.setAttribute('disabled', 'disabled');
+        }
+      });
+
+      // attachments
+      el.f.btnAttachDrive.addEventListener('click', async () => {
+        const it = itemFromId(ui.selectedId);
+        if(!it) return;
+        try {
+          normalizeAttachments(it);
+          const picked = await RTS.pickDriveFiles({ includeFolders:true });
+          if(!picked.length) return;
+          it.attachments.push(...picked);
+          it.updatedAt = nowISO();
+          persist();
+          renderAttachments(it);
+        } catch (e) {
+          alert((e && e.message) ? e.message : String(e));
+        }
+      });
+
+      el.f.btnAttachAdd.addEventListener('click', () => {
+        const it = itemFromId(ui.selectedId);
+        if(!it) return;
+        const name = (el.f.attachName.value || '').trim() || 'Link';
+        const url = (el.f.attachUrl.value || '').trim();
+        if(!url) return;
+        normalizeAttachments(it);
+        it.attachments.push({ provider:'url', name, url, addedAt: nowISO() });
+        it.updatedAt = nowISO();
+        el.f.attachName.value = '';
+        el.f.attachUrl.value = '';
+        persist();
+        renderAttachments(it);
+      });
+    }
+
+    function init(){
+      // seed left panel and restore active state
+      buildLeftSeverity();
+      el.pList.querySelectorAll('li').forEach(li => {
+        li.classList.toggle('active', li.dataset.perspective === ui.perspective);
+      });
+
+      // tri-pane resizers
+      RTS.initTriPaneResizers(el.shell, LS_PANES);
+
+      bind();
+
+      // disable owner custom unless "custom"
+      el.f.ownerCustom.setAttribute('disabled', 'disabled');
+
+      render();
+
+      // auto-select first visible item if none selected
+      if(ui.selectedId === null){
+        const visible = applyFilters(incidents);
+        if(visible[0]){ ui.selectedId = visible[0].id; render(); }
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+  })();
+  </script>
+</body>
+</html>

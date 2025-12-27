@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Race Team OS – Events</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="style.css" rel="stylesheet">
+
+  <style>
+    .mlo-table th, .mlo-table td { padding: .18rem .42rem !important; }
+    .chip {
+      display:inline-flex; align-items:center; gap:.35rem;
+      padding:.18rem .45rem; border:1px solid rgba(255,255,255,.12);
+      border-radius:999px; font-size:.78rem; color:#e0e3e6;
+      background: rgba(255,255,255,.04);
+      white-space:nowrap;
+    }
+    .chip .x { opacity:.8; cursor:pointer; padding:0 .15rem; }
+    .muted { color: rgba(224,227,230,.70); }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace; }
+    .btn-ghost { border:1px solid rgba(255,255,255,.12); background:transparent; color:#e0e3e6; }
+    .btn-ghost:hover { background: rgba(255,255,255,.06); }
+    .tag { display:inline-flex; align-items:center; gap:.35rem; padding:.12rem .42rem; border-radius:999px; font-size:.75rem; border:1px solid rgba(255,255,255,.10); background: rgba(255,255,255,.04); }
+    .dot { width:.55rem; height:.55rem; border-radius:999px; display:inline-block; }
+    .doc-row { display:flex; justify-content:space-between; gap:.5rem; padding:.25rem .35rem; border:1px solid rgba(255,255,255,.08); border-radius:.5rem; background: rgba(255,255,255,.03); margin-bottom:.35rem; }
+    .doc-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width: 68%; }
+    .doc-meta { font-size:.78rem; color: rgba(224,227,230,.65); }
+    .section-title { font-size:.85rem; letter-spacing:.06em; text-transform:uppercase; color: rgba(224,227,230,.65); margin-top:.9rem; margin-bottom:.35rem; }
+    .danger-zone { border:1px solid rgba(255,0,0,.22); background: rgba(255,0,0,.04); }
+    .grid-2 { display:grid; grid-template-columns: 1fr 1fr; gap:.5rem; }
+    @media (max-width: 1100px){ .grid-2 { grid-template-columns: 1fr; } }
+  </style>
+</head>
+
+<body>
+  <div class="container-fluid">
+    <div class="row">
+      <!-- Sidebar -->
+      <nav class="col-md-2 d-none d-md-block sidebar">
+        <ul class="nav flex-column">
+          <li class="nav-item"><a class="nav-link" href="index.html">Dashboard</a></li>
+          <li class="nav-item"><a class="nav-link active" href="events.html">Events</a></li>
+          <li class="nav-item"><a class="nav-link" href="tasks.html">Tasks</a></li>
+          <li class="nav-item"><a class="nav-link" href="assets.html">Assets</a></li>
+          <li class="nav-item"><a class="nav-link" href="inventory.html">Inventory</a></li>
+          <li class="nav-item"><a class="nav-link" href="expenses.html">Finance</a></li>
+
+          <li class="nav-section">Race Control</li>
+          <li class="nav-item"><a class="nav-link" href="performance.html">Performance</a></li>
+          <li class="nav-item"><a class="nav-link" href="strategy.html">Strategy</a></li>
+          <li class="nav-item"><a class="nav-link" href="incidents.html">Incidents</a></li>
+          <li class="nav-item"><a class="nav-link" href="integrations.html">Integrations</a></li>
+
+          <li class="nav-section">Admin</li>
+          <li class="nav-item"><a class="nav-link" href="settings.html">Settings</a></li>
+        </ul>
+      </nav>
+
+      <!-- Main -->
+      <main class="col-md-10 ms-sm-auto px-4">
+        <div class="d-flex justify-content-between align-items-center">
+          <h1 class="my-3">Events</h1>
+          <div class="d-flex align-items-center gap-2">
+            <span class="chip">Drivers: <span id="driversCount" class="mono">0</span></span>
+            <span class="chip">Staff: <span id="staffCount" class="mono">0</span></span>
+            <span class="chip">Events: <span id="eventsCount" class="mono">0</span></span>
+            <button class="btn btn-sm btn-ghost" id="btnResetEvents" type="button">Reset Demo Events</button>
+          </div>
+        </div>
+
+        <!-- Tri-pane -->
+        <div class="mlo-shell" id="eventsShell">
+          <!-- LEFT -->
+          <section class="mlo-pane mlo-pane-left" aria-label="Event perspectives">
+            <div class="mlo-pane-header">
+              <div class="d-flex justify-content-between align-items-center">
+                <div class="mlo-title">Perspectives</div>
+                <span class="badge text-bg-secondary" id="leftBadge">—</span>
+              </div>
+            </div>
+            <div class="mlo-pane-content">
+              <div class="mlo-section-label">Views</div>
+              <ul class="mlo-tree" id="viewsTree">
+                <li class="mlo-tree-item active" data-view="all">All Events</li>
+                <li class="mlo-tree-item" data-view="upcoming">Upcoming (Next 30 Days)</li>
+                <li class="mlo-tree-item" data-view="this_month">This Month</li>
+                <li class="mlo-tree-item" data-view="in_progress">In Progress</li>
+                <li class="mlo-tree-item" data-view="completed">Completed</li>
+                <li class="mlo-tree-item" data-view="past">Past</li>
+              </ul>
+
+              <div class="mlo-section-label mt-3">By Day Type</div>
+              <ul class="mlo-tree" id="typeTree"></ul>
+
+              <div class="mlo-section-label mt-3">Quick</div>
+              <div class="muted" style="font-size:.82rem;">
+                Drivers & staff lists come from <a href="settings.html">Settings</a>.
+              </div>
+            </div>
+          </section>
+
+          <div class="mlo-resizer" data-resize="left" title="Drag to resize"></div>
+
+          <!-- MIDDLE -->
+          <section class="mlo-pane mlo-pane-mid" aria-label="Event list">
+            <div class="mlo-pane-header">
+              <div class="d-flex flex-wrap align-items-center gap-1">
+                <input id="search" type="text" class="form-control form-control-sm" placeholder="Search events…" style="max-width: 240px;">
+
+                <select id="statusFilter" class="form-select form-select-sm" style="max-width: 170px;">
+                  <option value="">Status: All</option>
+                  <option value="Planned">Planned</option>
+                  <option value="Active">Active</option>
+                  <option value="Completed">Completed</option>
+                  <option value="Cancelled">Cancelled</option>
+                </select>
+
+                <select id="dayTypeFilter" class="form-select form-select-sm" style="max-width: 190px;">
+                  <option value="">Day Type: All</option>
+                </select>
+
+                <select id="groupBy" class="form-select form-select-sm" style="max-width: 190px;">
+                  <option value="">Group: None</option>
+                  <option value="month">Group: Month</option>
+                  <option value="dayType">Group: Day Type</option>
+                  <option value="status">Group: Status</option>
+                  <option value="venue">Group: Venue</option>
+                </select>
+
+                <button class="btn btn-sm btn-outline-light mlo-btn" id="btnAdd" type="button">Add Event</button>
+              </div>
+            </div>
+
+            <div class="mlo-pane-content" style="padding:0;">
+              <table class="table table-dark table-hover mlo-table" style="margin:0;">
+                <thead>
+                  <tr>
+                    <th style="width:70px;">#</th>
+                    <th>Event</th>
+                    <th style="width:120px;">Start</th>
+                    <th style="width:120px;">End</th>
+                    <th style="width:160px;">Day Type</th>
+                    <th style="width:140px;">Status</th>
+                    <th style="width:210px;">Venue</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody"></tbody>
+              </table>
+
+              <div class="p-3 muted" id="emptyState" style="display:none;">
+                No events match the current filters.
+              </div>
+            </div>
+          </section>
+
+          <div class="mlo-resizer" data-resize="right" title="Drag to resize"></div>
+
+          <!-- RIGHT -->
+          <section class="mlo-pane mlo-pane-right mlo-inspector" aria-label="Event inspector">
+            <div class="mlo-pane-header">
+              <div class="d-flex justify-content-between align-items-center">
+                <div class="mlo-title">Inspector</div>
+                <span class="badge text-bg-secondary" id="inspectorBadge">No selection</span>
+              </div>
+            </div>
+
+            <div class="mlo-pane-content">
+              <div id="inspectorEmpty" class="muted">
+                Select an event to edit. Use <strong>Add Event</strong> to create a new one.
+              </div>
+
+              <form id="formEvent" style="display:none;" autocomplete="off">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <div class="chip">Event</div>
+                  <div class="d-flex gap-1">
+                    <button class="btn btn-sm btn-ghost" id="btnSave" type="button">Save</button>
+                    <button class="btn btn-sm btn-ghost" id="btnDuplicate" type="button">Duplicate</button>
+                    <button class="btn btn-sm btn-outline-danger" id="btnDelete" type="button">Delete</button>
+                  </div>
+                </div>
+
+                <div class="grid-2">
+                  <div>
+                    <label class="form-label">Event ID</label>
+                    <input class="form-control form-control-sm mono" id="e_id" readonly>
+                  </div>
+                  <div>
+                    <label class="form-label">Status</label>
+                    <select class="form-select form-select-sm" id="e_status">
+                      <option>Planned</option>
+                      <option>Active</option>
+                      <option>Completed</option>
+                      <option>Cancelled</option>
+                    </select>
+                  </div>
+
+                  <div style="grid-column: 1 / -1;">
+                    <label class="form-label">Event Name</label>
+                    <input class="form-control form-control-sm" id="e_name" placeholder="e.g., National Weekend – Round 1">
+                  </div>
+
+                  <div>
+                    <label class="form-label">Start Date</label>
+                    <input class="form-control form-control-sm" id="e_start" type="date">
+                  </div>
+                  <div>
+                    <label class="form-label">End Date</label>
+                    <input class="form-control form-control-sm" id="e_end" type="date">
+                  </div>
+
+                  <div>
+                    <label class="form-label">Venue</label>
+                    <input class="form-control form-control-sm" id="e_venue" placeholder="Red Star Raceway">
+                  </div>
+
+                  <div>
+                    <label class="form-label">Location / City</label>
+                    <input class="form-control form-control-sm" id="e_location" placeholder="Delmas, Mpumalanga">
+                  </div>
+
+                  <div style="grid-column: 1 / -1;">
+                    <label class="form-label d-flex justify-content-between align-items-center">
+                      <span>Day Type</span>
+                      <span class="tag" id="dayTypePreview">
+                        <span class="dot" id="dayTypeDot"></span>
+                        <span id="dayTypeLabel">—</span>
+                      </span>
+                    </label>
+                    <select class="form-select form-select-sm" id="e_dayType"></select>
+                    <div class="form-hint">Day type is color-coded and used for filtering/grouping.</div>
+                  </div>
+
+                  <div style="grid-column: 1 / -1;">
+                    <label class="form-label">Description / Brief</label>
+                    <textarea class="form-control form-control-sm" id="e_desc" rows="4" placeholder="Schedule notes, contacts, objectives…"></textarea>
+                  </div>
+                </div>
+
+                <div class="section-title">Drivers Attending</div>
+                <div class="d-flex gap-2 align-items-center mb-2">
+                  <select class="form-select form-select-sm" id="driverSelect" style="max-width: 420px;"></select>
+                  <button class="btn btn-sm btn-outline-light" id="btnAddDriver" type="button">Add</button>
+                </div>
+                <div id="driverChips"></div>
+
+                <div class="section-title">Crew Roster</div>
+                <div class="d-flex gap-2 flex-wrap align-items-center mb-2">
+                  <select class="form-select form-select-sm" id="staffSelect" style="max-width: 340px;"></select>
+                  <select class="form-select form-select-sm" id="roleSelect" style="max-width: 260px;"></select>
+                  <button class="btn btn-sm btn-outline-light" id="btnAddCrew" type="button">Add</button>
+                </div>
+                <div id="crewList"></div>
+
+                <div class="section-title">Documents</div>
+                <div class="d-flex gap-2 align-items-center mb-2">
+                  <input class="form-control form-control-sm" id="docInput" type="file" multiple>
+                  <button class="btn btn-sm btn-ghost" id="btnClearDocs" type="button">Clear</button>
+                </div>
+                <div class="form-hint mb-2">
+                  Prototype note: large files may store metadata only (localStorage size limits).
+                </div>
+                <div id="docList"></div>
+
+                <div class="section-title">Google Calendar</div>
+                <div class="d-flex gap-2 flex-wrap">
+                  <button class="btn btn-sm btn-outline-light" id="btnOpenGCal" type="button">Open Google Calendar Draft</button>
+                  <button class="btn btn-sm btn-outline-light" id="btnDownloadICS" type="button">Download .ics</button>
+                </div>
+                <div class="mt-2 danger-zone p-2 rounded">
+                  <div class="form-hint mb-1"><strong>Frontend-only:</strong> OAuth sync added later. Current workflow is Draft Link + ICS import.</div>
+                  <div class="form-hint">Calendar settings: <a href="settings.html">Settings → Google Calendar</a>.</div>
+                </div>
+              </form>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="core.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+  (function(){
+    const RTS = window.RTS;
+    if (!RTS) { alert('core.js not loaded: window.RTS missing'); return; }
+
+    const KEYS = {
+      events:   'rts_events_v2',
+      drivers:  'rts_drivers_v1',
+      staff:    'rts_staff_v1',
+      roles:    'rts_roles_v1',
+      calendar: 'rts_calendar_v1',
+      pane:     'rts_events_panes_v1',
+      ui:       'rts_events_ui_v1',
+    };
+
+    const els = {
+      shell: document.getElementById('eventsShell'),
+      driversCount: document.getElementById('driversCount'),
+      staffCount: document.getElementById('staffCount'),
+      eventsCount: document.getElementById('eventsCount'),
+      leftBadge: document.getElementById('leftBadge'),
+      btnResetEvents: document.getElementById('btnResetEvents'),
+
+      viewsTree: document.getElementById('viewsTree'),
+      typeTree: document.getElementById('typeTree'),
+
+      search: document.getElementById('search'),
+      statusFilter: document.getElementById('statusFilter'),
+      dayTypeFilter: document.getElementById('dayTypeFilter'),
+      groupBy: document.getElementById('groupBy'),
+      btnAdd: document.getElementById('btnAdd'),
+
+      tbody: document.getElementById('tbody'),
+      empty: document.getElementById('emptyState'),
+
+      inspectorBadge: document.getElementById('inspectorBadge'),
+      inspectorEmpty: document.getElementById('inspectorEmpty'),
+      formEvent: document.getElementById('formEvent'),
+
+      e_id: document.getElementById('e_id'),
+      e_status: document.getElementById('e_status'),
+      e_name: document.getElementById('e_name'),
+      e_start: document.getElementById('e_start'),
+      e_end: document.getElementById('e_end'),
+      e_venue: document.getElementById('e_venue'),
+      e_location: document.getElementById('e_location'),
+      e_dayType: document.getElementById('e_dayType'),
+      e_desc: document.getElementById('e_desc'),
+
+      dayTypeDot: document.getElementById('dayTypeDot'),
+      dayTypeLabel: document.getElementById('dayTypeLabel'),
+
+      driverSelect: document.getElementById('driverSelect'),
+      btnAddDriver: document.getElementById('btnAddDriver'),
+      driverChips: document.getElementById('driverChips'),
+
+      staffSelect: document.getElementById('staffSelect'),
+      roleSelect: document.getElementById('roleSelect'),
+      btnAddCrew: document.getElementById('btnAddCrew'),
+      crewList: document.getElementById('crewList'),
+
+      docInput: document.getElementById('docInput'),
+      btnClearDocs: document.getElementById('btnClearDocs'),
+      docList: document.getElementById('docList'),
+
+      btnOpenGCal: document.getElementById('btnOpenGCal'),
+      btnDownloadICS: document.getElementById('btnDownloadICS'),
+
+      btnSave: document.getElementById('btnSave'),
+      btnDuplicate: document.getElementById('btnDuplicate'),
+      btnDelete: document.getElementById('btnDelete'),
+    };
+
+    // ---------- utils ----------
+    const pad = n => String(n).padStart(2,'0');
+    const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+    const normalize = s => (s||'').toLowerCase().trim();
+    const uid = (p) => (p||'id') + '_' + Math.random().toString(16).slice(2) + '_' + Date.now().toString(16);
+    const ymdCompact = iso => (iso||'').replaceAll('-','');
+    function addDaysISO(iso, days){
+      const d = new Date((iso||'') + 'T00:00:00');
+      d.setDate(d.getDate() + days);
+      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    }
+    function monthKey(iso){
+      if (!iso) return '(No date)';
+      const [y,m] = iso.split('-'); return `${y}-${m}`;
+    }
+    function monthLabel(ym){
+      if (!ym || ym === '(No date)') return ym;
+      const [y,m] = ym.split('-');
+      const names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      return `${names[(parseInt(m,10)||1)-1]} ${y}`;
+    }
+
+    // ---------- day types ----------
+    const DAY_TYPES = [
+      { key:'race',   label:'Race Weekend', color:'#E11D48' },
+      { key:'test',   label:'Test Day',     color:'#2563EB' },
+      { key:'travel', label:'Travel',       color:'#F59E0B' },
+      { key:'media',  label:'Media',        color:'#10B981' },
+      { key:'admin',  label:'Admin',        color:'#6B7280' },
+    ];
+    const dayTypeByKey = (k)=> DAY_TYPES.find(x=>x.key===k) || DAY_TYPES[0];
+
+    // ---------- load settings sources ----------
+    function loadDrivers(){ return RTS.safeLoadJSON(KEYS.drivers, []); }
+    function loadStaff(){ return RTS.safeLoadJSON(KEYS.staff, []); }
+    function loadRoles(){ return RTS.safeLoadJSON(KEYS.roles, []); }
+    function loadCalendar(){
+      const cal = RTS.safeLoadJSON(KEYS.calendar, null);
+      return (cal && typeof cal === 'object') ? cal : {
+        timezone:'Africa/Johannesburg',
+        mode:'all_day',
+        defaultDurationMinutes: 60,
+        includeRosterInDescription: true,
+        calendarName:''
+      };
+    }
+
+    // ---------- seed events ----------
+    function seedEvents(){
+      const today = new Date();
+      const toISO = (d)=> `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+      const d1 = new Date(today); d1.setDate(d1.getDate()+10);
+      const d2 = new Date(d1); d2.setDate(d2.getDate()+2);
+      const d3 = new Date(today); d3.setDate(d3.getDate()+35);
+      const d4 = new Date(d3); d4.setDate(d4.getDate()+1);
+
+      return [
+        {
+          id: uid('evt'),
+          name: 'National Weekend – Round 1',
+          venue: 'Red Star Raceway',
+          location: 'Delmas, Mpumalanga',
+          start: toISO(d1),
+          end: toISO(d2),
+          status: 'Planned',
+          dayType: 'race',
+          desc: 'Scrutineering, practice, qualifying, heats, finals. Packing + travel plan required.',
+          driver_ids: [],
+          crew: [],
+          docs: []
+        },
+        {
+          id: uid('evt'),
+          name: 'Test Day – Chassis Baseline',
+          venue: 'Killarney',
+          location: 'Cape Town',
+          start: toISO(d3),
+          end: toISO(d4),
+          status: 'Planned',
+          dayType: 'test',
+          desc: 'Baseline setup and engine hours log. Focus: tyres and gearing.',
+          driver_ids: [],
+          crew: [],
+          docs: []
+        }
+      ];
+    }
+
+    // ---------- state ----------
+    let drivers = loadDrivers();
+    let staff = loadStaff();
+    let roles = loadRoles();
+    let calendar = loadCalendar();
+
+    let events = RTS.safeLoadJSON(KEYS.events, null);
+    if (!Array.isArray(events)){
+      events = seedEvents();
+      RTS.safeSaveJSON(KEYS.events, events);
+    }
+
+    let ui = RTS.safeLoadJSON(KEYS.ui, {
+      view: 'all',
+      typeView: '',
+      search: '',
+      status: '',
+      dayType: '',
+      groupBy: '',
+      selectedId: ''
+    });
+
+    const persistUI = ()=> RTS.safeSaveJSON(KEYS.ui, ui);
+    const persistEvents = ()=> RTS.safeSaveJSON(KEYS.events, events);
+
+    function updateCounts(){
+      els.driversCount.textContent = String((drivers||[]).length);
+      els.staffCount.textContent = String((staff||[]).length);
+      els.eventsCount.textContent = String((events||[]).length);
+      els.leftBadge.textContent = String((events||[]).length);
+    }
+
+    // ---------- left tree ----------
+    function setActiveLeft(){
+      els.viewsTree.querySelectorAll('.mlo-tree-item').forEach(li=>{
+        li.classList.toggle('active', ui.view === li.getAttribute('data-view'));
+      });
+      els.typeTree.querySelectorAll('.mlo-tree-item').forEach(li=>{
+        li.classList.toggle('active', ui.typeView === li.getAttribute('data-type'));
+      });
+    }
+
+    function renderTypeTree(){
+      const counts = {}; DAY_TYPES.forEach(t=>counts[t.key]=0);
+      events.forEach(e=>{ if (counts[e.dayType] !== undefined) counts[e.dayType]++; });
+
+      els.typeTree.innerHTML = DAY_TYPES.map(t => `
+        <li class="mlo-tree-item ${ui.typeView===t.key?'active':''}" data-type="${t.key}">
+          <span class="dot" style="background:${t.color}"></span>
+          ${esc(t.label)}
+          <span class="badge text-bg-secondary float-end">${counts[t.key]||0}</span>
+        </li>
+      `).join('');
+
+      els.typeTree.querySelectorAll('.mlo-tree-item').forEach(li=>{
+        li.addEventListener('click', ()=>{
+          ui.typeView = li.getAttribute('data-type') || '';
+          ui.view = 'all';
+          persistUI();
+          setActiveLeft();
+          renderList();
+        });
+      });
+    }
+
+    // ---------- filters ----------
+    function hydrateDayTypeSelects(){
+      els.e_dayType.innerHTML = DAY_TYPES.map(t => `<option value="${t.key}">${esc(t.label)}</option>`).join('');
+      els.dayTypeFilter.innerHTML = `<option value="">Day Type: All</option>` + DAY_TYPES.map(t => `<option value="${t.key}">${esc(t.label)}</option>`).join('');
+    }
+
+    function withinNextDays(iso, days){
+      if (!iso) return false;
+      const d = new Date(iso+'T00:00:00');
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const diff = (d - today) / (1000*60*60*24);
+      return diff >= 0 && diff <= days;
+    }
+    function isPast(iso){
+      if (!iso) return false;
+      const d = new Date(iso+'T00:00:00');
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      return d < today;
+    }
+    function inThisMonth(iso){
+      if (!iso) return false;
+      const d = new Date(iso+'T00:00:00');
+      const now = new Date();
+      return d.getFullYear()===now.getFullYear() && d.getMonth()===now.getMonth();
+    }
+    function applyViewFilters(list){
+      if (ui.typeView) return list.filter(e=>e.dayType===ui.typeView);
+      if (ui.view === 'upcoming') return list.filter(e=>withinNextDays(e.start,30));
+      if (ui.view === 'this_month') return list.filter(e=>inThisMonth(e.start));
+      if (ui.view === 'past') return list.filter(e=>isPast(e.end||e.start));
+      if (ui.view === 'completed') return list.filter(e=>e.status==='Completed');
+      if (ui.view === 'in_progress') return list.filter(e=>e.status==='Active');
+      return list;
+    }
+
+    function groupKeyFor(e){
+      if (!ui.groupBy) return '';
+      if (ui.groupBy === 'month') return monthKey(e.start);
+      if (ui.groupBy === 'dayType') return dayTypeByKey(e.dayType).label;
+      if (ui.groupBy === 'status') return e.status || '(No status)';
+      if (ui.groupBy === 'venue') return e.venue || '(No venue)';
+      return '';
+    }
+
+    function dayTypeTagHTML(key){
+      const t = dayTypeByKey(key);
+      return `<span class="tag"><span class="dot" style="background:${t.color}"></span><span>${esc(t.label)}</span></span>`;
+    }
+    function statusTagHTML(status){
+      const map = { Planned:'text-bg-secondary', Active:'text-bg-primary', Completed:'text-bg-success', Cancelled:'text-bg-danger' };
+      return `<span class="badge ${map[status]||'text-bg-secondary'}">${esc(status||'Planned')}</span>`;
+    }
+
+    // ---------- settings dropdown sources ----------
+    function hydrateSettingsSources(){
+      drivers = loadDrivers(); staff = loadStaff(); roles = loadRoles(); calendar = loadCalendar();
+      updateCounts();
+
+      const activeDrivers = (drivers||[]).filter(d=>d.active !== false);
+      els.driverSelect.innerHTML = activeDrivers.length
+        ? activeDrivers.map(d=>`<option value="${d.id}">${esc(d.displayName || ((d.firstName||'')+' '+(d.lastName||'')).trim() || 'Driver')}</option>`).join('')
+        : `<option value="">No drivers (add in Settings)</option>`;
+
+      const activeStaff = (staff||[]).filter(s=>s.active !== false);
+      els.staffSelect.innerHTML = activeStaff.length
+        ? activeStaff.map(s=>`<option value="${s.id}">${esc(s.fullName||'Staff')} — ${esc(s.primaryRole||'')}</option>`).join('')
+        : `<option value="">No staff (add in Settings)</option>`;
+
+      const activeRoles = (roles||[]).filter(r=>r.active !== false);
+      els.roleSelect.innerHTML = activeRoles.length
+        ? activeRoles.map(r=>`<option value="${r.name}">${esc(r.name)}</option>`).join('')
+        : `<option value="Crew">Crew</option>`;
+    }
+
+    // ---------- inspector ----------
+    function showInspector(on){
+      els.inspectorEmpty.style.display = on ? 'none' : '';
+      els.formEvent.style.display = on ? '' : 'none';
+    }
+    function setDayTypePreview(key){
+      const t = dayTypeByKey(key);
+      els.dayTypeDot.style.background = t.color;
+      els.dayTypeLabel.textContent = t.label;
+    }
+    function driverName(id){
+      const d = (drivers||[]).find(x=>x.id===id);
+      return d ? (d.displayName || ((d.firstName||'')+' '+(d.lastName||'')).trim() || 'Driver') : 'Unknown Driver';
+    }
+    function staffName(id){
+      const s = (staff||[]).find(x=>x.id===id);
+      return s ? (s.fullName || 'Staff') : 'Unknown Staff';
+    }
+
+    function renderDriverChips(ev){
+      const ids = Array.isArray(ev.driver_ids) ? ev.driver_ids : (ev.driver_ids=[]);
+      if (!ids.length){ els.driverChips.innerHTML = `<div class="muted">No drivers added.</div>`; return; }
+
+      els.driverChips.innerHTML = ids.map(id=>`
+        <span class="chip" data-driver="${id}">
+          ${esc(driverName(id))}
+          <span class="x" title="Remove">×</span>
+        </span>
+      `).join(' ');
+
+      els.driverChips.querySelectorAll('.chip .x').forEach(x=>{
+        x.addEventListener('click', ()=>{
+          const chip = x.closest('.chip');
+          const id = chip.getAttribute('data-driver');
+          ev.driver_ids = ev.driver_ids.filter(v=>v!==id);
+          upsertEvent(ev);
+        });
+      });
+    }
+
+    function renderCrew(ev){
+      const crew = Array.isArray(ev.crew) ? ev.crew : (ev.crew=[]);
+      if (!crew.length){ els.crewList.innerHTML = `<div class="muted">No crew assigned.</div>`; return; }
+
+      els.crewList.innerHTML = crew.map(row=>`
+        <div class="doc-row" data-crew="${row.id}">
+          <div class="doc-name">
+            <span class="chip">${esc(staffName(row.staff_id))}</span>
+            <span class="chip muted">${esc(row.role||'')}</span>
+          </div>
+          <div class="doc-meta"><a href="#" class="text-danger" data-action="remove">remove</a></div>
+        </div>
+      `).join('');
+
+      els.crewList.querySelectorAll('[data-action="remove"]').forEach(a=>{
+        a.addEventListener('click', (e)=>{
+          e.preventDefault();
+          const id = a.closest('[data-crew]').getAttribute('data-crew');
+          ev.crew = ev.crew.filter(x=>x.id!==id);
+          upsertEvent(ev);
+        });
+      });
+    }
+
+    function fmtBytes(n){
+      if (n===null || n===undefined) return '';
+      const units = ['B','KB','MB','GB'];
+      let i=0, v=n;
+      while(v>=1024 && i<units.length-1){ v/=1024; i++; }
+      return `${v.toFixed(i===0?0:1)} ${units[i]}`;
+    }
+
+    function renderDocs(ev){
+      const docs = Array.isArray(ev.docs) ? ev.docs : (ev.docs=[]);
+      if (!docs.length){ els.docList.innerHTML = `<div class="muted">No documents attached.</div>`; return; }
+
+      els.docList.innerHTML = docs.map(d=>`
+        <div class="doc-row" data-doc="${d.id}">
+          <div class="doc-name" title="${esc(d.name)}">${esc(d.name)}</div>
+          <div class="doc-meta">
+            ${esc(fmtBytes(d.size))}${d.dataUrl ? '' : ' • meta-only'}
+            &nbsp;|&nbsp; <a href="#" data-action="download">download</a>
+            &nbsp;|&nbsp; <a href="#" class="text-danger" data-action="remove">remove</a>
+          </div>
+        </div>
+      `).join('');
+
+      els.docList.querySelectorAll('[data-action="remove"]').forEach(a=>{
+        a.addEventListener('click', (e)=>{
+          e.preventDefault();
+          const id = a.closest('[data-doc]').getAttribute('data-doc');
+          ev.docs = ev.docs.filter(x=>x.id!==id);
+          upsertEvent(ev);
+        });
+      });
+
+      els.docList.querySelectorAll('[data-action="download"]').forEach(a=>{
+        a.addEventListener('click', (e)=>{
+          e.preventDefault();
+          const id = a.closest('[data-doc]').getAttribute('data-doc');
+          const d = ev.docs.find(x=>x.id===id);
+          if (!d) return;
+          if (!d.dataUrl){ alert('Stored as metadata only in prototype (too large for localStorage).'); return; }
+          const link = document.createElement('a');
+          link.href = d.dataUrl; link.download = d.name || 'document';
+          document.body.appendChild(link); link.click(); link.remove();
+        });
+      });
+    }
+
+    async function addDocsFromInput(ev, files){
+      const docs = Array.isArray(ev.docs) ? ev.docs : (ev.docs=[]);
+      const MAX_INLINE = 300 * 1024;
+
+      for (const f of files){
+        const item = { id: uid('doc'), name:f.name, type:f.type||'', size:f.size, lastModified:f.lastModified||Date.now(), dataUrl:null };
+        if (f.size <= MAX_INLINE){
+          item.dataUrl = await new Promise(res=>{
+            const fr = new FileReader();
+            fr.onload = ()=>res(fr.result);
+            fr.onerror = ()=>res(null);
+            fr.readAsDataURL(f);
+          });
+        }
+        docs.unshift(item);
+      }
+      ev.docs = docs;
+      upsertEvent(ev);
+    }
+
+    function hydrateInspector(ev){
+      if (!ev){
+        els.inspectorBadge.textContent = 'No selection';
+        showInspector(false);
+        return;
+      }
+      showInspector(true);
+      els.inspectorBadge.textContent = 'Event';
+
+      els.e_id.value = ev.id || '';
+      els.e_status.value = ev.status || 'Planned';
+      els.e_name.value = ev.name || '';
+      els.e_start.value = ev.start || '';
+      els.e_end.value = ev.end || '';
+      els.e_venue.value = ev.venue || '';
+      els.e_location.value = ev.location || '';
+      els.e_dayType.value = ev.dayType || 'race';
+      els.e_desc.value = ev.desc || '';
+      setDayTypePreview(ev.dayType || 'race');
+
+      renderDriverChips(ev);
+      renderCrew(ev);
+      renderDocs(ev);
+    }
+
+    function readInspectorInto(ev){
+      ev.status = els.e_status.value || 'Planned';
+      ev.name = (els.e_name.value || '').trim() || 'Event';
+      ev.start = els.e_start.value || '';
+      ev.end = els.e_end.value || ev.start;
+      ev.venue = (els.e_venue.value || '').trim();
+      ev.location = (els.e_location.value || '').trim();
+      ev.dayType = els.e_dayType.value || 'race';
+      ev.desc = els.e_desc.value || '';
+      return ev;
+    }
+
+    function upsertEvent(ev){
+      const idx = events.findIndex(x=>x.id===ev.id);
+      if (idx >= 0) events[idx] = ev; else events.unshift(ev);
+      persistEvents();
+      updateCounts();
+      renderTypeTree();
+      renderList();
+      hydrateInspector(ev);
+    }
+
+    // ---------- list rendering ----------
+    function renderList(){
+      const s = normalize(ui.search);
+      let list = applyViewFilters(events.slice());
+
+      if (ui.status) list = list.filter(e=>(e.status||'')===ui.status);
+      if (ui.dayType) list = list.filter(e=>(e.dayType||'')===ui.dayType);
+      if (s) list = list.filter(e=>JSON.stringify(e).toLowerCase().includes(s));
+
+      els.tbody.innerHTML = '';
+      els.empty.style.display = list.length ? 'none' : '';
+
+      const rows = [];
+      if (ui.groupBy){
+        const groups = new Map();
+        list.forEach(e=>{
+          const k = groupKeyFor(e);
+          if (!groups.has(k)) groups.set(k, []);
+          groups.get(k).push(e);
+        });
+        const entries = [...groups.entries()].sort((a,b)=>(a[0]||'').localeCompare(b[0]||''));
+
+        let idx=1;
+        for (const [k, arr] of entries){
+          const title = (ui.groupBy==='month') ? monthLabel(k) : k;
+          rows.push(`<tr class="mlo-group-row"><td colspan="10"><span class="chip">${esc(title || '(Group)')}</span></td></tr>`);
+          for (const e of arr){
+            const selected = (e.id===ui.selectedId) ? 'mlo-row-selected' : '';
+            rows.push(`
+              <tr class="${selected}" data-id="${e.id}">
+                <td>${idx++}</td>
+                <td>${esc(e.name||'Event')}</td>
+                <td>${esc(e.start||'')}</td>
+                <td>${esc(e.end||'')}</td>
+                <td>${dayTypeTagHTML(e.dayType)}</td>
+                <td>${statusTagHTML(e.status)}</td>
+                <td class="muted">${esc(e.venue||'')}</td>
+              </tr>
+            `);
+          }
+        }
+      } else {
+        list.forEach((e,i)=>{
+          const selected = (e.id===ui.selectedId) ? 'mlo-row-selected' : '';
+          rows.push(`
+            <tr class="${selected}" data-id="${e.id}">
+              <td>${i+1}</td>
+              <td>${esc(e.name||'Event')}</td>
+              <td>${esc(e.start||'')}</td>
+              <td>${esc(e.end||'')}</td>
+              <td>${dayTypeTagHTML(e.dayType)}</td>
+              <td>${statusTagHTML(e.status)}</td>
+              <td class="muted">${esc(e.venue||'')}</td>
+            </tr>
+          `);
+        });
+      }
+
+      els.tbody.innerHTML = rows.join('');
+      els.tbody.querySelectorAll('tr[data-id]').forEach(tr=>{
+        tr.addEventListener('click', ()=>{
+          ui.selectedId = tr.getAttribute('data-id');
+          persistUI();
+          renderList();
+          hydrateInspector(events.find(x=>x.id===ui.selectedId) || null);
+        });
+      });
+    }
+
+    // ---------- calendar ----------
+    function buildRosterText(ev){
+      if (!calendar || !calendar.includeRosterInDescription) return '';
+      const dl = (ev.driver_ids||[]).map(id=>`- ${driverName(id)}`);
+      const cl = (ev.crew||[]).map(r=>`- ${staffName(r.staff_id)} (${r.role||''})`);
+      let out = '';
+      if (dl.length) out += '\n\nDRIVERS\n' + dl.join('\n');
+      if (cl.length) out += '\n\nCREW\n' + cl.join('\n');
+      return out;
+    }
+
+    function openGoogleCalendarDraft(ev){
+      const title = ev.name || 'Event';
+      const location = [ev.venue, ev.location].filter(Boolean).join(' – ');
+      const details = (ev.desc || '') + buildRosterText(ev);
+      const mode = (calendar && calendar.mode) ? calendar.mode : 'all_day';
+
+      let datesParam = '';
+      if (mode === 'all_day'){
+        const start = ymdCompact(ev.start);
+        const endExclusive = ymdCompact(addDaysISO(ev.end || ev.start, 1));
+        datesParam = `${start}/${endExclusive}`;
+      } else {
+        const startDT = (ev.start || '') + 'T090000';
+        const endDT = (ev.end || ev.start || '') + 'T170000';
+        datesParam = `${startDT.replaceAll('-','')}/${endDT.replaceAll('-','')}`;
+      }
+
+      const url =
+        'https://calendar.google.com/calendar/r/eventedit?' +
+        'text=' + encodeURIComponent(title) +
+        '&dates=' + encodeURIComponent(datesParam) +
+        '&details=' + encodeURIComponent(details) +
+        '&location=' + encodeURIComponent(location);
+
+      window.open(url, '_blank', 'noopener');
+    }
+
+    function buildICS(ev){
+      const mode = (calendar && calendar.mode) ? calendar.mode : 'all_day';
+      const tz = (calendar && calendar.timezone) ? calendar.timezone : 'Africa/Johannesburg';
+
+      const uidLine = `${(ev.id || uid('evt'))}@raceteamsoftware.local`;
+      const dtStamp = new Date().toISOString().replace(/[-:]/g,'').split('.')[0] + 'Z';
+
+      const summary = (ev.name || 'Event').replace(/\n/g,' ');
+      const location = [ev.venue, ev.location].filter(Boolean).join(' – ').replace(/\n/g,' ');
+      const description = ((ev.desc || '') + buildRosterText(ev)).trim().replace(/\n/g,'\\n');
+
+      if (mode === 'all_day'){
+        const dtStart = ymdCompact(ev.start);
+        const dtEnd = ymdCompact(addDaysISO(ev.end || ev.start, 1));
+        return [
+          'BEGIN:VCALENDAR',
+          'VERSION:2.0',
+          'PRODID:-//Race Team OS//Events//EN',
+          'CALSCALE:GREGORIAN',
+          'BEGIN:VEVENT',
+          `UID:${uidLine}`,
+          `DTSTAMP:${dtStamp}`,
+          `SUMMARY:${summary}`,
+          `LOCATION:${location}`,
+          `DESCRIPTION:${description}`,
+          `DTSTART;VALUE=DATE:${dtStart}`,
+          `DTEND;VALUE=DATE:${dtEnd}`,
+          'END:VEVENT',
+          'END:VCALENDAR'
+        ].join('\r\n');
+      }
+
+      const dtStart = ymdCompact(ev.start) + 'T090000';
+      const dtEnd   = ymdCompact(ev.end || ev.start) + 'T170000';
+
+      return [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//Race Team OS//Events//EN',
+        'CALSCALE:GREGORIAN',
+        'BEGIN:VEVENT',
+        `UID:${uidLine}`,
+        `DTSTAMP:${dtStamp}`,
+        `SUMMARY:${summary}`,
+        `LOCATION:${location}`,
+        `DESCRIPTION:${description}`,
+        `DTSTART;TZID=${tz}:${dtStart}`,
+        `DTEND;TZID=${tz}:${dtEnd}`,
+        'END:VEVENT',
+        'END:VCALENDAR'
+      ].join('\r\n');
+    }
+
+    function downloadText(filename, content, mime){
+      const blob = new Blob([content], {type: mime || 'text/plain;charset=utf-8'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    // ---------- actions ----------
+    function addEvent(){
+      const now = new Date();
+      const iso = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+      const ev = { id: uid('evt'), name:'New Event', venue:'', location:'', start:iso, end:iso, status:'Planned', dayType:'race', desc:'', driver_ids:[], crew:[], docs:[] };
+      events.unshift(ev);
+      persistEvents();
+      ui.selectedId = ev.id;
+      persistUI();
+      updateCounts();
+      renderTypeTree();
+      renderList();
+      hydrateInspector(ev);
+    }
+
+    function saveSelected(){
+      const ev = events.find(x=>x.id===ui.selectedId);
+      if (!ev) return;
+      readInspectorInto(ev);
+      persistEvents();
+      renderTypeTree();
+      renderList();
+      hydrateInspector(ev);
+    }
+
+    function duplicateSelected(){
+      const src = events.find(x=>x.id===ui.selectedId);
+      if (!src) return;
+      const copy = JSON.parse(JSON.stringify(src));
+      copy.id = uid('evt');
+      copy.name = (copy.name || 'Event') + ' (Copy)';
+      copy.docs = (copy.docs||[]).map(d=>({ ...d, id: uid('doc') }));
+      copy.crew = (copy.crew||[]).map(r=>({ ...r, id: uid('crew') }));
+      events.unshift(copy);
+      persistEvents();
+      ui.selectedId = copy.id;
+      persistUI();
+      updateCounts();
+      renderTypeTree();
+      renderList();
+      hydrateInspector(copy);
+    }
+
+    function deleteSelected(){
+      const ev = events.find(x=>x.id===ui.selectedId);
+      if (!ev) return;
+      if (!confirm('Delete this event?')) return;
+      events = events.filter(x=>x.id!==ui.selectedId);
+      persistEvents();
+      ui.selectedId = '';
+      persistUI();
+      updateCounts();
+      renderTypeTree();
+      renderList();
+      hydrateInspector(null);
+    }
+
+    // ---------- binds ----------
+    function bindLeftTrees(){
+      els.viewsTree.querySelectorAll('.mlo-tree-item').forEach(li=>{
+        li.addEventListener('click', ()=>{
+          ui.view = li.getAttribute('data-view');
+          ui.typeView = '';
+          persistUI();
+          setActiveLeft();
+          renderList();
+        });
+      });
+    }
+
+    function bindControls(){
+      els.search.value = ui.search || '';
+      els.statusFilter.value = ui.status || '';
+      els.dayTypeFilter.value = ui.dayType || '';
+      els.groupBy.value = ui.groupBy || '';
+
+      els.search.addEventListener('input', ()=>{ ui.search = els.search.value; persistUI(); renderList(); });
+      els.statusFilter.addEventListener('change', ()=>{ ui.status = els.statusFilter.value; persistUI(); renderList(); });
+      els.dayTypeFilter.addEventListener('change', ()=>{ ui.dayType = els.dayTypeFilter.value; persistUI(); renderList(); });
+      els.groupBy.addEventListener('change', ()=>{ ui.groupBy = els.groupBy.value; persistUI(); renderList(); });
+
+      els.btnAdd.addEventListener('click', addEvent);
+      els.btnSave.addEventListener('click', saveSelected);
+      els.btnDuplicate.addEventListener('click', duplicateSelected);
+      els.btnDelete.addEventListener('click', deleteSelected);
+
+      els.e_dayType.addEventListener('change', ()=> setDayTypePreview(els.e_dayType.value));
+
+      els.btnAddDriver.addEventListener('click', ()=>{
+        const ev = events.find(x=>x.id===ui.selectedId);
+        if (!ev) return;
+        const id = els.driverSelect.value;
+        if (!id) return;
+        ev.driver_ids = Array.isArray(ev.driver_ids) ? ev.driver_ids : [];
+        if (!ev.driver_ids.includes(id)) ev.driver_ids.push(id);
+        upsertEvent(ev);
+      });
+
+      els.btnAddCrew.addEventListener('click', ()=>{
+        const ev = events.find(x=>x.id===ui.selectedId);
+        if (!ev) return;
+        const staffId = els.staffSelect.value;
+        const roleName = els.roleSelect.value || 'Crew';
+        if (!staffId) return;
+        ev.crew = Array.isArray(ev.crew) ? ev.crew : [];
+        ev.crew.push({ id: uid('crew'), staff_id: staffId, role: roleName });
+        upsertEvent(ev);
+      });
+
+      els.docInput.addEventListener('change', async ()=>{
+        const ev = events.find(x=>x.id===ui.selectedId);
+        if (!ev) return;
+        const files = [...(els.docInput.files || [])];
+        if (!files.length) return;
+        await addDocsFromInput(ev, files);
+        els.docInput.value = '';
+      });
+
+      els.btnClearDocs.addEventListener('click', ()=>{
+        const ev = events.find(x=>x.id===ui.selectedId);
+        if (!ev) return;
+        if (!confirm('Remove all documents from this event?')) return;
+        ev.docs = [];
+        upsertEvent(ev);
+      });
+
+      els.btnOpenGCal.addEventListener('click', ()=>{
+        const ev = events.find(x=>x.id===ui.selectedId);
+        if (!ev) return;
+        openGoogleCalendarDraft(ev);
+      });
+
+      els.btnDownloadICS.addEventListener('click', ()=>{
+        const ev = events.find(x=>x.id===ui.selectedId);
+        if (!ev) return;
+        const ics = buildICS(ev);
+        const filename = `event_${(ev.name||'event').replace(/[^a-z0-9]+/gi,'_').toLowerCase()}_${(ev.start||'date')}.ics`;
+        downloadText(filename, ics, 'text/calendar;charset=utf-8');
+      });
+
+      els.btnResetEvents.addEventListener('click', ()=>{
+        if (!confirm('Reset demo events? (Settings data stays)')) return;
+        events = seedEvents();
+        RTS.safeSaveJSON(KEYS.events, events);
+        ui.selectedId = '';
+        persistUI();
+        updateCounts();
+        renderTypeTree();
+        renderList();
+        hydrateInspector(null);
+      });
+    }
+
+    // ---------- init ----------
+    function hydrateDayTypeFilters(){
+      els.dayTypeFilter.value = ui.dayType || '';
+      els.statusFilter.value = ui.status || '';
+      els.groupBy.value = ui.groupBy || '';
+    }
+
+    function init(){
+      RTS.setActiveNav();
+      RTS.initTriPaneResizers(els.shell, KEYS.pane);
+
+      hydrateDayTypeSelects();
+      hydrateSettingsSources();
+      hydrateDayTypeFilters();
+
+      renderTypeTree();
+      bindLeftTrees();
+      bindControls();
+      setActiveLeft();
+
+      renderList();
+      hydrateInspector(events.find(x=>x.id===ui.selectedId) || null);
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+  })();
+  </script>
+</body>
+</html>

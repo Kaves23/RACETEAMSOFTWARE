@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Race Team ERP – Tasks</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="style.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <nav class="col-md-2 d-none d-md-block sidebar">
+                <ul class="nav flex-column">
+                    <li class="nav-item"><a class="nav-link" href="index.html">Dashboard</a></li>
+                    <li class="nav-item"><a class="nav-link" href="events.html">Events</a></li>
+                    <li class="nav-item"><a class="nav-link" href="tasks.html">Tasks</a></li>
+                    <li class="nav-item"><a class="nav-link" href="assets.html">Assets</a></li>
+                    <li class="nav-item"><a class="nav-link" href="inventory.html">Inventory</a></li>
+                    <li class="nav-item"><a class="nav-link" href="expenses.html">Finance</a></li>
+                    <li class="nav-section">Race Control</li>
+                    <li class="nav-item"><a class="nav-link" href="performance.html">Performance</a></li>
+                    <li class="nav-item"><a class="nav-link" href="strategy.html">Strategy</a></li>
+                    <li class="nav-item"><a class="nav-link" href="incidents.html">Incidents</a></li>
+                    <li class="nav-item"><a class="nav-link" href="integrations.html">Integrations</a></li>
+                </ul>
+            </nav>
+            <main class="col-md-10 ms-sm-auto px-4">
+                <h1 class="my-3">Tasks</h1>
+
+                <!-- MLO-inspired tri-pane task manager (dark F1 theme) -->
+                <div class="mlo-shell" id="taskShell">
+                    <!-- LEFT: perspectives + project tree -->
+                    <section class="mlo-pane mlo-pane-left" aria-label="Task navigation">
+                        <div class="mlo-pane-header">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="mlo-title">Perspectives</div>
+                                <span class="badge text-bg-secondary" id="taskCountBadge">0</span>
+                            </div>
+                        </div>
+                        <div class="mlo-pane-content">
+                            <div class="mlo-section-label">Smart lists</div>
+                            <ul class="mlo-tree" id="taskPerspectiveList">
+                                <li class="mlo-tree-item active" data-perspective="all">All Tasks</li>
+                                <li class="mlo-tree-item" data-perspective="inbox">Open (Inbox)</li>
+                                <li class="mlo-tree-item" data-perspective="today">Today</li>
+                                <li class="mlo-tree-item" data-perspective="overdue">Overdue</li>
+                                <li class="mlo-tree-item" data-perspective="next7">Next 7 Days</li>
+                                <li class="mlo-tree-item" data-perspective="completed">Completed</li>
+                            </ul>
+
+                            <div class="mlo-section-label mt-3">Projects</div>
+                            <ul class="mlo-tree" id="taskProjectList"></ul>
+                        </div>
+                    </section>
+
+                    <div class="mlo-resizer" data-resize="left" title="Drag to resize"></div>
+
+                    <!-- MIDDLE: dense list + filters -->
+                    <section class="mlo-pane mlo-pane-mid" aria-label="Task list">
+                        <div class="mlo-pane-header">
+                            <div class="d-flex flex-wrap align-items-center gap-1">
+                                <input id="taskSearch" type="text" class="form-control form-control-sm" placeholder="Search…" style="max-width: 220px;">
+                                <select id="statusFilter" class="form-select form-select-sm" style="max-width: 150px;">
+                                    <option value="">Status: All</option>
+                                    <option value="Pending">Pending</option>
+                                    <option value="In Progress">In Progress</option>
+                                    <option value="Completed">Completed</option>
+                                </select>
+                                <select id="eventFilter" class="form-select form-select-sm" style="max-width: 210px;">
+                                    <option value="">Event: All</option>
+                                </select>
+                                <select id="assigneeFilter" class="form-select form-select-sm" style="max-width: 190px;">
+                                    <option value="">Assignee: All</option>
+                                </select>
+                                <select id="groupBy" class="form-select form-select-sm" style="max-width: 160px;">
+                                    <option value="">Group: None</option>
+                                    <option value="event">Group: Event</option>
+                                    <option value="status">Group: Status</option>
+                                    <option value="assignee">Group: Assignee</option>
+                                    <option value="priority">Group: Priority</option>
+                                </select>
+                                <button class="btn btn-sm btn-outline-light mlo-btn" id="btnAddTask" type="button">Add Task</button>
+                            </div>
+                        </div>
+                        <div class="mlo-pane-content" style="padding: 0;">
+                            <table class="table table-dark table-hover mlo-table" style="margin:0;">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 58px;">#</th>
+                                        <th>Title</th>
+                                        <th style="width: 200px;">Event</th>
+                                        <th style="width: 170px;">Assignee</th>
+                                        <th style="width: 135px;">Status</th>
+                                        <th style="width: 120px;">Due</th>
+                                        <th style="width: 110px;">Priority</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tasks-body"></tbody>
+                            </table>
+                        </div>
+                    </section>
+
+                    <div class="mlo-resizer" data-resize="right" title="Drag to resize"></div>
+
+                    <!-- RIGHT: inspector -->
+                    <section class="mlo-pane mlo-pane-right mlo-inspector" aria-label="Task inspector">
+                        <div class="mlo-pane-header">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="mlo-title">Inspector</div>
+                                <span class="badge text-bg-secondary" id="inspectorBadge">No selection</span>
+                            </div>
+                        </div>
+                        <div class="mlo-pane-content">
+                            <form id="taskForm" autocomplete="off">
+                                <div class="row g-2">
+                                    <div class="col-4">
+                                        <label for="f_id" class="form-label">ID</label>
+                                        <input id="f_id" class="form-control form-control-sm" type="text" readonly>
+                                    </div>
+                                    <div class="col-8">
+                                        <label for="f_title" class="form-label">Title</label>
+                                        <input id="f_title" class="form-control form-control-sm" type="text" placeholder="e.g. Re-bleed brakes">
+                                    </div>
+                                    <div class="col-12">
+                                        <label for="f_desc" class="form-label">Description</label>
+                                        <textarea id="f_desc" class="form-control form-control-sm" rows="2" placeholder="Detailed task description, measurements, constraints, acceptance criteria…"></textarea>
+                                    </div>
+
+                                    <div class="col-12">
+                                        <label for="f_event" class="form-label">Event / Project</label>
+                                        <input id="f_event" class="form-control form-control-sm" type="text" placeholder="Event name">
+                                    </div>
+
+                                    <div class="col-7">
+                                        <label for="f_assignee" class="form-label">Assigned To</label>
+                                        <input id="f_assignee" class="form-control form-control-sm" type="text" placeholder="Person / Role">
+                                    </div>
+                                    <div class="col-5">
+                                        <label for="f_status" class="form-label">Status</label>
+                                        <select id="f_status" class="form-select form-select-sm">
+                                            <option value="Pending">Pending</option>
+                                            <option value="In Progress">In Progress</option>
+                                            <option value="Completed">Completed</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="col-6">
+                                        <label for="f_start" class="form-label">Start</label>
+                                        <input id="f_start" class="form-control form-control-sm" type="date">
+                                    </div>
+                                    <div class="col-6">
+                                        <label for="f_due" class="form-label">Due</label>
+                                        <input id="f_due" class="form-control form-control-sm" type="date">
+                                    </div>
+
+                                    <div class="col-6">
+                                        <label for="f_priority" class="form-label">Priority</label>
+                                        <select id="f_priority" class="form-select form-select-sm">
+                                            <option value="Low">Low</option>
+                                            <option value="Medium">Medium</option>
+                                            <option value="High">High</option>
+                                            <option value="Critical">Critical</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-3">
+                                        <label for="f_est" class="form-label">Est. (h)</label>
+                                        <input id="f_est" class="form-control form-control-sm" type="number" min="0" step="0.25">
+                                    </div>
+                                    <div class="col-3">
+                                        <label for="f_act" class="form-label">Act. (h)</label>
+                                        <input id="f_act" class="form-control form-control-sm" type="number" min="0" step="0.25">
+                                    </div>
+
+                                    <div class="col-12">
+                                        <label for="f_tags" class="form-label">Tags</label>
+                                        <input id="f_tags" class="form-control form-control-sm" type="text" placeholder="e.g. #engine #spares #scrutineering">
+                                    </div>
+                                    <div class="col-12">
+                                        <label for="f_notes" class="form-label">Notes</label>
+                                        <textarea id="f_notes" class="form-control form-control-sm" rows="4" placeholder="Observations, measurements, torque specs, part numbers, photos reference…"></textarea>
+                                    </div>
+
+                                    <div class="col-12 d-flex gap-1 mt-1">
+                                        <button class="btn btn-sm btn-primary mlo-btn" id="btnSave" type="button">Save</button>
+                                        <button class="btn btn-sm btn-outline-light mlo-btn" id="btnDuplicate" type="button">Duplicate</button>
+                                        <button class="btn btn-sm btn-outline-danger mlo-btn" id="btnDelete" type="button">Delete</button>
+                                    </div>
+
+                                    <div class="col-12" style="margin-top:0.35rem;">
+                                        <div class="text-secondary" style="font-size:0.75rem;">
+                                            <div><span style="opacity:0.7;">Created:</span> <span id="metaCreated">—</span></div>
+                                            <div><span style="opacity:0.7;">Updated:</span> <span id="metaUpdated">—</span></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </section>
+                </div>
+            </main>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="core.js"></script>
+    <script>RTS.setActiveNav();</script>
+    <script>
+    (function () {
+        const LS_TASKS = 'rts.tasks.v3';
+        const LS_UI = 'rts.tasks.ui.v3';
+
+        const STATUS = ['Pending', 'In Progress', 'Completed'];
+        const PRIORITY = ['Low', 'Medium', 'High', 'Critical'];
+        const EVENTS = [
+            'National Championship R1',
+            'National Championship R2',
+            'Test Day',
+            'Regional R1',
+            'Regional R2',
+            'Regional R3',
+            'Regional R4',
+            'International Trip',
+            'Promo Day',
+            'Support / Workshop'
+        ];
+        const ASSIGNEES = [
+            'Mechanic #1','Mechanic #2','Mechanic #3','Mechanic #4','Mechanic #5','Mechanic #6',
+            'Race Engineer','Team Manager','Parts Controller','Finance / Admin'
+        ];
+
+        const els = {
+            shell: document.getElementById('taskShell'),
+            tbody: document.getElementById('tasks-body'),
+            countBadge: document.getElementById('taskCountBadge'),
+            inspectorBadge: document.getElementById('inspectorBadge'),
+            metaCreated: document.getElementById('metaCreated'),
+            metaUpdated: document.getElementById('metaUpdated'),
+            perspectiveList: document.getElementById('taskPerspectiveList'),
+            projectList: document.getElementById('taskProjectList'),
+            search: document.getElementById('taskSearch'),
+            status: document.getElementById('statusFilter'),
+            event: document.getElementById('eventFilter'),
+            assignee: document.getElementById('assigneeFilter'),
+            groupBy: document.getElementById('groupBy'),
+            btnAdd: document.getElementById('btnAddTask'),
+            btnSave: document.getElementById('btnSave'),
+            btnDup: document.getElementById('btnDuplicate'),
+            btnDel: document.getElementById('btnDelete'),
+            f: {
+                id: document.getElementById('f_id'),
+                title: document.getElementById('f_title'),
+                desc: document.getElementById('f_desc'),
+                event: document.getElementById('f_event'),
+                assignee: document.getElementById('f_assignee'),
+                status: document.getElementById('f_status'),
+                start: document.getElementById('f_start'),
+                due: document.getElementById('f_due'),
+                priority: document.getElementById('f_priority'),
+                est: document.getElementById('f_est'),
+                act: document.getElementById('f_act'),
+                tags: document.getElementById('f_tags'),
+                notes: document.getElementById('f_notes'),
+            }
+        };
+
+        /**
+         * State
+         */
+        let tasks = [];
+        let ui = {
+            perspective: 'all',
+            search: '',
+            status: '',
+            event: '',
+            assignee: '',
+            groupBy: 'event',
+            selectedId: null,
+            paneLeftWidth: 240,
+            paneRightWidth: 380,
+        };
+
+        function nowISO() {
+            return new Date().toISOString();
+        }
+
+        function toDateInput(iso) {
+            if (!iso) return '';
+            const d = new Date(iso);
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        }
+
+        function fromDateInput(v) {
+            if (!v) return '';
+            // store as ISO at 00:00 local
+            const [y,m,d] = v.split('-').map(Number);
+            const dt = new Date(y, m-1, d, 0, 0, 0);
+            return dt.toISOString();
+        }
+
+        function addDaysISO(days) {
+            const d = new Date();
+            d.setDate(d.getDate() + days);
+            return d.toISOString();
+        }
+
+        function safeParse(json, fallback) {
+            try { return JSON.parse(json); } catch { return fallback; }
+        }
+
+        function load() {
+            const storedTasks = localStorage.getItem(LS_TASKS);
+            const storedUi = localStorage.getItem(LS_UI);
+            tasks = storedTasks ? safeParse(storedTasks, []) : [];
+            ui = storedUi ? { ...ui, ...safeParse(storedUi, {}) } : ui;
+
+            if (!Array.isArray(tasks) || tasks.length === 0) {
+                tasks = seedTasks();
+                persistTasks();
+            }
+
+            // apply pane widths
+            const left = els.shell.querySelector('.mlo-pane-left');
+            const right = els.shell.querySelector('.mlo-pane-right');
+            if (left) left.style.width = `${ui.paneLeftWidth}px`;
+            if (right) right.style.width = `${ui.paneRightWidth}px`;
+        }
+
+        function persistTasks() {
+            localStorage.setItem(LS_TASKS, JSON.stringify(tasks));
+        }
+
+        function persistUi() {
+            localStorage.setItem(LS_UI, JSON.stringify(ui));
+        }
+
+        function seedTasks() {
+            const base = [
+                {
+                    id: 1,
+                    title: 'Prep chassis',
+                    description: 'Pre-event chassis inspection, alignment, chain line, axle check, fastener torque marks.',
+                    event: 'National Championship R1',
+                    assignee: 'Mechanic #1',
+                    status: 'Completed',
+                    priority: 'High',
+                    startDate: addDaysISO(-7),
+                    dueDate: addDaysISO(-2),
+                    estHours: 2.5,
+                    actHours: 2.25,
+                    tags: '#workshop #prep',
+                    notes: 'Confirm ride height + rear track. Replace any suspect nylocs.',
+                    createdAt: addDaysISO(-10),
+                    updatedAt: addDaysISO(-3),
+                },
+                {
+                    id: 2,
+                    title: 'Book accommodation',
+                    description: 'Confirm rooms, check-in times, cancellation window, and invoice to Finance.',
+                    event: 'National Championship R1',
+                    assignee: 'Team Manager',
+                    status: 'In Progress',
+                    priority: 'Medium',
+                    startDate: addDaysISO(-5),
+                    dueDate: addDaysISO(1),
+                    estHours: 1,
+                    actHours: 0.25,
+                    tags: '#logistics',
+                    notes: 'Prefer close to circuit, parking for trailer.',
+                    createdAt: addDaysISO(-8),
+                    updatedAt: nowISO(),
+                },
+                {
+                    id: 3,
+                    title: 'Engine rebuild',
+                    description: 'Top-end inspection, check piston/cylinder, replace seals, set squish, verify jetting baseline.',
+                    event: 'Test Day',
+                    assignee: 'Mechanic #2',
+                    status: 'Pending',
+                    priority: 'Critical',
+                    startDate: '',
+                    dueDate: addDaysISO(3),
+                    estHours: 6,
+                    actHours: 0,
+                    tags: '#engine #service',
+                    notes: 'Log engine hours and seal number. Photograph bore cross-hatch.',
+                    createdAt: addDaysISO(-6),
+                    updatedAt: addDaysISO(-6),
+                },
+                {
+                    id: 4,
+                    title: 'Prepare driver brief',
+                    description: 'Schedule, objectives, baseline setup, tyre/fuel plan, comms protocol and safety reminders.',
+                    event: 'National Championship R2',
+                    assignee: 'Race Engineer',
+                    status: 'In Progress',
+                    priority: 'High',
+                    startDate: addDaysISO(-1),
+                    dueDate: addDaysISO(2),
+                    estHours: 1.5,
+                    actHours: 0.5,
+                    tags: '#briefing #drivers',
+                    notes: 'Include wet plan and gearing ranges.',
+                    createdAt: addDaysISO(-4),
+                    updatedAt: nowISO(),
+                }
+            ];
+
+            let id = 5;
+            for (; id <= 100; id++) {
+                const event = EVENTS[(id - 1) % EVENTS.length];
+                const assignee = ASSIGNEES[(id - 1) % ASSIGNEES.length];
+                const status = STATUS[(id - 1) % STATUS.length];
+                const priority = PRIORITY[(id - 1) % PRIORITY.length];
+                const dueIn = (id % 14) - 3; // some overdue, some future
+                base.push({
+                    id,
+                    title: `Task ${id}`,
+                    description: `Detailed scope for Task ${id}. Record measurements, part numbers, and acceptance criteria here.`,
+                    event,
+                    assignee,
+                    status,
+                    priority,
+                    startDate: status === 'Pending' ? '' : addDaysISO(-(id % 10)),
+                    dueDate: addDaysISO(dueIn),
+                    estHours: Number(((id % 8) * 0.5 + 0.5).toFixed(2)),
+                    actHours: status === 'Completed' ? Number(((id % 6) * 0.5 + 0.25).toFixed(2)) : 0,
+                    tags: (id % 3 === 0) ? '#workshop #prep' : (id % 3 === 1) ? '#trackside #ops' : '#admin #logistics',
+                    notes: '',
+                    createdAt: addDaysISO(-((id % 20) + 1)),
+                    updatedAt: addDaysISO(-((id % 7))),
+                });
+            }
+            return base;
+        }
+
+        function renderProjectTree() {
+            const events = Array.from(new Set(tasks.map(t => t.event))).sort();
+            els.projectList.innerHTML = '';
+            for (const ev of events) {
+                const li = document.createElement('li');
+                li.className = 'mlo-tree-item';
+                li.dataset.event = ev;
+                li.textContent = ev;
+                els.projectList.appendChild(li);
+            }
+        }
+
+        function renderFilterOptions() {
+            // events
+            const evs = Array.from(new Set(tasks.map(t => t.event))).sort();
+            const assignees = Array.from(new Set(tasks.map(t => t.assignee))).sort();
+
+            const curEv = ui.event;
+            const curAs = ui.assignee;
+
+            els.event.innerHTML = '<option value="">Event: All</option>' + evs.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
+            els.assignee.innerHTML = '<option value="">Assignee: All</option>' + assignees.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
+
+            els.event.value = curEv;
+            els.assignee.value = curAs;
+        }
+
+        function escapeHtml(str) {
+            return String(str)
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#039;');
+        }
+
+        function isSameDay(aIso, b) {
+            if (!aIso) return false;
+            const a = new Date(aIso);
+            return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+        }
+
+        function inNextDays(iso, days) {
+            if (!iso) return false;
+            const d = new Date(iso);
+            const now = new Date();
+            const end = new Date();
+            end.setDate(now.getDate() + days);
+            return d >= now && d <= end;
+        }
+
+        function isOverdue(iso) {
+            if (!iso) return false;
+            const d = new Date(iso);
+            const now = new Date();
+            // treat due as end of day
+            const end = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59);
+            return end < now;
+        }
+
+        function applyFilters(list) {
+            const q = (ui.search || '').trim().toLowerCase();
+            const today = new Date();
+            let out = list.slice();
+
+            // smart list / perspective
+            if (ui.perspective === 'inbox') {
+                out = out.filter(t => t.status !== 'Completed');
+            } else if (ui.perspective === 'today') {
+                out = out.filter(t => t.status !== 'Completed' && isSameDay(t.dueDate, today));
+            } else if (ui.perspective === 'overdue') {
+                out = out.filter(t => t.status !== 'Completed' && isOverdue(t.dueDate));
+            } else if (ui.perspective === 'next7') {
+                out = out.filter(t => t.status !== 'Completed' && inNextDays(t.dueDate, 7));
+            } else if (ui.perspective === 'completed') {
+                out = out.filter(t => t.status === 'Completed');
+            }
+
+            // explicit filters
+            if (ui.status) out = out.filter(t => t.status === ui.status);
+            if (ui.event) out = out.filter(t => t.event === ui.event);
+            if (ui.assignee) out = out.filter(t => t.assignee === ui.assignee);
+            if (q) {
+                out = out.filter(t => (
+                    (t.title || '').toLowerCase().includes(q) ||
+                    (t.description || '').toLowerCase().includes(q) ||
+                    (t.event || '').toLowerCase().includes(q) ||
+                    (t.assignee || '').toLowerCase().includes(q) ||
+                    (t.tags || '').toLowerCase().includes(q)
+                ));
+            }
+
+            // sort: due asc, priority desc
+            const prRank = { 'Critical': 4, 'High': 3, 'Medium': 2, 'Low': 1 };
+            out.sort((a,b) => {
+                const ad = a.dueDate ? new Date(a.dueDate).getTime() : 9e15;
+                const bd = b.dueDate ? new Date(b.dueDate).getTime() : 9e15;
+                if (ad !== bd) return ad - bd;
+                return (prRank[b.priority] || 0) - (prRank[a.priority] || 0);
+            });
+            return out;
+        }
+
+        function badgeForStatus(status) {
+            if (status === 'Completed') return '<span class="badge bg-success">Completed</span>';
+            if (status === 'In Progress') return '<span class="badge bg-warning text-dark">In Progress</span>';
+            return '<span class="badge bg-danger">Pending</span>';
+        }
+
+        function renderTable() {
+            const filtered = applyFilters(tasks);
+            els.countBadge.textContent = String(filtered.length);
+            els.tbody.innerHTML = '';
+
+            const groupBy = ui.groupBy || '';
+            if (!groupBy) {
+                for (const t of filtered) {
+                    els.tbody.appendChild(renderRow(t));
+                }
+            } else {
+                const groups = new Map();
+                for (const t of filtered) {
+                    const key = (t[groupBy] || '—');
+                    if (!groups.has(key)) groups.set(key, []);
+                    groups.get(key).push(t);
+                }
+                const keys = Array.from(groups.keys()).sort();
+                for (const key of keys) {
+                    const grp = groups.get(key);
+                    const trh = document.createElement('tr');
+                    trh.className = 'mlo-group-row';
+                    trh.innerHTML = `<td colspan="7">${escapeHtml(groupBy.toUpperCase())}: ${escapeHtml(key)} <span style="opacity:0.7; font-weight:600;">(${grp.length})</span></td>`;
+                    els.tbody.appendChild(trh);
+                    for (const t of grp) {
+                        els.tbody.appendChild(renderRow(t));
+                    }
+                }
+            }
+
+            // highlight selection
+            if (ui.selectedId !== null) {
+                const row = els.tbody.querySelector(`tr[data-id="${ui.selectedId}"]`);
+                if (row) row.classList.add('mlo-row-selected');
+            }
+        }
+
+        function renderRow(t) {
+            const tr = document.createElement('tr');
+            tr.dataset.id = String(t.id);
+            tr.innerHTML = `
+                <th scope="row">${t.id}</th>
+                <td>${escapeHtml(t.title)}</td>
+                <td>${escapeHtml(t.event)}</td>
+                <td>${escapeHtml(t.assignee)}</td>
+                <td>${badgeForStatus(t.status)}</td>
+                <td>${t.dueDate ? escapeHtml(toDateInput(t.dueDate)) : '—'}</td>
+                <td>${escapeHtml(t.priority)}</td>
+            `;
+            tr.addEventListener('click', () => selectTask(t.id));
+            return tr;
+        }
+
+        function selectTask(id) {
+            ui.selectedId = id;
+            persistUi();
+            const task = tasks.find(t => t.id === id);
+            hydrateInspector(task);
+            renderTable();
+        }
+
+        function hydrateInspector(t) {
+            if (!t) {
+                els.inspectorBadge.textContent = 'No selection';
+                els.inspectorBadge.className = 'badge text-bg-secondary';
+                Object.values(els.f).forEach(el => el.disabled = true);
+                els.btnSave.disabled = true;
+                els.btnDup.disabled = true;
+                els.btnDel.disabled = true;
+                els.metaCreated.textContent = '—';
+                els.metaUpdated.textContent = '—';
+                return;
+            }
+
+            Object.values(els.f).forEach(el => el.disabled = false);
+            els.btnSave.disabled = false;
+            els.btnDup.disabled = false;
+            els.btnDel.disabled = false;
+
+            els.inspectorBadge.textContent = `#${t.id}`;
+            els.inspectorBadge.className = 'badge text-bg-secondary';
+
+            els.f.id.value = String(t.id);
+            els.f.title.value = t.title || '';
+            els.f.desc.value = t.description || '';
+            els.f.event.value = t.event || '';
+            els.f.assignee.value = t.assignee || '';
+            els.f.status.value = t.status || 'Pending';
+            els.f.start.value = toDateInput(t.startDate);
+            els.f.due.value = toDateInput(t.dueDate);
+            els.f.priority.value = t.priority || 'Medium';
+            els.f.est.value = (t.estHours ?? '');
+            els.f.act.value = (t.actHours ?? '');
+            els.f.tags.value = t.tags || '';
+            els.f.notes.value = t.notes || '';
+
+            els.metaCreated.textContent = t.createdAt ? new Date(t.createdAt).toLocaleString() : '—';
+            els.metaUpdated.textContent = t.updatedAt ? new Date(t.updatedAt).toLocaleString() : '—';
+        }
+
+        function upsertFromInspector() {
+            if (ui.selectedId === null) return;
+            const idx = tasks.findIndex(t => t.id === ui.selectedId);
+            if (idx === -1) return;
+            const t = tasks[idx];
+
+            t.title = els.f.title.value.trim() || `Task ${t.id}`;
+            t.description = els.f.desc.value;
+            t.event = els.f.event.value.trim() || 'Support / Workshop';
+            t.assignee = els.f.assignee.value.trim() || 'Unassigned';
+            t.status = els.f.status.value;
+            t.startDate = fromDateInput(els.f.start.value);
+            t.dueDate = fromDateInput(els.f.due.value);
+            t.priority = els.f.priority.value;
+            t.estHours = Number(els.f.est.value || 0);
+            t.actHours = Number(els.f.act.value || 0);
+            t.tags = els.f.tags.value;
+            t.notes = els.f.notes.value;
+            t.updatedAt = nowISO();
+
+            tasks[idx] = t;
+            persistTasks();
+
+            // Rebuild dynamic filter sources
+            renderProjectTree();
+            renderFilterOptions();
+            renderTable();
+            hydrateInspector(t);
+        }
+
+        function addTask() {
+            const maxId = tasks.reduce((m, t) => Math.max(m, t.id), 0);
+            const newId = maxId + 1;
+            const ev = ui.event || EVENTS[0];
+            const as = ui.assignee || ASSIGNEES[0];
+            const t = {
+                id: newId,
+                title: `New Task ${newId}`,
+                description: '',
+                event: ev,
+                assignee: as,
+                status: 'Pending',
+                priority: 'Medium',
+                startDate: '',
+                dueDate: addDaysISO(3),
+                estHours: 0,
+                actHours: 0,
+                tags: '',
+                notes: '',
+                createdAt: nowISO(),
+                updatedAt: nowISO(),
+            };
+            tasks.push(t);
+            persistTasks();
+            renderProjectTree();
+            renderFilterOptions();
+            selectTask(newId);
+        }
+
+        function duplicateSelected() {
+            if (ui.selectedId === null) return;
+            const src = tasks.find(t => t.id === ui.selectedId);
+            if (!src) return;
+            const maxId = tasks.reduce((m, t) => Math.max(m, t.id), 0);
+            const newId = maxId + 1;
+            const copy = { ...src, id: newId, title: `${src.title} (Copy)`, createdAt: nowISO(), updatedAt: nowISO() };
+            tasks.push(copy);
+            persistTasks();
+            renderProjectTree();
+            renderFilterOptions();
+            selectTask(newId);
+        }
+
+        function deleteSelected() {
+            if (ui.selectedId === null) return;
+            const src = tasks.find(t => t.id === ui.selectedId);
+            if (!src) return;
+            if (!confirm(`Delete task #${src.id} — ${src.title}?`)) return;
+            tasks = tasks.filter(t => t.id !== ui.selectedId);
+            ui.selectedId = null;
+            persistTasks();
+            persistUi();
+            renderProjectTree();
+            renderFilterOptions();
+            renderTable();
+            hydrateInspector(null);
+        }
+
+        function setActiveTreeItem(container, predicate) {
+            container.querySelectorAll('.mlo-tree-item').forEach(li => {
+                li.classList.toggle('active', predicate(li));
+            });
+        }
+
+        function bindTree() {
+            els.perspectiveList.addEventListener('click', (e) => {
+                const li = e.target.closest('.mlo-tree-item');
+                if (!li) return;
+                const p = li.dataset.perspective;
+                ui.perspective = p || 'all';
+                persistUi();
+                setActiveTreeItem(els.perspectiveList, (x) => x.dataset.perspective === ui.perspective);
+                renderTable();
+            });
+
+            els.projectList.addEventListener('click', (e) => {
+                const li = e.target.closest('.mlo-tree-item');
+                if (!li) return;
+                ui.event = li.dataset.event || '';
+                els.event.value = ui.event;
+                persistUi();
+                setActiveTreeItem(els.projectList, (x) => x.dataset.event === ui.event);
+                renderTable();
+            });
+        }
+
+        function bindFilters() {
+            els.search.value = ui.search;
+            els.status.value = ui.status;
+            els.groupBy.value = ui.groupBy;
+
+            els.search.addEventListener('input', () => {
+                ui.search = els.search.value;
+                persistUi();
+                renderTable();
+            });
+            els.status.addEventListener('change', () => {
+                ui.status = els.status.value;
+                persistUi();
+                renderTable();
+            });
+            els.event.addEventListener('change', () => {
+                ui.event = els.event.value;
+                persistUi();
+                // reflect in project tree
+                setActiveTreeItem(els.projectList, (x) => x.dataset.event === ui.event);
+                renderTable();
+            });
+            els.assignee.addEventListener('change', () => {
+                ui.assignee = els.assignee.value;
+                persistUi();
+                renderTable();
+            });
+            els.groupBy.addEventListener('change', () => {
+                ui.groupBy = els.groupBy.value;
+                persistUi();
+                renderTable();
+            });
+        }
+
+        function bindButtons() {
+            els.btnAdd.addEventListener('click', addTask);
+            els.btnSave.addEventListener('click', upsertFromInspector);
+            els.btnDup.addEventListener('click', duplicateSelected);
+            els.btnDel.addEventListener('click', deleteSelected);
+        }
+
+        function bindResizers() {
+            const leftPane = els.shell.querySelector('.mlo-pane-left');
+            const rightPane = els.shell.querySelector('.mlo-pane-right');
+            const resizers = els.shell.querySelectorAll('.mlo-resizer');
+            resizers.forEach(r => {
+                r.addEventListener('mousedown', (ev) => {
+                    ev.preventDefault();
+                    const kind = r.dataset.resize;
+                    const startX = ev.clientX;
+                    const startLeft = leftPane.getBoundingClientRect().width;
+                    const startRight = rightPane.getBoundingClientRect().width;
+
+                    function onMove(e) {
+                        const dx = e.clientX - startX;
+                        if (kind === 'left') {
+                            const w = Math.max(180, Math.min(420, startLeft + dx));
+                            leftPane.style.width = `${w}px`;
+                            ui.paneLeftWidth = Math.round(w);
+                        } else {
+                            const w = Math.max(260, Math.min(520, startRight - dx));
+                            rightPane.style.width = `${w}px`;
+                            ui.paneRightWidth = Math.round(w);
+                        }
+                        persistUi();
+                    }
+
+                    function onUp() {
+                        document.removeEventListener('mousemove', onMove);
+                        document.removeEventListener('mouseup', onUp);
+                    }
+
+                    document.addEventListener('mousemove', onMove);
+                    document.addEventListener('mouseup', onUp);
+                });
+            });
+        }
+
+        function init() {
+            load();
+            renderProjectTree();
+            renderFilterOptions();
+
+            // apply ui state to controls
+            els.search.value = ui.search || '';
+            els.status.value = ui.status || '';
+            els.event.value = ui.event || '';
+            els.assignee.value = ui.assignee || '';
+            els.groupBy.value = ui.groupBy || '';
+
+            setActiveTreeItem(els.perspectiveList, (x) => x.dataset.perspective === (ui.perspective || 'all'));
+            setActiveTreeItem(els.projectList, (x) => x.dataset.event === ui.event);
+
+            bindTree();
+            bindFilters();
+            bindButtons();
+            bindResizers();
+
+            renderTable();
+
+            if (ui.selectedId) {
+                hydrateInspector(tasks.find(t => t.id === ui.selectedId));
+            } else {
+                hydrateInspector(null);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    })();
+    </script>
+</body>
+</html>
