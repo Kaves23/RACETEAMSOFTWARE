@@ -216,6 +216,48 @@
     }
   }
 
+  // ----------------------------
+  // API facade: talk to PITWALL server when available, fallback to localStorage
+  // ----------------------------
+  const API_BASE = (function(){
+    try { return window.RTS_CONFIG && window.RTS_CONFIG.apiBase ? window.RTS_CONFIG.apiBase : ((location.hostname==='localhost' || location.hostname==='127.0.0.1') ? 'http://localhost:9090' : ''); } catch(_e){ return ''; }
+  })();
+
+  async function apiFetch(path, opts){
+    opts = opts || {};
+    if (!API_BASE) throw new Error('No API_BASE configured');
+    const url = (path.indexOf('/')===0) ? (API_BASE + path) : (API_BASE + '/' + path);
+    const res = await fetch(url, opts);
+    if (!res.ok) throw new Error('API error: ' + res.status + ' ' + res.statusText);
+    return res.json();
+  }
+
+  // High-level sync helpers. These try the API first and fall back to localStorage on failure.
+  async function apiGetCollection(collection){
+    try {
+      if (!API_BASE) throw new Error('No API');
+      const r = await apiFetch(`/api/${collection}`);
+      if (r && r.ok) return r.items || r[collection] || [];
+      throw new Error('Bad payload');
+    } catch (err){
+      // fallback: read localStorage
+      try { return safeLoadJSON('rts.' + collection + '.v4', []); } catch(_e){ return []; }
+    }
+  }
+
+  async function apiSyncCollection(collection, items){
+    try {
+      if (!API_BASE) throw new Error('No API');
+      const r = await apiFetch(`/api/${collection}/sync`, { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ items }) });
+      return r;
+    } catch (err){
+      // fallback: persist locally
+      safeSaveJSON('rts.' + collection + '.v4', items || []);
+      return { ok:false, error: String(err) };
+    }
+  }
+
+
   function setQueryParam(name, value, mode){
     // mode: 'replace' (default) or 'push'
     try {
@@ -605,6 +647,10 @@
     openWithTab
     ,
     safePickDriveFiles,
+    // api helpers
+    apiFetch: apiFetch,
+    apiGetCollection: apiGetCollection,
+    apiSyncCollection: apiSyncCollection,
     activateTabFromQuery
   };
 })();
