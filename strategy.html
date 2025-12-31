@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Race Team OS – Strategy</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="style.css" rel="stylesheet" />
+  <style>
+    /* Keep middle table single-line */
+    #strTbody td, #strTbody th { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    /* Setup/feedback panel */
+    .log-block { background:#0f1115; border:1px solid rgba(255,255,255,0.08); padding:0.6rem; border-radius:0.25rem; }
+    .log-block h6 { margin:0 0 0.35rem 0; font-size:0.85rem; letter-spacing:0.02em; color:#c7cbd2; }
+    .log-row { display:flex; align-items:center; gap:0.4rem; margin-bottom:0.35rem; }
+    .log-row input { flex:1; }
+  </style>
+</head>
+<body>
+  <div id="rtsTopNav"></div>
+  <div class="rts-main container-fluid">
+    <h1 class="my-3">Strategy</h1>
+
+    <div class="mlo-shell" id="strShell">
+      <!-- LEFT -->
+      <section class="mlo-pane mlo-pane-left" aria-label="Strategy navigation">
+        <div class="mlo-pane-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="mlo-title">Sessions</div>
+            <span class="badge text-bg-secondary" id="strCountBadge">0</span>
+          </div>
+        </div>
+        <div class="mlo-pane-content">
+          <div class="mlo-section-label">Smart lists</div>
+          <ul class="mlo-tree pastel-tree" id="strPerspectiveList">
+            <li class="active" data-perspective="all">All</li>
+            <li data-perspective="upcoming">Upcoming</li>
+            <li data-perspective="today">Today</li>
+            <li data-perspective="complete">Completed</li>
+            <li data-perspective="qa">QA/Review</li>
+          </ul>
+
+          <div class="mlo-section-label mt-3">Events</div>
+          <ul class="mlo-tree pastel-tree" id="strEventList"></ul>
+        </div>
+      </section>
+
+      <div class="mlo-resizer" data-resize="left" title="Drag to resize"></div>
+
+      <!-- MIDDLE -->
+      <section class="mlo-pane mlo-pane-mid" aria-label="Strategy list">
+        <div class="mlo-pane-header">
+          <div class="d-flex flex-wrap align-items-center gap-1">
+            <input id="strSearch" type="text" class="form-control form-control-sm" placeholder="Search…" style="max-width: 220px;">
+            <select id="strEventFilter" class="form-select form-select-sm" style="max-width: 220px;"></select>
+            <select id="strStatusFilter" class="form-select form-select-sm" style="max-width: 160px;">
+              <option value="">Status: All</option>
+              <option>Planned</option>
+              <option>In Progress</option>
+              <option>Complete</option>
+            </select>
+            <select id="strGroup" class="form-select form-select-sm" style="max-width: 180px;">
+              <option value="">Group: None</option>
+              <option value="event">Group: Event</option>
+              <option value="status">Group: Status</option>
+              <option value="type">Group: Session type</option>
+            </select>
+            <button class="btn btn-sm btn-outline-light mlo-btn" id="btnAddStr" type="button">Add Session</button>
+            <button class="btn btn-sm btn-outline-light mlo-btn" id="btnPDF" type="button">PDF View</button>
+          </div>
+        </div>
+        <div class="mlo-pane-content" style="padding:0;">
+          <table class="table table-dark table-hover mlo-table" style="margin:0;">
+            <thead>
+              <tr>
+                <th style="width:60px;">#</th>
+                <th>Session</th>
+                <th style="width:220px;">Event</th>
+                <th style="width:140px;">Type</th>
+                <th style="width:140px;">Tyre set</th>
+                <th style="width:120px;">Status</th>
+                <th style="width:140px;">Updated</th>
+              </tr>
+            </thead>
+            <tbody id="strTbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <div class="mlo-resizer" data-resize="right" title="Drag to resize"></div>
+
+      <!-- RIGHT -->
+      <section class="mlo-pane mlo-pane-right mlo-inspector" aria-label="Strategy inspector">
+        <div class="mlo-pane-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="mlo-title">Inspector</div>
+            <span class="badge text-bg-secondary" id="strInspectorBadge">No selection</span>
+          </div>
+        </div>
+        <div class="mlo-pane-content">
+          <form id="strForm" autocomplete="off">
+            <ul class="nav nav-tabs nav-dark mb-2" role="tablist">
+              <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="tab-str-details" data-bs-toggle="tab" data-bs-target="#pane-str-details" type="button" role="tab" aria-controls="pane-str-details" aria-selected="true">Details</button>
+              </li>
+            </ul>
+            <div class="tab-content">
+              <div class="tab-pane fade show active" id="pane-str-details" role="tabpanel" aria-labelledby="tab-str-details">
+                <div class="row g-2">
+              <div class="col-6">
+                <label class="form-label">Session name</label>
+                <input id="f_str_name" class="form-control form-control-sm" type="text" placeholder="FP1 / Qualy / Race run">
+              </div>
+              <div class="col-6">
+                <label class="form-label">Status</label>
+                <select id="f_str_status" class="form-select form-select-sm">
+                  <option>Planned</option>
+                  <option>In Progress</option>
+                  <option>Complete</option>
+                </select>
+              </div>
+
+              <div class="col-6">
+                <label class="form-label">Event</label>
+                <select id="f_str_event" class="form-select form-select-sm"></select>
+              </div>
+              <div class="col-6">
+                <label class="form-label">Session type</label>
+                <select id="f_str_type" class="form-select form-select-sm">
+                  <option>Practice</option>
+                  <option>Qualifying</option>
+                  <option>Race</option>
+                  <option>Test Day</option>
+                </select>
+              </div>
+
+              <div class="col-6">
+                <label class="form-label">Start time</label>
+                <input id="f_str_start" class="form-control form-control-sm" type="datetime-local">
+              </div>
+              <div class="col-6">
+                <label class="form-label">End time</label>
+                <input id="f_str_end" class="form-control form-control-sm" type="datetime-local">
+              </div>
+
+              <div class="col-4">
+                <label class="form-label">Tyre set</label>
+                <input id="f_str_tyre_set" class="form-control form-control-sm" type="text" placeholder="Set ID">
+              </div>
+              <div class="col-4">
+                <label class="form-label">Compound</label>
+                <select id="f_str_compound" class="form-select form-select-sm">
+                  <option>Soft</option>
+                  <option>Medium</option>
+                  <option>Hard</option>
+                  <option>Wet</option>
+                  <option>Intermediate</option>
+                </select>
+              </div>
+              <div class="col-4">
+                <label class="form-label">Laps on set</label>
+                <input id="f_str_tyre_laps" class="form-control form-control-sm" type="number" min="0" step="1">
+              </div>
+
+              <div class="col-12">
+                <div class="log-block">
+                  <h6>Setup changes (per session)</h6>
+                  <div id="setupList"></div>
+                  <button class="btn btn-sm btn-outline-light mlo-btn" id="btnAddSetup" type="button">Add change</button>
+                </div>
+              </div>
+
+              <div class="col-12">
+                <div class="log-block">
+                  <h6>Driver feedback</h6>
+                  <textarea id="f_str_feedback" class="form-control form-control-sm" rows="3" placeholder="Balance, grip, braking, traffic, instructions…"></textarea>
+                </div>
+              </div>
+
+              <div class="col-12">
+                <div class="log-block">
+                  <h6>Engineer notes / next session plan</h6>
+                  <textarea id="f_str_notes" class="form-control form-control-sm" rows="3" placeholder="What to change next, fuel/tyre plan, pressures, wing, bars, camber/caster/toe, ride height…"></textarea>
+                </div>
+              </div>
+
+              <div class="col-12 d-flex gap-1 mt-1">
+                <button class="btn btn-sm btn-primary mlo-btn" id="btnSaveStr" type="button">Save</button>
+                <button class="btn btn-sm btn-outline-light mlo-btn" id="btnDupStr" type="button">Duplicate</button>
+                <button class="btn btn-sm btn-outline-danger mlo-btn" id="btnDelStr" type="button">Delete</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="config.js"></script>
+  <script src="core.js"></script>
+  <script src="topnav.js"></script>
+  <script>
+  (function(){
+    RTS.setActiveNav();
+    const LS = 'rts.strategy.sessions.v1';
+    const LS_UI = 'rts.strategy.ui.v1';
+    const LS_PANES = 'rts.strategy.panes.v1';
+
+    const eventsStore = RTS.safeLoadJSON('rts.events.v4', []);
+    const events = Array.isArray(eventsStore) ? eventsStore : [];
+    const EVENT_OPTIONS = events.map(e=>({ id:e.id, title:e.title || e.name || 'Event'}));
+    const EVENT_MAP = new Map(EVENT_OPTIONS.map(e=>[String(e.id), e.title]));
+
+    function eventTitle(id){ return EVENT_MAP.get(String(id)) || ''; }
+    function escapeHtml(str){ return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;').replace(/'/g,'&#39;'); }
+    function isoDate(dt){
+      if (!dt) return '';
+      const d = new Date(dt);
+      const y = d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,'0'); const da=String(d.getDate()).padStart(2,'0');
+      const hh=String(d.getHours()).padStart(2,'0'); const mm=String(d.getMinutes()).padStart(2,'0');
+      return `${y}-${m}-${da}T${hh}:${mm}`;
+    }
+    function todayISO(){
+      const d=new Date();
+      const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), da=String(d.getDate()).padStart(2,'0');
+      return `${y}-${m}-${da}`;
+    }
+
+    const defaultUI = { perspective:'all', search:'', event:'', status:'', groupBy:'', selectedId:null };
+    let sessions = RTS.safeLoadJSON(LS, null);
+    if (!Array.isArray(sessions) || sessions.length===0) sessions = seed();
+    let ui = RTS.deepMerge(defaultUI, RTS.safeLoadJSON(LS_UI, {}));
+
+    const els = {
+      shell: document.getElementById('strShell'),
+      count: document.getElementById('strCountBadge'),
+      perspectives: document.getElementById('strPerspectiveList'),
+      eventsTree: document.getElementById('strEventList'),
+      tbody: document.getElementById('strTbody'),
+      search: document.getElementById('strSearch'),
+      eventFilter: document.getElementById('strEventFilter'),
+      statusFilter: document.getElementById('strStatusFilter'),
+      group: document.getElementById('strGroup'),
+      add: document.getElementById('btnAddStr'),
+      pdf: document.getElementById('btnPDF'),
+      save: document.getElementById('btnSaveStr'),
+      dup: document.getElementById('btnDupStr'),
+      del: document.getElementById('btnDelStr'),
+      inspectorBadge: document.getElementById('strInspectorBadge'),
+      setupList: document.getElementById('setupList'),
+      addSetup: document.getElementById('btnAddSetup'),
+      f: {
+        name: document.getElementById('f_str_name'),
+        status: document.getElementById('f_str_status'),
+        event: document.getElementById('f_str_event'),
+        type: document.getElementById('f_str_type'),
+        start: document.getElementById('f_str_start'),
+        end: document.getElementById('f_str_end'),
+        tyreSet: document.getElementById('f_str_tyre_set'),
+        compound: document.getElementById('f_str_compound'),
+        tyreLaps: document.getElementById('f_str_tyre_laps'),
+        feedback: document.getElementById('f_str_feedback'),
+        notes: document.getElementById('f_str_notes')
+      }
+    };
+
+    RTS.initTriPaneResizers(els.shell, LS_PANES);
+
+    function seed(){
+      const today = todayISO();
+      const s = [];
+      for (let i=1;i<=8;i++){
+        const ev = EVENT_OPTIONS[i % (EVENT_OPTIONS.length||1)];
+        s.push({
+          id: i,
+          name: (i%3===0?'Qualy Sim':'Race Run') + ` #${i}`,
+          status: (i%4===0)?'Complete':(i%2===0?'In Progress':'Planned'),
+          type: (i%3===0?'Qualifying':(i%2===0?'Practice':'Race')),
+          eventId: ev ? ev.id : '',
+          start: `${today}T0${i}:00`,
+          end: `${today}T0${i}:45`,
+          tyreSet: `Set ${i}`,
+          compound: (i%4===0?'Hard':i%3===0?'Medium':'Soft'),
+          tyreLaps: i+3,
+          feedback: 'Good balance, watch rear deg mid-stint.',
+          notes: 'Next: add 0.5 psi rear, front ARB softer 1 click.',
+          setupChanges: [
+            { change:'Front wing +1', by:'Engineer' },
+            { change:'Rear bar softer', by:'Driver request' }
+          ],
+          updatedAt: new Date().toISOString()
+        });
+      }
+      return s;
+    }
+
+    function persist(){
+      RTS.safeSaveJSON(LS, sessions);
+      RTS.safeSaveJSON(LS_UI, ui);
+    }
+
+    function buildEventLists(){
+      els.eventsTree.innerHTML = '';
+      const all = document.createElement('li');
+      all.textContent = 'All events';
+      all.dataset.event = '';
+      if (!ui.event) all.classList.add('active');
+      els.eventsTree.appendChild(all);
+      EVENT_OPTIONS.forEach(ev=>{
+        const li = document.createElement('li');
+        li.textContent = ev.title;
+        li.dataset.event = ev.id;
+        if (String(ui.event)===String(ev.id)) li.classList.add('active');
+        els.eventsTree.appendChild(li);
+      });
+      const evOpts = EVENT_OPTIONS.map(ev=>`<option value="${ev.id}">${escapeHtml(ev.title)}</option>`).join('');
+      els.eventFilter.innerHTML = '<option value="">Event: All</option>' + evOpts;
+      els.f.event.innerHTML = EVENT_OPTIONS.length ? evOpts : '<option value="">Unassigned</option>';
+    }
+
+    function applyFilters(list){
+      let out = list.slice();
+      const now = new Date();
+      const todayStr = todayISO();
+      if (ui.perspective==='upcoming') out = out.filter(s=> (s.status==='Planned' || s.status==='In Progress'));
+      if (ui.perspective==='today') out = out.filter(s=> (s.start||'').slice(0,10) === todayStr);
+      if (ui.perspective==='complete') out = out.filter(s=> s.status==='Complete');
+      if (ui.perspective==='qa') out = out.filter(s=> s.notes || s.feedback);
+      if (ui.event) out = out.filter(s=>String(s.eventId||'')===String(ui.event));
+      if (ui.status) out = out.filter(s=>s.status===ui.status);
+      if (ui.search){
+        const q = ui.search.toLowerCase();
+        out = out.filter(s => (`${s.name} ${eventTitle(s.eventId)} ${s.notes} ${s.feedback}`).toLowerCase().includes(q));
+      }
+      return out;
+    }
+
+    function groupKey(s){
+      if (ui.groupBy==='event') return eventTitle(s.eventId) || '—';
+      if (ui.groupBy==='status') return s.status || '—';
+      if (ui.groupBy==='type') return s.type || '—';
+      return '';
+    }
+
+    function render(){
+      els.search.value = ui.search || '';
+      els.eventFilter.value = ui.event || '';
+      els.statusFilter.value = ui.status || '';
+      els.group.value = ui.groupBy || '';
+
+      const filtered = applyFilters(sessions);
+      els.count.textContent = String(filtered.length);
+
+      let rows = filtered.slice().sort((a,b)=> (b.updatedAt||'').localeCompare(a.updatedAt||''));
+      if (ui.groupBy){
+        rows.sort((a,b)=>{
+          const ga = groupKey(a), gb = groupKey(b);
+          if (ga!==gb) return ga.localeCompare(gb);
+          return (b.updatedAt||'').localeCompare(a.updatedAt||'');
+        });
+      }
+
+      els.tbody.innerHTML = '';
+      let idx=0, last=null;
+      rows.forEach(s=>{
+        const g = ui.groupBy ? groupKey(s) : '';
+        if (ui.groupBy && g!==last){
+          last=g;
+          const trG = document.createElement('tr');
+          trG.className = 'mlo-group-row';
+          trG.innerHTML = `<td colspan="7">${escapeHtml(g)}</td>`;
+          els.tbody.appendChild(trG);
+        }
+        idx++;
+        const tr = document.createElement('tr');
+        tr.dataset.id = s.id;
+        if (ui.selectedId===s.id) tr.classList.add('mlo-row-selected');
+        tr.innerHTML = `
+          <td>${idx}</td>
+          <td>${escapeHtml(s.name||'')}</td>
+          <td>${escapeHtml(eventTitle(s.eventId)||'')}</td>
+          <td>${escapeHtml(s.type||'')}</td>
+          <td>${escapeHtml(s.tyreSet||'')}</td>
+          <td>${escapeHtml(s.status||'')}</td>
+          <td>${escapeHtml((s.updatedAt||'').replace('T',' ').slice(0,16))}</td>
+        `;
+        tr.addEventListener('click', ()=>{ ui.selectedId = s.id; render(); });
+        els.tbody.appendChild(tr);
+      });
+
+      hydrate(sessions.find(s=>s.id===ui.selectedId) || null);
+      persist();
+    }
+
+    function hydrate(s){
+      if (!s){
+        els.inspectorBadge.textContent = 'No selection';
+        Object.values(els.f).forEach(f=> f.value='');
+        els.setupList.innerHTML = '';
+        return;
+      }
+      els.inspectorBadge.textContent = `#${s.id}`;
+      els.f.name.value = s.name || '';
+      els.f.status.value = s.status || 'Planned';
+      const evId = s.eventId || '';
+      const hasEv = EVENT_MAP.has(String(evId));
+      if (!hasEv && evId){
+        const opt = document.createElement('option'); opt.value = evId; opt.textContent = evId; els.f.event.appendChild(opt);
+      }
+      els.f.event.value = evId;
+      els.f.type.value = s.type || 'Practice';
+      els.f.start.value = isoDate(s.start);
+      els.f.end.value = isoDate(s.end);
+      els.f.tyreSet.value = s.tyreSet || '';
+      els.f.compound.value = s.compound || 'Soft';
+      els.f.tyreLaps.value = s.tyreLaps || '';
+      els.f.feedback.value = s.feedback || '';
+      els.f.notes.value = s.notes || '';
+      renderSetup(s.setupChanges||[]);
+    }
+
+    function renderSetup(list){
+      els.setupList.innerHTML = '';
+      list.forEach((row, idx)=>{
+        const div = document.createElement('div');
+        div.className = 'log-row';
+        div.innerHTML = `
+          <input class="form-control form-control-sm setup-change" type="text" value="${escapeHtml(row.change||'')}" placeholder="Change e.g. front wing +1">
+          <input class="form-control form-control-sm setup-by" style="max-width:140px;" type="text" value="${escapeHtml(row.by||'')}" placeholder="By">
+          <button class="btn btn-sm btn-outline-danger mlo-btn" type="button">×</button>
+        `;
+        div.querySelector('.setup-change').addEventListener('input', e=>{ row.change = e.target.value; sessionsDirty(); });
+        div.querySelector('.setup-by').addEventListener('input', e=>{ row.by = e.target.value; sessionsDirty(); });
+        div.querySelector('button').addEventListener('click', ()=>{ list.splice(idx,1); sessionsDirty(true); });
+        els.setupList.appendChild(div);
+      });
+    }
+
+    function sessionsDirty(refresh){
+      const s = sessions.find(x=>x.id===ui.selectedId);
+      if (!s) return;
+      s.updatedAt = new Date().toISOString();
+      persist();
+      if (refresh) render();
+    }
+
+    function addSetup(){
+      const s = sessions.find(x=>x.id===ui.selectedId);
+      if (!s) return;
+      s.setupChanges = Array.isArray(s.setupChanges)?s.setupChanges:[];
+      s.setupChanges.push({ change:'New change', by:'' });
+      sessionsDirty(true);
+    }
+
+    function readInspector(){
+      const s = sessions.find(x=>x.id===ui.selectedId);
+      if (!s) return;
+      s.name = els.f.name.value.trim() || s.name || 'Session';
+      s.status = els.f.status.value;
+      s.eventId = els.f.event.value;
+      s.type = els.f.type.value;
+      s.start = els.f.start.value;
+      s.end = els.f.end.value;
+      s.tyreSet = els.f.tyreSet.value.trim();
+      s.compound = els.f.compound.value;
+      s.tyreLaps = Number(els.f.tyreLaps.value||0);
+      s.feedback = els.f.feedback.value;
+      s.notes = els.f.notes.value;
+      s.updatedAt = new Date().toISOString();
+      persist();
+      render();
+    }
+
+    function addSession(){
+      const id = sessions.reduce((m,s)=>Math.max(m, Number(s.id)||0),0)+1;
+      const ev = EVENT_OPTIONS[0];
+      const now = new Date();
+      const s = {
+        id,
+        name:`Session ${id}`,
+        status:'Planned',
+        type:'Practice',
+        eventId: ev ? ev.id : '',
+        start: isoDate(now),
+        end: isoDate(now),
+        tyreSet:'',
+        compound:'Soft',
+        tyreLaps:0,
+        feedback:'',
+        notes:'',
+        setupChanges:[],
+        updatedAt: new Date().toISOString()
+      };
+      sessions.unshift(s);
+      ui.selectedId = id;
+      render();
+    }
+
+    function duplicateSession(){
+      const s = sessions.find(x=>x.id===ui.selectedId);
+      if (!s) return;
+      const id = sessions.reduce((m,s)=>Math.max(m, Number(s.id)||0),0)+1;
+      const copy = JSON.parse(JSON.stringify(s));
+      copy.id = id;
+      copy.name = `${s.name} (Copy)`;
+      copy.status = 'Planned';
+      copy.updatedAt = new Date().toISOString();
+      sessions.unshift(copy);
+      ui.selectedId = id;
+      render();
+    }
+
+    function deleteSession(){
+      const idx = sessions.findIndex(x=>x.id===ui.selectedId);
+      if (idx<0) return;
+      sessions.splice(idx,1);
+      ui.selectedId = sessions[0]?.id || null;
+      render();
+    }
+
+    function printable(s){
+      const lines = (s.setupChanges||[]).map(l=>`<li>${escapeHtml(l.change||'')} <em>${escapeHtml(l.by||'')}</em></li>`).join('');
+      return `
+      <html><head><title>${escapeHtml(s.name||'Session')}</title>
+      <style>
+        body{font-family:Arial, sans-serif; color:#111; padding:24px;}
+        h1{margin:0 0 8px 0;}
+        .muted{color:#666; font-size:0.9rem;}
+      </style>
+      </head><body>
+        <h1>${escapeHtml(s.name||'Session')}</h1>
+        <div class="muted">${escapeHtml(eventTitle(s.eventId)||'')} • ${escapeHtml(s.type||'')} • Status: ${escapeHtml(s.status||'')}</div>
+        <div>Date: ${escapeHtml((s.start||'').replace('T',' '))} → ${escapeHtml((s.end||'').replace('T',' '))}</div>
+        <div>Tyres: ${escapeHtml(s.compound||'')} / ${escapeHtml(s.tyreSet||'')} (laps ${escapeHtml(s.tyreLaps||0)})</div>
+        <h3>Setup changes</h3>
+        <ul>${lines||'<li>None</li>'}</ul>
+        <h3>Driver feedback</h3>
+        <p>${escapeHtml(s.feedback||'')}</p>
+        <h3>Engineer notes / next plan</h3>
+        <p>${escapeHtml(s.notes||'')}</p>
+      </body></html>`;
+    }
+
+    function openPDF(){
+      const s = sessions.find(x=>x.id===ui.selectedId);
+      if (!s) return;
+      const win = window.open('', '_blank');
+      win.document.write(printable(s));
+      win.document.close();
+      try { win.focus(); } catch(_e){}
+      setTimeout(()=>{ try{ win.print(); } catch(_e){} }, 200);
+    }
+
+    function bind(){
+      els.perspectives.addEventListener('click', (e)=>{
+        const li = e.target.closest('li[data-perspective]');
+        if (!li) return;
+        els.perspectives.querySelectorAll('li').forEach(x=>x.classList.remove('active'));
+        li.classList.add('active');
+        ui.perspective = li.dataset.perspective || 'all';
+        render();
+      });
+      els.eventsTree.addEventListener('click', (e)=>{
+        const li = e.target.closest('li[data-event]');
+        if (!li) return;
+        els.eventsTree.querySelectorAll('li').forEach(x=>x.classList.remove('active'));
+        li.classList.add('active');
+        ui.event = li.dataset.event || '';
+        render();
+      });
+      const onInputs = ()=>{
+        ui.search = els.search.value;
+        ui.event = els.eventFilter.value;
+        ui.status = els.statusFilter.value;
+        ui.groupBy = els.group.value;
+        render();
+      };
+      els.search.addEventListener('input', onInputs);
+      els.eventFilter.addEventListener('change', onInputs);
+      els.statusFilter.addEventListener('change', onInputs);
+      els.group.addEventListener('change', onInputs);
+      els.add.addEventListener('click', addSession);
+      els.save.addEventListener('click', readInspector);
+      els.dup.addEventListener('click', duplicateSession);
+      els.del.addEventListener('click', deleteSession);
+      els.addSetup.addEventListener('click', addSetup);
+      els.pdf.addEventListener('click', openPDF);
+    }
+
+    function init(){
+      buildEventLists();
+      bind();
+      render();
+      if (!ui.selectedId && sessions[0]) { ui.selectedId = sessions[0].id; render(); }
+    }
+    document.addEventListener('DOMContentLoaded', init);
+  })();
+  </script>
+</body>
+</html>

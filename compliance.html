@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Race Team OS – Compliance & Scrutineering</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="style.css" rel="stylesheet" />
+  <style>
+    #compTbody td, #compTbody th { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  </style>
+</head>
+<body>
+  <div id="rtsTopNav"></div>
+  <div class="rts-main container-fluid">
+    <h1 class="my-3">Compliance & Scrutineering</h1>
+
+    <div class="mlo-shell" id="compShell">
+      <!-- LEFT -->
+      <section class="mlo-pane mlo-pane-left" aria-label="Compliance navigation">
+        <div class="mlo-pane-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="mlo-title">Register</div>
+            <span class="badge text-bg-secondary" id="compCountBadge">0</span>
+          </div>
+        </div>
+        <div class="mlo-pane-content">
+          <div class="mlo-section-label">Filters</div>
+          <ul class="mlo-tree pastel-tree" id="compFilterList">
+            <li class="active" data-filter="">All</li>
+            <li data-filter="expiring">Expiring</li>
+            <li data-filter="expired">Expired</li>
+            <li data-filter="critical">Critical</li>
+            <li data-filter="vehicle">Vehicle</li>
+            <li data-filter="safety">Safety</li>
+          </ul>
+
+          <div class="mlo-section-label mt-3">Checklists</div>
+          <ul class="mlo-tree pastel-tree" id="chkList"></ul>
+        </div>
+      </section>
+
+      <div class="mlo-resizer" data-resize="left" title="Drag to resize"></div>
+
+      <!-- MIDDLE -->
+      <section class="mlo-pane mlo-pane-mid" aria-label="Compliance list">
+        <div class="mlo-pane-header">
+          <div class="d-flex align-items-center flex-nowrap gap-1" style="overflow:hidden;">
+            <input id="compSearch" type="text" class="form-control form-control-sm" placeholder="Search…" style="flex:1 1 180px; min-width:160px; max-width:220px;">
+            <select id="compCategory" class="form-select form-select-sm" style="flex:1 1 180px; min-width:150px; max-width:200px;">
+              <option value="">Category: All</option>
+            </select>
+            <select id="compStatus" class="form-select form-select-sm" style="flex:0 1 160px; min-width:140px; max-width:180px;">
+              <option value="">Status: All</option>
+              <option>Valid</option>
+              <option>Expiring</option>
+              <option>Expired</option>
+              <option>Out of Service</option>
+            </select>
+            <button class="btn btn-sm btn-outline-light mlo-btn" id="btnAddComp" type="button" style="white-space:nowrap;">Add Item</button>
+          </div>
+        </div>
+        <div class="mlo-pane-content" style="padding:0;">
+          <table class="table table-dark table-hover mlo-table" style="margin:0;">
+            <thead>
+              <tr>
+                <th style="width:60px;">#</th>
+                <th>Name</th>
+                <th style="width:160px;">Type</th>
+                <th style="width:140px;">Status</th>
+                <th style="width:150px;">Expires</th>
+                <th style="width:150px;">Linked</th>
+              </tr>
+            </thead>
+            <tbody id="compTbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <div class="mlo-resizer" data-resize="right" title="Drag to resize"></div>
+
+      <!-- RIGHT -->
+      <section class="mlo-pane mlo-pane-right mlo-inspector" aria-label="Compliance inspector">
+        <div class="mlo-pane-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="mlo-title">Inspector</div>
+            <span class="badge text-bg-secondary" id="compInspectorBadge">No selection</span>
+          </div>
+        </div>
+        <div class="mlo-pane-content">
+          <form id="compForm" autocomplete="off">
+            <ul class="nav nav-tabs nav-dark mb-2" role="tablist">
+              <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="tab-comp-details" data-bs-toggle="tab" data-bs-target="#pane-comp-details" type="button" role="tab" aria-controls="pane-comp-details" aria-selected="true">Details</button>
+              </li>
+            </ul>
+            <div class="tab-content">
+              <div class="tab-pane fade show active" id="pane-comp-details" role="tabpanel" aria-labelledby="tab-comp-details">
+                <div class="row g-2">
+              <div class="col-6">
+                <label class="form-label">Name / Label</label>
+                <input id="f_comp_name" class="form-control form-control-sm" type="text" placeholder="Spill kit #1">
+              </div>
+              <div class="col-6">
+                <label class="form-label">Category</label>
+                <select id="f_comp_category" class="form-select form-select-sm"></select>
+              </div>
+
+              <div class="col-6">
+                <label class="form-label">Type</label>
+                <input id="f_comp_type" class="form-control form-control-sm" type="text" placeholder="Fire extinguisher / Calibration / ...">
+              </div>
+              <div class="col-6">
+                <label class="form-label">Status</label>
+                <select id="f_comp_status" class="form-select form-select-sm">
+                  <option>Valid</option>
+                  <option>Expiring</option>
+                  <option>Expired</option>
+                  <option>Out of Service</option>
+                </select>
+              </div>
+
+              <div class="col-6">
+                <label class="form-label">Issued at</label>
+                <input id="f_comp_issue" class="form-control form-control-sm" type="date">
+              </div>
+              <div class="col-6">
+                <label class="form-label">Expires at</label>
+                <input id="f_comp_expiry" class="form-control form-control-sm" type="date">
+              </div>
+
+              <div class="col-6">
+                <label class="form-label">Linked asset</label>
+                <input id="f_comp_asset" class="form-control form-control-sm" type="text" list="compAssetOptions" placeholder="Asset ID/name">
+                <datalist id="compAssetOptions"></datalist>
+              </div>
+              <div class="col-6">
+                <label class="form-label">Serial / Evidence</label>
+                <input id="f_comp_serial" class="form-control form-control-sm" type="text" placeholder="Serial / certificate / photo link">
+              </div>
+
+              <div class="col-12">
+                <label class="form-label">Notes</label>
+                <textarea id="f_comp_notes" class="form-control form-control-sm" rows="3" placeholder="Evidence, verification, location, criticality"></textarea>
+              </div>
+
+              <div class="col-12 d-flex gap-1 mt-1">
+                <button class="btn btn-sm btn-primary mlo-btn" id="btnSaveComp" type="button">Save</button>
+                <button class="btn btn-sm btn-outline-light mlo-btn" id="btnDupComp" type="button">Duplicate</button>
+                <button class="btn btn-sm btn-outline-danger mlo-btn" id="btnDelComp" type="button">Delete</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="config.js"></script>
+  <script src="core.js"></script>
+  <script src="topnav.js"></script>
+  <script>
+  (function(){
+    RTS.setActiveNav();
+    const LS_COMP = 'rts.compliance.v1';
+    const LS_UI = 'rts.compliance.ui.v1';
+    const LS_PANES = 'rts.compliance.panes.v1';
+
+    const assetsStore = RTS.safeLoadJSON('rts.assets.v4', []);
+    const ASSET_OPTIONS = Array.isArray(assetsStore) ? assetsStore.map(a=>({ id:a.id, label:a.name||a.id })) : [];
+    const assetMap = new Map(ASSET_OPTIONS.map(a=>[String(a.id), a.label]));
+
+    const CATEGORIES = ['Safety','Measurement','Regulatory','Vehicle','Tools','Fuel','Other'];
+
+    function escapeHtml(str){ return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;').replace(/'/g,'&#39;'); }
+    function nowISO(){ return new Date().toISOString(); }
+
+    function seed(){
+      const out = [];
+      const names = ['Fire Extinguisher','Torque Wrench Calib','Spill Kit','Fuel Jug Spec','Seat Belts','Helmet Scrut','Brake Fluid'];
+      for (let i=0;i<12;i++){
+        const n = names[i % names.length];
+        out.push({
+          id: RTS.uid('comp'),
+          name: `${n} ${i+1}`,
+          category: CATEGORIES[i % CATEGORIES.length],
+          type: n,
+          status: (i%5===0)?'Expired':((i%3===0)?'Expiring':'Valid'),
+          issuedAt: '2025-01-01',
+          expiresAt: `2025-0${(i%8)+2}-15`,
+          assetId: ASSET_OPTIONS[i % ASSET_OPTIONS.length]?.id || '',
+          serial: `SN-${1000+i}`,
+          notes: 'Evidence/ref in checklist',
+          updatedAt: nowISO()
+        });
+      }
+      return out;
+    }
+
+    let items = RTS.safeLoadJSON(LS_COMP, null);
+    if (!Array.isArray(items) || items.length===0) items = seed();
+    let ui = RTS.deepMerge({ filter:'', search:'', category:'', status:'', selectedId:null }, RTS.safeLoadJSON(LS_UI, {}));
+
+    const el = {
+      shell: document.getElementById('compShell'),
+      count: document.getElementById('compCountBadge'),
+      filterList: document.getElementById('compFilterList'),
+      chkList: document.getElementById('chkList'),
+      tbody: document.getElementById('compTbody'),
+      search: document.getElementById('compSearch'),
+      category: document.getElementById('compCategory'),
+      status: document.getElementById('compStatus'),
+      add: document.getElementById('btnAddComp'),
+      inspectorBadge: document.getElementById('compInspectorBadge'),
+      assetOptions: document.getElementById('compAssetOptions'),
+      btnSave: document.getElementById('btnSaveComp'),
+      btnDup: document.getElementById('btnDupComp'),
+      btnDel: document.getElementById('btnDelComp'),
+      f: {
+        name: document.getElementById('f_comp_name'),
+        category: document.getElementById('f_comp_category'),
+        type: document.getElementById('f_comp_type'),
+        status: document.getElementById('f_comp_status'),
+        issue: document.getElementById('f_comp_issue'),
+        expiry: document.getElementById('f_comp_expiry'),
+        asset: document.getElementById('f_comp_asset'),
+        serial: document.getElementById('f_comp_serial'),
+        notes: document.getElementById('f_comp_notes')
+      }
+    };
+
+    RTS.initTriPaneResizers(el.shell, LS_PANES);
+
+    function persist(){
+      RTS.safeSaveJSON(LS_COMP, items);
+      RTS.safeSaveJSON(LS_UI, ui);
+    }
+
+    function buildFilters(){
+      el.category.innerHTML = '<option value="">Category: All</option>' + CATEGORIES.map(c=>`<option>${c}</option>`).join('');
+      el.f.category.innerHTML = CATEGORIES.map(c=>`<option>${c}</option>`).join('');
+      el.assetOptions.innerHTML = ASSET_OPTIONS.map(a=>`<option value="${a.id}">${escapeHtml(a.label)}</option>`).join('');
+    }
+
+    function applyFilters(list){
+      let out = list.slice();
+      if (ui.filter==='expiring') out = out.filter(i=>i.status==='Expiring');
+      if (ui.filter==='expired') out = out.filter(i=>i.status==='Expired');
+      if (ui.filter==='critical') out = out.filter(i=>i.category==='Safety' || i.type?.toLowerCase().includes('scrut'));
+      if (ui.filter==='vehicle') out = out.filter(i=>i.category==='Vehicle');
+      if (ui.filter==='safety') out = out.filter(i=>i.category==='Safety');
+      if (ui.category) out = out.filter(i=>i.category===ui.category);
+      if (ui.status) out = out.filter(i=>i.status===ui.status);
+      if (ui.search){
+        const q = ui.search.toLowerCase();
+        out = out.filter(i => (`${i.name} ${i.type} ${i.category} ${i.serial}`).toLowerCase().includes(q));
+      }
+      return out;
+    }
+
+    function render(){
+      el.search.value = ui.search || '';
+      el.category.value = ui.category || '';
+      el.status.value = ui.status || '';
+
+      const filtered = applyFilters(items);
+      el.count.textContent = String(filtered.length);
+
+      el.tbody.innerHTML = '';
+      let idx=0;
+      filtered.forEach(i=>{
+        idx++;
+        const tr = document.createElement('tr');
+        tr.dataset.id = i.id;
+        if (ui.selectedId===i.id) tr.classList.add('mlo-row-selected');
+        tr.innerHTML = `
+          <td>${idx}</td>
+          <td>${escapeHtml(i.name||'')}</td>
+          <td>${escapeHtml(i.type||'')}</td>
+          <td>${escapeHtml(i.status||'')}</td>
+          <td>${escapeHtml(i.expiresAt||'')}</td>
+          <td>${escapeHtml(assetMap.get(String(i.assetId))||'')}</td>
+        `;
+        tr.addEventListener('click', ()=>{ ui.selectedId = i.id; render(); });
+        el.tbody.appendChild(tr);
+      });
+
+      hydrate(items.find(x=>x.id===ui.selectedId) || null);
+      persist();
+    }
+
+    function hydrate(i){
+      if (!i){
+        el.inspectorBadge.textContent = 'No selection';
+        Object.values(el.f).forEach(f=> f.value='');
+        return;
+      }
+      el.inspectorBadge.textContent = i.name || i.id;
+      el.f.name.value = i.name || '';
+      el.f.category.value = i.category || CATEGORIES[0];
+      el.f.type.value = i.type || '';
+      el.f.status.value = i.status || 'Valid';
+      el.f.issue.value = i.issuedAt || '';
+      el.f.expiry.value = i.expiresAt || '';
+      el.f.asset.value = i.assetId || '';
+      el.f.serial.value = i.serial || '';
+      el.f.notes.value = i.notes || '';
+    }
+
+    function readInspector(){
+      const i = items.find(x=>x.id===ui.selectedId);
+      if (!i) return;
+      i.name = el.f.name.value.trim() || i.name;
+      i.category = el.f.category.value;
+      i.type = el.f.type.value.trim();
+      i.status = el.f.status.value;
+      i.issuedAt = el.f.issue.value;
+      i.expiresAt = el.f.expiry.value;
+      i.assetId = el.f.asset.value;
+      i.serial = el.f.serial.value.trim();
+      i.notes = el.f.notes.value;
+      i.updatedAt = nowISO();
+      persist();
+      render();
+    }
+
+    function addItem(){
+      const id = RTS.uid('comp');
+      const i = {
+        id,
+        name:`Compliance ${items.length+1}`,
+        category:CATEGORIES[0],
+        type:'',
+        status:'Valid',
+        issuedAt:'',
+        expiresAt:'',
+        assetId:'',
+        serial:'',
+        notes:'',
+        updatedAt: nowISO()
+      };
+      items.unshift(i);
+      ui.selectedId = id;
+      render();
+    }
+
+    function duplicateItem(){
+      const src = items.find(x=>x.id===ui.selectedId);
+      if (!src) return;
+      const copy = JSON.parse(JSON.stringify(src));
+      copy.id = RTS.uid('comp');
+      copy.name = `${src.name} (Copy)`;
+      copy.status = 'Valid';
+      items.unshift(copy);
+      ui.selectedId = copy.id;
+      render();
+    }
+
+    function deleteItem(){
+      const idx = items.findIndex(x=>x.id===ui.selectedId);
+      if (idx<0) return;
+      items.splice(idx,1);
+      ui.selectedId = items[0]?.id || null;
+      render();
+    }
+
+    function buildChecklists(){
+      el.chkList.innerHTML = '';
+      const checks = [
+        { id:'chk-ktm', name:'Kart Scrutineering – OK-J' },
+        { id:'chk-tyres', name:'Tyre Spec Check' },
+        { id:'chk-fuel', name:'Fuel / Oil Spec' }
+      ];
+      checks.forEach(c=>{
+        const li = document.createElement('li');
+        li.textContent = c.name;
+        li.dataset.id = c.id;
+        el.chkList.appendChild(li);
+      });
+    }
+
+    function bind(){
+      el.filterList.addEventListener('click', (e)=>{
+        const li = e.target.closest('li[data-filter]');
+        if (!li) return;
+        el.filterList.querySelectorAll('li').forEach(x=>x.classList.remove('active'));
+        li.classList.add('active');
+        ui.filter = li.dataset.filter || '';
+        render();
+      });
+      el.search.addEventListener('input', ()=>{ ui.search = el.search.value; render(); });
+      el.category.addEventListener('change', ()=>{ ui.category = el.category.value; render(); });
+      el.status.addEventListener('change', ()=>{ ui.status = el.status.value; render(); });
+      el.add.addEventListener('click', addItem);
+      el.btnSave.addEventListener('click', readInspector);
+      el.btnDup.addEventListener('click', duplicateItem);
+      // Use modal-backed async confirmation for delete (falls back to window.confirm)
+      el.btnDel.addEventListener('click', async (e)=>{
+        const msg = 'Delete selected compliance item? This cannot be undone.';
+        let ok = false;
+        try{
+          if (window.RTS && typeof window.RTS.confirmPrompt === 'function') {
+            ok = await window.RTS.confirmPrompt(msg);
+          } else {
+            ok = window.confirm(msg);
+          }
+        }catch(err){ ok = window.confirm(msg); }
+        if (ok) deleteItem();
+      });
+    }
+
+    function init(){
+      buildFilters();
+      buildChecklists();
+      bind();
+      render();
+      if (!ui.selectedId && items[0]) { ui.selectedId = items[0].id; render(); }
+    }
+    document.addEventListener('DOMContentLoaded', init);
+  })();
+  </script>
+</body>
+</html>

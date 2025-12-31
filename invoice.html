@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Race Team OS – Invoicing</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="style.css" rel="stylesheet" />
+  <style>
+    /* Keep invoice list rows single-line */
+    #invTbody td, #invTbody th, #invTbody tr, #invTbody td * {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  </style>
+</head>
+<body>
+  <div id="rtsTopNav"></div>
+  <div class="rts-main container-fluid">
+    <h1 class="my-3">Invoicing</h1>
+
+    <div class="mlo-shell" id="invShell">
+      <!-- LEFT -->
+      <section class="mlo-pane mlo-pane-left" aria-label="Invoice navigation">
+        <div class="mlo-pane-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="mlo-title">Perspectives</div>
+            <span class="badge text-bg-secondary" id="invCountBadge">0</span>
+          </div>
+          
+          <!-- Compatibility shim: some pages expect a financial-attachments list element by id.
+               Keep non-visual to avoid affecting layout but satisfy document.getElementById calls. -->
+          <div id="finAttList" style="display:none" aria-hidden="true"></div>
+        </div>
+        <div class="mlo-pane-content">
+          <div class="mlo-section-label">Smart lists</div>
+          <ul class="mlo-tree pastel-tree" id="invPerspectiveList">
+            <li class="active" data-perspective="all">All Invoices</li>
+            <li data-perspective="draft">Draft</li>
+            <li data-perspective="sent">Sent</li>
+            <li data-perspective="unpaid">Unpaid</li>
+            <li data-perspective="paid">Paid</li>
+            <li data-perspective="overdue">Overdue</li>
+          </ul>
+
+          <div class="mlo-section-label mt-3">Customers</div>
+          <ul class="mlo-tree pastel-tree" id="invCustomerList"></ul>
+        </div>
+      </section>
+
+      <div class="mlo-resizer" data-resize="left" title="Drag to resize"></div>
+
+      <!-- MIDDLE -->
+      <section class="mlo-pane mlo-pane-mid" aria-label="Invoice list">
+        <div class="mlo-pane-header">
+          <div class="d-flex flex-wrap align-items-center gap-1">
+            <input id="invSearch" type="text" class="form-control form-control-sm" placeholder="Search…" style="max-width: 220px;">
+            <select id="invEvent" class="form-select form-select-sm" style="max-width: 220px;"></select>
+            <select id="invCustomer" class="form-select form-select-sm" style="max-width: 200px;"></select>
+            <select id="invStatus" class="form-select form-select-sm" style="max-width: 170px;">
+              <option value="">Status: All</option>
+              <option>Draft</option>
+              <option>Sent</option>
+              <option>Paid</option>
+              <option>Overdue</option>
+            </select>
+            <select id="invGroup" class="form-select form-select-sm" style="max-width: 190px;">
+              <option value="">Group: None</option>
+              <option value="event">Group: Event</option>
+              <option value="customer">Group: Customer</option>
+              <option value="status">Group: Status</option>
+              <option value="month">Group: Month</option>
+            </select>
+            <button class="btn btn-sm btn-outline-light mlo-btn" id="btnAddInv" type="button">New Invoice</button>
+            <span class="badge text-bg-dark" id="invTotalBadge" style="border:1px solid rgba(255,255,255,0.10);">Total: R0.00</span>
+          </div>
+        </div>
+        <div class="mlo-pane-content" style="padding:0;">
+          <table class="table table-dark table-hover mlo-table" style="margin:0;">
+            <thead>
+              <tr>
+                <th style="width:60px;">#</th>
+                <th style="width:140px;">Invoice</th>
+                <th style="width:160px;">Date</th>
+                <th>Customer</th>
+                <th style="width:220px;">Event</th>
+                <th style="width:140px;">Total</th>
+                <th style="width:110px;">Status</th>
+              </tr>
+            </thead>
+            <tbody id="invTbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <div class="mlo-resizer" data-resize="right" title="Drag to resize"></div>
+
+      <!-- RIGHT -->
+      <section class="mlo-pane mlo-pane-right mlo-inspector" aria-label="Invoice inspector">
+        <div class="mlo-pane-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="mlo-title">Inspector</div>
+            <span class="badge text-bg-secondary" id="invInspectorBadge">No selection</span>
+          </div>
+        </div>
+        <div class="mlo-pane-content">
+          <ul class="nav nav-tabs nav-dark mb-2" role="tablist">
+            <li class="nav-item" role="presentation">
+              <button class="nav-link active" id="tab-inv-details" data-bs-toggle="tab" data-bs-target="#pane-inv-details" type="button" role="tab" aria-controls="pane-inv-details" aria-selected="true">Details</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="tab-inv-lines" data-bs-toggle="tab" data-bs-target="#pane-inv-lines" type="button" role="tab" aria-controls="pane-inv-lines" aria-selected="false">Lines</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="tab-inv-customers" data-bs-toggle="tab" data-bs-target="#pane-inv-customers" type="button" role="tab" aria-controls="pane-inv-customers" aria-selected="false">Customers</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="tab-inv-preview" data-bs-toggle="tab" data-bs-target="#pane-inv-preview" type="button" role="tab" aria-controls="pane-inv-preview" aria-selected="false">Preview</button>
+            </li>
+          </ul>
+
+          <div class="tab-content">
+            <div class="tab-pane fade show active" id="pane-inv-details" role="tabpanel" aria-labelledby="tab-inv-details">
+              <form id="invForm" autocomplete="off">
+                <div class="row g-2">
+                  <div class="col-6">
+                    <label class="form-label">Invoice #</label>
+                    <input id="f_inv_number" class="form-control form-control-sm" type="text" readonly>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Status</label>
+                    <select id="f_inv_status" class="form-select form-select-sm">
+                      <option>Draft</option>
+                      <option>Sent</option>
+                      <option>Paid</option>
+                      <option>Overdue</option>
+                    </select>
+                  </div>
+
+                  <div class="col-6">
+                    <label class="form-label">Invoice date</label>
+                    <input id="f_inv_date" class="form-control form-control-sm" type="date">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Due date</label>
+                    <input id="f_inv_due" class="form-control form-control-sm" type="date">
+                  </div>
+
+                  <div class="col-7">
+                    <label class="form-label">Customer</label>
+                    <select id="f_inv_customer" class="form-select form-select-sm"></select>
+                  </div>
+                  <div class="col-5">
+                    <label class="form-label">Event</label>
+                    <select id="f_inv_event" class="form-select form-select-sm"></select>
+                  </div>
+
+                  <div class="col-12">
+                    <label class="form-label">Bill to (customer details)</label>
+                    <textarea id="f_inv_customer_details" class="form-control form-control-sm" rows="2" placeholder="Name, email, phone, address…"></textarea>
+                  </div>
+
+                  <div class="col-12">
+                    <div class="d-flex gap-1 mt-1">
+                      <button class="btn btn-sm btn-primary mlo-btn" id="btnSaveInv" type="button">Save</button>
+                      <button class="btn btn-sm btn-outline-light mlo-btn" id="btnDupInv" type="button">Duplicate</button>
+                      <button class="btn btn-sm btn-outline-danger mlo-btn" id="btnDelInv" type="button">Delete</button>
+                      <button class="btn btn-sm btn-outline-light mlo-btn" id="btnPDF" type="button">Open PDF View</button>
+                    </div>
+                  </div>
+
+                  <div class="col-6">
+                    <label class="form-label">Subtotal</label>
+                    <input id="f_inv_subtotal" class="form-control form-control-sm" type="text" readonly>
+                  </div>
+                  <div class="col-3">
+                    <label class="form-label">VAT %</label>
+                    <input id="f_inv_vat_rate" class="form-control form-control-sm" type="number" step="0.01" min="0" max="100">
+                  </div>
+                  <div class="col-3">
+                    <label class="form-label">VAT Amt</label>
+                    <input id="f_inv_vat_amount" class="form-control form-control-sm" type="text" readonly>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label">Total</label>
+                    <input id="f_inv_total" class="form-control form-control-sm" type="text" readonly>
+                  </div>
+
+                  <div class="col-12">
+                    <label class="form-label">Notes</label>
+                    <textarea id="f_inv_notes" class="form-control form-control-sm" rows="3" placeholder="Payment terms, bank details, PO reference…"></textarea>
+                  </div>
+                </div>
+              </form>
+            </div>
+
+            <div class="tab-pane fade" id="pane-inv-lines" role="tabpanel" aria-labelledby="tab-inv-lines">
+              <div class="row g-2">
+                <div class="col-12">
+                  <label class="form-label">Line items</label>
+                  <div class="table-responsive">
+                    <table class="table table-dark mlo-table" style="margin:0;">
+                      <thead>
+                        <tr>
+                          <th>Description</th>
+                          <th style="width:90px;">Qty</th>
+                          <th style="width:120px;">Rate</th>
+                          <th style="width:120px;">Amount</th>
+                          <th style="width:50px;"></th>
+                        </tr>
+                      </thead>
+                      <tbody id="invLines"></tbody>
+                    </table>
+                  </div>
+                  <button class="btn btn-sm btn-outline-light mlo-btn mt-1" id="btnAddLine" type="button">Add line</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="tab-pane fade" id="pane-inv-customers" role="tabpanel" aria-labelledby="tab-inv-customers">
+              <div class="row g-2">
+                <div class="col-12 d-flex justify-content-between align-items-center">
+                  <div class="mlo-title">Customers</div>
+                  <button class="btn btn-sm btn-outline-light mlo-btn" id="btnAddCustomer" type="button">Add Customer</button>
+                </div>
+                <div class="col-6">
+                  <label class="form-label">Customer name</label>
+                  <input id="cust_name" class="form-control form-control-sm" type="text" placeholder="Team / Sponsor / Driver">
+                </div>
+                <div class="col-6">
+                  <label class="form-label">Email</label>
+                  <input id="cust_email" class="form-control form-control-sm" type="email" placeholder="billing@example.com">
+                </div>
+                <div class="col-6">
+                  <label class="form-label">Phone</label>
+                  <input id="cust_phone" class="form-control form-control-sm" type="text" placeholder="+27…">
+                </div>
+                <div class="col-6">
+                  <label class="form-label">Address</label>
+                  <input id="cust_address" class="form-control form-control-sm" type="text" placeholder="Billing address">
+                </div>
+                <div class="col-12 d-flex gap-1">
+                  <button class="btn btn-sm btn-outline-light mlo-btn" id="btnSaveCustomer" type="button">Save Customer</button>
+                  <button class="btn btn-sm btn-outline-danger mlo-btn" id="btnDeleteCustomer" type="button">Delete Customer</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="tab-pane fade" id="pane-inv-preview" role="tabpanel" aria-labelledby="tab-inv-preview">
+              <div class="row g-2">
+                <div class="col-12">
+                  <div class="text-secondary">Preview / PDF view of the invoice will open here. Use the Open PDF View button to generate a printable version.</div>
+                  <div class="mt-2">
+                    <button class="btn btn-sm btn-outline-light mlo-btn" id="btnPDFPreview" type="button">Generate PDF</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="config.js"></script>
+  <script src="core.js"></script>
+  <script src="topnav.js"></script>
+  <script>
+  (function(){
+    RTS.setActiveNav();
+    const LS_INV = 'rts.invoices.v1';
+    const LS_CUST = 'rts.invoice.customers.v1';
+    const LS_UI = 'rts.invoice.ui.v1';
+    const LS_PANES = 'rts.invoice.panes.v1';
+
+    const settings = RTS.getSettings();
+    const eventsStore = RTS.safeLoadJSON('rts.events.v4', []);
+    const events = Array.isArray(eventsStore) ? eventsStore : [];
+    const EVENT_OPTIONS = events.map(e => ({ id: e.id, title: e.title || e.name || 'Event' }));
+    const EVENT_MAP = new Map(EVENT_OPTIONS.map(e => [String(e.id), e.title]));
+
+    function escapeHtml(str){ return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;').replace(/'/g,'&#39;'); }
+    function eventTitle(id){ return EVENT_MAP.get(String(id)) || ''; }
+    function iso(d){
+      const dt = new Date(d);
+      const y = dt.getFullYear();
+      const m = String(dt.getMonth()+1).padStart(2,'0');
+      const da = String(dt.getDate()).padStart(2,'0');
+      return `${y}-${m}-${da}`;
+    }
+    function monthKey(isoDate){ return isoDate ? isoDate.slice(0,7) : '—'; }
+    function money(n){ return RTS.moneyZAR(Number(n||0)); }
+
+    const defaultUI = { perspective:'all', search:'', event:'', customer:'', status:'', groupBy:'', selectedId:null };
+    let invoices = RTS.safeLoadJSON(LS_INV, null);
+    if (!Array.isArray(invoices) || invoices.length === 0) invoices = seedInvoices();
+    let customers = RTS.safeLoadJSON(LS_CUST, null);
+    if (!Array.isArray(customers) || customers.length === 0) customers = seedCustomers();
+    let ui = RTS.deepMerge(defaultUI, RTS.safeLoadJSON(LS_UI, {}));
+
+    normalizeInvoices();
+
+    const el = {
+      shell: document.getElementById('invShell'),
+      count: document.getElementById('invCountBadge'),
+      total: document.getElementById('invTotalBadge'),
+      perspectives: document.getElementById('invPerspectiveList'),
+      custTree: document.getElementById('invCustomerList'),
+      tbody: document.getElementById('invTbody'),
+      search: document.getElementById('invSearch'),
+      event: document.getElementById('invEvent'),
+      customer: document.getElementById('invCustomer'),
+      status: document.getElementById('invStatus'),
+      group: document.getElementById('invGroup'),
+      add: document.getElementById('btnAddInv'),
+      save: document.getElementById('btnSaveInv'),
+      dup: document.getElementById('btnDupInv'),
+      del: document.getElementById('btnDelInv'),
+      pdf: document.getElementById('btnPDF'),
+      addLine: document.getElementById('btnAddLine'),
+      lines: document.getElementById('invLines'),
+      inspectorBadge: document.getElementById('invInspectorBadge'),
+      finAttList: document.getElementById('finAttList'),
+      f: {
+        number: document.getElementById('f_inv_number'),
+        status: document.getElementById('f_inv_status'),
+        date: document.getElementById('f_inv_date'),
+        due: document.getElementById('f_inv_due'),
+        customer: document.getElementById('f_inv_customer'),
+        event: document.getElementById('f_inv_event'),
+        customerDetails: document.getElementById('f_inv_customer_details'),
+        subtotal: document.getElementById('f_inv_subtotal'),
+        vatRate: document.getElementById('f_inv_vat_rate'),
+        vatAmount: document.getElementById('f_inv_vat_amount'),
+        total: document.getElementById('f_inv_total'),
+        notes: document.getElementById('f_inv_notes')
+      },
+      custForm: {
+        name: document.getElementById('cust_name'),
+        email: document.getElementById('cust_email'),
+        phone: document.getElementById('cust_phone'),
+        address: document.getElementById('cust_address')
+      },
+      btnCustAdd: document.getElementById('btnAddCustomer'),
+      btnCustSave: document.getElementById('btnSaveCustomer'),
+      btnCustDelete: document.getElementById('btnDeleteCustomer')
+    };
+
+    RTS.initTriPaneResizers(el.shell, LS_PANES);
+
+    function seedCustomers(){
+      return [
+        { id: RTS.uid('cust'), name:'Acme Racing', email:'billing@acmeracing.com', phone:'+27 11 555 0101', address:'123 Paddock Lane, Gauteng' },
+        { id: RTS.uid('cust'), name:'Red Star Sponsors', email:'finance@redstar.co.za', phone:'+27 82 555 0202', address:'45 Victory Rd, Johannesburg' },
+        { id: RTS.uid('cust'), name:'Driver #42 Family', email:'family42@example.com', phone:'+27 83 111 1111', address:'Private' }
+      ];
+    }
+
+    function seedInvoices(){
+      const base = new Date();
+      const out = [];
+      for (let i=1;i<=12;i++){
+        const d = new Date(base.getTime());
+        d.setDate(d.getDate() - i*5);
+        const ev = EVENT_OPTIONS[i % (EVENT_OPTIONS.length || 1)];
+        const cust = seedCustomers()[i % 3];
+        const lines = [
+          { desc:'Race support – day rate', qty: 2, rate: 4500 },
+          { desc:'Tyre set allocation', qty: 1, rate: 3200 }
+        ];
+        const vatRate = 15;
+        const subtotal = lines.reduce((s,l)=>s+(l.qty*l.rate),0);
+        const vat = subtotal * (vatRate/100);
+        const total = subtotal + vat;
+        out.push({
+          id: i,
+          number: `INV-${2026}${String(i).padStart(3,'0')}`,
+          status: (i%4===0) ? 'Draft' : ((i%3===0)?'Overdue': (i%2===0?'Paid':'Sent')),
+          date: iso(d),
+          due: iso(d),
+          customerId: cust.id,
+          eventId: ev ? ev.id : '',
+          customerDetails: `${cust.name}\n${cust.email}\n${cust.phone}`,
+          vatRate,
+          subtotal,
+          vat,
+          total,
+          notes: 'Thank you for your business.',
+          lines
+        });
+      }
+      return out;
+    }
+
+    function normalizeInvoices(){
+      invoices.forEach(inv => {
+        if (!Array.isArray(inv.lines)) inv.lines = [];
+        inv.lines = inv.lines.map(l => ({ desc:l.desc||'', qty:Number(l.qty||0), rate:Number(l.rate||0) }));
+        if (!inv.id) inv.id = RTS.uid('inv');
+        if (!inv.number) inv.number = `INV-${String(inv.id).padStart(4,'0')}`;
+        if (inv.eventId == null && inv.event){
+          const m = EVENT_OPTIONS.find(e=>e.title===inv.event);
+          if (m) inv.eventId = m.id;
+        }
+        if (!inv.customerId && customers[0]) inv.customerId = customers[0].id;
+        recalc(inv);
+      });
+    }
+
+    function persist(){
+      RTS.safeSaveJSON(LS_INV, invoices);
+      RTS.safeSaveJSON(LS_CUST, customers);
+      RTS.safeSaveJSON(LS_UI, ui);
+    }
+
+    function recalc(inv){
+      inv.subtotal = inv.lines.reduce((s,l)=>s+(Number(l.qty||0)*Number(l.rate||0)),0);
+      const vr = Number(inv.vatRate||0);
+      inv.vat = inv.subtotal * (vr/100);
+      inv.total = inv.subtotal + inv.vat;
+    }
+
+    function buildCustomerTree(){
+      el.custTree.innerHTML = '';
+      const all = document.createElement('li');
+      all.textContent = 'All customers';
+      all.dataset.cust = '';
+      if (!ui.customer) all.classList.add('active');
+      el.custTree.appendChild(all);
+      customers.forEach(c => {
+        const li = document.createElement('li');
+        li.textContent = c.name;
+        li.dataset.cust = c.id;
+        if (ui.customer === c.id) li.classList.add('active');
+        el.custTree.appendChild(li);
+      });
+      el.customer.innerHTML = '<option value="">Customer: All</option>' + customers.map(c=>`<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+      el.f.customer.innerHTML = customers.map(c=>`<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('') || '<option value="">Unassigned</option>';
+    }
+
+    function buildFilters(){
+      const eventOpts = EVENT_OPTIONS.map(e=>`<option value="${e.id}">${escapeHtml(e.title)}</option>`).join('');
+      el.event.innerHTML = '<option value="">Event: All</option>' + eventOpts;
+      el.f.event.innerHTML = EVENT_OPTIONS.length ? eventOpts : '<option value="">Unassigned</option>';
+    }
+
+    function applyFilters(list){
+      let out = list.slice();
+      const now = new Date();
+      if (ui.perspective==='draft') out = out.filter(i=>i.status==='Draft');
+      if (ui.perspective==='sent') out = out.filter(i=>i.status==='Sent');
+      if (ui.perspective==='paid') out = out.filter(i=>i.status==='Paid');
+      if (ui.perspective==='unpaid') out = out.filter(i=>i.status!=='Paid');
+      if (ui.perspective==='overdue') out = out.filter(i=>i.status==='Overdue' || (i.status!=='Paid' && new Date(i.due||now) < now));
+      if (ui.customer) out = out.filter(i=>String(i.customerId||'')===String(ui.customer));
+      if (ui.event) out = out.filter(i=>String(i.eventId||'')===String(ui.event));
+      if (ui.status) out = out.filter(i=>i.status===ui.status);
+      if (ui.search){
+        const q = ui.search.toLowerCase();
+        out = out.filter(i => (`${i.number} ${eventTitle(i.eventId)} ${customerName(i.customerId)} ${i.notes||''}`).toLowerCase().includes(q));
+      }
+      return out;
+    }
+
+    function groupKey(inv){
+      switch(ui.groupBy){
+        case 'event': return eventTitle(inv.eventId) || '—';
+        case 'customer': return customerName(inv.customerId) || '—';
+        case 'status': return inv.status || '—';
+        case 'month': return monthKey(inv.date);
+        default: return '';
+      }
+    }
+
+    function customerName(id){
+      const c = customers.find(c=>String(c.id)===String(id));
+      return c ? c.name : '';
+    }
+
+    function render(){
+      el.search.value = ui.search || '';
+      el.event.value = ui.event || '';
+      el.customer.value = ui.customer || '';
+      el.status.value = ui.status || '';
+      el.group.value = ui.groupBy || '';
+
+      const filtered = applyFilters(invoices);
+      el.count.textContent = String(filtered.length);
+      const total = filtered.reduce((s,i)=>s+(Number(i.total)||0),0);
+      el.total.textContent = `Total: ${money(total)}`;
+
+      let rows = filtered.slice().sort((a,b)=> (b.date||'').localeCompare(a.date||''));
+      if (ui.groupBy){
+        rows.sort((a,b)=>{
+          const ga = groupKey(a), gb = groupKey(b);
+          if (ga !== gb) return ga.localeCompare(gb);
+          return (b.date||'').localeCompare(a.date||'');
+        });
+      }
+
+      el.tbody.innerHTML = '';
+      let idx=0, last=null;
+      rows.forEach(inv=>{
+        const g = ui.groupBy ? groupKey(inv) : '';
+        if (ui.groupBy && g!==last){
+          last = g;
+          const trG = document.createElement('tr');
+          trG.className = 'mlo-group-row';
+          trG.innerHTML = `<td colspan="7">${escapeHtml(g)}</td>`;
+          el.tbody.appendChild(trG);
+        }
+        idx++;
+        const tr = document.createElement('tr');
+        tr.dataset.id = inv.id;
+        if (ui.selectedId === inv.id) tr.classList.add('mlo-row-selected');
+        tr.innerHTML = `
+          <td>${idx}</td>
+          <td>${escapeHtml(inv.number)}</td>
+          <td>${escapeHtml(inv.date||'')}</td>
+          <td>${escapeHtml(customerName(inv.customerId)||'')}</td>
+          <td>${escapeHtml(eventTitle(inv.eventId)||'')}</td>
+          <td>${money(inv.total)}</td>
+          <td>${escapeHtml(inv.status||'')}</td>
+        `;
+        tr.addEventListener('click', ()=>{ ui.selectedId = inv.id; render(); });
+        el.tbody.appendChild(tr);
+      });
+
+      hydrate(invoices.find(i=>i.id===ui.selectedId) || null);
+      persist();
+    }
+
+    function hydrate(inv){
+      if (!inv){
+        el.inspectorBadge.textContent = 'No selection';
+        Object.values(el.f).forEach(f=>f.value='');
+        el.lines.innerHTML = '';
+        return;
+      }
+      el.inspectorBadge.textContent = inv.number || inv.id;
+      el.f.number.value = inv.number || '';
+      el.f.status.value = inv.status || 'Draft';
+      el.f.date.value = inv.date || '';
+      el.f.due.value = inv.due || '';
+      const custId = String(inv.customerId||'');
+      const hasCust = customers.some(c=>String(c.id)===custId);
+      if (!hasCust && custId){
+        const opt = document.createElement('option'); opt.value = custId; opt.textContent = custId; el.f.customer.appendChild(opt);
+      }
+      el.f.customer.value = custId;
+      const evId = String(inv.eventId||'');
+      const hasEv = EVENT_MAP.has(evId);
+      if (!hasEv && evId){
+        const opt = document.createElement('option'); opt.value = evId; opt.textContent = evId; el.f.event.appendChild(opt);
+      }
+      el.f.event.value = evId;
+      el.f.customerDetails.value = inv.customerDetails || '';
+      el.f.vatRate.value = inv.vatRate ?? 15;
+      recalc(inv);
+      el.f.subtotal.value = money(inv.subtotal);
+      el.f.vatAmount.value = money(inv.vat);
+      el.f.total.value = money(inv.total);
+      el.f.notes.value = inv.notes || '';
+      renderLines(inv);
+    }
+
+    function renderLines(inv){
+      el.lines.innerHTML = '';
+      inv.lines.forEach((ln, idx)=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><input class="form-control form-control-sm ln-desc" type="text" value="${escapeHtml(ln.desc)}"></td>
+          <td><input class="form-control form-control-sm ln-qty" type="number" step="0.01" min="0" value="${ln.qty}"></td>
+          <td><input class="form-control form-control-sm ln-rate" type="number" step="0.01" min="0" value="${ln.rate}"></td>
+          <td class="ln-amt" style="vertical-align: middle;">${money(ln.qty*ln.rate)}</td>
+          <td><button class="btn btn-sm btn-outline-danger mlo-btn ln-del" type="button">×</button></td>
+        `;
+        tr.querySelector('.ln-desc').addEventListener('input', e=>{ ln.desc = e.target.value; saveLines(inv); });
+        tr.querySelector('.ln-qty').addEventListener('input', e=>{ ln.qty = Number(e.target.value||0); saveLines(inv); });
+        tr.querySelector('.ln-rate').addEventListener('input', e=>{ ln.rate = Number(e.target.value||0); saveLines(inv); });
+        tr.querySelector('.ln-del').addEventListener('click', ()=>{ inv.lines = inv.lines.filter((_,i)=>i!==idx); saveLines(inv); });
+        el.lines.appendChild(tr);
+      });
+    }
+
+    function saveLines(inv){
+      recalc(inv);
+      el.f.subtotal.value = money(inv.subtotal);
+      el.f.vatAmount.value = money(inv.vat);
+      el.f.total.value = money(inv.total);
+      persist();
+      render();
+    }
+
+    function addLine(){
+      const inv = invoices.find(i=>i.id===ui.selectedId);
+      if (!inv) return;
+      inv.lines.push({ desc:'Line item', qty:1, rate:0 });
+      saveLines(inv);
+    }
+
+    function nextId(){
+      return invoices.reduce((m,i)=>Math.max(m, Number(i.id)||0), 0) + 1;
+    }
+
+    function addInvoice(){
+      const id = nextId();
+      const today = iso(new Date());
+      const cust = customers[0];
+      const ev = EVENT_OPTIONS[0];
+      const inv = {
+        id,
+        number: `INV-${String(id).padStart(4,'0')}`,
+        status:'Draft',
+        date: today,
+        due: today,
+        customerId: cust ? cust.id : '',
+        eventId: ev ? ev.id : '',
+        customerDetails: cust ? `${cust.name}\n${cust.email||''}\n${cust.phone||''}` : '',
+        vatRate: 15,
+        lines: [{ desc:'Support fee', qty:1, rate:0 }],
+        notes: '',
+        subtotal:0, vat:0, total:0
+      };
+      recalc(inv);
+      invoices.unshift(inv);
+      ui.selectedId = inv.id;
+      render();
+    }
+
+    function saveInvoice(){
+      const inv = invoices.find(i=>i.id===ui.selectedId);
+      if (!inv) return;
+      inv.status = el.f.status.value;
+      inv.date = el.f.date.value;
+      inv.due = el.f.due.value;
+      inv.customerId = el.f.customer.value;
+      inv.eventId = el.f.event.value;
+      inv.customerDetails = el.f.customerDetails.value;
+      inv.vatRate = Number(el.f.vatRate.value||0);
+      inv.notes = el.f.notes.value;
+      recalc(inv);
+      persist();
+      render();
+    }
+
+    function duplicateInvoice(){
+      const src = invoices.find(i=>i.id===ui.selectedId);
+      if (!src) return;
+      const id = nextId();
+      const copy = JSON.parse(JSON.stringify(src));
+      copy.id = id;
+      copy.number = `INV-${String(id).padStart(4,'0')}`;
+      copy.status = 'Draft';
+      invoices.unshift(copy);
+      ui.selectedId = id;
+      recalc(copy);
+      render();
+    }
+
+    function deleteInvoice(){
+      const idx = invoices.findIndex(i=>i.id===ui.selectedId);
+      if (idx<0) return;
+      invoices.splice(idx,1);
+      ui.selectedId = invoices[0]?.id || null;
+      render();
+    }
+
+    function printable(inv){
+      const cust = customers.find(c=>String(c.id)===String(inv.customerId));
+      const evTitle = eventTitle(inv.eventId) || '—';
+      const lineRows = inv.lines.map(l=>`<tr><td>${escapeHtml(l.desc)}</td><td style="text-align:right;">${l.qty}</td><td style="text-align:right;">${money(l.rate)}</td><td style="text-align:right;">${money(l.qty*l.rate)}</td></tr>`).join('');
+      return `
+        <html>
+        <head><title>${escapeHtml(inv.number)}</title>
+        <style>
+          body{font-family:Arial, sans-serif; color:#111; padding:24px;}
+          h1{margin:0 0 8px 0;}
+          table{width:100%; border-collapse:collapse; margin-top:12px;}
+          th,td{border:1px solid #ddd; padding:8px;}
+          th{text-align:left; background:#f5f5f5;}
+        </style>
+        </head>
+        <body>
+          <h1>${escapeHtml(inv.number)}</h1>
+          <div><strong>Status:</strong> ${escapeHtml(inv.status||'')}</div>
+          <div><strong>Date:</strong> ${escapeHtml(inv.date||'')}</div>
+          <div><strong>Due:</strong> ${escapeHtml(inv.due||'')}</div>
+          <div><strong>Event:</strong> ${escapeHtml(evTitle)}</div>
+          <hr>
+          <div><strong>Bill to:</strong><br>${escapeHtml(inv.customerDetails|| (cust ? `${cust.name}\n${cust.email||''}\n${cust.phone||''}\n${cust.address||''}` : ''))}</div>
+          <table>
+            <thead><tr><th>Description</th><th style="width:80px;">Qty</th><th style="width:120px;">Rate</th><th style="width:120px;">Amount</th></tr></thead>
+            <tbody>${lineRows}</tbody>
+          </table>
+          <h3 style="text-align:right;">Subtotal: ${money(inv.subtotal)}<br>VAT (${inv.vatRate||0}%): ${money(inv.vat)}<br>Total: ${money(inv.total)}</h3>
+          <p>${escapeHtml(inv.notes||'')}</p>
+        </body>
+        </html>
+      `;
+    }
+
+    function openPDF(){
+      const inv = invoices.find(i=>i.id===ui.selectedId);
+      if (!inv) return;
+      const win = window.open('', '_blank');
+      win.document.write(printable(inv));
+      win.document.close();
+      try { win.focus(); } catch(_e){}
+      setTimeout(()=>{ try{ win.print(); } catch(_e){} }, 200);
+    }
+
+    function bind(){
+      el.perspectives.addEventListener('click', (e)=>{
+        const li = e.target.closest('li[data-perspective]');
+        if (!li) return;
+        el.perspectives.querySelectorAll('li').forEach(x=>x.classList.remove('active'));
+        li.classList.add('active');
+        ui.perspective = li.dataset.perspective || 'all';
+        render();
+      });
+      el.custTree.addEventListener('click', (e)=>{
+        const li = e.target.closest('li');
+        if (!li) return;
+        el.custTree.querySelectorAll('li').forEach(x=>x.classList.remove('active'));
+        li.classList.add('active');
+        ui.customer = li.dataset.cust || '';
+        render();
+      });
+      const onInputs = ()=>{
+        ui.search = el.search.value;
+        ui.event = el.event.value;
+        ui.customer = el.customer.value;
+        ui.status = el.status.value;
+        ui.groupBy = el.group.value;
+        render();
+      };
+      el.search.addEventListener('input', onInputs);
+      el.event.addEventListener('change', onInputs);
+      el.customer.addEventListener('change', onInputs);
+      el.status.addEventListener('change', onInputs);
+      el.group.addEventListener('change', onInputs);
+      el.add.addEventListener('click', addInvoice);
+      el.save.addEventListener('click', saveInvoice);
+      el.dup.addEventListener('click', duplicateInvoice);
+      el.del.addEventListener('click', deleteInvoice);
+      el.pdf.addEventListener('click', openPDF);
+      el.addLine.addEventListener('click', addLine);
+
+      el.btnCustSave.addEventListener('click', saveCustomer);
+      el.btnCustAdd.addEventListener('click', ()=>{ clearCustForm(); });
+      el.btnCustDelete.addEventListener('click', deleteCustomer);
+    }
+
+    function clearCustForm(){
+      el.custForm.name.value = '';
+      el.custForm.email.value = '';
+      el.custForm.phone.value = '';
+      el.custForm.address.value = '';
+    }
+
+    function saveCustomer(){
+      const name = el.custForm.name.value.trim();
+      if (!name) return;
+      const email = el.custForm.email.value.trim();
+      const phone = el.custForm.phone.value.trim();
+      const address = el.custForm.address.value.trim();
+      let existing = customers.find(c=>c.name===name || c.email===email);
+      if (existing){
+        existing.name = name; existing.email=email; existing.phone=phone; existing.address=address;
+      } else {
+        customers.push({ id: RTS.uid('cust'), name, email, phone, address });
+      }
+      buildCustomerTree();
+      render();
+      clearCustForm();
+      persist();
+    }
+
+    function deleteCustomer(){
+      const name = el.custForm.name.value.trim();
+      if (!name) return;
+      customers = customers.filter(c=>c.name !== name);
+      buildCustomerTree();
+      persist();
+      render();
+      clearCustForm();
+    }
+
+    function init(){
+      buildFilters();
+      buildCustomerTree();
+      bind();
+      render();
+      if (!ui.selectedId && invoices.length) { ui.selectedId = invoices[0].id; render(); }
+    }
+    document.addEventListener('DOMContentLoaded', init);
+  })();
+  </script>
+</body>
+</html>

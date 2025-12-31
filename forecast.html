@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Race Team OS – Forecasting & Replenishment (stub)</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="style.css" rel="stylesheet" />
+  <style>
+    #fcTbody td, #fcTbody th { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  </style>
+</head>
+<body>
+  <div id="rtsTopNav"></div>
+  <div class="rts-main container-fluid">
+    <h1 class="my-3">Forecasting & Replenishment</h1>
+
+    <div class="mlo-shell" id="fcShell">
+      <!-- LEFT -->
+      <section class="mlo-pane mlo-pane-left" aria-label="Forecast inputs">
+        <div class="mlo-pane-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="mlo-title">Scenario</div>
+            <span class="badge text-bg-secondary" id="fcCountBadge">0</span>
+          </div>
+        </div>
+        <div class="mlo-pane-content">
+          <div class="mlo-section-label">Event context</div>
+          <div class="d-grid gap-2">
+            <select id="fcEvent" class="form-select form-select-sm"></select>
+            <input id="fcDrivers" class="form-control form-control-sm" type="number" min="1" step="1" value="4" placeholder="Driver count">
+            <input id="fcSessions" class="form-control form-control-sm" type="number" min="1" step="1" value="6" placeholder="Sessions">
+            <select id="fcScenario" class="form-select form-select-sm">
+              <option value="dry">Dry</option>
+              <option value="wet">Wet</option>
+            </select>
+            <button class="btn btn-sm btn-outline-light mlo-btn" id="btnCalc" type="button">Calculate</button>
+          </div>
+
+          <div class="mlo-section-label mt-3">Proposal</div>
+          <div class="d-grid gap-1">
+            <button class="btn btn-sm btn-outline-light mlo-btn" id="btnSaveProposal" type="button">Save Proposal</button>
+            <button class="btn btn-sm btn-outline-light mlo-btn" id="btnLoadProposal" type="button">Load Last</button>
+          </div>
+        </div>
+      </section>
+
+      <div class="mlo-resizer" data-resize="left" title="Drag to resize"></div>
+
+      <!-- MIDDLE -->
+      <section class="mlo-pane mlo-pane-mid" aria-label="Forecast list">
+        <div class="mlo-pane-header">
+          <div class="d-flex align-items-center flex-nowrap gap-1" style="overflow:hidden;">
+            <input id="fcSearch" type="text" class="form-control form-control-sm" placeholder="Search…" style="flex:1 1 180px; min-width:160px; max-width:220px;">
+            <select id="fcCategory" class="form-select form-select-sm" style="flex:1 1 180px; min-width:150px; max-width:200px;">
+              <option value="">Category: All</option>
+            </select>
+            <select id="fcStatus" class="form-select form-select-sm" style="flex:0 1 160px; min-width:140px; max-width:180px;">
+              <option value="">Status: All</option>
+              <option>Draft</option>
+              <option>Approved</option>
+              <option>Ordered</option>
+              <option>Received</option>
+            </select>
+            <button class="btn btn-sm btn-outline-light mlo-btn" id="btnAddLine" type="button" style="white-space:nowrap;">Add Line</button>
+          </div>
+        </div>
+        <div class="mlo-pane-content" style="padding:0;">
+          <table class="table table-dark table-hover mlo-table" style="margin:0;">
+            <thead>
+              <tr>
+                <th style="width:60px;">#</th>
+                <th>Item</th>
+                <th style="width:140px;">Category</th>
+                <th style="width:120px;">On-hand</th>
+                <th style="width:120px;">Forecast need</th>
+                <th style="width:120px;">To order</th>
+                <th style="width:140px;">Status</th>
+              </tr>
+            </thead>
+            <tbody id="fcTbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <div class="mlo-resizer" data-resize="right" title="Drag to resize"></div>
+
+      <!-- RIGHT -->
+      <section class="mlo-pane mlo-pane-right mlo-inspector" aria-label="Forecast inspector">
+        <div class="mlo-pane-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="mlo-title">Inspector</div>
+            <span class="badge text-bg-secondary" id="fcInspectorBadge">No selection</span>
+          </div>
+        </div>
+        <div class="mlo-pane-content">
+          <form id="fcForm" autocomplete="off">
+            <ul class="nav nav-tabs nav-dark mb-2" role="tablist">
+              <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="tab-fc-details" data-bs-toggle="tab" data-bs-target="#pane-fc-details" type="button" role="tab" aria-controls="pane-fc-details" aria-selected="true">Details</button>
+              </li>
+            </ul>
+            <div class="tab-content">
+              <div class="tab-pane fade show active" id="pane-fc-details" role="tabpanel" aria-labelledby="tab-fc-details">
+                <div class="row g-2">
+              <div class="col-12">
+                <label class="form-label">Item</label>
+                <input id="f_fc_item" class="form-control form-control-sm" type="text" list="fcItemOptions" placeholder="Inventory item">
+                <datalist id="fcItemOptions"></datalist>
+              </div>
+              <div class="col-6">
+                <label class="form-label">Category</label>
+                <input id="f_fc_category" class="form-control form-control-sm" type="text">
+              </div>
+              <div class="col-6">
+                <label class="form-label">Status</label>
+                <select id="f_fc_status" class="form-select form-select-sm">
+                  <option>Draft</option>
+                  <option>Approved</option>
+                  <option>Ordered</option>
+                  <option>Received</option>
+                </select>
+              </div>
+
+              <div class="col-4">
+                <label class="form-label">On-hand</label>
+                <input id="f_fc_onhand" class="form-control form-control-sm" type="number" min="0" step="1">
+              </div>
+              <div class="col-4">
+                <label class="form-label">Forecast need</label>
+                <input id="f_fc_need" class="form-control form-control-sm" type="number" min="0" step="1">
+              </div>
+              <div class="col-4">
+                <label class="form-label">To order</label>
+                <input id="f_fc_order" class="form-control form-control-sm" type="number" min="0" step="1">
+              </div>
+
+              <div class="col-12">
+                <label class="form-label">Notes</label>
+                <textarea id="f_fc_notes" class="form-control form-control-sm" rows="3" placeholder="Lead time, supplier, confidence"></textarea>
+              </div>
+
+              <div class="col-12 d-flex gap-1 mt-1">
+                <button class="btn btn-sm btn-primary mlo-btn" id="btnSaveFc" type="button">Save</button>
+                <button class="btn btn-sm btn-outline-light mlo-btn" id="btnDupFc" type="button">Duplicate</button>
+                <button class="btn btn-sm btn-outline-danger mlo-btn" id="btnDelFc" type="button">Delete</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="config.js"></script>
+  <script src="core.js"></script>
+  <script src="topnav.js"></script>
+  <script>
+  (function(){
+    RTS.setActiveNav();
+    const LS = 'rts.forecast.v1';
+    const LS_UI = 'rts.forecast.ui.v1';
+    const LS_PANES = 'rts.forecast.panes.v1';
+
+    const invStore = RTS.safeLoadJSON('rts.inventory.v4', []);
+    const INV_OPTIONS = Array.isArray(invStore) ? invStore.map(i=>({ id:i.id||i.name, label:i.name||i.id, category:i.category||'' })) : [];
+    const eventsStore = RTS.safeLoadJSON('rts.events.v4', []);
+    const EVENT_OPTIONS = Array.isArray(eventsStore) ? eventsStore.map(e=>({ id:e.id, title:e.title||e.name||'Event' })) : [];
+    const categories = Array.from(new Set(INV_OPTIONS.map(i=>i.category).filter(Boolean)));
+
+    function escapeHtml(str){ return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;').replace(/'/g,'&#39;'); }
+    function nowISO(){ return new Date().toISOString(); }
+
+    function seed(){
+      const out=[];
+      INV_OPTIONS.slice(0,12).forEach((i, idx)=>{
+        out.push({
+          id: RTS.uid('fc'),
+          itemId: i.id,
+          itemLabel: i.label,
+          category: i.category || 'General',
+          onHand: 10 + idx,
+          need: 6,
+          toOrder: 0,
+          status:'Draft',
+          notes:'',
+          updatedAt: nowISO()
+        });
+      });
+      return out;
+    }
+
+    let items = RTS.safeLoadJSON(LS, null);
+    if (!Array.isArray(items) || items.length===0) items = seed();
+    let ui = RTS.deepMerge({ event:'', drivers:4, sessions:6, scenario:'dry', search:'', category:'', status:'', selectedId:null }, RTS.safeLoadJSON(LS_UI, {}));
+
+    const el = {
+      shell: document.getElementById('fcShell'),
+      count: document.getElementById('fcCountBadge'),
+      search: document.getElementById('fcSearch'),
+      category: document.getElementById('fcCategory'),
+      status: document.getElementById('fcStatus'),
+      addLine: document.getElementById('btnAddLine'),
+      tbody: document.getElementById('fcTbody'),
+      inspectorBadge: document.getElementById('fcInspectorBadge'),
+      btnSave: document.getElementById('btnSaveFc'),
+      btnDup: document.getElementById('btnDupFc'),
+      btnDel: document.getElementById('btnDelFc'),
+      btnCalc: document.getElementById('btnCalc'),
+      btnSaveProposal: document.getElementById('btnSaveProposal'),
+      btnLoadProposal: document.getElementById('btnLoadProposal'),
+      f: {
+        item: document.getElementById('f_fc_item'),
+        category: document.getElementById('f_fc_category'),
+        status: document.getElementById('f_fc_status'),
+        onHand: document.getElementById('f_fc_onhand'),
+        need: document.getElementById('f_fc_need'),
+        order: document.getElementById('f_fc_order'),
+        notes: document.getElementById('f_fc_notes')
+      },
+      datalist: document.getElementById('fcItemOptions'),
+      scenario: {
+        event: document.getElementById('fcEvent'),
+        drivers: document.getElementById('fcDrivers'),
+        sessions: document.getElementById('fcSessions'),
+        scenario: document.getElementById('fcScenario')
+      }
+    };
+
+    RTS.initTriPaneResizers(el.shell, LS_PANES);
+
+    function persist(){
+      RTS.safeSaveJSON(LS, items);
+      RTS.safeSaveJSON(LS_UI, ui);
+    }
+
+    function buildFilters(){
+      el.category.innerHTML = '<option value="">Category: All</option>' + categories.map(c=>`<option>${escapeHtml(c)}</option>`).join('');
+      el.datalist.innerHTML = INV_OPTIONS.map(i=>`<option value="${escapeHtml(i.label)}">${escapeHtml(i.label)}</option>`).join('');
+      el.scenario.event.innerHTML = '<option value="">Event: None</option>' + EVENT_OPTIONS.map(ev=>`<option value="${ev.id}">${escapeHtml(ev.title)}</option>`).join('');
+    }
+
+    function applyFilters(list){
+      let out = list.slice();
+      if (ui.category) out = out.filter(i=>i.category===ui.category);
+      if (ui.status) out = out.filter(i=>i.status===ui.status);
+      if (ui.search){
+        const q = ui.search.toLowerCase();
+        out = out.filter(i => (`${i.itemLabel} ${i.category} ${i.notes}`).toLowerCase().includes(q));
+      }
+      return out;
+    }
+
+    function render(){
+      el.search.value = ui.search || '';
+      el.category.value = ui.category || '';
+      el.status.value = ui.status || '';
+      el.scenario.event.value = ui.event || '';
+      el.scenario.drivers.value = ui.drivers || 4;
+      el.scenario.sessions.value = ui.sessions || 6;
+      el.scenario.scenario.value = ui.scenario || 'dry';
+
+      const filtered = applyFilters(items);
+      el.count.textContent = String(filtered.length);
+
+      el.tbody.innerHTML = '';
+      let idx=0;
+      filtered.forEach(i=>{
+        idx++;
+        const tr = document.createElement('tr');
+        tr.dataset.id = i.id;
+        if (ui.selectedId===i.id) tr.classList.add('mlo-row-selected');
+        tr.innerHTML = `
+          <td>${idx}</td>
+          <td>${escapeHtml(i.itemLabel||'')}</td>
+          <td>${escapeHtml(i.category||'')}</td>
+          <td>${escapeHtml(i.onHand||0)}</td>
+          <td>${escapeHtml(i.need||0)}</td>
+          <td>${escapeHtml(i.toOrder||0)}</td>
+          <td>${escapeHtml(i.status||'')}</td>
+        `;
+        tr.addEventListener('click', ()=>{ ui.selectedId = i.id; render(); });
+        el.tbody.appendChild(tr);
+      });
+
+      hydrate(items.find(x=>x.id===ui.selectedId) || null);
+      persist();
+    }
+
+    function hydrate(i){
+      if (!i){
+        el.inspectorBadge.textContent = 'No selection';
+        Object.values(el.f).forEach(f=> f.value='');
+        return;
+      }
+      el.inspectorBadge.textContent = i.itemLabel || i.id;
+      el.f.item.value = i.itemLabel || '';
+      el.f.category.value = i.category || '';
+      el.f.status.value = i.status || 'Draft';
+      el.f.onHand.value = i.onHand || 0;
+      el.f.need.value = i.need || 0;
+      el.f.order.value = i.toOrder || 0;
+      el.f.notes.value = i.notes || '';
+    }
+
+    function readInspector(){
+      const i = items.find(x=>x.id===ui.selectedId);
+      if (!i) return;
+      i.itemLabel = el.f.item.value.trim() || i.itemLabel;
+      i.category = el.f.category.value.trim() || i.category;
+      i.status = el.f.status.value;
+      i.onHand = Number(el.f.onHand.value||0);
+      i.need = Number(el.f.need.value||0);
+      i.toOrder = Number(el.f.order.value||0);
+      i.notes = el.f.notes.value;
+      i.updatedAt = nowISO();
+      persist();
+      render();
+    }
+
+    function addLine(){
+      const id = RTS.uid('fc');
+      const i = {
+        id,
+        itemLabel:`Item ${items.length+1}`,
+        category:'',
+        onHand:0,
+        need:0,
+        toOrder:0,
+        status:'Draft',
+        notes:'',
+        updatedAt: nowISO()
+      };
+      items.unshift(i);
+      ui.selectedId = id;
+      render();
+    }
+
+    function duplicateLine(){
+      const src = items.find(x=>x.id===ui.selectedId);
+      if (!src) return;
+      const copy = JSON.parse(JSON.stringify(src));
+      copy.id = RTS.uid('fc');
+      copy.itemLabel = `${src.itemLabel} (Copy)`;
+      copy.status = 'Draft';
+      copy.updatedAt = nowISO();
+      items.unshift(copy);
+      ui.selectedId = copy.id;
+      render();
+    }
+
+    function deleteLine(){
+      const idx = items.findIndex(x=>x.id===ui.selectedId);
+      if (idx<0) return;
+      items.splice(idx,1);
+      ui.selectedId = items[0]?.id || null;
+      render();
+    }
+
+    // Very simple forecast: need = drivers * sessions * base factor, per item category
+    function calculate(){
+      const drivers = Number(el.scenario.drivers.value||0);
+      const sessions = Number(el.scenario.sessions.value||0);
+      const wet = el.scenario.scenario.value === 'wet';
+      const factor = wet ? 1.4 : 1;
+      items.forEach(i=>{
+        const cat = (i.category||'').toLowerCase();
+        let base = 0.3;
+        if (cat.includes('tyre')) base = 0.5;
+        if (cat.includes('fuel')) base = 3;
+        if (cat.includes('oil')||cat.includes('lube')) base = 0.8;
+        i.need = Math.ceil(drivers * sessions * base * factor);
+        i.toOrder = Math.max(0, i.need - (Number(i.onHand)||0));
+        i.updatedAt = nowISO();
+      });
+      persist();
+      render();
+    }
+
+    function saveScenario(){
+      persist();
+      alert('Proposal saved locally.');
+    }
+
+    function loadScenario(){
+      ui = RTS.deepMerge(ui, RTS.safeLoadJSON(LS_UI, {}));
+      items = RTS.safeLoadJSON(LS, items);
+      render();
+    }
+
+    function bind(){
+      el.search.addEventListener('input', ()=>{ ui.search = el.search.value; render(); });
+      el.category.addEventListener('change', ()=>{ ui.category = el.category.value; render(); });
+      el.status.addEventListener('change', ()=>{ ui.status = el.status.value; render(); });
+      el.addLine.addEventListener('click', addLine);
+      el.btnSave.addEventListener('click', readInspector);
+      el.btnDup.addEventListener('click', duplicateLine);
+      // Use modal-backed async confirmation for delete (falls back to window.confirm)
+      el.btnDel.addEventListener('click', async (e)=>{
+        const msg = 'Delete selected forecast line? This cannot be undone.';
+        let ok = false;
+        try{
+          if (window.RTS && typeof window.RTS.confirmPrompt === 'function') {
+            ok = await window.RTS.confirmPrompt(msg);
+          } else {
+            ok = window.confirm(msg);
+          }
+        }catch(err){ ok = window.confirm(msg); }
+        if (ok) deleteLine();
+      });
+      el.btnCalc.addEventListener('click', calculate);
+      el.btnSaveProposal.addEventListener('click', saveScenario);
+      el.btnLoadProposal.addEventListener('click', loadScenario);
+      el.scenario.event.addEventListener('change', ()=>{ ui.event = el.scenario.event.value; persist(); });
+      el.scenario.drivers.addEventListener('input', ()=>{ ui.drivers = Number(el.scenario.drivers.value||0); });
+      el.scenario.sessions.addEventListener('input', ()=>{ ui.sessions = Number(el.scenario.sessions.value||0); });
+      el.scenario.scenario.addEventListener('change', ()=>{ ui.scenario = el.scenario.scenario.value; });
+    }
+
+    function init(){
+      buildFilters();
+      bind();
+      render();
+      if (!ui.selectedId && items[0]) { ui.selectedId = items[0].id; render(); }
+    }
+    document.addEventListener('DOMContentLoaded', init);
+  })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Race Team OS – Load Planning</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="style.css" rel="stylesheet" />
+  <style>
+    /* Keep middle table single-line */
+    #loadTbody td, #loadTbody th { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  </style>
+</head>
+<body class="page-load">
+  <div id="rtsTopNav"></div>
+  <div class="rts-main container-fluid">
+    <h1 class="my-3">Load Planning</h1>
+
+    <div class="mlo-shell" id="loadShell">
+      <!-- LEFT -->
+      <section class="mlo-pane mlo-pane-left" aria-label="Transport & crates">
+        <div class="mlo-pane-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="mlo-title">Resources</div>
+            <span class="badge text-bg-secondary" id="lpCountBadge">0</span>
+          </div>
+        </div>
+        <div class="mlo-pane-content">
+          <div class="mlo-section-label">Transport units</div>
+          <ul class="mlo-tree pastel-tree" id="unitList"></ul>
+
+          <div class="mlo-section-label mt-3">Crates</div>
+          <ul class="mlo-tree pastel-tree" id="crateList"></ul>
+        </div>
+      </section>
+
+      <div class="mlo-resizer" data-resize="left" title="Drag to resize"></div>
+
+      <!-- MIDDLE -->
+      <section class="mlo-pane mlo-pane-mid" aria-label="Load plans">
+        <div class="mlo-pane-header">
+          <div class="d-flex align-items-center flex-nowrap gap-1" style="overflow:hidden;">
+            <input id="lpSearch" type="text" class="form-control form-control-sm" placeholder="Search…" style="flex:1 1 180px; min-width:160px; max-width:220px;">
+            <select id="lpEvent" class="form-select form-select-sm" style="flex:1 1 180px; min-width:150px; max-width:200px;"></select>
+            <select id="lpUnit" class="form-select form-select-sm" style="flex:1 1 180px; min-width:150px; max-width:200px;"></select>
+            <select id="lpStatus" class="form-select form-select-sm" style="flex:0 1 160px; min-width:140px; max-width:180px;">
+              <option value="">Status: All</option>
+              <option>Draft</option>
+              <option>Approved</option>
+              <option>Loaded</option>
+              <option>Departed</option>
+              <option>Arrived</option>
+              <option>Unloaded</option>
+              <option>Closed</option>
+            </select>
+            <button class="btn btn-sm btn-outline-light mlo-btn" id="btnAddLp" type="button" style="white-space:nowrap;">Add Load Plan</button>
+          </div>
+        </div>
+        <div class="mlo-pane-content" style="padding:0;">
+          <table class="table table-dark table-hover mlo-table" style="margin:0;">
+            <thead>
+              <tr>
+                <th style="width:60px;">#</th>
+                <th style="width:130px;">Load Plan</th>
+                <th style="width:200px;">Event</th>
+                <th style="width:170px;">Transport</th>
+                <th style="width:130px;">Status</th>
+                <th style="width:170px;">Owner</th>
+                <th style="width:150px;">Updated</th>
+              </tr>
+            </thead>
+            <tbody id="loadTbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <div class="mlo-resizer" data-resize="right" title="Drag to resize"></div>
+
+      <!-- RIGHT -->
+      <section class="mlo-pane mlo-pane-right mlo-inspector" aria-label="Load plan inspector">
+        <div class="mlo-pane-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="mlo-title">Inspector</div>
+            <span class="badge text-bg-secondary" id="lpInspectorBadge">No selection</span>
+          </div>
+        </div>
+        <div class="mlo-pane-content">
+          <!-- Use Assets-style inspector tabs: Details / Placements / Goodloading -->
+          <ul class="nav nav-tabs nav-dark mb-2" role="tablist">
+            <li class="nav-item" role="presentation">
+              <button class="nav-link active" id="tab-lp-main" data-bs-toggle="tab" data-bs-target="#pane-lp-main" type="button" role="tab" aria-controls="pane-lp-main" aria-selected="true">Details</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="tab-lp-placements" data-bs-toggle="tab" data-bs-target="#pane-lp-placements" type="button" role="tab" aria-controls="pane-lp-placements" aria-selected="false">Placements</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="tab-lp-goodloading" data-bs-toggle="tab" data-bs-target="#pane-lp-goodloading" type="button" role="tab" aria-controls="pane-lp-goodloading" aria-selected="false">Goodloading</button>
+            </li>
+          </ul>
+
+          <div class="tab-content">
+            <div class="tab-pane fade show active" id="pane-lp-main" role="tabpanel" aria-labelledby="tab-lp-main">
+              <form id="lpForm" autocomplete="off">
+                <div class="row g-2">
+                  <div class="col-6">
+                    <label class="form-label">Load plan #</label>
+                    <input id="f_lp_id" class="form-control form-control-sm" type="text" readonly>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Status</label>
+                    <select id="f_lp_status" class="form-select form-select-sm">
+                      <option>Draft</option>
+                      <option>Approved</option>
+                      <option>Loaded</option>
+                      <option>Departed</option>
+                      <option>Arrived</option>
+                      <option>Unloaded</option>
+                      <option>Closed</option>
+                    </select>
+                  </div>
+
+                  <div class="col-6">
+                    <label class="form-label">Event</label>
+                    <select id="f_lp_event" class="form-select form-select-sm"></select>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Transport unit</label>
+                    <select id="f_lp_unit" class="form-select form-select-sm"></select>
+                  </div>
+
+                  <div class="col-6">
+                    <label class="form-label">Owner</label>
+                    <input id="f_lp_owner" class="form-control form-control-sm" type="text" placeholder="Logistics / Team Manager">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Notes</label>
+                    <input id="f_lp_notes" class="form-control form-control-sm" type="text" placeholder="Constraints, seals, tie-downs">
+                  </div>
+
+                  <div class="col-12 d-flex gap-1 mt-1">
+                    <button class="btn btn-sm btn-primary mlo-btn" id="btnSaveLp" type="button">Save</button>
+                    <button class="btn btn-sm btn-outline-light mlo-btn" id="btnDupLp" type="button">Duplicate</button>
+                    <button class="btn btn-sm btn-outline-danger mlo-btn" id="btnDelLp" type="button">Delete</button>
+                  </div>
+                </div>
+              </form>
+            </div>
+
+            <div class="tab-pane fade" id="pane-lp-placements" role="tabpanel" aria-labelledby="tab-lp-placements">
+              <div class="mb-2">
+                <label class="form-label">Placements</label>
+                <div class="table-responsive">
+                  <table class="table table-dark table-sm mlo-table" style="margin:0;">
+                    <thead>
+                      <tr>
+                        <th>Item</th>
+                        <th style="width:140px;">Zone</th>
+                        <th style="width:80px;">Order</th>
+                        <th style="width:60px;"></th>
+                      </tr>
+                    </thead>
+                    <tbody id="lpPlaceTbody"></tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="d-flex flex-wrap gap-1 mt-1">
+                <input id="lpPlaceItem" class="form-control form-control-sm" type="text" placeholder="Crate / Asset" style="flex:2 1 200px; min-width:160px;" list="lpItemOptions">
+                <datalist id="lpItemOptions"></datalist>
+                <input id="lpPlaceZone" class="form-control form-control-sm" type="text" placeholder="Front / Rear / L/R" style="flex:1 1 120px; min-width:120px;">
+                <input id="lpPlaceOrder" class="form-control form-control-sm" type="number" min="0" step="1" placeholder="#" style="flex:0 1 80px; min-width:70px;">
+                <button class="btn btn-sm btn-outline-light mlo-btn" id="btnAddPlacement" type="button">Add</button>
+              </div>
+            </div>
+
+            <div class="tab-pane fade" id="pane-lp-goodloading" role="tabpanel" aria-labelledby="tab-lp-goodloading">
+              <div class="text-secondary" style="font-size:0.85rem; line-height:1.4; max-height:70vh; overflow:auto;">
+                <p><strong>Goodloading overview</strong><br>
+                Load optimization engine for space utilization, constraints (GVW, axle loads, CoG), multistop sequencing, vehicle recommendation, and 3D animated loading visualization.</p>
+                <p><strong>Key capabilities</strong><br>
+                • Optimal space use &amp; sequencing (LIFO for multistop)<br>
+                • Constraints: axle loads, GVW, center of gravity<br>
+                • Vehicle recommendation from available fleet<br>
+                • 3D visualization + PDF plan links</p>
+                <p><strong>Use cases</strong><br>
+                • Fleet operators &amp; manufacturers: cut freight/fuel, reduce damage, automate plans<br>
+                • E‑commerce / 3PL: instant, accurate shipping volume/costs, value‑add optimization<br>
+                • TMS/WMS/ERP providers: plug a proven loading engine instead of building in‑house</p>
+                <p><strong>Benefits</strong><br>
+                • Cost: fewer vehicles, less fuel, lower damage claims, lower labor time<br>
+                • Speed: plans in seconds, clear animated instructions for ramp teams<br>
+                • Compliance: axle limits, CoG respected<br>
+                • Sustainability: fewer trips → lower footprint</p>
+                <p><strong>Workflow (concept)</strong><br>
+                1) Input: items (dims/weight/stack rules), vehicles (dims/limits)<br>
+                2) Compute: optimal plan + constraints checked<br>
+                3) Output: placements, utilization %, weight/axle loads, 3D link, PDF</p>
+                <p><strong>Contact</strong><br>
+                Goodloading Sp. z o. o., ul. Racławicka 2-4, 53-146 Wrocław, POLAND<br>
+                info@goodloading.com</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="config.js"></script>
+  <script src="core.js"></script>
+  <script src="topnav.js"></script>
+  <script>
+  (function(){
+    RTS.setActiveNav();
+    const LS_UNITS = 'rts.load.units.v1';
+    const LS_CRATES = 'rts.load.crates.v1';
+    const LS_PLANS = 'rts.load.plans.v1';
+    const LS_UI = 'rts.load.ui.v1';
+    const LS_PANES = 'rts.load.panes.v1';
+
+    const eventsStore = RTS.safeLoadJSON('rts.events.v4', []);
+    const events = Array.isArray(eventsStore) ? eventsStore : [];
+    const EVENT_OPTIONS = events.map(e=>({ id:e.id, title:e.title || e.name || 'Event'}));
+    const EVENT_MAP = new Map(EVENT_OPTIONS.map(e=>[String(e.id), e.title]));
+
+    const assetsStore = RTS.safeLoadJSON('rts.assets.v4', []);
+    const inventoryStore = RTS.safeLoadJSON('rts.inventory.v4', []);
+    const ASSET_OPTIONS = Array.isArray(assetsStore) ? assetsStore.map(a=>({ id:a.id, label:a.name||a.id, kind:'asset' })) : [];
+    const INV_OPTIONS = Array.isArray(inventoryStore) ? inventoryStore.map(i=>({ id:i.id||i.name, label:i.name||i.id, kind:'inventory' })) : [];
+    const ITEM_OPTIONS = [...ASSET_OPTIONS, ...INV_OPTIONS];
+    const ITEM_MAP = new Map(ITEM_OPTIONS.map(o => [`${o.kind}:${o.id}`, o]));
+
+    function eventTitle(id){ return EVENT_MAP.get(String(id)) || ''; }
+    function escapeHtml(str){ return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;').replace(/'/g,'&#39;'); }
+    function nowISO(){ return new Date().toISOString(); }
+
+    function seedUnits(){
+      return [
+        { id: RTS.uid('unit'), name:'Trailer A', type:'Trailer', dimensions:'8m x 2.5m x 2.8m', max_payload_kg:3500, tie_down_points:12 },
+        { id: RTS.uid('unit'), name:'Truck 1', type:'Truck', dimensions:'12m x 2.5m x 3m', max_payload_kg:12000, tie_down_points:20 }
+      ];
+    }
+    function seedCrates(){
+      return [
+        { id: RTS.uid('crate'), code:'CR-001', name:'Tools A', category:'Tools', seal_required:false },
+        { id: RTS.uid('crate'), code:'CR-002', name:'Tyres Set 1', category:'Tyres', seal_required:true },
+        { id: RTS.uid('crate'), code:'CR-003', name:'Fuel / Fluids', category:'Fuel', seal_required:true }
+      ];
+    }
+    function seedPlans(){
+      const u = seedUnits()[0];
+      const ev = EVENT_OPTIONS[0];
+      return [
+        {
+          id: RTS.uid('lp'),
+          name:'Load Plan 1',
+          status:'Draft',
+          eventId: ev ? ev.id : '',
+          transportUnitId: u ? u.id : '',
+          owner:'Logistics',
+          notes:'Seal crates, tie-down 4 points each.',
+          placements:[
+            { item:'CR-001 Tools A', zone:'Front-Left', order:1 },
+            { item:'CR-002 Tyres Set 1', zone:'Front-Right', order:2 }
+          ],
+          updatedAt: nowISO()
+        }
+      ];
+    }
+
+    let units = RTS.safeLoadJSON(LS_UNITS, null);
+    if (!Array.isArray(units) || units.length===0) units = seedUnits();
+    let crates = RTS.safeLoadJSON(LS_CRATES, null);
+    if (!Array.isArray(crates) || crates.length===0) crates = seedCrates();
+    let plans = RTS.safeLoadJSON(LS_PLANS, null);
+    if (!Array.isArray(plans) || plans.length===0) plans = seedPlans();
+    let ui = RTS.deepMerge({ search:'', event:'', unit:'', status:'', selectedId:null }, RTS.safeLoadJSON(LS_UI, {}));
+
+    const el = {
+      shell: document.getElementById('loadShell'),
+      count: document.getElementById('lpCountBadge'),
+      unitList: document.getElementById('unitList'),
+      crateList: document.getElementById('crateList'),
+      tbody: document.getElementById('loadTbody'),
+      search: document.getElementById('lpSearch'),
+      event: document.getElementById('lpEvent'),
+      unit: document.getElementById('lpUnit'),
+      status: document.getElementById('lpStatus'),
+      add: document.getElementById('btnAddLp'),
+      inspectorBadge: document.getElementById('lpInspectorBadge'),
+      placeTbody: document.getElementById('lpPlaceTbody'),
+      placeItem: document.getElementById('lpPlaceItem'),
+      placeZone: document.getElementById('lpPlaceZone'),
+      placeOrder: document.getElementById('lpPlaceOrder'),
+      placeOptions: document.getElementById('lpItemOptions'),
+      btnAddPlacement: document.getElementById('btnAddPlacement'),
+      btnSave: document.getElementById('btnSaveLp'),
+      btnDup: document.getElementById('btnDupLp'),
+      btnDel: document.getElementById('btnDelLp'),
+      f: {
+        id: document.getElementById('f_lp_id'),
+        status: document.getElementById('f_lp_status'),
+        event: document.getElementById('f_lp_event'),
+        unit: document.getElementById('f_lp_unit'),
+        owner: document.getElementById('f_lp_owner'),
+        notes: document.getElementById('f_lp_notes')
+      }
+    };
+
+    RTS.initTriPaneResizers(el.shell, LS_PANES);
+
+    function persist(){
+      RTS.safeSaveJSON(LS_UNITS, units);
+      RTS.safeSaveJSON(LS_CRATES, crates);
+      RTS.safeSaveJSON(LS_PLANS, plans);
+      RTS.safeSaveJSON(LS_UI, ui);
+    }
+
+    function buildLists(){
+      el.unitList.innerHTML = '';
+      units.forEach(u=>{
+        const li = document.createElement('li');
+        li.textContent = `${u.name} (${u.type})`;
+        li.dataset.id = u.id;
+        el.unitList.appendChild(li);
+      });
+
+      el.crateList.innerHTML = '';
+      crates.forEach(c=>{
+        const li = document.createElement('li');
+        li.textContent = `${c.code} — ${c.name}`;
+        li.dataset.id = c.id;
+        el.crateList.appendChild(li);
+      });
+
+      el.event.innerHTML = '<option value="">Event: All</option>' + EVENT_OPTIONS.map(ev=>`<option value="${ev.id}">${escapeHtml(ev.title)}</option>`).join('');
+      el.unit.innerHTML = '<option value="">Unit: All</option>' + units.map(u=>`<option value="${u.id}">${escapeHtml(u.name)}</option>`).join('');
+      el.f.event.innerHTML = EVENT_OPTIONS.length ? EVENT_OPTIONS.map(ev=>`<option value="${ev.id}">${escapeHtml(ev.title)}</option>`).join('') : '<option value="">Unassigned</option>';
+      el.f.unit.innerHTML = units.map(u=>`<option value="${u.id}">${escapeHtml(u.name)}</option>`).join('') || '<option value="">Unassigned</option>';
+      el.placeOptions.innerHTML = ITEM_OPTIONS.map(o=>`<option value="${o.kind}:${o.id}">${escapeHtml(o.label)}</option>`).join('');
+    }
+
+    function applyFilters(list){
+      let out = list.slice();
+      if (ui.event) out = out.filter(p=>String(p.eventId||'')===String(ui.event));
+      if (ui.unit) out = out.filter(p=>String(p.transportUnitId||'')===String(ui.unit));
+      if (ui.status) out = out.filter(p=>p.status===ui.status);
+      if (ui.search){
+        const q = ui.search.toLowerCase();
+        out = out.filter(p => (`${p.name} ${eventTitle(p.eventId)} ${p.owner||''}`).toLowerCase().includes(q));
+      }
+      return out;
+    }
+
+    function render(){
+      el.search.value = ui.search || '';
+      el.event.value = ui.event || '';
+      el.unit.value = ui.unit || '';
+      el.status.value = ui.status || '';
+
+      const filtered = applyFilters(plans);
+      el.count.textContent = String(filtered.length);
+
+      el.tbody.innerHTML = '';
+      let idx=0;
+      filtered.forEach(p=>{
+        idx++;
+        const tr = document.createElement('tr');
+        tr.dataset.id = p.id;
+        if (ui.selectedId===p.id) tr.classList.add('mlo-row-selected');
+        tr.innerHTML = `
+          <td>${idx}</td>
+          <td>${escapeHtml(p.name||p.id)}</td>
+          <td>${escapeHtml(eventTitle(p.eventId)||'')}</td>
+          <td>${escapeHtml(unitName(p.transportUnitId)||'')}</td>
+          <td>${escapeHtml(p.status||'')}</td>
+          <td>${escapeHtml(p.owner||'')}</td>
+          <td>${escapeHtml((p.updatedAt||'').replace('T',' ').slice(0,16))}</td>
+        `;
+        tr.addEventListener('click', ()=>{ ui.selectedId = p.id; render(); });
+        el.tbody.appendChild(tr);
+      });
+
+      hydrate(plans.find(p=>p.id===ui.selectedId) || null);
+      persist();
+    }
+
+    function unitName(id){
+      const u = units.find(u=>String(u.id)===String(id));
+      return u ? u.name : '';
+    }
+
+    function placementLabel(pl){
+      if (pl.itemLabel) return pl.itemLabel;
+      if (pl.itemKind && pl.itemId){
+        const key = `${pl.itemKind}:${pl.itemId}`;
+        if (ITEM_MAP.has(key)) return ITEM_MAP.get(key).label;
+      }
+      return pl.item || pl.itemId || '';
+    }
+
+    function hydrate(p){
+      if (!p){
+        el.inspectorBadge.textContent = 'No selection';
+        Object.values(el.f).forEach(f=> f.value='');
+        el.placeTbody.innerHTML = '';
+        return;
+      }
+      el.inspectorBadge.textContent = p.name || p.id;
+      el.f.id.value = p.name || p.id;
+      el.f.status.value = p.status || 'Draft';
+      el.f.event.value = p.eventId || '';
+      el.f.unit.value = p.transportUnitId || '';
+      el.f.owner.value = p.owner || '';
+      el.f.notes.value = p.notes || '';
+      renderPlacements(p);
+    }
+
+    function renderPlacements(p){
+      el.placeTbody.innerHTML = '';
+      (p.placements||[]).forEach((pl, idx)=>{
+        const label = placementLabel(pl);
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${escapeHtml(label)}</td>
+          <td>${escapeHtml(pl.zone||'')}</td>
+          <td>${escapeHtml(pl.order||'')}</td>
+          <td><button class="btn btn-sm btn-outline-danger mlo-btn" type="button">×</button></td>
+        `;
+        tr.querySelector('button').addEventListener('click', ()=>{
+          p.placements.splice(idx,1);
+          p.updatedAt = nowISO();
+          persist();
+          render();
+        });
+        el.placeTbody.appendChild(tr);
+      });
+    }
+
+    function addPlacement(){
+      const p = plans.find(x=>x.id===ui.selectedId);
+      if (!p) return;
+      const raw = el.placeItem.value.trim();
+      if (!raw) return;
+      let ref = null;
+      if (ITEM_MAP.has(raw)) ref = ITEM_MAP.get(raw);
+      const itemLabel = ref ? ref.label : raw;
+      const itemKind = ref ? ref.kind : 'custom';
+      const itemId = ref ? ref.id : raw;
+      p.placements = Array.isArray(p.placements)?p.placements:[];
+      p.placements.push({
+        itemLabel,
+        itemKind,
+        itemId,
+        zone: el.placeZone.value.trim(),
+        order: Number(el.placeOrder.value||0)
+      });
+      p.updatedAt = nowISO();
+      el.placeItem.value = '';
+      el.placeZone.value = '';
+      el.placeOrder.value = '';
+      persist();
+      render();
+    }
+
+    function savePlan(){
+      const p = plans.find(x=>x.id===ui.selectedId);
+      if (!p) return;
+      p.status = el.f.status.value;
+      p.eventId = el.f.event.value;
+      p.transportUnitId = el.f.unit.value;
+      p.owner = el.f.owner.value.trim();
+      p.notes = el.f.notes.value.trim();
+      p.updatedAt = nowISO();
+      persist();
+      render();
+    }
+
+    function addPlan(){
+      const id = RTS.uid('lp');
+      const ev = EVENT_OPTIONS[0];
+      const unit = units[0];
+      const p = {
+        id,
+        name: `Load Plan ${plans.length+1}`,
+        status:'Draft',
+        eventId: ev ? ev.id : '',
+        transportUnitId: unit ? unit.id : '',
+        owner: 'Logistics',
+        notes: '',
+        placements: [],
+        updatedAt: nowISO()
+      };
+      plans.unshift(p);
+      ui.selectedId = p.id;
+      render();
+    }
+
+    function duplicatePlan(){
+      const p = plans.find(x=>x.id===ui.selectedId);
+      if (!p) return;
+      const copy = JSON.parse(JSON.stringify(p));
+      copy.id = RTS.uid('lp');
+      copy.name = `${p.name || 'Load Plan'} (Copy)`;
+      copy.status = 'Draft';
+      copy.updatedAt = nowISO();
+      plans.unshift(copy);
+      ui.selectedId = copy.id;
+      render();
+    }
+
+    function deletePlan(){
+      const idx = plans.findIndex(x=>x.id===ui.selectedId);
+      if (idx<0) return;
+      plans.splice(idx,1);
+      ui.selectedId = plans[0]?.id || null;
+      render();
+    }
+
+    function bind(){
+      const onInputs = ()=>{
+        ui.search = el.search.value;
+        ui.event = el.event.value;
+        ui.unit = el.unit.value;
+        ui.status = el.status.value;
+        render();
+      };
+      el.search.addEventListener('input', onInputs);
+      el.event.addEventListener('change', onInputs);
+      el.unit.addEventListener('change', onInputs);
+      el.status.addEventListener('change', onInputs);
+      el.add.addEventListener('click', addPlan);
+      el.btnAddPlacement.addEventListener('click', addPlacement);
+      el.btnSave.addEventListener('click', savePlan);
+      el.btnDup.addEventListener('click', duplicatePlan);
+      el.btnDel.addEventListener('click', deletePlan);
+    }
+
+    function init(){
+      buildLists();
+      bind();
+      render();
+      if (!ui.selectedId && plans[0]) { ui.selectedId = plans[0].id; render(); }
+    }
+    document.addEventListener('DOMContentLoaded', init);
+  })();
+  </script>
+</body>
+</html>

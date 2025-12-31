@@ -2,102 +2,84 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Race Team OS – Events</title>
-
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="style.css" rel="stylesheet">
-
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="style.css" rel="stylesheet" />
   <style>
-    .mlo-table th, .mlo-table td { padding: .18rem .42rem !important; }
-    .chip {
-      display:inline-flex; align-items:center; gap:.35rem;
-      padding:.18rem .45rem; border:1px solid rgba(255,255,255,.12);
-      border-radius:999px; font-size:.78rem; color:#e0e3e6;
-      background: rgba(255,255,255,.04);
-      white-space:nowrap;
+    /* Compact left-pane list items */
+    .mlo-pane-left .pastel-tree {
+      padding: 0 !important;
+      margin: 0 !important;
     }
-    .chip .x { opacity:.8; cursor:pointer; padding:0 .15rem; }
-    .muted { color: rgba(224,227,230,.70); }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace; }
-    .btn-ghost { border:1px solid rgba(255,255,255,.12); background:transparent; color:#e0e3e6; }
-    .btn-ghost:hover { background: rgba(255,255,255,.06); }
-    .tag { display:inline-flex; align-items:center; gap:.35rem; padding:.12rem .42rem; border-radius:999px; font-size:.75rem; border:1px solid rgba(255,255,255,.10); background: rgba(255,255,255,.04); }
-    .dot { width:.55rem; height:.55rem; border-radius:999px; display:inline-block; }
-    .doc-row { display:flex; justify-content:space-between; gap:.5rem; padding:.25rem .35rem; border:1px solid rgba(255,255,255,.08); border-radius:.5rem; background: rgba(255,255,255,.03); margin-bottom:.35rem; }
-    .doc-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width: 68%; }
-    .doc-meta { font-size:.78rem; color: rgba(224,227,230,.65); }
-    .section-title { font-size:.85rem; letter-spacing:.06em; text-transform:uppercase; color: rgba(224,227,230,.65); margin-top:.9rem; margin-bottom:.35rem; }
-    .danger-zone { border:1px solid rgba(255,0,0,.22); background: rgba(255,0,0,.04); }
-    .grid-2 { display:grid; grid-template-columns: 1fr 1fr; gap:.5rem; }
-    @media (max-width: 1100px){ .grid-2 { grid-template-columns: 1fr; } }
+    /* More specific overrides to beat .ev-pastel/.pastel-tree defaults */
+    .mlo-pane-left .ev-pastel li,
+    .mlo-pane-left .pastel-tree.ev-pastel li,
+    .mlo-pane-left .pastel-tree li {
+      padding: 0 !important;
+      margin-bottom: 0.08rem !important;
+      line-height: 1 !important;
+      height: 24px !important; /* even tighter single-line height */
+      display: flex !important;
+      align-items: center !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      border-radius: 4px !important;
+      box-shadow: none !important;
+      border: 1px solid rgba(0,0,0,0.18) !important;
+      font-weight: 300 !important;
+      font-size: 0.95rem !important;
+      padding-left: 8px !important;
+    }
+
+    /* Inspector: make TYPE label/value clearly readable on dark background */
+    .mlo-pane-right #f_ev_type,
+    .mlo-pane-right #f_ev_type + .form-select,
+    .mlo-pane-right label[for="f_ev_type"] {
+      color: #ffffff !important;
+    }
+
+    /* New-event highlight (bright pink) */
+    .rts-new-highlight {
+      background: #ff5ab5 !important;
+      color: #ffffff !important;
+    }
   </style>
 </head>
-
 <body>
-  <div class="container-fluid">
-    <div class="row">
-      <!-- Sidebar -->
-      <nav class="col-md-2 d-none d-md-block sidebar">
-        <ul class="nav flex-column">
-          <li class="nav-item"><a class="nav-link" href="index.html">Dashboard</a></li>
-          <li class="nav-item"><a class="nav-link active" href="events.html">Events</a></li>
-          <li class="nav-item"><a class="nav-link" href="tasks.html">Tasks</a></li>
-          <li class="nav-item"><a class="nav-link" href="assets.html">Assets</a></li>
-          <li class="nav-item"><a class="nav-link" href="inventory.html">Inventory</a></li>
-          <li class="nav-item"><a class="nav-link" href="expenses.html">Finance</a></li>
+  <div id="rtsTopNav"></div>
+  <div class="rts-version-badge">v3</div>
+  <div class="rts-main container-fluid">
+      
 
-          <li class="nav-section">Race Control</li>
-          <li class="nav-item"><a class="nav-link" href="performance.html">Performance</a></li>
-          <li class="nav-item"><a class="nav-link" href="strategy.html">Strategy</a></li>
-          <li class="nav-item"><a class="nav-link" href="incidents.html">Incidents</a></li>
-          <li class="nav-item"><a class="nav-link" href="integrations.html">Integrations</a></li>
-
-          <li class="nav-section">Admin</li>
-          <li class="nav-item"><a class="nav-link" href="settings.html">Settings</a></li>
-        </ul>
-      </nav>
-
-      <!-- Main -->
-      <main class="col-md-10 ms-sm-auto px-4">
-        <div class="d-flex justify-content-between align-items-center">
-          <h1 class="my-3">Events</h1>
-          <div class="d-flex align-items-center gap-2">
-            <span class="chip">Drivers: <span id="driversCount" class="mono">0</span></span>
-            <span class="chip">Staff: <span id="staffCount" class="mono">0</span></span>
-            <span class="chip">Events: <span id="eventsCount" class="mono">0</span></span>
-            <button class="btn btn-sm btn-ghost" id="btnResetEvents" type="button">Reset Demo Events</button>
+      
+        <div class="pt-3 pb-2 mb-2 border-bottom">
+          <h1 class="h4">Events</h1>
+          <div class="text-secondary" style="font-size:0.85rem;">
+            Plan race weekends, test days, travel days. Assign drivers, crew, documents, and export to calendar.
           </div>
         </div>
 
-        <!-- Tri-pane -->
-        <div class="mlo-shell" id="eventsShell">
+        <div class="mlo-shell" id="evShell">
           <!-- LEFT -->
-          <section class="mlo-pane mlo-pane-left" aria-label="Event perspectives">
+          <section class="mlo-pane mlo-pane-left" aria-label="Event views">
             <div class="mlo-pane-header">
-              <div class="d-flex justify-content-between align-items-center">
-                <div class="mlo-title">Perspectives</div>
-                <span class="badge text-bg-secondary" id="leftBadge">—</span>
+              <div class="d-flex align-items-center justify-content-between">
+                <div class="mlo-title">Events</div>
+                <span class="badge text-bg-secondary" id="evCountBadge">0</span>
               </div>
             </div>
             <div class="mlo-pane-content">
-              <div class="mlo-section-label">Views</div>
-              <ul class="mlo-tree" id="viewsTree">
-                <li class="mlo-tree-item active" data-view="all">All Events</li>
-                <li class="mlo-tree-item" data-view="upcoming">Upcoming (Next 30 Days)</li>
-                <li class="mlo-tree-item" data-view="this_month">This Month</li>
-                <li class="mlo-tree-item" data-view="in_progress">In Progress</li>
-                <li class="mlo-tree-item" data-view="completed">Completed</li>
-                <li class="mlo-tree-item" data-view="past">Past</li>
+              <div class="mlo-section-label">Smart lists</div>
+              <ul class="ev-pastel pastel-tree" id="evPerspectiveList">
+                <li class="active" data-perspective="all" style="background:#e7ff8a;">All Events</li>
+                <li data-perspective="upcoming" style="background:#a4f48d;">Upcoming</li>
+                <li data-perspective="past" style="background:#91e6ff;">Past</li>
               </ul>
 
-              <div class="mlo-section-label mt-3">By Day Type</div>
-              <ul class="mlo-tree" id="typeTree"></ul>
-
-              <div class="mlo-section-label mt-3">Quick</div>
-              <div class="muted" style="font-size:.82rem;">
-                Drivers & staff lists come from <a href="settings.html">Settings</a>.
-              </div>
+              <div class="mlo-section-label mt-3">Venues</div>
+              <ul class="ev-pastel pastel-tree" id="evVenueList"></ul>
             </div>
           </section>
 
@@ -106,30 +88,24 @@
           <!-- MIDDLE -->
           <section class="mlo-pane mlo-pane-mid" aria-label="Event list">
             <div class="mlo-pane-header">
-              <div class="d-flex flex-wrap align-items-center gap-1">
-                <input id="search" type="text" class="form-control form-control-sm" placeholder="Search events…" style="max-width: 240px;">
-
-                <select id="statusFilter" class="form-select form-select-sm" style="max-width: 170px;">
+              <div class="d-flex align-items-center flex-nowrap gap-1" style="overflow:hidden;">
+                <input id="evSearch" type="text" class="form-control form-control-sm" placeholder="Search…" style="flex:1 1 150px; min-width:140px; max-width:200px;">
+                <select id="evType" class="form-select form-select-sm" style="flex:1 1 150px; min-width:140px; max-width:190px;"></select>
+                <select id="evVenue" class="form-select form-select-sm" style="flex:1 1 150px; min-width:140px; max-width:190px;"></select>
+                <select id="evStatus" class="form-select form-select-sm" style="flex:0 1 140px; min-width:120px; max-width:160px;">
                   <option value="">Status: All</option>
-                  <option value="Planned">Planned</option>
-                  <option value="Active">Active</option>
-                  <option value="Completed">Completed</option>
-                  <option value="Cancelled">Cancelled</option>
+                  <option>Planned</option>
+                  <option>Open</option>
+                  <option>Closed</option>
                 </select>
-
-                <select id="dayTypeFilter" class="form-select form-select-sm" style="max-width: 190px;">
-                  <option value="">Day Type: All</option>
-                </select>
-
-                <select id="groupBy" class="form-select form-select-sm" style="max-width: 190px;">
+                <select id="evGroup" class="form-select form-select-sm" style="flex:0 1 150px; min-width:130px; max-width:170px;">
                   <option value="">Group: None</option>
-                  <option value="month">Group: Month</option>
-                  <option value="dayType">Group: Day Type</option>
-                  <option value="status">Group: Status</option>
+                  <option value="type">Group: Type</option>
                   <option value="venue">Group: Venue</option>
+                  <option value="status">Group: Status</option>
+                  <option value="month">Group: Month</option>
                 </select>
-
-                <button class="btn btn-sm btn-outline-light mlo-btn" id="btnAdd" type="button">Add Event</button>
+                <button class="btn btn-sm btn-outline-light mlo-btn" id="btnAddEv" type="button" style="white-space:nowrap;">Add Event</button>
               </div>
             </div>
 
@@ -137,21 +113,17 @@
               <table class="table table-dark table-hover mlo-table" style="margin:0;">
                 <thead>
                   <tr>
-                    <th style="width:70px;">#</th>
-                    <th>Event</th>
-                    <th style="width:120px;">Start</th>
-                    <th style="width:120px;">End</th>
-                    <th style="width:160px;">Day Type</th>
-                    <th style="width:140px;">Status</th>
-                    <th style="width:210px;">Venue</th>
+                    <th style="width:60px;">#</th>
+                    <th style="width:170px;">Date</th>
+                    <th>Title</th>
+                    <th style="width:220px;">Type</th>
+                    <th style="width:220px;">Venue</th>
+                    <th style="width:120px;">Status</th>
+                    <th style="width:90px;">Drv</th>
                   </tr>
                 </thead>
-                <tbody id="tbody"></tbody>
+                <tbody id="evTbody"></tbody>
               </table>
-
-              <div class="p-3 muted" id="emptyState" style="display:none;">
-                No events match the current filters.
-              </div>
             </div>
           </section>
 
@@ -160,955 +132,1343 @@
           <!-- RIGHT -->
           <section class="mlo-pane mlo-pane-right mlo-inspector" aria-label="Event inspector">
             <div class="mlo-pane-header">
-              <div class="d-flex justify-content-between align-items-center">
+              <div class="d-flex align-items-center justify-content-between">
                 <div class="mlo-title">Inspector</div>
-                <span class="badge text-bg-secondary" id="inspectorBadge">No selection</span>
+                <span class="badge text-bg-secondary" id="evInspectorBadge">—</span>
               </div>
             </div>
-
             <div class="mlo-pane-content">
-              <div id="inspectorEmpty" class="muted">
-                Select an event to edit. Use <strong>Add Event</strong> to create a new one.
-              </div>
-
-              <form id="formEvent" style="display:none;" autocomplete="off">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                  <div class="chip">Event</div>
-                  <div class="d-flex gap-1">
-                    <button class="btn btn-sm btn-ghost" id="btnSave" type="button">Save</button>
-                    <button class="btn btn-sm btn-ghost" id="btnDuplicate" type="button">Duplicate</button>
-                    <button class="btn btn-sm btn-outline-danger" id="btnDelete" type="button">Delete</button>
+              <ul class="nav nav-tabs nav-dark mb-2" id="evTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                  <button class="nav-link active" id="tab-event" data-bs-toggle="tab" data-bs-target="#pane-event" type="button" role="tab" aria-controls="pane-event" aria-selected="true">Event</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                  <button class="nav-link tab-event-link" id="tab-runbook" data-bs-toggle="tab" data-bs-target="#pane-runbook" type="button" role="tab" aria-controls="pane-runbook" aria-selected="false">Runbook</button>
+                </li>
+              </ul>
+              <div class="tab-content">
+                <div class="tab-pane fade show active" id="pane-event" role="tabpanel" aria-labelledby="tab-event">
+                  <form id="evForm">
+                <div class="row g-2">
+                  <div class="col-12">
+                    <label class="form-label">Event title</label>
+                    <input id="f_ev_title" class="form-control form-control-sm" type="text" placeholder="ROK Nationals – Round 1">
                   </div>
-                </div>
 
-                <div class="grid-2">
-                  <div>
-                    <label class="form-label">Event ID</label>
-                    <input class="form-control form-control-sm mono" id="e_id" readonly>
+                  <div class="col-6">
+                    <label class="form-label">Start date</label>
+                    <input id="f_ev_start" class="form-control form-control-sm" type="date">
                   </div>
-                  <div>
+                  <div class="col-6">
+                    <label class="form-label">End date</label>
+                    <input id="f_ev_end" class="form-control form-control-sm" type="date">
+                  </div>
+
+                  <div class="col-6">
+                    <label class="form-label">Type (colour-coded)</label>
+                    <select id="f_ev_type" class="form-select form-select-sm"></select>
+                  </div>
+                  <div class="col-6">
                     <label class="form-label">Status</label>
-                    <select class="form-select form-select-sm" id="e_status">
+                    <select id="f_ev_status" class="form-select form-select-sm">
                       <option>Planned</option>
-                      <option>Active</option>
-                      <option>Completed</option>
-                      <option>Cancelled</option>
+                      <option>Open</option>
+                      <option>Closed</option>
                     </select>
                   </div>
 
-                  <div style="grid-column: 1 / -1;">
-                    <label class="form-label">Event Name</label>
-                    <input class="form-control form-control-sm" id="e_name" placeholder="e.g., National Weekend – Round 1">
-                  </div>
-
-                  <div>
-                    <label class="form-label">Start Date</label>
-                    <input class="form-control form-control-sm" id="e_start" type="date">
-                  </div>
-                  <div>
-                    <label class="form-label">End Date</label>
-                    <input class="form-control form-control-sm" id="e_end" type="date">
-                  </div>
-
-                  <div>
+                  <div class="col-12">
                     <label class="form-label">Venue</label>
-                    <input class="form-control form-control-sm" id="e_venue" placeholder="Red Star Raceway">
+                    <select id="f_ev_venue" class="form-select form-select-sm"></select>
                   </div>
 
-                  <div>
-                    <label class="form-label">Location / City</label>
-                    <input class="form-control form-control-sm" id="e_location" placeholder="Delmas, Mpumalanga">
+                  <div class="col-12">
+                    <label class="form-label">Summary / brief</label>
+                    <textarea id="f_ev_brief" class="form-control form-control-sm" rows="3" placeholder="Key timetable items, goals, constraints, sponsor deliverables…"></textarea>
                   </div>
 
-                  <div style="grid-column: 1 / -1;">
-                    <label class="form-label d-flex justify-content-between align-items-center">
-                      <span>Day Type</span>
-                      <span class="tag" id="dayTypePreview">
-                        <span class="dot" id="dayTypeDot"></span>
-                        <span id="dayTypeLabel">—</span>
-                      </span>
-                    </label>
-                    <select class="form-select form-select-sm" id="e_dayType"></select>
-                    <div class="form-hint">Day type is color-coded and used for filtering/grouping.</div>
+                  <div class="col-12">
+                    <label class="form-label">Drivers attending</label>
+                    <div class="border rounded" style="border-color: rgba(255,255,255,0.10) !important;">
+                      <table class="table table-dark mlo-table" style="margin:0;">
+                        <thead>
+                          <tr>
+                            <th>Driver</th>
+                            <th style="width:140px;">Class</th>
+                            <th style="width:80px;">#</th>
+                            <th style="width:40px;"></th>
+                          </tr>
+                        </thead>
+                        <tbody id="evDriversTbody"></tbody>
+                      </table>
+                    </div>
+                    <button class="btn btn-sm btn-outline-light mlo-btn mt-1" id="btnAddDriver" type="button">Add driver</button>
+                    <div class="text-secondary" style="font-size:0.75rem; margin-top:0.15rem;">
+                      Driver list is managed in <a href="settings.html" class="text-decoration-none">Settings</a>.
+                    </div>
                   </div>
 
-                  <div style="grid-column: 1 / -1;">
-                    <label class="form-label">Description / Brief</label>
-                    <textarea class="form-control form-control-sm" id="e_desc" rows="4" placeholder="Schedule notes, contacts, objectives…"></textarea>
+                  <div class="col-12">
+                    <label class="form-label">Crew roster</label>
+                    <div class="border rounded" style="border-color: rgba(255,255,255,0.10) !important;">
+                      <table class="table table-dark mlo-table" style="margin:0;">
+                        <thead>
+                          <tr>
+                            <th>Person</th>
+                            <th style="width:180px;">Role</th>
+                            <th style="width:40px;"></th>
+                          </tr>
+                        </thead>
+                        <tbody id="evCrewTbody"></tbody>
+                      </table>
+                    </div>
+                    <button class="btn btn-sm btn-outline-light mlo-btn mt-1" id="btnAddCrew" type="button">Add crew row</button>
+                    <div class="text-secondary" style="font-size:0.75rem; margin-top:0.15rem;">
+                      Staff and roles are managed in <a href="settings.html" class="text-decoration-none">Settings</a>.
+                    </div>
                   </div>
-                </div>
 
-                <div class="section-title">Drivers Attending</div>
-                <div class="d-flex gap-2 align-items-center mb-2">
-                  <select class="form-select form-select-sm" id="driverSelect" style="max-width: 420px;"></select>
-                  <button class="btn btn-sm btn-outline-light" id="btnAddDriver" type="button">Add</button>
-                </div>
-                <div id="driverChips"></div>
+                  <div class="col-12">
+                    <label class="form-label">Event documents</label>
+                    <div id="evDocsList" class="d-grid gap-1"></div>
+                    <div class="d-flex gap-1 mt-1">
+                      <input id="docName" class="form-control form-control-sm" type="text" placeholder="Document name" style="max-width: 220px;">
+                      <input id="docUrl" class="form-control form-control-sm" type="text" placeholder="URL or file name">
+                      <button class="btn btn-sm btn-outline-light mlo-btn" id="btnAddDocDrive" type="button">Drive</button>
+                      <button class="btn btn-sm btn-outline-light mlo-btn" id="btnAddDoc" type="button">Add</button>
+                    </div>
+                    <div class="text-secondary" style="font-size:0.75rem; margin-top:0.15rem;">
+                      Attachments are stored as metadata in this prototype. When Drive Picker is enabled in Settings, "Drive" attaches real Google Drive files.
+                    </div>
+                  </div>
 
-                <div class="section-title">Crew Roster</div>
-                <div class="d-flex gap-2 flex-wrap align-items-center mb-2">
-                  <select class="form-select form-select-sm" id="staffSelect" style="max-width: 340px;"></select>
-                  <select class="form-select form-select-sm" id="roleSelect" style="max-width: 260px;"></select>
-                  <button class="btn btn-sm btn-outline-light" id="btnAddCrew" type="button">Add</button>
-                </div>
-                <div id="crewList"></div>
+                  <div class="col-12">
+                    <label class="form-label">Calendar</label>
+                    <div class="d-flex flex-wrap gap-1">
+                      <button class="btn btn-sm btn-outline-light mlo-btn" id="btnICS" type="button">Download .ics</button>
+                      <a class="btn btn-sm btn-outline-light mlo-btn" id="btnGCalLink" href="#" target="_blank" rel="noopener">Create Google event</a>
+                    </div>
+                    <div class="text-secondary" style="font-size:0.75rem; margin-top:0.15rem;">
+                      Google Calendar full sync requires OAuth + backend. For now this generates portable calendar artifacts.
+                    </div>
+                  </div>
 
-                <div class="section-title">Documents</div>
-                <div class="d-flex gap-2 align-items-center mb-2">
-                  <input class="form-control form-control-sm" id="docInput" type="file" multiple>
-                  <button class="btn btn-sm btn-ghost" id="btnClearDocs" type="button">Clear</button>
-                </div>
-                <div class="form-hint mb-2">
-                  Prototype note: large files may store metadata only (localStorage size limits).
-                </div>
-                <div id="docList"></div>
+                  <div class="col-12 d-flex gap-1 mt-1">
+                    <button class="btn btn-sm btn-primary mlo-btn" id="btnSaveEv" type="button">Save</button>
+                    <button class="btn btn-sm btn-outline-light mlo-btn" id="btnDupEv" type="button">Duplicate</button>
+                    <button class="btn btn-sm btn-outline-danger mlo-btn" id="btnDelEv" type="button">Delete</button>
+                  </div>
 
-                <div class="section-title">Google Calendar</div>
-                <div class="d-flex gap-2 flex-wrap">
-                  <button class="btn btn-sm btn-outline-light" id="btnOpenGCal" type="button">Open Google Calendar Draft</button>
-                  <button class="btn btn-sm btn-outline-light" id="btnDownloadICS" type="button">Download .ics</button>
-                </div>
-                <div class="mt-2 danger-zone p-2 rounded">
-                  <div class="form-hint mb-1"><strong>Frontend-only:</strong> OAuth sync added later. Current workflow is Draft Link + ICS import.</div>
-                  <div class="form-hint">Calendar settings: <a href="settings.html">Settings → Google Calendar</a>.</div>
+                  <div class="col-12" style="margin-top:0.35rem;">
+                    <div class="text-secondary" style="font-size:0.75rem;">
+                      <div><span style="opacity:0.7;">Created:</span> <span id="evMetaCreated">—</span></div>
+                      <div><span style="opacity:0.7;">Updated:</span> <span id="evMetaUpdated">—</span></div>
+                    </div>
+                  </div>
                 </div>
               </form>
+                </div>
+
+                <div class="tab-pane fade" id="pane-runbook" role="tabpanel" aria-labelledby="tab-runbook">
+                  <div class="row g-2">
+                    <div class="col-6">
+                      <label class="form-label">Runbook version</label>
+                      <input id="rb_version" class="form-control form-control-sm" type="text" readonly>
+                    </div>
+                    <div class="col-6">
+                      <label class="form-label">Runbook notes</label>
+                      <input id="rb_notes" class="form-control form-control-sm" type="text" placeholder="Constraints, special instructions">
+                    </div>
+
+                    <div class="col-12">
+                      <label class="form-label">Gates / critical path</label>
+                      <div class="table-responsive">
+                        <table class="table table-dark table-sm mlo-table" style="margin:0;">
+                          <thead>
+                            <tr>
+                              <th>Name</th>
+                              <th style="width:130px;">Due</th>
+                              <th style="width:130px;">Owner</th>
+                              <th style="width:110px;">Status</th>
+                              <th style="width:50px;"></th>
+                            </tr>
+                          </thead>
+                          <tbody id="rb_gate_tbody"></tbody>
+                        </table>
+                      </div>
+                      <div class="d-flex flex-wrap gap-1 mt-1">
+                        <input id="rb_gate_name" class="form-control form-control-sm" type="text" placeholder="Gate name" style="flex:2 1 200px; min-width:160px;">
+                        <input id="rb_gate_due" class="form-control form-control-sm" type="datetime-local" style="flex:1 1 140px; min-width:140px;">
+                        <input id="rb_gate_owner" class="form-control form-control-sm" type="text" placeholder="Owner role/user" style="flex:1 1 140px; min-width:140px;">
+                        <select id="rb_gate_status" class="form-select form-select-sm" style="flex:0 1 140px; min-width:120px;">
+                          <option>Not Started</option>
+                          <option>In Progress</option>
+                          <option>Blocked</option>
+                          <option>Complete</option>
+                          <option>Waived</option>
+                        </select>
+                        <button class="btn btn-sm btn-outline-light mlo-btn" id="btn_add_gate" type="button">Add gate</button>
+                      </div>
+                    </div>
+
+                    <div class="col-12">
+                      <label class="form-label">Schedule</label>
+                      <div class="table-responsive">
+                        <table class="table table-dark table-sm mlo-table" style="margin:0;">
+                          <thead>
+                            <tr>
+                              <th style="width:140px;">Start</th>
+                              <th style="width:140px;">End</th>
+                              <th style="width:150px;">Type</th>
+                              <th>Notes</th>
+                              <th style="width:50px;"></th>
+                            </tr>
+                          </thead>
+                          <tbody id="rb_sched_tbody"></tbody>
+                        </table>
+                      </div>
+                      <div class="d-flex flex-wrap gap-1 mt-1">
+                        <input id="rb_sched_start" class="form-control form-control-sm" type="datetime-local" style="flex:0 1 160px; min-width:150px;">
+                        <input id="rb_sched_end" class="form-control form-control-sm" type="datetime-local" style="flex:0 1 160px; min-width:150px;">
+                        <input id="rb_sched_type" class="form-control form-control-sm" type="text" placeholder="Practice / Qualy / Heat" style="flex:0 1 160px; min-width:140px;">
+                        <input id="rb_sched_notes" class="form-control form-control-sm" type="text" placeholder="Class, notes" style="flex:1 1 200px; min-width:160px;">
+                        <button class="btn btn-sm btn-outline-light mlo-btn" id="btn_add_sched" type="button">Add session</button>
+                      </div>
+                    </div>
+
+                    <div class="col-12 d-flex gap-1 mt-1">
+                      <button class="btn btn-sm btn-outline-light mlo-btn" id="btn_runbook_pdf" type="button">Runbook PDF</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <!-- Compatibility helpers: hidden elements to satisfy legacy JS lookups.
+                   These are intentionally hidden and non-functional UI placeholders
+                   so document.getElementById(...) calls don't return null.
+                   Safe, low-risk fix applied automatically. -->
+              <div id="compat-hidden" style="display:none;">
+                <!-- A multi-select placeholder used by some older scripts to read/write driver selections -->
+                <select id="f_ev_drivers_sel" multiple></select>
+
+                <!-- Venue editor placeholders referenced by scripts that expect a "venues" tab -->
+                <div id="venueTabHidden">
+                  <select id="venuePick"></select>
+                  <input id="venueName" type="text" />
+                  <input id="venueLoc" type="text" />
+                  <textarea id="venueNotes"></textarea>
+                  <button id="btnVenueSave" type="button"></button>
+                  <button id="btnVenueDel" type="button"></button>
+                </div>
+              </div>
             </div>
           </section>
         </div>
-      </main>
-    </div>
-  </div>
+      </div>
 
-  <script src="core.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-
+  <script src="config.js"></script>
+  <script src="core.js"></script>
+  <script src="topnav.js"></script>
   <script>
   (function(){
-    const RTS = window.RTS;
-    if (!RTS) { alert('core.js not loaded: window.RTS missing'); return; }
+    RTS.setActiveNav();
+    const LS_DATA = 'rts.events.v4';
+    const LS_UI = 'rts.events.ui.v4';
+    const LS_PANES = 'rts.events.panes.v4';
 
-    const KEYS = {
-      events:   'rts_events_v2',
-      drivers:  'rts_drivers_v1',
-      staff:    'rts_staff_v1',
-      roles:    'rts_roles_v1',
-      calendar: 'rts_calendar_v1',
-      pane:     'rts_events_panes_v1',
-      ui:       'rts_events_ui_v1',
-    };
-
-    const els = {
-      shell: document.getElementById('eventsShell'),
-      driversCount: document.getElementById('driversCount'),
-      staffCount: document.getElementById('staffCount'),
-      eventsCount: document.getElementById('eventsCount'),
-      leftBadge: document.getElementById('leftBadge'),
-      btnResetEvents: document.getElementById('btnResetEvents'),
-
-      viewsTree: document.getElementById('viewsTree'),
-      typeTree: document.getElementById('typeTree'),
-
-      search: document.getElementById('search'),
-      statusFilter: document.getElementById('statusFilter'),
-      dayTypeFilter: document.getElementById('dayTypeFilter'),
-      groupBy: document.getElementById('groupBy'),
-      btnAdd: document.getElementById('btnAdd'),
-
-      tbody: document.getElementById('tbody'),
-      empty: document.getElementById('emptyState'),
-
-      inspectorBadge: document.getElementById('inspectorBadge'),
-      inspectorEmpty: document.getElementById('inspectorEmpty'),
-      formEvent: document.getElementById('formEvent'),
-
-      e_id: document.getElementById('e_id'),
-      e_status: document.getElementById('e_status'),
-      e_name: document.getElementById('e_name'),
-      e_start: document.getElementById('e_start'),
-      e_end: document.getElementById('e_end'),
-      e_venue: document.getElementById('e_venue'),
-      e_location: document.getElementById('e_location'),
-      e_dayType: document.getElementById('e_dayType'),
-      e_desc: document.getElementById('e_desc'),
-
-      dayTypeDot: document.getElementById('dayTypeDot'),
-      dayTypeLabel: document.getElementById('dayTypeLabel'),
-
-      driverSelect: document.getElementById('driverSelect'),
-      btnAddDriver: document.getElementById('btnAddDriver'),
-      driverChips: document.getElementById('driverChips'),
-
-      staffSelect: document.getElementById('staffSelect'),
-      roleSelect: document.getElementById('roleSelect'),
-      btnAddCrew: document.getElementById('btnAddCrew'),
-      crewList: document.getElementById('crewList'),
-
-      docInput: document.getElementById('docInput'),
-      btnClearDocs: document.getElementById('btnClearDocs'),
-      docList: document.getElementById('docList'),
-
-      btnOpenGCal: document.getElementById('btnOpenGCal'),
-      btnDownloadICS: document.getElementById('btnDownloadICS'),
-
-      btnSave: document.getElementById('btnSave'),
-      btnDuplicate: document.getElementById('btnDuplicate'),
-      btnDelete: document.getElementById('btnDelete'),
-    };
-
-    // ---------- utils ----------
-    const pad = n => String(n).padStart(2,'0');
-    const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
-    const normalize = s => (s||'').toLowerCase().trim();
-    const uid = (p) => (p||'id') + '_' + Math.random().toString(16).slice(2) + '_' + Date.now().toString(16);
-    const ymdCompact = iso => (iso||'').replaceAll('-','');
-    function addDaysISO(iso, days){
-      const d = new Date((iso||'') + 'T00:00:00');
-      d.setDate(d.getDate() + days);
-      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    let settings = RTS.getSettings();
+    function getEventTypes(){
+      settings = RTS.getSettings();
+      return (settings.eventTypes||[]).map(x=>x.code).filter(Boolean);
     }
-    function monthKey(iso){
-      if (!iso) return '(No date)';
-      const [y,m] = iso.split('-'); return `${y}-${m}`;
-    }
-    function monthLabel(ym){
-      if (!ym || ym === '(No date)') return ym;
-      const [y,m] = ym.split('-');
-      const names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-      return `${names[(parseInt(m,10)||1)-1]} ${y}`;
+    function typeColorMap(){
+      settings = RTS.getSettings();
+      return Object.fromEntries((settings.eventTypes||[]).map(x=>[x.code, x.color]));
     }
 
-    // ---------- day types ----------
-    const DAY_TYPES = [
-      { key:'race',   label:'Race Weekend', color:'#E11D48' },
-      { key:'test',   label:'Test Day',     color:'#2563EB' },
-      { key:'travel', label:'Travel',       color:'#F59E0B' },
-      { key:'media',  label:'Media',        color:'#10B981' },
-      { key:'admin',  label:'Admin',        color:'#6B7280' },
-    ];
-    const dayTypeByKey = (k)=> DAY_TYPES.find(x=>x.key===k) || DAY_TYPES[0];
-
-    // ---------- load settings sources ----------
-    function loadDrivers(){ return RTS.safeLoadJSON(KEYS.drivers, []); }
-    function loadStaff(){ return RTS.safeLoadJSON(KEYS.staff, []); }
-    function loadRoles(){ return RTS.safeLoadJSON(KEYS.roles, []); }
-    function loadCalendar(){
-      const cal = RTS.safeLoadJSON(KEYS.calendar, null);
-      return (cal && typeof cal === 'object') ? cal : {
-        timezone:'Africa/Johannesburg',
-        mode:'all_day',
-        defaultDurationMinutes: 60,
-        includeRosterInDescription: true,
-        calendarName:''
-      };
+    function textColorFor(bg){
+      const hex = String(bg||'').replace('#','');
+      if (hex.length!==6) return '#000';
+      const r = parseInt(hex.slice(0,2),16);
+      const g = parseInt(hex.slice(2,4),16);
+      const b = parseInt(hex.slice(4,6),16);
+      const lum = (0.299*r + 0.587*g + 0.114*b)/255;
+      return lum > 0.6 ? '#000' : '#fff';
     }
 
-    // ---------- seed events ----------
-    function seedEvents(){
-      const today = new Date();
-      const toISO = (d)=> `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-      const d1 = new Date(today); d1.setDate(d1.getDate()+10);
-      const d2 = new Date(d1); d2.setDate(d2.getDate()+2);
-      const d3 = new Date(today); d3.setDate(d3.getDate()+35);
-      const d4 = new Date(d3); d4.setDate(d4.getDate()+1);
+    function isoLocal(d){
+      const dt = new Date(d);
+      const y = dt.getFullYear();
+      const m = String(dt.getMonth()+1).padStart(2,'0');
+      const da = String(dt.getDate()).padStart(2,'0');
+      return `${y}-${m}-${da}`;
+    }
 
+    function ts(minsAgo){
+      return new Date(Date.now()-minsAgo*60000).toISOString();
+    }
+
+    function escapeHtml(str){
+      return String(str||'')
+        .replace(/&/g,'&amp;')
+        .replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;')
+        .replace(/\"/g,'&quot;')
+        .replace(/'/g,'&#39;');
+    }
+
+    function seedVenues(){
       return [
-        {
-          id: uid('evt'),
-          name: 'National Weekend – Round 1',
-          venue: 'Red Star Raceway',
-          location: 'Delmas, Mpumalanga',
-          start: toISO(d1),
-          end: toISO(d2),
-          status: 'Planned',
-          dayType: 'race',
-          desc: 'Scrutineering, practice, qualifying, heats, finals. Packing + travel plan required.',
-          driver_ids: [],
-          crew: [],
-          docs: []
-        },
-        {
-          id: uid('evt'),
-          name: 'Test Day – Chassis Baseline',
-          venue: 'Killarney',
-          location: 'Cape Town',
-          start: toISO(d3),
-          end: toISO(d4),
-          status: 'Planned',
-          dayType: 'test',
-          desc: 'Baseline setup and engine hours log. Focus: tyres and gearing.',
-          driver_ids: [],
-          crew: [],
-          docs: []
-        }
+        { id:'redstar', name:'Red Star Raceway', location:'Delmas, Gauteng', notes:'Clockwise/anti-clockwise, long straights, windy.' },
+        { id:'killarney', name:'Killarney Kart Track', location:'Cape Town, Western Cape', notes:'Coastal grip, wind-sensitive, mix of slow/fast.' },
+        { id:'idube', name:'iDube Kart Circuit', location:'KwaZulu-Natal', notes:'Elevation, technical, surface bumps.' },
+        { id:'formulak', name:'Formula K', location:'Benoni, Gauteng', notes:'High speed, chicanes, good paddock.' },
+        { id:'zwartkops', name:'Zwartkops Kart Circuit', location:'Pretoria, Gauteng', notes:'Club layout, braking focus.' },
+        { id:'rheebok', name:'Rheebok', location:'George, Western Cape', notes:'Coastal, flowing.' }
       ];
     }
 
-    // ---------- state ----------
-    let drivers = loadDrivers();
-    let staff = loadStaff();
-    let roles = loadRoles();
-    let calendar = loadCalendar();
-
-    let events = RTS.safeLoadJSON(KEYS.events, null);
-    if (!Array.isArray(events)){
-      events = seedEvents();
-      RTS.safeSaveJSON(KEYS.events, events);
-    }
-
-    let ui = RTS.safeLoadJSON(KEYS.ui, {
-      view: 'all',
-      typeView: '',
-      search: '',
-      status: '',
-      dayType: '',
-      groupBy: '',
-      selectedId: ''
-    });
-
-    const persistUI = ()=> RTS.safeSaveJSON(KEYS.ui, ui);
-    const persistEvents = ()=> RTS.safeSaveJSON(KEYS.events, events);
-
-    function updateCounts(){
-      els.driversCount.textContent = String((drivers||[]).length);
-      els.staffCount.textContent = String((staff||[]).length);
-      els.eventsCount.textContent = String((events||[]).length);
-      els.leftBadge.textContent = String((events||[]).length);
-    }
-
-    // ---------- left tree ----------
-    function setActiveLeft(){
-      els.viewsTree.querySelectorAll('.mlo-tree-item').forEach(li=>{
-        li.classList.toggle('active', ui.view === li.getAttribute('data-view'));
-      });
-      els.typeTree.querySelectorAll('.mlo-tree-item').forEach(li=>{
-        li.classList.toggle('active', ui.typeView === li.getAttribute('data-type'));
-      });
-    }
-
-    function renderTypeTree(){
-      const counts = {}; DAY_TYPES.forEach(t=>counts[t.key]=0);
-      events.forEach(e=>{ if (counts[e.dayType] !== undefined) counts[e.dayType]++; });
-
-      els.typeTree.innerHTML = DAY_TYPES.map(t => `
-        <li class="mlo-tree-item ${ui.typeView===t.key?'active':''}" data-type="${t.key}">
-          <span class="dot" style="background:${t.color}"></span>
-          ${esc(t.label)}
-          <span class="badge text-bg-secondary float-end">${counts[t.key]||0}</span>
-        </li>
-      `).join('');
-
-      els.typeTree.querySelectorAll('.mlo-tree-item').forEach(li=>{
-        li.addEventListener('click', ()=>{
-          ui.typeView = li.getAttribute('data-type') || '';
-          ui.view = 'all';
-          persistUI();
-          setActiveLeft();
-          renderList();
-        });
-      });
-    }
-
-    // ---------- filters ----------
-    function hydrateDayTypeSelects(){
-      els.e_dayType.innerHTML = DAY_TYPES.map(t => `<option value="${t.key}">${esc(t.label)}</option>`).join('');
-      els.dayTypeFilter.innerHTML = `<option value="">Day Type: All</option>` + DAY_TYPES.map(t => `<option value="${t.key}">${esc(t.label)}</option>`).join('');
-    }
-
-    function withinNextDays(iso, days){
-      if (!iso) return false;
-      const d = new Date(iso+'T00:00:00');
-      const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const diff = (d - today) / (1000*60*60*24);
-      return diff >= 0 && diff <= days;
-    }
-    function isPast(iso){
-      if (!iso) return false;
-      const d = new Date(iso+'T00:00:00');
-      const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      return d < today;
-    }
-    function inThisMonth(iso){
-      if (!iso) return false;
-      const d = new Date(iso+'T00:00:00');
-      const now = new Date();
-      return d.getFullYear()===now.getFullYear() && d.getMonth()===now.getMonth();
-    }
-    function applyViewFilters(list){
-      if (ui.typeView) return list.filter(e=>e.dayType===ui.typeView);
-      if (ui.view === 'upcoming') return list.filter(e=>withinNextDays(e.start,30));
-      if (ui.view === 'this_month') return list.filter(e=>inThisMonth(e.start));
-      if (ui.view === 'past') return list.filter(e=>isPast(e.end||e.start));
-      if (ui.view === 'completed') return list.filter(e=>e.status==='Completed');
-      if (ui.view === 'in_progress') return list.filter(e=>e.status==='Active');
-      return list;
-    }
-
-    function groupKeyFor(e){
-      if (!ui.groupBy) return '';
-      if (ui.groupBy === 'month') return monthKey(e.start);
-      if (ui.groupBy === 'dayType') return dayTypeByKey(e.dayType).label;
-      if (ui.groupBy === 'status') return e.status || '(No status)';
-      if (ui.groupBy === 'venue') return e.venue || '(No venue)';
-      return '';
-    }
-
-    function dayTypeTagHTML(key){
-      const t = dayTypeByKey(key);
-      return `<span class="tag"><span class="dot" style="background:${t.color}"></span><span>${esc(t.label)}</span></span>`;
-    }
-    function statusTagHTML(status){
-      const map = { Planned:'text-bg-secondary', Active:'text-bg-primary', Completed:'text-bg-success', Cancelled:'text-bg-danger' };
-      return `<span class="badge ${map[status]||'text-bg-secondary'}">${esc(status||'Planned')}</span>`;
-    }
-
-    // ---------- settings dropdown sources ----------
-    function hydrateSettingsSources(){
-      drivers = loadDrivers(); staff = loadStaff(); roles = loadRoles(); calendar = loadCalendar();
-      updateCounts();
-
-      const activeDrivers = (drivers||[]).filter(d=>d.active !== false);
-      els.driverSelect.innerHTML = activeDrivers.length
-        ? activeDrivers.map(d=>`<option value="${d.id}">${esc(d.displayName || ((d.firstName||'')+' '+(d.lastName||'')).trim() || 'Driver')}</option>`).join('')
-        : `<option value="">No drivers (add in Settings)</option>`;
-
-      const activeStaff = (staff||[]).filter(s=>s.active !== false);
-      els.staffSelect.innerHTML = activeStaff.length
-        ? activeStaff.map(s=>`<option value="${s.id}">${esc(s.fullName||'Staff')} — ${esc(s.primaryRole||'')}</option>`).join('')
-        : `<option value="">No staff (add in Settings)</option>`;
-
-      const activeRoles = (roles||[]).filter(r=>r.active !== false);
-      els.roleSelect.innerHTML = activeRoles.length
-        ? activeRoles.map(r=>`<option value="${r.name}">${esc(r.name)}</option>`).join('')
-        : `<option value="Crew">Crew</option>`;
-    }
-
-    // ---------- inspector ----------
-    function showInspector(on){
-      els.inspectorEmpty.style.display = on ? 'none' : '';
-      els.formEvent.style.display = on ? '' : 'none';
-    }
-    function setDayTypePreview(key){
-      const t = dayTypeByKey(key);
-      els.dayTypeDot.style.background = t.color;
-      els.dayTypeLabel.textContent = t.label;
-    }
-    function driverName(id){
-      const d = (drivers||[]).find(x=>x.id===id);
-      return d ? (d.displayName || ((d.firstName||'')+' '+(d.lastName||'')).trim() || 'Driver') : 'Unknown Driver';
-    }
-    function staffName(id){
-      const s = (staff||[]).find(x=>x.id===id);
-      return s ? (s.fullName || 'Staff') : 'Unknown Staff';
-    }
-
-    function renderDriverChips(ev){
-      const ids = Array.isArray(ev.driver_ids) ? ev.driver_ids : (ev.driver_ids=[]);
-      if (!ids.length){ els.driverChips.innerHTML = `<div class="muted">No drivers added.</div>`; return; }
-
-      els.driverChips.innerHTML = ids.map(id=>`
-        <span class="chip" data-driver="${id}">
-          ${esc(driverName(id))}
-          <span class="x" title="Remove">×</span>
-        </span>
-      `).join(' ');
-
-      els.driverChips.querySelectorAll('.chip .x').forEach(x=>{
-        x.addEventListener('click', ()=>{
-          const chip = x.closest('.chip');
-          const id = chip.getAttribute('data-driver');
-          ev.driver_ids = ev.driver_ids.filter(v=>v!==id);
-          upsertEvent(ev);
-        });
-      });
-    }
-
-    function renderCrew(ev){
-      const crew = Array.isArray(ev.crew) ? ev.crew : (ev.crew=[]);
-      if (!crew.length){ els.crewList.innerHTML = `<div class="muted">No crew assigned.</div>`; return; }
-
-      els.crewList.innerHTML = crew.map(row=>`
-        <div class="doc-row" data-crew="${row.id}">
-          <div class="doc-name">
-            <span class="chip">${esc(staffName(row.staff_id))}</span>
-            <span class="chip muted">${esc(row.role||'')}</span>
-          </div>
-          <div class="doc-meta"><a href="#" class="text-danger" data-action="remove">remove</a></div>
-        </div>
-      `).join('');
-
-      els.crewList.querySelectorAll('[data-action="remove"]').forEach(a=>{
-        a.addEventListener('click', (e)=>{
-          e.preventDefault();
-          const id = a.closest('[data-crew]').getAttribute('data-crew');
-          ev.crew = ev.crew.filter(x=>x.id!==id);
-          upsertEvent(ev);
-        });
-      });
-    }
-
-    function fmtBytes(n){
-      if (n===null || n===undefined) return '';
-      const units = ['B','KB','MB','GB'];
-      let i=0, v=n;
-      while(v>=1024 && i<units.length-1){ v/=1024; i++; }
-      return `${v.toFixed(i===0?0:1)} ${units[i]}`;
-    }
-
-    function renderDocs(ev){
-      const docs = Array.isArray(ev.docs) ? ev.docs : (ev.docs=[]);
-      if (!docs.length){ els.docList.innerHTML = `<div class="muted">No documents attached.</div>`; return; }
-
-      els.docList.innerHTML = docs.map(d=>`
-        <div class="doc-row" data-doc="${d.id}">
-          <div class="doc-name" title="${esc(d.name)}">${esc(d.name)}</div>
-          <div class="doc-meta">
-            ${esc(fmtBytes(d.size))}${d.dataUrl ? '' : ' • meta-only'}
-            &nbsp;|&nbsp; <a href="#" data-action="download">download</a>
-            &nbsp;|&nbsp; <a href="#" class="text-danger" data-action="remove">remove</a>
-          </div>
-        </div>
-      `).join('');
-
-      els.docList.querySelectorAll('[data-action="remove"]').forEach(a=>{
-        a.addEventListener('click', (e)=>{
-          e.preventDefault();
-          const id = a.closest('[data-doc]').getAttribute('data-doc');
-          ev.docs = ev.docs.filter(x=>x.id!==id);
-          upsertEvent(ev);
-        });
-      });
-
-      els.docList.querySelectorAll('[data-action="download"]').forEach(a=>{
-        a.addEventListener('click', (e)=>{
-          e.preventDefault();
-          const id = a.closest('[data-doc]').getAttribute('data-doc');
-          const d = ev.docs.find(x=>x.id===id);
-          if (!d) return;
-          if (!d.dataUrl){ alert('Stored as metadata only in prototype (too large for localStorage).'); return; }
-          const link = document.createElement('a');
-          link.href = d.dataUrl; link.download = d.name || 'document';
-          document.body.appendChild(link); link.click(); link.remove();
-        });
-      });
-    }
-
-    async function addDocsFromInput(ev, files){
-      const docs = Array.isArray(ev.docs) ? ev.docs : (ev.docs=[]);
-      const MAX_INLINE = 300 * 1024;
-
-      for (const f of files){
-        const item = { id: uid('doc'), name:f.name, type:f.type||'', size:f.size, lastModified:f.lastModified||Date.now(), dataUrl:null };
-        if (f.size <= MAX_INLINE){
-          item.dataUrl = await new Promise(res=>{
-            const fr = new FileReader();
-            fr.onload = ()=>res(fr.result);
-            fr.onerror = ()=>res(null);
-            fr.readAsDataURL(f);
-          });
-        }
-        docs.unshift(item);
-      }
-      ev.docs = docs;
-      upsertEvent(ev);
-    }
-
-    function hydrateInspector(ev){
-      if (!ev){
-        els.inspectorBadge.textContent = 'No selection';
-        showInspector(false);
-        return;
-      }
-      showInspector(true);
-      els.inspectorBadge.textContent = 'Event';
-
-      els.e_id.value = ev.id || '';
-      els.e_status.value = ev.status || 'Planned';
-      els.e_name.value = ev.name || '';
-      els.e_start.value = ev.start || '';
-      els.e_end.value = ev.end || '';
-      els.e_venue.value = ev.venue || '';
-      els.e_location.value = ev.location || '';
-      els.e_dayType.value = ev.dayType || 'race';
-      els.e_desc.value = ev.desc || '';
-      setDayTypePreview(ev.dayType || 'race');
-
-      renderDriverChips(ev);
-      renderCrew(ev);
-      renderDocs(ev);
-    }
-
-    function readInspectorInto(ev){
-      ev.status = els.e_status.value || 'Planned';
-      ev.name = (els.e_name.value || '').trim() || 'Event';
-      ev.start = els.e_start.value || '';
-      ev.end = els.e_end.value || ev.start;
-      ev.venue = (els.e_venue.value || '').trim();
-      ev.location = (els.e_location.value || '').trim();
-      ev.dayType = els.e_dayType.value || 'race';
-      ev.desc = els.e_desc.value || '';
-      return ev;
-    }
-
-    function upsertEvent(ev){
-      const idx = events.findIndex(x=>x.id===ev.id);
-      if (idx >= 0) events[idx] = ev; else events.unshift(ev);
-      persistEvents();
-      updateCounts();
-      renderTypeTree();
-      renderList();
-      hydrateInspector(ev);
-    }
-
-    // ---------- list rendering ----------
-    function renderList(){
-      const s = normalize(ui.search);
-      let list = applyViewFilters(events.slice());
-
-      if (ui.status) list = list.filter(e=>(e.status||'')===ui.status);
-      if (ui.dayType) list = list.filter(e=>(e.dayType||'')===ui.dayType);
-      if (s) list = list.filter(e=>JSON.stringify(e).toLowerCase().includes(s));
-
-      els.tbody.innerHTML = '';
-      els.empty.style.display = list.length ? 'none' : '';
-
-      const rows = [];
-      if (ui.groupBy){
-        const groups = new Map();
-        list.forEach(e=>{
-          const k = groupKeyFor(e);
-          if (!groups.has(k)) groups.set(k, []);
-          groups.get(k).push(e);
-        });
-        const entries = [...groups.entries()].sort((a,b)=>(a[0]||'').localeCompare(b[0]||''));
-
-        let idx=1;
-        for (const [k, arr] of entries){
-          const title = (ui.groupBy==='month') ? monthLabel(k) : k;
-          rows.push(`<tr class="mlo-group-row"><td colspan="10"><span class="chip">${esc(title || '(Group)')}</span></td></tr>`);
-          for (const e of arr){
-            const selected = (e.id===ui.selectedId) ? 'mlo-row-selected' : '';
-            rows.push(`
-              <tr class="${selected}" data-id="${e.id}">
-                <td>${idx++}</td>
-                <td>${esc(e.name||'Event')}</td>
-                <td>${esc(e.start||'')}</td>
-                <td>${esc(e.end||'')}</td>
-                <td>${dayTypeTagHTML(e.dayType)}</td>
-                <td>${statusTagHTML(e.status)}</td>
-                <td class="muted">${esc(e.venue||'')}</td>
-              </tr>
-            `);
-          }
-        }
-      } else {
-        list.forEach((e,i)=>{
-          const selected = (e.id===ui.selectedId) ? 'mlo-row-selected' : '';
-          rows.push(`
-            <tr class="${selected}" data-id="${e.id}">
-              <td>${i+1}</td>
-              <td>${esc(e.name||'Event')}</td>
-              <td>${esc(e.start||'')}</td>
-              <td>${esc(e.end||'')}</td>
-              <td>${dayTypeTagHTML(e.dayType)}</td>
-              <td>${statusTagHTML(e.status)}</td>
-              <td class="muted">${esc(e.venue||'')}</td>
-            </tr>
-          `);
+    function seedEvents(){
+      const venues = (settings.venues||[]).map(v=>v.name);
+      const types = getEventTypes().length ? getEventTypes() : ['National Weekend','Test Day'];
+      const out=[];
+      for(let i=0;i<10;i++) {
+        const start = new Date();
+        start.setDate(start.getDate() + (i-2)*14);
+        const end = new Date(start.getTime());
+        end.setDate(start.getDate() + (i%2 ? 2 : 0));
+        out.push({
+          id: 1000+i,
+          title: i%2 ? `National Weekend – R${i+1}` : `Test Day – Setup`,
+          start: isoLocal(start),
+          end: isoLocal(end),
+          type: types[i % types.length],
+          status: (i<3?'Closed':(i<6?'Open':'Planned')),
+          venue: venues[i%venues.length],
+          brief: '',
+    // start with no drivers — do not pre-populate driver attendance
+    drivers: [],
+          crew: (settings.staff||[]).slice(0,3).map(s=>({ staffId:s.id, role:s.role || 'Crew' })),
+          documents: [
+            { name:'Supplementary Regulations', url:'supp-regs.pdf' },
+            { name:'Timetable', url:'timetable.pdf' }
+          ],
+          runbook: {
+            version: 1,
+            notes: '',
+            gates: [
+              { id: RTS.uid('gate'), name:'Scrutineering complete', due: isoLocal(start), owner:'Chief Mechanic', status:'Not Started' },
+              { id: RTS.uid('gate'), name:'Departure workshop', due: isoLocal(start), owner:'Logistics', status:'Not Started' }
+            ],
+            schedule: [
+              { id: RTS.uid('sched'), start: isoLocal(start), end: isoLocal(end), type:'Practice', notes:'Baseline run' }
+            ]
+          },
+          createdAt: ts(2500-i*33),
+          updatedAt: ts(1200-i*11)
         });
       }
-
-      els.tbody.innerHTML = rows.join('');
-      els.tbody.querySelectorAll('tr[data-id]').forEach(tr=>{
-        tr.addEventListener('click', ()=>{
-          ui.selectedId = tr.getAttribute('data-id');
-          persistUI();
-          renderList();
-          hydrateInspector(events.find(x=>x.id===ui.selectedId) || null);
-        });
-      });
-    }
-
-    // ---------- calendar ----------
-    function buildRosterText(ev){
-      if (!calendar || !calendar.includeRosterInDescription) return '';
-      const dl = (ev.driver_ids||[]).map(id=>`- ${driverName(id)}`);
-      const cl = (ev.crew||[]).map(r=>`- ${staffName(r.staff_id)} (${r.role||''})`);
-      let out = '';
-      if (dl.length) out += '\n\nDRIVERS\n' + dl.join('\n');
-      if (cl.length) out += '\n\nCREW\n' + cl.join('\n');
       return out;
     }
 
-    function openGoogleCalendarDraft(ev){
-      const title = ev.name || 'Event';
-      const location = [ev.venue, ev.location].filter(Boolean).join(' – ');
-      const details = (ev.desc || '') + buildRosterText(ev);
-      const mode = (calendar && calendar.mode) ? calendar.mode : 'all_day';
+    const defaultUI = {
+      perspective: 'all',
+      venueFocus: '',
+      search: '',
+      type: '',
+      venue: '',
+      status: '',
+      groupBy: '',
+      selectedId: null
+    };
 
-      let datesParam = '';
-      if (mode === 'all_day'){
-        const start = ymdCompact(ev.start);
-        const endExclusive = ymdCompact(addDaysISO(ev.end || ev.start, 1));
-        datesParam = `${start}/${endExclusive}`;
-      } else {
-        const startDT = (ev.start || '') + 'T090000';
-        const endDT = (ev.end || ev.start || '') + 'T170000';
-        datesParam = `${startDT.replaceAll('-','')}/${endDT.replaceAll('-','')}`;
-      }
+    let events = RTS.safeLoadJSON(LS_DATA, null);
+    if(!Array.isArray(events) || events.length===0) events = seedEvents();
+    let venues = Array.isArray(settings.venues) && settings.venues.length ? settings.venues.slice() : seedVenues();
+    settings.venues = venues.slice();
+    RTS.saveSettings(settings);
+    let ui = RTS.deepMerge(defaultUI, RTS.safeLoadJSON(LS_UI, {}));
 
-      const url =
-        'https://calendar.google.com/calendar/r/eventedit?' +
-        'text=' + encodeURIComponent(title) +
-        '&dates=' + encodeURIComponent(datesParam) +
-        '&details=' + encodeURIComponent(details) +
-        '&location=' + encodeURIComponent(location);
+    // Deep link: events.html?select=<eventId>
+    (function(){
+      const q = RTS.getQueryParam('select');
+      if (!q) return;
+      const n = Number(q);
+      ui.selectedId = isNaN(n) ? q : n;
+    })();
 
-      window.open(url, '_blank', 'noopener');
+    const els = {
+      shell: document.getElementById('evShell'),
+      countBadge: document.getElementById('evCountBadge'),
+      inspectorBadge: document.getElementById('evInspectorBadge'),
+
+      perspectiveList: document.getElementById('evPerspectiveList'),
+      venueList: document.getElementById('evVenueList'),
+
+      search: document.getElementById('evSearch'),
+      type: document.getElementById('evType'),
+      venue: document.getElementById('evVenue'),
+      status: document.getElementById('evStatus'),
+      group: document.getElementById('evGroup'),
+
+      tbody: document.getElementById('evTbody'),
+      btnAdd: document.getElementById('btnAddEv'),
+
+      f_title: document.getElementById('f_ev_title'),
+      f_start: document.getElementById('f_ev_start'),
+      f_end: document.getElementById('f_ev_end'),
+      f_type: document.getElementById('f_ev_type'),
+      f_status: document.getElementById('f_ev_status'),
+      f_venue: document.getElementById('f_ev_venue'),
+      f_brief: document.getElementById('f_ev_brief'),
+      f_drivers: document.getElementById('f_ev_drivers_sel'),
+      driversTbody: document.getElementById('evDriversTbody'),
+      btnAddDriver: document.getElementById('btnAddDriver'),
+      crewTbody: document.getElementById('evCrewTbody'),
+      btnAddCrew: document.getElementById('btnAddCrew'),
+
+      docsList: document.getElementById('evDocsList'),
+      docName: document.getElementById('docName'),
+      docUrl: document.getElementById('docUrl'),
+      btnAddDocDrive: document.getElementById('btnAddDocDrive'),
+      btnAddDoc: document.getElementById('btnAddDoc'),
+      // runbook
+      rbVersion: document.getElementById('rb_version'),
+      rbNotes: document.getElementById('rb_notes'),
+      rbGateTbody: document.getElementById('rb_gate_tbody'),
+      rbGateName: document.getElementById('rb_gate_name'),
+      rbGateDue: document.getElementById('rb_gate_due'),
+      rbGateOwner: document.getElementById('rb_gate_owner'),
+      rbGateStatus: document.getElementById('rb_gate_status'),
+      rbSchedTbody: document.getElementById('rb_sched_tbody'),
+      rbSchedStart: document.getElementById('rb_sched_start'),
+      rbSchedEnd: document.getElementById('rb_sched_end'),
+      rbSchedType: document.getElementById('rb_sched_type'),
+      rbSchedNotes: document.getElementById('rb_sched_notes'),
+      btnAddGate: document.getElementById('btn_add_gate'),
+      btnAddSched: document.getElementById('btn_add_sched'),
+      btnRunbookPdf: document.getElementById('btn_runbook_pdf'),
+
+      // venues tab
+      venuePick: document.getElementById('venuePick'),
+      venueName: document.getElementById('venueName'),
+      venueLoc: document.getElementById('venueLoc'),
+      venueNotes: document.getElementById('venueNotes'),
+      btnVenueSave: document.getElementById('btnVenueSave'),
+      btnVenueDel: document.getElementById('btnVenueDel'),
+
+      btnICS: document.getElementById('btnICS'),
+      btnGCalLink: document.getElementById('btnGCalLink'),
+
+      btnSave: document.getElementById('btnSaveEv'),
+      btnDup: document.getElementById('btnDupEv'),
+      btnDel: document.getElementById('btnDelEv'),
+      metaCreated: document.getElementById('evMetaCreated'),
+      metaUpdated: document.getElementById('evMetaUpdated')
+    };
+
+    RTS.initTriPaneResizers(els.shell, LS_PANES);
+
+    function saveAll() {
+      RTS.safeSaveJSON(LS_DATA, events);
+      RTS.safeSaveJSON(LS_UI, ui);
+      settings.venues = venues;
+      RTS.saveSettings(settings);
     }
 
-    function buildICS(ev){
-      const mode = (calendar && calendar.mode) ? calendar.mode : 'all_day';
-      const tz = (calendar && calendar.timezone) ? calendar.timezone : 'Africa/Johannesburg';
+    function formatDateRange(e) {
+      const s = e.start || '';
+      const en = e.end || '';
+      if(!en || en===s) return s;
+      return `${s} → ${en}`;
+    }
 
-      const uidLine = `${(ev.id || uid('evt'))}@raceteamsoftware.local`;
-      const dtStamp = new Date().toISOString().replace(/[-:]/g,'').split('.')[0] + 'Z';
+    function monthKey(e) {
+      const s = e.start || '';
+      if(!s) return 'No date';
+      return s.slice(0,7);
+    }
 
-      const summary = (ev.name || 'Event').replace(/\n/g,' ');
-      const location = [ev.venue, ev.location].filter(Boolean).join(' – ').replace(/\n/g,' ');
-      const description = ((ev.desc || '') + buildRosterText(ev)).trim().replace(/\n/g,'\\n');
+    function nowISO() {
+      return new Date().toISOString();
+    }
 
-      if (mode === 'all_day'){
-        const dtStart = ymdCompact(ev.start);
-        const dtEnd = ymdCompact(addDaysISO(ev.end || ev.start, 1));
-        return [
-          'BEGIN:VCALENDAR',
-          'VERSION:2.0',
-          'PRODID:-//Race Team OS//Events//EN',
-          'CALSCALE:GREGORIAN',
-          'BEGIN:VEVENT',
-          `UID:${uidLine}`,
-          `DTSTAMP:${dtStamp}`,
-          `SUMMARY:${summary}`,
-          `LOCATION:${location}`,
-          `DESCRIPTION:${description}`,
-          `DTSTART;VALUE=DATE:${dtStart}`,
-          `DTEND;VALUE=DATE:${dtEnd}`,
-          'END:VEVENT',
-          'END:VCALENDAR'
-        ].join('\r\n');
+    function filterEvents() {
+      const q = (ui.search||'').toLowerCase();
+      const today = isoLocal(new Date());
+      return events.filter(e => {
+        if(ui.perspective==='upcoming' && (e.start||'') < today) return false;
+        if(ui.perspective==='past' && (e.start||'') >= today) return false;
+        if(ui.venueFocus && (e.venue||'') !== ui.venueFocus) return false;
+
+        if(ui.type && (e.type||'') !== ui.type) return false;
+        if(ui.venue && (e.venue||'') !== ui.venue) return false;
+        if(ui.status && (e.status||'') !== ui.status) return false;
+
+        if(q) {
+          const blob = `${e.title||''} ${e.type||''} ${e.venue||''} ${e.status||''}`.toLowerCase();
+          if(!blob.includes(q)) return false;
+        }
+        return true;
+      });
+    }
+
+    function renderVenueLists(rows) {
+      // refresh venues from settings in case Settings page was updated
+      settings = RTS.getSettings();
+      venues = Array.isArray(settings.venues) ? settings.venues.slice() : [];
+      const venuesList = venues.map(v=>v.name).filter(Boolean).sort();
+      // left tree
+      els.venueList.innerHTML = '';
+      const pastel = ['#e7ff8a','#a4f48d','#91e6ff','#c7b3ff','#f9b0e0','#ffc9a3','#ffe8a3','#9ef2b1','#9be5f0'];
+      venuesList.forEach((v, idx) => {
+        const li = document.createElement('li');
+        li.textContent = v;
+        li.classList.toggle('active', ui.venueFocus===v);
+        li.style.background = pastel[idx % pastel.length];
+        li.setAttribute('data-venue', v);
+        li.addEventListener('click', ()=>{ ui.venueFocus = (ui.venueFocus===v?'':v); saveAll(); render(); });
+        els.venueList.appendChild(li);
+      });
+      // top filters
+      const opt = ['<option value="">Venue: All</option>'].concat(venuesList.map(v=>`<option>${v}</option>`)).join('');
+      els.venue.innerHTML = opt;
+      els.venue.value = ui.venue || '';
+      // inspector venue dropdown
+      els.f_venue.innerHTML = venuesList.map(v=>`<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('') || '<option value="Unassigned">Unassigned</option>';
+      // venues tab picker
+      if (els.venuePick){
+        els.venuePick.innerHTML = venues.map(v=>`<option value="${escapeHtml(v.id)}">${escapeHtml(v.name)}</option>`).join('');
+      }
+    }
+
+    function refreshInspectorOptions(){
+      settings = RTS.getSettings();
+      const types = (settings.eventTypes||[]).map(t=>t.code).filter(Boolean);
+      if (els.f_type){
+        const typeMap = typeColorMap();
+        els.f_type.innerHTML = types.map(t=>`<option value="${escapeHtml(t)}" style="color:${typeMap[t]||'#fff'};">${escapeHtml(t)}</option>`).join('');
+      }
+      const venueNames = (settings.venues||[]).map(v=>v.name).filter(Boolean);
+      if (els.f_venue){
+        els.f_venue.innerHTML = venueNames.map(v=>`<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('') || '<option value="Unassigned">Unassigned</option>';
+      }
+    }
+
+    function renderTypeFilter() {
+      const types = getEventTypes().length ? getEventTypes() : Array.from(new Set(events.map(e=>e.type).filter(Boolean))).sort();
+      els.type.innerHTML = ['<option value="">Type: All</option>'].concat(types.map(t=>`<option>${t}</option>`)).join('');
+      els.type.value = ui.type || '';
+      // inspector type dropdown
+      els.f_type.innerHTML = types.map(t=>`<option value="${t}">${t}</option>`).join('');
+    }
+
+    function driverOptions() {
+      return (RTS.getSettings().drivers||[]).filter(d=>d.active!==false);
+    }
+    function staffOptions() {
+      return (RTS.getSettings().staff||[]).filter(s=>s.active!==false);
+    }
+    function venueOptions(){
+      return venues.slice();
+    }
+
+    function slugify(s){
+      return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'') || 'venue';
+    }
+
+    function renderDriversMultiSelect(selectedIds) {
+      // Render only assigned drivers. Do not pre-fill the whole driver roster.
+      const drivers = driverOptions();
+      els.driversTbody.innerHTML = '';
+      const ids = Array.isArray(selectedIds) ? selectedIds : [];
+      if (!ids || ids.length === 0) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td colspan="4" class="text-secondary" style="padding:8px;">No drivers assigned</td>`;
+        els.driversTbody.appendChild(tr);
+        return;
+      }
+      ids.forEach((did, idx) => {
+        const d = (drivers||[]).find(x=>x.id===did) || { id: did, displayName: did };
+        const tr = document.createElement('tr');
+        tr.setAttribute('data-id', d.id);
+        const label = d.displayName || d.name || `${d.firstName||''} ${d.lastName||''}`.trim() || d.id;
+        const race = d.raceNumber ? `#${d.raceNumber}` : '';
+        tr.innerHTML = `
+          <td>${escapeHtml(label)}</td>
+          <td>${escapeHtml(d.class||'')}</td>
+          <td>${escapeHtml(race)}</td>
+          <td><button class="btn btn-sm btn-outline-danger mlo-btn ev-driver-rem" type="button">Remove</button></td>
+        `;
+        tr.querySelector('.ev-driver-rem').addEventListener('click', ()=>{
+          const ev = getSelected(); if(!ev) return;
+          ev.drivers = (ev.drivers||[]).filter(x=>x!==d.id);
+          ev.updatedAt = nowISO();
+          saveAll();
+          loadInspector();
+        });
+        els.driversTbody.appendChild(tr);
+      });
+    }
+
+    function renderCrewRoster(crewArr) {
+      const staff = staffOptions();
+      const roles = (RTS.getSettings().roles||[]).slice();
+      els.crewTbody.innerHTML = '';
+      (crewArr||[]).forEach((row, idx)=> {
+        const tr = document.createElement('tr');
+        tr.setAttribute('data-idx', String(idx));
+        const staffSel = `<select class="form-select form-select-sm crew-staff">${staff.map(s=>{
+          const label = s.name || s.fullName || s.displayName || s.id;
+          return `<option value="${s.id}">${escapeHtml(label)}</option>`;
+        }).join('')}</select>`;
+        const roleSel = `<select class="form-select form-select-sm crew-role">${roles.map(r=>`<option>${escapeHtml(r.name||r)}</option>`).join('')}</select>`;
+        tr.innerHTML = `
+          <td>${staffSel}</td>
+          <td>${roleSel}</td>
+          <td><button class="btn btn-sm btn-outline-danger mlo-btn crew-del" type="button">×</button></td>
+        `;
+        els.crewTbody.appendChild(tr);
+        // set values
+        tr.querySelector('.crew-staff').value = row.staffId || (staff[0] ? staff[0].id : '');
+        tr.querySelector('.crew-role').value = row.role || (roles[0]?.name || roles[0] || 'Crew');
+        tr.querySelector('.crew-del').addEventListener('click', ()=> {
+          const ev = getSelected();
+          if(!ev) return;
+          ev.crew = (ev.crew||[]).filter((_,i)=>i!==idx);
+          ev.updatedAt = nowISO();
+          saveAll();
+          loadInspector();
+        });
+      });
+    }
+
+    function renderDocs(docsArr) {
+      els.docsList.innerHTML = '';
+      (docsArr||[]).forEach((d, idx)=> {
+        const provider = (d && d.provider) ? String(d.provider) : '';
+        const provLabel = provider==='gdrive' ? 'Drive' : (provider ? provider : 'Link');
+        const wrap = document.createElement('div');
+        wrap.className = 'd-flex align-items-center justify-content-between gap-2 p-1';
+        wrap.style.border = '1px solid rgba(255,255,255,0.10)';
+        wrap.style.borderRadius = '0.25rem';
+        wrap.innerHTML = `
+          <div class="ev-doc-open" style="min-width:0; cursor:pointer;">
+            <div style="display:flex; align-items:center; gap:8px; min-width:0;">
+              <span style="font-size:0.7rem; padding:0.05rem 0.35rem; border:1px solid rgba(255,255,255,0.14); border-radius:0.25rem; opacity:0.85;">${provLabel}</span>
+              <div style="min-width:0;">
+                <div style="font-size:0.85rem; font-weight:600; line-height:1.1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${d.name||'Document'}</div>
+                <div class="text-secondary" style="font-size:0.75rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${d.url||''}</div>
+              </div>
+            </div>
+          </div>
+          <button class="btn btn-sm btn-outline-danger mlo-btn" type="button">Remove</button>
+        `;
+
+        wrap.querySelector('.ev-doc-open').addEventListener('click', ()=>{
+          if (!d || !d.url) return;
+          try { window.open(d.url, '_blank', 'noopener'); } catch(_e){ /* ignore */ }
+        });
+        wrap.querySelector('button').addEventListener('click', ()=> {
+          const ev = getSelected();
+          if(!ev) return;
+          ev.documents = (ev.documents||[]).filter((_,i)=>i!==idx);
+          ev.updatedAt = nowISO();
+          saveAll();
+          loadInspector();
+        });
+        els.docsList.appendChild(wrap);
+      });
+    }
+
+    function renderGates(ev){
+      ensureRunbook(ev);
+      els.rbGateTbody.innerHTML = '';
+      (ev.runbook.gates||[]).forEach((g, idx)=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${escapeHtml(g.name||'')}</td>
+          <td>${escapeHtml(g.due||'')}</td>
+          <td>${escapeHtml(g.owner||'')}</td>
+          <td>${escapeHtml(g.status||'')}</td>
+          <td><button class="btn btn-sm btn-outline-danger mlo-btn" type="button">×</button></td>
+        `;
+        tr.querySelector('button')?.addEventListener('click', ()=>{
+          ev.runbook.gates.splice(idx,1);
+          ev.updatedAt = nowISO();
+          saveAll();
+          loadInspector();
+        });
+        els.rbGateTbody.appendChild(tr);
+      });
+    }
+
+    function renderSchedule(ev){
+      ensureRunbook(ev);
+      els.rbSchedTbody.innerHTML = '';
+      (ev.runbook.schedule||[]).forEach((s, idx)=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${escapeHtml(s.start||'')}</td>
+          <td>${escapeHtml(s.end||'')}</td>
+          <td>${escapeHtml(s.type||'')}</td>
+          <td>${escapeHtml(s.notes||'')}</td>
+          <td><button class="btn btn-sm btn-outline-danger mlo-btn" type="button">×</button></td>
+        `;
+        tr.querySelector('button')?.addEventListener('click', ()=>{
+          ev.runbook.schedule.splice(idx,1);
+          ev.updatedAt = nowISO();
+          saveAll();
+          loadInspector();
+        });
+        els.rbSchedTbody.appendChild(tr);
+      });
+    }
+
+    function addGate(){
+      const ev = getSelected(); if(!ev) return;
+      ensureRunbook(ev);
+      const name = els.rbGateName.value.trim();
+      if (!name) return;
+      ev.runbook.gates.push({
+        id: RTS.uid('gate'),
+        name,
+        due: els.rbGateDue.value,
+        owner: els.rbGateOwner.value.trim(),
+        status: els.rbGateStatus.value || 'Not Started'
+      });
+      ev.runbook.version = (ev.runbook.version||1) + 0.1;
+      ev.updatedAt = nowISO();
+      els.rbGateName.value = '';
+      els.rbGateOwner.value = '';
+      saveAll();
+      loadInspector();
+    }
+
+    function addSchedule(){
+      const ev = getSelected(); if(!ev) return;
+      ensureRunbook(ev);
+      if (!els.rbSchedStart.value) return;
+      ev.runbook.schedule.push({
+        id: RTS.uid('sched'),
+        start: els.rbSchedStart.value,
+        end: els.rbSchedEnd.value,
+        type: els.rbSchedType.value.trim() || 'Session',
+        notes: els.rbSchedNotes.value.trim()
+      });
+      ev.runbook.version = (ev.runbook.version||1) + 0.1;
+      ev.updatedAt = nowISO();
+      els.rbSchedStart.value = '';
+      els.rbSchedEnd.value = '';
+      els.rbSchedType.value = '';
+      els.rbSchedNotes.value = '';
+      saveAll();
+      loadInspector();
+    }
+
+    function runbookHtml(ev){
+      ensureRunbook(ev);
+      const gates = (ev.runbook.gates||[]).map(g=>`<tr><td>${escapeHtml(g.name||'')}</td><td>${escapeHtml(g.due||'')}</td><td>${escapeHtml(g.owner||'')}</td><td>${escapeHtml(g.status||'')}</td></tr>`).join('');
+      const sched = (ev.runbook.schedule||[]).map(s=>`<tr><td>${escapeHtml(s.start||'')}</td><td>${escapeHtml(s.end||'')}</td><td>${escapeHtml(s.type||'')}</td><td>${escapeHtml(s.notes||'')}</td></tr>`).join('');
+      return `
+        <html><head><title>Runbook ${escapeHtml(ev.title||'')}</title>
+        <style>
+          body{font-family:Arial,sans-serif; color:#111; padding:24px;}
+          table{width:100%; border-collapse:collapse; margin-top:12px;}
+          th,td{border:1px solid #ddd; padding:6px;}
+          th{background:#f6f6f6; text-align:left;}
+          .pill{display:inline-block; padding:3px 8px; border-radius:3px; font-weight:700; font-size:0.85rem;}
+        </style>
+        </head><body>
+          <h1>${escapeHtml(ev.title||'Event')}</h1>
+          <div><strong>Event:</strong> ${escapeHtml(ev.title||'')}</div>
+          <div><strong>Dates:</strong> ${escapeHtml(ev.start||'')} → ${escapeHtml(ev.end||'')}</div>
+          <div><strong>Venue:</strong> ${escapeHtml(ev.venue||'')}</div>
+          <div><strong>Type:</strong> <span class="pill" style="background:${typeColorMap()[ev.type]||'#e32636'}; color:#fff;">${escapeHtml(ev.type||'')}</span></div>
+          <div><strong>Runbook version:</strong> ${escapeHtml(ev.runbook.version||1)}</div>
+          <div><strong>Notes:</strong> ${escapeHtml(ev.runbook.notes||'')}</div>
+          <h3>Gates</h3>
+          <table><thead><tr><th>Name</th><th>Due</th><th>Owner</th><th>Status</th></tr></thead><tbody>${gates||'<tr><td colspan="4">None</td></tr>'}</tbody></table>
+          <h3>Schedule</h3>
+          <table><thead><tr><th>Start</th><th>End</th><th>Type</th><th>Notes</th></tr></thead><tbody>${sched||'<tr><td colspan="4">None</td></tr>'}</tbody></table>
+        </body></html>
+      `;
+    }
+
+    function openRunbookPdf(){
+      const ev = getSelected(); if(!ev) return;
+      const win = window.open('', '_blank');
+      win.document.write(runbookHtml(ev));
+      win.document.close();
+      try{ win.focus(); setTimeout(()=>win.print(), 150); }catch(_e){}
+    }
+
+    function renderVenueEditor(id){
+      if(!els.venuePick) return;
+      if(venues.length === 0){
+        venues = seedVenues();
+        saveAll();
+      }
+      const pickId = id || venues[0]?.id || '';
+      els.venuePick.value = pickId;
+      const v = venues.find(v=>v.id===pickId) || venues[0] || { name:'', location:'', notes:'' };
+      els.venueName.value = v.name || '';
+      els.venueLoc.value = v.location || '';
+      els.venueNotes.value = v.notes || '';
+    }
+
+    function slugify(s){
+      return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'') || 'venue';
+    }
+
+    function saveVenueFromTab(){
+      const id = (els.venuePick?.value || '').trim();
+      const name = els.venueName.value.trim() || 'Venue';
+      const location = els.venueLoc.value.trim();
+      const notes = els.venueNotes.value.trim();
+      let v = venues.find(v=>v.id===id);
+      if(!v){
+        const newId = slugify(name + '-' + (venues.length+1));
+        v = { id:newId, name, location, notes };
+        venues.push(v);
+      } else {
+        v.name = name;
+        v.location = location;
+        v.notes = notes;
+      }
+      saveAll();
+      renderVenueLists(events);
+      renderVenueEditor(v.id);
+    }
+
+    function deleteVenueFromTab(){
+      const id = (els.venuePick?.value || '').trim();
+      if(!id) return;
+      venues = venues.filter(v=>v.id!==id);
+      saveAll();
+      renderVenueLists(events);
+      renderVenueEditor(venues[0]?.id || '');
+    }
+
+    function groupKey(e) {
+      if(ui.groupBy==='type') return e.type || 'No type';
+      if(ui.groupBy==='venue') return e.venue || 'No venue';
+      if(ui.groupBy==='status') return e.status || 'No status';
+      if(ui.groupBy==='month') return monthKey(e);
+      return '';
+    }
+
+    function renderTable() {
+  const rows = filterEvents();
+  const selectedEv = getSelected();
+  const selectedIsFiltered = selectedEv && !rows.some(r => String(r.id) === String(selectedEv.id));
+  // If the currently selected event exists but is filtered out, show it
+  // at the top of the list so edits are visible in the centre pane. It
+  // will be rendered with a subtle note so users know it's hidden by
+  // current filters.
+  const visibleRows = selectedIsFiltered ? [selectedEv].concat(rows) : rows;
+      els.countBadge.textContent = rows.length;
+
+      // keep selections stable
+      if(!ui.selectedId || !events.some(e=>e.id===ui.selectedId)) {
+        ui.selectedId = rows[0] ? rows[0].id : (events[0] ? events[0].id : null);
       }
 
-      const dtStart = ymdCompact(ev.start) + 'T090000';
-      const dtEnd   = ymdCompact(ev.end || ev.start) + 'T170000';
+      els.tbody.innerHTML = '';
+      let idx=0;
+      let last=null;
+
+      const sorted = visibleRows.slice().sort((a,b)=> (a.start||'').localeCompare(b.start||''));
+      sorted.forEach(e => {
+        const isSyntheticSelected = selectedIsFiltered && String(e.id) === String(selectedEv?.id);
+        if (isSyntheticSelected) {
+          // annotate the title to indicate this row is hidden by filters
+          if (!e._rts_syntheticTitle) e._rts_syntheticTitle = (e.title||'') + ' (hidden by filters)';
+        }
+        const g = ui.groupBy ? groupKey(e) : '';
+        if(ui.groupBy && g !== last) {
+          last = g;
+          const trG = document.createElement('tr');
+          trG.className = 'mlo-group-row';
+          trG.innerHTML = `<td colspan="7">${g}</td>`;
+          els.tbody.appendChild(trG);
+        }
+
+        idx++;
+        const tr = document.createElement('tr');
+        tr.setAttribute('data-id', e.id);
+        tr.className = (e.id===ui.selectedId) ? 'mlo-row-selected' : '';
+        const colorMap = typeColorMap();
+        const typeColor = colorMap[e.type] || '#e32636';
+        const rowTextColor = textColorFor(typeColor);
+        const dot = `<span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${typeColor};margin-right:6px;border:1px solid rgba(255,255,255,0.25);"></span>`;
+        const typePill = `<span class="ev-type-pill" style="background:${typeColor};">${e.type||''}</span>`;
+        const drvCount = Array.isArray(e.drivers) ? e.drivers.length : (String(e.drivers||'').trim()?1:0);
+        // if this event was just created and not yet edited, make it visually obvious
+        if (e.rtsNew) {
+          tr.classList.add('rts-new-highlight');
+          tr.style.removeProperty('background');
+          tr.style.removeProperty('color');
+        } else {
+          tr.style.setProperty('background', typeColor || '#222', 'important');
+          tr.style.setProperty('color', rowTextColor, 'important');
+        }
+
+        tr.innerHTML = `
+          <td>${idx}</td>
+          <td>${formatDateRange(e)}</td>
+          <td>${isSyntheticSelected ? escapeHtml(e._rts_syntheticTitle) : escapeHtml(e.title||'')}</td>
+          <td>${dot}${typePill}</td>
+          <td>${escapeHtml(e.venue||'')}</td>
+          <td>${escapeHtml(e.status||'')}</td>
+          <td>${drvCount}</td>
+        `;
+        tr.querySelectorAll('td').forEach(td=>{
+          if (e.rtsNew) {
+            td.classList.add('rts-new-highlight');
+            td.style.removeProperty('background');
+            td.style.removeProperty('color');
+          } else {
+            td.style.setProperty('background', typeColor || '#222', 'important');
+            td.style.setProperty('color', rowTextColor, 'important');
+          }
+        });
+        tr.addEventListener('click', ()=>{ ui.selectedId = e.id; saveAll(); render(); });
+        tr.addEventListener('dblclick', ()=>{ ui.selectedId = e.id; saveAll(); render(); });
+        els.tbody.appendChild(tr);
+      });
+
+      renderVenueLists(rows);
+      renderTypeFilter();
+      renderVenueEditor(els.venuePick?.value || '');
+      // ensure inspector shows current selection or first row
+      // Ensure the selectedId stays stable. Only change selection to the first
+      // visible row when the previously selected item no longer exists in the
+      // underlying `events` array (for example after deletion). Do NOT force
+      // selection to the first visible row when the selected item is merely
+      // filtered out by UI filters — that causes edited items to disappear from
+      // the inspector unexpectedly.
+      const selRow = rows.find(r => r.id === ui.selectedId);
+      if (!selRow) {
+        const existsInEvents = events.some(e => String(e.id) === String(ui.selectedId));
+        if (!existsInEvents && rows[0]) {
+          ui.selectedId = rows[0].id;
+        }
+      }
+      loadInspector();
+    }
+
+    function getSelected() {
+      return events.find(e=>String(e.id)===String(ui.selectedId)) || null;
+    }
+
+    function pad2(n) {
+      return String(n).padStart(2,'0');
+    }
+
+    function icsEscape(s) {
+      return String(s||'').replace(/\\/g,'\\\\').replace(/\n/g,'\\n').replace(/,/g,'\\,').replace(/;/g,'\\;');
+    }
+
+    function formatICSDate(dateStr, isEnd) {
+      // dateStr is YYYY-MM-DD. Google Calendar "all-day" end date is next day.
+      if(!dateStr) return '';
+      const parts = dateStr.split('-').map(x=>parseInt(x,10));
+      const dt = new Date(parts[0], parts[1]-1, parts[2]);
+      if(isEnd) dt.setDate(dt.getDate()+1);
+      return `${dt.getFullYear()}${pad2(dt.getMonth()+1)}${pad2(dt.getDate())}`;
+    }
+
+    function buildICS(ev) {
+      const uid = `${ev.id}@race-team-os`;
+      const dtstart = formatICSDate(ev.start, false);
+      const dtend = formatICSDate(ev.end || ev.start, true);
+      const title = icsEscape(ev.title);
+      const loc = icsEscape(ev.venue);
+      const descLines = [];
+      descLines.push(`Type: ${ev.type||''}`);
+      descLines.push(`Status: ${ev.status||''}`);
+      if(ev.brief) descLines.push(ev.brief);
+      const desc = icsEscape(descLines.join('\n'));
+      const stamp = new Date().toISOString().replace(/[-:]/g,'').split('.')[0] + 'Z';
 
       return [
         'BEGIN:VCALENDAR',
         'VERSION:2.0',
-        'PRODID:-//Race Team OS//Events//EN',
+        'PRODID:-//Race Team OS//EN',
         'CALSCALE:GREGORIAN',
+        'METHOD:PUBLISH',
         'BEGIN:VEVENT',
-        `UID:${uidLine}`,
-        `DTSTAMP:${dtStamp}`,
-        `SUMMARY:${summary}`,
-        `LOCATION:${location}`,
-        `DESCRIPTION:${description}`,
-        `DTSTART;TZID=${tz}:${dtStart}`,
-        `DTEND;TZID=${tz}:${dtEnd}`,
+        `UID:${uid}`,
+        `DTSTAMP:${stamp}`,
+        `DTSTART;VALUE=DATE:${dtstart}`,
+        `DTEND;VALUE=DATE:${dtend}`,
+        `SUMMARY:${title}`,
+        `LOCATION:${loc}`,
+        `DESCRIPTION:${desc}`,
         'END:VEVENT',
         'END:VCALENDAR'
       ].join('\r\n');
     }
 
-    function downloadText(filename, content, mime){
-      const blob = new Blob([content], {type: mime || 'text/plain;charset=utf-8'});
-      const url = URL.createObjectURL(blob);
+    function downloadICS(ev) {
+      const blob = new Blob([buildICS(ev)], {type:'text/calendar'});
       const a = document.createElement('a');
-      a.href = url; a.download = filename;
-      document.body.appendChild(a); a.click(); a.remove();
-      URL.revokeObjectURL(url);
+      a.href = URL.createObjectURL(blob);
+      const safe = (ev.title||'event').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+      a.download = `event-${safe||ev.id}.ics`;
+      a.click();
+      setTimeout(()=>URL.revokeObjectURL(a.href), 500);
     }
 
-    // ---------- actions ----------
-    function addEvent(){
-      const now = new Date();
-      const iso = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
-      const ev = { id: uid('evt'), name:'New Event', venue:'', location:'', start:iso, end:iso, status:'Planned', dayType:'race', desc:'', driver_ids:[], crew:[], docs:[] };
+    function buildGoogleLink(ev) {
+      // All-day event
+      const dates = `${formatICSDate(ev.start,false)}/${formatICSDate(ev.end||ev.start,true)}`;
+      const text = encodeURIComponent(ev.title||'Event');
+      const details = encodeURIComponent((ev.brief||'') + (ev.type?(`\nType: ${ev.type}`):''));
+      const location = encodeURIComponent(ev.venue||'');
+      return `https://calendar.google.com/calendar/r/eventedit?text=${text}&dates=${dates}&details=${details}&location=${location}`;
+    }
+
+    function loadInspector() {
+      const ev = getSelected();
+      if(!ev) {
+        els.inspectorBadge.textContent = '—';
+        return;
+      }
+      ensureRunbook(ev);
+      refreshInspectorOptions();
+      els.inspectorBadge.textContent = String(ev.id);
+
+      els.f_title.value = ev.title||'';
+      els.f_start.value = ev.start||'';
+      els.f_end.value = ev.end||'';
+      const types = getEventTypes();
+      if(ev.type && !types.includes(ev.type)){
+        const opt = document.createElement('option');
+        opt.value = ev.type;
+        opt.textContent = ev.type;
+        els.f_type.appendChild(opt);
+      }
+      els.f_type.value = ev.type || (getEventTypes()[0] || '');
+      els.f_status.value = ev.status || 'Planned';
+      const venueNames = (settings.venues||[]).map(v=>v.name);
+      if(ev.venue && !venueNames.includes(ev.venue)){
+        const opt = document.createElement('option'); opt.value = ev.venue; opt.textContent = ev.venue; els.f_venue.appendChild(opt);
+      }
+      els.f_venue.value = ev.venue||'';
+      els.f_brief.value = ev.brief||'';
+
+      // drivers
+      const driverIds = Array.isArray(ev.drivers) ? ev.drivers : [];
+      renderDriversMultiSelect(driverIds);
+
+      // crew roster
+      renderCrewRoster(Array.isArray(ev.crew)?ev.crew:[]);
+
+      // docs
+      renderDocs(Array.isArray(ev.documents)?ev.documents:[]);
+
+      // runbook
+      els.rbVersion.value = ev.runbook?.version || 1;
+      els.rbNotes.value = ev.runbook?.notes || '';
+      renderGates(ev);
+      renderSchedule(ev);
+
+      // calendar links
+      els.btnGCalLink.href = buildGoogleLink(ev);
+
+      els.metaCreated.textContent = ev.createdAt ? ev.createdAt.replace('T',' ').slice(0,16) : '—';
+      els.metaUpdated.textContent = ev.updatedAt ? ev.updatedAt.replace('T',' ').slice(0,16) : '—';
+    }
+
+    function readCrewFromUI() {
+      const rows = Array.from(els.crewTbody.querySelectorAll('tr'));
+      return rows.map(tr => {
+        const staffId = tr.querySelector('.crew-staff')?.value || '';
+        const role = tr.querySelector('.crew-role')?.value || '';
+        return { staffId, role };
+      }).filter(r=>r.staffId);
+    }
+
+    function saveInspector() {
+      const ev = getSelected();
+      if(!ev) return;
+      ev.title = els.f_title.value.trim();
+      ev.start = els.f_start.value;
+      ev.end = els.f_end.value || ev.start;
+      ev.type = els.f_type.value;
+      ev.status = els.f_status.value;
+      ev.venue = els.f_venue.value.trim();
+      ev.brief = els.f_brief.value.trim();
+
+  // drivers: do not overwrite from the hidden multi-select; keep the event's current drivers
+  ev.drivers = Array.isArray(ev.drivers) ? ev.drivers : (ev.drivers ? [ev.drivers] : []);
+  syncDriverAttendance(ev);
+
+      // crew
+      ev.crew = readCrewFromUI();
+
+      // runbook notes
+      ensureRunbook(ev);
+      ev.runbook.notes = els.rbNotes.value || '';
+
+      ev.updatedAt = nowISO();
+      // clear "new" highlight when the inspector is saved
+      if (ev.rtsNew) delete ev.rtsNew;
+      // clear any synthetic title note so the centre pane shows the real title
+      if (ev._rts_syntheticTitle) delete ev._rts_syntheticTitle;
+      saveAll();
+      render();
+    }
+
+    function addEvent() {
+      const id = Math.max(1000, ...events.map(e=>e.id||0)) + 1;
+      const today = isoLocal(new Date());
+      const typeList = getEventTypes();
+      const ev = {
+        id,
+        title: 'New Event',
+        start: today,
+        end: today,
+        type: typeList[0] || 'Test Day',
+        status: 'Planned',
+        venue: venues[0]?.name || '',
+        brief: '',
+        drivers: [],
+        crew: [],
+        documents: [],
+        createdAt: nowISO(),
+        updatedAt: nowISO(),
+        // flag new events so they can be visually highlighted until edited/saved
+        rtsNew: true
+      };
+      // Clear filters so the new event is visible in the centre pane immediately
+      ui.search = '';
+      ui.type = '';
+      ui.venue = '';
+      ui.status = '';
+      ui.groupBy = '';
+      ui.perspective = 'all';
+
       events.unshift(ev);
-      persistEvents();
-      ui.selectedId = ev.id;
-      persistUI();
-      updateCounts();
-      renderTypeTree();
-      renderList();
-      hydrateInspector(ev);
+      ui.selectedId = id;
+      saveAll();
+      render();
     }
 
-    function saveSelected(){
-      const ev = events.find(x=>x.id===ui.selectedId);
-      if (!ev) return;
-      readInspectorInto(ev);
-      persistEvents();
-      renderTypeTree();
-      renderList();
-      hydrateInspector(ev);
-    }
-
-    function duplicateSelected(){
-      const src = events.find(x=>x.id===ui.selectedId);
-      if (!src) return;
-      const copy = JSON.parse(JSON.stringify(src));
-      copy.id = uid('evt');
-      copy.name = (copy.name || 'Event') + ' (Copy)';
-      copy.docs = (copy.docs||[]).map(d=>({ ...d, id: uid('doc') }));
-      copy.crew = (copy.crew||[]).map(r=>({ ...r, id: uid('crew') }));
+    function duplicateEvent() {
+      const ev = getSelected();
+      if(!ev) return;
+      const id = Math.max(1000, ...events.map(e=>e.id||0)) + 1;
+      const copy = JSON.parse(JSON.stringify(ev));
+      copy.id = id;
+      copy.title = (copy.title||'Event') + ' (Copy)';
+      copy.createdAt = nowISO();
+      copy.updatedAt = nowISO();
+  // Do not copy driver/crew/documents to new duplicate — user will add these explicitly
+  copy.drivers = [];
+  copy.crew = [];
+  copy.documents = [];
       events.unshift(copy);
-      persistEvents();
-      ui.selectedId = copy.id;
-      persistUI();
-      updateCounts();
-      renderTypeTree();
-      renderList();
-      hydrateInspector(copy);
+      ui.selectedId = id;
+      saveAll();
+      render();
     }
 
-    function deleteSelected(){
-      const ev = events.find(x=>x.id===ui.selectedId);
-      if (!ev) return;
-      if (!confirm('Delete this event?')) return;
-      events = events.filter(x=>x.id!==ui.selectedId);
-      persistEvents();
-      ui.selectedId = '';
-      persistUI();
-      updateCounts();
-      renderTypeTree();
-      renderList();
-      hydrateInspector(null);
+    function deleteEvent() {
+      const idx = events.findIndex(e=>e.id===ui.selectedId);
+      if(idx<0) return;
+      events.splice(idx,1);
+      ui.selectedId = events[0] ? events[0].id : null;
+      saveAll();
+      render();
     }
 
-    // ---------- binds ----------
-    function bindLeftTrees(){
-      els.viewsTree.querySelectorAll('.mlo-tree-item').forEach(li=>{
-        li.addEventListener('click', ()=>{
-          ui.view = li.getAttribute('data-view');
-          ui.typeView = '';
-          persistUI();
-          setActiveLeft();
-          renderList();
+    function addCrewRow() {
+      const ev = getSelected();
+      if(!ev) return;
+      ev.crew = Array.isArray(ev.crew) ? ev.crew : [];
+      const staff = staffOptions();
+      ev.crew.push({ staffId: staff[0] ? staff[0].id : '', role: (RTS.getSettings().roles||['Crew'])[0] });
+      ev.updatedAt = nowISO();
+      saveAll();
+      loadInspector();
+    }
+
+    function addDoc() {
+      const ev = getSelected();
+      if(!ev) return;
+      const name = els.docName.value.trim();
+      const url = els.docUrl.value.trim();
+      if(!name && !url) return;
+      ev.documents = Array.isArray(ev.documents) ? ev.documents : [];
+      ev.documents.push({ provider:'link', name: name || 'Document', url });
+      els.docName.value = '';
+      els.docUrl.value = '';
+      ev.updatedAt = nowISO();
+      saveAll();
+      loadInspector();
+    }
+
+    async function addDocsFromDrive() {
+      const ev = getSelected();
+      if(!ev) return;
+      try {
+        const picked = await RTS.pickDriveFiles({ multiSelect: true, includeFolders: false });
+        if (!picked || picked.length===0) return;
+        ev.documents = Array.isArray(ev.documents) ? ev.documents : [];
+        picked.forEach(p => {
+          ev.documents.push({
+            provider: 'gdrive',
+            id: p.id,
+            name: p.name,
+            url: p.url,
+            mimeType: p.mimeType,
+            pickedAt: p.pickedAt
+          });
         });
-      });
+        ev.updatedAt = nowISO();
+        saveAll();
+        loadInspector();
+      } catch (e){
+        alert('Drive Picker error: ' + (e && e.message ? e.message : String(e)));
+      }
+    }
+    function ensureRunbook(ev){
+      if (!ev.runbook) {
+        ev.runbook = { version:1, notes:'', gates:[], schedule:[] };
+      }
+      if (!Array.isArray(ev.runbook.gates)) ev.runbook.gates = [];
+      if (!Array.isArray(ev.runbook.schedule)) ev.runbook.schedule = [];
+      if (!ev.runbook.version) ev.runbook.version = 1;
+      if (ev.runbook.notes===undefined) ev.runbook.notes = '';
+      return ev.runbook;
     }
 
-    function bindControls(){
+    function syncDriverAttendance(ev){
+      const s = RTS.getSettings();
+      const selected = new Set(ev.drivers || []);
+      s.drivers = (s.drivers||[]).map(dr => {
+        const eventsList = Array.isArray(dr.events) ? dr.events.slice() : [];
+        const has = selected.has(dr.id);
+        const idx = eventsList.findIndex(eid => String(eid)===String(ev.id));
+        if (has && idx<0) eventsList.push(ev.id);
+        if (!has && idx>=0) eventsList.splice(idx,1);
+        return { ...dr, events: eventsList };
+      });
+      settings = RTS.saveSettings(s);
+    }
+
+    function wireUI() {
+      // left lists
+      els.perspectiveList.addEventListener('click', (e)=> {
+        const li = e.target.closest('li[data-perspective]');
+        if(!li) return;
+        els.perspectiveList.querySelectorAll('li').forEach(x=>x.classList.remove('active'));
+        li.classList.add('active');
+        ui.perspective = li.getAttribute('data-perspective');
+        ui.venueFocus = '';
+        saveAll();
+        render();
+      });
+
+      // filters
       els.search.value = ui.search || '';
-      els.statusFilter.value = ui.status || '';
-      els.dayTypeFilter.value = ui.dayType || '';
-      els.groupBy.value = ui.groupBy || '';
+      els.search.addEventListener('input', ()=>{ ui.search = els.search.value; saveAll(); renderTable(); });
+      els.type.addEventListener('change', ()=>{ ui.type = els.type.value; saveAll(); renderTable(); });
+      els.venue.addEventListener('change', ()=>{ ui.venue = els.venue.value; saveAll(); renderTable(); });
+      els.status.addEventListener('change', ()=>{ ui.status = els.status.value; saveAll(); renderTable(); });
+      els.group.addEventListener('change', ()=>{ ui.groupBy = els.group.value; saveAll(); renderTable(); });
 
-      els.search.addEventListener('input', ()=>{ ui.search = els.search.value; persistUI(); renderList(); });
-      els.statusFilter.addEventListener('change', ()=>{ ui.status = els.statusFilter.value; persistUI(); renderList(); });
-      els.dayTypeFilter.addEventListener('change', ()=>{ ui.dayType = els.dayTypeFilter.value; persistUI(); renderList(); });
-      els.groupBy.addEventListener('change', ()=>{ ui.groupBy = els.groupBy.value; persistUI(); renderList(); });
-
+      // actions
       els.btnAdd.addEventListener('click', addEvent);
-      els.btnSave.addEventListener('click', saveSelected);
-      els.btnDuplicate.addEventListener('click', duplicateSelected);
-      els.btnDelete.addEventListener('click', deleteSelected);
+      els.btnSave.addEventListener('click', saveInspector);
+      els.btnDup.addEventListener('click', duplicateEvent);
+      els.btnDel.addEventListener('click', deleteEvent);
+      els.btnAddCrew.addEventListener('click', addCrewRow);
+      els.btnAddDocDrive.addEventListener('click', addDocsFromDrive);
+      els.btnAddDoc.addEventListener('click', addDoc);
+      els.btnICS.addEventListener('click', ()=>{ const ev = getSelected(); if(ev) downloadICS(ev); });
+      els.btnGCalLink.addEventListener('click', ()=>{ const ev = getSelected(); if(ev) window.open(buildGoogleLink(ev),'_blank','noopener'); });
 
-      els.e_dayType.addEventListener('change', ()=> setDayTypePreview(els.e_dayType.value));
+      // venues tab
+      if (els.venuePick){
+        els.venuePick.addEventListener('change', ()=> renderVenueEditor(els.venuePick.value));
+      }
+      els.btnVenueSave?.addEventListener('click', saveVenueFromTab);
+      els.btnVenueDel?.addEventListener('click', deleteVenueFromTab);
+      els.btnAddGate?.addEventListener('click', addGate);
+      els.btnAddSched?.addEventListener('click', addSchedule);
+      els.btnRunbookPdf?.addEventListener('click', openRunbookPdf);
+      els.btnAddDriver?.addEventListener('click', showDriverChooser);
+    }
 
-      els.btnAddDriver.addEventListener('click', ()=>{
-        const ev = events.find(x=>x.id===ui.selectedId);
-        if (!ev) return;
-        const id = els.driverSelect.value;
-        if (!id) return;
-        ev.driver_ids = Array.isArray(ev.driver_ids) ? ev.driver_ids : [];
-        if (!ev.driver_ids.includes(id)) ev.driver_ids.push(id);
-        upsertEvent(ev);
+    function showDriverChooser(){
+      const ev = getSelected(); if(!ev) return;
+      // If chooser already present, toggle it off
+      const existing = document.getElementById('tmpDriverChooser');
+      if (existing) { existing.remove(); return; }
+
+      const drivers = driverOptions();
+      if (!drivers || drivers.length===0) {
+        // No drivers configured — ask user to open settings
+        if (confirm('No drivers found. Open Settings to add drivers?')) {
+          // open settings drivers tab
+          try { window.location.href = 'settings.html?tab=drivers'; } catch(_e){}
+        }
+        return;
+      }
+
+      const wrap = document.createElement('div');
+      wrap.id = 'tmpDriverChooser';
+      wrap.style.marginTop = '6px';
+      wrap.className = 'd-flex gap-1 align-items-center';
+      const sel = document.createElement('select');
+      sel.className = 'form-select form-select-sm';
+      sel.style.flex = '1 1 auto';
+      drivers.forEach(d=>{
+        const opt = document.createElement('option');
+        opt.value = d.id;
+        opt.textContent = d.displayName || d.name || (`${d.firstName||''} ${d.lastName||''}`).trim() || d.id;
+        sel.appendChild(opt);
       });
+      const btnAdd = document.createElement('button');
+      btnAdd.type = 'button';
+      btnAdd.className = 'btn btn-sm btn-primary';
+      btnAdd.textContent = 'Add';
+      const btnCancel = document.createElement('button');
+      btnCancel.type = 'button';
+      btnCancel.className = 'btn btn-sm btn-outline-light';
+      btnCancel.textContent = 'Cancel';
 
-      els.btnAddCrew.addEventListener('click', ()=>{
-        const ev = events.find(x=>x.id===ui.selectedId);
-        if (!ev) return;
-        const staffId = els.staffSelect.value;
-        const roleName = els.roleSelect.value || 'Crew';
-        if (!staffId) return;
-        ev.crew = Array.isArray(ev.crew) ? ev.crew : [];
-        ev.crew.push({ id: uid('crew'), staff_id: staffId, role: roleName });
-        upsertEvent(ev);
-      });
+      wrap.appendChild(sel);
+      wrap.appendChild(btnAdd);
+      wrap.appendChild(btnCancel);
 
-      els.docInput.addEventListener('change', async ()=>{
-        const ev = events.find(x=>x.id===ui.selectedId);
-        if (!ev) return;
-        const files = [...(els.docInput.files || [])];
-        if (!files.length) return;
-        await addDocsFromInput(ev, files);
-        els.docInput.value = '';
-      });
+      els.btnAddDriver.parentNode.insertBefore(wrap, els.btnAddDriver.nextSibling);
 
-      els.btnClearDocs.addEventListener('click', ()=>{
-        const ev = events.find(x=>x.id===ui.selectedId);
-        if (!ev) return;
-        if (!confirm('Remove all documents from this event?')) return;
-        ev.docs = [];
-        upsertEvent(ev);
-      });
-
-      els.btnOpenGCal.addEventListener('click', ()=>{
-        const ev = events.find(x=>x.id===ui.selectedId);
-        if (!ev) return;
-        openGoogleCalendarDraft(ev);
-      });
-
-      els.btnDownloadICS.addEventListener('click', ()=>{
-        const ev = events.find(x=>x.id===ui.selectedId);
-        if (!ev) return;
-        const ics = buildICS(ev);
-        const filename = `event_${(ev.name||'event').replace(/[^a-z0-9]+/gi,'_').toLowerCase()}_${(ev.start||'date')}.ics`;
-        downloadText(filename, ics, 'text/calendar;charset=utf-8');
-      });
-
-      els.btnResetEvents.addEventListener('click', ()=>{
-        if (!confirm('Reset demo events? (Settings data stays)')) return;
-        events = seedEvents();
-        RTS.safeSaveJSON(KEYS.events, events);
-        ui.selectedId = '';
-        persistUI();
-        updateCounts();
-        renderTypeTree();
-        renderList();
-        hydrateInspector(null);
+      btnCancel.addEventListener('click', ()=>{ wrap.remove(); });
+      btnAdd.addEventListener('click', ()=>{
+        const id = sel.value;
+        if(!id) return;
+        ev.drivers = Array.isArray(ev.drivers) ? ev.drivers : [];
+        if (!ev.drivers.includes(id)) ev.drivers.push(id);
+        ev.updatedAt = nowISO();
+        saveAll();
+        loadInspector();
+        wrap.remove();
       });
     }
 
-    // ---------- init ----------
-    function hydrateDayTypeFilters(){
-      els.dayTypeFilter.value = ui.dayType || '';
-      els.statusFilter.value = ui.status || '';
-      els.groupBy.value = ui.groupBy || '';
+    function render() {
+      renderTable();
+      loadInspector();
     }
 
-    function init(){
-      RTS.setActiveNav();
-      RTS.initTriPaneResizers(els.shell, KEYS.pane);
-
-      hydrateDayTypeSelects();
-      hydrateSettingsSources();
-      hydrateDayTypeFilters();
-
-      renderTypeTree();
-      bindLeftTrees();
-      bindControls();
-      setActiveLeft();
-
-      renderList();
-      hydrateInspector(events.find(x=>x.id===ui.selectedId) || null);
-    }
-
-    document.addEventListener('DOMContentLoaded', init);
+    // Init
+    wireUI();
+    render();
   })();
   </script>
 </body>

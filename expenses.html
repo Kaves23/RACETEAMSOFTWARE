@@ -8,25 +8,11 @@
   <link href="style.css" rel="stylesheet" />
 </head>
 <body>
-  <div class="container-fluid">
-    <div class="row">
-      <nav class="col-md-2 d-none d-md-block sidebar">
-        <ul class="nav flex-column">
-          <li class="nav-item"><a class="nav-link" href="index.html">Dashboard</a></li>
-          <li class="nav-item"><a class="nav-link" href="events.html">Events</a></li>
-          <li class="nav-item"><a class="nav-link" href="tasks.html">Tasks</a></li>
-          <li class="nav-item"><a class="nav-link" href="assets.html">Assets</a></li>
-          <li class="nav-item"><a class="nav-link" href="inventory.html">Inventory</a></li>
-          <li class="nav-item"><a class="nav-link" href="expenses.html">Finance</a></li>
-          <li class="nav-section">Race Control</li>
-          <li class="nav-item"><a class="nav-link" href="performance.html">Performance</a></li>
-          <li class="nav-item"><a class="nav-link" href="strategy.html">Strategy</a></li>
-          <li class="nav-item"><a class="nav-link" href="incidents.html">Incidents</a></li>
-          <li class="nav-item"><a class="nav-link" href="integrations.html">Integrations</a></li>
-        </ul>
-      </nav>
+  <div id="rtsTopNav"></div>
+  <div class="rts-main container-fluid">
+      
 
-      <main class="col-md-10 ms-sm-auto px-4">
+      
         <h1 class="my-3">Finance</h1>
 
         <div class="mlo-shell" id="finShell">
@@ -40,7 +26,7 @@
             </div>
             <div class="mlo-pane-content">
               <div class="mlo-section-label">Smart lists</div>
-              <ul class="mlo-tree" id="finPerspectiveList">
+              <ul class="mlo-tree pastel-tree" id="finPerspectiveList">
                 <li class="active" data-perspective="all">All Expenses</li>
                 <li data-perspective="pending">Pending Approval</li>
                 <li data-perspective="approved">Approved</li>
@@ -50,7 +36,7 @@
               </ul>
 
               <div class="mlo-section-label mt-3">Categories</div>
-              <ul class="mlo-tree" id="finCategoryList"></ul>
+              <ul class="mlo-tree pastel-tree" id="finCategoryList"></ul>
             </div>
           </section>
 
@@ -112,7 +98,14 @@
             </div>
             <div class="mlo-pane-content">
               <form id="finForm" autocomplete="off">
-                <div class="row g-2">
+                <ul class="nav nav-tabs nav-dark mb-2" role="tablist">
+                  <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="tab-fin-details" data-bs-toggle="tab" data-bs-target="#pane-fin-details" type="button" role="tab" aria-controls="pane-fin-details" aria-selected="true">Details</button>
+                  </li>
+                </ul>
+                <div class="tab-content">
+                  <div class="tab-pane fade show active" id="pane-fin-details" role="tabpanel" aria-labelledby="tab-fin-details">
+                    <div class="row g-2">
                   <div class="col-4">
                     <label class="form-label">ID</label>
                     <input id="f_fin_id" class="form-control form-control-sm" type="text" readonly>
@@ -137,11 +130,11 @@
 
                   <div class="col-7">
                     <label class="form-label">Event</label>
-                    <input id="f_fin_event" class="form-control form-control-sm" type="text" placeholder="Event allocation">
+                    <select id="f_fin_event" class="form-select form-select-sm"></select>
                   </div>
                   <div class="col-5">
                     <label class="form-label">Category</label>
-                    <input id="f_fin_category" class="form-control form-control-sm" type="text" placeholder="e.g. Tyres">
+                    <select id="f_fin_category" class="form-select form-select-sm"></select>
                   </div>
 
                   <div class="col-4">
@@ -169,7 +162,14 @@
 
                   <div class="col-12">
                     <label class="form-label">Attachments</label>
-                    <textarea id="f_fin_attach" class="form-control form-control-sm" rows="2" placeholder="Receipt filename / link reference …"></textarea>
+                    <div id="finAttList" class="d-grid gap-1"></div>
+                    <div class="d-flex gap-1 mt-1">
+                      <input id="finAttName" class="form-control form-control-sm" type="text" placeholder="Name" style="max-width: 180px;">
+                      <input id="finAttUrl" class="form-control form-control-sm" type="text" placeholder="Paste link…">
+                      <button id="btnFinAttDrive" class="btn btn-sm btn-outline-light mlo-btn" type="button">Drive</button>
+                      <button id="btnFinAttAdd" class="btn btn-sm btn-outline-light mlo-btn" type="button">Add</button>
+                    </div>
+                    <div class="form-text text-secondary" style="font-size:0.75rem;">Links and Google Drive files can be attached to each expense for receipt and audit evidence.</div>
                   </div>
 
                   <div class="col-12">
@@ -187,23 +187,38 @@
             </div>
           </section>
         </div>
-      </main>
-    </div>
-  </div>
+      </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="config.js"></script>
   <script src="core.js"></script>
+  <script src="topnav.js"></script>
   <script>
   (function(){
     RTS.setActiveNav();
-    const LS = 'rts.finance.v4';
-    const LS_UI = 'rts.finance.ui.v4';
-    const LS_PANES = 'rts.finance.panes.v4';
+    const LS = 'rts.expenses.v4';
+    const LS_UI = 'rts.expenses.ui.v4';
+    const LS_PANES = 'rts.expenses.panes.v4';
 
-    const EVENTS = ['National Championship R1','National Championship R2','Test Day','Regional R1','Regional R2','International Trip','Workshop Ops'];
-    const CATS = ['Tyres','Fuel','Consumables','Spares','Engine','Transport','Accommodation','Entry Fees','Tools','Data / Software','Salaries','Media'];
-    const SUPPLIERS = ['OTK/Dealer','Tyre Vendor','Fuel Station','Parts Supplier','Track Office','Courier','Hotel','Data Vendor'];
+    const EVENT_STORE = RTS.safeLoadJSON('rts.events.v4', []);
+    const EVENTS = Array.isArray(EVENT_STORE) ? EVENT_STORE : [];
+    const EVENT_OPTIONS = EVENTS.map(e => ({ id: e.id, title: e.title || e.name || 'Event' }));
+    const EVENT_MAP = new Map(EVENT_OPTIONS.map(e => [String(e.id), e.title]));
+    function eventTitle(id){ return EVENT_MAP.get(String(id)) || ''; }
+
+    const BASE_CATS = ['Tyres','Fuel','Consumables','Spares','Engine','Transport','Accommodation','Entry Fees','Tools','Data / Software','Salaries','Media','Travel','Logistics','Hospitality','Insurance'];
+    let settings = RTS.getSettings();
+    const SUPPLIERS = (settings.suppliers||[]).map(s=>s.name).filter(Boolean);
     const STAT = ['Pending','Approved','Paid'];
+
+    function escapeHtml(str){
+      return String(str||'')
+        .replace(/&/g,'&amp;')
+        .replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;')
+        .replace(/\"/g,'&quot;')
+        .replace(/'/g,'&#39;');
+    }
 
     function iso(d){
       const dt = new Date(d);
@@ -222,8 +237,8 @@
       for (let i=1;i<=50;i++){
         const d = new Date(base.getTime());
         d.setDate(d.getDate() - (i*3));
-        const category = CATS[i % CATS.length];
-        const event = EVENTS[i % EVENTS.length];
+        const category = BASE_CATS[i % BASE_CATS.length];
+        const ev = EVENT_OPTIONS[i % (EVENT_OPTIONS.length || 1)];
         const supplier = SUPPLIERS[i % SUPPLIERS.length];
         const status = STAT[i % STAT.length];
         const amount = Math.round((500 + (i*130)) * (i%3===0?2.2:1.0));
@@ -231,14 +246,15 @@
           id: i,
           date: iso(d),
           supplier,
-          event,
+          eventId: ev ? ev.id : '',
+          event: ev ? ev.title : '',
           category,
           amount,
           vat: 15,
           invoice: `INV-${String(1000+i)}`,
           driver: (i%4===0 ? 'Driver #42' : ''),
           approval: status==='Pending' ? 'Requested: Team Manager' : 'Requested: Team Manager / Approved: Team Principal',
-          attachments: '',
+          attachments: [],
           notes: '',
           status
         });
@@ -250,6 +266,41 @@
     let items = RTS.safeLoadJSON(LS, null);
     if (!Array.isArray(items) || items.length===0) items = seed();
     let ui = RTS.deepMerge(defaultUI, RTS.safeLoadJSON(LS_UI, {}));
+
+    // Deep link support
+    // - expenses.html?event=<eventId|title>
+    // - expenses.html?select=<expenseId>
+    (function(){
+      const qEvent = RTS.getQueryParam('event');
+      if (qEvent) {
+        const n = Number(qEvent);
+        if (!isNaN(n) && EVENT_MAP.has(String(n))) ui.event = String(n);
+        else {
+          const match = EVENT_OPTIONS.find(e => (e.title||'').toLowerCase() === String(qEvent).toLowerCase());
+          if (match) ui.event = String(match.id);
+        }
+      }
+      const qSel = RTS.getQueryParam('select');
+      if (qSel) {
+        const n = Number(qSel);
+        ui.selectedId = isNaN(n) ? qSel : n;
+      }
+    })();
+
+    // Normalize schema fields
+    items.forEach(it => {
+      if (it.eventId == null && it.event){
+        const m = EVENT_OPTIONS.find(e => e.title === it.event);
+        if (m) it.eventId = m.id;
+      }
+      if (Array.isArray(it.attachments)) return;
+      if (typeof it.attachments === 'string' && it.attachments.trim()) {
+        const s = it.attachments.trim();
+        it.attachments = [{ provider:'link', name:'Attachment', url:s }];
+      } else {
+        it.attachments = [];
+      }
+    });
 
     const el = {
       shell: document.getElementById('finShell'),
@@ -268,6 +319,12 @@
       save: document.getElementById('btnSaveFin'),
       dup: document.getElementById('btnDupFin'),
       del: document.getElementById('btnDelFin'),
+
+      finAttList: document.getElementById('finAttList'),
+      finAttName: document.getElementById('finAttName'),
+      finAttUrl: document.getElementById('finAttUrl'),
+      btnFinAttDrive: document.getElementById('btnFinAttDrive'),
+      btnFinAttAdd: document.getElementById('btnFinAttAdd'),
       f: {
         id: document.getElementById('f_fin_id'),
         supplier: document.getElementById('f_fin_supplier'),
@@ -280,10 +337,19 @@
         invoice: document.getElementById('f_fin_invoice'),
         driver: document.getElementById('f_fin_driver'),
         approval: document.getElementById('f_fin_approval'),
-        attach: document.getElementById('f_fin_attach'),
         notes: document.getElementById('f_fin_notes')
       }
     };
+
+    // Normalize legacy attachment fields
+    items.forEach(i => normalizeAttachments(i));
+
+    // Normalize UI event filter if stored as title
+    if (ui.event && !EVENT_MAP.has(String(ui.event))) {
+      const m = EVENT_OPTIONS.find(e => e.title === ui.event);
+      if (m) ui.event = String(m.id);
+      else ui.event = '';
+    }
 
     function persist(){
       RTS.safeSaveJSON(LS, items);
@@ -291,8 +357,9 @@
     }
 
     function buildTrees(){
+      settings = RTS.getSettings();
       // category tree
-      const cats = Array.from(new Set(items.map(i=>i.category))).sort();
+      const cats = Array.from(new Set(BASE_CATS.concat(items.map(i=>i.category)).filter(Boolean))).sort();
       el.catTree.innerHTML = '';
       const all = document.createElement('li');
       all.textContent = 'All categories';
@@ -307,8 +374,15 @@
         el.catTree.appendChild(li);
       });
       // filters
-      el.event.innerHTML = '<option value="">Event: All</option>' + Array.from(new Set(items.map(i=>i.event))).sort().map(e=>`<option>${e}</option>`).join('');
+      const eventOpts = EVENT_OPTIONS.map(e=>`<option value="${e.id}">${e.title}</option>`).join('');
+      el.event.innerHTML = '<option value="">Event: All</option>' + eventOpts;
       el.category.innerHTML = '<option value="">Category: All</option>' + cats.map(c=>`<option>${c}</option>`).join('');
+
+      // inspector selects
+      el.f.event.innerHTML = EVENT_OPTIONS.length
+        ? EVENT_OPTIONS.map(e=>`<option value="${e.id}">${e.title}</option>`).join('')
+        : '<option value="">Unassigned</option>';
+      el.f.category.innerHTML = cats.map(c=>`<option value="${c}">${c}</option>`).join('');
     }
 
     function applyFilters(list){
@@ -325,9 +399,9 @@
       if (ui.catPick) out = out.filter(x=>x.category===ui.catPick);
       if (ui.search){
         const q = ui.search.toLowerCase();
-        out = out.filter(x => (`${x.supplier} ${x.event} ${x.category} ${x.invoice}`).toLowerCase().includes(q));
+        out = out.filter(x => (`${x.supplier} ${eventTitle(x.eventId)} ${x.category} ${x.invoice}`).toLowerCase().includes(q));
       }
-      if (ui.event) out = out.filter(x=>x.event===ui.event);
+      if (ui.event) out = out.filter(x=>String(x.eventId||'')===String(ui.event));
       if (ui.category) out = out.filter(x=>x.category===ui.category);
       if (ui.status) out = out.filter(x=>x.status===ui.status);
       return out;
@@ -335,7 +409,7 @@
 
     function groupKey(it){
       switch(ui.groupBy){
-        case 'event': return it.event || '—';
+        case 'event': return eventTitle(it.eventId) || '—';
         case 'category': return it.category || '—';
         case 'status': return it.status || '—';
         case 'supplier': return it.supplier || '—';
@@ -354,7 +428,8 @@
       const filtered = applyFilters(items);
       el.count.textContent = String(filtered.length);
       const total = filtered.reduce((s,i)=>s+(Number(i.amount)||0),0);
-      el.total.textContent = `Total: ${RTS.moneyZAR(total)}`;
+      const totalVat = filtered.reduce((s,i)=>s+((Number(i.amount)||0)*(Number(i.vat||0)/100)),0);
+      el.total.textContent = `Total: ${RTS.moneyZAR(total)} (VAT: ${RTS.moneyZAR(totalVat)})`;
 
       let rows = filtered.slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
       if (ui.groupBy){
@@ -385,7 +460,7 @@
           <td>${idx}</td>
           <td>${it.date || ''}</td>
           <td>${it.supplier}</td>
-          <td>${it.event}</td>
+          <td>${eventTitle(it.eventId) || '—'}</td>
           <td>${it.category}</td>
           <td>${RTS.moneyZAR(it.amount)}</td>
           <td>${it.status}</td>
@@ -402,6 +477,7 @@
       if (!it){
         el.insp.textContent = 'No selection';
         Object.values(el.f).forEach(x=>x.value='');
+        el.finAttList.innerHTML = '';
         return;
       }
       el.insp.textContent = `Expense #${it.id}`;
@@ -409,15 +485,96 @@
       el.f.supplier.value = it.supplier || '';
       el.f.date.value = it.date || '';
       el.f.status.value = it.status || 'Pending';
-      el.f.event.value = it.event || '';
-      el.f.category.value = it.category || '';
+      const evVal = it.eventId || '';
+      const evHas = Array.from(el.f.event.options).some(o=>o.value===String(evVal));
+      if (!evHas && evVal){
+        const opt = document.createElement('option');
+        opt.value = evVal;
+        opt.textContent = eventTitle(evVal) || evVal;
+        el.f.event.appendChild(opt);
+      }
+      el.f.event.value = evVal || '';
+      const catVal = it.category || '';
+      const catHas = Array.from(el.f.category.options).some(o=>o.value===catVal);
+      if (!catHas && catVal){
+        const opt = document.createElement('option');
+        opt.value = catVal;
+        opt.textContent = catVal;
+        el.f.category.appendChild(opt);
+      }
+      el.f.category.value = catVal;
       el.f.amount.value = Number(it.amount || 0);
       el.f.vat.value = Number(it.vat || 0);
       el.f.invoice.value = it.invoice || '';
       el.f.driver.value = it.driver || '';
       el.f.approval.value = it.approval || '';
-      el.f.attach.value = it.attachments || '';
       el.f.notes.value = it.notes || '';
+
+      renderAttachments(it);
+    }
+
+    function normalizeAttachments(it){
+      if (Array.isArray(it.attachments)) return;
+      const raw = it.attachments;
+      if (typeof raw === 'string' && raw.trim()) {
+        const url = raw.trim();
+        it.attachments = [{ provider:'link', name:'Attachment', url }];
+      } else {
+        it.attachments = [];
+      }
+    }
+
+    function renderAttachments(it){
+      el.finAttList.innerHTML = '';
+      normalizeAttachments(it);
+      (it.attachments||[]).forEach((a, idx)=>{
+        const provider = a.provider ? String(a.provider) : 'link';
+        const provLabel = provider==='gdrive' ? 'Drive' : (provider==='link' ? 'Link' : provider);
+        const row = document.createElement('div');
+        row.className = 'd-flex align-items-center justify-content-between gap-2';
+        const left = document.createElement('div');
+        left.style.flex = '1';
+        left.style.cursor = a.url ? 'pointer' : 'default';
+        left.innerHTML = `<div class="text-truncate"><span class="badge text-bg-secondary" style="font-size:0.68rem; margin-right:6px;">${provLabel}</span><strong>${escapeHtml(a.name||'Attachment')}</strong></div>`;
+        if (a.url) {
+          left.title = a.url;
+          left.addEventListener('click', ()=> window.open(a.url, '_blank', 'noopener'));
+        }
+        const right = document.createElement('div');
+        right.innerHTML = `<button class="btn btn-sm btn-outline-danger mlo-btn" type="button">Remove</button>`;
+        right.querySelector('button').addEventListener('click', ()=>{
+          it.attachments.splice(idx,1);
+          persist();
+          render();
+        });
+        row.appendChild(left); row.appendChild(right);
+        el.finAttList.appendChild(row);
+      });
+    }
+
+    function addAttachmentLink(){
+      const it = items.find(x=>x.id===ui.selectedId);
+      if (!it) return;
+      normalizeAttachments(it);
+      const name = (el.finAttName.value||'').trim() || 'Attachment';
+      const url = (el.finAttUrl.value||'').trim();
+      if (!url) return;
+      it.attachments.push({ provider:'link', name, url, addedAt:new Date().toISOString() });
+      el.finAttName.value = '';
+      el.finAttUrl.value = '';
+      persist();
+      render();
+    }
+
+    async function addAttachmentDrive(){
+      const it = items.find(x=>x.id===ui.selectedId);
+      if (!it) return;
+      normalizeAttachments(it);
+      const files = await RTS.pickDriveFiles({ multiSelect:true, includeFolders:false });
+      if (!files || !files.length) return;
+      files.forEach(f=> it.attachments.push({ ...f, addedAt: new Date().toISOString() }));
+      persist();
+      render();
     }
 
     function select(id){
@@ -432,7 +589,21 @@
     function add(){
       const id = nextId();
       const d = iso(new Date());
-      const it = { id, date:d, supplier:'New Supplier', event: EVENTS[0], category: CATS[0], amount:0, vat:15, invoice:'', driver:'', approval:'Requested: Team Manager', attachments:'', notes:'', status:'Pending' };
+      const it = {
+        id,
+        date:d,
+        supplier:'New Supplier',
+        eventId: EVENT_OPTIONS[0]?.id || '',
+        category: BASE_CATS[0],
+        amount:0,
+        vat:15,
+        invoice:'',
+        driver:'',
+        approval:'Requested: Team Manager',
+        attachments:[],
+        notes:'',
+        status:'Pending'
+      };
       items.unshift(it);
       buildTrees();
       ui.selectedId = id;
@@ -449,14 +620,13 @@
         supplier: el.f.supplier.value.trim() || cur.supplier,
         date: el.f.date.value,
         status: el.f.status.value,
-        event: el.f.event.value.trim() || cur.event,
+        eventId: el.f.event.value || '',
         category: el.f.category.value.trim() || cur.category,
         amount: parseFloat(el.f.amount.value || 0),
         vat: parseFloat(el.f.vat.value || 0),
         invoice: el.f.invoice.value.trim(),
         driver: el.f.driver.value.trim(),
         approval: el.f.approval.value.trim(),
-        attachments: el.f.attach.value,
         notes: el.f.notes.value
       };
       buildTrees();
@@ -467,6 +637,7 @@
       const sel = items.find(x=>x.id===ui.selectedId);
       if (!sel) return;
       const copy = { ...sel, id: nextId(), invoice: '', status: 'Pending' };
+      copy.attachments = Array.isArray(sel.attachments) ? sel.attachments.map(a=>({ ...a })) : [];
       copy.supplier = sel.supplier + ' (Copy)';
       items.unshift(copy);
       buildTrees();
@@ -519,7 +690,22 @@
       el.add.addEventListener('click', add);
       el.save.addEventListener('click', save);
       el.dup.addEventListener('click', duplicate);
-      el.del.addEventListener('click', del);
+      // Use modal-backed async confirmation for delete (falls back to window.confirm)
+      el.del.addEventListener('click', async (e)=>{
+        const msg = 'Delete selected expense? This cannot be undone.';
+        let ok = false;
+        try{
+          if (window.RTS && typeof window.RTS.confirmPrompt === 'function') {
+            ok = await window.RTS.confirmPrompt(msg);
+          } else {
+            ok = window.confirm(msg);
+          }
+        }catch(err){ ok = window.confirm(msg); }
+        if (ok) del();
+      });
+
+      el.btnFinAttAdd.addEventListener('click', addAttachmentLink);
+      el.btnFinAttDrive.addEventListener('click', addAttachmentDrive);
     }
 
     function init(){

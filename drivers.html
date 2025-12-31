@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Race Team OS – Drivers</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="style.css" rel="stylesheet" />
+  <style>
+    #drvTbody td, #drvTbody th { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  </style>
+</head>
+<body>
+  <div id="rtsTopNav"></div>
+  <div class="rts-main container-fluid">
+    <h1 class="my-3">Drivers</h1>
+
+    <div class="mlo-shell" id="drvShell">
+      <section class="mlo-pane mlo-pane-left" aria-label="Drivers">
+        <div class="mlo-pane-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="mlo-title">Drivers</div>
+            <span class="badge text-bg-secondary" id="drvCountBadge">0</span>
+          </div>
+        </div>
+        <div class="mlo-pane-content">
+          <ul class="mlo-tree pastel-tree" id="drvList"></ul>
+        </div>
+      </section>
+
+      <div class="mlo-resizer" data-resize="left" title="Drag to resize"></div>
+
+      <section class="mlo-pane mlo-pane-mid" aria-label="Driver documents">
+        <div class="mlo-pane-header">
+          <div class="d-flex align-items-center flex-nowrap gap-1" style="overflow:hidden;">
+            <input id="drvSearch" type="text" class="form-control form-control-sm" placeholder="Search docs…" style="flex:1 1 200px; min-width:180px;">
+          </div>
+        </div>
+        <div class="mlo-pane-content" style="padding:0;">
+          <table class="table table-dark table-hover mlo-table" style="margin:0;">
+            <thead>
+              <tr>
+                <th style="width:60px;">#</th>
+                <th>Document / Portal</th>
+                <th style="width:200px;">Source</th>
+                <th style="width:160px;">Date</th>
+              </tr>
+            </thead>
+            <tbody id="drvTbody"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="core.js"></script>
+  <script src="topnav.js"></script>
+  <script>
+  (function(){
+    RTS.setActiveNav();
+    const LS_PANES = 'rts.drivers.panes.v1';
+    let settings = RTS.getSettings();
+    const events = RTS.safeLoadJSON('rts.events.v4', []) || [];
+
+    function escapeHtml(str){
+      return String(str||'')
+        .replace(/&/g,'&amp;')
+        .replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;')
+        .replace(/\"/g,'&quot;')
+        .replace(/'/g,'&#39;');
+    }
+
+    const el = {
+      shell: document.getElementById('drvShell'),
+      count: document.getElementById('drvCountBadge'),
+      list: document.getElementById('drvList'),
+      tbody: document.getElementById('drvTbody'),
+      search: document.getElementById('drvSearch')
+    };
+
+    RTS.initTriPaneResizers(el.shell, LS_PANES);
+
+    let ui = { search:'', selectedId: null };
+
+    function buildDriverList(){
+      const drivers = (settings.drivers||[]).filter(d=>{
+        if (ui.search){
+          const q = ui.search.toLowerCase();
+          return (`${d.name||''} ${d.class||''} ${d.raceNumber||''}`).toLowerCase().includes(q);
+        }
+        return true;
+      });
+      el.list.innerHTML = '';
+      drivers.forEach(d=>{
+        const li = document.createElement('li');
+        li.textContent = d.name || d.id;
+        li.dataset.id = d.id;
+        if (ui.selectedId===d.id) li.classList.add('active');
+        li.addEventListener('click', ()=>{ ui.selectedId = d.id; render(); });
+        el.list.appendChild(li);
+      });
+      el.count.textContent = drivers.length;
+      if (!ui.selectedId && drivers[0]) ui.selectedId = drivers[0].id;
+    }
+
+    function render(){
+      settings = RTS.getSettings();
+      buildDriverList();
+      renderDocs();
+    }
+
+    function renderDocs(){
+      settings = RTS.getSettings();
+      const drivers = settings.drivers||[];
+      const cur = drivers.find(d=>d.id===ui.selectedId);
+      const driverId = cur ? cur.id : null;
+      const docs = [];
+      if (driverId){
+        docs.push({ title:'Driver passport copy', source:'Profile', date:'—', url:'' });
+        docs.push({ title:'Medical clearance', source:'Profile', date:'—', url:'' });
+        // Build a color map for event types so we can style event rows like the Events page
+        const typeColorMap = Object.fromEntries((settings.eventTypes||[]).map(t=>[t.code, t.color]));
+        events.forEach(ev=>{
+          if (Array.isArray(ev.drivers) && ev.drivers.includes(driverId)){
+            (ev.documents||[]).forEach(doc=>{
+              docs.push({
+                title: doc.name || 'Document',
+                source: ev.title || 'Event',
+                date: ev.start || '',
+                url: doc.url || '',
+                // carry event metadata for styling
+                _eventId: ev.id,
+                _eventType: ev.type,
+                _eventColor: typeColorMap[ev.type] || '#e32636'
+              });
+            });
+            docs.push({ title: 'Event: ' + (ev.title||ev.id), source: 'Event', date: ev.start||'', url:'', _eventId: ev.id, _eventType: ev.type, _eventColor: typeColorMap[ev.type] || '#e32636' });
+          }
+        });
+      }
+      const filtered = docs.filter(d=>{
+        if (!ui.search) return true;
+        const q = ui.search.toLowerCase();
+        return (`${d.title} ${d.source} ${d.date}`).toLowerCase().includes(q);
+      });
+      el.tbody.innerHTML = '';
+      let idx=0;
+      filtered.forEach(d=>{
+        idx++;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${idx}</td>
+          <td>${escapeHtml(d.title)}</td>
+          <td>${escapeHtml(d.source)}</td>
+          <td>${escapeHtml(d.date)}</td>
+        `;
+        // If this row comes from an Event, color it the same as on the Events page
+        if (d._eventColor) {
+          const bg = d._eventColor || '#e32636';
+          // compute readable text color (similar logic to Events page)
+          const hex = String(bg||'').replace('#','');
+          let textCol = '#000';
+          if (hex.length===6) {
+            const r = parseInt(hex.slice(0,2),16);
+            const g = parseInt(hex.slice(2,4),16);
+            const b = parseInt(hex.slice(4,6),16);
+            const lum = (0.299*r + 0.587*g + 0.114*b)/255;
+            textCol = lum > 0.6 ? '#000' : '#fff';
+          }
+          tr.style.setProperty('background', bg, 'important');
+          tr.style.setProperty('color', textCol, 'important');
+          tr.querySelectorAll('td').forEach(td=>{
+            td.style.setProperty('background', bg, 'important');
+            td.style.setProperty('color', textCol, 'important');
+          });
+        }
+        tr.addEventListener('click', ()=>{ if (d.url) window.open(d.url, '_blank', 'noopener'); });
+        el.tbody.appendChild(tr);
+      });
+    }
+
+    function bind(){
+      el.search.addEventListener('input', ()=>{ ui.search = el.search.value; renderDocs(); });
+    }
+
+    function init(){
+      bind();
+      render();
+      if (!ui.selectedId && (settings.drivers||[])[0]) { ui.selectedId = settings.drivers[0].id; render(); }
+    }
+    document.addEventListener('DOMContentLoaded', init);
+  })();
+  </script>
+</body>
+</html>
