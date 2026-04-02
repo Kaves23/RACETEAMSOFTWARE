@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Auto Export</title>
+  <style>
+    body { font-family: monospace; padding: 40px; background: #1a1a1a; color: #0f0; }
+    .step { margin: 20px 0; padding: 15px; background: #2a2a2a; border-left: 4px solid #0f0; }
+  </style>
+</head>
+<body>
+  <h1>🚀 Automatic localStorage Export</h1>
+  <div id="output"></div>
+
+  <script>
+    const output = document.getElementById('output');
+    
+    function log(msg, isError = false) {
+      const div = document.createElement('div');
+      div.className = 'step';
+      div.textContent = msg;
+      if (isError) div.style.color = '#f00';
+      output.appendChild(div);
+    }
+
+    // Auto-run on page load
+    (async function() {
+      log('📦 Step 1: Collecting localStorage data...');
+      
+      const data = {
+        boxes: JSON.parse(localStorage.getItem('rts.boxes.v1') || '[]'),
+        equipment: JSON.parse(localStorage.getItem('rts.equipment.v1') || '[]'),
+        assets: JSON.parse(localStorage.getItem('rts.assets.v1') || '[]'),
+        boxContents: JSON.parse(localStorage.getItem('rts.box.contents.v1') || '[]')
+      };
+      
+      const total = data.boxes.length + data.equipment.length + data.assets.length + data.boxContents.length;
+      log(`✅ Found ${total} items (Boxes: ${data.boxes.length}, Equipment: ${data.equipment.length}, Assets: ${data.assets.length}, Contents: ${data.boxContents.length})`);
+      
+      if (total === 0) {
+        log('⚠️  No data found in localStorage!', true);
+        return;
+      }
+
+      // Save to file
+      log('💾 Step 2: Downloading export file...');
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `localStorage-export-${Date.now()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      
+      log('✅ File downloaded! Check your Downloads folder.');
+      log('📤 Step 3: Uploading to database...');
+      
+      // Get auth token
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        log('⚠️  Not logged in. Login first, then refresh this page.', true);
+        return;
+      }
+
+      // Upload
+      try {
+        const response = await fetch('/api/import-localStorage', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(result.error || 'Upload failed');
+        }
+        
+        log('✅ MIGRATION COMPLETE!');
+        log(`📊 Boxes: ${result.results.boxes.inserted} inserted, ${result.results.boxes.updated} updated`);
+        log(`📊 Items: ${result.results.items.inserted} inserted, ${result.results.items.updated} updated`);
+        log(`📊 Contents: ${result.results.boxContents.inserted} inserted, ${result.results.boxContents.updated} updated`);
+        log('🎉 Your data is now in the PlanetScale database!');
+        log('🌐 Access it at: https://raceteamsoftware.onrender.com');
+        
+      } catch (error) {
+        log('❌ Upload error: ' + error.message, true);
+        log('💡 File was saved to Downloads. You can upload it manually later.');
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Find My Data</title>
+  <style>
+    body { font-family: monospace; padding: 40px; background: #1a1a1a; color: #fff; }
+    .found { color: #0f0; margin: 10px 0; padding: 10px; background: #2a2a2a; }
+    .empty { color: #888; }
+    .error { color: #f00; }
+    pre { background: #000; padding: 15px; overflow: auto; max-height: 300px; }
+  </style>
+</head>
+<body>
+  <h1>🔍 Data Detective - Finding Your Data...</h1>
+  <div id="output"></div>
+
+  <script>
+    const output = document.getElementById('output');
+    
+    function log(msg, className = '') {
+      const div = document.createElement('div');
+      div.className = className;
+      div.innerHTML = msg;
+      output.appendChild(div);
+    }
+
+    log('<h2>📦 Scanning ALL localStorage keys...</h2>');
+    
+    // Get ALL localStorage keys
+    const allKeys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      allKeys.push(localStorage.key(i));
+    }
+    
+    log(`<div class="found">Found ${allKeys.length} localStorage keys total</div>`);
+    
+    if (allKeys.length === 0) {
+      log('<div class="error">⚠️  localStorage is completely empty!</div>');
+      log('<div>This might mean:</div>');
+      log('<div>1. You\'re in a different browser/profile</div>');
+      log('<div>2. localStorage was cleared</div>');
+      log('<div>3. You were using file:// instead of http://</div>');
+    } else {
+      log('<h3>All keys found:</h3>');
+      allKeys.forEach(key => {
+        const value = localStorage.getItem(key);
+        const size = new Blob([value]).size;
+        let preview = '';
+        
+        try {
+          const parsed = JSON.parse(value);
+          if (Array.isArray(parsed)) {
+            preview = `Array with ${parsed.length} items`;
+            if (parsed.length > 0) {
+              log(`<div class="found">✅ <strong>${key}</strong> - ${preview}</div>`);
+              log(`<pre>${JSON.stringify(parsed.slice(0, 2), null, 2)}...\n(showing first 2 items)</pre>`);
+            } else {
+              log(`<div class="empty">⚪ ${key} - Empty array</div>`);
+            }
+          } else if (typeof parsed === 'object') {
+            preview = `Object with ${Object.keys(parsed).length} properties`;
+            log(`<div class="found">✅ <strong>${key}</strong> - ${preview}</div>`);
+            log(`<pre>${JSON.stringify(parsed, null, 2).substring(0, 500)}...</pre>`);
+          } else {
+            log(`<div class="empty">⚪ ${key} - ${typeof parsed} (${size} bytes)</div>`);
+          }
+        } catch (e) {
+          log(`<div class="empty">⚪ ${key} - String (${size} bytes)</div>`);
+        }
+      });
+    }
+    
+    // Check specific RTS keys
+    log('<h2>🔍 Checking Race Team Software keys...</h2>');
+    const rtsKeys = [
+      'rts.boxes.v1',
+      'rts.equipment.v1', 
+      'rts.assets.v1',
+      'rts.box.contents.v1',
+      'rts.events.v1',
+      'rts.tasks.v1',
+      'rts.inventory.v1',
+      'rts.settings.v1',
+      'auth_token',
+      'user'
+    ];
+    
+    rtsKeys.forEach(key => {
+      const value = localStorage.getItem(key);
+      if (value) {
+        try {
+          const parsed = JSON.parse(value);
+          if (Array.isArray(parsed)) {
+            log(`<div class="found">✅ ${key}: ${parsed.length} items</div>`);
+          } else {
+            log(`<div class="found">✅ ${key}: Exists</div>`);
+          }
+        } catch (e) {
+          log(`<div class="found">✅ ${key}: ${value.length} characters</div>`);
+        }
+      } else {
+        log(`<div class="empty">❌ ${key}: Not found</div>`);
+      }
+    });
+    
+    // Check if data is already in database
+    log('<h2>☁️  Checking if data is already in database...</h2>');
+    const token = localStorage.getItem('auth_token');
+    
+    if (!token) {
+      log('<div class="error">⚠️  Not logged in - cannot check database</div>');
+    } else {
+      (async () => {
+        try {
+          const [itemsRes, boxesRes] = await Promise.all([
+            fetch('/api/items', { headers: { Authorization: `Bearer ${token}` }}),
+            fetch('/api/boxes', { headers: { Authorization: `Bearer ${token}` }})
+          ]);
+          
+          const itemsData = await itemsRes.json();
+          const boxesData = await boxesRes.json();
+          
+          log(`<div class="found">✅ Database has ${itemsData.count || 0} items</div>`);
+          log(`<div class="found">✅ Database has ${boxesData.count || 0} boxes</div>`);
+          
+          if (itemsData.count > 0 || boxesData.count > 0) {
+            log('<div class="found"><h3>🎉 YOUR DATA IS IN THE DATABASE!</h3></div>');
+            log('<div>It looks like your data was already migrated or is stored in the database.</div>');
+          }
+          
+          if (itemsData.items && itemsData.items.length > 0) {
+            log('<h3>Sample items from database:</h3>');
+            log(`<pre>${JSON.stringify(itemsData.items.slice(0, 3), null, 2)}</pre>`);
+          }
+        } catch (error) {
+          log(`<div class="error">Error checking database: ${error.message}</div>`);
+        }
+      })();
+    }
+  </script>
+</body>
+</html>
