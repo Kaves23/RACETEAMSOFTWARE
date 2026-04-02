@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Box Packing API Test</title>
+  <script src="config.js"></script>
+  <script src="core.js"></script>
+</head>
+<body>
+  <h1>Box Packing API Test</h1>
+  <div id="output"></div>
+  
+  <script>
+    (async function() {
+      const output = document.getElementById('output');
+      
+      output.innerHTML += '<h2>Testing API Connection...</h2>';
+      
+      // Test RTS_API existence
+      output.innerHTML += '<p>RTS_API exists: ' + (!!window.RTS_API) + '</p>';
+      output.innerHTML += '<p>RTS_API.getItems exists: ' + (!!window.RTS_API?.getItems) + '</p>';
+      output.innerHTML += '<p>RTS_API.getBoxes exists: ' + (!!window.RTS_API?.getBoxes) + '</p>';
+      
+      try {
+        // Test items API
+        output.innerHTML += '<h3>Testing Items API...</h3>';
+        const itemsResp = await window.RTS_API.getItems();
+        output.innerHTML += '<pre>' + JSON.stringify(itemsResp, null, 2).substring(0, 500) + '...</pre>';
+        output.innerHTML += '<p>Items count: ' + (itemsResp.items?.length || 0) + '</p>';
+        
+        // Count by type
+        const equipment = itemsResp.items?.filter(i => i.item_type === 'equipment').length || 0;
+        const assets = itemsResp.items?.filter(i => i.item_type === 'asset').length || 0;
+        output.innerHTML += '<p>Equipment: ' + equipment + '</p>';
+        output.innerHTML += '<p>Assets: ' + assets + '</p>';
+        
+      } catch (e) {
+        output.innerHTML += '<p style="color:red">Error: ' + e.message + '</p>';
+        console.error(e);
+      }
+      
+      try {
+        // Test boxes API
+        output.innerHTML += '<h3>Testing Boxes API...</h3>';
+        const boxesResp = await window.RTS_API.getBoxes();
+        output.innerHTML += '<pre>' + JSON.stringify(boxesResp, null, 2).substring(0, 500) + '...</pre>';
+        output.innerHTML += '<p>Boxes count: ' + (boxesResp.boxes?.length || 0) + '</p>';
+        
+      } catch (e) {
+        output.innerHTML += '<p style="color:red">Error: ' + e.message + '</p>';
+        console.error(e);
+      }
+    })();
+  </script>
+</body>
+</html>

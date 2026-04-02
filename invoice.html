@@ -94,34 +94,15 @@
         </div>
       </section>
 
-      <div class="mlo-resizer" data-resize="right" title="Drag to resize"></div>
-
-      <!-- RIGHT -->
-      <section class="mlo-pane mlo-pane-right mlo-inspector" aria-label="Invoice inspector">
-        <div class="mlo-pane-header">
-          <div class="d-flex justify-content-between align-items-center">
-            <div class="mlo-title">Inspector</div>
-            <span class="badge text-bg-secondary" id="invInspectorBadge">No selection</span>
-          </div>
-        </div>
-        <div class="mlo-pane-content">
-          <ul class="nav nav-tabs nav-dark mb-2" role="tablist">
-            <li class="nav-item" role="presentation">
-              <button class="nav-link active" id="tab-inv-details" data-bs-toggle="tab" data-bs-target="#pane-inv-details" type="button" role="tab" aria-controls="pane-inv-details" aria-selected="true">Details</button>
-            </li>
-            <li class="nav-item" role="presentation">
-              <button class="nav-link" id="tab-inv-lines" data-bs-toggle="tab" data-bs-target="#pane-inv-lines" type="button" role="tab" aria-controls="pane-inv-lines" aria-selected="false">Lines</button>
-            </li>
-            <li class="nav-item" role="presentation">
-              <button class="nav-link" id="tab-inv-customers" data-bs-toggle="tab" data-bs-target="#pane-inv-customers" type="button" role="tab" aria-controls="pane-inv-customers" aria-selected="false">Customers</button>
-            </li>
-            <li class="nav-item" role="presentation">
-              <button class="nav-link" id="tab-inv-preview" data-bs-toggle="tab" data-bs-target="#pane-inv-preview" type="button" role="tab" aria-controls="pane-inv-preview" aria-selected="false">Preview</button>
-            </li>
-          </ul>
-
-          <div class="tab-content">
-            <div class="tab-pane fade show active" id="pane-inv-details" role="tabpanel" aria-labelledby="tab-inv-details">
+      <!-- Modal for invoice details & lines -->
+      <div class="modal fade" id="invoiceModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-xl">
+          <div class="modal-content" style="background:#0f1115; color:#e0e3e6; border:1px solid rgba(255,255,255,0.12);">
+            <div class="modal-header" style="border-bottom:1px solid rgba(255,255,255,0.1);">
+              <h5 class="modal-title">Invoice • <span id="invInspectorBadge">No selection</span></h5>
+              <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
               <form id="invForm" autocomplete="off">
                 <div class="row g-2">
                   <div class="col-6">
@@ -147,11 +128,15 @@
                     <input id="f_inv_due" class="form-control form-control-sm" type="date">
                   </div>
 
-                  <div class="col-7">
+                  <div class="col-5">
                     <label class="form-label">Customer</label>
                     <select id="f_inv_customer" class="form-select form-select-sm"></select>
                   </div>
-                  <div class="col-5">
+                  <div class="col-4">
+                    <label class="form-label">Driver</label>
+                    <select id="f_inv_driver" class="form-select form-select-sm"></select>
+                  </div>
+                  <div class="col-3">
                     <label class="form-label">Event</label>
                     <select id="f_inv_event" class="form-select form-select-sm"></select>
                   </div>
@@ -162,11 +147,24 @@
                   </div>
 
                   <div class="col-12">
+                    <label class="form-label">Line items</label>
+                    <div class="table-responsive">
+                      <table class="table table-dark mlo-table" style="margin:0;">
+                        <thead>
+                          <tr>
+                            <th>Description</th>
+                            <th style="width:90px;">Qty</th>
+                            <th style="width:120px;">Rate</th>
+                            <th style="width:120px;">Amount</th>
+                            <th style="width:50px;"></th>
+                          </tr>
+                        </thead>
+                        <tbody id="invLines"></tbody>
+                      </table>
+                    </div>
                     <div class="d-flex gap-1 mt-1">
-                      <button class="btn btn-sm btn-primary mlo-btn" id="btnSaveInv" type="button">Save</button>
-                      <button class="btn btn-sm btn-outline-light mlo-btn" id="btnDupInv" type="button">Duplicate</button>
-                      <button class="btn btn-sm btn-outline-danger mlo-btn" id="btnDelInv" type="button">Delete</button>
-                      <button class="btn btn-sm btn-outline-light mlo-btn" id="btnPDF" type="button">Open PDF View</button>
+                      <button class="btn btn-sm btn-outline-light mlo-btn" id="btnAddLine" type="button">Add line</button>
+                      <button class="btn btn-sm btn-warning mlo-btn" id="btnAddInvLine" type="button" title="Add an inventory item and deduct stock on invoice">Add Inventory Item</button>
                     </div>
                   </div>
 
@@ -194,72 +192,18 @@
                 </div>
               </form>
             </div>
-
-            <div class="tab-pane fade" id="pane-inv-lines" role="tabpanel" aria-labelledby="tab-inv-lines">
-              <div class="row g-2">
-                <div class="col-12">
-                  <label class="form-label">Line items</label>
-                  <div class="table-responsive">
-                    <table class="table table-dark mlo-table" style="margin:0;">
-                      <thead>
-                        <tr>
-                          <th>Description</th>
-                          <th style="width:90px;">Qty</th>
-                          <th style="width:120px;">Rate</th>
-                          <th style="width:120px;">Amount</th>
-                          <th style="width:50px;"></th>
-                        </tr>
-                      </thead>
-                      <tbody id="invLines"></tbody>
-                    </table>
-                  </div>
-                  <button class="btn btn-sm btn-outline-light mlo-btn mt-1" id="btnAddLine" type="button">Add line</button>
-                </div>
-              </div>
-            </div>
-
-            <div class="tab-pane fade" id="pane-inv-customers" role="tabpanel" aria-labelledby="tab-inv-customers">
-              <div class="row g-2">
-                <div class="col-12 d-flex justify-content-between align-items-center">
-                  <div class="mlo-title">Customers</div>
-                  <button class="btn btn-sm btn-outline-light mlo-btn" id="btnAddCustomer" type="button">Add Customer</button>
-                </div>
-                <div class="col-6">
-                  <label class="form-label">Customer name</label>
-                  <input id="cust_name" class="form-control form-control-sm" type="text" placeholder="Team / Sponsor / Driver">
-                </div>
-                <div class="col-6">
-                  <label class="form-label">Email</label>
-                  <input id="cust_email" class="form-control form-control-sm" type="email" placeholder="billing@example.com">
-                </div>
-                <div class="col-6">
-                  <label class="form-label">Phone</label>
-                  <input id="cust_phone" class="form-control form-control-sm" type="text" placeholder="+27…">
-                </div>
-                <div class="col-6">
-                  <label class="form-label">Address</label>
-                  <input id="cust_address" class="form-control form-control-sm" type="text" placeholder="Billing address">
-                </div>
-                <div class="col-12 d-flex gap-1">
-                  <button class="btn btn-sm btn-outline-light mlo-btn" id="btnSaveCustomer" type="button">Save Customer</button>
-                  <button class="btn btn-sm btn-outline-danger mlo-btn" id="btnDeleteCustomer" type="button">Delete Customer</button>
-                </div>
-              </div>
-            </div>
-
-            <div class="tab-pane fade" id="pane-inv-preview" role="tabpanel" aria-labelledby="tab-inv-preview">
-              <div class="row g-2">
-                <div class="col-12">
-                  <div class="text-secondary">Preview / PDF view of the invoice will open here. Use the Open PDF View button to generate a printable version.</div>
-                  <div class="mt-2">
-                    <button class="btn btn-sm btn-outline-light mlo-btn" id="btnPDFPreview" type="button">Generate PDF</button>
-                  </div>
-                </div>
+            <div class="modal-footer" style="border-top:1px solid rgba(255,255,255,0.1);">
+              <div class="d-flex gap-1">
+                <button class="btn btn-sm btn-primary mlo-btn" id="btnSaveInv" type="button">Save</button>
+                <button class="btn btn-sm btn-outline-light mlo-btn" id="btnDupInv" type="button">Duplicate</button>
+                <button class="btn btn-sm btn-outline-danger mlo-btn" id="btnDelInv" type="button">Delete</button>
+                <button class="btn btn-sm btn-outline-light mlo-btn" id="btnPDF" type="button">Open PDF View</button>
+                <button type="button" class="btn btn-sm btn-outline-light mlo-btn" data-bs-dismiss="modal">Close</button>
               </div>
             </div>
           </div>
         </div>
-      </section>
+      </div>
     </div>
   </div>
 
@@ -270,10 +214,11 @@
   <script>
   (function(){
     RTS.setActiveNav();
-    const LS_INV = 'rts.invoices.v1';
-    const LS_CUST = 'rts.invoice.customers.v1';
-    const LS_UI = 'rts.invoice.ui.v1';
-    const LS_PANES = 'rts.invoice.panes.v1';
+  const LS_INV = 'rts.invoices.v1';
+  const LS_CUST = 'rts.invoice.customers.v1';
+  const LS_UI = 'rts.invoice.ui.v1';
+  const LS_PANES = 'rts.invoice.panes.v1';
+  const LS_PODRAFTS = 'rts.podrafts.v1';
 
     const settings = RTS.getSettings();
     const eventsStore = RTS.safeLoadJSON('rts.events.v4', []);
@@ -298,7 +243,8 @@
     if (!Array.isArray(invoices) || invoices.length === 0) invoices = seedInvoices();
     let customers = RTS.safeLoadJSON(LS_CUST, null);
     if (!Array.isArray(customers) || customers.length === 0) customers = seedCustomers();
-    let ui = RTS.deepMerge(defaultUI, RTS.safeLoadJSON(LS_UI, {}));
+  let ui = RTS.deepMerge(defaultUI, RTS.safeLoadJSON(LS_UI, {}));
+  let poDrafts = RTS.safeLoadJSON(LS_PODRAFTS, []);
 
     normalizeInvoices();
 
@@ -320,9 +266,12 @@
       del: document.getElementById('btnDelInv'),
       pdf: document.getElementById('btnPDF'),
       addLine: document.getElementById('btnAddLine'),
+  addInvLine: document.getElementById('btnAddInvLine'),
       lines: document.getElementById('invLines'),
       inspectorBadge: document.getElementById('invInspectorBadge'),
-      finAttList: document.getElementById('finAttList'),
+  finAttList: document.getElementById('finAttList'),
+  poCount: document.getElementById('poDraftsCount'),
+  poBody: document.getElementById('poDraftsBody'),
       f: {
         number: document.getElementById('f_inv_number'),
         status: document.getElementById('f_inv_status'),
@@ -413,6 +362,7 @@
       RTS.safeSaveJSON(LS_INV, invoices);
       RTS.safeSaveJSON(LS_CUST, customers);
       RTS.safeSaveJSON(LS_UI, ui);
+      RTS.safeSaveJSON(LS_PODRAFTS, poDrafts);
     }
 
     function recalc(inv){
@@ -444,6 +394,11 @@
       const eventOpts = EVENT_OPTIONS.map(e=>`<option value="${e.id}">${escapeHtml(e.title)}</option>`).join('');
       el.event.innerHTML = '<option value="">Event: All</option>' + eventOpts;
       el.f.event.innerHTML = EVENT_OPTIONS.length ? eventOpts : '<option value="">Unassigned</option>';
+      // Driver options
+      try{
+        const drivers = (settings && Array.isArray(settings.drivers)) ? settings.drivers : [];
+        el.f.driver.innerHTML = drivers.map(d=>`<option value="${d.id}">${escapeHtml(d.name)}${d.raceNumber?(' #' + escapeHtml(d.raceNumber)):''}</option>`).join('') || '<option value="">Unassigned</option>';
+      }catch(_e){ el.f.driver.innerHTML = '<option value="">Unassigned</option>'; }
     }
 
     function applyFilters(list){
@@ -524,11 +479,12 @@
           <td>${money(inv.total)}</td>
           <td>${escapeHtml(inv.status||'')}</td>
         `;
-        tr.addEventListener('click', ()=>{ ui.selectedId = inv.id; render(); });
+        tr.addEventListener('click', ()=>{ ui.selectedId = inv.id; render(); if (window._invModal) window._invModal.show(); });
         el.tbody.appendChild(tr);
       });
 
       hydrate(invoices.find(i=>i.id===ui.selectedId) || null);
+      renderPODrafts();
       persist();
     }
 
@@ -556,6 +512,10 @@
         const opt = document.createElement('option'); opt.value = evId; opt.textContent = evId; el.f.event.appendChild(opt);
       }
       el.f.event.value = evId;
+      // driver
+      try {
+        el.f.driver.value = String(inv.driverId||'');
+      } catch(_e){}
       el.f.customerDetails.value = inv.customerDetails || '';
       el.f.vatRate.value = inv.vatRate ?? 15;
       recalc(inv);
@@ -570,8 +530,9 @@
       el.lines.innerHTML = '';
       inv.lines.forEach((ln, idx)=>{
         const tr = document.createElement('tr');
+        const includedTag = ln.pkgIncluded ? '<span class="badge text-bg-success ms-2">Included</span>' : '';
         tr.innerHTML = `
-          <td><input class="form-control form-control-sm ln-desc" type="text" value="${escapeHtml(ln.desc)}"></td>
+          <td><div class="d-flex align-items-center"><input class="form-control form-control-sm ln-desc" type="text" value="${escapeHtml(ln.desc)}">${includedTag}</div></td>
           <td><input class="form-control form-control-sm ln-qty" type="number" step="0.01" min="0" value="${ln.qty}"></td>
           <td><input class="form-control form-control-sm ln-rate" type="number" step="0.01" min="0" value="${ln.rate}"></td>
           <td class="ln-amt" style="vertical-align: middle;">${money(ln.qty*ln.rate)}</td>
@@ -594,11 +555,127 @@
       render();
     }
 
+    function renderPODrafts(){
+      if (!el.poBody || !el.poCount) return;
+      el.poCount.textContent = String(poDrafts.length);
+      el.poBody.innerHTML = '';
+      poDrafts.forEach((po, idx)=>{
+        const amt = Number(po.qty||0) * Number(po.unitCost||0);
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${escapeHtml(po.itemName||'')}</td>
+          <td>${po.qty||0} ${escapeHtml(po.uom||'')}</td>
+          <td>${escapeHtml(po.supplier||'')}</td>
+          <td>${money(po.unitCost||0)}</td>
+          <td>${money(amt)}</td>
+          <td>
+            <div class="btn-group btn-group-sm" role="group">
+              <button class="btn btn-outline-light mlo-btn po-attach" type="button">Attach to Invoice</button>
+              <button class="btn btn-outline-danger mlo-btn po-del" type="button">Delete</button>
+            </div>
+          </td>
+        `;
+        tr.querySelector('.po-attach').addEventListener('click', ()=>attachDraftToInvoice(idx));
+        tr.querySelector('.po-del').addEventListener('click', ()=>deleteDraft(idx));
+        el.poBody.appendChild(tr);
+      });
+    }
+
+    function attachDraftToInvoice(idx){
+      const inv = invoices.find(i=>i.id===ui.selectedId) || invoices[0];
+      if (!inv){ alert('Create or select an invoice first.'); return; }
+      const po = poDrafts[idx];
+      if (!po) return;
+      inv.lines.push({ desc: `PO: ${po.itemName} (${po.supplier||'—'})`, qty: Number(po.qty||0), rate: Number(po.unitCost||0) });
+      recalc(inv);
+      poDrafts.splice(idx,1);
+      render();
+    }
+
+    function deleteDraft(idx){
+      poDrafts.splice(idx,1);
+      render();
+    }
+
     function addLine(){
       const inv = invoices.find(i=>i.id===ui.selectedId);
       if (!inv) return;
       inv.lines.push({ desc:'Line item', qty:1, rate:0 });
       saveLines(inv);
+    }
+
+    // Inventory-linked lines -------------------------------------------
+    function pickInventoryItem(){
+      try {
+        const modalId = 'invPickModal';
+        let modalEl = document.getElementById(modalId);
+        if (!modalEl){
+          const tpl = `
+            <div class="modal fade" id="${modalId}" tabindex="-1" aria-hidden="true">
+              <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content" style="background:#0f1115; color:#e0e3e6; border:1px solid rgba(255,255,255,0.12);">
+                  <div class="modal-header" style="border-bottom:1px solid rgba(255,255,255,0.1);">
+                    <h5 class="modal-title">Add Inventory Item</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                  </div>
+                  <div class="modal-body">
+                    <div class="mb-2">
+                      <label class="form-label">Item</label>
+                      <select id="invPick_item" class="form-select form-select-sm"></select>
+                    </div>
+                    <div class="mb-2">
+                      <label class="form-label">Quantity to invoice</label>
+                      <input id="invPick_qty" class="form-control form-control-sm" type="number" min="1" step="1" value="1">
+                    </div>
+                  </div>
+                  <div class="modal-footer" style="border-top:1px solid rgba(255,255,255,0.1);">
+                    <button class="btn btn-sm btn-primary mlo-btn" id="invPick_apply" type="button">Add to Invoice</button>
+                    <button type="button" class="btn btn-sm btn-outline-light mlo-btn" data-bs-dismiss="modal">Close</button>
+                  </div>
+                </div>
+              </div>
+            </div>`;
+          const tmp = document.createElement('div'); tmp.innerHTML = tpl.trim(); document.body.appendChild(tmp.firstChild);
+          modalEl = document.getElementById(modalId);
+        }
+        const invStore = RTS.safeLoadJSON('rts.inventory.v4', []) || [];
+        const sel = modalEl.querySelector('#invPick_item');
+        sel.innerHTML = invStore.map(it=>`<option value="${it.id}">${escapeHtml(it.name)} • On-hand: ${it.qty} ${escapeHtml(it.uom||'')}</option>`).join('');
+        const modal = new bootstrap.Modal(modalEl);
+        modalEl.querySelector('#invPick_apply').onclick = ()=>{
+          const inv = invoices.find(i=>i.id===ui.selectedId); if (!inv) return;
+          const itemId = parseInt(sel.value,10);
+          const it = invStore.find(x=>parseInt(x.id,10)===itemId);
+          if (!it){ alert('Select a valid inventory item.'); return; }
+          const qty = Math.max(1, parseInt(modalEl.querySelector('#invPick_qty').value||'1',10));
+          const rate = Number(it.unitCost||0);
+          inv.lines.push({ desc: `INV OUT: ${it.name}`, qty, rate, invItemId: it.id });
+          saveLines(inv);
+          modal.hide();
+        };
+        modal.show();
+      } catch(e){ alert('Unable to open inventory picker: ' + (e && e.message ? e.message : String(e))); }
+    }
+
+    function applyInventoryDeduction(inv){
+      try{
+        if (!inv || !Array.isArray(inv.lines)) return;
+        const store = RTS.safeLoadJSON('rts.inventory.v4', []) || [];
+        let changed = false;
+        inv.lines.forEach(ln => {
+          if (ln.invItemId != null){
+            const it = store.find(x=>String(x.id)===String(ln.invItemId));
+            if (it){
+              const before = Number(it.qty||0);
+              const ded = Number(ln.qty||0);
+              it.qty = Math.max(0, before - ded);
+              it.lastUsedTs = Date.now();
+              changed = true;
+            }
+          }
+        });
+        if (changed){ RTS.safeSaveJSON('rts.inventory.v4', store); }
+      } catch(_e){ /* ignore */ }
     }
 
     function nextId(){
@@ -628,6 +705,7 @@
       invoices.unshift(inv);
       ui.selectedId = inv.id;
       render();
+      if (window._invModal) window._invModal.show();
     }
 
     function saveInvoice(){
@@ -637,11 +715,16 @@
       inv.date = el.f.date.value;
       inv.due = el.f.due.value;
       inv.customerId = el.f.customer.value;
+      inv.driverId = el.f.driver.value;
       inv.eventId = el.f.event.value;
       inv.customerDetails = el.f.customerDetails.value;
       inv.vatRate = Number(el.f.vatRate.value||0);
       inv.notes = el.f.notes.value;
+      // Apply Driver Packages discount sweep before totals
+      applyPackageDiscounts(inv);
       recalc(inv);
+      // If this invoice is being issued, apply inventory deductions for linked items
+      if (inv.status === 'Sent' || inv.status === 'Paid') applyInventoryDeduction(inv);
       persist();
       render();
     }
@@ -748,10 +831,11 @@
       el.del.addEventListener('click', deleteInvoice);
       el.pdf.addEventListener('click', openPDF);
       el.addLine.addEventListener('click', addLine);
+  if (el.addInvLine) el.addInvLine.addEventListener('click', pickInventoryItem);
 
-      el.btnCustSave.addEventListener('click', saveCustomer);
-      el.btnCustAdd.addEventListener('click', ()=>{ clearCustForm(); });
-      el.btnCustDelete.addEventListener('click', deleteCustomer);
+      if (el.btnCustSave) el.btnCustSave.addEventListener('click', saveCustomer);
+      if (el.btnCustAdd) el.btnCustAdd.addEventListener('click', ()=>{ clearCustForm(); });
+      if (el.btnCustDelete) el.btnCustDelete.addEventListener('click', deleteCustomer);
     }
 
     function clearCustForm(){
@@ -794,9 +878,66 @@
       buildCustomerTree();
       bind();
       render();
+      try {
+        const mEl = document.getElementById('invoiceModal');
+        if (mEl) { window._invModal = new bootstrap.Modal(mEl); }
+      } catch(_e){}
       if (!ui.selectedId && invoices.length) { ui.selectedId = invoices[0].id; render(); }
     }
     document.addEventListener('DOMContentLoaded', init);
+
+    // -----------------------------
+    // Packages → Invoice discounts
+    // -----------------------------
+    function categorizeLine(desc){
+      const s = String(desc||'').toLowerCase();
+      const map = [
+        { key:'tyres', kws:['tyre','tyres'] },
+        { key:'fuel', kws:['fuel','petrol','gasoline'] },
+        { key:'entry', kws:['entry','race entry','registration'] },
+        { key:'transport', kws:['transport','shipping','logistics','haul'] },
+        { key:'setup', kws:['setup','prep','mechanic','support fee','race support'] },
+        { key:'coaching', kws:['coach','coaching','training'] },
+        { key:'spares', kws:['spare','spares','parts','inv out'] },
+        { key:'damage', kws:['damage','repair'] },
+        { key:'telemetry', kws:['telemetry','data'] },
+        { key:'seatfit', kws:['seat','fitting'] },
+        { key:'pitcrew', kws:['pit','crew'] },
+        { key:'lodging', kws:['hotel','accommodation','lodging'] }
+      ];
+      for (const m of map){ if (m.kws.some(k=> s.includes(k))) return m.key; }
+      return '';
+    }
+    function applyPackageDiscounts(inv){
+      try {
+        if (!inv || !inv.driverId) return;
+        const store = RTS.safeLoadJSON('rts.driver.packages.v1', {});
+        const pkg = store[inv.driverId] || {};
+        inv.lines.forEach(ln => {
+          const key = categorizeLine(ln.desc);
+          const included = key && pkg[key] === 'included';
+          if (included){
+            // Preserve original rate if not captured
+            if (ln.baseRate == null) ln.baseRate = Number(ln.rate||0);
+            ln.rate = 0;
+            ln.pkgIncluded = true;
+            if (!String(ln.desc||'').toLowerCase().includes('(included')) ln.desc = String(ln.desc||'') + ' (Included via Package)';
+          } else {
+            // Restore rate if previously discounted
+            if (ln.pkgIncluded && ln.baseRate != null){ ln.rate = Number(ln.baseRate||0); }
+            ln.pkgIncluded = false;
+          }
+        });
+      } catch(_e){ /* ignore */ }
+    }
+    // Apply sweep when driver changes
+    try {
+      const drvSel = document.getElementById('f_inv_driver');
+      if (drvSel){ drvSel.addEventListener('change', ()=>{
+        const inv = invoices.find(i=>i.id===ui.selectedId); if (!inv) return;
+        inv.driverId = drvSel.value; applyPackageDiscounts(inv); recalc(inv); persist(); render();
+      }); }
+    } catch(_e){}
   })();
   </script>
 </body>

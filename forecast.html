@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Race Team OS – Forecasting & Replenishment (stub)</title>
+  <title>Race Team OS – Forecasting & Replenishment</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="style.css" rel="stylesheet" />
   <style>
@@ -75,6 +75,8 @@
                 <th style="width:120px;">On-hand</th>
                 <th style="width:120px;">Forecast need</th>
                 <th style="width:120px;">To order</th>
+                <th style="width:120px;">Burn</th>
+                <th style="width:160px;">Reorder ETA</th>
                 <th style="width:140px;">Status</th>
               </tr>
             </thead>
@@ -105,7 +107,7 @@
                 <div class="row g-2">
               <div class="col-12">
                 <label class="form-label">Item</label>
-                <input id="f_fc_item" class="form-control form-control-sm" type="text" list="fcItemOptions" placeholder="Inventory item">
+                <input id="f_fc_item" class="form-control form-control-sm" type="text" list="fcItemOptions" placeholder="Inventory or Asset">
                 <datalist id="fcItemOptions"></datalist>
               </div>
               <div class="col-6">
@@ -136,6 +138,12 @@
               </div>
 
               <div class="col-12">
+                <label class="form-label">Burn scale</label>
+                <input id="f_fc_burn" class="form-range" type="range" min="1" max="4" step="1">
+                <div class="text-secondary" style="font-size:0.85rem;">1 = Slow (years) • 2 = Moderate • 3 = Fast • 4 = Rapid (one session)</div>
+              </div>
+
+              <div class="col-12">
                 <label class="form-label">Notes</label>
                 <textarea id="f_fc_notes" class="form-control form-control-sm" rows="3" placeholder="Lead time, supplier, confidence"></textarea>
               </div>
@@ -163,26 +171,31 @@
     const LS_UI = 'rts.forecast.ui.v1';
     const LS_PANES = 'rts.forecast.panes.v1';
 
-    const invStore = RTS.safeLoadJSON('rts.inventory.v4', []);
-    const INV_OPTIONS = Array.isArray(invStore) ? invStore.map(i=>({ id:i.id||i.name, label:i.name||i.id, category:i.category||'' })) : [];
+  const invStore = RTS.safeLoadJSON('rts.inventory.v4', []);
+  const asStore = RTS.safeLoadJSON('rts.assets.v4', []);
+  const INV_OPTIONS = Array.isArray(invStore) ? invStore.map(i=>({ kind:'inventory', id:i.id||i.name, label:i.name||i.id, category:i.category||'', onHand: Number(i.qty||0), reorder: Number(i.reorder||0) })) : [];
+  const ASSET_OPTIONS = Array.isArray(asStore) ? asStore.map(a=>({ kind:'asset', id:a.id, label:a.name||a.id, category:a.type||'Asset', onHand: 1, reorder: 0 })) : [];
+  const ALL_OPTIONS = INV_OPTIONS.concat(ASSET_OPTIONS);
     const eventsStore = RTS.safeLoadJSON('rts.events.v4', []);
     const EVENT_OPTIONS = Array.isArray(eventsStore) ? eventsStore.map(e=>({ id:e.id, title:e.title||e.name||'Event' })) : [];
-    const categories = Array.from(new Set(INV_OPTIONS.map(i=>i.category).filter(Boolean)));
+  const categories = Array.from(new Set(ALL_OPTIONS.map(i=>i.category).filter(Boolean)));
 
     function escapeHtml(str){ return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;').replace(/'/g,'&#39;'); }
     function nowISO(){ return new Date().toISOString(); }
 
     function seed(){
       const out=[];
-      INV_OPTIONS.slice(0,12).forEach((i, idx)=>{
+      ALL_OPTIONS.slice(0,16).forEach((i, idx)=>{
         out.push({
           id: RTS.uid('fc'),
+          itemKind: i.kind,
           itemId: i.id,
           itemLabel: i.label,
           category: i.category || 'General',
-          onHand: 10 + idx,
+          onHand: (typeof i.onHand==='number' ? i.onHand : (10 + idx)),
           need: 6,
           toOrder: 0,
+          burnScale: 2,
           status:'Draft',
           notes:'',
           updatedAt: nowISO()
@@ -219,7 +232,7 @@
         order: document.getElementById('f_fc_order'),
         notes: document.getElementById('f_fc_notes')
       },
-      datalist: document.getElementById('fcItemOptions'),
+  datalist: document.getElementById('fcItemOptions'),
       scenario: {
         event: document.getElementById('fcEvent'),
         drivers: document.getElementById('fcDrivers'),
@@ -237,7 +250,7 @@
 
     function buildFilters(){
       el.category.innerHTML = '<option value="">Category: All</option>' + categories.map(c=>`<option>${escapeHtml(c)}</option>`).join('');
-      el.datalist.innerHTML = INV_OPTIONS.map(i=>`<option value="${escapeHtml(i.label)}">${escapeHtml(i.label)}</option>`).join('');
+      el.datalist.innerHTML = ALL_OPTIONS.map(i=>`<option value="${escapeHtml(i.label)}">${escapeHtml(i.kind==='asset' ? (i.label + ' • Asset') : i.label)}</option>`).join('');
       el.scenario.event.innerHTML = '<option value="">Event: None</option>' + EVENT_OPTIONS.map(ev=>`<option value="${ev.id}">${escapeHtml(ev.title)}</option>`).join('');
     }
 
@@ -278,6 +291,8 @@
           <td>${escapeHtml(i.onHand||0)}</td>
           <td>${escapeHtml(i.need||0)}</td>
           <td>${escapeHtml(i.toOrder||0)}</td>
+          <td>${['Slow','Moderate','Fast','Rapid'][Math.max(1,Math.min(4,Number(i.burnScale||2)))-1]}</td>
+          <td>${escapeHtml(i.reorderEta||'—')}</td>
           <td>${escapeHtml(i.status||'')}</td>
         `;
         tr.addEventListener('click', ()=>{ ui.selectedId = i.id; render(); });
@@ -302,6 +317,7 @@
       el.f.need.value = i.need || 0;
       el.f.order.value = i.toOrder || 0;
       el.f.notes.value = i.notes || '';
+      el.f.burn.value = Number(i.burnScale||2);
     }
 
     function readInspector(){
@@ -314,6 +330,7 @@
       i.need = Number(el.f.need.value||0);
       i.toOrder = Number(el.f.order.value||0);
       i.notes = el.f.notes.value;
+      i.burnScale = Number(el.f.burn.value||2);
       i.updatedAt = nowISO();
       persist();
       render();
@@ -358,7 +375,7 @@
       render();
     }
 
-    // Very simple forecast: need = drivers * sessions * base factor, per item category
+    // Forecast: need = drivers * sessions * base factor scaled by burnScale; also estimate reorder ETA
     function calculate(){
       const drivers = Number(el.scenario.drivers.value||0);
       const sessions = Number(el.scenario.sessions.value||0);
@@ -370,8 +387,26 @@
         if (cat.includes('tyre')) base = 0.5;
         if (cat.includes('fuel')) base = 3;
         if (cat.includes('oil')||cat.includes('lube')) base = 0.8;
-        i.need = Math.ceil(drivers * sessions * base * factor);
+        const burnScale = Number(i.burnScale||2); // 1 slow .. 4 rapid
+        const scaleFactor = (burnScale===1?0.5:(burnScale===2?1:(burnScale===3?1.6:2.4)));
+        i.need = Math.ceil(drivers * sessions * base * factor * scaleFactor);
         i.toOrder = Math.max(0, i.need - (Number(i.onHand)||0));
+        // Reorder ETA (inventory only): estimate sessions until onHand <= reorder
+        if ((i.itemKind||'inventory') === 'inventory'){
+          const opt = INV_OPTIONS.find(o=>String(o.id)===String(i.itemId));
+          const reorderPt = opt ? Number(opt.reorder||0) : 0;
+          if (reorderPt>0){
+            const burnPerEvent = Math.max(1, Math.round((i.need||0) / Math.max(1,sessions)));
+            const eventsLeft = burnPerEvent>0 ? Math.floor(Math.max(0, (Number(i.onHand||0) - reorderPt)) / burnPerEvent) : 0;
+            const daysLeft = eventsLeft * 1; // assume 1 day per session for ETA roughness
+            const eta = new Date(Date.now() + daysLeft*86400000);
+            i.reorderEta = eta.toISOString().slice(0,10);
+          } else {
+            i.reorderEta = '—';
+          }
+        } else {
+          i.reorderEta = '—';
+        }
         i.updatedAt = nowISO();
       });
       persist();

@@ -110,6 +110,9 @@
                 <li class="nav-item" role="presentation">
                   <button class="nav-link" id="tab-inc-actions" data-bs-toggle="tab" data-bs-target="#pane-inc-actions" type="button" role="tab" aria-controls="pane-inc-actions" aria-selected="false">Actions</button>
                 </li>
+                <li class="nav-item" role="presentation">
+                  <button class="nav-link" id="tab-inc-map" data-bs-toggle="tab" data-bs-target="#pane-inc-map" type="button" role="tab" aria-controls="pane-inc-map" aria-selected="false">Damage Map</button>
+                </li>
               </ul>
 
               <div class="tab-content">
@@ -201,6 +204,29 @@
                       <div class="text-secondary" style="font-size:0.75rem;">
                         Stored locally (prototype). Attachments support Google Drive Picker when enabled in Settings.
                       </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="tab-pane fade" id="pane-inc-map" role="tabpanel" aria-labelledby="tab-inc-map">
+                  <div class="row g-2">
+                    <div class="col-12">
+                      <div class="text-secondary" style="font-size:0.85rem;">Click a part to record status (Green / Amber / Red).</div>
+                    </div>
+                    <div class="col-12">
+                      <div id="damageSvgWrap" class="p-2" style="background:#0f1115; border:1px solid rgba(255,255,255,0.08); border-radius:8px; max-width:560px;">
+                        <svg id="damageSvg" viewBox="0 0 560 300" width="100%" height="auto" xmlns="http://www.w3.org/2000/svg" style="display:block; margin:auto;">
+                          <!-- Top-down kart outline (simplified) -->
+                          <rect x="100" y="40" width="360" height="40" rx="10" ry="10" fill="#1b1f26" stroke="#666" data-part="front_wing" />
+                          <rect x="120" y="80" width="320" height="80" rx="12" ry="12" fill="#1b1f26" stroke="#666" data-part="nose" />
+                          <rect x="80" y="160" width="180" height="70" rx="12" ry="12" fill="#1b1f26" stroke="#666" data-part="left_side" />
+                          <rect x="300" y="160" width="180" height="70" rx="12" ry="12" fill="#1b1f26" stroke="#666" data-part="right_side" />
+                          <rect x="130" y="230" width="300" height="40" rx="10" ry="10" fill="#1b1f26" stroke="#666" data-part="rear_bumper" />
+                          <rect x="110" y="120" width="340" height="30" rx="8" ry="8" fill="#1b1f26" stroke="#666" data-part="seat" />
+                        </svg>
+                      </div>
+                    </div>
+                    <div class="col-12 d-flex gap-1">
+                      <button class="btn btn-sm btn-outline-light mlo-btn" id="btnDamageClear" type="button">Clear</button>
                     </div>
                   </div>
                 </div>
@@ -424,6 +450,11 @@
         attachUrl: document.getElementById('inAttachUrl'),
         btnAttachAdd: document.getElementById('btnInAttachAdd')
       }
+      ,
+      dm: {
+        svg: null,
+        clear: null
+      }
     };
 
     function persist(){
@@ -611,6 +642,19 @@
       el.openPerf.href = evId ? `performance.html?event=${encodeURIComponent(evId)}` : 'performance.html';
 
       renderAttachments(it);
+      // damage map wiring
+      if (!el.dm.svg){
+        el.dm.svg = document.getElementById('damageSvg');
+        el.dm.clear = document.getElementById('btnDamageClear');
+        if (el.dm.svg){
+          el.dm.svg.querySelectorAll('[data-part]').forEach(node => {
+            node.style.cursor = 'pointer';
+            node.addEventListener('click', (ev)=> showDamageStatusPicker(ev.currentTarget));
+          });
+        }
+        if (el.dm.clear){ el.dm.clear.addEventListener('click', clearDamageStatuses); }
+      }
+      applyDamageStatuses(it);
     }
 
     function select(id){
@@ -842,6 +886,8 @@
         persist();
         renderAttachments(it);
       });
+      // close any floating popovers when switching tabs
+      document.getElementById('tab-inc-map')?.addEventListener('shown.bs.tab', ()=> hideDamagePicker());
     }
 
     function init(){
@@ -869,6 +915,67 @@
     }
 
     document.addEventListener('DOMContentLoaded', init);
+
+    // ---------- Damage Map ----------
+    function ensureDamage(it){ if(!it.damage) it.damage = {}; return it.damage; }
+    const COLORS = { green: '#2ecc71', amber: '#f4d35e', red: '#e74c3c', default: '#1b1f26' };
+    function applyDamageStatuses(it){
+      if (!it || !el.dm.svg) return;
+      const dmg = ensureDamage(it);
+      el.dm.svg.querySelectorAll('[data-part]').forEach(node => {
+        const key = node.getAttribute('data-part');
+        const v = dmg[key] || 'default';
+        node.setAttribute('fill', COLORS[v] || COLORS.default);
+      });
+    }
+    let pickerDiv = null;
+    function showDamageStatusPicker(node){
+      hideDamagePicker();
+      const rect = node.getBoundingClientRect();
+      pickerDiv = document.createElement('div');
+      pickerDiv.className = 'position-absolute p-2';
+      pickerDiv.style.background = '#0f1115';
+      pickerDiv.style.border = '1px solid rgba(255,255,255,0.12)';
+      pickerDiv.style.borderRadius = '8px';
+      pickerDiv.style.zIndex = '9999';
+      pickerDiv.innerHTML = `
+        <div class=\"d-flex gap-1\">\n          <button class=\"btn btn-sm\" data-s=\"green\" style=\"background:${COLORS.green}; color:#0b0d12;\">Green</button>\n          <button class=\"btn btn-sm\" data-s=\"amber\" style=\"background:${COLORS.amber}; color:#0b0d12;\">Amber</button>\n          <button class=\"btn btn-sm\" data-s=\"red\" style=\"background:${COLORS.red}; color:#fff;\">Red</button>\n        </div>`;
+      document.body.appendChild(pickerDiv);
+      // position near the node
+      const top = rect.top + window.scrollY + rect.height + 6;
+      const left = rect.left + window.scrollX + Math.max(0, rect.width/2 - 80);
+      pickerDiv.style.top = `${top}px`;
+      pickerDiv.style.left = `${left}px`;
+      pickerDiv.querySelectorAll('button[data-s]').forEach(btn => {
+        btn.addEventListener('click', ()=>{
+          const s = btn.getAttribute('data-s');
+          const it = itemFromId(ui.selectedId); if (!it) return;
+          const dmg = ensureDamage(it);
+          const key = node.getAttribute('data-part');
+          dmg[key] = s;
+          it.updatedAt = nowISO();
+          applyDamageStatuses(it);
+          persist();
+          hideDamagePicker();
+        });
+      });
+      // click outside to close
+      setTimeout(()=>{
+        document.addEventListener('click', onDocClickClose, { once: true });
+      }, 0);
+    }
+    function onDocClickClose(e){
+      if (pickerDiv && !pickerDiv.contains(e.target)) hideDamagePicker();
+    }
+    function hideDamagePicker(){
+      if (pickerDiv){ pickerDiv.remove(); pickerDiv = null; }
+    }
+    function clearDamageStatuses(){
+      const it = itemFromId(ui.selectedId); if(!it) return;
+      it.damage = {}; it.updatedAt = nowISO();
+      applyDamageStatuses(it); persist();
+      hideDamagePicker();
+    }
   })();
   </script>
 </body>

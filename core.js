@@ -3,6 +3,22 @@
  * Works in file:// contexts.
  */
 
+// Theme initialization - runs immediately
+(function() {
+  const THEME_KEY = 'rts.theme';
+  const savedTheme = localStorage.getItem(THEME_KEY) || 'dark';
+  if (savedTheme === 'light') {
+    document.documentElement.classList.add('light-mode');
+    if (document.body) {
+      document.body.classList.add('light-mode');
+    } else {
+      document.addEventListener('DOMContentLoaded', function() {
+        document.body.classList.add('light-mode');
+      });
+    }
+  }
+})();
+
 (function(){
   function isObj(v){ return v && typeof v === 'object' && !Array.isArray(v); }
 
@@ -81,15 +97,26 @@
     const minRight = 280;
 
     // restore widths
-    const saved = safeLoadJSON(storeKey, null);
+    const saved = safeLoadJSON(storeKey, null) || {};
     if (saved && left && typeof saved.left === 'number') left.style.width = saved.left + 'px';
     if (saved && right && typeof saved.right === 'number') right.style.width = saved.right + 'px';
+    // inspector collapsed support
+    function setRightCollapsed(flag){
+      if (!right) return;
+      right.style.display = flag ? 'none' : '';
+      // hide adjacent resizer if any
+      const rzRight = shellEl.querySelector('.mlo-resizer[data-resize="right"]');
+      if (rzRight) rzRight.style.display = flag ? 'none' : '';
+      persist();
+    }
+    if (saved && saved.collapsedRight) setRightCollapsed(true);
 
     function persist(){
       if (!left || !right) return;
       safeSaveJSON(storeKey, {
         left: Math.round(left.getBoundingClientRect().width),
-        right: Math.round(right.getBoundingClientRect().width)
+        right: Math.round(right.getBoundingClientRect().width),
+        collapsedRight: (right.style.display === 'none')
       });
     }
 
@@ -125,6 +152,48 @@
         document.addEventListener('mouseup', onUp);
       });
     });
+
+    // Add a compact toggle button to the inspector header for collapse/expand
+    try {
+      const rHeader = right && right.querySelector('.mlo-pane-header');
+      if (rHeader){
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn-sm btn-outline-light mlo-btn mlo-inspector-toggle';
+        btn.textContent = (saved && saved.collapsedRight) ? 'Show Editor' : 'Hide Editor';
+        btn.style.marginLeft = 'auto';
+        // place at end of header
+        rHeader.appendChild(btn);
+        btn.addEventListener('click', ()=>{
+          const hidden = right && right.style.display === 'none';
+          setRightCollapsed(!hidden);
+          btn.textContent = hidden ? 'Hide Editor' : 'Show Editor';
+        });
+      }
+    } catch(_e){}
+
+    // Keyboard shortcut: ] to toggle inspector (when not typing)
+    try {
+      const onKey = (ev)=>{
+        try {
+          const ae = document.activeElement;
+          const tag = (ae && ae.tagName || '').toLowerCase();
+          if (tag === 'input' || tag === 'textarea' || (ae && ae.isContentEditable)) return;
+          if (ev.metaKey || ev.ctrlKey || ev.altKey || ev.shiftKey) return;
+          const k = String(ev.key||'');
+          if (k === ']'){
+            ev.preventDefault();
+            const hidden = right && right.style.display === 'none';
+            setRightCollapsed(!hidden);
+            try {
+              const btn = right && right.querySelector('.mlo-inspector-toggle');
+              if (btn) btn.textContent = hidden ? 'Hide Editor' : 'Show Editor';
+            } catch(_e){}
+          }
+        } catch(_e){}
+      };
+      document.addEventListener('keydown', onKey);
+    } catch(_e){}
   }
 
   function moneyZAR(n){
@@ -168,6 +237,13 @@
         { id: uid('sup'), name:'Supplier – Engine Service', email:'', phone:'', leadTimeDays:7, vatNumber:'', accountNumber:'', notes:'' }
       ],
       locations: ['Workshop','Trailer','Trackside Box','Store Room','Office'],
+      assetTypes: [
+        { name: 'Equipment', color: '#0ea5e9' },
+        { name: 'Asset', color: '#a855f7' },
+        { name: 'Tools', color: '#22c55e' },
+        { name: 'Consumables', color: '#f59e0b' },
+        { name: 'Parts', color: '#ef4444' }
+      ],
       venues: [
         { id:'redstar', name:'Red Star Raceway', location:'Delmas, Gauteng', notes:'Clockwise/anti-clockwise, windy' },
         { id:'killarney', name:'Killarney Kart Track', location:'Cape Town, Western Cape', notes:'Coastal, wind-sensitive' },
@@ -254,6 +330,103 @@
       // fallback: persist locally
       safeSaveJSON('rts.' + collection + '.v4', items || []);
       return { ok:false, error: String(err) };
+    }
+  }
+
+  // Create one item with a sequential unique id; fallback assigns local sequence
+  async function apiCreate(collection, payload){
+    try {
+      if (!API_BASE) throw new Error('No API');
+      const r = await apiFetch(`/api/${collection}/create`, { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(payload||{}) });
+      if (r && r.ok && r.item) return r.item;
+      throw new Error('Bad payload');
+    } catch (err){
+      // offline/local fallback: use local sequence
+      const seqKey = 'rts.sequences.v1';
+      const seq = safeLoadJSON(seqKey, {});
+      const last = Number(seq[collection]||0);
+      const next = last + 1;
+      seq[collection] = next;
+      safeSaveJSON(seqKey, seq);
+      let id = String(next);
+      if (collection === 'assets') id = 'AS-' + String(next).padStart(4,'0');
+      const item = { ...(payload||{}), id };
+      // also persist locally in collection store for visibility
+      const key = 'rts.' + collection + '.v4';
+      const cur = safeLoadJSON(key, []);
+      cur.unshift(item);
+      safeSaveJSON(key, cur);
+      return item;
+    }
+  }
+
+  async function apiLogHistory(kind, id, entry){
+    try {
+      if (!API_BASE) throw new Error('No API');
+      const r = await apiFetch(`/api/history`, { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ kind, id, ...entry }) });
+      return r;
+    } catch(err){
+      // local fallback: append into local collection item
+      const key = 'rts.' + kind + '.v4';
+      const cur = safeLoadJSON(key, []);
+      const idx = cur.findIndex(x=> String(x.id)===String(id));
+      if (idx >= 0){
+        const obj = cur[idx];
+        obj.history = Array.isArray(obj.history) ? obj.history : [];
+        obj.history.push({ tsMs: Date.now(), by: entry.by||'admin', action: entry.action||'Updated', note: entry.note||'', eventId: entry.eventId||'' });
+        safeSaveJSON(key, cur);
+      }
+      return { ok:false, error:String(err) };
+    }
+  }
+
+  // Telemetry API helpers (prototype)
+  async function apiUploadTelemetry(meta, points){
+    try {
+      if (!API_BASE) throw new Error('No API');
+      const r = await apiFetch(`/api/telemetry/upload`, { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ ...meta, points }) });
+      return r;
+    } catch (err){
+      // offline fallback: queue upload
+      const q = safeLoadJSON('rts.telemetry.queue.v1', []);
+      q.push({ id: uid('teleq'), meta, points });
+      safeSaveJSON('rts.telemetry.queue.v1', q);
+      // Also store a local upload meta for UI visibility
+      const uploads = safeLoadJSON('rts.telemetry.uploads.v1', []);
+      const up = { id: meta.uploadId || uid('tele'), driverId: meta.driverId, sessionId: meta.sessionId, sessionName: meta.sessionName || '', uploadedTs: Date.now(), tags: meta.tags||[], pointsCount: Array.isArray(points)?points.length:0 };
+      uploads.push(up);
+      safeSaveJSON('rts.telemetry.uploads.v1', uploads);
+      return { ok:false, queued:true, error: String(err) };
+    }
+  }
+
+  async function apiGetTelemetryUploads(driverId){
+    try {
+      if (!API_BASE) throw new Error('No API');
+      const url = driverId ? `/api/telemetry/uploads?driverId=${encodeURIComponent(driverId)}` : '/api/telemetry/uploads';
+      const r = await apiFetch(url);
+      return (r && r.ok) ? (r.uploads||[]) : [];
+    } catch (err){
+      const all = safeLoadJSON('rts.telemetry.uploads.v1', []);
+      if (driverId) return all.filter(u=>u.driverId===driverId);
+      return all;
+    }
+  }
+
+  async function apiGetTelemetryPoints(query){
+    try {
+      if (!API_BASE) throw new Error('No API');
+      const params = new URLSearchParams({ driverId: query.driverId||'', sessionId: query.sessionId||'', limit: String(query.limit||'') });
+      const r = await apiFetch(`/api/telemetry/points?${params.toString()}`);
+      return (r && r.ok) ? (r.points||[]) : [];
+    } catch (err){
+      // fallback to local points cache (if any)
+      const pts = safeLoadJSON('rts.telemetry.points.v1', []);
+      let out = pts;
+      if (query.driverId) out = out.filter(p=>p.driverId===query.driverId);
+      if (query.sessionId) out = out.filter(p=>p.sessionId===query.sessionId);
+      if (query.limit && out.length > query.limit) out = out.slice(0, query.limit);
+      return out;
     }
   }
 
@@ -651,6 +824,204 @@
     apiFetch: apiFetch,
     apiGetCollection: apiGetCollection,
     apiSyncCollection: apiSyncCollection,
+    apiCreate,
+    apiLogHistory,
+    apiUploadTelemetry,
+    apiGetTelemetryUploads,
+    apiGetTelemetryPoints,
     activateTabFromQuery
   };
+
+  // ----------------------------
+  // Crosshair overlay helper
+  // ----------------------------
+  function enableCrosshair(opts){
+    try {
+      opts = opts || {};
+      if (window._rtsCrosshair && window._rtsCrosshair.enabled) return;
+      const color = opts.color || 'var(--rts-accent)';
+      const thickness = Math.max(1, Number(opts.thickness||2));
+      const opacity = Math.min(1, Math.max(0, Number(opts.opacity||0.75)));
+      const wrap = document.createElement('div');
+      wrap.className = 'rts-crosshair';
+      wrap.style.pointerEvents = 'none';
+      wrap.style.position = 'fixed';
+      wrap.style.left = '0';
+      wrap.style.top = '0';
+      wrap.style.right = '0';
+      wrap.style.bottom = '0';
+      wrap.style.zIndex = '9999';
+      const lineX = document.createElement('div');
+      lineX.className = 'line-x';
+      lineX.style.position = 'fixed';
+      lineX.style.left = '0';
+      lineX.style.right = '0';
+      lineX.style.height = thickness + 'px';
+      lineX.style.background = color;
+      lineX.style.opacity = String(opacity);
+      lineX.style.boxShadow = '0 0 0.5px rgba(0,0,0,0.8)';
+      const lineY = document.createElement('div');
+      lineY.className = 'line-y';
+      lineY.style.position = 'fixed';
+      lineY.style.top = '0';
+      lineY.style.bottom = '0';
+      lineY.style.width = thickness + 'px';
+      lineY.style.background = color;
+      lineY.style.opacity = String(opacity);
+      lineY.style.boxShadow = '0 0 0.5px rgba(0,0,0,0.8)';
+      wrap.appendChild(lineX);
+      wrap.appendChild(lineY);
+      document.body.appendChild(wrap);
+      function onMove(e){
+        try {
+          const x = e.clientX;
+          const y = e.clientY;
+          lineX.style.top = y + 'px';
+          lineY.style.left = x + 'px';
+        } catch(_e){}
+      }
+      document.addEventListener('mousemove', onMove);
+      window._rtsCrosshair = { enabled:true, el: wrap, onMove };
+    } catch(_e){ /* ignore */ }
+  }
+
+  function disableCrosshair(){
+    try {
+      const ch = window._rtsCrosshair;
+      if (!ch || !ch.enabled) return;
+      document.removeEventListener('mousemove', ch.onMove);
+      if (ch.el && ch.el.parentNode) ch.el.parentNode.removeChild(ch.el);
+      window._rtsCrosshair = { enabled:false, el:null, onMove:null };
+    } catch(_e){ /* ignore */ }
+  }
+
+  // augment export
+  window.RTS.enableCrosshair = enableCrosshair;
+  window.RTS.disableCrosshair = disableCrosshair;
+})();
+
+// ============================================================================
+// API ADAPTER - For connecting to PlanetScale database
+// ============================================================================
+(function() {
+  const API_BASE = window.RTS_CONFIG?.api?.baseURL || 'http://localhost:3000/api';
+
+  async function apiRequest(endpoint, options = {}) {
+    try {
+      const url = `${API_BASE}${endpoint}`;
+      const response = await fetch(url, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...options.headers
+        },
+        ...options
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('API request failed:', endpoint, error);
+      throw error;
+    }
+  }
+
+  // Items API
+  window.RTS_API = {
+    // Get all items
+    async getItems() {
+      return await apiRequest('/items');
+    },
+
+    // Create item
+    async createItem(data) {
+      return await apiRequest('/items', {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
+    },
+
+    // Update item
+    async updateItem(id, data) {
+      return await apiRequest(`/items/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data)
+      });
+    },
+
+    // Delete item
+    async deleteItem(id) {
+      return await apiRequest(`/items/${id}`, {
+        method: 'DELETE'
+      });
+    },
+
+    // Get all boxes
+    async getBoxes() {
+      return await apiRequest('/boxes');
+    },
+
+    // Create box
+    async createBox(data) {
+      return await apiRequest('/boxes', {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
+    },
+
+    // Update box
+    async updateBox(id, data) {
+      return await apiRequest(`/boxes/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data)
+      });
+    },
+
+    // Delete box
+    async deleteBox(id) {
+      return await apiRequest(`/boxes/${id}`, {
+        method: 'DELETE'
+      });
+    },
+
+    // Get all box contents
+    async getBoxContents() {
+      return await apiRequest('/box-contents');
+    },
+
+    // Create box content (add item to box)
+    async createBoxContent(data) {
+      return await apiRequest('/box-contents', {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
+    },
+
+    // Delete box content (remove item from box)
+    async deleteBoxContent(id) {
+      return await apiRequest(`/box-contents/${id}`, {
+        method: 'DELETE'
+      });
+    },
+
+    // Pack item into box
+    async packItem(boxId, itemId) {
+      return await apiRequest('/items/pack', {
+        method: 'POST',
+        body: JSON.stringify({ boxId, itemId })
+      });
+    },
+
+    // Unpack item from box
+    async unpackItem(boxId, itemId) {
+      return await apiRequest('/items/unpack', {
+        method: 'POST',
+        body: JSON.stringify({ boxId, itemId })
+      });
+    }
+  };
+
+  console.log('✅ RTS_API initialized:', API_BASE);
 })();

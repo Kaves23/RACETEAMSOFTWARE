@@ -1,549 +1,181 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Race Team OS – Load Planning</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
-  <link href="style.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="style.css" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
   <style>
-    /* Keep middle table single-line */
-    #loadTbody td, #loadTbody th { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    /* ULTRA COMPACT 90% ZOOM EFFECT */
+    body{zoom:0.9;-moz-transform:scale(0.9);-moz-transform-origin:0 0}
+    
+    /* COMPACT LOAD PLANNING VERSION */
+    .load-header{display:flex;justify-content:space-between;align-items:center;padding:12px 15px!important;background:#ffffff;border-radius:6px;margin-bottom:12px!important;border:1px solid #e0e0e0}
+    .load-header h1{font-size:1.3rem!important;margin:0!important}
+    .load-header p{display:none!important}
+    .load-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px!important;margin-bottom:12px!important}
+    .stat-card{background:#ffffff;padding:10px 12px!important;border-radius:6px;border:1px solid #e0e0e0}
+    .stat-label{font-size:.75rem!important;color:#666;margin-bottom:3px!important;font-weight:500;line-height:1!important}
+    .stat-value{font-size:1.3rem!important;font-weight:700;color:#1a73e8;line-height:1.2!important;margin-bottom:2px!important}
+    .stat-sublabel{font-size:.7rem!important;color:#888;line-height:1!important}
+    .load-container{display:grid;grid-template-columns:260px 1fr!important;gap:15px!important;height:calc(100vh - 240px)!important}
+    .boxes-panel{background:#ffffff;border-radius:6px;overflow:hidden;display:flex;flex-direction:column;border:1px solid #e0e0e0}
+    .boxes-header{padding:8px 10px!important;background:#f8f9fa;border-bottom:1px solid #e0e0e0}
+    .boxes-header h3{font-size:.85rem!important;margin:0!important}
+    .boxes-list{flex:1;overflow-y:auto;padding:6px!important}
+    .box-item{background:#f8f9fa!important;border:1px solid #d0d0d0!important;border-radius:4px!important;padding:6px 8px!important;margin-bottom:4px!important;cursor:grab!important;transition:all .15s!important;user-select:none!important}
+    .box-item:hover{border-color:#1a73e8!important;transform:translateX(3px)!important;background:#e8f0fe!important}
+    .box-item:active{cursor:grabbing!important}
+    .box-item.loaded{opacity:.5!important;border-color:#34a853!important;cursor:not-allowed!important;background:#e6f4ea!important}
+    .box-item.selected{border-color:#1a73e8!important;box-shadow:0 0 0 2px rgba(26,115,232,.15)!important;background:#e8f0fe!important}
+    .box-item > *{pointer-events:none!important}
+    .box-barcode{font-family:'Courier New',monospace!important;font-size:.7rem!important;font-weight:700!important;color:#1a73e8!important;margin:0!important;padding:0!important;line-height:1!important}
+    .box-name{font-size:.75rem!important;color:#202124!important;margin:1px 0!important;padding:0!important;font-weight:600!important;line-height:1!important}
+    .box-dims{font-size:.65rem!important;color:#5f6368!important;margin:1px 0!important;padding:0!important;line-height:1!important}
+    .box-weight{font-size:.65rem!important;color:#5f6368!important;margin-top:1px!important;padding:0!important;font-weight:500!important;line-height:1!important}
+    .box-status{display:inline-block;padding:3px 10px;border-radius:4px;font-size:.75rem;margin-top:5px;font-weight:600;pointer-events:none!important}
+    .box-status.warehouse{background:#fef7e0;color:#f9ab00;border:1px solid #f9ab00}
+    .box-status.loaded{background:#e6f4ea;color:#1e8e3e;border:1px solid #34a853}
+    .truck-viewer{background:#ffffff;border-radius:8px;overflow:hidden;display:flex;flex-direction:column;border:1px solid #e0e0e0}
+    .viewer-header{padding:15px;background:#f8f9fa;border-bottom:1px solid #e0e0e0;display:flex;justify-content:space-between;align-items:center}
+    .viewer-controls{display:flex;gap:10px;align-items:center}
+    .view-toggle{display:flex;gap:5px}
+    .view-toggle button{padding:6px 14px;border:1px solid #d0d0d0;background:#fff;color:#202124;border-radius:4px;cursor:pointer;font-size:.85rem;font-weight:500}
+    .view-toggle button.active{background:#1a73e8;border-color:#1a73e8;color:#fff}
+    .truck-2d-view{display:flex;height:100%;width:100%;background:#fafafa;overflow:hidden}
+    .truck-section{background:#ffffff;border:2px solid #e0e0e0;border-radius:8px;padding:12px;min-height:180px;transition:all .3s ease;position:relative;overflow:visible}
+    .truck-section:hover{transform:scale(1.08);z-index:100;box-shadow:0 12px 32px rgba(0,0,0,.2);min-height:320px;border-width:3px}
+    .truck-section:hover > div:last-child{max-height:250px!important}
+    .truck-section-title{font-size:.95rem;font-weight:600;color:#202124;margin-bottom:10px;padding-bottom:5px;border-bottom:2px solid #e0e0e0}
+    .truck-section.drop-target{border-color:#1a73e8;background:#e8f0fe;box-shadow:0 0 0 2px rgba(26,115,232,.2)}
+    .truck-section.search-highlight{border-color:#9333ea!important;background:#faf5ff!important;box-shadow:0 0 0 3px rgba(147,51,234,.3)!important;animation:pulse-purple 2s ease-in-out infinite}
+    @keyframes pulse-purple{0%,100%{box-shadow:0 0 0 3px rgba(147,51,234,.3)}50%{box-shadow:0 0 0 6px rgba(147,51,234,.5)}}
+    @keyframes flash-box{0%,100%{background:#e8f0fe;transform:scale(1)}10%,30%,50%,70%,90%{background:#faf5ff;border-color:#9333ea;transform:scale(1.02)}20%,40%,60%,80%{background:#e8f0fe;transform:scale(1)}}
+    .placed-box{background:#e8f0fe;border:1px solid #1a73e8;border-radius:4px;padding:10px;margin-bottom:8px;transition:all .3s;cursor:pointer;display:flex;flex-direction:column}
+    .placed-box:hover{background:#d2e3fc;transform:translateY(-2px);box-shadow:0 4px 8px rgba(0,0,0,.1)}
+    .placed-box.flash-highlight{animation:flash-box 1.5s ease-in-out 20}
+    .placed-box.flash-highlight.match-found{background:#d4ffea!important;border-color:#00FF7F!important;animation:flash-spring-green 1.5s ease-in-out 20}
+    @keyframes flash-spring-green{0%,100%{background:#d4ffea;transform:scale(1);box-shadow:0 0 10px rgba(0,255,127,.5)}50%{background:#00FF7F;transform:scale(1.05);box-shadow:0 0 20px rgba(0,255,127,.8)}}
+    .placed-box.expanded{max-height:400px}
+    .placed-box-header{display:flex;justify-content:space-between;align-items:center;width:100%}
+    .placed-box-info{flex:1;min-width:0}
+    .placed-box-barcode{font-family:'Courier New',monospace;font-size:.9rem;font-weight:700;color:#1a73e8}
+    .placed-box-name{font-size:.8rem;color:#202124;font-weight:500}
+    .placed-box-contents{max-height:0;overflow:hidden;transition:max-height .3s ease,margin-top .3s ease;margin-top:0;padding-top:0;border-top:1px solid transparent}
+    .placed-box.expanded .placed-box-contents{max-height:200px;margin-top:10px;padding-top:10px;border-top:1px solid #d2e3fc}
+    .placed-box-contents-label{font-size:.7rem;font-weight:600;color:#5f6368;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px}
+    .placed-box-contents-text{font-size:.75rem;color:#202124;line-height:1.5;white-space:pre-wrap}
+    .placed-box-expand-icon{font-size:.8rem;color:#1a73e8;transition:transform .3s;margin-left:8px}
+    .placed-box.expanded .placed-box-expand-icon{transform:rotate(180deg)}
+    .btn-remove-box{background:#fce8e6;border:1px solid #ea4335;color:#d93025;padding:4px 10px;border-radius:3px;font-size:.75rem;cursor:pointer;transition:all .2s;font-weight:600;z-index:10}
+    .btn-remove-box:hover{background:#ea4335;color:#fff}
+    .zone-capacity{font-size:.75rem;color:#5f6368;margin-top:8px;font-weight:500}
+    .capacity-bar{height:6px;background:#e0e0e0;border-radius:3px;margin-top:8px;overflow:hidden}
+    .capacity-fill{height:100%;background:#1a73e8;transition:width .3s,background .3s}
+    .capacity-fill.warning{background:#f9ab00}
+    .capacity-fill.danger{background:#ea4335}
+    #truckCanvas{width:100%;height:100%;display:block}
+    #view3D{position:relative;flex:1;background:#fafafa}
+    .canvas-controls{position:absolute;bottom:10px;left:10px;color:#202124;background:rgba(255,255,255,.95);padding:12px;border-radius:6px;font-size:.85rem;line-height:1.8;border:1px solid #e0e0e0;font-weight:500}
   </style>
 </head>
-<body class="page-load">
+<body class="page-load light-mode">
   <div id="rtsTopNav"></div>
   <div class="rts-main container-fluid">
-    <h1 class="my-3">Load Planning</h1>
-
-    <div class="mlo-shell" id="loadShell">
-      <!-- LEFT -->
-      <section class="mlo-pane mlo-pane-left" aria-label="Transport & crates">
-        <div class="mlo-pane-header">
-          <div class="d-flex justify-content-between align-items-center">
-            <div class="mlo-title">Resources</div>
-            <span class="badge text-bg-secondary" id="lpCountBadge">0</span>
+    <div class="load-header">
+      <div>
+        <h1 style="margin:0;color:#202124;font-weight:700">Load Planning</h1>
+        <p style="margin:5px 0 0;color:#5f6368;font-size:.9rem;font-weight:500">3D Truck Packing & Barcode Management</p>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <select id="selectEvent" class="form-select form-select-sm" style="width:180px;font-size:.8rem;padding:4px 8px"><option value="">Select Event</option></select>
+        <select id="selectTruck" class="form-select form-select-sm" style="width:180px;font-size:.8rem;padding:4px 8px"><option value="">Select Truck/Trailer</option></select>
+        <button class="btn btn-sm btn-primary" id="btnSaveLoad" style="font-size:.8rem;padding:4px 12px">💾 Save</button>
+        <button class="btn btn-sm btn-outline-secondary" id="btnClearLoad" style="font-size:.8rem;padding:4px 12px">🗑️ Clear</button>
+        <button class="btn btn-sm btn-outline-primary" id="btnPrintBarcodes" style="font-size:.8rem;padding:4px 12px">🖨️ Print</button>
+      </div>
+    </div>
+    <div class="load-stats">
+      <div class="stat-card"><div class="stat-label">Boxes Loaded</div><div class="stat-value" id="statBoxesLoaded">0/0</div><div class="stat-sublabel">Items placed</div></div>
+      <div class="stat-card"><div class="stat-label">Total Weight</div><div class="stat-value" id="statWeight">0 kg</div><div class="stat-sublabel" id="statWeightLimit">of 0 kg max</div></div>
+      <div class="stat-card"><div class="stat-label">Volume Used</div><div class="stat-value" id="statVolume">0%</div><div class="stat-sublabel" id="statVolumeValue">0/0 m³</div></div>
+      <div class="stat-card"><div class="stat-label">Load Status</div><div class="stat-value" id="statStatus" style="font-size:1.2rem">Draft</div><div class="stat-sublabel">Last updated: <span id="statUpdated">Never</span></div></div>
+    </div>
+    <div class="load-container">
+      <div class="boxes-panel">
+        <div class="boxes-header">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <h3 style="margin:0;font-size:.85rem;color:#202124;font-weight:700">Boxes to Load</h3>
+            <button class="btn btn-sm btn-outline-primary" id="btnAddBox" style="padding:2px 8px;font-size:.75rem">+ Add</button>
           </div>
+          <input type="text" id="searchBoxes" class="form-control form-control-sm" placeholder="Search boxes or items..." style="font-size:.75rem;padding:4px 8px">
+          <div style="font-size:.65rem;color:#5f6368;margin-top:4px;font-style:italic">💡 In 3D: matches = spring green, others = gray</div>
         </div>
-        <div class="mlo-pane-content">
-          <div class="mlo-section-label">Transport units</div>
-          <ul class="mlo-tree pastel-tree" id="unitList"></ul>
-
-          <div class="mlo-section-label mt-3">Crates</div>
-          <ul class="mlo-tree pastel-tree" id="crateList"></ul>
-        </div>
-      </section>
-
-      <div class="mlo-resizer" data-resize="left" title="Drag to resize"></div>
-
-      <!-- MIDDLE -->
-      <section class="mlo-pane mlo-pane-mid" aria-label="Load plans">
-        <div class="mlo-pane-header">
-          <div class="d-flex align-items-center flex-nowrap gap-1" style="overflow:hidden;">
-            <input id="lpSearch" type="text" class="form-control form-control-sm" placeholder="Search…" style="flex:1 1 180px; min-width:160px; max-width:220px;">
-            <select id="lpEvent" class="form-select form-select-sm" style="flex:1 1 180px; min-width:150px; max-width:200px;"></select>
-            <select id="lpUnit" class="form-select form-select-sm" style="flex:1 1 180px; min-width:150px; max-width:200px;"></select>
-            <select id="lpStatus" class="form-select form-select-sm" style="flex:0 1 160px; min-width:140px; max-width:180px;">
-              <option value="">Status: All</option>
-              <option>Draft</option>
-              <option>Approved</option>
-              <option>Loaded</option>
-              <option>Departed</option>
-              <option>Arrived</option>
-              <option>Unloaded</option>
-              <option>Closed</option>
-            </select>
-            <button class="btn btn-sm btn-outline-light mlo-btn" id="btnAddLp" type="button" style="white-space:nowrap;">Add Load Plan</button>
-          </div>
-        </div>
-        <div class="mlo-pane-content" style="padding:0;">
-          <table class="table table-dark table-hover mlo-table" style="margin:0;">
-            <thead>
-              <tr>
-                <th style="width:60px;">#</th>
-                <th style="width:130px;">Load Plan</th>
-                <th style="width:200px;">Event</th>
-                <th style="width:170px;">Transport</th>
-                <th style="width:130px;">Status</th>
-                <th style="width:170px;">Owner</th>
-                <th style="width:150px;">Updated</th>
-              </tr>
-            </thead>
-            <tbody id="loadTbody"></tbody>
-          </table>
-        </div>
-      </section>
-
-      <div class="mlo-resizer" data-resize="right" title="Drag to resize"></div>
-
-      <!-- RIGHT -->
-      <section class="mlo-pane mlo-pane-right mlo-inspector" aria-label="Load plan inspector">
-        <div class="mlo-pane-header">
-          <div class="d-flex justify-content-between align-items-center">
-            <div class="mlo-title">Inspector</div>
-            <span class="badge text-bg-secondary" id="lpInspectorBadge">No selection</span>
-          </div>
-        </div>
-        <div class="mlo-pane-content">
-          <!-- Use Assets-style inspector tabs: Details / Placements / Goodloading -->
-          <ul class="nav nav-tabs nav-dark mb-2" role="tablist">
-            <li class="nav-item" role="presentation">
-              <button class="nav-link active" id="tab-lp-main" data-bs-toggle="tab" data-bs-target="#pane-lp-main" type="button" role="tab" aria-controls="pane-lp-main" aria-selected="true">Details</button>
-            </li>
-            <li class="nav-item" role="presentation">
-              <button class="nav-link" id="tab-lp-placements" data-bs-toggle="tab" data-bs-target="#pane-lp-placements" type="button" role="tab" aria-controls="pane-lp-placements" aria-selected="false">Placements</button>
-            </li>
-            <li class="nav-item" role="presentation">
-              <button class="nav-link" id="tab-lp-goodloading" data-bs-toggle="tab" data-bs-target="#pane-lp-goodloading" type="button" role="tab" aria-controls="pane-lp-goodloading" aria-selected="false">Goodloading</button>
-            </li>
-          </ul>
-
-          <div class="tab-content">
-            <div class="tab-pane fade show active" id="pane-lp-main" role="tabpanel" aria-labelledby="tab-lp-main">
-              <form id="lpForm" autocomplete="off">
-                <div class="row g-2">
-                  <div class="col-6">
-                    <label class="form-label">Load plan #</label>
-                    <input id="f_lp_id" class="form-control form-control-sm" type="text" readonly>
-                  </div>
-                  <div class="col-6">
-                    <label class="form-label">Status</label>
-                    <select id="f_lp_status" class="form-select form-select-sm">
-                      <option>Draft</option>
-                      <option>Approved</option>
-                      <option>Loaded</option>
-                      <option>Departed</option>
-                      <option>Arrived</option>
-                      <option>Unloaded</option>
-                      <option>Closed</option>
-                    </select>
-                  </div>
-
-                  <div class="col-6">
-                    <label class="form-label">Event</label>
-                    <select id="f_lp_event" class="form-select form-select-sm"></select>
-                  </div>
-                  <div class="col-6">
-                    <label class="form-label">Transport unit</label>
-                    <select id="f_lp_unit" class="form-select form-select-sm"></select>
-                  </div>
-
-                  <div class="col-6">
-                    <label class="form-label">Owner</label>
-                    <input id="f_lp_owner" class="form-control form-control-sm" type="text" placeholder="Logistics / Team Manager">
-                  </div>
-                  <div class="col-6">
-                    <label class="form-label">Notes</label>
-                    <input id="f_lp_notes" class="form-control form-control-sm" type="text" placeholder="Constraints, seals, tie-downs">
-                  </div>
-
-                  <div class="col-12 d-flex gap-1 mt-1">
-                    <button class="btn btn-sm btn-primary mlo-btn" id="btnSaveLp" type="button">Save</button>
-                    <button class="btn btn-sm btn-outline-light mlo-btn" id="btnDupLp" type="button">Duplicate</button>
-                    <button class="btn btn-sm btn-outline-danger mlo-btn" id="btnDelLp" type="button">Delete</button>
-                  </div>
-                </div>
-              </form>
+        <div class="boxes-list" id="boxesList"></div>
+      </div>
+      <div class="truck-viewer">
+        <div class="viewer-header">
+          <h3 style="margin:0;font-size:1rem">Truck Layout</h3>
+          <div class="viewer-controls">
+            <div class="view-toggle">
+              <button id="btn2DView" class="active">2D Layout</button>
+              <button id="btn3DView">3D View</button>
             </div>
-
-            <div class="tab-pane fade" id="pane-lp-placements" role="tabpanel" aria-labelledby="tab-lp-placements">
-              <div class="mb-2">
-                <label class="form-label">Placements</label>
-                <div class="table-responsive">
-                  <table class="table table-dark table-sm mlo-table" style="margin:0;">
-                    <thead>
-                      <tr>
-                        <th>Item</th>
-                        <th style="width:140px;">Zone</th>
-                        <th style="width:80px;">Order</th>
-                        <th style="width:60px;"></th>
-                      </tr>
-                    </thead>
-                    <tbody id="lpPlaceTbody"></tbody>
-                  </table>
-                </div>
-              </div>
-              <div class="d-flex flex-wrap gap-1 mt-1">
-                <input id="lpPlaceItem" class="form-control form-control-sm" type="text" placeholder="Crate / Asset" style="flex:2 1 200px; min-width:160px;" list="lpItemOptions">
-                <datalist id="lpItemOptions"></datalist>
-                <input id="lpPlaceZone" class="form-control form-control-sm" type="text" placeholder="Front / Rear / L/R" style="flex:1 1 120px; min-width:120px;">
-                <input id="lpPlaceOrder" class="form-control form-control-sm" type="number" min="0" step="1" placeholder="#" style="flex:0 1 80px; min-width:70px;">
-                <button class="btn btn-sm btn-outline-light mlo-btn" id="btnAddPlacement" type="button">Add</button>
-              </div>
-            </div>
-
-            <div class="tab-pane fade" id="pane-lp-goodloading" role="tabpanel" aria-labelledby="tab-lp-goodloading">
-              <div class="text-secondary" style="font-size:0.85rem; line-height:1.4; max-height:70vh; overflow:auto;">
-                <p><strong>Goodloading overview</strong><br>
-                Load optimization engine for space utilization, constraints (GVW, axle loads, CoG), multistop sequencing, vehicle recommendation, and 3D animated loading visualization.</p>
-                <p><strong>Key capabilities</strong><br>
-                • Optimal space use &amp; sequencing (LIFO for multistop)<br>
-                • Constraints: axle loads, GVW, center of gravity<br>
-                • Vehicle recommendation from available fleet<br>
-                • 3D visualization + PDF plan links</p>
-                <p><strong>Use cases</strong><br>
-                • Fleet operators &amp; manufacturers: cut freight/fuel, reduce damage, automate plans<br>
-                • E‑commerce / 3PL: instant, accurate shipping volume/costs, value‑add optimization<br>
-                • TMS/WMS/ERP providers: plug a proven loading engine instead of building in‑house</p>
-                <p><strong>Benefits</strong><br>
-                • Cost: fewer vehicles, less fuel, lower damage claims, lower labor time<br>
-                • Speed: plans in seconds, clear animated instructions for ramp teams<br>
-                • Compliance: axle limits, CoG respected<br>
-                • Sustainability: fewer trips → lower footprint</p>
-                <p><strong>Workflow (concept)</strong><br>
-                1) Input: items (dims/weight/stack rules), vehicles (dims/limits)<br>
-                2) Compute: optimal plan + constraints checked<br>
-                3) Output: placements, utilization %, weight/axle loads, 3D link, PDF</p>
-                <p><strong>Contact</strong><br>
-                Goodloading Sp. z o. o., ul. Racławicka 2-4, 53-146 Wrocław, POLAND<br>
-                info@goodloading.com</p>
-              </div>
-            </div>
+            <button class="btn btn-sm btn-outline-light" id="btnOptimize">⚡ Auto Optimize</button>
           </div>
         </div>
-      </section>
+        <div id="view2D" class="truck-2d-view">
+          <!-- Grid zones will be dynamically generated here -->
+        </div>
+        <div id="view3D" style="display:none">
+          <canvas id="truckCanvas"></canvas>
+          <div class="canvas-controls">
+            🖱️ <strong>Mouse:</strong> Drag to rotate • Scroll to zoom<br>
+            ⌨️ <strong>Keyboard:</strong> Click box then use Arrow keys to move • PgUp/PgDn to stack • Del to remove
+          </div>
+        </div>
+      </div>
     </div>
   </div>
-
+  <div class="modal fade" id="boxModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content" style="background:#ffffff;color:#202124;border:1px solid #e0e0e0">
+        <div class="modal-header" style="border-color:#e0e0e0;background:#f8f9fa">
+          <h5 class="modal-title" id="boxModalTitle" style="font-weight:700;color:#202124">Add New Box</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="alert alert-info" style="font-size:.85rem;margin-bottom:15px" id="boxModalHelp">
+            <strong>💡 Tip:</strong> Create and manage boxes in <strong>Logistics → Box Packing</strong> first. They will appear here automatically and can be packed with equipment/assets.
+          </div>
+          <form id="boxForm">
+            <input type="hidden" id="editBoxId">
+            <div class="mb-3"><label class="form-label" style="font-weight:600;color:#202124">Barcode/ID</label><input type="text" class="form-control" id="boxBarcode" placeholder="Auto-generated" style="border:1px solid #d0d0d0"></div>
+            <div class="mb-3"><label class="form-label" style="font-weight:600;color:#202124">Box Name *</label><input type="text" class="form-control" id="boxName" placeholder="Tools Box A" required style="border:1px solid #d0d0d0"></div>
+            <div class="row">
+              <div class="col-4 mb-3"><label class="form-label" style="font-weight:600;color:#202124">Length (cm) *</label><input type="number" class="form-control" id="boxLength" placeholder="100" min="1" required style="border:1px solid #d0d0d0"></div>
+              <div class="col-4 mb-3"><label class="form-label" style="font-weight:600;color:#202124">Width (cm) *</label><input type="number" class="form-control" id="boxWidth" placeholder="60" min="1" required style="border:1px solid #d0d0d0"></div>
+              <div class="col-4 mb-3"><label class="form-label" style="font-weight:600;color:#202124">Height (cm) *</label><input type="number" class="form-control" id="boxHeight" placeholder="50" min="1" required style="border:1px solid #d0d0d0"></div>
+            </div>
+            <div class="mb-3"><label class="form-label" style="font-weight:600;color:#202124">Weight (kg) *</label><input type="number" class="form-control" id="boxWeight" placeholder="25" min="0.1" step="0.1" required style="border:1px solid #d0d0d0"></div>
+            <div class="mb-3"><label class="form-label" style="font-weight:600;color:#202124">Contents</label><textarea class="form-control" id="boxContents" rows="3" placeholder="List items inside this box..." style="border:1px solid #d0d0d0"></textarea></div>
+            <div class="mb-3"><label class="form-label" style="font-weight:600;color:#202124">Category</label><select class="form-select" id="boxCategory" style="border:1px solid #d0d0d0"><option value="container">Container</option><option value="tools">Tools</option><option value="spares">Spare Parts</option><option value="tyres">Tyres</option><option value="fuel">Fuel/Fluids</option><option value="equipment">Equipment</option><option value="personal">Personal Gear</option><option value="other">Other</option></select></div>
+          </form>
+        </div>
+        <div class="modal-footer" style="border-color:#e0e0e0;background:#f8f9fa">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" id="btnSaveBox">Save Box</button>
+        </div>
+      </div>
+    </div>
+  </div>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="config.js"></script>
   <script src="core.js"></script>
   <script src="topnav.js"></script>
-  <script>
-  (function(){
-    RTS.setActiveNav();
-    const LS_UNITS = 'rts.load.units.v1';
-    const LS_CRATES = 'rts.load.crates.v1';
-    const LS_PLANS = 'rts.load.plans.v1';
-    const LS_UI = 'rts.load.ui.v1';
-    const LS_PANES = 'rts.load.panes.v1';
-
-    const eventsStore = RTS.safeLoadJSON('rts.events.v4', []);
-    const events = Array.isArray(eventsStore) ? eventsStore : [];
-    const EVENT_OPTIONS = events.map(e=>({ id:e.id, title:e.title || e.name || 'Event'}));
-    const EVENT_MAP = new Map(EVENT_OPTIONS.map(e=>[String(e.id), e.title]));
-
-    const assetsStore = RTS.safeLoadJSON('rts.assets.v4', []);
-    const inventoryStore = RTS.safeLoadJSON('rts.inventory.v4', []);
-    const ASSET_OPTIONS = Array.isArray(assetsStore) ? assetsStore.map(a=>({ id:a.id, label:a.name||a.id, kind:'asset' })) : [];
-    const INV_OPTIONS = Array.isArray(inventoryStore) ? inventoryStore.map(i=>({ id:i.id||i.name, label:i.name||i.id, kind:'inventory' })) : [];
-    const ITEM_OPTIONS = [...ASSET_OPTIONS, ...INV_OPTIONS];
-    const ITEM_MAP = new Map(ITEM_OPTIONS.map(o => [`${o.kind}:${o.id}`, o]));
-
-    function eventTitle(id){ return EVENT_MAP.get(String(id)) || ''; }
-    function escapeHtml(str){ return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;').replace(/'/g,'&#39;'); }
-    function nowISO(){ return new Date().toISOString(); }
-
-    function seedUnits(){
-      return [
-        { id: RTS.uid('unit'), name:'Trailer A', type:'Trailer', dimensions:'8m x 2.5m x 2.8m', max_payload_kg:3500, tie_down_points:12 },
-        { id: RTS.uid('unit'), name:'Truck 1', type:'Truck', dimensions:'12m x 2.5m x 3m', max_payload_kg:12000, tie_down_points:20 }
-      ];
-    }
-    function seedCrates(){
-      return [
-        { id: RTS.uid('crate'), code:'CR-001', name:'Tools A', category:'Tools', seal_required:false },
-        { id: RTS.uid('crate'), code:'CR-002', name:'Tyres Set 1', category:'Tyres', seal_required:true },
-        { id: RTS.uid('crate'), code:'CR-003', name:'Fuel / Fluids', category:'Fuel', seal_required:true }
-      ];
-    }
-    function seedPlans(){
-      const u = seedUnits()[0];
-      const ev = EVENT_OPTIONS[0];
-      return [
-        {
-          id: RTS.uid('lp'),
-          name:'Load Plan 1',
-          status:'Draft',
-          eventId: ev ? ev.id : '',
-          transportUnitId: u ? u.id : '',
-          owner:'Logistics',
-          notes:'Seal crates, tie-down 4 points each.',
-          placements:[
-            { item:'CR-001 Tools A', zone:'Front-Left', order:1 },
-            { item:'CR-002 Tyres Set 1', zone:'Front-Right', order:2 }
-          ],
-          updatedAt: nowISO()
-        }
-      ];
-    }
-
-    let units = RTS.safeLoadJSON(LS_UNITS, null);
-    if (!Array.isArray(units) || units.length===0) units = seedUnits();
-    let crates = RTS.safeLoadJSON(LS_CRATES, null);
-    if (!Array.isArray(crates) || crates.length===0) crates = seedCrates();
-    let plans = RTS.safeLoadJSON(LS_PLANS, null);
-    if (!Array.isArray(plans) || plans.length===0) plans = seedPlans();
-    let ui = RTS.deepMerge({ search:'', event:'', unit:'', status:'', selectedId:null }, RTS.safeLoadJSON(LS_UI, {}));
-
-    const el = {
-      shell: document.getElementById('loadShell'),
-      count: document.getElementById('lpCountBadge'),
-      unitList: document.getElementById('unitList'),
-      crateList: document.getElementById('crateList'),
-      tbody: document.getElementById('loadTbody'),
-      search: document.getElementById('lpSearch'),
-      event: document.getElementById('lpEvent'),
-      unit: document.getElementById('lpUnit'),
-      status: document.getElementById('lpStatus'),
-      add: document.getElementById('btnAddLp'),
-      inspectorBadge: document.getElementById('lpInspectorBadge'),
-      placeTbody: document.getElementById('lpPlaceTbody'),
-      placeItem: document.getElementById('lpPlaceItem'),
-      placeZone: document.getElementById('lpPlaceZone'),
-      placeOrder: document.getElementById('lpPlaceOrder'),
-      placeOptions: document.getElementById('lpItemOptions'),
-      btnAddPlacement: document.getElementById('btnAddPlacement'),
-      btnSave: document.getElementById('btnSaveLp'),
-      btnDup: document.getElementById('btnDupLp'),
-      btnDel: document.getElementById('btnDelLp'),
-      f: {
-        id: document.getElementById('f_lp_id'),
-        status: document.getElementById('f_lp_status'),
-        event: document.getElementById('f_lp_event'),
-        unit: document.getElementById('f_lp_unit'),
-        owner: document.getElementById('f_lp_owner'),
-        notes: document.getElementById('f_lp_notes')
-      }
-    };
-
-    RTS.initTriPaneResizers(el.shell, LS_PANES);
-
-    function persist(){
-      RTS.safeSaveJSON(LS_UNITS, units);
-      RTS.safeSaveJSON(LS_CRATES, crates);
-      RTS.safeSaveJSON(LS_PLANS, plans);
-      RTS.safeSaveJSON(LS_UI, ui);
-    }
-
-    function buildLists(){
-      el.unitList.innerHTML = '';
-      units.forEach(u=>{
-        const li = document.createElement('li');
-        li.textContent = `${u.name} (${u.type})`;
-        li.dataset.id = u.id;
-        el.unitList.appendChild(li);
-      });
-
-      el.crateList.innerHTML = '';
-      crates.forEach(c=>{
-        const li = document.createElement('li');
-        li.textContent = `${c.code} — ${c.name}`;
-        li.dataset.id = c.id;
-        el.crateList.appendChild(li);
-      });
-
-      el.event.innerHTML = '<option value="">Event: All</option>' + EVENT_OPTIONS.map(ev=>`<option value="${ev.id}">${escapeHtml(ev.title)}</option>`).join('');
-      el.unit.innerHTML = '<option value="">Unit: All</option>' + units.map(u=>`<option value="${u.id}">${escapeHtml(u.name)}</option>`).join('');
-      el.f.event.innerHTML = EVENT_OPTIONS.length ? EVENT_OPTIONS.map(ev=>`<option value="${ev.id}">${escapeHtml(ev.title)}</option>`).join('') : '<option value="">Unassigned</option>';
-      el.f.unit.innerHTML = units.map(u=>`<option value="${u.id}">${escapeHtml(u.name)}</option>`).join('') || '<option value="">Unassigned</option>';
-      el.placeOptions.innerHTML = ITEM_OPTIONS.map(o=>`<option value="${o.kind}:${o.id}">${escapeHtml(o.label)}</option>`).join('');
-    }
-
-    function applyFilters(list){
-      let out = list.slice();
-      if (ui.event) out = out.filter(p=>String(p.eventId||'')===String(ui.event));
-      if (ui.unit) out = out.filter(p=>String(p.transportUnitId||'')===String(ui.unit));
-      if (ui.status) out = out.filter(p=>p.status===ui.status);
-      if (ui.search){
-        const q = ui.search.toLowerCase();
-        out = out.filter(p => (`${p.name} ${eventTitle(p.eventId)} ${p.owner||''}`).toLowerCase().includes(q));
-      }
-      return out;
-    }
-
-    function render(){
-      el.search.value = ui.search || '';
-      el.event.value = ui.event || '';
-      el.unit.value = ui.unit || '';
-      el.status.value = ui.status || '';
-
-      const filtered = applyFilters(plans);
-      el.count.textContent = String(filtered.length);
-
-      el.tbody.innerHTML = '';
-      let idx=0;
-      filtered.forEach(p=>{
-        idx++;
-        const tr = document.createElement('tr');
-        tr.dataset.id = p.id;
-        if (ui.selectedId===p.id) tr.classList.add('mlo-row-selected');
-        tr.innerHTML = `
-          <td>${idx}</td>
-          <td>${escapeHtml(p.name||p.id)}</td>
-          <td>${escapeHtml(eventTitle(p.eventId)||'')}</td>
-          <td>${escapeHtml(unitName(p.transportUnitId)||'')}</td>
-          <td>${escapeHtml(p.status||'')}</td>
-          <td>${escapeHtml(p.owner||'')}</td>
-          <td>${escapeHtml((p.updatedAt||'').replace('T',' ').slice(0,16))}</td>
-        `;
-        tr.addEventListener('click', ()=>{ ui.selectedId = p.id; render(); });
-        el.tbody.appendChild(tr);
-      });
-
-      hydrate(plans.find(p=>p.id===ui.selectedId) || null);
-      persist();
-    }
-
-    function unitName(id){
-      const u = units.find(u=>String(u.id)===String(id));
-      return u ? u.name : '';
-    }
-
-    function placementLabel(pl){
-      if (pl.itemLabel) return pl.itemLabel;
-      if (pl.itemKind && pl.itemId){
-        const key = `${pl.itemKind}:${pl.itemId}`;
-        if (ITEM_MAP.has(key)) return ITEM_MAP.get(key).label;
-      }
-      return pl.item || pl.itemId || '';
-    }
-
-    function hydrate(p){
-      if (!p){
-        el.inspectorBadge.textContent = 'No selection';
-        Object.values(el.f).forEach(f=> f.value='');
-        el.placeTbody.innerHTML = '';
-        return;
-      }
-      el.inspectorBadge.textContent = p.name || p.id;
-      el.f.id.value = p.name || p.id;
-      el.f.status.value = p.status || 'Draft';
-      el.f.event.value = p.eventId || '';
-      el.f.unit.value = p.transportUnitId || '';
-      el.f.owner.value = p.owner || '';
-      el.f.notes.value = p.notes || '';
-      renderPlacements(p);
-    }
-
-    function renderPlacements(p){
-      el.placeTbody.innerHTML = '';
-      (p.placements||[]).forEach((pl, idx)=>{
-        const label = placementLabel(pl);
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${escapeHtml(label)}</td>
-          <td>${escapeHtml(pl.zone||'')}</td>
-          <td>${escapeHtml(pl.order||'')}</td>
-          <td><button class="btn btn-sm btn-outline-danger mlo-btn" type="button">×</button></td>
-        `;
-        tr.querySelector('button').addEventListener('click', ()=>{
-          p.placements.splice(idx,1);
-          p.updatedAt = nowISO();
-          persist();
-          render();
-        });
-        el.placeTbody.appendChild(tr);
-      });
-    }
-
-    function addPlacement(){
-      const p = plans.find(x=>x.id===ui.selectedId);
-      if (!p) return;
-      const raw = el.placeItem.value.trim();
-      if (!raw) return;
-      let ref = null;
-      if (ITEM_MAP.has(raw)) ref = ITEM_MAP.get(raw);
-      const itemLabel = ref ? ref.label : raw;
-      const itemKind = ref ? ref.kind : 'custom';
-      const itemId = ref ? ref.id : raw;
-      p.placements = Array.isArray(p.placements)?p.placements:[];
-      p.placements.push({
-        itemLabel,
-        itemKind,
-        itemId,
-        zone: el.placeZone.value.trim(),
-        order: Number(el.placeOrder.value||0)
-      });
-      p.updatedAt = nowISO();
-      el.placeItem.value = '';
-      el.placeZone.value = '';
-      el.placeOrder.value = '';
-      persist();
-      render();
-    }
-
-    function savePlan(){
-      const p = plans.find(x=>x.id===ui.selectedId);
-      if (!p) return;
-      p.status = el.f.status.value;
-      p.eventId = el.f.event.value;
-      p.transportUnitId = el.f.unit.value;
-      p.owner = el.f.owner.value.trim();
-      p.notes = el.f.notes.value.trim();
-      p.updatedAt = nowISO();
-      persist();
-      render();
-    }
-
-    function addPlan(){
-      const id = RTS.uid('lp');
-      const ev = EVENT_OPTIONS[0];
-      const unit = units[0];
-      const p = {
-        id,
-        name: `Load Plan ${plans.length+1}`,
-        status:'Draft',
-        eventId: ev ? ev.id : '',
-        transportUnitId: unit ? unit.id : '',
-        owner: 'Logistics',
-        notes: '',
-        placements: [],
-        updatedAt: nowISO()
-      };
-      plans.unshift(p);
-      ui.selectedId = p.id;
-      render();
-    }
-
-    function duplicatePlan(){
-      const p = plans.find(x=>x.id===ui.selectedId);
-      if (!p) return;
-      const copy = JSON.parse(JSON.stringify(p));
-      copy.id = RTS.uid('lp');
-      copy.name = `${p.name || 'Load Plan'} (Copy)`;
-      copy.status = 'Draft';
-      copy.updatedAt = nowISO();
-      plans.unshift(copy);
-      ui.selectedId = copy.id;
-      render();
-    }
-
-    function deletePlan(){
-      const idx = plans.findIndex(x=>x.id===ui.selectedId);
-      if (idx<0) return;
-      plans.splice(idx,1);
-      ui.selectedId = plans[0]?.id || null;
-      render();
-    }
-
-    function bind(){
-      const onInputs = ()=>{
-        ui.search = el.search.value;
-        ui.event = el.event.value;
-        ui.unit = el.unit.value;
-        ui.status = el.status.value;
-        render();
-      };
-      el.search.addEventListener('input', onInputs);
-      el.event.addEventListener('change', onInputs);
-      el.unit.addEventListener('change', onInputs);
-      el.status.addEventListener('change', onInputs);
-      el.add.addEventListener('click', addPlan);
-      el.btnAddPlacement.addEventListener('click', addPlacement);
-      el.btnSave.addEventListener('click', savePlan);
-      el.btnDup.addEventListener('click', duplicatePlan);
-      el.btnDel.addEventListener('click', deletePlan);
-    }
-
-    function init(){
-      buildLists();
-      bind();
-      render();
-      if (!ui.selectedId && plans[0]) { ui.selectedId = plans[0].id; render(); }
-    }
-    document.addEventListener('DOMContentLoaded', init);
-  })();
-  </script>
+  <script src="load-engine.js"></script>
 </body>
 </html>

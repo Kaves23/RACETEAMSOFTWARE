@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Race Team OS – Finance</title>
+  <title>Race Team OS – Expenses</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="style.css" rel="stylesheet" />
 </head>
@@ -13,11 +13,11 @@
       
 
       
-        <h1 class="my-3">Finance</h1>
+  <h1 class="my-3">Expenses</h1>
 
         <div class="mlo-shell" id="finShell">
           <!-- LEFT -->
-          <section class="mlo-pane mlo-pane-left" aria-label="Finance navigation">
+          <section class="mlo-pane mlo-pane-left" aria-label="Expenses navigation">
             <div class="mlo-pane-header">
               <div class="d-flex justify-content-between align-items-center">
                 <div class="mlo-title">Perspectives</div>
@@ -43,12 +43,14 @@
           <div class="mlo-resizer" data-resize="left" title="Drag to resize"></div>
 
           <!-- MIDDLE -->
-          <section class="mlo-pane mlo-pane-mid" aria-label="Finance list">
+          <section class="mlo-pane mlo-pane-mid" aria-label="Expenses list">
             <div class="mlo-pane-header">
               <div class="d-flex flex-wrap align-items-center gap-1">
                 <input id="finSearch" type="text" class="form-control form-control-sm" placeholder="Search…" style="max-width: 220px;">
                 <select id="finEvent" class="form-select form-select-sm" style="max-width: 220px;"></select>
                 <select id="finCategory" class="form-select form-select-sm" style="max-width: 190px;"></select>
+                <select id="finDriver" class="form-select form-select-sm" style="max-width: 190px;"></select>
+                <select id="finEmployee" class="form-select form-select-sm" style="max-width: 190px;"></select>
                 <select id="finStatus" class="form-select form-select-sm" style="max-width: 170px;">
                   <option value="">Status: All</option>
                   <option>Pending</option>
@@ -61,6 +63,8 @@
                   <option value="category">Group: Category</option>
                   <option value="status">Group: Status</option>
                   <option value="supplier">Group: Supplier</option>
+                  <option value="driver">Group: Driver</option>
+                  <option value="employee">Group: Employee</option>
                   <option value="month">Group: Month</option>
                 </select>
                 <button class="btn btn-sm btn-outline-light mlo-btn" id="btnAddFin" type="button">Add Expense</button>
@@ -76,6 +80,8 @@
                     <th style="width:120px;">Date</th>
                     <th>Supplier</th>
                     <th style="width:220px;">Event</th>
+                    <th style="width:160px;">Driver</th>
+                    <th style="width:160px;">Employee</th>
                     <th style="width:200px;">Category</th>
                     <th style="width:140px;">Amount</th>
                     <th style="width:110px;">Status</th>
@@ -89,7 +95,7 @@
           <div class="mlo-resizer" data-resize="right" title="Drag to resize"></div>
 
           <!-- RIGHT -->
-          <section class="mlo-pane mlo-pane-right mlo-inspector" aria-label="Finance inspector">
+          <section class="mlo-pane mlo-pane-right mlo-inspector" aria-label="Expenses inspector">
             <div class="mlo-pane-header">
               <div class="d-flex justify-content-between align-items-center">
                 <div class="mlo-title">Inspector</div>
@@ -150,9 +156,13 @@
                     <input id="f_fin_invoice" class="form-control form-control-sm" type="text" placeholder="Invoice number">
                   </div>
 
-                  <div class="col-12">
-                    <label class="form-label">Driver allocation (optional)</label>
-                    <input id="f_fin_driver" class="form-control form-control-sm" type="text" placeholder="Driver #42">
+                  <div class="col-6">
+                    <label class="form-label">Driver</label>
+                    <select id="f_fin_driver" class="form-select form-select-sm"></select>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Employee</label>
+                    <select id="f_fin_employee" class="form-select form-select-sm"></select>
                   </div>
 
                   <div class="col-12">
@@ -211,6 +221,17 @@
     const SUPPLIERS = (settings.suppliers||[]).map(s=>s.name).filter(Boolean);
     const STAT = ['Pending','Approved','Paid'];
 
+    // Driver/Employee options from Settings with fallbacks
+    function getDriverOptions(){
+      const ds = (settings.drivers||[]);
+      return ds.map(d=>({ id: d.id || d.uid || d.name || String(d), name: d.name || d.displayName || d.alias || String(d) })).filter(x=>x.name);
+    }
+    function getEmployeeOptions(){
+      const pools = [settings.employees, settings.staff, settings.teamMembers, settings.team];
+      const raw = pools.find(Array.isArray) || [];
+      return (raw||[]).map(e=>({ id: e.id || e.uid || e.name || String(e), name: e.name || e.displayName || e.alias || String(e) })).filter(x=>x.name);
+    }
+
     function escapeHtml(str){
       return String(str||'')
         .replace(/&/g,'&amp;')
@@ -262,7 +283,7 @@
       return out;
     }
 
-    const defaultUI = { perspective:'all', catPick:'', search:'', event:'', category:'', status:'', groupBy:'', selectedId:null };
+  const defaultUI = { perspective:'all', catPick:'', search:'', event:'', category:'', driver:'', employee:'', status:'', groupBy:'', selectedId:null };
     let items = RTS.safeLoadJSON(LS, null);
     if (!Array.isArray(items) || items.length===0) items = seed();
     let ui = RTS.deepMerge(defaultUI, RTS.safeLoadJSON(LS_UI, {}));
@@ -313,6 +334,8 @@
       search: document.getElementById('finSearch'),
       event: document.getElementById('finEvent'),
       category: document.getElementById('finCategory'),
+  driverFilter: document.getElementById('finDriver'),
+  employeeFilter: document.getElementById('finEmployee'),
       status: document.getElementById('finStatus'),
       group: document.getElementById('finGroup'),
       add: document.getElementById('btnAddFin'),
@@ -336,6 +359,7 @@
         vat: document.getElementById('f_fin_vat'),
         invoice: document.getElementById('f_fin_invoice'),
         driver: document.getElementById('f_fin_driver'),
+        employee: document.getElementById('f_fin_employee'),
         approval: document.getElementById('f_fin_approval'),
         notes: document.getElementById('f_fin_notes')
       }
@@ -377,12 +401,19 @@
       const eventOpts = EVENT_OPTIONS.map(e=>`<option value="${e.id}">${e.title}</option>`).join('');
       el.event.innerHTML = '<option value="">Event: All</option>' + eventOpts;
       el.category.innerHTML = '<option value="">Category: All</option>' + cats.map(c=>`<option>${c}</option>`).join('');
+  // driver/employee filters
+  const driverOpts = getDriverOptions();
+  const employeeOpts = getEmployeeOptions();
+  el.driverFilter.innerHTML = '<option value="">Driver: All</option>' + driverOpts.map(d=>`<option value="${escapeHtml(String(d.id))}">${escapeHtml(d.name)}</option>`).join('');
+  el.employeeFilter.innerHTML = '<option value="">Employee: All</option>' + employeeOpts.map(e=>`<option value="${escapeHtml(String(e.id))}">${escapeHtml(e.name)}</option>`).join('');
 
       // inspector selects
       el.f.event.innerHTML = EVENT_OPTIONS.length
         ? EVENT_OPTIONS.map(e=>`<option value="${e.id}">${e.title}</option>`).join('')
         : '<option value="">Unassigned</option>';
       el.f.category.innerHTML = cats.map(c=>`<option value="${c}">${c}</option>`).join('');
+      el.f.driver.innerHTML = driverOpts.length ? driverOpts.map(d=>`<option value="${escapeHtml(String(d.id))}">${escapeHtml(d.name)}</option>`).join('') : '<option value="">Unassigned</option>';
+      el.f.employee.innerHTML = employeeOpts.length ? employeeOpts.map(e=>`<option value="${escapeHtml(String(e.id))}">${escapeHtml(e.name)}</option>`).join('') : '<option value="">Unassigned</option>';
     }
 
     function applyFilters(list){
@@ -403,6 +434,8 @@
       }
       if (ui.event) out = out.filter(x=>String(x.eventId||'')===String(ui.event));
       if (ui.category) out = out.filter(x=>x.category===ui.category);
+      if (ui.driver) out = out.filter(x=>String(x.driverId||'')===String(ui.driver));
+      if (ui.employee) out = out.filter(x=>String(x.employeeId||'')===String(ui.employee));
       if (ui.status) out = out.filter(x=>x.status===ui.status);
       return out;
     }
@@ -413,6 +446,8 @@
         case 'category': return it.category || '—';
         case 'status': return it.status || '—';
         case 'supplier': return it.supplier || '—';
+        case 'driver': return it.driver || '—';
+        case 'employee': return it.employee || '—';
         case 'month': return monthKey(it.date);
         default: return '';
       }
@@ -421,7 +456,9 @@
     function render(){
       el.search.value = ui.search || '';
       el.event.value = ui.event || '';
-      el.category.value = ui.category || '';
+  el.category.value = ui.category || '';
+  el.driverFilter.value = ui.driver || '';
+  el.employeeFilter.value = ui.employee || '';
       el.status.value = ui.status || '';
       el.group.value = ui.groupBy || '';
 
@@ -444,12 +481,15 @@
       let idx = 0;
       let lastG = null;
       rows.forEach(it => {
+        const drvLabel = (it.driver && String(it.driver).trim()) ? String(it.driver).trim() : '—';
+        const empLabel = (it.employee && String(it.employee).trim()) ? String(it.employee).trim() : '—';
+        const evLabel = eventTitle(it.eventId) || '—';
         const g = ui.groupBy ? groupKey(it) : '';
         if (ui.groupBy && g !== lastG){
           lastG = g;
           const trG = document.createElement('tr');
           trG.className = 'mlo-group-row';
-          trG.innerHTML = `<td colspan="7">${g}</td>`;
+          trG.innerHTML = `<td colspan="9">${g}</td>`;
           el.tbody.appendChild(trG);
         }
         idx += 1;
@@ -459,9 +499,11 @@
         tr.innerHTML = `
           <td>${idx}</td>
           <td>${it.date || ''}</td>
-          <td>${it.supplier}</td>
-          <td>${eventTitle(it.eventId) || '—'}</td>
-          <td>${it.category}</td>
+          <td>${escapeHtml(it.supplier||'')}</td>
+          <td><span class="fin-event-label">${escapeHtml(evLabel)}</span></td>
+          <td><span class="fin-driver-label">${escapeHtml(drvLabel)}</span></td>
+          <td><span class="fin-employee-label">${escapeHtml(empLabel)}</span></td>
+          <td>${escapeHtml(it.category||'')}</td>
           <td>${RTS.moneyZAR(it.amount)}</td>
           <td>${it.status}</td>
         `;
@@ -503,10 +545,25 @@
         el.f.category.appendChild(opt);
       }
       el.f.category.value = catVal;
+      // Driver select hydration (supports legacy text-only driver)
+      const drvId = String(it.driverId||'');
+      const drvName = String(it.driver||'');
+      const drvHas = Array.from(el.f.driver.options).some(o=>o.value===drvId);
+      if (!drvHas && drvId){
+        const optD = document.createElement('option'); optD.value = drvId; optD.textContent = drvName || drvId; el.f.driver.appendChild(optD);
+      }
+      el.f.driver.value = drvId || '';
+      // Employee select hydration
+      const empId = String(it.employeeId||'');
+      const empName = String(it.employee||'');
+      const empHas = Array.from(el.f.employee.options).some(o=>o.value===empId);
+      if (!empHas && empId){
+        const optE = document.createElement('option'); optE.value = empId; optE.textContent = empName || empId; el.f.employee.appendChild(optE);
+      }
+      el.f.employee.value = empId || '';
       el.f.amount.value = Number(it.amount || 0);
       el.f.vat.value = Number(it.vat || 0);
-      el.f.invoice.value = it.invoice || '';
-      el.f.driver.value = it.driver || '';
+  el.f.invoice.value = it.invoice || '';
       el.f.approval.value = it.approval || '';
       el.f.notes.value = it.notes || '';
 
@@ -615,6 +672,10 @@
       const idx = items.findIndex(x=>x.id===id);
       if (idx<0) return;
       const cur = items[idx];
+      const drvId = el.f.driver.value || '';
+      const empId = el.f.employee.value || '';
+      const drvLabel = drvId ? (Array.from(el.f.driver.options).find(o=>o.value===drvId)?.textContent || '') : '';
+      const empLabel = empId ? (Array.from(el.f.employee.options).find(o=>o.value===empId)?.textContent || '') : '';
       items[idx] = {
         ...cur,
         supplier: el.f.supplier.value.trim() || cur.supplier,
@@ -625,7 +686,10 @@
         amount: parseFloat(el.f.amount.value || 0),
         vat: parseFloat(el.f.vat.value || 0),
         invoice: el.f.invoice.value.trim(),
-        driver: el.f.driver.value.trim(),
+        driverId: drvId,
+        driver: drvLabel,
+        employeeId: empId,
+        employee: empLabel,
         approval: el.f.approval.value.trim(),
         notes: el.f.notes.value
       };
@@ -677,6 +741,8 @@
         ui.search = el.search.value;
         ui.event = el.event.value;
         ui.category = el.category.value;
+        ui.driver = el.driverFilter.value;
+        ui.employee = el.employeeFilter.value;
         ui.status = el.status.value;
         ui.groupBy = el.group.value;
         render();
@@ -684,6 +750,8 @@
       el.search.addEventListener('input', onInputs);
       el.event.addEventListener('change', onInputs);
       el.category.addEventListener('change', onInputs);
+      el.driverFilter.addEventListener('change', onInputs);
+      el.employeeFilter.addEventListener('change', onInputs);
       el.status.addEventListener('change', onInputs);
       el.group.addEventListener('change', onInputs);
 

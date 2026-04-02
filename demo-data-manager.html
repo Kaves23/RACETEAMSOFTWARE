@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Demo Data Manager - Race Team OS</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    .manager-card {
+      background: white;
+      border-radius: 16px;
+      padding: 40px;
+      max-width: 600px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .stat-box {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 15px;
+      border-left: 4px solid #667eea;
+    }
+    .stat-number {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #667eea;
+      margin: 0;
+    }
+    .stat-label {
+      color: #6c757d;
+      font-size: 0.9rem;
+      margin: 5px 0 0 0;
+    }
+    .btn-reset {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border: none;
+      color: white;
+      padding: 12px 30px;
+      font-weight: 600;
+      border-radius: 8px;
+      transition: all 0.3s;
+    }
+    .btn-reset:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+    }
+    .btn-view {
+      background: #28a745;
+      border: none;
+      color: white;
+      padding: 12px 30px;
+      font-weight: 600;
+      border-radius: 8px;
+      transition: all 0.3s;
+    }
+    .btn-view:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(40, 167, 69, 0.4);
+    }
+  </style>
+</head>
+<body>
+  <div class="manager-card">
+    <h1 style="color: #667eea; font-weight: 700; margin-bottom: 10px;">📦 Demo Data Manager</h1>
+    <p style="color: #6c757d; margin-bottom: 30px;">Manage your Race Team OS demo data</p>
+    
+    <div id="stats">
+      <div class="text-center" style="padding: 40px; color: #6c757d;">
+        <div class="spinner-border text-primary" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+        <p style="margin-top: 15px;">Loading data...</p>
+      </div>
+    </div>
+    
+    <div style="display: flex; gap: 10px; margin-top: 30px;">
+      <button class="btn btn-reset" onclick="resetData()">🔄 Reset Demo Data</button>
+      <button class="btn btn-view" onclick="viewBoxPacking()">📦 View Box Packing</button>
+    </div>
+    
+    <div style="margin-top: 30px; padding: 20px; background: #fff3cd; border-radius: 8px; border-left: 4px solid #ffc107;">
+      <strong>ℹ️ Info:</strong> This will generate:
+      <ul style="margin: 10px 0 0 0; padding-left: 20px; font-size: 0.9rem;">
+        <li>20 boxes (100×60×50cm, 35kg capacity each)</li>
+        <li>45 equipment items (Tools, Diagnostics, Lifting, Equipment)</li>
+        <li>40 asset items (Brakes, Engine, Filters, Cooling)</li>
+        <li>3-5 items packed per box</li>
+        <li>Realistic timestamps and locations</li>
+      </ul>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="core.js"></script>
+  <script>
+    function loadStats() {
+      const boxes = RTS.safeLoadJSON('rts.boxes.v1', []);
+      const boxContents = RTS.safeLoadJSON('rts.box.contents.v1', []);
+      const equipment = RTS.safeLoadJSON('rts.equipment.v1', []);
+      const assets = RTS.safeLoadJSON('rts.assets.v1', []);
+      const history = RTS.safeLoadJSON('rts.box.history.v1', []);
+      
+      const emptyBoxes = boxes.filter(b => boxContents.filter(c => c.boxId === b.id).length === 0).length;
+      const packedBoxes = boxes.length - emptyBoxes;
+      
+      let fullestBox = { name: 'N/A', count: 0 };
+      boxes.forEach(box => {
+        const count = boxContents.filter(c => c.boxId === box.id).length;
+        if (count > fullestBox.count) {
+          fullestBox = { name: box.name, count };
+        }
+      });
+      
+      document.getElementById('stats').innerHTML = `
+        <div class="row">
+          <div class="col-6">
+            <div class="stat-box">
+              <h2 class="stat-number">${boxes.length}</h2>
+              <p class="stat-label">Total Boxes</p>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="stat-box">
+              <h2 class="stat-number">${equipment.length + assets.length}</h2>
+              <p class="stat-label">Total Items</p>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="stat-box">
+              <h2 class="stat-number">${equipment.length}</h2>
+              <p class="stat-label">Equipment</p>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="stat-box">
+              <h2 class="stat-number">${assets.length}</h2>
+              <p class="stat-label">Assets</p>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="stat-box">
+              <h2 class="stat-number">${packedBoxes}</h2>
+              <p class="stat-label">Packed Boxes</p>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="stat-box">
+              <h2 class="stat-number">${boxContents.length}</h2>
+              <p class="stat-label">Items Packed</p>
+            </div>
+          </div>
+        </div>
+        <div style="background: #e8f0fe; border-radius: 8px; padding: 15px; margin-top: 15px;">
+          <strong style="color: #1967d2;">📊 Fullest Box:</strong><br>
+          <span style="color: #202124;">${fullestBox.name} (${fullestBox.count} items)</span>
+        </div>
+        ${history.length > 0 ? `
+          <div style="background: #f1f3f4; border-radius: 8px; padding: 15px; margin-top: 10px; font-size: 0.85rem; color: #5f6368;">
+            <strong>📜 History:</strong> ${history.length} events tracked
+          </div>
+        ` : ''}
+      `;
+    }
+    
+    function resetData() {
+      if (confirm('⚠️ This will clear ALL data and reload with fresh demo data. Continue?')) {
+        localStorage.removeItem('rts.boxes.v1');
+        localStorage.removeItem('rts.box.contents.v1');
+        localStorage.removeItem('rts.box.history.v1');
+        localStorage.removeItem('rts.equipment.v1');
+        localStorage.removeItem('rts.assets.v1');
+        
+        // Also clear load planning data
+        localStorage.removeItem('rts.load.boxes.v2');
+        localStorage.removeItem('rts.load.trucks.v2');
+        localStorage.removeItem('rts.load.plans.v2');
+        localStorage.removeItem('rts.load.current.v2');
+        
+        alert('✅ Data cleared! Redirecting to Box Packing...');
+        window.location.href = 'box-packing.html';
+      }
+    }
+    
+    function viewBoxPacking() {
+      window.location.href = 'box-packing.html';
+    }
+    
+    // Load stats on page load
+    window.addEventListener('DOMContentLoaded', loadStats);
+  </script>
+</body>
+</html>

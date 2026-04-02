@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Race Team OS – Orders</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="style.css" rel="stylesheet" />
+</head>
+<body class="page-orders">
+  <div id="rtsTopNav"></div>
+  <div class="rts-main container-fluid">
+    <h1 class="my-3">Orders</h1>
+
+    <div class="mlo-shell" id="ordShell">
+      <!-- LEFT -->
+      <section class="mlo-pane mlo-pane-left" aria-label="Orders navigation">
+        <div class="mlo-pane-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="mlo-title">Perspectives</div>
+            <span class="badge text-bg-secondary" id="ordCountBadge">0</span>
+          </div>
+        </div>
+        <div class="mlo-pane-content">
+          <div class="mlo-section-label">Smart lists</div>
+          <ul class="mlo-tree pastel-tree" id="ordPerspectiveList">
+            <li class="active" data-perspective="all">All Orders</li>
+            <li data-perspective="open">Open</li>
+            <li data-perspective="due">Due Soon</li>
+            <li data-perspective="late">Late</li>
+          </ul>
+
+          <div class="mlo-section-label mt-3">Suppliers</div>
+          <ul class="mlo-tree pastel-tree" id="ordSupplierList"></ul>
+        </div>
+      </section>
+
+      <div class="mlo-resizer" data-resize="left" title="Drag to resize"></div>
+
+      <!-- MIDDLE -->
+      <section class="mlo-pane mlo-pane-mid" aria-label="Orders list">
+        <div class="mlo-pane-header">
+          <div class="d-flex flex-wrap align-items-center gap-1">
+            <input id="ordSearch" type="text" class="form-control form-control-sm" placeholder="Search…" style="max-width: 220px;">
+            <select id="ordSupplier" class="form-select form-select-sm" style="max-width: 200px;"></select>
+            <select id="ordStatus" class="form-select form-select-sm" style="max-width: 180px;">
+              <option value="">Status: All</option>
+              <option>Draft</option>
+              <option>Submitted</option>
+              <option>Approved</option>
+              <option>Partially Received</option>
+              <option>Received</option>
+              <option>Closed</option>
+            </select>
+            <button class="btn btn-sm btn-outline-light mlo-btn" id="btnAddOrd" type="button">Add Order</button>
+          </div>
+        </div>
+        <div class="mlo-pane-content" style="padding:0;">
+          <table class="table table-dark table-hover mlo-table" style="margin:0;">
+            <thead>
+              <tr>
+                <th style="width:60px;">#</th>
+                <th style="width:170px;">PO Number</th>
+                <th style="width:200px;">Supplier</th>
+                <th style="width:160px;">Status</th>
+                <th style="width:120px;">Lead (days)</th>
+                <th style="width:160px;">Expected</th>
+                <th style="width:170px;">Requested By</th>
+                <th style="width:120px;">Total</th>
+                <th style="width:160px;">Updated</th>
+              </tr>
+            </thead>
+            <tbody id="ordTbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <div class="mlo-resizer" data-resize="right" title="Drag to resize"></div>
+
+      <!-- RIGHT -->
+      <section class="mlo-pane mlo-pane-right mlo-inspector" aria-label="Order inspector">
+        <div class="mlo-pane-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="mlo-title">Inspector</div>
+            <span class="badge text-bg-secondary" id="ordInspectorBadge">No selection</span>
+          </div>
+        </div>
+        <div class="mlo-pane-content">
+          <form id="ordForm" autocomplete="off">
+            <ul class="nav nav-tabs nav-dark mb-2" role="tablist">
+              <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="tab-ord-details" data-bs-toggle="tab" data-bs-target="#pane-ord-details" type="button" role="tab" aria-controls="pane-ord-details" aria-selected="true">Details</button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" id="tab-ord-lines" data-bs-toggle="tab" data-bs-target="#pane-ord-lines" type="button" role="tab" aria-controls="pane-ord-lines" aria-selected="false">Line Items</button>
+              </li>
+            </ul>
+            <div class="tab-content">
+              <div class="tab-pane fade show active" id="pane-ord-details" role="tabpanel" aria-labelledby="tab-ord-details">
+                <div class="row g-2">
+                  <div class="col-6">
+                    <label class="form-label">PO Number</label>
+                    <input id="f_ord_id" class="form-control form-control-sm" type="text" placeholder="e.g. PO-2026-001">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Status</label>
+                    <select id="f_ord_status" class="form-select form-select-sm">
+                      <option>Draft</option>
+                      <option>Submitted</option>
+                      <option>Approved</option>
+                      <option>Partially Received</option>
+                      <option>Received</option>
+                      <option>Closed</option>
+                    </select>
+                  </div>
+
+                  <div class="col-6">
+                    <label class="form-label">Supplier</label>
+                    <select id="f_ord_supplier" class="form-select form-select-sm"></select>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Lead time (days)</label>
+                    <input id="f_ord_lead" class="form-control form-control-sm" type="number" min="0" step="1">
+                  </div>
+
+                  <div class="col-6">
+                    <label class="form-label">Expected delivery</label>
+                    <input id="f_ord_expected" class="form-control form-control-sm" type="date">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Requested by</label>
+                    <select id="f_ord_requester" class="form-select form-select-sm"></select>
+                  </div>
+
+                  <div class="col-12">
+                    <label class="form-label">Notes</label>
+                    <input id="f_ord_notes" class="form-control form-control-sm" type="text" placeholder="Supplier terms, shipping, etc.">
+                  </div>
+
+                  <div class="col-12 d-flex gap-1 mt-1">
+                    <button class="btn btn-sm btn-primary mlo-btn" id="btnSaveOrd" type="button">Save</button>
+                    <button class="btn btn-sm btn-outline-light mlo-btn" id="btnDupOrd" type="button">Duplicate</button>
+                    <button class="btn btn-sm btn-outline-danger mlo-btn" id="btnDelOrd" type="button">Delete</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="tab-pane fade" id="pane-ord-lines" role="tabpanel" aria-labelledby="tab-ord-lines">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                  <div class="mlo-title">Line Items</div>
+                  <div class="d-flex gap-1">
+                    <button class="btn btn-sm btn-outline-light mlo-btn" id="btnReceiveAll" type="button">Receive All</button>
+                  </div>
+                </div>
+                <div class="table-responsive">
+                  <table class="table table-dark table-sm mlo-table" style="margin:0;">
+                    <thead>
+                      <tr>
+                        <th style="width:220px;">Item</th>
+                        <th style="width:110px;">Kind</th>
+                        <th style="width:100px;">Qty</th>
+                        <th style="width:110px;">Unit</th>
+                        <th style="width:120px;">Unit Price</th>
+                        <th style="width:120px;">Received</th>
+                        <th>Notes</th>
+                        <th style="width:140px;">Receive Now</th>
+                        <th style="width:60px;"></th>
+                      </tr>
+                    </thead>
+                    <tbody id="ordLineTbody"></tbody>
+                  </table>
+                </div>
+                <div class="d-flex flex-wrap gap-1 mt-1">
+                  <input id="ordLineItem" class="form-control form-control-sm" type="text" placeholder="Inventory / Asset" style="flex:2 1 220px; min-width:160px;" list="ordItemOptions">
+                  <datalist id="ordItemOptions"></datalist>
+                  <select id="ordLineKind" class="form-select form-select-sm" style="flex:0 1 140px; min-width:120px;">
+                    <option value="inventory">Inventory</option>
+                    <option value="asset">Asset</option>
+                  </select>
+                  <input id="ordLineQty" class="form-control form-control-sm" type="number" min="0" step="0.01" placeholder="Qty" style="flex:0 1 120px; min-width:100px;">
+                  <input id="ordLineUom" class="form-control form-control-sm" type="text" placeholder="UoM" style="flex:0 1 120px; min-width:100px;">
+                  <input id="ordLinePrice" class="form-control form-control-sm" type="number" min="0" step="0.01" placeholder="Unit Price" style="flex:0 1 140px; min-width:120px;">
+                  <input id="ordLineNotes" class="form-control form-control-sm" type="text" placeholder="Notes" style="flex:2 1 220px; min-width:160px;">
+                  <button class="btn btn-sm btn-outline-light mlo-btn" id="btnAddLine" type="button">Add Line</button>
+                </div>
+              </div>
+            </div>
+          </form>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="config.js"></script>
+  <script src="core.js"></script>
+  <script src="topnav.js"></script>
+  <script>
+    (function(){
+      RTS.setActiveNav();
+      const LS_ORDERS = 'rts.orders.v1';
+      const LS_PANES = 'rts.orders.panes.v1';
+      RTS.activateTabFromQuery && RTS.activateTabFromQuery();
+
+      const settings = RTS.getSettings();
+      const SUPPLIERS = (settings.suppliers||[]).map(s=>s.name).filter(Boolean);
+      const DRIVERS = (settings.drivers||[]).map(d=>({id:d.id, name:d.name}));
+      const STAFF = (settings.staff||[]).map(s=>({id:s.id, name:s.name}));
+      const REQUESTERS = [...DRIVERS, ...STAFF];
+
+      const invStore = RTS.safeLoadJSON('rts.inventory.v4', []) || [];
+      const asStore = RTS.safeLoadJSON('rts.assets.v4', []) || [];
+      const INV_OPTIONS = invStore.map(i=>({ id: String(i.id), label: i.name||String(i.id), kind:'inventory', uom: i.uom||'' }));
+      const ASSET_OPTIONS = asStore.map(a=>({ id: String(a.id), label: a.name||String(a.id), kind:'asset', uom: '' }));
+      const ITEM_OPTIONS = [...INV_OPTIONS, ...ASSET_OPTIONS];
+      const ITEM_MAP = new Map(ITEM_OPTIONS.map(o => [`${o.kind}:${o.id}`, o]));
+
+      let orders = RTS.safeLoadJSON(LS_ORDERS, []) || [];
+      if (!Array.isArray(orders)) orders = [];
+      // Seed demo order with 5 lines if empty
+      if (!orders.length){
+        const demoId = uid();
+        const inv1 = INV_OPTIONS[0], inv2 = INV_OPTIONS[1], inv3 = INV_OPTIONS[2];
+        const as1 = ASSET_OPTIONS[0], as2 = ASSET_OPTIONS[1];
+        const items = [];
+        if (inv1) items.push({ ref:`inventory:${inv1.id}`, kind:'inventory', qty: 10, uom: inv1.uom||'ea', price: 100, notes:'Demo' });
+        if (inv2) items.push({ ref:`inventory:${inv2.id}`, kind:'inventory', qty: 5, uom: inv2.uom||'ea', price: 50, notes:'Demo' });
+        if (inv3) items.push({ ref:`inventory:${inv3.id}`, kind:'inventory', qty: 2, uom: inv3.uom||'ea', price: 25, notes:'Demo' });
+        if (as1) items.push({ ref:`asset:${as1.id}`, kind:'asset', qty: 1, uom: 'ea', price: 5000, notes:'Demo chassis' });
+        if (as2) items.push({ ref:`asset:${as2.id}`, kind:'asset', qty: 1, uom: 'ea', price: 1200, notes:'Demo tool' });
+        orders.push({ id: demoId, status:'Draft', supplier:(SUPPLIERS[0]||'Supplier A'), lead:7, expected:'', requester:(REQUESTERS[0]?.id||''), notes:'Demo seeded order', items, updatedAt: nowISO() });
+        persist();
+      }
+
+      const defaultUI = { perspective:'all', supplier:'', status:'', search:'', selectedId:null };
+      let ui = RTS.deepMerge(defaultUI, RTS.safeLoadJSON('rts.orders.ui.v1', {}));
+
+      const el = {
+        shell: document.getElementById('ordShell'),
+        badge: document.getElementById('ordCountBadge'),
+        perspectives: document.getElementById('ordPerspectiveList'),
+        supTree: document.getElementById('ordSupplierList'),
+        tbody: document.getElementById('ordTbody'),
+        search: document.getElementById('ordSearch'),
+        supplier: document.getElementById('ordSupplier'),
+        status: document.getElementById('ordStatus'),
+        add: document.getElementById('btnAddOrd'),
+        ibadge: document.getElementById('ordInspectorBadge'),
+        linesTbody: document.getElementById('ordLineTbody'),
+        lineItem: document.getElementById('ordLineItem'),
+        lineKind: document.getElementById('ordLineKind'),
+        lineQty: document.getElementById('ordLineQty'),
+        lineUom: document.getElementById('ordLineUom'),
+        linePrice: document.getElementById('ordLinePrice'),
+        lineNotes: document.getElementById('ordLineNotes'),
+        btnAddLine: document.getElementById('btnAddLine'),
+        f: {
+          id: document.getElementById('f_ord_id'),
+          status: document.getElementById('f_ord_status'),
+          supplier: document.getElementById('f_ord_supplier'),
+          lead: document.getElementById('f_ord_lead'),
+          expected: document.getElementById('f_ord_expected'),
+          requester: document.getElementById('f_ord_requester'),
+          notes: document.getElementById('f_ord_notes')
+        },
+        save: document.getElementById('btnSaveOrd'),
+        dup: document.getElementById('btnDupOrd'),
+        del: document.getElementById('btnDelOrd')
+      };
+
+      RTS.initTriPaneResizers(el.shell, LS_PANES);
+
+      function persist(){ RTS.safeSaveJSON(LS_ORDERS, orders); RTS.safeSaveJSON('rts.orders.ui.v1', ui); }
+
+      function fillSelects(){
+        if (el.f.supplier) el.f.supplier.innerHTML = SUPPLIERS.map(v=>`<option>${v}</option>`).join('');
+        const reqOpts = REQUESTERS.map(r=>`<option value="${r.id}">${RTS.escapeHtml(r.name)}</option>`).join('');
+        if (el.f.requester) el.f.requester.innerHTML = reqOpts || '<option value="">—</option>';
+        el.supplier.innerHTML = '<option value="">Supplier: All</option>' + SUPPLIERS.map(v=>`<option>${v}</option>`).join('');
+        const supSet = new Set(orders.map(o=>o.supplier).filter(Boolean));
+        el.supTree.innerHTML = Array.from(supSet).map(s=>`<li data-supplier="${RTS.escapeHtml(s)}">${RTS.escapeHtml(s)}</li>`).join('');
+        document.getElementById('ordItemOptions').innerHTML = ITEM_OPTIONS.map(o=>`<option value="${o.kind}:${o.id}">${RTS.escapeHtml(o.label)}</option>`).join('');
+      }
+
+      function totalFor(o){
+        const lines = Array.isArray(o.items) ? o.items : [];
+        const sum = lines.reduce((acc, li) => acc + Number(li.qty||0) * Number(li.price||0), 0);
+        return Math.round(sum * 100) / 100;
+      }
+
+      function applyFilters(list){
+        let out = list.slice();
+        if (ui.supplier) out = out.filter(o => o.supplier === ui.supplier);
+        if (ui.status) out = out.filter(o => String(o.status||'') === ui.status);
+        if (ui.search){
+          const q = ui.search.toLowerCase();
+          out = out.filter(o => (`${o.id} ${o.supplier} ${o.notes||''}`).toLowerCase().includes(q));
+        }
+        if (ui.perspective === 'open') out = out.filter(o => !['Received','Closed'].includes(String(o.status||'')));
+        if (ui.perspective === 'due') out = out.filter(o => {
+          const d = new Date(String(o.expected||'')); const now = new Date();
+          const diff = (d - now) / 86400000; return diff >= 0 && diff <= 7;
+        });
+        if (ui.perspective === 'late') out = out.filter(o => {
+          const d = new Date(String(o.expected||'')); const now = new Date();
+          return d && d < now && !['Received','Closed'].includes(String(o.status||''));
+        });
+        return out;
+      }
+
+      function render(){
+        el.search.value = ui.search || '';
+        el.supplier.value = ui.supplier || '';
+        el.status.value = ui.status || '';
+        const filtered = applyFilters(orders);
+        el.badge.textContent = String(filtered.length);
+        el.tbody.innerHTML = '';
+        let idx = 0;
+        filtered.sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
+        filtered.forEach(o => {
+          idx += 1;
+          const tr = document.createElement('tr');
+          tr.dataset.id = String(o.id);
+          if (ui.selectedId === o.id) tr.classList.add('mlo-row-selected');
+          tr.innerHTML = `
+            <td>${idx}</td>
+            <td>${RTS.escapeHtml(o.id||'')}</td>
+            <td>${RTS.escapeHtml(o.supplier||'')}</td>
+            <td>${RTS.escapeHtml(o.status||'Draft')}</td>
+            <td>${Number(o.lead||0)}</td>
+            <td>${RTS.escapeHtml(o.expected||'')}</td>
+            <td>${RTS.escapeHtml(displayRequester(o.requester))}</td>
+            <td>${totalFor(o).toFixed(2)}</td>
+            <td>${RTS.escapeHtml(o.updatedAt||'')}</td>
+          `;
+          tr.addEventListener('click', ()=> select(o.id));
+          el.tbody.appendChild(tr);
+        });
+      }
+
+      function displayRequester(id){
+        const r = REQUESTERS.find(x => String(x.id) === String(id));
+        return r ? r.name : '—';
+      }
+
+      function escape(s){ return RTS.escapeHtml(s); }
+      function nowISO(){ return new Date().toISOString(); }
+      function uid(){ return RTS.uid('po'); }
+
+      function select(id){
+        ui.selectedId = id; persist();
+        const o = orders.find(x => String(x.id) === String(id));
+        el.ibadge.textContent = o ? `PO ${o.id}` : 'No selection';
+        bindForm(o || null);
+        renderLines(o || null);
+        render();
+      }
+
+      function bindForm(o){
+        const data = o || { id: uid(), status:'Draft', supplier:(SUPPLIERS[0]||''), lead:0, expected:'', requester:'', notes:'', items:[], updatedAt: nowISO() };
+        el.f.id.value = data.id || '';
+        el.f.status.value = data.status || 'Draft';
+        ensureOption(el.f.supplier, data.supplier); el.f.supplier.value = data.supplier || '';
+        el.f.lead.value = Number(data.lead||0);
+        el.f.expected.value = data.expected || '';
+        ensureOption(el.f.requester, data.requester); el.f.requester.value = data.requester || '';
+        el.f.notes.value = data.notes || '';
+      }
+
+      function ensureOption(sel, val){
+        if (!sel || !val) return; const exists = Array.from(sel.options||[]).some(o => o.value === String(val));
+        if (!exists){ const opt = document.createElement('option'); opt.value = String(val); opt.textContent = String(val); sel.appendChild(opt); }
+      }
+
+      function formToObj(){
+        return {
+          id: el.f.id.value.trim() || uid(),
+          status: el.f.status.value || 'Draft',
+          supplier: el.f.supplier.value || '',
+          lead: Number(el.f.lead.value||0),
+          expected: el.f.expected.value || '',
+          requester: el.f.requester.value || '',
+          notes: el.f.notes.value || '',
+          items: getCurrentLines(),
+          updatedAt: nowISO()
+        };
+      }
+
+      function getCurrentLines(){
+        const out = []; const rows = Array.from(el.linesTbody.querySelectorAll('tr'));
+        rows.forEach(r => {
+          const ref = r.getAttribute('data-ref') || '';
+          const kind = r.getAttribute('data-kind') || '';
+          const qty = Number(r.getAttribute('data-qty')||0);
+          const uom = r.getAttribute('data-uom') || '';
+          const price = Number(r.getAttribute('data-price')||0);
+          const notes = r.getAttribute('data-notes') || '';
+          out.push({ ref, kind, qty, uom, price, notes });
+        });
+        return out;
+      }
+
+      function renderLines(o){
+        el.linesTbody.innerHTML = '';
+        const lines = (o && Array.isArray(o.items)) ? o.items : [];
+        lines.forEach(li => addLineRow(li));
+      }
+
+      function addLineRow(li){
+        const row = document.createElement('tr');
+        const item = ITEM_MAP.get(String(li.ref||'')) || { label: (li.ref||'') };
+        row.setAttribute('data-ref', String(li.ref||''));
+        row.setAttribute('data-kind', String(li.kind||''));
+        row.setAttribute('data-qty', String(li.qty||0));
+        row.setAttribute('data-uom', String(li.uom||''));
+        row.setAttribute('data-price', String(li.price||0));
+        row.setAttribute('data-notes', String(li.notes||''));
+        row.innerHTML = `
+          <td>${escape(item.label||'')}</td>
+          <td>${escape(li.kind||'')}</td>
+          <td>${Number(li.qty||0)}</td>
+          <td>${escape(li.uom||'')}</td>
+          <td>${Number(li.price||0).toFixed(2)}</td>
+          <td>${escape(li.notes||'')}</td>
+          <td><button type="button" class="btn btn-sm btn-outline-danger mlo-btn">Del</button></td>
+        `;
+        row.querySelector('button').addEventListener('click', ()=>{ row.remove(); persistCurrentLines(); });
+        el.linesTbody.appendChild(row);
+      }
+
+      function persistCurrentLines(){
+        const id = el.f.id.value.trim(); if (!id) return;
+        const idx = orders.findIndex(x => String(x.id) === String(id));
+        const obj = formToObj();
+        if (idx >= 0) orders[idx] = obj; else orders.push(obj);
+        persist(); render();
+      }
+
+      // Add line from inputs
+      el.btnAddLine.addEventListener('click', ()=>{
+        const refRaw = String(el.lineItem.value||'').trim();
+        if (!refRaw) return;
+        const kind = String(el.lineKind.value||'inventory');
+        const qty = Number(el.lineQty.value||0);
+        const uom = el.lineUom.value||'';
+        const price = Number(el.linePrice.value||0);
+        const notes = el.lineNotes.value||'';
+        const ref = refRaw.includes(':') ? refRaw : `${kind}:${refRaw}`;
+        addLineRow({ ref, kind, qty, uom, price, notes });
+        // clear minimal inputs
+        el.lineItem.value = ''; el.lineQty.value = ''; el.linePrice.value = ''; el.lineNotes.value = '';
+        persistCurrentLines();
+      });
+
+      // Save/Dup/Del wiring
+      el.save.addEventListener('click', ()=>{ persistCurrentLines(); });
+      el.dup.addEventListener('click', ()=>{
+        const obj = formToObj(); obj.id = uid(); obj.status = 'Draft'; obj.updatedAt = nowISO();
+        orders.push(obj); persist(); ui.selectedId = obj.id; render(); select(obj.id);
+      });
+      el.del.addEventListener('click', ()=>{
+        const id = el.f.id.value.trim(); const idx = orders.findIndex(x => String(x.id) === String(id));
+        if (idx >= 0){ orders.splice(idx,1); persist(); ui.selectedId = null; render(); bindForm(null); el.ibadge.textContent='No selection'; }
+      });
+
+      // Receive All
+      document.getElementById('btnReceiveAll').addEventListener('click', ()=>{
+        const rows = Array.from(el.linesTbody.querySelectorAll('tr'));
+        rows.forEach(row => {
+          const qty = Number(row.getAttribute('data-qty')||0);
+          const cur = Number(row.getAttribute('data-recv')||0);
+          const pend = Math.max(0, qty - cur);
+          if (pend <= 0) return;
+          row.setAttribute('data-recv', String(qty));
+          row.children[5].textContent = String(qty);
+          const ref = String(row.getAttribute('data-ref')||'');
+          if (ref.startsWith('inventory:')){
+            try { incrementInventory(ref.split(':')[1], pend); } catch(_e){}
+          }
+        });
+        persistCurrentLines();
+        updateStatusByReceipts();
+      });
+
+      // Override: addLineRow with receiving controls
+      function addLineRow(li){
+        const row = document.createElement('tr');
+        const item = ITEM_MAP.get(String(li.ref||'')) || { label: (li.ref||'') };
+        row.setAttribute('data-ref', String(li.ref||''));
+        row.setAttribute('data-kind', String(li.kind||''));
+        row.setAttribute('data-qty', String(li.qty||0));
+        row.setAttribute('data-uom', String(li.uom||''));
+        row.setAttribute('data-price', String(li.price||0));
+        row.setAttribute('data-notes', String(li.notes||''));
+        row.setAttribute('data-recv', String(li.recv||0));
+        // Build receive controls dynamically: driver assign for inventory; quick create for asset
+        const isInv = String(li.kind||'') === 'inventory';
+        const isAsset = String(li.kind||'') === 'asset';
+        const reqOptions = REQUESTERS.map(r=>`<option value="${r.id}">${escape(r.name)}</option>`).join('');
+        const receiveControls = `
+          <div class="d-flex flex-wrap align-items-center gap-1">
+            <input type="number" min="0" step="0.01" class="form-control form-control-sm" placeholder="Qty" style="max-width:100px;" value="">
+            ${isInv ? `<select class="form-select form-select-sm" data-driver style="max-width:160px;"><option value="">Assign driver (optional)</option>${reqOptions}</select>` : ''}
+            <button type="button" class="btn btn-sm btn-outline-light mlo-btn" data-receive>Receive</button>
+            ${isAsset ? `<button type="button" class="btn btn-sm btn-outline-warning mlo-btn" data-create-asset title="Create asset from this line">Create Asset</button>` : ''}
+          </div>
+        `;
+        row.innerHTML = `
+          <td>${escape(item.label||'')}</td>
+          <td>${escape(li.kind||'')}</td>
+          <td>${Number(li.qty||0)}</td>
+          <td>${escape(li.uom||'')}</td>
+          <td>${Number(li.price||0).toFixed(2)}</td>
+          <td>${Number(li.recv||0)}</td>
+          <td>${escape(li.notes||'')}</td>
+          <td>${receiveControls}</td>
+          <td><button type="button" class="btn btn-sm btn-outline-danger mlo-btn" data-del>Del</button></td>
+        `;
+        const recvBtn = row.querySelector('button[data-receive]');
+        const delBtn = row.querySelector('button[data-del]');
+        const input = row.querySelector('input[type=number]');
+        const drvSel = row.querySelector('select[data-driver]');
+        const createBtn = row.querySelector('button[data-create-asset]');
+        // Receive handler
+        recvBtn.addEventListener('click', ()=>{
+          const amt = Number(input.value||0);
+          const qty = Number(row.getAttribute('data-qty')||0);
+          const cur = Number(row.getAttribute('data-recv')||0);
+          const next = Math.min(qty, cur + Math.max(0, amt));
+          row.setAttribute('data-recv', String(next));
+          row.children[5].textContent = String(next);
+          persistCurrentLines();
+          updateStatusByReceipts();
+          const ref = String(row.getAttribute('data-ref')||'');
+          if (ref.startsWith('inventory:') && amt > 0){
+            try { incrementInventory(ref.split(':')[1], amt); } catch(_e){}
+            // Optional driver assignment
+            const drvId = drvSel ? String(drvSel.value||'') : '';
+            if (drvId){ try { assignInventoryDriver(ref.split(':')[1], drvId); } catch(_e){} }
+          }
+          input.value = '';
+        });
+        // Delete handler
+        delBtn.addEventListener('click', ()=>{ row.remove(); persistCurrentLines(); updateStatusByReceipts(); });
+        // Create Asset quick action
+        if (createBtn){
+          createBtn.addEventListener('click', ()=>{
+            try { createAssetFromOrder(item.label||''); } catch(_e){}
+            // Give a tiny visual hint
+            createBtn.textContent = 'Asset Created';
+            createBtn.disabled = true;
+            setTimeout(()=>{ createBtn.textContent = 'Create Asset'; createBtn.disabled = false; }, 1500);
+          });
+        }
+        el.linesTbody.appendChild(row);
+      }
+
+      // Override: include recv in persisted lines
+      function getCurrentLines(){
+        const out = []; const rows = Array.from(el.linesTbody.querySelectorAll('tr'));
+        rows.forEach(r => {
+          const ref = r.getAttribute('data-ref') || '';
+          const kind = r.getAttribute('data-kind') || '';
+          const qty = Number(r.getAttribute('data-qty')||0);
+          const uom = r.getAttribute('data-uom') || '';
+          const price = Number(r.getAttribute('data-price')||0);
+          const notes = r.getAttribute('data-notes') || '';
+          const recv = Number(r.getAttribute('data-recv')||0);
+          out.push({ ref, kind, qty, uom, price, notes, recv });
+        });
+        return out;
+      }
+
+      // Helper: update status based on receipts
+      function updateStatusByReceipts(){
+        const id = el.f.id.value.trim(); const o = orders.find(x => String(x.id) === String(id));
+        if (!o) return;
+        const lines = Array.isArray(o.items) ? o.items : [];
+        const allRecv = lines.length>0 && lines.every(li => Number(li.recv||0) >= Number(li.qty||0));
+        const anyRecv = lines.some(li => Number(li.recv||0) > 0);
+        o.status = allRecv ? 'Received' : (anyRecv ? 'Partially Received' : o.status||'Draft');
+        o.updatedAt = nowISO();
+        persist(); render();
+      }
+
+      // Inventory increment on receive
+      function incrementInventory(id, amt){
+        let inv = RTS.safeLoadJSON('rts.inventory.v4', []) || [];
+        const idx = inv.findIndex(i => String(i.id) === String(id));
+        if (idx >= 0){ inv[idx].qty = Number(inv[idx].qty||0) + Number(amt||0); RTS.safeSaveJSON('rts.inventory.v4', inv); }
+      }
+
+      // Assign inventory item to a driver by id (stores driver name)
+      function assignInventoryDriver(id, drvId){
+        let inv = RTS.safeLoadJSON('rts.inventory.v4', []) || [];
+        const idx = inv.findIndex(i => String(i.id) === String(id));
+        const drv = REQUESTERS.find(r => String(r.id)===String(drvId));
+        if (idx >= 0 && drv){ inv[idx].driver = drv.name; RTS.safeSaveJSON('rts.inventory.v4', inv); }
+      }
+
+      // Create a minimal asset record from an asset order line
+      function createAssetFromOrder(name){
+        let assets = RTS.safeLoadJSON('rts.assets.v4', []) || [];
+        const id = `AS-${String(RTS.uid('as')).slice(-6)}`;
+        const a = {
+          id, name: name||id, type: 'Received', status: 'OK', custodian: '—', location: 'Workshop',
+          serial: '', purchase: nowISO().slice(0,10), cost: 0,
+          last_service: '', last_inspection: '', due_back: '', history: []
+        };
+        assets.push(a);
+        RTS.safeSaveJSON('rts.assets.v4', assets);
+      }
+
+      // Basic filters
+      el.search.addEventListener('input', ()=>{ ui.search = el.search.value||''; persist(); render(); });
+      el.supplier.addEventListener('change', ()=>{ ui.supplier = el.supplier.value||''; persist(); render(); });
+      el.status.addEventListener('change', ()=>{ ui.status = el.status.value||''; persist(); render(); });
+      document.querySelectorAll('#ordPerspectiveList li').forEach(li => {
+        li.addEventListener('click', ()=>{ document.querySelectorAll('#ordPerspectiveList li').forEach(x=>x.classList.remove('active')); li.classList.add('active'); ui.perspective = li.getAttribute('data-perspective'); persist(); render(); });
+      });
+
+      // Add order button
+      el.add.addEventListener('click', ()=>{ const obj = { id: uid(), status:'Draft', supplier:(SUPPLIERS[0]||''), lead:0, expected:'', requester:'', notes:'', items:[], updatedAt: nowISO() }; orders.push(obj); persist(); ui.selectedId=obj.id; render(); select(obj.id); });
+
+      // Init
+      fillSelects();
+      render();
+      RTS.initTriPaneResizers(el.shell, LS_PANES);
+    })();
+  </script>
+</body>
+</html>

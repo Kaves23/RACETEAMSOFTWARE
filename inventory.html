@@ -38,6 +38,8 @@
 
               <div class="mlo-section-label mt-3">Suppliers</div>
               <ul class="mlo-tree pastel-tree" id="invSupplierList"></ul>
+              <div class="mlo-section-label mt-3">Drivers</div>
+              <ul class="mlo-tree pastel-tree" id="invDriverList"></ul>
             </div>
           </section>
 
@@ -58,20 +60,40 @@
                   <option value="low">Group: Low Stock</option>
                 </select>
                 <button class="btn btn-sm btn-outline-light mlo-btn" id="btnAddInv" type="button">Add Item</button>
+                <button class="btn btn-sm btn-outline-light mlo-btn" id="btnLogUsage" type="button" title="Log usage time against parts attached to an asset">Log Usage</button>
               </div>
             </div>
 
             <div class="mlo-pane-content" style="padding:0;">
               <table class="table table-dark table-hover mlo-table" style="margin:0;">
+                <colgroup id="invColGroup">
+                  <col>
+                  <col>
+                  <col>
+                  <col>
+                  <col>
+                  <col>
+                  <col>
+                  <col>
+                  <col>
+                  <col>
+                  <col>
+                  <col>
+                </colgroup>
                 <thead>
                   <tr>
-                    <th style="width:60px;">#</th>
+                    <th>#</th>
                     <th>Item</th>
-                    <th style="width:120px;">Qty</th>
-                    <th style="width:90px;">UoM</th>
-                    <th style="width:120px;">Reorder</th>
-                    <th style="width:170px;">Supplier</th>
-                    <th style="width:170px;">Location</th>
+                    <th>Qty</th>
+                    <th>UoM</th>
+                    <th>Reorder</th>
+                    <th>Supplier</th>
+                    <th>Location</th>
+                    <th>Driver</th>
+                    <th>Compliance</th>
+                    <th>Auto-PO</th>
+                    <th>Serials</th>
+                    <th>Lifing</th>
                   </tr>
                 </thead>
                 <tbody id="invTbody"></tbody>
@@ -123,16 +145,20 @@
 
                   <div class="col-6">
                     <label class="form-label">Category</label>
-                    <input id="f_inv_cat" class="form-control form-control-sm" type="text" placeholder="Consumables / Tyres / Spares">
+                    <select id="f_inv_cat" class="form-select form-select-sm"></select>
                   </div>
                   <div class="col-6">
                     <label class="form-label">Location</label>
-                    <input id="f_inv_loc" class="form-control form-control-sm" type="text" placeholder="Workshop / Trailer bin">
+                    <select id="f_inv_loc" class="form-select form-select-sm"></select>
                   </div>
 
                   <div class="col-6">
                     <label class="form-label">Supplier</label>
-                    <input id="f_inv_supplier" class="form-control form-control-sm" type="text" placeholder="Preferred supplier">
+                    <select id="f_inv_supplier" class="form-select form-select-sm"></select>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Assigned driver</label>
+                    <select id="f_inv_driver" class="form-select form-select-sm"></select>
                   </div>
                   <div class="col-3">
                     <label class="form-label">Lead time (days)</label>
@@ -141,6 +167,101 @@
                   <div class="col-3">
                     <label class="form-label">Unit cost</label>
                     <input id="f_inv_cost" class="form-control form-control-sm" type="number" step="0.01" min="0">
+                  </div>
+
+                  <div class="col-6">
+                    <label class="form-label">Homologation / Part No.</label>
+                    <input id="f_inv_homolog" class="form-control form-control-sm" type="text" placeholder="e.g. FIA H-1234 or supplier PN">
+                  </div>
+                  <div class="col-3">
+                    <label class="form-label">Expiry</label>
+                    <input id="f_inv_expiry" class="form-control form-control-sm" type="date">
+                  </div>
+                  <div class="col-3 d-flex align-items-center" style="padding-top: 1.2rem;">
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" id="f_inv_auto">
+                      <label class="form-check-label" for="f_inv_auto">Auto reorder</label>
+                    </div>
+                  </div>
+
+                  <div id="lifingSection" class="col-12">
+                    <hr class="border-secondary">
+                    <div class="d-flex justify-content-between align-items-center">
+                      <div class="mlo-title">Lifing</div>
+                      <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="f_inv_lifingEnabled">
+                        <label class="form-check-label" for="f_inv_lifingEnabled">Enable lifing</label>
+                      </div>
+                    </div>
+                    <div id="lifingHint" class="text-muted small mb-2" style="display:none;">Lifing applies to Tyres. Toggle above to enable for other items.</div>
+                    <div class="row g-2">
+                      <div class="col-3">
+                        <label class="form-label">Cycles</label>
+                        <input id="f_inv_cycles" class="form-control form-control-sm" type="number" min="0" step="1">
+                      </div>
+                      <div class="col-3">
+                        <label class="form-label">Heat (min)</label>
+                        <input id="f_inv_heat" class="form-control form-control-sm" type="number" min="0" step="1">
+                      </div>
+                      <div class="col-3">
+                        <label class="form-label">Cycle limit</label>
+                        <input id="f_inv_cycleLimit" class="form-control form-control-sm" type="number" min="0" step="1">
+                      </div>
+                      <div class="col-3">
+                        <label class="form-label">Heat limit (min)</label>
+                        <input id="f_inv_heatLimit" class="form-control form-control-sm" type="number" min="0" step="1">
+                      </div>
+                      <div class="col-6">
+                        <label class="form-label">Condition</label>
+                        <select id="f_inv_condition" class="form-select form-select-sm">
+                          <option>OK</option>
+                          <option>Wear</option>
+                          <option>Fail</option>
+                        </select>
+                      </div>
+                      <div class="col-6">
+                        <label class="form-label">Last inspection</label>
+                        <input id="f_inv_inspect" class="form-control form-control-sm" type="date">
+                      </div>
+                    </div>
+                    <div class="mlo-title mt-2">Tyre Serials</div>
+                    <div class="row g-2">
+                      <div class="col-3">
+                        <label class="form-label">FL</label>
+                        <input id="f_inv_serialFL" class="form-control form-control-sm" type="text" placeholder="Front Left serial">
+                      </div>
+                      <div class="col-3">
+                        <label class="form-label">FR</label>
+                        <input id="f_inv_serialFR" class="form-control form-control-sm" type="text" placeholder="Front Right serial">
+                      </div>
+                      <div class="col-3">
+                        <label class="form-label">RR</label>
+                        <input id="f_inv_serialRR" class="form-control form-control-sm" type="text" placeholder="Rear Right serial">
+                      </div>
+                      <div class="col-3">
+                        <label class="form-label">RL</label>
+                        <input id="f_inv_serialRL" class="form-control form-control-sm" type="text" placeholder="Rear Left serial">
+                      </div>
+                    </div>
+                  </div>
+
+                  <div id="usageSection" class="col-12">
+                    <hr class="border-secondary">
+                    <div class="mlo-title">Usage</div>
+                    <div class="row g-2">
+                      <div class="col-4">
+                        <label class="form-label">Initial value</label>
+                        <input id="f_inv_usageInit" class="form-control form-control-sm" type="number" min="0" step="1" placeholder="e.g. 0 (minutes)">
+                      </div>
+                      <div class="col-4">
+                        <label class="form-label">Current value</label>
+                        <input id="f_inv_usageCur" class="form-control form-control-sm" type="number" min="0" step="1" placeholder="minutes">
+                      </div>
+                      <div class="col-4">
+                        <label class="form-label">Service limit</label>
+                        <input id="f_inv_usageLimit" class="form-control form-control-sm" type="number" min="0" step="1" placeholder="minutes">
+                      </div>
+                    </div>
                   </div>
 
                   <div class="col-12">
@@ -156,7 +277,15 @@
                   <div class="col-12 d-flex gap-1 mt-1">
                     <button class="btn btn-sm btn-primary mlo-btn" id="btnSaveInv" type="button">Save</button>
                     <button class="btn btn-sm btn-outline-light mlo-btn" id="btnDupInv" type="button">Duplicate</button>
-                    <button class="btn btn-sm btn-outline-danger mlo-btn" id="btnDelInv" type="button">Delete</button>
+                    <!-- Deletion disabled: inventory must be invoiced out -->
+                    <button class="btn btn-sm btn-outline-danger mlo-btn" id="btnDelInv" type="button" disabled data-bs-toggle="tooltip" data-bs-placement="top" title="Inventory cannot be deleted. To remove stock, add it to an invoice and issue it to a customer.">Delete</button>
+                    <button class="btn btn-sm btn-warning mlo-btn" id="btnDraftPO" type="button" title="Create a draft purchase order for low stock">Draft PO</button>
+                    <button class="btn btn-sm btn-outline-light mlo-btn" id="btnAddCycle" type="button" title="Increment cycle count">+1 Cycle</button>
+                    <button class="btn btn-sm btn-outline-light mlo-btn" id="btnAddHeat" type="button" title="Add 10 minutes heat">+10 min Heat</button>
+                    <button class="btn btn-sm btn-outline-light mlo-btn" id="btnMarkInspect" type="button" title="Mark last inspection as today">Mark Inspected</button>
+                  </div>
+                  <div class="alert alert-warning mt-2 py-1" role="alert" style="background:rgba(255,193,7,0.12); border-color:rgba(255,193,7,0.25); color:#fff;">
+                    Inventory removal policy: items cannot be deleted here. To reduce stock, you must invoice the item out to a customer via the Invoicing section.
                   </div>
                     </div>
                   </div>
@@ -174,15 +303,19 @@
   (function(){
     RTS.setActiveNav();
 
-    const LS_INV = 'rts.inventory.v4';
+  const LS_INV = 'rts.inventory.v4';
     const LS_UI = 'rts.inventory.ui.v4';
     const LS_PANES = 'rts.inventory.panes.v4';
+  const LS_PODRAFTS = 'rts.podrafts.v1';
+  const LS_COLS = 'rts.inventory.cols.v1';
+  const LS_ORDERS = 'rts.orders.v1';
 
-    const settings = RTS.getSettings();
-    const LOCATIONS = (settings.locations||[]).slice();
-    const SUPPLIERS = (settings.suppliers||[]).map(s=>s.name).filter(Boolean);
-    const CATS = ['Consumables','Spares','Tyres','Tools & PPE'];
+  const settings = RTS.getSettings();
+  const LOCATIONS = (settings.locations||[]).slice();
+  const SUPPLIERS = (settings.suppliers||[]).map(s=>s.name).filter(Boolean);
+  const CATS = (settings.categories||['Consumables','Spares','Tyres','Tools & PPE']);
     const UOMS = ['ea','L','ml','set','box'];
+  let _invTooltips = [];
 
     function seed(){
       const names = ['Chain lube','2T oil','Fuel (98)','Tyre sets (slick)','Tyre sets (wet)','Sprocket 82T','Sprocket 84T','Chain 219','Brake fluid','Cable ties','Rags','Spark plugs','Carb jets','Nuts & bolts kit','Gloves','Cleaning spray'];
@@ -195,6 +328,14 @@
         const u = UOMS[i % UOMS.length];
         const reorder = (i % 7 === 0) ? 10 : (i % 5 === 0) ? 2 : 5;
         const qty = Math.max(0, reorder + (i % 17) - 8);
+        // some items carry homologation/expiry, and auto reorder enabled
+        const hasHom = (cat === 'Tyres' || cat === 'Spares') && (i % 3 === 0);
+        const expiry = hasHom ? (new Date(Date.now() + ((i % 12) - 6) * 30 * 86400000)).toISOString().slice(0,10) : '';
+        const isTyre = (cat === 'Tyres');
+        const cycleLimit = isTyre ? 6 : 0;
+        const heatLimit = isTyre ? 600 : 0; // minutes
+        const cycles = isTyre ? (i % 7) : 0;
+        const heat = isTyre ? ((i % 15) * 30) : 0;
         out.push({
           id: i,
           name: `${n} ${i}`,
@@ -208,7 +349,21 @@
           unitCost: Math.round((15 + (i % 40)) * 10) / 10,
           burn: '',
           notes: '',
-          lastUsedTs: Date.now() - (i % 30) * 86400000
+          lastUsedTs: Date.now() - (i % 30) * 86400000,
+          homolog: hasHom ? `H-${(1000 + i)}` : '',
+          expiry: expiry,
+          auto: (i % 4 === 0),
+          // lifing
+          cycles,
+          heatMin: heat,
+          lifeCycleLimit: cycleLimit,
+          lifeHeatLimit: heatLimit,
+          condition: isTyre ? ((i % 9===0)?'Wear':'OK') : '',
+          lastInspection: isTyre ? new Date(Date.now() - (i%20)*86400000).toISOString().slice(0,10) : '',
+          // usage
+          initial_value: 0,
+          current_value: 0,
+          service_limit: 0
         });
       }
       return out;
@@ -218,6 +373,7 @@
       perspective: 'all',
       locationPick: '',
       supplierPick: '',
+      driverPick: '',
       search: '',
       location: '',
       supplier: '',
@@ -225,8 +381,34 @@
       selectedId: null
     };
 
-    let items = RTS.safeLoadJSON(LS_INV, null);
-    if (!Array.isArray(items) || items.length === 0) items = seed();
+    let items = [];
+    async function loadItems(){
+      try {
+        items = await RTS.apiGetCollection('inventory');
+      } catch(_e){ items = RTS.safeLoadJSON(LS_INV, null) || []; }
+      if (!Array.isArray(items) || items.length === 0) items = seed();
+    }
+    // Compute incoming quantities from open orders (not Received/Closed)
+    function computeIncomingMap(){
+      const orders = RTS.safeLoadJSON(LS_ORDERS, []) || [];
+      const map = new Map();
+      try {
+        orders.filter(o => !['Received','Closed'].includes(String(o.status||''))).forEach(o => {
+          (Array.isArray(o.items) ? o.items : []).forEach(li => {
+            const ref = String(li.ref||'');
+            const qty = Number(li.qty||0);
+            const recv = Number(li.recv||0);
+            const pend = Math.max(0, qty - recv);
+            if (!ref || pend <= 0) return;
+            if (ref.startsWith('inventory:')){
+              const id = ref.split(':')[1];
+              map.set(id, (map.get(id)||0) + pend);
+            }
+          });
+        });
+      } catch(_e){}
+      return map;
+    }
     let ui = RTS.deepMerge(defaultUI, RTS.safeLoadJSON(LS_UI, {}));
 
     const el = {
@@ -236,7 +418,9 @@
       perspectives: document.getElementById('invPerspectiveList'),
       locTree: document.getElementById('invLocationList'),
       supTree: document.getElementById('invSupplierList'),
-      tbody: document.getElementById('invTbody'),
+  driverTree: document.getElementById('invDriverList'),
+  tbody: document.getElementById('invTbody'),
+  colgroup: document.getElementById('invColGroup'),
       search: document.getElementById('invSearch'),
       location: document.getElementById('invLocation'),
       supplier: document.getElementById('invSupplier'),
@@ -245,33 +429,221 @@
       save: document.getElementById('btnSaveInv'),
       dup: document.getElementById('btnDupInv'),
       del: document.getElementById('btnDelInv'),
+      po: document.getElementById('btnDraftPO'),
+      addCycle: document.getElementById('btnAddCycle'),
+      addHeat: document.getElementById('btnAddHeat'),
+      markInspect: document.getElementById('btnMarkInspect'),
+  lifingSection: document.getElementById('lifingSection'),
+  lifingHint: document.getElementById('lifingHint'),
       f: {
         id: document.getElementById('f_inv_id'),
         name: document.getElementById('f_inv_name'),
         qty: document.getElementById('f_inv_qty'),
         uom: document.getElementById('f_inv_uom'),
         reorder: document.getElementById('f_inv_reorder'),
-        cat: document.getElementById('f_inv_cat'),
-        loc: document.getElementById('f_inv_loc'),
-        supplier: document.getElementById('f_inv_supplier'),
+  cat: document.getElementById('f_inv_cat'),
+  loc: document.getElementById('f_inv_loc'),
+  supplier: document.getElementById('f_inv_supplier'),
+        driver: document.getElementById('f_inv_driver'),
         lead: document.getElementById('f_inv_lead'),
         cost: document.getElementById('f_inv_cost'),
         burn: document.getElementById('f_inv_burn'),
-        notes: document.getElementById('f_inv_notes')
+        notes: document.getElementById('f_inv_notes'),
+        homolog: document.getElementById('f_inv_homolog'),
+        expiry: document.getElementById('f_inv_expiry'),
+        auto: document.getElementById('f_inv_auto'),
+        cycles: document.getElementById('f_inv_cycles'),
+        heat: document.getElementById('f_inv_heat'),
+        cycleLimit: document.getElementById('f_inv_cycleLimit'),
+        heatLimit: document.getElementById('f_inv_heatLimit'),
+        condition: document.getElementById('f_inv_condition'),
+  inspect: document.getElementById('f_inv_inspect'),
+  lifingEnabled: document.getElementById('f_inv_lifingEnabled'),
+        serialFL: document.getElementById('f_inv_serialFL'),
+        serialFR: document.getElementById('f_inv_serialFR'),
+        serialRR: document.getElementById('f_inv_serialRR'),
+        serialRL: document.getElementById('f_inv_serialRL'),
+        // usage
+        usageInit: document.getElementById('f_inv_usageInit'),
+        usageCur: document.getElementById('f_inv_usageCur'),
+        usageLimit: document.getElementById('f_inv_usageLimit')
       }
     };
+    function ensureOption(sel, val){
+      if (!sel || !val) return;
+      const exists = Array.from(sel.options||[]).some(o => o.value === val);
+      if (!exists) {
+        const opt = document.createElement('option'); opt.value = val; opt.textContent = val; sel.appendChild(opt);
+      }
+    }
+    function fillInspectorSelects(){
+      if (el.f.cat) el.f.cat.innerHTML = CATS.map(v=>`<option>${v}</option>`).join('');
+      if (el.f.loc) el.f.loc.innerHTML = LOCATIONS.map(v=>`<option>${v}</option>`).join('');
+      if (el.f.supplier) el.f.supplier.innerHTML = SUPPLIERS.map(v=>`<option>${v}</option>`).join('');
+      // Drivers from settings
+      const driverNames = Array.isArray(settings.drivers)
+        ? settings.drivers.map(d => (typeof d === 'string' ? d : d.name)).filter(Boolean)
+        : [];
+      if (el.f.driver) el.f.driver.innerHTML = '<option value="">— Unassigned —</option>' + driverNames.map(n=>`<option value="${n}">${n}</option>`).join('');
+    }
+    function lifingStatus(it){
+      const cl = Number(it.lifeCycleLimit||0), hl = Number(it.lifeHeatLimit||0);
+      const c = Number(it.cycles||0), h = Number(it.heatMin||0);
+      if (!cl && !hl) return '—';
+      const overC = cl && c >= cl;
+      const overH = hl && h >= hl;
+      const warnC = cl && c >= Math.max(1, Math.floor(cl*0.8)) && !overC;
+      const warnH = hl && h >= Math.max(1, Math.floor(hl*0.8)) && !overH;
+      if (overC || overH || it.condition==='Fail') return `<span class="badge text-bg-danger">FAIL</span>`;
+      if (warnC || warnH || it.condition==='Wear') return `<span class="badge text-bg-warning">WARN</span>`;
+      return `<span class="badge text-bg-success">OK</span>`;
+    }
+
+    function serialsText(it){
+      const parts = [];
+      if (it.serialFL) parts.push(`FL ${it.serialFL}`);
+      if (it.serialFR) parts.push(`FR ${it.serialFR}`);
+      if (it.serialRR) parts.push(`RR ${it.serialRR}`);
+      if (it.serialRL) parts.push(`RL ${it.serialRL}`);
+      if (parts.length === 0) return '—';
+      return `<small>${parts.join(' • ')}</small>`;
+    }
 
     function persist(){
       RTS.safeSaveJSON(LS_INV, items);
       RTS.safeSaveJSON(LS_UI, ui);
     }
+    async function sync(){
+      try { await RTS.apiSyncCollection('inventory', items); } catch(_e){ /* offline fallback already saved locally */ }
+    }
+
+    function applyColWidths(widths){
+      if (!el.colgroup) return;
+      const cols = el.colgroup.querySelectorAll('col');
+      widths = Array.isArray(widths) ? widths : [];
+      cols.forEach((c, i) => {
+        const w = widths[i];
+        if (typeof w === 'number' && w > 30) c.style.width = w + 'px';
+        else c.style.width = '';
+      });
+    }
+
+    function computeInitialColWidths(){
+      const theadRow = el.shell.querySelector('.mlo-table thead tr');
+      if (!theadRow || !el.colgroup) return [];
+      const ths = Array.from(theadRow.children);
+      const widths = ths.map(th => Math.max(60, Math.round(th.getBoundingClientRect().width)));
+      applyColWidths(widths);
+      RTS.safeSaveJSON(LS_COLS, widths);
+      return widths;
+    }
+
+    function autoFitColumn(idx){
+      const table = el.shell.querySelector('.mlo-table');
+      if (!table || !el.colgroup) return;
+      const th = table.querySelector('thead tr').children[idx];
+      const rows = Array.from(table.querySelectorAll('tbody tr')).slice(0, 100); // sample up to 100 rows
+      // Use canvas to measure text width based on computed font
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const refCell = table.querySelector('tbody tr td');
+      const font = refCell ? getComputedStyle(refCell).font : '12px sans-serif';
+      ctx.font = font;
+      let max = ctx.measureText((th.textContent||'').trim()).width;
+      rows.forEach(r => {
+        const cell = r.children[idx];
+        if (!cell) return;
+        const txt = (cell.textContent||'').trim();
+        const w = ctx.measureText(txt).width;
+        if (w > max) max = w;
+      });
+      // Add padding allowance
+      const newW = Math.min(420, Math.max(60, Math.round(max + 24))); // clamp between 60 and 420
+      const cols = el.colgroup.querySelectorAll('col');
+      if (cols[idx]) cols[idx].style.width = newW + 'px';
+      // persist widths
+      const widths = Array.from(cols).map(c => {
+        const w = parseInt((c.style.width||'').replace('px',''), 10);
+        return isNaN(w) ? null : w;
+      });
+      RTS.safeSaveJSON(LS_COLS, widths);
+    }
+
+    function setupColumnResizers(){
+      const theadRow = el.shell.querySelector('.mlo-table thead tr');
+      if (!theadRow) return;
+      const saved = RTS.safeLoadJSON(LS_COLS, []);
+      if (Array.isArray(saved) && saved.length) applyColWidths(saved); else computeInitialColWidths();
+      const ths = Array.from(theadRow.children);
+      ths.forEach((th, idx) => {
+        th.style.position = 'relative';
+        if (idx === ths.length - 1) return; // skip last column
+        const grip = document.createElement('span');
+        grip.className = 'inv-col-resizer';
+        grip.title = 'Drag to resize';
+        th.appendChild(grip);
+        let startX = 0, startW = 0;
+        const onMouseMove = (e) => {
+          const dx = e.clientX - startX;
+          const newW = Math.max(50, startW + dx);
+          const cols = el.colgroup.querySelectorAll('col');
+          if (cols[idx]) cols[idx].style.width = newW + 'px';
+        };
+        const onMouseUp = () => {
+          document.removeEventListener('mousemove', onMouseMove);
+          document.removeEventListener('mouseup', onMouseUp);
+          // persist widths
+          const cols = el.colgroup.querySelectorAll('col');
+          const widths = Array.from(cols).map(c => {
+            const w = parseInt((c.style.width||'').replace('px',''), 10);
+            return isNaN(w) ? null : w;
+          });
+          RTS.safeSaveJSON(LS_COLS, widths);
+        };
+        grip.addEventListener('mousedown', (e) => {
+          startX = e.clientX;
+          const rect = th.getBoundingClientRect();
+          startW = rect.width;
+          document.addEventListener('mousemove', onMouseMove);
+          document.addEventListener('mouseup', onMouseUp);
+          e.preventDefault();
+          e.stopPropagation();
+        });
+        grip.addEventListener('dblclick', (e) => {
+          autoFitColumn(idx);
+          e.preventDefault();
+          e.stopPropagation();
+        });
+      });
+    }
+
+    function isExpired(dateStr){
+      if (!dateStr) return false;
+      const d = new Date(dateStr);
+      return isNaN(d.getTime()) ? false : (d.getTime() < Date.now());
+    }
+
+    function complianceBadge(it){
+      if (it.expiry){
+        const bad = isExpired(it.expiry);
+        const lab = bad ? 'EXPIRED' : 'OK';
+        const cls = bad ? 'text-bg-danger' : 'text-bg-success';
+        const date = it.expiry;
+        return `<span class="badge ${cls}">${lab}</span> <small class="text-muted">${date}</small>`;
+      }
+      return '—';
+    }
 
     function rebuildTrees(){
       const uniqLoc = Array.from(new Set(items.map(i=>i.location))).sort();
       const uniqSup = Array.from(new Set(items.map(i=>i.supplier))).sort();
+      const driverNames = Array.isArray(settings.drivers)
+        ? settings.drivers.map(d => (typeof d === 'string' ? d : d.name)).filter(Boolean)
+        : [];
+      const uniqDrv = Array.from(new Set(items.map(i=>i.driver).concat(driverNames))).filter(Boolean).sort();
 
       el.location.innerHTML = '<option value="">Location: All</option>' + uniqLoc.map(v=>`<option>${v}</option>`).join('');
-      el.supplier.innerHTML = '<option value="">Supplier: All</option>' + uniqSup.map(v=>`<option>${v}</option>`).join('');
+  el.supplier.innerHTML = '<option value="">All</option>' + uniqSup.map(v=>`<option>${v}</option>`).join('');
 
       el.locTree.innerHTML = '';
       const liAllL = document.createElement('li'); liAllL.textContent = 'All locations'; liAllL.dataset.location = ''; if (!ui.locationPick) liAllL.classList.add('active');
@@ -282,12 +654,23 @@
       });
 
       el.supTree.innerHTML = '';
-      const liAllS = document.createElement('li'); liAllS.textContent = 'All suppliers'; liAllS.dataset.supplier = ''; if (!ui.supplierPick) liAllS.classList.add('active');
+  const liAllS = document.createElement('li'); liAllS.textContent = 'All'; liAllS.dataset.supplier = ''; if (!ui.supplierPick) liAllS.classList.add('active');
       el.supTree.appendChild(liAllS);
       uniqSup.forEach(v => {
         const li = document.createElement('li'); li.textContent = v; li.dataset.supplier = v; if (ui.supplierPick === v) li.classList.add('active');
         el.supTree.appendChild(li);
       });
+
+      // Drivers tree
+      if (el.driverTree){
+        el.driverTree.innerHTML = '';
+        const liAllD = document.createElement('li'); liAllD.textContent = 'All drivers'; liAllD.dataset.driver = ''; if (!ui.driverPick) liAllD.classList.add('active');
+        el.driverTree.appendChild(liAllD);
+        uniqDrv.forEach(v => {
+          const li = document.createElement('li'); li.textContent = v; li.dataset.driver = v; if (ui.driverPick === v) li.classList.add('active');
+          el.driverTree.appendChild(li);
+        });
+      }
     }
 
     function applyFilters(list){
@@ -299,6 +682,7 @@
 
       if (ui.locationPick) out = out.filter(i => i.location === ui.locationPick);
       if (ui.supplierPick) out = out.filter(i => i.supplier === ui.supplierPick);
+  if (ui.driverPick) out = out.filter(i => (i.driver||'') === ui.driverPick);
 
       if (ui.search){
         const q = ui.search.toLowerCase();
@@ -326,7 +710,8 @@
       el.supplier.value = ui.supplier || '';
       el.group.value = ui.groupBy || '';
 
-      const filtered = applyFilters(items);
+  const filtered = applyFilters(items);
+  const incomingMap = computeIncomingMap();
       el.badge.textContent = String(filtered.length);
       el.tbody.innerHTML = '';
 
@@ -347,15 +732,39 @@
           lastGroup = g;
           const trG = document.createElement('tr');
           trG.className = 'mlo-group-row';
-          trG.innerHTML = `<td colspan="7">${g}</td>`;
+          trG.innerHTML = `<td colspan="12">${g}</td>`;
           el.tbody.appendChild(trG);
         }
         idx += 1;
         const tr = document.createElement('tr');
         tr.dataset.id = String(it.id);
         if (ui.selectedId === it.id) tr.classList.add('mlo-row-selected');
+        const isOut = (it.qty <= 0);
+        if (isOut) tr.classList.add('inv-row-out');
         const isLow = (it.qty > 0 && it.qty <= it.reorder);
-        const qtyLabel = `${it.qty}${it.qty <= 0 ? ' (OUT)' : (isLow ? ' (LOW)' : '')}`;
+  if (isLow) tr.classList.add('inv-row-low');
+        const overUse = Number(it.current_value||0) > Number(it.service_limit||0) && Number(it.service_limit||0) > 0;
+        if (overUse) {
+          tr.classList.add('inv-row-over');
+          tr.setAttribute('data-bs-toggle', 'tooltip');
+          tr.setAttribute('data-bs-placement', 'top');
+          tr.setAttribute('title', `Usage over limit (${it.current_value} > ${it.service_limit})`);
+        }
+        // Add helpful tooltip on hover
+        if (isOut){
+          tr.setAttribute('data-bs-toggle', 'tooltip');
+          tr.setAttribute('data-bs-placement', 'top');
+          tr.setAttribute('title', 'Out of stock');
+        } else if (isLow){
+          tr.setAttribute('data-bs-toggle', 'tooltip');
+          tr.setAttribute('data-bs-placement', 'top');
+          tr.setAttribute('title', `Low stock (\u2264 ${it.reorder})`);
+        }
+  const incoming = incomingMap.get(String(it.id)) || 0;
+  const qtyLabel = `${it.qty}${it.qty <= 0 ? ' (OUT)' : (isLow ? ' (LOW)' : '')}` + (incoming > 0 ? ` \u00A0 <span class="badge" style="background:rgba(77,209,255,0.18); border:1px solid rgba(77,209,255,0.35); color:#d9f7ff;">+${incoming} incoming</span>` : '');
+        const isTyre = (it.category === 'Tyres');
+  const lifingActive = isTyre || !!it.lifingEnabled;
+  const serials = isTyre ? serialsText(it) : '—';
         tr.innerHTML = `
           <td>${idx}</td>
           <td>${it.name}</td>
@@ -364,12 +773,27 @@
           <td>${it.reorder}</td>
           <td>${it.supplier}</td>
           <td>${it.location}</td>
+          <td><span class="inv-driver-label">${it.driver || '—'}</span></td>
+          <td>${complianceBadge(it)}</td>
+          <td>${it.auto ? '<span class="badge text-bg-warning">Yes</span>' : 'No'}</td>
+          <td>${serials}</td>
+          <td>${lifingActive ? lifingStatus(it) : '—'}</td>
         `;
         tr.addEventListener('click', () => select(it.id));
+        // Ensure robust hover highlight regardless of CSS conflicts
+        tr.addEventListener('mouseenter', () => tr.classList.add('inv-hover'));
+        tr.addEventListener('mouseleave', () => tr.classList.remove('inv-hover'));
         el.tbody.appendChild(tr);
       });
 
       hydrate(items.find(x => x.id === ui.selectedId) || null);
+      // Initialize Bootstrap tooltips for marked rows
+      try {
+        if (_invTooltips && _invTooltips.length){ _invTooltips.forEach(t => { try { t.dispose(); } catch(_e){} }); _invTooltips = []; }
+        el.tbody.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(elm => {
+          try { _invTooltips.push(new bootstrap.Tooltip(elm)); } catch(_e){}
+        });
+      } catch(_e){}
       persist();
     }
 
@@ -377,6 +801,8 @@
       if (!it){
         el.ibadge.textContent = 'No selection';
         Object.values(el.f).forEach(inp => inp.value='');
+        if (el.lifingSection) el.lifingSection.style.display = 'none';
+        if (el.lifingHint) el.lifingHint.style.display = 'none';
         return;
       }
       el.ibadge.textContent = `Item #${it.id}`;
@@ -388,10 +814,65 @@
       el.f.cat.value = it.category || '';
       el.f.loc.value = it.location || '';
       el.f.supplier.value = it.supplier || '';
+  ensureOption(el.f.cat, el.f.cat.value);
+  ensureOption(el.f.loc, el.f.loc.value);
+  ensureOption(el.f.supplier, el.f.supplier.value);
+      // driver hydrate
+      if (el.f.driver){
+        const dval = it.driver || '';
+        ensureOption(el.f.driver, dval);
+        el.f.driver.value = dval;
+      }
       el.f.lead.value = it.leadDays || 0;
       el.f.cost.value = it.unitCost || 0;
       el.f.burn.value = it.burn || '';
       el.f.notes.value = it.notes || '';
+      el.f.homolog.value = it.homolog || '';
+      el.f.expiry.value = it.expiry || '';
+      el.f.auto.checked = !!it.auto;
+      el.f.cycles.value = Number(it.cycles||0);
+      el.f.heat.value = Number(it.heatMin||0);
+      el.f.cycleLimit.value = Number(it.lifeCycleLimit||0);
+      el.f.heatLimit.value = Number(it.lifeHeatLimit||0);
+      el.f.condition.value = it.condition || 'OK';
+      el.f.inspect.value = it.lastInspection || '';
+  el.f.serialFL.value = it.serialFL || '';
+  el.f.serialFR.value = it.serialFR || '';
+  el.f.serialRR.value = it.serialRR || '';
+  el.f.serialRL.value = it.serialRL || '';
+  // usage fields
+  if (el.f.usageInit) el.f.usageInit.value = Number(it.initial_value||0);
+  if (el.f.usageCur) el.f.usageCur.value = Number(it.current_value||0);
+  if (el.f.usageLimit) el.f.usageLimit.value = Number(it.service_limit||0);
+      const isTyre = (it.category||'') === 'Tyres';
+      // checkbox reflects explicit enable or Tyres category
+      if (el.f.lifingEnabled) el.f.lifingEnabled.checked = !!it.lifingEnabled || isTyre;
+      const lifingActive = isTyre || (el.f.lifingEnabled ? !!el.f.lifingEnabled.checked : false);
+      if (el.lifingSection) el.lifingSection.style.display = '';
+      if (el.lifingHint) el.lifingHint.style.display = lifingActive ? 'none' : '';
+      // Enable/disable lifing inputs based on active flag
+      const setDisabled = (disabled) => {
+        if (el.f.cycles) el.f.cycles.disabled = disabled;
+        if (el.f.heat) el.f.heat.disabled = disabled;
+        if (el.f.cycleLimit) el.f.cycleLimit.disabled = disabled;
+        if (el.f.heatLimit) el.f.heatLimit.disabled = disabled;
+        if (el.f.condition) el.f.condition.disabled = disabled;
+        if (el.f.inspect) el.f.inspect.disabled = disabled;
+        if (el.f.serialFL) el.f.serialFL.disabled = disabled;
+        if (el.f.serialFR) el.f.serialFR.disabled = disabled;
+        if (el.f.serialRR) el.f.serialRR.disabled = disabled;
+        if (el.f.serialRL) el.f.serialRL.disabled = disabled;
+      };
+      setDisabled(!lifingActive);
+      // Enable/disable Draft PO button based on low stock & auto reorder
+      const need = Math.max(0, (it.reorder||0) - (it.qty||0));
+      if (el.po){
+        el.po.disabled = !(it.auto && need > 0);
+        el.po.title = el.po.disabled ? 'Enable Auto reorder and ensure stock is below reorder point' : `Draft PO for ${need} ${it.uom||''}`;
+      }
+      if (el.addCycle) el.addCycle.disabled = !lifingActive;
+      if (el.addHeat) el.addHeat.disabled = !lifingActive;
+      if (el.markInspect) el.markInspect.disabled = !lifingActive;
     }
 
     function select(id){
@@ -399,20 +880,21 @@
       render();
     }
 
-    function nextId(){
-      return items.reduce((m, it) => Math.max(m, it.id||0), 0) + 1;
+    async function add(){
+      const payload = { name: `New item`, qty: 0, uom: 'ea', reorder: 1, supplier: '—', location: 'Workshop', category: 'Consumables', leadDays: 3, unitCost: 0, burn: '', notes: '', lastUsedTs: Date.now() };
+      try {
+        const created = await RTS.apiCreate('inventory', payload);
+        items.unshift(created);
+        rebuildTrees();
+        ui.selectedId = created.id;
+        render();
+        await sync();
+      } catch(err){
+        alert('Add failed: ' + (err && err.message ? err.message : String(err)));
+      }
     }
 
-    function add(){
-      const id = nextId();
-      const it = { id, name: `New item ${id}`, qty: 0, uom: 'ea', reorder: 1, supplier: '—', location: 'Workshop', category: 'Consumables', leadDays: 3, unitCost: 0, burn: '', notes: '', lastUsedTs: Date.now() };
-      items.unshift(it);
-      rebuildTrees();
-      ui.selectedId = id;
-      render();
-    }
-
-    function save(){
+    async function save(){
       const id = parseInt(el.f.id.value, 10);
       const idx = items.findIndex(x => x.id === id);
       if (idx < 0) return;
@@ -426,31 +908,98 @@
         category: el.f.cat.value.trim(),
         location: el.f.loc.value.trim() || 'Workshop',
         supplier: el.f.supplier.value.trim() || '—',
+        driver: el.f.driver ? (el.f.driver.value || '') : (cur.driver || ''),
         leadDays: parseInt(el.f.lead.value || 0, 10),
         unitCost: parseFloat(el.f.cost.value || 0),
         burn: el.f.burn.value,
-        notes: el.f.notes.value
+        notes: el.f.notes.value,
+        homolog: el.f.homolog.value.trim(),
+        expiry: el.f.expiry.value || '',
+        auto: !!el.f.auto.checked,
+        lifingEnabled: !!(el.f.lifingEnabled && el.f.lifingEnabled.checked),
+        cycles: parseInt(el.f.cycles.value||0,10),
+        heatMin: parseInt(el.f.heat.value||0,10),
+        lifeCycleLimit: parseInt(el.f.cycleLimit.value||0,10),
+        lifeHeatLimit: parseInt(el.f.heatLimit.value||0,10),
+        condition: el.f.condition.value || 'OK',
+        lastInspection: el.f.inspect.value || '',
+        serialFL: el.f.serialFL.value.trim(),
+        serialFR: el.f.serialFR.value.trim(),
+        serialRR: el.f.serialRR.value.trim(),
+        serialRL: el.f.serialRL.value.trim(),
+        // usage
+        initial_value: parseInt((el.f.usageInit && el.f.usageInit.value)||0,10),
+        current_value: parseInt((el.f.usageCur && el.f.usageCur.value)||0,10),
+        service_limit: parseInt((el.f.usageLimit && el.f.usageLimit.value)||0,10)
       };
       rebuildTrees();
       render();
+      await sync();
     }
 
-    function dup(){
+    async function dup(){
       const sel = items.find(x => x.id === ui.selectedId);
       if (!sel) return;
-      const copy = { ...sel, id: nextId(), name: sel.name + ' (Copy)' };
-      items.unshift(copy);
-      rebuildTrees();
-      ui.selectedId = copy.id;
-      render();
+      try {
+        const created = await RTS.apiCreate('inventory', { ...sel, name: sel.name + ' (Copy)' });
+        items.unshift(created);
+        rebuildTrees();
+        ui.selectedId = created.id;
+        render();
+        await sync();
+      } catch(err){ alert('Duplicate failed: ' + (err && err.message ? err.message : String(err))); }
     }
 
-    function del(){
+    async function del(){
       const sel = items.find(x => x.id === ui.selectedId);
       if (!sel) return;
       items = items.filter(x => x.id !== sel.id);
       ui.selectedId = null;
       rebuildTrees();
+      render();
+      await sync();
+    }
+
+    function draftPO(){
+      const sel = items.find(x => x.id === ui.selectedId);
+      if (!sel) return;
+      const need = Math.max(0, (sel.reorder||0) - (sel.qty||0));
+      if (!sel.auto || need <= 0){ alert('Draft PO only available when Auto reorder is enabled and stock is below the reorder point.'); return; }
+      const drafts = RTS.safeLoadJSON(LS_PODRAFTS, []);
+      const po = {
+        id: RTS.uid('po'),
+        createdTs: Date.now(),
+        itemId: sel.id,
+        itemName: sel.name,
+        supplier: sel.supplier || '—',
+        qty: need,
+        uom: sel.uom || '',
+        location: sel.location || '',
+        unitCost: sel.unitCost || 0
+      };
+      drafts.push(po);
+      RTS.safeSaveJSON(LS_PODRAFTS, drafts);
+      el.ibadge.textContent = `PO drafted: ${need} ${po.uom} → ${po.supplier}`;
+    }
+
+    function addCycle(){
+      const sel = items.find(x => x.id === ui.selectedId);
+      if (!sel) return;
+      sel.cycles = Number(sel.cycles||0) + 1;
+      render();
+    }
+
+    function addHeat(){
+      const sel = items.find(x => x.id === ui.selectedId);
+      if (!sel) return;
+      sel.heatMin = Number(sel.heatMin||0) + 10;
+      render();
+    }
+
+    function markInspected(){
+      const sel = items.find(x => x.id === ui.selectedId);
+      if (!sel) return;
+      sel.lastInspection = new Date().toISOString().slice(0,10);
       render();
     }
 
@@ -479,6 +1028,16 @@
         render();
       });
 
+      if (el.driverTree){
+        el.driverTree.addEventListener('click', (e)=>{
+          const li = e.target.closest('li'); if (!li) return;
+          el.driverTree.querySelectorAll('li').forEach(x=>x.classList.remove('active'));
+          li.classList.add('active');
+          ui.driverPick = li.dataset.driver || '';
+          render();
+        });
+      }
+
       function onInputs(){
         ui.search = el.search.value;
         ui.location = el.location.value;
@@ -494,14 +1053,170 @@
       el.add.addEventListener('click', add);
       el.save.addEventListener('click', save);
       el.dup.addEventListener('click', dup);
-      el.del.addEventListener('click', del);
+      // Deletion disabled: show reminder tooltip/alert if clicked programmatically
+      if (el.del){
+        try { new bootstrap.Tooltip(el.del); } catch(_e){}
+        el.del.addEventListener('click', (e)=>{
+          e.preventDefault();
+          e.stopPropagation();
+          alert('Inventory cannot be deleted. To remove stock, add the item to an invoice and issue it to a customer.');
+        });
+      }
+  const logBtn = document.getElementById('btnLogUsage');
+  if (logBtn) logBtn.addEventListener('click', openLogUsageModal);
+      if (el.po) el.po.addEventListener('click', draftPO);
+      if (el.addCycle) el.addCycle.addEventListener('click', addCycle);
+      if (el.addHeat) el.addHeat.addEventListener('click', addHeat);
+      if (el.markInspect) el.markInspect.addEventListener('click', markInspected);
+      if (el.f.lifingEnabled) {
+        el.f.lifingEnabled.addEventListener('change', () => {
+          const isTyre = (el.f.cat.value||'') === 'Tyres';
+          const active = isTyre || !!el.f.lifingEnabled.checked;
+          if (el.lifingHint) el.lifingHint.style.display = active ? 'none' : '';
+          const setDisabled = (disabled) => {
+            if (el.f.cycles) el.f.cycles.disabled = disabled;
+            if (el.f.heat) el.f.heat.disabled = disabled;
+            if (el.f.cycleLimit) el.f.cycleLimit.disabled = disabled;
+            if (el.f.heatLimit) el.f.heatLimit.disabled = disabled;
+            if (el.f.condition) el.f.condition.disabled = disabled;
+            if (el.f.inspect) el.f.inspect.disabled = disabled;
+            if (el.f.serialFL) el.f.serialFL.disabled = disabled;
+            if (el.f.serialFR) el.f.serialFR.disabled = disabled;
+            if (el.f.serialRR) el.f.serialRR.disabled = disabled;
+            if (el.f.serialRL) el.f.serialRL.disabled = disabled;
+          };
+          setDisabled(!active);
+          if (el.addCycle) el.addCycle.disabled = !active;
+          if (el.addHeat) el.addHeat.disabled = !active;
+          if (el.markInspect) el.markInspect.disabled = !active;
+        });
+      }
+    }
+    // Log Usage modal ----------------------------------------------------
+    function parseDuration(input){
+      const s = String(input||'').trim().toLowerCase();
+      if (!s) return 0;
+      // HH:MM format
+      const hm = s.match(/^([0-9]{1,2}):([0-9]{1,2})$/);
+      if (hm) return (parseInt(hm[1],10)*60) + parseInt(hm[2],10);
+      // 1.5h or 1.5 hours
+      const fracH = s.match(/^([0-9]+(?:\.[0-9]+)?)\s*h/);
+      if (fracH) return Math.round(parseFloat(fracH[1])*60);
+      // Xh Ym
+      const hxmy = s.match(/^([0-9]+)\s*h(?:ours?)?\s*([0-9]+)\s*m/);
+      if (hxmy) return (parseInt(hxmy[1],10)*60) + parseInt(hxmy[2],10);
+      // Xm or X min(s)
+      const mins = s.match(/^([0-9]+)\s*m(?:in(?:s)?)?$/);
+      if (mins) return parseInt(mins[1],10);
+      // X hours
+      const hours = s.match(/^([0-9]+)\s*h(?:ours?)?$/);
+      if (hours) return parseInt(hours[1],10)*60;
+      // plain number assume minutes
+      const num = parseInt(s,10);
+      return isNaN(num) ? 0 : num;
     }
 
-    function init(){
+    function assetsWithAttachments(){
+      const assets = RTS.safeLoadJSON('rts.assets.v4', []) || [];
+      return Array.isArray(assets) ? assets : [];
+    }
+
+    function openLogUsageModal(){
+      try {
+        let modalEl = document.getElementById('invLogUsageModal');
+        if (!modalEl){
+          const tpl = `
+            <div class="modal fade" id="invLogUsageModal" tabindex="-1" aria-hidden="true">
+              <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content" style="background:#0f1115; color:#e0e3e6; border:1px solid rgba(255,255,255,0.12);">
+                  <div class="modal-header" style="border-bottom:1px solid rgba(255,255,255,0.1);">
+                    <h5 class="modal-title">Log Usage</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                  </div>
+                  <div class="modal-body">
+                    <div class="mb-2">
+                      <label class="form-label">Asset (chassis / engine)</label>
+                      <select id="f_usage_asset" class="form-select form-select-sm"></select>
+                    </div>
+                    <div class="mb-2">
+                      <label class="form-label">Run duration</label>
+                      <input id="f_usage_duration" class="form-control form-control-sm" type="text" placeholder="e.g. 15 mins, 1h 30m, 00:20">
+                      <div class="text-secondary" style="font-size:0.8rem;">Duration is interpreted in minutes; supports formats like "15 mins", "1.5h", "1h 30m", or "00:15".</div>
+                    </div>
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" id="f_usage_fallback">
+                      <label class="form-check-label" for="f_usage_fallback">No attached parts? Let me choose inventory items manually.</label>
+                    </div>
+                    <div id="usageFallbackPicker" style="display:none;" class="mt-2">
+                      <label class="form-label">Select parts</label>
+                      <select id="f_usage_parts" class="form-select form-select-sm" multiple size="6"></select>
+                    </div>
+                  </div>
+                  <div class="modal-footer" style="border-top:1px solid rgba(255,255,255,0.1);">
+                    <button class="btn btn-sm btn-primary mlo-btn" id="btnApplyUsage" type="button">Apply</button>
+                    <button type="button" class="btn btn-sm btn-outline-light mlo-btn" data-bs-dismiss="modal">Close</button>
+                  </div>
+                </div>
+              </div>
+            </div>`;
+          const tmp = document.createElement('div'); tmp.innerHTML = tpl.trim();
+          document.body.appendChild(tmp.firstChild);
+          modalEl = document.getElementById('invLogUsageModal');
+        }
+        const modal = new bootstrap.Modal(modalEl);
+        // populate assets
+        const assets = assetsWithAttachments();
+        const assetSel = modalEl.querySelector('#f_usage_asset');
+        assetSel.innerHTML = assets.map(a=>`<option value="${a.id}">${(a.name||a.title||'Asset')} ${a.id}</option>`).join('');
+        // fallback picker wiring
+        const fallChk = modalEl.querySelector('#f_usage_fallback');
+        const fallWrap = modalEl.querySelector('#usageFallbackPicker');
+        const partsSel = modalEl.querySelector('#f_usage_parts');
+        fallChk.addEventListener('change', ()=>{
+          fallWrap.style.display = fallChk.checked ? '' : 'none';
+          if (fallChk.checked){
+            partsSel.innerHTML = items.map(it=>`<option value="${it.id}">${it.name}</option>`).join('');
+          }
+        });
+        // apply button
+        const applyBtn = modalEl.querySelector('#btnApplyUsage');
+        applyBtn.onclick = ()=>{
+          const durStr = modalEl.querySelector('#f_usage_duration').value;
+          const minutes = parseDuration(durStr);
+          if (!minutes || minutes <= 0){ alert('Enter a valid duration.'); return; }
+          const assetId = assetSel.value;
+          const asset = assets.find(a=>String(a.id)===String(assetId));
+          let targetIds = [];
+          if (fallChk.checked){
+            targetIds = Array.from(partsSel.selectedOptions||[]).map(o=>parseInt(o.value,10));
+          } else {
+            // Assumption: assets carry attached inventory ids in a field like attachedInventoryIds
+            const linked = Array.isArray(asset && asset.attachedInventoryIds) ? asset.attachedInventoryIds : [];
+            targetIds = linked.map(id=>parseInt(id,10));
+          }
+          if (!targetIds.length){ alert('No parts selected/attached. Enable the fallback picker to choose parts manually.'); return; }
+          items.forEach(it=>{
+            if (targetIds.includes(it.id)) it.current_value = Number(it.current_value||0) + minutes;
+          });
+          render();
+          modal.hide();
+        };
+        modal.show();
+      } catch(e){ alert('Unable to open Log Usage modal: ' + (e && e.message ? e.message : String(e))); }
+    }
+
+    async function init(){
+      setupColumnResizers();
+      fillInspectorSelects();
+      await loadItems();
       rebuildTrees();
       bind();
       RTS.initTriPaneResizers(el.shell, LS_PANES);
       render();
+      // Enable crosshair overlay on this page
+      if (window.RTS && typeof window.RTS.enableCrosshair === 'function'){
+        window.RTS.enableCrosshair({ thickness:2, opacity:0.7 });
+      }
     }
     document.addEventListener('DOMContentLoaded', init);
   })();

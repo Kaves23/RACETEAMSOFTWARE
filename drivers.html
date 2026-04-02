@@ -30,24 +30,193 @@
 
       <div class="mlo-resizer" data-resize="left" title="Drag to resize"></div>
 
-      <section class="mlo-pane mlo-pane-mid" aria-label="Driver documents">
+      <section class="mlo-pane mlo-pane-mid" aria-label="Driver documents & data">
         <div class="mlo-pane-header">
           <div class="d-flex align-items-center flex-nowrap gap-1" style="overflow:hidden;">
             <input id="drvSearch" type="text" class="form-control form-control-sm" placeholder="Search docs…" style="flex:1 1 200px; min-width:180px;">
           </div>
         </div>
-        <div class="mlo-pane-content" style="padding:0;">
-          <table class="table table-dark table-hover mlo-table" style="margin:0;">
-            <thead>
-              <tr>
-                <th style="width:60px;">#</th>
-                <th>Document / Portal</th>
-                <th style="width:200px;">Source</th>
-                <th style="width:160px;">Date</th>
-              </tr>
-            </thead>
-            <tbody id="drvTbody"></tbody>
-          </table>
+        <div class="mlo-pane-content" style="padding:0; display:flex; flex-direction:column;">
+          <!-- Top half: documents/portals -->
+          <div style="flex:1; min-height:40%; overflow:auto;">
+            <div class="mlo-section-label" style="margin:0.3rem 0 0.2rem;">Documents & Portals</div>
+            <table class="table table-dark table-hover mlo-table" style="margin:0;">
+              <thead>
+                <tr>
+                  <th style="width:60px;">#</th>
+                  <th>Document / Portal</th>
+                  <th style="width:200px;">Source</th>
+                  <th style="width:160px;">Date</th>
+                </tr>
+              </thead>
+              <tbody id="drvTbody"></tbody>
+            </table>
+          </div>
+          <!-- Bottom half: data files / telemetry uploads list -->
+          <div style="flex:1; min-height:40%; overflow:auto; border-top: 1px solid rgba(255,255,255,0.08); padding: 0.35rem 0.45rem;">
+            <div class="d-flex justify-content-between align-items-center">
+              <div class="mlo-section-label" style="margin:0;">Data Files (Telemetry CSV)</div>
+              <small class="text-secondary">Bottom pane shows uploads by driver; files may be examples</small>
+            </div>
+            <table class="table table-dark table-hover mlo-table" style="margin:0;">
+              <thead>
+                <tr>
+                  <th>Session</th>
+                  <th style="width:180px;">Uploaded</th>
+                  <th style="width:200px;">Tags</th>
+                  <th style="width:100px;">Points</th>
+                </tr>
+              </thead>
+              <tbody id="drvMidTeleBody"></tbody>
+            </table>
+            <div class="mt-2">
+              <div class="mlo-section-label" style="margin:0 0 0.2rem;">Preview (RPM & Throttle)</div>
+              <canvas id="drvTeleChart" width="800" height="160" style="width:100%; height:160px; background:#0f1115; border:1px solid rgba(255,255,255,0.08);"></canvas>
+              <small class="text-secondary">Click a data row to preview. For examples, a synthetic preview is shown.</small>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="mlo-resizer" data-resize="right" title="Drag to resize"></div>
+
+      <section class="mlo-pane mlo-pane-right mlo-inspector" aria-label="Driver inspector">
+        <div class="mlo-pane-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="mlo-title">Inspector</div>
+            <span class="badge text-bg-secondary" id="drvInspectorBadge">No selection</span>
+          </div>
+        </div>
+        <div class="mlo-pane-content">
+          <form id="drvForm" autocomplete="off">
+            <ul class="nav nav-tabs nav-dark mb-2" role="tablist">
+              <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="tab-drv-profile" data-bs-toggle="tab" data-bs-target="#pane-drv-profile" type="button" role="tab" aria-controls="pane-drv-profile" aria-selected="true">Profile</button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" id="tab-drv-compliance" data-bs-toggle="tab" data-bs-target="#pane-drv-compliance" type="button" role="tab" aria-controls="pane-drv-compliance" aria-selected="false">Compliance</button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" id="tab-drv-docs" data-bs-toggle="tab" data-bs-target="#pane-drv-docs" type="button" role="tab" aria-controls="pane-drv-docs" aria-selected="false">Documents</button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" id="tab-drv-avail" data-bs-toggle="tab" data-bs-target="#pane-drv-avail" type="button" role="tab" aria-controls="pane-drv-avail" aria-selected="false">Availability</button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" id="tab-drv-tele" data-bs-toggle="tab" data-bs-target="#pane-drv-tele" type="button" role="tab" aria-controls="pane-drv-tele" aria-selected="false">Telemetry</button>
+              </li>
+            </ul>
+            <div class="tab-content">
+              <div class="tab-pane fade show active" id="pane-drv-profile" role="tabpanel" aria-labelledby="tab-drv-profile">
+                <div class="row g-2">
+                  <div class="col-12">
+                    <label class="form-label">Driver name</label>
+                    <input id="f_drv_name2" class="form-control form-control-sm" type="text">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Class</label>
+                    <input id="f_drv_class2" class="form-control form-control-sm" type="text" placeholder="OK-N / OK-J / etc">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Race number</label>
+                    <input id="f_drv_number2" class="form-control form-control-sm" type="text">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Email</label>
+                    <input id="f_drv_email2" class="form-control form-control-sm" type="email">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Phone</label>
+                    <input id="f_drv_phone2" class="form-control form-control-sm" type="text">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Guardian name</label>
+                    <input id="f_drv_guard_name2" class="form-control form-control-sm" type="text">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Guardian phone</label>
+                    <input id="f_drv_guard_phone2" class="form-control form-control-sm" type="text">
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label">Tags (comma)</label>
+                    <input id="f_drv_tags2" class="form-control form-control-sm" type="text" placeholder="A, OKN, Academy">
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label">Notes</label>
+                    <textarea id="f_drv_notes2" class="form-control form-control-sm" rows="3"></textarea>
+                  </div>
+                </div>
+              </div>
+
+              <div class="tab-pane fade" id="pane-drv-compliance" role="tabpanel" aria-labelledby="tab-drv-compliance">
+                <div class="row g-2">
+                  <div class="col-6">
+                    <label class="form-label">License expiry</label>
+                    <input id="f_drv_license_exp" class="form-control form-control-sm" type="date">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Medical expiry</label>
+                    <input id="f_drv_med_exp" class="form-control form-control-sm" type="date">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Consent expiry (minor)</label>
+                    <input id="f_drv_consent_exp" class="form-control form-control-sm" type="date">
+                  </div>
+                  <div class="col-6 d-flex align-items-end">
+                    <div id="drvComplianceBadge">—</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="tab-pane fade" id="pane-drv-docs" role="tabpanel" aria-labelledby="tab-drv-docs">
+                <div class="d-flex gap-1 mb-2">
+                  <button class="btn btn-sm btn-outline-light mlo-btn" id="btnDrvAttach" type="button">Attach from Drive</button>
+                  <button class="btn btn-sm btn-outline-light mlo-btn" id="btnDrvAddUrl" type="button">Add URL</button>
+                </div>
+                <table class="table table-dark table-hover mlo-table">
+                  <thead><tr><th>Title</th><th style="width:220px;">Link</th><th style="width:80px;">Delete</th></tr></thead>
+                  <tbody id="drvDocsTbody"></tbody>
+                </table>
+              </div>
+
+              <div class="tab-pane fade" id="pane-drv-avail" role="tabpanel" aria-labelledby="tab-drv-avail">
+                <div class="text-secondary mb-1" style="font-size:0.8rem;">Upcoming events availability</div>
+                <table class="table table-dark table-hover mlo-table">
+                  <thead><tr><th>Event</th><th style="width:140px;">Status</th></tr></thead>
+                  <tbody id="drvAvailTbody"></tbody>
+                </table>
+              </div>
+
+              <div class="tab-pane fade" id="pane-drv-tele" role="tabpanel" aria-labelledby="tab-drv-tele">
+                <div class="row g-2">
+                  <div class="col-6">
+                    <label class="form-label">Session name</label>
+                    <input id="f_tel_session" class="form-control form-control-sm" type="text" placeholder="e.g. Red Star Test – Session 1">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Tags (comma)</label>
+                    <input id="f_tel_tags" class="form-control form-control-sm" type="text" placeholder="e.g. Test, Wet, Baseline">
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label">Upload CSV</label>
+                    <input id="f_tel_file" class="form-control form-control-sm" type="file" accept=".csv,text/csv">
+                  </div>
+                </div>
+                <div class="d-flex gap-1 mt-2">
+                  <button class="btn btn-sm btn-primary mlo-btn" id="btnTelUpload" type="button">Upload Telemetry</button>
+                  <button class="btn btn-sm btn-outline-light mlo-btn" id="btnTelExample" type="button">Load Example</button>
+                </div>
+                <div class="mlo-section-label mt-2">Uploads</div>
+                <table class="table table-dark table-hover mlo-table">
+                  <thead><tr><th>Session</th><th style="width:160px;">Uploaded</th><th style="width:200px;">Tags</th><th style="width:120px;">Points</th></tr></thead>
+                  <tbody id="drvTelUploads"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="d-flex gap-1 mt-2">
+              <button class="btn btn-sm btn-primary mlo-btn" id="btnDrvSave" type="button">Save</button>
+            </div>
+          </form>
         </div>
       </section>
     </div>
@@ -77,7 +246,35 @@
       count: document.getElementById('drvCountBadge'),
       list: document.getElementById('drvList'),
       tbody: document.getElementById('drvTbody'),
-      search: document.getElementById('drvSearch')
+  search: document.getElementById('drvSearch'),
+      ibadge: document.getElementById('drvInspectorBadge'),
+      docsBody: document.getElementById('drvDocsTbody'),
+      availBody: document.getElementById('drvAvailTbody'),
+      complianceBadge: document.getElementById('drvComplianceBadge'),
+      btnSave: document.getElementById('btnDrvSave'),
+      btnAttach: document.getElementById('btnDrvAttach'),
+      btnAddUrl: document.getElementById('btnDrvAddUrl'),
+  midTeleBody: document.getElementById('drvMidTeleBody'),
+  telUploads: document.getElementById('drvTelUploads'),
+  btnTelUpload: document.getElementById('btnTelUpload'),
+  btnTelExample: document.getElementById('btnTelExample'),
+  telFile: document.getElementById('f_tel_file'),
+  telSession: document.getElementById('f_tel_session'),
+  telTags: document.getElementById('f_tel_tags'),
+      f: {
+        name: document.getElementById('f_drv_name2'),
+        class: document.getElementById('f_drv_class2'),
+        number: document.getElementById('f_drv_number2'),
+        email: document.getElementById('f_drv_email2'),
+        phone: document.getElementById('f_drv_phone2'),
+        gname: document.getElementById('f_drv_guard_name2'),
+        gphone: document.getElementById('f_drv_guard_phone2'),
+        tags: document.getElementById('f_drv_tags2'),
+        notes: document.getElementById('f_drv_notes2'),
+        licExp: document.getElementById('f_drv_license_exp'),
+        medExp: document.getElementById('f_drv_med_exp'),
+        consentExp: document.getElementById('f_drv_consent_exp')
+      }
     };
 
     RTS.initTriPaneResizers(el.shell, LS_PANES);
@@ -109,6 +306,9 @@
       settings = RTS.getSettings();
       buildDriverList();
       renderDocs();
+      hydrateInspector();
+      renderTelemetryUploads();
+      renderMidTelemetryList();
     }
 
     function renderDocs(){
@@ -181,8 +381,365 @@
       });
     }
 
+    function isExpired(dateStr){
+      if (!dateStr) return false;
+      const d = new Date(dateStr);
+      return isNaN(d.getTime()) ? false : (d.getTime() < Date.now());
+    }
+
+    function complianceSummary(drv){
+      const dates = [drv.licenseExpiry, drv.medicalExpiry, drv.consentExpiry].filter(Boolean);
+      if (dates.length===0) return '—';
+      const expired = dates.some(isExpired);
+      if (expired) return '<span class="badge text-bg-danger">EXPIRED</span>';
+      // warn if any within 30 days
+      const soon = dates.some(ds=>{ const t=new Date(ds).getTime(); return !isNaN(t) && (t - Date.now()) < 30*86400000; });
+      if (soon) return '<span class="badge text-bg-warning">WARN</span>';
+      return '<span class="badge text-bg-success">OK</span>';
+    }
+
+    function hydrateInspector(){
+      const drivers = settings.drivers||[];
+      const cur = drivers.find(d=>d.id===ui.selectedId) || null;
+      el.ibadge.textContent = cur ? (cur.name||cur.id||'—') : 'No selection';
+      ['name','class','number','email','phone','gname','gphone','tags','notes'].forEach(k=>{
+        if (el.f[k]) el.f[k].value = '';
+      });
+      ['licExp','medExp','consentExp'].forEach(k=>{ if(el.f[k]) el.f[k].value=''; });
+      el.docsBody.innerHTML = '';
+      el.availBody.innerHTML = '';
+      el.complianceBadge.innerHTML = '—';
+      if (!cur) return;
+      el.f.name.value = cur.name||'';
+      el.f.class.value = cur.class||'';
+      el.f.number.value = cur.raceNumber||'';
+      el.f.email.value = cur.email||'';
+      el.f.phone.value = cur.phone||'';
+      el.f.gname.value = cur.guardianName||'';
+      el.f.gphone.value = cur.guardianPhone||'';
+      el.f.tags.value = (cur.tags||[]).join(', ');
+      el.f.notes.value = cur.notes||'';
+      el.f.licExp.value = cur.licenseExpiry||'';
+      el.f.medExp.value = cur.medicalExpiry||'';
+      el.f.consentExp.value = cur.consentExpiry||'';
+      el.complianceBadge.innerHTML = complianceSummary(cur);
+      // docs
+      (cur.attachments||[]).forEach((doc,i)=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${(doc.name||'Document')}</td><td><a href="${doc.url||'#'}" target="_blank" rel="noopener">${doc.url? 'Open' : '—'}</a></td><td><button class="btn btn-sm btn-outline-danger mlo-btn">Delete</button></td>`;
+        tr.querySelector('button').addEventListener('click', ()=>{ deleteAttachment(i); });
+        el.docsBody.appendChild(tr);
+      });
+      // availability (upcoming events)
+      const upcoming = events.filter(ev=>{
+        const t = new Date(ev.start||'').getTime();
+        return !isNaN(t) && t >= Date.now();
+      }).slice(0, 20);
+      const avail = cur.availability || {};
+      upcoming.forEach(ev=>{
+        const tr = document.createElement('tr');
+        const sel = document.createElement('select');
+        sel.className = 'form-select form-select-sm';
+        sel.innerHTML = ['Available','Tentative','Not Available'].map(s=>`<option>${s}</option>`).join('');
+        sel.value = avail[ev.id] || 'Tentative';
+        sel.addEventListener('change', ()=>{ setAvailability(ev.id, sel.value); });
+        tr.innerHTML = `<td>${ev.title||ev.id}</td>`;
+        const tdSel = document.createElement('td'); tdSel.appendChild(sel);
+        tr.appendChild(tdSel);
+        el.availBody.appendChild(tr);
+      });
+      // telemetry uploads list hydrated per driver
+      renderTelemetryUploads();
+      renderMidTelemetryList();
+    }
+
+    function sampleUploads(cur){
+      // Create example rows for visual formatting if no real uploads exist
+      const baseName = cur && cur.name ? cur.name : 'Driver';
+      const now = Date.now();
+      return [
+        { sessionName: `${baseName} – Fast Lap`, uploadedTs: now - 3600_000, tags:['Example','FastLap','Dry'], pointsCount: 950 },
+        { sessionName: `${baseName} – Baseline Session`, uploadedTs: now - 7200_000, tags:['Example','Baseline'], pointsCount: 4200 },
+        { sessionName: `${baseName} – Turn 1 Compare`, uploadedTs: now - 10800_000, tags:['Example','Corner1'], pointsCount: 1200 }
+      ];
+    }
+
+    function renderMidTelemetryList(){
+      el.midTeleBody.innerHTML = '';
+      const drivers = settings.drivers||[];
+      const cur = drivers.find(d=>d.id===ui.selectedId) || null;
+      if (!cur) return;
+      RTS.apiGetTelemetryUploads(cur.id).then(list => {
+        let rows = (list||[]).slice().sort((a,b)=> (b.uploadedTs||0) - (a.uploadedTs||0));
+        if (!rows.length) rows = sampleUploads(cur);
+        rows.forEach(u => {
+          const tr = document.createElement('tr');
+          const when = u.uploadedTs ? new Date(u.uploadedTs).toLocaleString() : '—';
+          const tags = (u.tags||[]).join(', ');
+          tr.innerHTML = `<td>${u.sessionName||u.sessionId||'—'}</td><td>${when}</td><td class="text-secondary">${tags}</td><td>${u.pointsCount||0}</td>`;
+          tr.addEventListener('click', ()=>{ previewTelemetry(cur, u); });
+          el.midTeleBody.appendChild(tr);
+        });
+      });
+    }
+
+    function drawSimpleChart(points){
+      const canvas = document.getElementById('drvTeleChart');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      // clear
+      ctx.fillStyle = '#0f1115';
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+      // axes
+      const padL = 40, padR = 10, padT = 10, padB = 20;
+      const W = canvas.width - padL - padR;
+      const H = canvas.height - padT - padB;
+      ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+      ctx.beginPath();
+      ctx.moveTo(padL, padT);
+      ctx.lineTo(padL, padT+H);
+      ctx.lineTo(padL+W, padT+H);
+      ctx.stroke();
+
+      if (!points || points.length===0) return;
+      const times = points.map(p=>Number(p.tsMs||0));
+      const tMin = Math.min.apply(null, times);
+      const tMax = Math.max.apply(null, times);
+      const rpmVals = points.map(p=>Number(p.rpm||0));
+      const thrVals = points.map(p=>Number(p.throttle||0));
+      const rpmMax = Math.max(1000, Math.max.apply(null, rpmVals));
+      // Normalize throttle 0-1 to percentage
+      const thrMax = 1;
+
+      function xOf(t){ return padL + (W * ((t - tMin) / Math.max(1, (tMax - tMin)))); }
+      function yOf(val, max){ return padT + H - (H * (val / Math.max(1, max))); }
+
+      // RPM line (purple accent)
+      ctx.strokeStyle = '#a64dff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      points.forEach((p,i)=>{
+        const x = xOf(Number(p.tsMs||0));
+        const y = yOf(Number(p.rpm||0), rpmMax);
+        if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+      });
+      ctx.stroke();
+
+      // Throttle line (cyan)
+      ctx.strokeStyle = '#4dd1ff';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      points.forEach((p,i)=>{
+        const x = xOf(Number(p.tsMs||0));
+        const y = yOf(Number(p.throttle||0), thrMax); // throttle assumed 0..1
+        if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+      });
+      ctx.stroke();
+
+      // Legend
+      ctx.fillStyle = '#c7cbd2';
+      ctx.font = '10px Montserrat, sans-serif';
+      ctx.fillText('RPM', padL+6, padT+12);
+      ctx.fillStyle = '#a64dff'; ctx.fillRect(padL-2, padT+7, 4, 4);
+      ctx.fillStyle = '#c7cbd2'; ctx.fillText('Throttle', padL+50, padT+12);
+      ctx.fillStyle = '#4dd1ff'; ctx.fillRect(padL+42, padT+7, 4, 4);
+    }
+
+    async function previewTelemetry(driver, upload){
+      try {
+        if (upload && upload.sessionId){
+          const pts = await RTS.apiGetTelemetryPoints({ driverId: driver.id, sessionId: upload.sessionId, limit: 5000 });
+          drawSimpleChart(pts);
+        } else {
+          // synthetic preview for sample rows
+          const pts = [];
+          for (let i=0;i<300;i++){
+            const ts = i*50;
+            const rpm = 9000 + Math.sin(i/20)*2500 + (i>120 && i<180 ? 1500 : 0);
+            const thr = Math.max(0, Math.min(1, (Math.sin(i/15)*0.5 + 0.5)));
+            pts.push({ tsMs: ts, rpm, throttle: thr });
+          }
+          drawSimpleChart(pts);
+        }
+      } catch (e){ /* ignore */ }
+    }
+
+    function renderTelemetryUploads(){
+      el.telUploads.innerHTML = '';
+      const drivers = settings.drivers||[];
+      const cur = drivers.find(d=>d.id===ui.selectedId) || null;
+      if (!cur) return;
+      RTS.apiGetTelemetryUploads(cur.id).then(list => {
+        const rows = (list||[]).slice().sort((a,b)=> (b.uploadedTs||0) - (a.uploadedTs||0));
+        rows.forEach(u => {
+          const tr = document.createElement('tr');
+          const when = u.uploadedTs ? new Date(u.uploadedTs).toLocaleString() : '—';
+          const tags = (u.tags||[]).join(', ');
+          tr.innerHTML = `<td>${u.sessionName||u.sessionId||'—'}</td><td>${when}</td><td class="text-secondary">${tags}</td><td>${u.pointsCount||0}</td>`;
+          tr.addEventListener('click', ()=>{ /* future: open compare view */ });
+          el.telUploads.appendChild(tr);
+        });
+      });
+    }
+
+    function parseCSV(text){
+      // Simple CSV parser for common telemetry columns
+      const lines = String(text||'').trim().split(/\r?\n/);
+      if (lines.length<=1) return [];
+      const header = lines[0].split(',').map(s=>s.trim().toLowerCase());
+      const idx = {
+        ts: header.indexOf('timestamp_ms')>-1 ? header.indexOf('timestamp_ms') : (header.indexOf('ts_ms')>-1?header.indexOf('ts_ms'):(header.indexOf('time_ms')>-1?header.indexOf('time_ms'):-1)),
+        speed: header.indexOf('speed'),
+        rpm: header.indexOf('rpm'),
+        throttle: header.indexOf('throttle'),
+        brake: header.indexOf('brake'),
+        gear: header.indexOf('gear')
+      };
+      const out = [];
+      for (let i=1;i<lines.length;i++){
+        const parts = lines[i].split(',');
+        const p = {
+          tsMs: idx.ts>-1 ? Number(parts[idx.ts]||0) : (i*10),
+          speed: idx.speed>-1 ? Number(parts[idx.speed]||0) : 0,
+          rpm: idx.rpm>-1 ? Number(parts[idx.rpm]||0) : 0,
+          throttle: idx.throttle>-1 ? Number(parts[idx.throttle]||0) : 0,
+          brake: idx.brake>-1 ? Number(parts[idx.brake]||0) : 0,
+          gear: idx.gear>-1 ? Number(parts[idx.gear]||0) : 0
+        };
+        out.push(p);
+      }
+      return out;
+    }
+
+    async function uploadTelemetry(){
+      const drivers = settings.drivers||[];
+      const cur = drivers.find(d=>d.id===ui.selectedId) || null;
+      if (!cur) { alert('Select a driver first'); return; }
+      const file = el.telFile.files && el.telFile.files[0];
+      if (!file) { alert('Choose a CSV file'); return; }
+      const sessionName = el.telSession.value.trim() || file.name;
+      const tags = el.telTags.value.split(',').map(s=>s.trim()).filter(Boolean);
+      const text = await file.text();
+      const points = parseCSV(text);
+      const meta = { driverId: cur.id, sessionId: RTS.uid('sess'), sessionName, tags };
+      const r = await RTS.apiUploadTelemetry(meta, points);
+      if (r && r.ok) {
+        alert(`Uploaded ${points.length} points`);
+        renderTelemetryUploads();
+      } else if (r && r.queued) {
+        alert('No API. Upload queued locally.');
+        renderTelemetryUploads();
+      } else {
+        alert('Upload failed');
+      }
+    }
+
+    async function loadExampleTelemetry(){
+      // Fetch bundled example CSVs and upload for current driver
+      const drivers = settings.drivers||[];
+      const cur = drivers.find(d=>d.id===ui.selectedId) || null;
+      if (!cur) { alert('Select a driver first'); return; }
+      const samples = [
+        { url: 'example-data/driverA_fastlap.csv', name: 'Fast Lap – Driver A', tags:['FastLap','Dry'] },
+        { url: 'example-data/driverB_session.csv', name: 'Session – Driver B', tags:['Baseline','Dry'] },
+        { url: 'example-data/turn1_compare.csv', name: 'Turn 1 Compare', tags:['Analysis','Corner1'] }
+      ];
+      for (const s of samples){
+        try {
+          const resp = await fetch(s.url);
+          if (!resp.ok) continue;
+          const text = await resp.text();
+          const points = parseCSV(text);
+          const meta = { driverId: cur.id, sessionId: RTS.uid('sess'), sessionName: s.name, tags: s.tags };
+          await RTS.apiUploadTelemetry(meta, points);
+        } catch(_e){ /* ignore single sample errors */ }
+      }
+      renderTelemetryUploads();
+      alert('Example telemetry loaded.');
+    }
+
+    function setAvailability(eventId, status){
+      const drivers = settings.drivers||[];
+      const idx = drivers.findIndex(d=>d.id===ui.selectedId);
+      if (idx<0) return;
+      const cur = drivers[idx];
+      cur.availability = cur.availability || {};
+      cur.availability[eventId] = status;
+      RTS.saveSettings(settings);
+    }
+
+    async function attachFromDrive(){
+      try{
+        const picked = await RTS.pickDriveFiles({ multiSelect: true, includeFolders: false });
+        if (!picked || picked.length===0) return;
+        const drivers = settings.drivers||[];
+        const idx = drivers.findIndex(d=>d.id===ui.selectedId);
+        if (idx<0) return;
+        const cur = drivers[idx];
+        cur.attachments = cur.attachments || [];
+        picked.forEach(p=>{
+          cur.attachments.push({ name: p.name || 'Drive file', url: p.url || p.webViewLink || '' });
+        });
+        RTS.saveSettings(settings);
+        hydrateInspector();
+        renderDocs();
+      } catch(e){ alert('Drive attach error: ' + (e && e.message ? e.message : String(e))); }
+    }
+
+    function addUrl(){
+      const name = prompt('Document title'); if (name===null) return;
+      const url = prompt('Link URL (https://…)'); if (url===null) return;
+      const drivers = settings.drivers||[];
+      const idx = drivers.findIndex(d=>d.id===ui.selectedId);
+      if (idx<0) return;
+      const cur = drivers[idx];
+      cur.attachments = cur.attachments || [];
+      cur.attachments.push({ name, url });
+      RTS.saveSettings(settings);
+      hydrateInspector();
+      renderDocs();
+    }
+
+    function deleteAttachment(i){
+      const drivers = settings.drivers||[];
+      const idx = drivers.findIndex(d=>d.id===ui.selectedId);
+      if (idx<0) return;
+      const cur = drivers[idx];
+      cur.attachments = (cur.attachments||[]).filter((_,idx2)=>idx2!==i);
+      RTS.saveSettings(settings);
+      hydrateInspector();
+      renderDocs();
+    }
+
+    function saveDriver(){
+      const drivers = settings.drivers||[];
+      const idx = drivers.findIndex(d=>d.id===ui.selectedId);
+      if (idx<0) return;
+      const cur = drivers[idx];
+      cur.name = el.f.name.value.trim();
+      cur.class = el.f.class.value.trim();
+      cur.raceNumber = el.f.number.value.trim();
+      cur.email = el.f.email.value.trim();
+      cur.phone = el.f.phone.value.trim();
+      cur.guardianName = el.f.gname.value.trim();
+      cur.guardianPhone = el.f.gphone.value.trim();
+      cur.tags = el.f.tags.value.split(',').map(s=>s.trim()).filter(Boolean);
+      cur.notes = el.f.notes.value.trim();
+      cur.licenseExpiry = el.f.licExp.value || '';
+      cur.medicalExpiry = el.f.medExp.value || '';
+      cur.consentExpiry = el.f.consentExp.value || '';
+      RTS.saveSettings(settings);
+      hydrateInspector();
+      buildDriverList();
+    }
+
     function bind(){
       el.search.addEventListener('input', ()=>{ ui.search = el.search.value; renderDocs(); });
+      if (el.btnSave) el.btnSave.addEventListener('click', saveDriver);
+      if (el.btnAttach) el.btnAttach.addEventListener('click', attachFromDrive);
+      if (el.btnAddUrl) el.btnAddUrl.addEventListener('click', addUrl);
+      if (el.btnTelUpload) el.btnTelUpload.addEventListener('click', uploadTelemetry);
+      if (el.btnTelExample) el.btnTelExample.addEventListener('click', loadExampleTelemetry);
     }
 
     function init(){

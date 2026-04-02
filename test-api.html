@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API Integration Test</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="style.css" rel="stylesheet">
+  <style>
+    .test-container {
+      max-width: 1200px;
+      margin: 50px auto;
+      padding: 30px;
+    }
+    .test-section {
+      background: #1e222a;
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .test-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+      padding-bottom: 15px;
+      border-bottom: 2px solid rgba(77, 209, 255, 0.3);
+    }
+    .test-header h3 {
+      color: var(--rts-accent);
+      margin: 0;
+    }
+    .status-badge {
+      padding: 5px 15px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+    .status-badge.success {
+      background: rgba(40, 167, 69, 0.2);
+      color: #28a745;
+      border: 1px solid #28a745;
+    }
+    .status-badge.error {
+      background: rgba(220, 53, 69, 0.2);
+      color: #dc3545;
+      border: 1px solid #dc3545;
+    }
+    .status-badge.pending {
+      background: rgba(255, 193, 7, 0.2);
+      color: #ffc107;
+      border: 1px solid #ffc107;
+    }
+    .data-display {
+      background: #0f1115;
+      padding: 15px;
+      border-radius: 5px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.85rem;
+      max-height: 300px;
+      overflow-y: auto;
+      color: #4dd1ff;
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-top: 15px;
+    }
+    .stat-card {
+      background: #141821;
+      padding: 15px;
+      border-radius: 8px;
+      text-align: center;
+    }
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--rts-accent);
+    }
+    .stat-label {
+      font-size: 0.85rem;
+      color: rgba(255, 255, 255, 0.6);
+      margin-top: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div id="rtsTopNav"></div>
+  
+  <div class="test-container">
+    <h1 style="text-align: center; margin-bottom: 40px; color: var(--rts-accent);">
+      🧪 API Integration Test
+    </h1>
+
+    <!-- Data Mode Status -->
+    <div class="test-section">
+      <div class="test-header">
+        <h3>Data Mode Configuration</h3>
+        <span class="status-badge pending" id="modeStatus">Checking...</span>
+      </div>
+      <p style="color: rgba(255,255,255,0.8);">
+        Current Mode: <strong id="currentMode">...</strong>
+      </p>
+      <p style="color: rgba(255,255,255,0.6); font-size: 0.9rem;">
+        API Base URL: <code id="apiBaseURL" style="color: var(--rts-accent);">...</code>
+      </p>
+      <button class="btn btn-sm btn-outline-warning" id="btnToggleMode">
+        Switch to <span id="toggleTarget">localStorage</span>
+      </button>
+    </div>
+
+    <!-- Statistics -->
+    <div class="test-section">
+      <div class="test-header">
+        <h3>Database Statistics</h3>
+        <span class="status-badge pending" id="statsStatus">Loading...</span>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value" id="statBoxes">-</div>
+          <div class="stat-label">Total Boxes</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="statEquipment">-</div>
+          <div class="stat-label">Equipment Items</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="statAssets">-</div>
+          <div class="stat-label">Asset Items</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="statTotal">-</div>
+          <div class="stat-label">Total Items</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Boxes Test -->
+    <div class="test-section">
+      <div class="test-header">
+        <h3>📦 Boxes API Test</h3>
+        <span class="status-badge pending" id="boxesStatus">Not Run</span>
+      </div>
+      <button class="btn btn-primary mb-3" id="btnTestBoxes">Run Test</button>
+      <div class="data-display" id="boxesResult">Click "Run Test" to fetch boxes...</div>
+    </div>
+
+    <!-- Items Test -->
+    <div class="test-section">
+      <div class="test-header">
+        <h3>🔧 Items API Test</h3>
+        <span class="status-badge pending" id="itemsStatus">Not Run</span>
+      </div>
+      <button class="btn btn-primary mb-3" id="btnTestItems">Run Test</button>
+      <div class="data-display" id="itemsResult">Click "Run Test" to fetch items...</div>
+    </div>
+
+    <!-- Box Contents Test -->
+    <div class="test-section">
+      <div class="test-header">
+        <h3>📋 Box Contents API Test</h3>
+        <span class="status-badge pending" id="contentsStatus">Not Run</span>
+      </div>
+      <div class="mb-3">
+        <label class="form-label" style="color: rgba(255,255,255,0.8);">Select Box:</label>
+        <select class="form-select" id="selectTestBox" style="max-width: 300px;">
+          <option value="">Loading boxes...</option>
+        </select>
+      </div>
+      <button class="btn btn-primary mb-3" id="btnTestContents">Run Test</button>
+      <div class="data-display" id="contentsResult">Select a box and click "Run Test"...</div>
+    </div>
+
+    <!-- Summary -->
+    <div class="test-section">
+      <div class="test-header">
+        <h3>✅ Test Summary</h3>
+        <span class="status-badge pending" id="summaryStatus">Incomplete</span>
+      </div>
+      <div id="summaryText" style="color: rgba(255,255,255,0.8);">
+        Run all tests to see summary...
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="config.js"></script>
+  <script src="core.js"></script>
+  <script src="topnav.js"></script>
+  <script>
+    // Display current mode
+    document.getElementById('currentMode').textContent = window.RTS_CONFIG.dataMode.toUpperCase();
+    document.getElementById('apiBaseURL').textContent = window.RTS_CONFIG.api.baseURL;
+    document.getElementById('modeStatus').textContent = window.RTS_CONFIG.dataMode === 'api' ? 'API Mode' : 'localStorage Mode';
+    document.getElementById('modeStatus').className = `status-badge ${window.RTS_CONFIG.dataMode === 'api' ? 'success' : 'pending'}`;
+    document.getElementById('toggleTarget').textContent = window.RTS_CONFIG.dataMode === 'api' ? 'localStorage' : 'API';
+
+    // Toggle mode
+    document.getElementById('btnToggleMode').addEventListener('click', () => {
+      window.RTS_CONFIG.dataMode = window.RTS_CONFIG.dataMode === 'api' ? 'localStorage' : 'api';
+      location.reload();
+    });
+
+    // Load statistics
+    async function loadStats() {
+      try {
+        const boxes = await window.RTS_DATA.getBoxes();
+        const equipment = await window.RTS_DATA.getItems('equipment');
+        const assets = await window.RTS_DATA.getItems('asset');
+        
+        document.getElementById('statBoxes').textContent = boxes.length;
+        document.getElementById('statEquipment').textContent = equipment.length;
+        document.getElementById('statAssets').textContent = assets.length;
+        document.getElementById('statTotal').textContent = equipment.length + assets.length;
+        document.getElementById('statsStatus').textContent = 'Loaded';
+        document.getElementById('statsStatus').className = 'status-badge success';
+
+        // Populate box selector
+        const select = document.getElementById('selectTestBox');
+        select.innerHTML = '<option value="">Select a box...</option>';
+        boxes.slice(0, 10).forEach(box => {
+          const option = document.createElement('option');
+          option.value = box.id;
+          option.textContent = `${box.barcode} - ${box.name}`;
+          select.appendChild(option);
+        });
+      } catch (error) {
+        document.getElementById('statsStatus').textContent = 'Error';
+        document.getElementById('statsStatus').className = 'status-badge error';
+        console.error('Stats error:', error);
+      }
+    }
+
+    // Test Boxes
+    document.getElementById('btnTestBoxes').addEventListener('click', async () => {
+      const statusBadge = document.getElementById('boxesStatus');
+      const resultDiv = document.getElementById('boxesResult');
+      
+      statusBadge.textContent = 'Running...';
+      statusBadge.className = 'status-badge pending';
+      resultDiv.textContent = 'Fetching boxes...';
+      
+      try {
+        const boxes = await window.RTS_DATA.getBoxes();
+        statusBadge.textContent = `✅ Success (${boxes.length} boxes)`;
+        statusBadge.className = 'status-badge success';
+        resultDiv.textContent = JSON.stringify(boxes.slice(0, 3), null, 2) + '\n\n... and ' + (boxes.length - 3) + ' more';
+      } catch (error) {
+        statusBadge.textContent = '❌ Failed';
+        statusBadge.className = 'status-badge error';
+        resultDiv.textContent = `Error: ${error.message}\n\n${error.stack}`;
+      }
+    });
+
+    // Test Items
+    document.getElementById('btnTestItems').addEventListener('click', async () => {
+      const statusBadge = document.getElementById('itemsStatus');
+      const resultDiv = document.getElementById('itemsResult');
+      
+      statusBadge.textContent = 'Running...';
+      statusBadge.className = 'status-badge pending';
+      resultDiv.textContent = 'Fetching items...';
+      
+      try {
+        const items = await window.RTS_DATA.getItems();
+        statusBadge.textContent = `✅ Success (${items.length} items)`;
+        statusBadge.className = 'status-badge success';
+        resultDiv.textContent = JSON.stringify(items.slice(0, 3), null, 2) + '\n\n... and ' + (items.length - 3) + ' more';
+      } catch (error) {
+        statusBadge.textContent = '❌ Failed';
+        statusBadge.className = 'status-badge error';
+        resultDiv.textContent = `Error: ${error.message}\n\n${error.stack}`;
+      }
+    });
+
+    // Test Box Contents
+    document.getElementById('btnTestContents').addEventListener('click', async () => {
+      const statusBadge = document.getElementById('contentsStatus');
+      const resultDiv = document.getElementById('contentsResult');
+      const boxId = document.getElementById('selectTestBox').value;
+      
+      if (!boxId) {
+        alert('Please select a box first');
+        return;
+      }
+      
+      statusBadge.textContent = 'Running...';
+      statusBadge.className = 'status-badge pending';
+      resultDiv.textContent = `Fetching contents for ${boxId}...`;
+      
+      try {
+        const contents = await window.RTS_DATA.getBoxContents(boxId);
+        statusBadge.textContent = `✅ Success (${contents.length} items)`;
+        statusBadge.className = 'status-badge success';
+        resultDiv.textContent = JSON.stringify(contents, null, 2);
+      } catch (error) {
+        statusBadge.textContent = '❌ Failed';
+        statusBadge.className = 'status-badge error';
+        resultDiv.textContent = `Error: ${error.message}\n\n${error.stack}`;
+      }
+    });
+
+    // Auto-load stats on page load
+    loadStats();
+  </script>
+</body>
+</html>

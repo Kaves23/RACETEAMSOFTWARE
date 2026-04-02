@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Race Team OS – Fuel & Setup Calculators</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="style.css" rel="stylesheet" />
+  <style>
+    .calc-card { background:#0f1115; color:#e0e3e6; border:1px solid rgba(255,255,255,0.12); border-radius:10px; }
+    .calc-card .card-header { border-bottom:1px solid rgba(255,255,255,0.1); }
+    .calc-card .card-footer { border-top:1px solid rgba(255,255,255,0.1); }
+    .result-box { background:#11141a; border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:12px; }
+    .result-main { font-size:1.6rem; font-weight:700; }
+    .rts-key-tag { font-size:0.8rem; color:#a5b0b9; }
+    .form-range+.range-label { color:#a5b0b9; }
+  </style>
+</head>
+<body>
+  <div id="rtsTopNav"></div>
+  <div class="rts-main container-fluid">
+    <h1 class="my-3">Fuel & Setup Calculators</h1>
+
+    <div class="row g-3">
+      <!-- Fuel Mix -->
+      <div class="col-12 col-xl-6">
+        <div class="card calc-card">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <div>Fuel & Oil Mix</div>
+            <span class="rts-key-tag">Percent / Ratio</span>
+          </div>
+          <div class="card-body">
+            <div class="d-flex gap-3 align-items-center mb-2 flex-wrap">
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="mixMode" id="mixPercent" value="percent" checked>
+                <label class="form-check-label" for="mixPercent">Percent (%)</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="mixMode" id="mixRatio" value="ratio">
+                <label class="form-check-label" for="mixRatio">Ratio (e.g., 50:1)</label>
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Fuel Amount (L)</label>
+              <input id="mixFuel" type="range" class="form-range" min="1" max="50" step="1" value="10">
+              <div class="range-label" id="mixFuelLabel">10 L</div>
+            </div>
+            <div class="mb-3" id="percentWrap">
+              <label class="form-label">Oil Percent</label>
+              <input id="mixPercentRange" type="range" class="form-range" min="0.5" max="10" step="0.1" value="2.0">
+              <div class="range-label" id="mixPercentLabel">2.0 %</div>
+            </div>
+            <div class="mb-3 d-none" id="ratioWrap">
+              <label class="form-label">Oil Ratio (parts fuel : 1 oil)</label>
+              <input id="mixRatioRange" type="range" class="form-range" min="20" max="100" step="1" value="50">
+              <div class="range-label" id="mixRatioLabel">50:1</div>
+            </div>
+            <div class="result-box text-center">
+              <div class="text-secondary" style="font-size:0.9rem;">Result</div>
+              <div id="mixResult" class="result-main">Add 200 ml Oil</div>
+              <div id="mixSub" class="text-secondary" style="font-size:0.84rem;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Jet Selector -->
+      <div class="col-12 col-xl-6">
+        <div class="card calc-card">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <div>Jet Selector (Heuristics)</div>
+            <span class="rts-key-tag">Mini Rok / OK-J / OK-N</span>
+          </div>
+          <div class="card-body">
+            <div class="row g-3">
+              <div class="col-12 col-md-6">
+                <label class="form-label">Engine Class</label>
+                <select id="jetClass" class="form-select form-select-sm">
+                  <option value="mini-rok">Mini Rok</option>
+                  <option value="ok-j">OK-J</option>
+                  <option value="ok-n">OK-N</option>
+                </select>
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label">Baseline Main Jet</label>
+                <input id="jetBaseline" type="number" class="form-control form-control-sm" value="100" min="80" max="130" step="1">
+              </div>
+              <div class="col-6 col-md-3">
+                <label class="form-label">Temp (°C)</label>
+                <input id="jetTemp" type="number" class="form-control form-control-sm" value="20" min="-5" max="45" step="1">
+              </div>
+              <div class="col-6 col-md-3">
+                <label class="form-label">Altitude (m)</label>
+                <input id="jetAlt" type="number" class="form-control form-control-sm" value="0" min="0" max="2500" step="50">
+              </div>
+              <div class="col-6 col-md-3">
+                <label class="form-label">Humidity (%)</label>
+                <input id="jetHum" type="number" class="form-control form-control-sm" value="50" min="0" max="100" step="1">
+              </div>
+              <div class="col-6 col-md-3">
+                <label class="form-label">Track Type</label>
+                <select id="jetTrack" class="form-select form-select-sm">
+                  <option value="balanced">Balanced</option>
+                  <option value="fast">Fast</option>
+                  <option value="technical">Technical</option>
+                </select>
+              </div>
+              <div class="col-12">
+                <div class="result-box">
+                  <div class="text-secondary" style="font-size:0.9rem;">Recommendation</div>
+                  <div id="jetResult" class="result-main">Main Jet: 100 (±0)</div>
+                  <div id="jetNotes" class="text-secondary" style="font-size:0.84rem;">Heuristic only; validate with plug/EGT.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Setup Advisor -->
+      <div class="col-12">
+        <div class="card calc-card">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <div>Kart Setup Advisor (Guidance)</div>
+            <span class="rts-key-tag">Grip / Weather / Track</span>
+          </div>
+          <div class="card-body">
+            <div class="row g-3">
+              <div class="col-6 col-md-3">
+                <label class="form-label">Grip</label>
+                <select id="setupGrip" class="form-select form-select-sm">
+                  <option value="low">Low</option>
+                  <option value="medium" selected>Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
+              <div class="col-6 col-md-3">
+                <label class="form-label">Weather</label>
+                <select id="setupWeather" class="form-select form-select-sm">
+                  <option value="dry" selected>Dry</option>
+                  <option value="hot">Hot</option>
+                  <option value="cold">Cold</option>
+                  <option value="wet">Wet</option>
+                </select>
+              </div>
+              <div class="col-6 col-md-3">
+                <label class="form-label">Track Type</label>
+                <select id="setupType" class="form-select form-select-sm">
+                  <option value="balanced" selected>Balanced</option>
+                  <option value="fast">Fast</option>
+                  <option value="technical">Technical</option>
+                </select>
+              </div>
+              <div class="col-6 col-md-3">
+                <label class="form-label">Track Length</label>
+                <select id="setupLen" class="form-select form-select-sm">
+                  <option value="short">Short</option>
+                  <option value="medium" selected>Medium</option>
+                  <option value="long">Long</option>
+                </select>
+              </div>
+              <div class="col-6 col-md-3">
+                <label class="form-label">Surface</label>
+                <select id="setupSurface" class="form-select form-select-sm">
+                  <option value="smooth" selected>Smooth</option>
+                  <option value="bumpy">Bumpy</option>
+                </select>
+              </div>
+              <div class="col-6 col-md-3">
+                <label class="form-label">Kerb Usage</label>
+                <select id="setupKerbs" class="form-select form-select-sm">
+                  <option value="light" selected>Light</option>
+                  <option value="heavy">Heavy</option>
+                </select>
+              </div>
+              <div class="col-6 col-md-3">
+                <label class="form-label">Tyre Compound</label>
+                <select id="setupCompound" class="form-select form-select-sm">
+                  <option value="hard">Hard</option>
+                  <option value="medium" selected>Medium</option>
+                  <option value="soft">Soft</option>
+                  <option value="wet">Wet</option>
+                </select>
+              </div>
+              <div class="col-6 col-md-3">
+                <label class="form-label">Driver Weight</label>
+                <select id="setupDriver" class="form-select form-select-sm">
+                  <option value="light">Light</option>
+                  <option value="medium" selected>Medium</option>
+                  <option value="heavy">Heavy</option>
+                </select>
+              </div>
+              <div class="col-6 col-md-3">
+                <label class="form-label">Class</label>
+                <select id="setupClass" class="form-select form-select-sm">
+                  <option value="mini-rok" selected>Mini Rok</option>
+                  <option value="ok-j">OK-J</option>
+                  <option value="ok-n">OK-N</option>
+                </select>
+              </div>
+              <div class="col-6 col-md-3">
+                <label class="form-label">Symptom</label>
+                <select id="setupSymptom" class="form-select form-select-sm">
+                  <option value="none" selected>None</option>
+                  <option value="understeer-entry">Understeer (Entry)</option>
+                  <option value="understeer-mid">Understeer (Mid)</option>
+                  <option value="understeer-exit">Understeer (Exit)</option>
+                  <option value="oversteer-entry">Oversteer (Entry)</option>
+              <div class="col-6 col-md-3">
+                <label class="form-label">Chassis Vendor</label>
+                <select id="setupVendor" class="form-select form-select-sm">
+                  <option value="otk" selected>OTK (Tony Kart / Exprit)</option>
+                  <option value="kr">KR</option>
+                  <option value="birel">BirelART</option>
+                  <option value="praga">Praga / Formula K</option>
+                  <option value="sodi">Sodi</option>
+                </select>
+              </div>
+              <div class="col-6 col-md-3 d-flex align-items-end gap-2">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="setupFrontBar">
+                  <label class="form-check-label" for="setupFrontBar">Front Torsion Bar</label>
+                </div>
+              </div>
+              <div class="col-6 col-md-3 d-flex align-items-end gap-2">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="setupRearBar">
+                  <label class="form-check-label" for="setupRearBar">Rear Torsion Bar</label>
+                </div>
+              </div>
+              <div class="col-6 col-md-3">
+                <label class="form-label">Seat Struts (count)</label>
+                <input id="setupSeatStruts" type="number" class="form-control form-control-sm" value="2" min="0" max="4" step="1">
+              </div>
+              <div class="col-6 col-md-3 d-flex align-items-end gap-2">
+                <button id="setupEditTeam" class="btn btn-sm btn-outline-light mlo-btn" type="button">Edit Team Baselines</button>
+              </div>
+              <div class="col-12">
+                <div class="result-box">
+                  <div class="text-secondary" style="font-size:0.9rem;">Venue Presets</div>
+                  <div class="row g-2">
+                    <div class="col-12 col-md-4">
+                      <label class="form-label">Venue</label>
+                      <select id="setupVenue" class="form-select form-select-sm"></select>
+                    </div>
+                    <div class="col-6 col-md-3">
+                      <label class="form-label">Condition</label>
+                      <select id="setupCond" class="form-select form-select-sm">
+                        <option value="dry" selected>Dry</option>
+                        <option value="hot">Hot</option>
+                        <option value="cold">Cold</option>
+                        <option value="wet">Wet</option>
+                      </select>
+                    </div>
+                    <div class="col-6 col-md-5 d-flex align-items-end gap-2">
+                      <button id="presetLoad" class="btn btn-sm btn-outline-light mlo-btn" type="button">Load Preset</button>
+                      <button id="presetSave" class="btn btn-sm btn-outline-light mlo-btn" type="button">Save Preset</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+                  <option value="oversteer-exit">Oversteer (Exit)</option>
+                  <option value="rear-loose">Rear Loose</option>
+                  <option value="hopping">Hopping / Chatter</option>
+                  <option value="slow-warmup">Slow Tyre Warmup</option>
+                  <option value="locking-brakes">Locking Brakes</option>
+                </select>
+              </div>
+              <div class="col-12">
+                <div class="result-box">
+                  <div class="text-secondary" style="font-size:0.9rem;">Suggestions</div>
+              <div class="col-12">
+                <div class="result-box">
+                  <div class="text-secondary" style="font-size:0.9rem;">Tyre Targets & Pressure Plan</div>
+                  <ul id="tyrePlanList" class="mb-0"></ul>
+                </div>
+              </div>
+                  <ul id="setupList" class="mb-0"></ul>
+                  <div class="d-flex gap-2 align-items-center mt-2">
+                    <button id="setupExport" class="btn btn-sm btn-outline-light mlo-btn" type="button">Export</button>
+                    <div class="text-secondary" style="font-size:0.84rem;">Guidance only; confirm with driver feedback and data.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="config.js"></script>
+  <script src="core.js"></script>
+  <script src="topnav.js"></script>
+  <script>
+  (function(){
+    RTS.setActiveNav();
+
+    // Fuel mix logic
+    function updateMix(){
+      const fuelL = Number(document.getElementById('mixFuel').value||0);
+      const isPercent = document.getElementById('mixPercent').checked;
+      document.getElementById('mixFuelLabel').textContent = fuelL + ' L';
+      let oilMl = 0, sub = '';
+      if (isPercent){
+        const p = Number(document.getElementById('mixPercentRange').value||0);
+        document.getElementById('mixPercentLabel').textContent = p.toFixed(1) + ' %';
+        oilMl = Math.round(fuelL * 1000 * (p/100));
+        sub = `${fuelL}L @ ${p.toFixed(1)}% ≈ ${(oilMl/1000).toFixed(2)} L oil`;
+      } else {
+        const r = Number(document.getElementById('mixRatioRange').value||50);
+        document.getElementById('mixRatioLabel').textContent = `${r}:1`;
+        oilMl = Math.round(fuelL * 1000 / r);
+        sub = `${fuelL}L @ ${r}:1 ≈ ${(oilMl/1000).toFixed(2)} L oil`;
+      }
+      document.getElementById('mixResult').textContent = `Add ${oilMl} ml Oil`;
+      document.getElementById('mixSub').textContent = sub;
+    }
+    document.getElementById('mixFuel').addEventListener('input', updateMix);
+    document.getElementById('mixPercentRange').addEventListener('input', updateMix);
+    document.getElementById('mixRatioRange').addEventListener('input', updateMix);
+    document.getElementById('mixPercent').addEventListener('change', ()=>{
+      document.getElementById('percentWrap').classList.remove('d-none');
+      document.getElementById('ratioWrap').classList.add('d-none');
+      updateMix();
+    });
+    document.getElementById('mixRatio').addEventListener('change', ()=>{
+      document.getElementById('percentWrap').classList.add('d-none');
+      document.getElementById('ratioWrap').classList.remove('d-none');
+      updateMix();
+    });
+    updateMix();
+
+    // Jet selector heuristics
+    function computeJet(){
+      const cls = document.getElementById('jetClass').value;
+      const base = Number(document.getElementById('jetBaseline').value||100);
+      const t = Number(document.getElementById('jetTemp').value||20);
+      const alt = Number(document.getElementById('jetAlt').value||0);
+      const hum = Number(document.getElementById('jetHum').value||50);
+      const track = document.getElementById('jetTrack').value;
+
+      // Heuristic steps: start at 0
+      let steps = 0;
+      // Temperature: colder -> richer (+), hotter -> leaner (-)
+      if (t <= 10) steps += 2; else if (t <= 15) steps += 1; else if (t >= 30) steps -= 2; else if (t >= 25) steps -= 1;
+      // Altitude: higher -> thinner air -> leaner (-); ~1 step per 300m
+      steps += -Math.round(alt / 300);
+      // Humidity: very high humidity -> richer (+1)
+      if (hum >= 70) steps += 1; else if (hum <= 30) steps -= 1;
+      // Track emphasis: technical often favors slightly richer for throttle modulation; fast may favor slightly leaner for peak
+      if (track === 'technical') steps += 1;
+      if (track === 'fast') steps -= 1;
+
+      // Class nuance: keep Mini Rok conservative; OK classes respond faster
+      if (cls === 'ok-j' || cls === 'ok-n') {
+        // slightly amplify steps
+        steps = Math.max(-5, Math.min(5, Math.round(steps * 1.2)));
+      } else {
+        steps = Math.max(-4, Math.min(4, Math.round(steps)));
+      }
+
+      const rec = base + steps;
+      const note = `Base ${base} with ${steps>=0?'+':''}${steps} steps. Use plug/EGT and lap time to validate.`;
+      document.getElementById('jetResult').textContent = `Main Jet: ${rec} (${steps>=0?'+':''}${steps})`;
+      document.getElementById('jetNotes').textContent = note;
+    }
+    ['jetClass','jetBaseline','jetTemp','jetAlt','jetHum','jetTrack'].forEach(id=>{
+      document.getElementById(id).addEventListener('input', computeJet);
+      document.getElementById(id).addEventListener('change', computeJet);
+    });
+    computeJet();
+
+    // Setup advisor guidance
+    function getTeamBaselines(){
+      const key = 'rts.setup.team.v1';
+      const cur = RTS.safeLoadJSON(key, null);
+      const def = { vendor:'otk', psi:{ hard:13.5, medium:13.0, soft:12.5, wet:15.0 }, axleCode:'OTK M', seat:{ heightMm:330, foreAftCm:0 } };
+      return RTS.deepMerge(def, cur||{});
+    }
+    function saveTeamBaselines(patch){
+      const key = 'rts.setup.team.v1';
+      const next = RTS.deepMerge(getTeamBaselines(), patch||{});
+      RTS.safeSaveJSON(key, next);
+      return next;
+    }
+    function getPresets(){ return RTS.safeLoadJSON('rts.setup.presets.v1', {}); }
+    function savePresets(obj){ RTS.safeSaveJSON('rts.setup.presets.v1', obj||{}); }
+    function presetKey(venueId, cond){ return String(venueId||'') + ':' + String(cond||''); }
+
+    function tyreTargets(compound){
+      // Typical hot temp ranges (deg C)
+      const map = { soft:[65,75], medium:[60,70], hard:[55,65], wet:[35,45] };
+      return map[compound] || [60,70];
+    }
+
+    function buildSetup(){
+      const grip = document.getElementById('setupGrip').value;
+      const weather = document.getElementById('setupWeather').value;
+      const type = document.getElementById('setupType').value;
+      const len = document.getElementById('setupLen').value;
+      const surface = document.getElementById('setupSurface').value;
+      const kerbs = document.getElementById('setupKerbs').value;
+      const compound = document.getElementById('setupCompound').value;
+      const driver = document.getElementById('setupDriver').value;
+      const klass = document.getElementById('setupClass').value;
+      const vendor = document.getElementById('setupVendor').value;
+      const frontBar = document.getElementById('setupFrontBar').checked;
+      const rearBar = document.getElementById('setupRearBar').checked;
+      const seatStruts = Math.max(0, parseInt(document.getElementById('setupSeatStruts').value||'2',10));
+      const symptom = document.getElementById('setupSymptom').value;
+      const list = document.getElementById('setupList');
+      list.innerHTML = '';
+      const out = [];
+
+      // Tyre pressures: use team baselines per compound
+      const team = getTeamBaselines();
+      let psi = Number(team.psi[compound]||13);
+      if (grip === 'low') psi += 1.5; if (grip === 'high') psi -= 1.0;
+      if (weather === 'wet') psi += 2.0; if (weather === 'hot') psi -= 0.5; if (weather === 'cold') psi += 0.5;
+      out.push(`Tyre pressures: ~${psi.toFixed(1)} psi (adjust per compound/session).`);
+
+      // Track widths
+      if (grip === 'low') out.push('Front track: wider for bite; Rear track: narrower for traction.');
+      if (grip === 'high') out.push('Front track: slightly narrower to avoid snap; Rear track: wider for stability.');
+      if (symptom.startsWith('understeer')) out.push('Increase front track or caster; reduce front toe-out slightly.');
+      if (symptom.includes('oversteer')) out.push('Increase rear track or stiffen rear axle; move seat back slightly.');
+
+      // Geometry: caster/camber/toe
+      if (grip === 'low') out.push('Caster: +1 step; Camber: reduce slightly for contact; Toe: small toe-out for turn-in.');
+      if (grip === 'high') out.push('Caster: -1 step; Camber: add a touch for rotation; Toe: neutral or minimal toe-out.');
+      if (symptom === 'understeer-entry') out.push('Entry understeer: add caster or a touch of toe-out; raise front ride height slightly.');
+      if (symptom === 'understeer-mid') out.push('Mid understeer: add camber and widen front track; check tyre temps.');
+      if (symptom === 'understeer-exit') out.push('Exit understeer: shorten gear slightly or shift weight forward; reduce rear track.');
+      if (symptom === 'oversteer-entry') out.push('Entry oversteer: reduce caster; soften front; narrow front track.');
+      if (symptom === 'oversteer-exit') out.push('Exit oversteer: widen rear track; stiffer axle; move seat back a touch.');
+
+      // Ride height front/rear
+      if (type === 'technical') out.push('Ride height: slightly higher rear for rotation in tight sections.');
+      if (type === 'fast') out.push('Ride height: lower overall for aero/drag; ensure stability over kerbs.');
+      if (weather === 'wet') out.push('Wet: raise ride height (front and rear) for clearance and compliance.');
+
+      // Axle stiffness and hubs
+      if (grip === 'low' || surface === 'bumpy') out.push('Rear axle: softer; hubs: shorter; aim for compliance and traction.');
+      if (grip === 'high' || surface === 'smooth') out.push('Rear axle: stiffer; hubs: longer; aim for stability and precision.');
+      if (symptom === 'rear-loose') out.push('Rear loose: stiffer axle or longer hubs; reduce rear track; seat back slightly.');
+      if (symptom === 'hopping') out.push('Hopping: soften rear (axle/hubs); reduce front caster; lower tyre pressures slightly.');
+
+      // Seat position / weight distribution
+      if (driver === 'heavy') out.push('Seat: lower and back slightly to calm rear; consider stiffer axle.');
+      if (driver === 'light') out.push('Seat: forward slightly to load front; consider softer axle for traction.');
+
+      // Kerbs / surface
+      if (kerbs === 'heavy') out.push('Kerbs heavy: raise ride height a notch; soften front; ensure bumper clearance.');
+      if (surface === 'bumpy') out.push('Bumpy: soften chassis (remove torsion bar if fitted), reduce caster, lower pressures.');
+
+      // Torsion bars
+      if (grip === 'low') out.push('Front bar: consider installed; Rear bar: consider installed for rigidity if stable.');
+      if (grip === 'high') out.push('Front/Rear bar: remove to free chassis if binding; adjust axle/hubs accordingly.');
+
+      // Gear ratio
+      if (len === 'short' || type === 'technical') out.push('Gear ratio: shorter for drive out of slow corners.');
+      if (len === 'long' || type === 'fast') out.push('Gear ratio: longer for top speed on straights.');
+
+      // Carb (butterfly) advisory for OK classes
+      if ((klass === 'ok-j' || klass === 'ok-n') && weather === 'hot') out.push('OK carb: in hot conditions, lean main slightly; increase butterfly opening at high RPM carefully.');
+      if ((klass === 'ok-j' || klass === 'ok-n') && weather === 'cold') out.push('OK carb: in cold, richer main; reduce butterfly opening to stabilize low RPM.');
+
+      // Brake feel
+      if (symptom === 'locking-brakes') out.push('Brakes: reduce rear pressure (if adjustable); check pad glazing; slightly lower rear ride height for grip.');
+
+      // Torsion bars and seat struts influence
+      const vendorNotes = {
+        otk: 'OTK: torsion bars strongly affect chassis bind; remove for high grip to free, install for low grip to stiffen.',
+        kr: 'KR: front bar effect moderate; rear bar used sparingly in high grip.',
+        birel: 'BirelART: rear bar can calm rear in bumpy; watch tyre temps.',
+        praga: 'Praga/Formula K: front bar adds precision; remove if hopping appears.',
+        sodi: 'Sodi: seat strut count has notable rear stiffness impact.'
+      };
+      out.push(vendorNotes[vendor] || 'Vendor notes: tune torsion bars and seat struts to control flex.');
+      if (frontBar) out.push('Front torsion bar: installed → stiffer front, crisper turn-in; remove to free front in high grip.');
+      if (rearBar) out.push('Rear torsion bar: installed → stiffer rear; remove in high grip to avoid bind.');
+      out.push(`Seat struts: ${seatStruts} — more struts stiffen rear and can reduce hopping; fewer struts add compliance.`);
+
+      out.forEach(txt => { const li = document.createElement('li'); li.textContent = txt; list.appendChild(li); });
+
+      // Export wiring
+      const btn = document.getElementById('setupExport');
+      if (btn){ btn.onclick = ()=>{
+        const blob = new Blob([out.map((t,i)=>`${i+1}. ${t}`).join('\n')], { type:'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url; a.download = 'setup-notes.txt'; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+      }; }
+
+      // Tyre plan (targets & staged pressures)
+      const planList = document.getElementById('tyrePlanList');
+      if (planList){
+        planList.innerHTML = '';
+        const [tMin, tMax] = tyreTargets(compound);
+        const li1 = document.createElement('li'); li1.textContent = `Target hot temp (${compound}): ${tMin}–${tMax} °C`;
+        planList.appendChild(li1);
+        const li2 = document.createElement('li');
+        li2.textContent = `Start cold ~${psi.toFixed(1)} psi. After first run, measure hot temps; adjust ±0.5–1.0 psi to hit target.`;
+        planList.appendChild(li2);
+        const li3 = document.createElement('li');
+        li3.textContent = (weather==='wet') ? 'Wet: prioritize clearance and compliance; avoid over-inflation to keep contact.' : 'Dry: if temps exceed target, reduce pressure; if below target, increase slightly.';
+        planList.appendChild(li3);
+      }
+    }
+    ['setupGrip','setupWeather','setupType','setupLen','setupSurface','setupKerbs','setupCompound','setupDriver','setupClass','setupSymptom','setupVendor','setupFrontBar','setupRearBar','setupSeatStruts'].forEach(id=>{
+      document.getElementById(id).addEventListener('change', buildSetup);
+    });
+    buildSetup();
+
+    // Venue presets wiring
+    function populateVenues(){
+      const s = RTS.getSettings();
+      const venues = (s && s.venues) ? s.venues : [];
+      const sel = document.getElementById('setupVenue');
+      sel.innerHTML = venues.map(v=>`<option value="${v.id}">${v.name}</option>`).join('');
+    }
+    populateVenues();
+
+    function loadPreset(){
+      const v = document.getElementById('setupVenue').value;
+      const c = document.getElementById('setupCond').value;
+      const key = presetKey(v,c);
+      const all = getPresets();
+      const p = all[key];
+      if (!p){ alert('No preset saved for this venue/condition yet.'); return; }
+      // Apply UI selections
+      ['setupGrip','setupWeather','setupType','setupLen','setupSurface','setupKerbs','setupCompound','setupDriver','setupClass'].forEach(id=>{
+        if (p[id]) document.getElementById(id).value = p[id];
+      });
+      if (p.vendor) document.getElementById('setupVendor').value = p.vendor;
+      if (typeof p.frontBar==='boolean') document.getElementById('setupFrontBar').checked = p.frontBar;
+      if (typeof p.rearBar==='boolean') document.getElementById('setupRearBar').checked = p.rearBar;
+      if (typeof p.seatStruts==='number') document.getElementById('setupSeatStruts').value = String(p.seatStruts);
+      if (p.team && p.team.psi){ saveTeamBaselines({ psi: p.team.psi }); }
+      buildSetup();
+    }
+    function savePreset(){
+      const v = document.getElementById('setupVenue').value;
+      const c = document.getElementById('setupCond').value;
+      const key = presetKey(v,c);
+      const all = getPresets();
+      const data = {
+        setupGrip: document.getElementById('setupGrip').value,
+        setupWeather: document.getElementById('setupWeather').value,
+        setupType: document.getElementById('setupType').value,
+        setupLen: document.getElementById('setupLen').value,
+        setupSurface: document.getElementById('setupSurface').value,
+        setupKerbs: document.getElementById('setupKerbs').value,
+        setupCompound: document.getElementById('setupCompound').value,
+        setupDriver: document.getElementById('setupDriver').value,
+        setupClass: document.getElementById('setupClass').value,
+        vendor: document.getElementById('setupVendor').value,
+        frontBar: document.getElementById('setupFrontBar').checked,
+        rearBar: document.getElementById('setupRearBar').checked,
+        seatStruts: Math.max(0, parseInt(document.getElementById('setupSeatStruts').value||'2',10)),
+        team: getTeamBaselines()
+      };
+      all[key] = data;
+      savePresets(all);
+      alert('Preset saved.');
+    }
+    document.getElementById('presetLoad').addEventListener('click', loadPreset);
+    document.getElementById('presetSave').addEventListener('click', savePreset);
+
+    // Team baseline editor (quick prompts)
+    document.getElementById('setupEditTeam').addEventListener('click', ()=>{
+      const cur = getTeamBaselines();
+      try {
+        const hard = parseFloat(prompt('Baseline PSI – Hard', String(cur.psi.hard))||cur.psi.hard);
+        const med = parseFloat(prompt('Baseline PSI – Medium', String(cur.psi.medium))||cur.psi.medium);
+        const soft = parseFloat(prompt('Baseline PSI – Soft', String(cur.psi.soft))||cur.psi.soft);
+        const wet = parseFloat(prompt('Baseline PSI – Wet', String(cur.psi.wet))||cur.psi.wet);
+        const axle = String(prompt('Preferred Axle Code', String(cur.axleCode))||cur.axleCode);
+        const seatH = parseInt(prompt('Seat Height (mm)', String(cur.seat.heightMm))||cur.seat.heightMm,10);
+        const seatF = parseFloat(prompt('Seat Fore/Aft (cm)', String(cur.seat.foreAftCm))||cur.seat.foreAftCm);
+        saveTeamBaselines({ psi:{ hard:hard, medium:med, soft:soft, wet:wet }, axleCode:axle, seat:{ heightMm:seatH, foreAftCm:seatF } });
+        alert('Team baselines updated.');
+        buildSetup();
+      } catch(_e){ /* ignore */ }
+    });
+  })();
+  </script>
+</body>
+</html>

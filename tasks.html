@@ -142,6 +142,9 @@
                 <li class="nav-item" role="presentation">
                   <button class="nav-link" id="tab-task-meta" data-bs-toggle="tab" data-bs-target="#pane-task-meta" type="button" role="tab" aria-controls="pane-task-meta" aria-selected="false">Meta</button>
                 </li>
+                <li class="nav-item" role="presentation">
+                  <button class="nav-link" id="tab-task-checklist" data-bs-toggle="tab" data-bs-target="#pane-task-checklist" type="button" role="tab" aria-controls="pane-task-checklist" aria-selected="false">Checklist</button>
+                </li>
                 </ul>
 
                 <div class="tab-content">
@@ -244,6 +247,22 @@
                   <div><span style="opacity:0.7;">Updated:</span> <span id="metaUpdated">—</span></div>
                   </div>
                 </div>
+                <div class="tab-pane fade" id="pane-task-checklist" role="tabpanel" aria-labelledby="tab-task-checklist">
+                  <div class="row g-2">
+                    <div class="col-12 d-flex align-items-end gap-1">
+                      <div style="flex:1;">
+                        <label class="form-label">Master Checklist</label>
+                        <select id="taskChkMaster" class="form-select form-select-sm"></select>
+                      </div>
+                      <div>
+                        <button class="btn btn-sm btn-outline-light mlo-btn" id="btnTaskChkSpawn" type="button">Spawn Checklist</button>
+                      </div>
+                    </div>
+                    <div class="col-12">
+                      <div id="taskChkList" class="d-grid gap-2"></div>
+                    </div>
+                  </div>
+                </div>
                 </div>
               </form>
             </div>
@@ -319,6 +338,12 @@
           act: document.getElementById('f_act'),
           tags: document.getElementById('f_tags'),
           notes: document.getElementById('f_notes'),
+        }
+        ,
+        chk: {
+          master: document.getElementById('taskChkMaster'),
+          spawn: document.getElementById('btnTaskChkSpawn'),
+          list: document.getElementById('taskChkList'),
         }
       };
 
@@ -804,6 +829,7 @@
         els.metaUpdated.textContent = t.updatedAt ? new Date(t.updatedAt).toLocaleString() : '—';
 
         renderAttachments(t);
+        renderTaskChecklist(t);
       }
 
       function renderAttachments(task) {
@@ -881,6 +907,55 @@
         } catch (e) {
           alert('Drive Picker error: ' + (e && e.message ? e.message : String(e)));
         }
+      }
+
+      // ----- Task-local checklist -----
+      function ensureTaskChecklist(t){ if(!t.checklist) t.checklist = { id: RTS.uid('tchk'), name: '', items: [] }; return t.checklist; }
+      function renderChecklistMasterOptions(){
+        const masters = (RTS.getSettings().masterChecklists||[]).slice();
+        if (els.chk.master) els.chk.master.innerHTML = masters.map(m=>`<option value="${escapeHtml(String(m.id))}">${escapeHtml(m.name||'Checklist')}</option>`).join('');
+      }
+      function spawnTaskChecklist(){
+        if (ui.selectedId === null) return;
+        const idx = tasks.findIndex(t => t.id === ui.selectedId);
+        if (idx === -1) return;
+        const t = tasks[idx];
+        const masters = (RTS.getSettings().masterChecklists||[]).slice();
+        const m = masters.find(x=> String(x.id)===String(els.chk.master.value)) || masters[0];
+        if (!m) { alert('No master checklists defined in Settings.'); return; }
+        const items = (m.items||[]).map(txt => ({ id: RTS.uid('item'), text: txt, done: false }));
+        t.checklist = { id: RTS.uid('tchk'), name: m.name||'Checklist', items };
+        t.updatedAt = nowISO();
+        persistTasks();
+        renderTaskChecklist(t);
+      }
+      function renderTaskChecklist(t){
+        if (!els.chk.list) return;
+        els.chk.list.innerHTML = '';
+        if (!t){ els.chk.list.innerHTML = '<div class="text-secondary">No selection.</div>'; return; }
+        const chk = ensureTaskChecklist(t);
+        const card = document.createElement('div');
+        card.className = 'p-2 border rounded';
+        card.style.borderColor = 'rgba(255,255,255,0.12)';
+        const itemsHtml = (chk.items||[]).map(it=>{
+          const id = `taskchk_${chk.id}_${it.id}`;
+          return `<div class=\"form-check form-check-sm\"><input class=\"form-check-input\" type=\"checkbox\" id=\"${id}\" ${it.done? 'checked':''}><label class=\"form-check-label\" for=\"${id}\">${escapeHtml(it.text)}</label></div>`;
+        }).join('');
+        card.innerHTML = `
+          <div class=\"d-flex justify-content-between align-items-center mb-1\"><strong>${escapeHtml(chk.name||'Checklist')}</strong><div class=\"d-flex gap-1\"><button class=\"btn btn-sm btn-outline-light mlo-btn\" data-act=\"clear\">Clear</button></div></div>
+          ${itemsHtml || '<div class=\"text-secondary\">No items.</div>'}
+        `;
+        card.querySelectorAll('.form-check-input').forEach((inp, j)=>{
+          inp.addEventListener('change', ()=>{
+            chk.items[j].done = inp.checked;
+            t.updatedAt = nowISO(); persistTasks();
+          });
+        });
+        card.querySelector('[data-act=\"clear\"]').addEventListener('click', ()=>{
+          (chk.items||[]).forEach(it=> it.done = false);
+          t.updatedAt = nowISO(); persistTasks(); renderTaskChecklist(t);
+        });
+        els.chk.list.appendChild(card);
       }
 
       function upsertFromInspector() {
@@ -1063,6 +1138,7 @@
         els.btnDel.addEventListener('click', deleteSelected);
         els.btnTaskAttAdd.addEventListener('click', addAttachmentLink);
         els.btnTaskAttDrive.addEventListener('click', addAttachmentDrive);
+        if (els.chk && els.chk.spawn) els.chk.spawn.addEventListener('click', spawnTaskChecklist);
         // clear project selection
         if (els.btnClearProject) {
           els.btnClearProject.addEventListener('click', () => {
@@ -1130,6 +1206,7 @@
   updateSortIcon();
         bindButtons();
         bindResizers();
+    renderChecklistMasterOptions();
 
         renderTable();
         if (ui.selectedId && tasks.some(t => t.id === ui.selectedId)) {

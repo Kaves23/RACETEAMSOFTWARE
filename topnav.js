@@ -3,25 +3,57 @@
  * Works in file:// contexts.
  */
 (function(){
-  const tabs = [
+  // Grouped navigation + singles; groups open a quick-select modal
+  // Order groups so the most-used are left-most in the top bar
+  const groups = [
+    { label: 'Ops', items: [
+      { href: 'events.html', label: 'Events', key: 'E' },
+      { href: 'tasks.html', label: 'Tasks', key: 'T' },
+      { href: 'forecast.html', label: 'Forecast', key: 'F' },
+      { href: 'orders.html', label: 'Orders', key: 'O' },
+      { href: 'notes.html', label: 'Notes', key: 'N' }
+    ]},
+    { label: 'Finance', items: [
+      { href: 'invoice.html', label: 'Invoicing', key: 'I' },
+      { href: 'expenses.html', label: 'Expenses', key: 'E' },
+      { href: 'packages.html', label: 'Driver Packages', key: 'K' }
+    ]},
+    { label: 'Logistics', items: [
+      { href: 'load.html', label: 'Load Plan', key: 'L' },
+      { href: 'box-packing.html', label: 'Box Packing', key: 'B' },
+      { href: 'inventory.html', label: 'Inventory', key: 'V' },
+      { href: 'assets.html', label: 'Assets', key: 'A' }
+    ]},
+    { label: 'Tech', items: [
+      { href: 'service.html', label: 'Service', key: 'S' },
+      { href: 'compliance.html', label: 'Compliance', key: 'C' },
+      { href: 'fuel-calcs.html', label: 'Fuel Calcs', key: 'F' }
+    ]},
+    { label: 'Team', items: [
+      { href: 'drivers.html', label: 'Drivers', key: 'D' },
+      { href: 'performance.html', label: 'Performance', key: 'P' },
+      { href: 'strategy.html', label: 'Strategy', key: 'S' },
+      { href: 'incidents.html', label: 'Incidents', key: 'N' }
+    ]}
+  ];
+  const singles = [
     { href: 'index.html', label: 'Dashboard' },
-    { href: 'events.html', label: 'Events' },
-    { href: 'tasks.html', label: 'Tasks' },
-    { href: 'drivers.html', label: 'Drivers' },
-    { href: 'assets.html', label: 'Assets' },
-    { href: 'inventory.html', label: 'Inventory' },
-    { href: 'load.html', label: 'Load Plan' },
-    { href: 'compliance.html', label: 'Compliance' },
-    { href: 'invoice.html', label: 'Invoicing' },
-    { href: 'expenses.html', label: 'Finance' },
-    { href: 'service.html', label: 'Service' },
-    { href: 'forecast.html', label: 'Forecast' },
-    { href: 'strategy.html', label: 'Strategy' },
-    { href: 'incidents.html', label: 'Incidents' },
-    { href: 'performance.html', label: 'Performance' },
     { href: 'integrations.html', label: 'Integrations' },
     { href: 'settings.html', label: 'Settings' }
   ];
+
+  // Default top-level keybinds (letters) — only active when not typing
+  // d: Dashboard, t: Tech, o: Ops, f: Finance, m: Team, i: Integrations, s: Settings
+  const topKeybinds = {
+    'D': { type: 'single', href: 'index.html' },
+    'T': { type: 'group', label: 'Tech' },
+    'O': { type: 'group', label: 'Ops' },
+    'F': { type: 'group', label: 'Finance' },
+    'M': { type: 'group', label: 'Team' },
+    'L': { type: 'group', label: 'Logistics' },
+    'I': { type: 'single', href: 'integrations.html' },
+    'S': { type: 'single', href: 'settings.html' }
+  };
 
   function esc(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
@@ -29,9 +61,22 @@
     const host = document.getElementById('rtsTopNav');
     if(!host) return;
 
-    const li = tabs.map(t => (
-      `<li class="nav-item"><a class="nav-link" href="${esc(t.href)}">${esc(t.label)}</a></li>`
-    )).join('');
+    // Helper maps for displaying top-level shortcut letters
+    const singleKeyMap = { 'index.html': 'D', 'integrations.html': 'I', 'settings.html': 'S' };
+  const groupKeyMap = { 'Tech': 'T', 'Ops': 'O', 'Finance': 'F', 'Team': 'M', 'Logistics': 'L' };
+
+    const liSingles = singles.map(t => {
+      const k = singleKeyMap[t.href] || '';
+      const keyBadge = k ? `<span class="rts-key-letter" aria-hidden="true">${k}</span>` : '';
+      return `<li class="nav-item"><a class="nav-link" href="${esc(t.href)}">${keyBadge}${esc(t.label)}</a></li>`;
+    }).join('');
+    const liGroups = groups.map(g => {
+      const k = groupKeyMap[g.label] || '';
+      const keyBadge = k ? `<span class="rts-key-letter" aria-hidden="true">${k}</span>` : '';
+      return `<li class="nav-item"><a class="nav-link rts-group-link" href="#" data-group="${esc(g.label)}">${keyBadge}${esc(g.label)}</a></li>`;
+    }).join('');
+  // Put the high-usage groups on the left; push singles (Integrations/Settings) to the right
+  const li = liGroups + liSingles;
 
     host.innerHTML = `
       <div class="rts-topbar">
@@ -56,11 +101,16 @@
               <button id="rtsImportBtn" class="btn btn-sm btn-outline-light mlo-btn" type="button">Import</button>
               <input id="rtsImportInput" type="file" accept=".json,application/json" style="display:none;" />
             </div>
+            <div class="d-flex align-items-center gap-2 ms-2">
+              <span id="rtsCurrentUser" class="text-light" style="font-size: 0.85rem;"></span>
+              <button id="rtsLogoutBtn" class="btn btn-sm btn-outline-danger" type="button">Logout</button>
+            </div>
             <span class="rts-env-badge">Prototype</span>
           </div>
         </div>
       </div>
     `;
+
 
     // Append a lightweight search results modal into the topnav host so we don't need to touch body elsewhere
     try {
@@ -86,6 +136,141 @@
       host.appendChild(tmp.firstChild);
     } catch(_e){}
 
+    // Group quick-select modal (large buttons + letter shortcuts)
+    let activeGroupKeys = null;
+    let groupModal = null;
+    try {
+      const groupModalTpl = `
+        <div class="modal fade" id="rtsGroupQuickModal" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content bg-dark text-white border-0">
+              <div class="modal-header border-0">
+                <h5 class="modal-title"><span id="rtsGroupTitle"></span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+              </div>
+              <div class="modal-body">
+                <div class="d-flex flex-wrap gap-2" id="rtsGroupButtons"></div>
+                <div class="text-secondary mt-3" style="font-size:0.85rem;">Press the highlighted letter to jump instantly.</div>
+              </div>
+            </div>
+          </div>
+        </div>`;
+      const tmp2 = document.createElement('div'); tmp2.innerHTML = groupModalTpl.trim();
+      host.appendChild(tmp2.firstChild);
+      const groupModalEl = document.getElementById('rtsGroupQuickModal');
+      if (groupModalEl && window.bootstrap) groupModal = new bootstrap.Modal(groupModalEl);
+
+      function navigateTo(href){
+        try {
+          if (groupModal) groupModal.hide();
+          if (window.RTS && typeof window.RTS.openPage === 'function') window.RTS.openPage(href, {}, {});
+          else window.location.href = href;
+        } catch(_e){}
+      }
+
+      function openGroupModal(label){
+        try {
+          const g = groups.find(x => x.label === label);
+          if (!g) return;
+          const titleEl = document.getElementById('rtsGroupTitle');
+          const btnWrap = document.getElementById('rtsGroupButtons');
+          if (titleEl) titleEl.textContent = `${g.label}`;
+          if (btnWrap) btnWrap.innerHTML = '';
+          activeGroupKeys = {};
+          g.items.forEach(item => {
+            const key = String(item.key || item.label[0] || '').toUpperCase();
+            activeGroupKeys[key] = item.href;
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'btn btn-lg btn-outline-light mlo-btn rts-quick-btn';
+            // Square buttons with consistent width/height
+            b.style.width = '220px';
+            b.style.height = '220px';
+            b.style.display = 'flex';
+            b.style.flexDirection = 'column';
+            b.style.alignItems = 'center';
+            b.style.justifyContent = 'center';
+            b.style.gap = '10px';
+            b.innerHTML = `
+              <div class="rts-quick-letter" aria-hidden="true">${key}</div>
+              <div class="rts-quick-label">${esc(item.label)}</div>
+            `;
+            b.addEventListener('click', ()=> navigateTo(item.href));
+            btnWrap.appendChild(b);
+          });
+          if (groupModal) groupModal.show();
+        } catch(_e){}
+      }
+
+      // Keyboard shortcuts while modal is open
+      document.addEventListener('keydown', (ev)=>{
+        try {
+          if (!activeGroupKeys) return;
+          if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
+          const k = String(ev.key || '').toUpperCase();
+          if (k.length === 1 && activeGroupKeys[k]){
+            ev.preventDefault();
+            navigateTo(activeGroupKeys[k]);
+          } else if (k === 'ESCAPE'){
+            if (groupModal) groupModal.hide();
+          }
+        } catch(_e){}
+      });
+
+      // Open group modal when clicking group links
+      host.querySelectorAll('.rts-group-link').forEach(a => {
+        a.addEventListener('click', (ev)=>{
+          ev.preventDefault();
+          const label = a.getAttribute('data-group');
+          openGroupModal(label);
+        });
+      });
+
+      // Clear active map on modal hide
+      if (groupModalEl){
+        groupModalEl.addEventListener('hidden.bs.modal', ()=>{ activeGroupKeys = null; });
+      }
+    } catch(_e){}
+
+    // Global keybinds for top-level tabs (only when not typing and modal not active)
+    try {
+      document.addEventListener('keydown', (ev)=>{
+        try {
+          // Ignore if quick-select is already active — those keys handled above
+          if (activeGroupKeys) return;
+          // Ignore if typing in an input/textarea/contentEditable
+          const ae = document.activeElement;
+          const tag = (ae && ae.tagName || '').toLowerCase();
+          if (tag === 'input' || tag === 'textarea' || (ae && ae.isContentEditable)) return;
+          if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
+          const k = String(ev.key || '').toUpperCase();
+          if (k.length !== 1) return;
+          const bind = topKeybinds[k];
+          if (!bind) return;
+          ev.preventDefault();
+          // Visual flash on the corresponding top tab
+          let flashEl = null;
+          if (bind.type === 'group') {
+            flashEl = host.querySelector(`.rts-group-link[data-group="${CSS.escape(bind.label)}"]`);
+          } else if (bind.type === 'single' && bind.href){
+            flashEl = host.querySelector(`.rts-topnav .nav-link[href="${CSS.escape(bind.href)}"]`);
+          }
+          try {
+            if (flashEl){
+              flashEl.classList.add('rts-key-flash');
+              setTimeout(()=>{ try { flashEl.classList.remove('rts-key-flash'); } catch(_e){} }, 280);
+            }
+          } catch(_e){}
+          if (bind.type === 'group') {
+            openGroupModal(bind.label);
+          } else if (bind.type === 'single' && bind.href){
+            if (window.RTS && typeof window.RTS.openPage === 'function') window.RTS.openPage(bind.href, {}, {});
+            else window.location.href = bind.href;
+          }
+        } catch(_e){}
+      });
+    } catch(_e){}
+
     // Hook up robust active tab detection and immediate click feedback.
     const navLinks = host.querySelectorAll('.rts-topnav .nav-link');
 
@@ -101,13 +286,27 @@
     function applyActive(){
       const page = normalizePath(location.pathname) || normalizePath(location.href);
       navLinks.forEach(a => a.classList.remove('active'));
+      let matched = false;
       navLinks.forEach(a => {
         const href = normalizePath(a.getAttribute('href') || '');
-        // treat empty page as index.html for convenience
         const pageNorm = page || 'index.html';
         const hrefNorm = href || 'index.html';
-        if (hrefNorm === pageNorm) a.classList.add('active');
+        if (hrefNorm === pageNorm) {
+          a.classList.add('active');
+          matched = true;
+        }
       });
+      // If no direct tab matched, highlight the group that contains the current page
+      if (!matched){
+        try {
+          const p = page || 'index.html';
+          const g = groups.find(grp => grp.items.some(it => normalizePath(it.href) === p));
+          if (g){
+            const link = host.querySelector(`.rts-group-link[data-group="${CSS.escape(g.label)}"]`);
+            if (link) link.classList.add('active');
+          }
+        } catch(_e){}
+      }
     }
 
     // immediate visual feedback on click (before navigation completes)
@@ -205,6 +404,49 @@
       }
     } catch(_e) { /* non-fatal */ }
 
+    // Auth - Display user and logout button -----------------------------------
+    try {
+      const userDisplay = host.querySelector('#rtsCurrentUser');
+      const logoutBtn = host.querySelector('#rtsLogoutBtn');
+      
+      if (userDisplay && logoutBtn) {
+        // Display current user
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+          try {
+            const user = JSON.parse(userStr);
+            userDisplay.textContent = `👤 ${user.name || user.username}`;
+          } catch(e) {}
+        }
+        
+        // Logout handler
+        logoutBtn.addEventListener('click', async () => {
+          const token = localStorage.getItem('auth_token');
+          
+          // Call logout API
+          if (token) {
+            try {
+              await fetch('/api/auth/logout', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${token}`
+                }
+              });
+            } catch(e) {
+              console.error('Logout API error:', e);
+            }
+          }
+          
+          // Clear local storage
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('user');
+          
+          // Redirect to login
+          window.location.replace('/login.html');
+        });
+      }
+    } catch(_e) { /* non-fatal */ }
+
     // Quick-search wiring -------------------------------------------------
     try {
       const searchInput = host.querySelector('#rtsQuickSearch');
@@ -292,14 +534,67 @@
         });
       }
 
+      function handleCommand(cmd){
+        const q = String(cmd||'').trim();
+        if (!q) return false;
+        const raw = q.startsWith('>') ? q.slice(1).trim() : q;
+        // add driver NAME
+        const addDrv = raw.match(/^add\s+driver\s+(.+)$/i);
+        if (addDrv){
+          const name = addDrv[1].trim();
+          try {
+            const settings = window.RTS ? window.RTS.getSettings() : {};
+            settings.drivers = Array.isArray(settings.drivers) ? settings.drivers : [];
+            const id = (window.RTS && typeof window.RTS.uid==='function') ? window.RTS.uid('drv') : String(Date.now());
+            settings.drivers.push({ id, name, active: true });
+            if (window.RTS && typeof window.RTS.safeSaveJSON==='function') window.RTS.safeSaveJSON('rts.settings.v1', settings);
+            else window.localStorage.setItem('rts.settings.v1', JSON.stringify(settings));
+            // navigate to Drivers and select
+            if (window.RTS && typeof window.RTS.openPage==='function') window.RTS.openPage('drivers.html', { select: id }, {});
+            else window.location.href = 'drivers.html' + (`?select=${encodeURIComponent(id)}`);
+          } catch(e){ alert('Failed to add driver: ' + (e && e.message)); }
+          return true;
+        }
+        // stock QUERY -> open inventory filtered results in modal
+        const stock = raw.match(/^stock\s+(.+)$/i);
+        if (stock){
+          const needle = stock[1].trim().toLowerCase();
+          const results = performSearch(needle).filter(r => String(r.key||'').toLowerCase().includes('inventory'));
+          renderSearchResults(results, needle);
+          if (searchModal) searchModal.show();
+          return true;
+        }
+        // reset -> clear local rts.* keys
+        if (/^reset$/i.test(raw)){
+          (async function(){
+            const doConfirm = (msg) => {
+              if (window.RTS && typeof window.RTS.confirmPrompt === 'function') return window.RTS.confirmPrompt(String(msg || 'Are you sure?'));
+              return Promise.resolve(window.confirm(String(msg || 'Are you sure?')));
+            };
+            const ok = await doConfirm('Reset local RTS data? This clears rts.* keys and pages will reseed.');
+            if (!ok) return;
+            try {
+              const keys = Object.keys(window.localStorage||{}).filter(k => k.startsWith('rts.'));
+              keys.forEach(k => { try { window.localStorage.removeItem(k); } catch(_e){} });
+              alert('Reset complete. Reload the page to apply changes.');
+            } catch(e){ alert('Reset failed: ' + (e && e.message)); }
+          })();
+          return true;
+        }
+        return false;
+      }
+
       if (searchInput){
         searchInput.addEventListener('input', (e)=>{
           const v = String(e.target.value || '');
           clearTimeout(searchTimer);
           searchTimer = setTimeout(()=>{
-            const res = performSearch(v.trim());
-            renderSearchResults(res, v.trim());
-            if (searchModal) searchModal.show();
+            const trimmed = v.trim();
+            if (!handleCommand(trimmed)){
+              const res = performSearch(trimmed);
+              renderSearchResults(res, trimmed);
+              if (searchModal) searchModal.show();
+            }
           }, 180);
         });
 
@@ -307,12 +602,15 @@
         searchInput.addEventListener('keydown', (e)=>{
           if (e.key === 'Enter'){
             e.preventDefault();
-            const res = performSearch(String(searchInput.value||'').trim());
-            if (res && res[0]){
-              const item = res[0];
-              const page = mapStorageKeyToPage(item.key) || 'index.html';
-              if (window.RTS && typeof window.RTS.openPage === 'function') window.RTS.openPage(page, { select: item.id }, {});
-              else window.location.href = page + (item.id ? ('?select=' + encodeURIComponent(item.id)) : '');
+            const q = String(searchInput.value||'').trim();
+            if (!handleCommand(q)){
+              const res = performSearch(q);
+              if (res && res[0]){
+                const item = res[0];
+                const page = mapStorageKeyToPage(item.key) || 'index.html';
+                if (window.RTS && typeof window.RTS.openPage === 'function') window.RTS.openPage(page, { select: item.id }, {});
+                else window.location.href = page + (item.id ? ('?select=' + encodeURIComponent(item.id)) : '');
+              }
             }
           }
         });

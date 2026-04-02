@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Drag Test</title>
+  <style>
+    .drag-item {
+      padding: 20px;
+      margin: 10px;
+      background: #e8f0fe;
+      border: 2px solid #1a73e8;
+      cursor: grab;
+      width: 200px;
+    }
+    .drop-zone {
+      padding: 40px;
+      margin: 10px;
+      background: #f0f0f0;
+      border: 3px dashed #666;
+      min-height: 200px;
+    }
+    .drop-zone.over {
+      background: #d4ffea;
+      border-color: #00FF7F;
+    }
+  </style>
+</head>
+<body>
+  <h1>Drag & Drop Test</h1>
+  
+  <div class="drag-item" draggable="true" data-id="box1">
+    📦 Drag me - Box 1
+  </div>
+  
+  <div class="drag-item" draggable="true" data-id="box2">
+    📦 Drag me - Box 2
+  </div>
+  
+  <div class="drop-zone" id="zone1">
+    Drop Zone 1
+  </div>
+  
+  <div class="drop-zone" id="zone2">
+    Drop Zone 2
+  </div>
+  
+  <script>
+    let draggedId = null;
+    
+    document.querySelectorAll('.drag-item').forEach(item => {
+      item.addEventListener('dragstart', e => {
+        draggedId = e.target.dataset.id;
+        e.target.style.opacity = '0.5';
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', draggedId);
+        console.log('✅ DRAGSTART:', draggedId);
+      });
+      
+      item.addEventListener('dragend', e => {
+        e.target.style.opacity = '1';
+        console.log('✅ DRAGEND');
+      });
+    });
+    
+    document.querySelectorAll('.drop-zone').forEach(zone => {
+      zone.addEventListener('dragenter', e => {
+        e.preventDefault();
+        console.log('✅ DRAGENTER on', zone.id);
+      });
+      
+      zone.addEventListener('dragover', e => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        zone.classList.add('over');
+        console.log('✅ DRAGOVER on', zone.id);
+      });
+      
+      zone.addEventListener('dragleave', e => {
+        zone.classList.remove('over');
+        console.log('✅ DRAGLEAVE from', zone.id);
+      });
+      
+      zone.addEventListener('drop', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        zone.classList.remove('over');
+        const data = e.dataTransfer.getData('text/plain');
+        console.log('🎯 DROP!!! Dropped', data, 'on', zone.id);
+        zone.innerHTML += `<p>✅ ${data} dropped here at ${new Date().toLocaleTimeString()}</p>`;
+      });
+    });
+  </script>
+</body>
+</html>

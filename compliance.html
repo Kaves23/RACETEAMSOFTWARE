@@ -8,6 +8,12 @@
   <link href="style.css" rel="stylesheet" />
   <style>
     #compTbody td, #compTbody th { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    /* Dropzone highlight for doc uploads */
+    .comp-dropzone { border: 1px dashed rgba(255,255,255,0.2); border-radius: 4px; padding: 6px; }
+    .comp-dropzone.dragover { border-color: var(--rts-accent); background: rgba(166,77,255,0.08); }
+    /* Inline-edit visual cues */
+    .comp-line-edit input.form-control.form-control-sm { min-width: 140px; }
+    .comp-line-edit select.form-select.form-select-sm { min-width: 120px; }
   </style>
 </head>
 <body>
@@ -58,6 +64,9 @@
               <option>Out of Service</option>
             </select>
             <button class="btn btn-sm btn-outline-light mlo-btn" id="btnAddComp" type="button" style="white-space:nowrap;">Add Item</button>
+            <button class="btn btn-sm btn-outline-light mlo-btn" id="btnExportComp" type="button" title="Export compliance register as JSON">Export</button>
+            <button class="btn btn-sm btn-outline-light mlo-btn" id="btnImportComp" type="button" title="Import compliance register from JSON">Import</button>
+            <input id="compImportFile" type="file" accept="application/json" style="display:none;" />
           </div>
         </div>
         <div class="mlo-pane-content" style="padding:0;">
@@ -74,6 +83,51 @@
             </thead>
             <tbody id="compTbody"></tbody>
           </table>
+          <!-- Bottom half: documents & line items for selected compliance entry -->
+          <div class="mlo-subpane-bottom border-top border-secondary" style="padding:0.5rem 0.75rem;">
+            <div class="row g-2">
+              <div class="col-6">
+                <div class="d-flex justify-content-between align-items-center">
+                  <div class="mlo-title">Documents</div>
+                  <div class="d-flex gap-1 align-items-center">
+                    <button class="btn btn-sm btn-outline-light mlo-btn" id="btnAddCompDocs" type="button">Upload Documents</button>
+                    <button class="btn btn-sm btn-outline-light mlo-btn" id="btnDriveCompDocs" type="button">Attach from Drive</button>
+                    <input id="compDocFiles" type="file" multiple style="display:none;" />
+                  </div>
+                </div>
+                <div id="compDocDropzone" class="comp-dropzone">
+                  <div id="compDocList" class="list-group list-group-flush mt-2" style="max-height:180px; overflow:auto;"></div>
+                  <div class="text-secondary small mt-1">Drag & drop files here to upload</div>
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="d-flex justify-content-between align-items-center">
+                  <div class="mlo-title">Line Items</div>
+                  <div class="d-flex gap-1 align-items-center" style="width:100%;">
+                    <input id="compLineDesc" class="form-control form-control-sm" type="text" placeholder="Description" style="flex:1 1 auto;">
+                    <select id="compLineStatus" class="form-select form-select-sm" style="flex:0 1 140px;">
+                      <option>OK</option>
+                      <option>WARN</option>
+                      <option>FAIL</option>
+                    </select>
+                    <button class="btn btn-sm btn-outline-light mlo-btn" id="btnAddCompLine" type="button">Add</button>
+                    <button class="btn btn-sm btn-outline-light mlo-btn" id="btnApplyCompTemplate" type="button" title="Insert checklist items based on Category/Type">Apply Template</button>
+                  </div>
+                </div>
+                <table class="table table-dark table-hover table-sm mt-2" style="margin:0;">
+                  <thead>
+                    <tr>
+                      <th style="width:40px;">#</th>
+                      <th>Description</th>
+                      <th style="width:120px;">Status</th>
+                      <th style="width:60px;"></th>
+                    </tr>
+                  </thead>
+                  <tbody id="compLineTbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -192,7 +246,9 @@
           assetId: ASSET_OPTIONS[i % ASSET_OPTIONS.length]?.id || '',
           serial: `SN-${1000+i}`,
           notes: 'Evidence/ref in checklist',
-          updatedAt: nowISO()
+          updatedAt: nowISO(),
+          docs: [],
+          lines: []
         });
       }
       return out;
@@ -217,6 +273,17 @@
       btnSave: document.getElementById('btnSaveComp'),
       btnDup: document.getElementById('btnDupComp'),
       btnDel: document.getElementById('btnDelComp'),
+      // Bottom pane elements
+      btnAddDocs: document.getElementById('btnAddCompDocs'),
+      btnDriveDocs: document.getElementById('btnDriveCompDocs'),
+      docFiles: document.getElementById('compDocFiles'),
+      docDropzone: document.getElementById('compDocDropzone'),
+      docList: document.getElementById('compDocList'),
+      lineDesc: document.getElementById('compLineDesc'),
+      lineStatus: document.getElementById('compLineStatus'),
+      btnAddLine: document.getElementById('btnAddCompLine'),
+      btnApplyTemplate: document.getElementById('btnApplyCompTemplate'),
+      lineTbody: document.getElementById('compLineTbody'),
       f: {
         name: document.getElementById('f_comp_name'),
         category: document.getElementById('f_comp_category'),
@@ -229,6 +296,72 @@
         notes: document.getElementById('f_comp_notes')
       }
     };
+
+    const LINE_TEMPLATES = {
+      Safety: [
+        { desc:'Fire extinguisher present & charged', status:'OK' },
+        { desc:'Spill kit complete', status:'OK' },
+        { desc:'First aid kit stocked', status:'OK' }
+      ],
+      Vehicle: [
+        { desc:'Helmet scrutineering sticker', status:'OK' },
+        { desc:'Seat belts condition', status:'OK' },
+        { desc:'Fuel jug spec compliant', status:'OK' }
+      ],
+      Measurement: [
+        { desc:'Torque wrench calibration certificate', status:'OK' },
+        { desc:'Scales zero check', status:'OK' }
+      ],
+      Regulatory: [
+        { desc:'Homologation documents attached', status:'OK' },
+        { desc:'Event-specific forms completed', status:'OK' }
+      ]
+    };
+
+    function applyTemplate(){
+      const sel = items.find(x=>x.id===ui.selectedId);
+      if (!sel) return;
+      const base = LINE_TEMPLATES[sel.category] || [];
+      const typed = (sel.type||'').toLowerCase().includes('tyre') ? [{ desc:'Tyre spec check', status:'OK' }] : [];
+      const all = [...base, ...typed];
+      sel.lines = Array.isArray(sel.lines) ? sel.lines : [];
+      const existingDesc = new Set(sel.lines.map(l=>String(l.desc||'').toLowerCase()));
+      all.forEach(x=>{
+        if (!existingDesc.has(String(x.desc).toLowerCase())) sel.lines.push({ id: RTS.uid('line'), desc:x.desc, status:x.status });
+      });
+      persist();
+      renderLines(sel);
+    }
+
+    function setupDocDnD(){
+      if (!el.docDropzone) return;
+      const dz = el.docDropzone;
+      const onDrag = (e) => { e.preventDefault(); e.stopPropagation(); dz.classList.add('dragover'); };
+      const onLeave = (e) => { e.preventDefault(); e.stopPropagation(); dz.classList.remove('dragover'); };
+      const onDrop = (e) => {
+        e.preventDefault(); e.stopPropagation(); dz.classList.remove('dragover');
+        const files = e.dataTransfer?.files; if (files && files.length) addDocs(files);
+      };
+      ['dragenter','dragover'].forEach(ev => dz.addEventListener(ev, onDrag));
+      ['dragleave','dragend','drop'].forEach(ev => dz.addEventListener(ev, onLeave));
+      dz.addEventListener('drop', onDrop);
+    }
+
+    async function addDriveDocsViaPicker(){
+      if (!(window.RTS && typeof window.RTS.pickDriveFiles === 'function')){ alert('Drive picker not available in this build.'); return; }
+      const sel = items.find(x=>x.id===ui.selectedId);
+      if (!sel) return;
+      try{
+        const picks = await window.RTS.pickDriveFiles({ multiple:true });
+        if (!Array.isArray(picks) || picks.length===0) return;
+        sel.docs = Array.isArray(sel.docs) ? sel.docs : [];
+        picks.forEach(p => {
+          sel.docs.push({ id: RTS.uid('doc'), name: p.name||p.title||'Drive file', mime: p.mimeType||'', size: p.sizeBytes||0, url: p.webViewLink||p.url||'' });
+        });
+        persist();
+        renderDocs(sel);
+      }catch(err){ console.warn('Drive picker failed', err); }
+    }
 
     RTS.initTriPaneResizers(el.shell, LS_PANES);
 
@@ -294,6 +427,8 @@
       if (!i){
         el.inspectorBadge.textContent = 'No selection';
         Object.values(el.f).forEach(f=> f.value='');
+        if (el.docList) el.docList.innerHTML = '';
+        if (el.lineTbody) el.lineTbody.innerHTML = '';
         return;
       }
       el.inspectorBadge.textContent = i.name || i.id;
@@ -306,6 +441,131 @@
       el.f.asset.value = i.assetId || '';
       el.f.serial.value = i.serial || '';
       el.f.notes.value = i.notes || '';
+      // Ensure arrays exist
+      i.docs = Array.isArray(i.docs) ? i.docs : [];
+      i.lines = Array.isArray(i.lines) ? i.lines : [];
+      renderDocs(i);
+      renderLines(i);
+    }
+    function renderDocs(i){
+      if (!el.docList) return;
+      el.docList.innerHTML = '';
+      if (!i || !Array.isArray(i.docs) || i.docs.length===0){
+        const empty = document.createElement('div');
+        empty.className = 'text-secondary';
+        empty.style.fontSize = '0.85rem';
+        empty.textContent = 'No documents uploaded.';
+        el.docList.appendChild(empty);
+        return;
+      }
+      i.docs.forEach((d, idx) => {
+        const row = document.createElement('div');
+        row.className = 'list-group-item d-flex justify-content-between align-items-center';
+        row.innerHTML = `<div class="text-truncate" style="max-width:70%;"><a href="#" class="link-light text-decoration-none" data-open="${d.id}">${escapeHtml(d.name||'')}</a></div>
+                         <div class="text-secondary small">${escapeHtml(d.mime||'')} • ${d.size||0} bytes</div>
+                         <button class="btn btn-sm btn-outline-danger" data-docid="${d.id}">Delete</button>`;
+        const link = row.querySelector('a[data-open]');
+        link.addEventListener('click', (e)=>{
+          e.preventDefault(); e.stopPropagation();
+          const url = d.url || d.dataUrl || '';
+          if (url) window.open(url, '_blank', 'noopener');
+        });
+        const btn = row.querySelector('button[data-docid]');
+        btn.addEventListener('click', ()=>{
+          i.docs = i.docs.filter(x=>x.id!==d.id);
+          persist();
+          renderDocs(i);
+        });
+        el.docList.appendChild(row);
+      });
+    }
+
+    function addDocs(files){
+      const sel = items.find(x=>x.id===ui.selectedId);
+      if (!sel || !files || files.length===0) return;
+      const list = Array.from(files);
+      let pending = list.length;
+      list.forEach(f => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          sel.docs.push({ id: RTS.uid('doc'), name: f.name, mime: f.type, size: f.size, dataUrl: reader.result });
+          pending -= 1;
+          if (pending===0){ persist(); renderDocs(sel); }
+        };
+        reader.onerror = () => {
+          sel.docs.push({ id: RTS.uid('doc'), name: f.name, mime: f.type, size: f.size });
+          pending -= 1;
+          if (pending===0){ persist(); renderDocs(sel); }
+        };
+        // Read small files inline; for large ones this may exceed localStorage
+        try { reader.readAsDataURL(f); } catch(err){ reader.onerror(); }
+      });
+    }
+
+    function renderLines(i){
+      if (!el.lineTbody) return;
+      el.lineTbody.innerHTML = '';
+      if (!i || !Array.isArray(i.lines) || i.lines.length===0){
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td colspan="4" class="text-secondary">No line items.</td>`;
+        el.lineTbody.appendChild(tr);
+        return;
+      }
+      i.lines.forEach((ln, idx) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${idx+1}</td>
+                        <td class="text-truncate" data-edit="desc">${escapeHtml(ln.desc||'')}</td>
+                        <td data-edit="status">${escapeHtml(ln.status||'')}</td>
+                        <td><button class="btn btn-sm btn-outline-danger" data-del="${ln.id}">Del</button></td>`;
+        const btn = tr.querySelector('button[data-del]');
+        btn.addEventListener('click', ()=>{
+          i.lines = i.lines.filter(x=>x.id!==ln.id);
+          persist();
+          renderLines(i);
+        });
+        // Inline edit handlers
+        const descCell = tr.querySelector('[data-edit="desc"]');
+        const statusCell = tr.querySelector('[data-edit="status"]');
+        if (descCell){
+          descCell.addEventListener('click', ()=>{
+            const cur = ln.desc||'';
+            descCell.innerHTML = '';
+            const inp = document.createElement('input');
+            inp.className = 'form-control form-control-sm'; inp.value = cur; descCell.classList.add('comp-line-edit');
+            descCell.appendChild(inp); inp.focus();
+            const commit = () => { ln.desc = inp.value.trim()||cur; persist(); renderLines(i); };
+            inp.addEventListener('blur', commit);
+            inp.addEventListener('keydown', (e)=>{ if (e.key==='Enter') commit(); });
+          });
+        }
+        if (statusCell){
+          statusCell.addEventListener('click', ()=>{
+            const cur = ln.status||'OK';
+            statusCell.innerHTML = '';
+            const sel = document.createElement('select'); sel.className = 'form-select form-select-sm';
+            ['OK','WARN','FAIL'].forEach(s=>{ const o=document.createElement('option'); o.textContent=s; if (s===cur) o.selected=true; sel.appendChild(o); });
+            statusCell.classList.add('comp-line-edit'); statusCell.appendChild(sel); sel.focus();
+            const commit = () => { ln.status = sel.value||cur; persist(); renderLines(i); };
+            sel.addEventListener('blur', commit);
+            sel.addEventListener('change', commit);
+            sel.addEventListener('keydown', (e)=>{ if (e.key==='Enter') commit(); });
+          });
+        }
+        el.lineTbody.appendChild(tr);
+      });
+    }
+
+    function addLine(){
+      const sel = items.find(x=>x.id===ui.selectedId);
+      if (!sel) return;
+      const desc = (el.lineDesc?.value||'').trim();
+      const status = (el.lineStatus?.value||'OK');
+      if (!desc) return;
+      sel.lines = Array.isArray(sel.lines) ? sel.lines : [];
+      sel.lines.push({ id: RTS.uid('line'), desc, status });
+      el.lineDesc.value = '';
+      persist();
+      renderLines(sel);
     }
 
     function readInspector(){
@@ -408,6 +668,55 @@
         }catch(err){ ok = window.confirm(msg); }
         if (ok) deleteItem();
       });
+      if (el.btnAddDocs && el.docFiles){
+        el.btnAddDocs.addEventListener('click', ()=> el.docFiles.click());
+        el.docFiles.addEventListener('change', (e)=>{
+          addDocs(e.target.files);
+          e.target.value = '';
+        });
+      }
+      if (el.btnDriveDocs){
+        el.btnDriveDocs.addEventListener('click', addDriveDocsViaPicker);
+      }
+      setupDocDnD();
+      if (el.btnAddLine){
+        el.btnAddLine.addEventListener('click', addLine);
+      }
+      if (el.btnApplyTemplate){
+        el.btnApplyTemplate.addEventListener('click', applyTemplate);
+      }
+      const btnExport = document.getElementById('btnExportComp');
+      const btnImport = document.getElementById('btnImportComp');
+      const fileImport = document.getElementById('compImportFile');
+      if (btnExport){
+        btnExport.addEventListener('click', ()=>{
+          try {
+            const blob = new Blob([JSON.stringify(items, null, 2)], { type:'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = `compliance_${new Date().toISOString().slice(0,10)}.json`;
+            document.body.appendChild(a); a.click();
+            setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 0);
+          } catch(_e){}
+        });
+      }
+      if (btnImport && fileImport){
+        btnImport.addEventListener('click', ()=> fileImport.click());
+        fileImport.addEventListener('change', (e)=>{
+          try {
+            const f = e.target.files && e.target.files[0]; if (!f) return; const reader = new FileReader();
+            reader.onload = () => {
+              try {
+                const data = JSON.parse(String(reader.result||'[]'));
+                if (Array.isArray(data)){ items = data; ui.selectedId = items[0]?.id || null; render(); }
+              } catch(_e){ alert('Invalid JSON file.'); }
+            };
+            reader.readAsText(f);
+          } finally {
+            e.target.value = '';
+          }
+        });
+      }
     }
 
     function init(){

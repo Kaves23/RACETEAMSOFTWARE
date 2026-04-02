@@ -3,630 +3,3001 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Race Team OS – Assets</title>
+  <title>Race Team OS – Asset Tracking</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="style.css" rel="stylesheet" />
+  <style>
+    /* Light Mode Styles */
+    body { background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%); }
+    
+    /* Independent scrolling columns */
+    .scroll-column {
+      height: calc(100vh - 200px);
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+    
+    /* Table view styles */
+    .asset-table {
+      width: 100%;
+      font-size: 0.8rem;
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+    .asset-table thead {
+      position: sticky;
+      top: 0;
+      background: #f8f9fa;
+      z-index: 10;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    .asset-table th {
+      padding: 8px 10px;
+      text-align: left;
+      font-weight: 600;
+      color: #495057;
+      border-bottom: 2px solid #dee2e6;
+      white-space: nowrap;
+      font-size: 0.75rem;
+    }
+    .asset-table th.sortable {
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.2s;
+    }
+    .asset-table th.sortable:hover {
+      background: rgba(0,0,0,0.05);
+      color: #0099cc;
+    }
+    .asset-table th.sorted {
+      color: #0099cc;
+      background: rgba(0,153,204,0.08);
+    }
+    .asset-table th .sort-icon {
+      font-size: 0.65rem;
+      color: #0099cc;
+      margin-left: 4px;
+    }
+    .asset-table td {
+      padding: 6px 10px;
+      border-bottom: 1px solid #f0f0f0;
+      vertical-align: middle;
+    }
+    .asset-table tbody tr {
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .asset-table tbody tr:hover {
+      background: #f8fbfd;
+      box-shadow: 0 0 0 1px #0099cc;
+    }
+    .asset-table tbody tr.selected {
+      background: rgba(0,153,204,0.08);
+      box-shadow: 0 0 0 2px rgba(0,153,204,0.3);
+    }
+    .table-barcode {
+      font-family: 'Courier New', monospace;
+      font-size: 0.65rem;
+      font-weight: 600;
+      color: #0099cc;
+      max-width: 90px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .table-name {
+      font-weight: 600;
+      color: #1a1d24;
+      max-width: 140px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .table-location {
+      font-size: 0.72rem;
+      color: #6c757d;
+      line-height: 1.3;
+    }
+    .location-line {
+      display: block;
+      white-space: nowrap;
+    }
+    .table-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 0.65rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .table-serial {
+      font-family: 'Courier New', monospace;
+      font-size: 0.7rem;
+      color: #6c757d;
+    }
+    
+    /* Resizable panels */
+    .resizable-container {
+      display: flex;
+      gap: 0;
+      flex: 1;
+      position: relative;
+    }
+    .resizable-panel {
+      height: calc(100vh - 200px);
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+    .resize-handle {
+      width: 8px;
+      cursor: col-resize;
+      background: linear-gradient(90deg, transparent 2px, #dee2e6 2px, #dee2e6 6px, transparent 6px);
+      position: relative;
+      flex-shrink: 0;
+      transition: background 0.2s;
+    }
+    .resize-handle:hover {
+      background: linear-gradient(90deg, transparent 1px, #0099cc 1px, #0099cc 7px, transparent 7px);
+    }
+    .resize-handle:active {
+      background: #0099cc;
+    }
+    
+    .asset-card {
+      background: #ffffff;
+      border: 1px solid rgba(0,0,0,0.1);
+      border-radius: 6px;
+      padding: 8px 10px;
+      margin-bottom: 6px;
+      transition: all 0.2s;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .asset-card:hover {
+      border-color: #0099cc;
+      background: #f8fbfd;
+      transform: translateX(3px);
+      box-shadow: 0 2px 8px rgba(0,153,204,0.2);
+    }
+    .asset-card.selected {
+      border-color: #0099cc;
+      background: rgba(0,153,204,0.08);
+      box-shadow: 0 0 0 2px rgba(0,153,204,0.2);
+    }
+    .asset-barcode {
+      font-family: 'Courier New', monospace;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #a64dff;
+      flex-shrink: 0;
+    }
+    .asset-card-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .asset-card-row-1 {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .asset-name {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #1a1d24;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      flex: 1;
+      min-width: 0;
+    }
+    .asset-serial {
+      font-family: 'Courier New', monospace;
+      font-size: 0.65rem;
+      font-weight: 600;
+      color: #fff;
+      padding: 2px 6px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 3px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .asset-category {
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: #ff8c00;
+      padding: 2px 6px;
+      background: rgba(255,140,0,0.12);
+      border-radius: 3px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .asset-badges {
+      display: flex;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+    .asset-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 0.6rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .badge-available { background: rgba(40,167,69,0.15); color: #28a745; border: 1px solid rgba(40,167,69,0.2); }
+    .badge-in_use { background: rgba(255,193,7,0.15); color: #d39e00; border: 1px solid rgba(255,193,7,0.2); }
+    .badge-maintenance { background: rgba(255,152,0,0.15); color: #e68900; border: 1px solid rgba(255,152,0,0.2); }
+    .badge-retired { background: rgba(108,117,125,0.15); color: #495057; border: 1px solid rgba(108,117,125,0.2); }
+    .badge-equipment { background: rgba(0,153,204,0.15); color: #0099cc; border: 1px solid rgba(0,153,204,0.2); }
+    .badge-asset { background: rgba(166,77,255,0.15); color: #a64dff; border: 1px solid rgba(166,77,255,0.2); }
+    .asset-meta {
+      display: flex;
+      gap: 6px;
+      font-size: 0.7rem;
+      color: rgba(0,0,0,0.6);
+      flex-shrink: 0;
+    }
+    .asset-meta-item {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      white-space: nowrap;
+    }
+    .location-indicator {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      padding: 2px 6px;
+      background: rgba(0,0,0,0.04);
+      border-radius: 3px;
+      font-size: 0.65rem;
+      border-left: 2px solid;
+      white-space: nowrap;
+      flex-shrink: 0;
+      color: rgba(0,0,0,0.7);
+    }
+    .location-indicator.in-box { border-left-color: #4dd1ff; }
+    .location-indicator.in-location { border-left-color: #ffc107; }
+    .location-indicator.unassigned { border-left-color: rgba(255,255,255,0.3); }
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    .stat-card-mini {
+      background: #ffffff;
+      padding: 12px 15px;
+      border-radius: 6px;
+      border-left: 3px solid #0099cc;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .stat-label-mini {
+      font-size: 0.75rem;
+      color: rgba(0,0,0,0.6);
+      margin-bottom: 5px;
+    }
+    .stat-value-mini {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: #0099cc;
+    }
+    .qr-preview {
+      width: 150px;
+      height: 150px;
+      background: #fff;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 10px 0;
+    }
+    /* Modern Modal Styles - Light Mode */
+    .modal-xl { max-width: 1200px; }
+    .modal-content {
+      background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%) !important;
+      border: 2px solid rgba(77,209,255,0.3) !important;
+      border-radius: 16px !important;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+      color: #1a1d24 !important;
+    }
+    .modal-header {
+      background: linear-gradient(90deg, rgba(77,209,255,0.08) 0%, rgba(166,77,255,0.08) 100%);
+      border-bottom: 2px solid rgba(77,209,255,0.25) !important;
+      padding: 20px 30px;
+      border-radius: 16px 16px 0 0 !important;
+    }
+    .modal-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      background: linear-gradient(90deg, #0099cc 0%, #8844dd 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .modal-body { padding: 30px; background: #ffffff; }
+    .modal-footer {
+      background: rgba(248,249,250,0.8);
+      border-top: 1px solid rgba(0,0,0,0.1) !important;
+      padding: 20px 30px;
+      border-radius: 0 0 16px 16px !important;
+    }
+    /* Enhanced Tabs - Light Mode */
+    .nav-tabs {
+      border-bottom: 2px solid rgba(77,209,255,0.25);
+      margin-bottom: 25px;
+    }
+    .nav-tabs .nav-link {
+      background: transparent;
+      border: none;
+      color: rgba(0,0,0,0.6);
+      padding: 12px 20px;
+      margin-right: 5px;
+      position: relative;
+      transition: all 0.3s ease;
+      font-weight: 600;
+      border-radius: 8px 8px 0 0;
+    }
+    .nav-tabs .nav-link:hover {
+      background: rgba(77,209,255,0.15);
+      color: #0099cc;
+    }
+    .nav-tabs .nav-link.active {
+      background: rgba(77,209,255,0.2);
+      color: #0077aa;
+      border-bottom: 3px solid #0099cc;
+    }
+    /* Color-coded sections - Light Mode */
+    .section-card {
+      background: rgba(248,249,250,0.8);
+      border: 1px solid rgba(0,0,0,0.08);
+      border-left: 3px solid;
+      border-radius: 6px;
+      padding: 12px;
+      margin-bottom: 12px;
+      transition: all 0.3s ease;
+    }
+    .section-card:hover {
+      background: rgba(240,242,245,1);
+      transform: translateX(2px);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .section-card.details { border-left-color: #0099cc; }
+    .section-card.location { border-left-color: #ff9800; }
+    .section-card.maintenance { border-left-color: #ff6b00; }
+    .section-card.value { border-left-color: #00a854; }
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #1a1d24;
+    }
+    .section-icon {
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+    }
+    .details .section-icon { background: rgba(0,153,204,0.15); color: #0099cc; }
+    .location .section-icon { background: rgba(255,152,0,0.15); color: #ff9800; }
+    .maintenance .section-icon { background: rgba(255,107,0,0.15); color: #ff6b00; }
+    .value .section-icon { background: rgba(0,168,84,0.15); color: #00a854; }
+    /* Enhanced Form Controls - Light Mode */
+    #assetDetailsPanel .form-label {
+      color: #1a1d24;
+      font-weight: 600;
+      font-size: 0.8rem;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .modal .form-label {
+      color: #1a1d24;
+      font-weight: 600;
+      font-size: 0.9rem;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .modal .form-control, .modal .form-select {
+      background: #ffffff !important;
+      border: 1.5px solid rgba(0,0,0,0.15) !important;
+      color: #1a1d24 !important;
+      padding: 10px 14px;
+      border-radius: 8px;
+      transition: all 0.3s ease;
+    }
+    .modal .form-control:focus, .modal .form-select:focus {
+      background: #ffffff !important;
+      border-color: #0099cc !important;
+      box-shadow: 0 0 0 3px rgba(0,153,204,0.15) !important;
+    }
+    .modal .form-control::placeholder { color: rgba(0,0,0,0.4); }
+    .modal .text-muted { color: #6c757d !important; }
+    /* Status Select Styling */
+    #assetStatus { font-weight: 600; }
+    #assetStatus option[value="available"] { color: #28a745; }
+    #assetStatus option[value="in_use"] { color: #ffc107; }
+    #assetStatus option[value="maintenance"] { color: #ff9800; }
+    #assetStatus option[value="retired"] { color: #6c757d; }
+    /* Enhanced Alerts - Light Mode */
+    .modal .alert-info {
+      background: linear-gradient(135deg, rgba(0,153,204,0.08) 0%, rgba(0,153,204,0.04) 100%);
+      border: 1px solid rgba(0,153,204,0.25);
+      border-left: 4px solid #0099cc;
+      color: #1a1d24;
+      border-radius: 8px;
+    }
+    .modal .alert-warning {
+      background: linear-gradient(135deg, rgba(255,152,0,0.08) 0%, rgba(255,152,0,0.04) 100%);
+      border: 1px solid rgba(255,152,0,0.25);
+      border-left: 4px solid #ff9800;
+      color: #1a1d24;
+      border-radius: 8px;
+    }
+    /* Enhanced Buttons */
+    .btn-primary {
+      background: linear-gradient(135deg, #4dd1ff 0%, #3b9eff 100%);
+      border: none;
+      padding: 10px 24px;
+      font-weight: 600;
+      border-radius: 8px;
+      transition: all 0.3s ease;
+    }
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #3b9eff 0%, #2d7fd9 100%);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(77,209,255,0.4);
+    }
+    .btn-secondary {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #fff;
+      padding: 10px 24px;
+      font-weight: 600;
+      border-radius: 8px;
+    }
+    .btn-secondary:hover {
+      background: rgba(255,255,255,0.15);
+      border-color: rgba(255,255,255,0.3);
+    }
+    .btn-outline-danger {
+      border: 2px solid #dc3545;
+      color: #dc3545;
+      font-weight: 600;
+      border-radius: 8px;
+      padding: 10px 24px;
+    }
+    .btn-outline-danger:hover {
+      background: #dc3545;
+      color: #fff;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(220,53,69,0.4);
+    }
+    .qr-section {
+      background: rgba(248,249,250,0.5);
+      border: 2px dashed rgba(0,153,204,0.3);
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+    }
+    .qr-preview {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      padding: 10px;
+      border: 1px solid rgba(0,0,0,0.1);
+    }
+    /* History Timeline */
+    .history-item {
+      display: flex;
+      gap: 15px;
+      padding: 15px;
+      border-left: 3px solid #e0e0e0;
+      margin-bottom: 15px;
+      background: rgba(248,249,250,0.5);
+      border-radius: 8px;
+      transition: all 0.3s ease;
+    }
+    .history-item:hover {
+      background: rgba(240,242,245,0.8);
+      border-left-color: #0099cc;
+    }
+    .history-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      flex-shrink: 0;
+    }
+    .history-icon.moved { background: rgba(0,153,204,0.15); color: #0099cc; }
+    .history-icon.packed { background: rgba(255,152,0,0.15); color: #ff9800; }
+    .history-icon.unpacked { background: rgba(156,39,176,0.15); color: #9c27b0; }
+    .history-icon.created { background: rgba(0,168,84,0.15); color: #00a854; }
+    .history-icon.updated { background: rgba(33,150,243,0.15); color: #2196f3; }
+    .history-content {
+      flex: 1;
+    }
+    .history-action {
+      font-weight: 600;
+      color: #1a1d24;
+      margin-bottom: 4px;
+    }
+    .history-details {
+      font-size: 0.9rem;
+      color: #666;
+      margin-bottom: 4px;
+    }
+    .history-time {
+      font-size: 0.8rem;
+      color: #999;
+    }
+    
+    /* Quick Scanner Modal */
+    .scanner-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(5px);
+      z-index: 9999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      animation: fadeIn 0.2s ease;
+    }
+    .scanner-overlay.active {
+      display: flex;
+    }
+    .scanner-modal {
+      background: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      width: 90%;
+      max-width: 700px;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      animation: slideUp 0.3s ease;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes slideUp {
+      from { transform: translateY(50px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    .scanner-header {
+      padding: 20px 30px;
+      background: linear-gradient(90deg, rgba(77,209,255,0.12) 0%, rgba(166,77,255,0.12) 100%);
+      border-bottom: 2px solid rgba(0,153,204,0.2);
+      border-radius: 16px 16px 0 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .scanner-header h4 {
+      margin: 0;
+      color: #1a1d24;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .scanner-search {
+      padding: 20px 30px;
+      border-bottom: 1px solid rgba(0,0,0,0.1);
+    }
+    .scanner-input {
+      width: 100%;
+      padding: 15px 20px;
+      font-size: 1.1rem;
+      border: 2px solid rgba(0,153,204,0.3);
+      border-radius: 10px;
+      background: #f8f9fa;
+      font-family: 'Courier New', monospace;
+      font-weight: 600;
+      transition: all 0.3s ease;
+    }
+    .scanner-input:focus {
+      outline: none;
+      border-color: #0099cc;
+      background: #ffffff;
+      box-shadow: 0 0 0 4px rgba(0,153,204,0.15);
+    }
+    .scanner-results {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 30px;
+    }
+    .scanner-result-item {
+      background: #f8f9fa;
+      border: 2px solid transparent;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .scanner-result-item:hover {
+      background: #ffffff;
+      border-color: #0099cc;
+      transform: translateX(5px);
+    }
+    .scanner-result-item.selected {
+      background: rgba(0,153,204,0.1);
+      border-color: #0099cc;
+    }
+    .scanner-actions {
+      padding: 20px 30px;
+      background: #f8f9fa;
+      border-top: 1px solid rgba(0,0,0,0.1);
+      border-radius: 0 0 16px 16px;
+      display: none;
+    }
+    .scanner-actions.active {
+      display: block;
+    }
+    .scanner-action-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
+    }
+    .scanner-action-btn {
+      padding: 12px 16px;
+      border: 2px solid rgba(0,0,0,0.1);
+      border-radius: 8px;
+      background: #ffffff;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-weight: 600;
+      text-align: center;
+    }
+    .scanner-action-btn:hover {
+      border-color: #0099cc;
+      background: rgba(0,153,204,0.1);
+      transform: translateY(-2px);
+    }
+    .scanner-empty {
+      text-align: center;
+      padding: 40px;
+      color: #999;
+    }
+    /* Toast Notifications */
+    .toast-container {
+      position: fixed;
+      top: 80px;
+      right: 20px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .custom-toast {
+      min-width: 300px;
+      max-width: 400px;
+      background: white;
+      border-radius: 8px;
+      padding: 16px 20px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      border-left: 4px solid;
+      animation: slideIn 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .custom-toast.success { border-left-color: #28a745; }
+    .custom-toast.error { border-left-color: #dc3545; }
+    .custom-toast.warning { border-left-color: #ffc107; }
+    .custom-toast.info { border-left-color: #17a2b8; }
+    .toast-icon { font-size: 24px; flex-shrink: 0; }
+    .toast-message { flex: 1; color: #1a1d24; font-weight: 500; }
+    .toast-close {
+      background: none;
+      border: none;
+      font-size: 20px;
+      cursor: pointer;
+      color: #999;
+      padding: 0;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .toast-close:hover { color: #333; }
+    @keyframes slideIn {
+      from { transform: translateX(400px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes slideOut {
+      from { transform: translateX(0); opacity: 1; }
+      to { transform: translateX(400px); opacity: 0; }
+    }
+    .custom-toast.removing { animation: slideOut 0.3s ease; }
+    /* Confirm Dialog */
+    .confirm-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 10000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: fadeIn 0.2s ease;
+    }
+    .confirm-dialog {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      max-width: 400px;
+      width: 90%;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+      animation: scaleIn 0.2s ease;
+    }
+    .confirm-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #1a1d24;
+      margin-bottom: 12px;
+    }
+    .confirm-message {
+      color: #666;
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+    .confirm-buttons {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes scaleIn {
+      from { transform: scale(0.9); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+  </style>
 </head>
 <body class="page-assets">
   <div id="rtsTopNav"></div>
+  
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+  
   <div class="rts-main container-fluid">
-      
+    <div class="page-header d-flex justify-content-between align-items-center">
+      <h1>Asset Tracking System</h1>
+      <div class="d-flex gap-2">
+        <button class="btn btn-sm btn-outline-light" id="btnExportAssets">📊 Export</button>
+        <button class="btn btn-sm btn-outline-light" id="btnPrintLabels">🏷️ Print Labels</button>
+        <button class="btn btn-sm btn-primary" id="btnAddAsset">➕ Add Asset</button>
+      </div>
+    </div>
 
-      
-        <h1 class="my-3">Assets</h1>
+    <!-- Stats Bar -->
+    <div class="stats-bar">
+      <div class="stat-card-mini">
+        <div class="stat-label-mini">📦 Total Assets</div>
+        <div class="stat-value-mini" id="statTotal">0</div>
+      </div>
+      <div class="stat-card-mini">
+        <div class="stat-label-mini">🔧 Equipment</div>
+        <div class="stat-value-mini" id="statEquipment">0</div>
+      </div>
+      <div class="stat-card-mini">
+        <div class="stat-label-mini">💎 High-Value Assets</div>
+        <div class="stat-value-mini" id="statAssets">0</div>
+      </div>
+      <div class="stat-card-mini">
+        <div class="stat-label-mini">📦 In Boxes</div>
+        <div class="stat-value-mini" id="statInBoxes">0</div>
+      </div>
+      <div class="stat-card-mini">
+        <div class="stat-label-mini">⚠️ Needs Maintenance</div>
+        <div class="stat-value-mini" id="statMaintenance">0</div>
+      </div>
+    </div>
 
-        <div class="mlo-shell" id="assetShell">
-          <!-- LEFT -->
-          <section class="mlo-pane mlo-pane-left" aria-label="Asset navigation">
-            <div class="mlo-pane-header">
-              <div class="d-flex justify-content-between align-items-center">
-                <div class="mlo-title">Perspectives</div>
-                <span class="badge text-bg-secondary" id="asCountBadge">0</span>
+    <!-- Three Column Layout -->
+    <div class="row g-3">
+
+      <!-- Left Column: Filters -->
+      <div class="col-md-2">
+        <div class="card" style="background: #ffffff; border: 1px solid rgba(0,0,0,0.1); box-shadow: 0 2px 4px rgba(0,0,0,0.08);">
+          <div class="card-body">
+            <h6 class="text-dark fw-bold mb-3">🔍 Filters</h6>
+            <div class="row g-2">
+              <div class="col-12">
+                <label class="form-label text-dark">Search</label>
+                <input type="text" class="form-control form-control-sm" id="searchInput" placeholder="Search by name, barcode, serial...">
               </div>
-            </div>
-            <div class="mlo-pane-content">
-              <div class="mlo-section-label">Smart lists</div>
-              <ul class="mlo-tree pastel-tree" id="asPerspectiveList">
-                <li class="active" data-perspective="all">All Assets</li>
-                <li data-perspective="assigned">Assigned</li>
-                <li data-perspective="unassigned">Unassigned</li>
-                <li data-perspective="needs_service">Needs Service</li>
-                <li data-perspective="out_of_service">Out of Service</li>
-                <li data-perspective="overdue_return">Overdue Return</li>
-              </ul>
-
-              <div class="mlo-section-label mt-3">Types</div>
-              <ul class="mlo-tree pastel-tree" id="asTypeList"></ul>
-            </div>
-          </section>
-
-          <div class="mlo-resizer" data-resize="left" title="Drag to resize"></div>
-
-          <!-- MIDDLE -->
-          <section class="mlo-pane mlo-pane-mid" aria-label="Asset list">
-            <div class="mlo-pane-header">
-              <div class="d-flex flex-wrap align-items-center gap-1">
-                <input id="asSearch" type="text" class="form-control form-control-sm" placeholder="Search…" style="max-width: 220px;">
-                <select id="asType" class="form-select form-select-sm" style="max-width: 200px;"></select>
-                <select id="asStatus" class="form-select form-select-sm" style="max-width: 180px;">
-                  <option value="">Status: All</option>
-                  <option>OK</option>
-                  <option>Needs Service</option>
-                  <option>Out of Service</option>
+              <div class="col-12">
+                <label class="form-label text-dark">Type</label>
+                <select class="form-select form-select-sm" id="filterType">
+                  <option value="">All Types</option>
+                  <!-- Populated dynamically from settings -->
                 </select>
-                <select id="asCustodian" class="form-select form-select-sm" style="max-width: 190px;"></select>
-                <select id="asGroup" class="form-select form-select-sm" style="max-width: 190px;">
-                  <option value="">Group: None</option>
-                  <option value="type">Group: Type</option>
-                  <option value="status">Group: Status</option>
-                  <option value="custodian">Group: Custodian</option>
-                  <option value="location">Group: Location</option>
-                </select>
-                <button class="btn btn-sm btn-outline-light mlo-btn" id="btnAddAs" type="button">Add Asset</button>
               </div>
-            </div>
-            <div class="mlo-pane-content" style="padding:0;">
-              <table class="table table-dark table-hover mlo-table" style="margin:0;">
-                <thead>
-                  <tr>
-                    <th style="width:60px;">#</th>
-                    <th style="width:110px;">Asset ID</th>
-                    <th>Name</th>
-                    <th style="width:160px;">Type</th>
-                    <th style="width:140px;">Status</th>
-                    <th style="width:170px;">Custodian</th>
-                    <th style="width:170px;">Location</th>
-                  </tr>
-                </thead>
-                <tbody id="asTbody"></tbody>
-              </table>
-            </div>
-          </section>
-
-          <div class="mlo-resizer" data-resize="right" title="Drag to resize"></div>
-
-          <!-- RIGHT -->
-          <section class="mlo-pane mlo-pane-right mlo-inspector" aria-label="Asset inspector">
-          <div class="mlo-pane-header">
-            <div class="d-flex justify-content-between align-items-center">
-              <div class="mlo-title">Inspector</div>
-              <span class="badge text-bg-secondary" id="asInspectorBadge">No selection</span>
+              <div class="col-12">
+                <label class="form-label text-dark">Status</label>
+                <select class="form-select form-select-sm" id="filterStatus">
+                  <option value="">All Status</option>
+                  <option value="available">Available</option>
+                  <option value="in_use">In Use</option>
+                  <option value="maintenance">Maintenance</option>
+                  <option value="retired">Retired</option>
+                </select>
+              </div>
+              <div class="col-12">
+                <label class="form-label text-dark">Location</label>
+                <select class="form-select form-select-sm" id="filterLocation">
+                  <option value="">All Locations</option>
+                </select>
+              </div>
+              <div class="col-12">
+                <label class="form-label text-dark">In Box</label>
+                <select class="form-select form-select-sm" id="filterBox">
+                  <option value="">All</option>
+                  <option value="yes">In Box</option>
+                  <option value="no">Not in Box</option>
+                </select>
+              </div>
+              <div class="col-12">
+                <button class="btn btn-sm btn-primary w-100" id="btnClearFilters">Clear</button>
+              </div>
             </div>
           </div>
-          <div class="mlo-pane-content">
-              <ul class="nav nav-tabs nav-dark mb-2" role="tablist">
-                <li class="nav-item" role="presentation">
-                  <button class="nav-link active" id="tab-as-main" data-bs-toggle="tab" data-bs-target="#pane-as-main" type="button" role="tab" aria-controls="pane-as-main" aria-selected="true">Details</button>
-                </li>
-                <li class="nav-item" role="presentation">
-                  <button class="nav-link" id="tab-as-history" data-bs-toggle="tab" data-bs-target="#pane-as-history" type="button" role="tab" aria-controls="pane-as-history" aria-selected="false">Timeline</button>
-                </li>
-              </ul>
-              <div class="tab-content">
-                <div class="tab-pane fade show active" id="pane-as-main" role="tabpanel" aria-labelledby="tab-as-main">
-              <form id="asForm" autocomplete="off">
-                <div class="row g-2">
-                  <div class="col-5">
-                    <label class="form-label">Asset ID</label>
-                    <input id="f_as_id" class="form-control form-control-sm" type="text" readonly>
-                  </div>
-                  <div class="col-7">
-                    <label class="form-label">Name</label>
-                    <input id="f_as_name" class="form-control form-control-sm" type="text" placeholder="e.g. Chassis 01">
-                  </div>
-
-                  <div class="col-6">
-                    <label class="form-label">Type</label>
-                    <input id="f_as_type" class="form-control form-control-sm" type="text" placeholder="Engine / Kart / Tool / Electronics …">
-                  </div>
-                  <div class="col-6">
-                    <label class="form-label">Status</label>
-                    <select id="f_as_status" class="form-select form-select-sm">
-                      <option>OK</option>
-                      <option>Needs Service</option>
-                      <option>Out of Service</option>
-                    </select>
-                  </div>
-
-                  <div class="col-6">
-                    <label class="form-label">Custodian</label>
-                    <select id="f_as_custodian" class="form-select form-select-sm"></select>
-                  </div>
-                  <div class="col-6">
-                    <label class="form-label">Location</label>
-                    <select id="f_as_location" class="form-select form-select-sm"></select>
-                  </div>
-
-                  <div class="col-12">
-                    <label class="form-label">Serial / Tag</label>
-                    <input id="f_as_serial" class="form-control form-control-sm" type="text" placeholder="Serial number / barcode / QR label ID">
-                  </div>
-
-                  <div class="col-6">
-                    <label class="form-label">Make</label>
-                    <input id="f_as_make" class="form-control form-control-sm" type="text" placeholder="OTK / Vortex / Stilo …">
-                  </div>
-                  <div class="col-6">
-                    <label class="form-label">Model</label>
-                    <input id="f_as_model" class="form-control form-control-sm" type="text" placeholder="Model / spec">
-                  </div>
-
-                  <div class="col-6">
-                    <label class="form-label">Purchase date</label>
-                    <input id="f_as_purchase" class="form-control form-control-sm" type="date">
-                  </div>
-                  <div class="col-6">
-                    <label class="form-label">Purchase cost (ZAR)</label>
-                    <input id="f_as_cost" class="form-control form-control-sm" type="number" step="0.01" min="0">
-                  </div>
-
-                  <div class="col-6">
-                    <label class="form-label">Service interval (days)</label>
-                    <input id="f_as_interval" class="form-control form-control-sm" type="number" min="0" step="1">
-                  </div>
-                  <div class="col-6">
-                    <label class="form-label">Last service</label>
-                    <input id="f_as_last" class="form-control form-control-sm" type="date">
-                  </div>
-
-                  <div class="col-12">
-                    <label class="form-label">Condition / damage notes</label>
-                    <textarea id="f_as_condition" class="form-control form-control-sm" rows="3" placeholder="Condition, damage reports, photos reference, measurements…"></textarea>
-                  </div>
-
-                  <div class="col-12">
-                    <label class="form-label">Tags</label>
-                    <input id="f_as_tags" class="form-control form-control-sm" type="text" placeholder="#engine #tools #radio">
-                  </div>
-
-                  <div class="col-12 d-flex gap-1 mt-1">
-                    <button class="btn btn-sm btn-primary mlo-btn" id="btnSaveAs" type="button">Save</button>
-                    <button class="btn btn-sm btn-outline-light mlo-btn" id="btnDupAs" type="button">Duplicate</button>
-                    <button class="btn btn-sm btn-outline-danger mlo-btn" id="btnDelAs" type="button">Delete</button>
-                  </div>
-                </div>
-              </form>
-                </div>
-                <div class="tab-pane fade" id="pane-as-history" role="tabpanel" aria-labelledby="tab-as-history">
-                  <div id="asHistory" class="d-grid gap-1" style="font-size:0.85rem;"></div>
-                </div>
-              </div>
-            </div>
-          </section>
         </div>
       </div>
 
+      <!-- Middle Column: Asset List -->
+      <div class="col-md-10">
+        <div class="resizable-container">
+          <div class="resizable-panel" id="middlePanel" style="flex: 1;">
+            <div class="card" style="background: #ffffff; border: 1px solid rgba(0,0,0,0.1); box-shadow: 0 2px 4px rgba(0,0,0,0.08); height: 100%;">
+              <div class="card-header d-flex justify-content-between align-items-center" style="background: #f8f9fa; border-color: rgba(0,0,0,0.1);">
+                <span class="text-dark fw-semibold">Asset List (<span id="assetCount">0</span> items)</span>
+                <div class="btn-group btn-group-sm">
+                  <button class="btn btn-outline-primary active" id="btnViewCards" title="Card View">📇</button>
+                  <button class="btn btn-outline-primary" id="btnViewTable" title="Table View">📋</button>
+                </div>
+              </div>
+              <div class="card-body" style="overflow-y: auto; height: calc(100% - 60px);">
+                <div id="assetList"></div>
+                <div id="noResults" style="display:none;" class="text-center text-muted py-5">
+                  <h5>No assets found</h5>
+                  <p>Try adjusting your filters or add a new asset</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Resize Handle -->
+          <div class="resize-handle" id="resizeHandle"></div>
+
+          <!-- Right Panel: Asset Details -->
+          <div class="resizable-panel" id="rightPanel" style="flex: 1;">
+            <div id="assetDetailsPanel" class="card" style="background: #ffffff; border: 1px solid rgba(0,0,0,0.1); box-shadow: 0 2px 4px rgba(0,0,0,0.08); height: 100%;">
+              <div class="card-header" style="background: #f8f9fa; border-color: rgba(0,0,0,0.1);">
+                <h5 class="mb-0" id="panelTitle">Asset Details</h5>
+              </div>
+              <div class="card-body" style="overflow-y: auto; height: calc(100% - 60px);">
+                <div id="panelEmptyState" class="text-center text-muted py-5">
+                  <h5>No Asset Selected</h5>
+                  <p>Click on an asset from the list to view and edit details</p>
+                </div>
+                <div id="panelContent" style="display: none;">
+                  <!-- Asset form content will be inserted here -->
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  <div class="modal fade" id="assetModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="modalTitle">✨ Asset Details</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <ul class="nav nav-tabs" role="tablist">
+            <li class="nav-item">
+              <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabDetails">
+                📋 Details
+              </button>
+            </li>
+            <li class="nav-item">
+              <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabLocation">
+                📍 Location & Tracking
+              </button>
+            </li>
+            <li class="nav-item">
+              <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabMaintenance">
+                🔧 Maintenance
+              </button>
+            </li>
+            <li class="nav-item">
+              <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabHistory">
+                📜 History
+              </button>
+            </li>
+          </ul>
+          <div class="tab-content">
+            <div class="tab-pane fade show active" id="tabDetails">
+              <form id="assetForm">
+                <input type="hidden" id="assetId">
+                
+                <!-- Basic Information Section -->
+                <div class="section-card details">
+                  <div class="section-header">
+                    <div class="section-icon">📝</div>
+                    <span>Basic Information</span>
+                  </div>
+                  <div class="row g-3">
+                    <div class="col-md-6">
+                      <label class="form-label">🏷️ Barcode / ID</label>
+                      <input type="text" class="form-control" id="assetBarcode" placeholder="Auto-generated">
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label">📛 Name *</label>
+                      <input type="text" class="form-control" id="assetName" required placeholder="e.g., Front Wing Assembly">
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label">📦 Type *</label>
+                      <select class="form-select" id="assetType" required>
+                        <!-- Populated dynamically from settings -->
+                      </select>
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label">🏷️ Category</label>
+                      <select class="form-select" id="assetCategory" onchange="toggleCustomCategory()">
+                        <option value="">Select category...</option>
+                        <option value="TOOLS">🔧 Tools</option>
+                        <option value="AERODYNAMICS">✈️ Aerodynamics</option>
+                        <option value="ENGINE PARTS">⚙️ Engine Parts</option>
+                        <option value="WHEELS & TYRES">🛞 Wheels & Tyres</option>
+                        <option value="ELECTRONICS">🔌 Electronics</option>
+                        <option value="SAFETY EQUIPMENT">🦺 Safety Equipment</option>
+                        <option value="PIT EQUIPMENT">🏁 Pit Equipment</option>
+                        <option value="FLUIDS & CHEMICALS">🧪 Fluids & Chemicals</option>
+                        <option value="SPARE PARTS">📦 Spare Parts</option>
+                        <option value="GARAGE EQUIPMENT">🏭 Garage Equipment</option>
+                        <option value="MEASUREMENT TOOLS">📏 Measurement Tools</option>
+                        <option value="COMMUNICATION">📡 Communication</option>
+                        <option value="FASTENERS">🔩 Fasteners</option>
+                        <option value="STORAGE">📦 Storage</option>
+                        <option value="CUSTOM">➕ Other (Custom)</option>
+                      </select>
+                      <input type="text" class="form-control mt-2" id="assetCategoryCustom" placeholder="Enter custom category..." style="display: none;">
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label">🚦 Status</label>
+                      <select class="form-select" id="assetStatus">
+                        <option value="available">✅ Available</option>
+                        <option value="in_use">⚡ In Use</option>
+                        <option value="maintenance">🔧 Maintenance</option>
+                        <option value="retired">📦 Retired</option>
+                      </select>
+                    </div>
+                    <div class="col-12">
+                      <label class="form-label">📄 Description / Notes</label>
+                      <textarea class="form-control" id="assetDescription" rows="3" placeholder="Additional details about this asset..."></textarea>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Technical Details Section -->
+                <div class="section-card value">
+                  <div class="section-header">
+                    <div class="section-icon">🔬</div>
+                    <span>Technical & Value Details</span>
+                  </div>
+                  <div class="row g-3">
+                    <div class="col-md-4">
+                      <label class="form-label">🔢 Serial Number</label>
+                      <input type="text" class="form-control" id="assetSerial" placeholder="Manufacturer serial">
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label">⚖️ Weight (kg)</label>
+                      <input type="number" class="form-control" id="assetWeight" step="0.01" placeholder="0.00">
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label">💰 Value (USD)</label>
+                      <input type="number" class="form-control" id="assetValue" step="0.01" placeholder="0.00">
+                    </div>
+                  </div>
+                </div>
+              </form>
+            </div>
+            
+            <div class="tab-pane fade" id="tabLocation">
+              <!-- Location Status Display -->
+              <div class="alert alert-info">
+                <strong>📍 Current Status:</strong>
+                <div id="locationStatus" class="mt-2">Loading...</div>
+              </div>
+
+              <!-- Quick Movement Actions -->
+              <div class="section-card location">
+                <div class="section-header">
+                  <div class="section-icon">🚚</div>
+                  <span>Move Asset</span>
+                </div>
+                <div class="row g-3">
+                  <div class="col-md-4">
+                    <label class="form-label">🏢 Move to Location</label>
+                    <select class="form-select" id="moveToLocation">
+                      <option value="">Select location...</option>
+                    </select>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">📦 Pack into Box</label>
+                    <select class="form-select" id="moveToBox">
+                      <option value="">Select box...</option>
+                    </select>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">📝 Movement Note</label>
+                    <input type="text" class="form-control" id="movementNote" placeholder="Optional note...">
+                  </div>
+                  <div class="col-12">
+                    <button type="button" class="btn btn-primary me-2" id="btnMoveAsset">
+                      ✅ Update Location
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" id="btnUnpackAsset">
+                      📤 Unpack from Box
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- QR Code Section -->
+              <div class="section-card details">
+                <div class="section-header">
+                  <div class="section-icon">📱</div>
+                  <span>QR Code & Barcode</span>
+                </div>
+                <div class="qr-section">
+                  <div class="qr-preview mx-auto" id="qrPreview" style="width: 200px; height: 200px;">
+                    <span class="text-muted">QR code will appear here</span>
+                  </div>
+                  <div class="mt-3">
+                    <button type="button" class="btn btn-sm btn-primary me-2" id="btnGenerateQR">
+                      🔄 Generate QR Code
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-light" id="btnPrintQR">
+                      🖨️ Print Label
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="tab-pane fade" id="tabMaintenance">
+              <!-- Maintenance Schedule Section -->
+              <div class="section-card maintenance">
+                <div class="section-header">
+                  <div class="section-icon">🔧</div>
+                  <span>Maintenance Schedule</span>
+                </div>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label">📅 Last Maintenance Date</label>
+                    <input type="date" class="form-control" id="assetLastMaintenance">
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">⏰ Next Maintenance Due</label>
+                    <input type="date" class="form-control" id="assetNextMaintenance">
+                  </div>
+                </div>
+              </div>
+
+              <!-- Maintenance Alert -->
+              <div id="maintenanceAlert"></div>
+
+              <!-- Maintenance Notes Section -->
+              <div class="section-card details">
+                <div class="section-header">
+                  <div class="section-icon">📝</div>
+                  <span>Maintenance Notes & History</span>
+                </div>
+                <label class="form-label">Service records, issues, repairs...</label>
+                <textarea class="form-control" id="maintenanceNotes" rows="6" placeholder="Document maintenance activities, repairs, parts replaced, issues found..."></textarea>
+              </div>
+            </div>
+            
+            <div class="tab-pane fade" id="tabHistory">
+              <div class="section-card details">
+                <div class="section-header">
+                  <div class="section-icon">📜</div>
+                  <span>Movement & Activity History</span>
+                </div>
+                <div id="assetHistoryList" style="max-height: 500px; overflow-y: auto;">
+                  <div class="text-center text-muted py-4">
+                    <p class="mb-0">No history available yet</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-danger" id="btnDeleteAsset" style="margin-right: auto;">
+            🗑️ Delete Asset
+          </button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+            Cancel
+          </button>
+          <button type="button" class="btn btn-primary" id="btnSaveAsset">
+            💾 Save Asset
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Scanner Modal -->
+  <div class="scanner-overlay" id="scannerOverlay">
+    <div class="scanner-modal">
+      <div class="scanner-header">
+        <h4>🔍 Quick Asset Scanner</h4>
+        <button type="button" class="btn-close" id="btnCloseScanner"></button>
+      </div>
+      <div class="scanner-search">
+        <input 
+          type="text" 
+          class="scanner-input" 
+          id="scannerInput" 
+          placeholder="Scan barcode, QR code, or enter serial number, name, description..."
+          autocomplete="off"
+        >
+        <small class="text-muted d-block mt-2">
+          💡 Searching across: Barcode, Serial Number, Name, Category, Description
+        </small>
+      </div>
+      <div class="scanner-results" id="scannerResults">
+        <div class="scanner-empty">
+          <div style="font-size: 3rem; margin-bottom: 10px;">📦</div>
+          <p>Start typing or scan a barcode to search assets</p>
+          <small class="text-muted">Press ESC to close</small>
+        </div>
+      </div>
+      <div class="scanner-actions" id="scannerActions">
+        <div class="scanner-action-grid">
+          <button class="scanner-action-btn" onclick="scannerViewAsset()">
+            👁️ View Details
+          </button>
+          <button class="scanner-action-btn" onclick="scannerMoveAsset()">
+            📍 Move Location
+          </button>
+          <button class="scanner-action-btn" onclick="scannerPackAsset()">
+            📦 Pack in Box
+          </button>
+          <button class="scanner-action-btn" onclick="scannerUnpackAsset()">
+            📤 Unpack
+          </button>
+          <button class="scanner-action-btn" onclick="scannerAddNote()">
+            📝 Add Note
+          </button>
+          <button class="scanner-action-btn" onclick="scannerPrintLabel()">
+            🏷️ Print Label
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="config.js"></script>
-  <script src="core.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" onload="console.log('✅ QRCode library loaded')"></script>
+  <script src="auth-check.js"></script>
+  <script src="config.js?v=3"></script>
+  <script src="core.js?v=2"></script>
   <script src="topnav.js"></script>
   <script>
-  (function(){
-    RTS.setActiveNav();
-    const LS_DATA = 'rts.assets.v4';
-    const LS_UI = 'rts.assets.ui.v4';
-    const LS_PANES = 'rts.assets.panes.v4';
+    // Debug: Check if libraries are loaded
+    console.log('RTS_API loaded:', typeof window.RTS_API);
+    console.log('RTS_API.packItem available:', typeof window.RTS_API?.packItem);
+    console.log('RTS_API.unpackItem available:', typeof window.RTS_API?.unpackItem);
+    console.log('QRCode library loaded:', typeof QRCode);
+    
+    let allAssets = [];
+    let allBoxes = [];
+    let allLocations = [];
+    let allAssetTypes = [];
+    let currentAsset = null;
+    let currentView = 'cards';
+    let sortColumn = null;
+    let sortDirection = 'desc';
 
-    const TYPES = ['Kart / Chassis','Engine','Data Logger','Radio','Tool','Laptop / Tablet','Generator','Awning','Trolley / Stand','Safety'];
-    const STATUSES = ['OK','Needs Service','Out of Service'];
-    let settings = RTS.getSettings();
-    let LOCS = (settings.locations||[]).slice();
-    let STAFF = (settings.staff||[]).filter(s=>s.active!==false).map(s=>s.name);
-    const CUST = ['—'].concat(STAFF);
-
-    function iso(d){
-      const dt = new Date(d);
-      const y = dt.getFullYear();
-      const m = String(dt.getMonth()+1).padStart(2,'0');
-      const da = String(dt.getDate()).padStart(2,'0');
-      return `${y}-${m}-${da}`;
-    }
-
-    function seed(){
-      const out = [];
-      const base = new Date();
-      for (let i=1;i<=50;i++){
-        const t = TYPES[i % TYPES.length];
-        const s = (i % 11 === 0) ? 'Out of Service' : ((i % 5 === 0) ? 'Needs Service' : 'OK');
-        const cust = CUST[i % CUST.length];
-        const loc = LOCS[i % LOCS.length];
-        const pd = new Date(base.getTime());
-        pd.setDate(pd.getDate() - i*18);
-        const last = new Date(base.getTime());
-        last.setDate(last.getDate() - (i % 90));
-        out.push({
-          id: `AS-${String(i).padStart(4,'0')}`,
-          name: (t==='Kart / Chassis') ? `Chassis ${String(i).padStart(2,'0')}` : `${t} ${String(i).padStart(2,'0')}`,
-          type: t,
-          status: s,
-          custodian: cust,
-          location: loc,
-          history:[{ at: nowISO(), by:'system', action:'seeded', changes:{} }],
-          serial: `SN-${Math.abs(100000 + i*177)}`,
-          make: (i%3===0)?'OTK':(i%3===1)?'Vortex':'Stilo',
-          model: (i%2===0)?'Spec A':'Spec B',
-          purchaseDate: iso(pd),
-          cost: Math.round(3500 + i*420),
-          intervalDays: (t==='Engine')? 30 : 90,
-          lastService: iso(last),
-          condition: '',
-          tags: (t==='Engine')?'#engine #power':'#asset'
-        });
-      }
-      return out;
-    }
-
-    const defaultUI = { perspective:'all', typePick:'', search:'', type:'', status:'', custodian:'', groupBy:'', selectedId:null };
-
-    let items = RTS.safeLoadJSON(LS_DATA, null);
-    if (!Array.isArray(items) || !items.length) items = seed();
-    let ui = RTS.deepMerge(defaultUI, RTS.safeLoadJSON(LS_UI, {}));
-
-    const el = {
-      shell: document.getElementById('assetShell'),
-      badge: document.getElementById('asCountBadge'),
-      inspectorBadge: document.getElementById('asInspectorBadge'),
-      perspectives: document.getElementById('asPerspectiveList'),
-      typesTree: document.getElementById('asTypeList'),
-      tbody: document.getElementById('asTbody'),
-      search: document.getElementById('asSearch'),
-      type: document.getElementById('asType'),
-      status: document.getElementById('asStatus'),
-      cust: document.getElementById('asCustodian'),
-      group: document.getElementById('asGroup'),
-      add: document.getElementById('btnAddAs'),
-      save: document.getElementById('btnSaveAs'),
-      dup: document.getElementById('btnDupAs'),
-      del: document.getElementById('btnDelAs'),
-      history: document.getElementById('asHistory'),
-      f: {
-        id: document.getElementById('f_as_id'),
-        name: document.getElementById('f_as_name'),
-        type: document.getElementById('f_as_type'),
-        status: document.getElementById('f_as_status'),
-        custodian: document.getElementById('f_as_custodian'),
-        location: document.getElementById('f_as_location'),
-        serial: document.getElementById('f_as_serial'),
-        make: document.getElementById('f_as_make'),
-        model: document.getElementById('f_as_model'),
-        purchase: document.getElementById('f_as_purchase'),
-        cost: document.getElementById('f_as_cost'),
-        interval: document.getElementById('f_as_interval'),
-        last: document.getElementById('f_as_last'),
-        condition: document.getElementById('f_as_condition'),
-        tags: document.getElementById('f_as_tags')
-      }
+    // Simple cache to avoid redundant API calls
+    let dataCache = {
+      items: { data: null, timestamp: 0, ttl: 30000 }, // 30 second cache
+      boxes: { data: null, timestamp: 0, ttl: 30000 }
     };
 
-    function persist(){ RTS.safeSaveJSON(LS_DATA, items); RTS.safeSaveJSON(LS_UI, ui); }
+    function isCacheValid(cacheEntry) {
+      return cacheEntry.data && (Date.now() - cacheEntry.timestamp < cacheEntry.ttl);
+    }
 
-    function buildTypeLists(){
-      settings = RTS.getSettings();
-      STAFF = (settings.staff||[]).filter(s=>s.active!==false).map(s=>s.name);
-      const uniq = Array.from(new Set(items.map(a => a.type))).sort();
-      el.typesTree.innerHTML = '';
-      const allLi = document.createElement('li');
-      allLi.textContent = 'All types';
-      allLi.dataset.type = '';
-      if (!ui.typePick) allLi.classList.add('active');
-      el.typesTree.appendChild(allLi);
-      uniq.forEach(t => {
-        const li = document.createElement('li');
-        li.textContent = t;
-        li.dataset.type = t;
-        if (ui.typePick === t) li.classList.add('active');
-        el.typesTree.appendChild(li);
+    // Resizable panels functionality
+    (function initResizable() {
+      const handle = document.getElementById('resizeHandle');
+      const middlePanel = document.getElementById('middlePanel');
+      const rightPanel = document.getElementById('rightPanel');
+      const container = middlePanel.parentElement;
+      
+      let isResizing = false;
+      
+      handle.addEventListener('mousedown', (e) => {
+        isResizing = true;
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
       });
-      el.type.innerHTML = '<option value="">Type: All</option>' + uniq.map(t=>`<option>${t}</option>`).join('');
-      const cu = Array.from(new Set(items.map(a => a.custodian).concat(STAFF))).filter(Boolean).sort();
-      el.cust.innerHTML = '<option value="">Custodian: All</option>' + cu.map(c=>`<option>${c}</option>`).join('');
-      // inspector custodian options
-      el.f.custodian.innerHTML = cu.length
-        ? cu.map(c=>`<option value="${c}">${c}</option>`).join('')
-        : '<option value="—">—</option>';
-      // location dropdown
-      const locs = Array.isArray(settings.locations) ? settings.locations.map(l=> (typeof l === 'string' ? { name:l, color:null } : l)) : [];
-      el.f.location.innerHTML = locs.map(l=>`<option value="${l.name}">${l.name}</option>`).join('') || '<option value="">Unassigned</option>';
-    }
-
-    function applyFilters(list){
-      let out = list.slice();
-      // perspective
-      if (ui.perspective === 'assigned') out = out.filter(a => (a.custodian||'') && a.custodian !== '—');
-      if (ui.perspective === 'unassigned') out = out.filter(a => (a.custodian||'—') === '—');
-      if (ui.perspective === 'needs_service') out = out.filter(a => a.status === 'Needs Service');
-      if (ui.perspective === 'out_of_service') out = out.filter(a => a.status === 'Out of Service');
-      if (ui.perspective === 'overdue_return') out = out.filter(a => (a.custodian||'') && a.custodian !== '—' && (a.location||'').toLowerCase().includes('track'));
-      // type tree
-      if (ui.typePick) out = out.filter(a => a.type === ui.typePick);
-      // controls
-      if (ui.search){
-        const q = ui.search.toLowerCase();
-        out = out.filter(a => (`${a.id} ${a.name} ${a.type} ${a.status} ${a.custodian} ${a.location} ${a.serial}`).toLowerCase().includes(q));
-      }
-      if (ui.type) out = out.filter(a => a.type === ui.type);
-      if (ui.status) out = out.filter(a => a.status === ui.status);
-      if (ui.custodian) out = out.filter(a => a.custodian === ui.custodian);
-      return out;
-    }
-
-    function groupKey(a){
-      switch(ui.groupBy){
-        case 'type': return a.type || '—';
-        case 'status': return a.status || '—';
-        case 'custodian': return a.custodian || '—';
-        case 'location': return a.location || '—';
-        default: return '';
-      }
-    }
-
-    function hydrate(a){
-      if (!a){
-        el.inspectorBadge.textContent = 'No selection';
-        Object.values(el.f).forEach(inp => inp.value = '');
-        if (el.history) el.history.innerHTML = '';
-        return;
-      }
-      el.inspectorBadge.textContent = a.id;
-      el.f.id.value = a.id;
-      el.f.name.value = a.name || '';
-      el.f.type.value = a.type || '';
-      el.f.status.value = a.status || 'OK';
-      const custVal = a.custodian || '';
-      const hasOpt = Array.from(el.f.custodian.options).some(o => o.value === custVal);
-      if (!hasOpt && custVal){
-        const opt = document.createElement('option');
-        opt.value = custVal;
-        opt.textContent = custVal;
-        el.f.custodian.appendChild(opt);
-      }
-      el.f.custodian.value = custVal;
-      el.f.location.value = a.location || '';
-      el.f.serial.value = a.serial || '';
-      el.f.make.value = a.make || '';
-      el.f.model.value = a.model || '';
-      el.f.purchase.value = a.purchaseDate || '';
-      el.f.cost.value = a.cost || 0;
-      el.f.interval.value = a.intervalDays || 0;
-      el.f.last.value = a.lastService || '';
-      el.f.condition.value = a.condition || '';
-      el.f.tags.value = a.tags || '';
-      renderHistory(a);
-    }
-
-    function renderHistory(a){
-      if (!el.history) return;
-      const history = Array.isArray(a.history) ? a.history.slice().sort((x,y)=> (y.at||'').localeCompare(x.at||'')) : [];
-      el.history.innerHTML = '';
-      if (history.length===0){
-        el.history.innerHTML = '<div class="text-secondary" style="font-size:0.85rem;">No history recorded.</div>';
-        return;
-      }
-      history.forEach(h=>{
-        const div = document.createElement('div');
-        div.className = 'p-2 border';
-        div.style.borderColor = 'rgba(255,255,255,0.10)';
-        const changes = h.changes && Object.keys(h.changes).length ? Object.entries(h.changes).map(([k,v])=>`${k}: ${v[0]} → ${v[1]}`).join(', ') : (h.action||'');
-        div.innerHTML = `<div style="font-weight:600;">${h.action||'Updated'} • ${h.at ? h.at.replace('T',' ').slice(0,16) : ''}</div><div class="text-secondary" style="font-size:0.82rem;">${changes}</div>`;
-        el.history.appendChild(div);
+      
+      document.addEventListener('mousemove', (e) => {
+        if (!isResizing) return;
+        
+        const containerRect = container.getBoundingClientRect();
+        const containerWidth = containerRect.width;
+        const mouseX = e.clientX - containerRect.left;
+        
+        // Calculate percentages (min 20%, max 80%)
+        let middlePercent = (mouseX / containerWidth) * 100;
+        middlePercent = Math.max(20, Math.min(80, middlePercent));
+        const rightPercent = 100 - middlePercent;
+        
+        middlePanel.style.flex = `0 0 ${middlePercent}%`;
+        rightPanel.style.flex = `0 0 ${rightPercent}%`;
       });
+      
+      document.addEventListener('mouseup', () => {
+        isResizing = false;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      });
+    })();
+
+    // Toast Notification System
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      const icons = {
+        success: '✅',
+        error: '❌',
+        warning: '⚠️',
+        info: 'ℹ️'
+      };
+      
+      const toast = document.createElement('div');
+      toast.className = `custom-toast ${type}`;
+      toast.innerHTML = `
+        <span class="toast-icon">${icons[type]}</span>
+        <span class="toast-message">${message}</span>
+        <button class="toast-close" onclick="this.parentElement.remove()">×</button>
+      `;
+      
+      container.appendChild(toast);
+      
+      // Auto remove after 3 seconds
+      setTimeout(() => {
+        toast.classList.add('removing');
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
     }
 
-    function appendHistory(after, before, action){
-      if (!after) return;
-      const changes = {};
-      if (before){
-        ['name','type','status','custodian','location','serial','make','model','purchaseDate','cost','intervalDays','lastService','condition','tags'].forEach(key=>{
-          if (before[key] !== after[key]){
-            changes[key] = [before[key]||'', after[key]||''];
+    // Custom Confirm Dialog
+    function showConfirm(message, title = 'Confirm Action') {
+      return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.className = 'confirm-overlay';
+        overlay.innerHTML = `
+          <div class="confirm-dialog">
+            <div class="confirm-title">${title}</div>
+            <div class="confirm-message">${message}</div>
+            <div class="confirm-buttons">
+              <button class="btn btn-secondary" id="confirmCancel">Cancel</button>
+              <button class="btn btn-danger" id="confirmOk">Confirm</button>
+            </div>
+          </div>
+        `;
+        
+        document.body.appendChild(overlay);
+        
+        overlay.querySelector('#confirmOk').onclick = () => {
+          overlay.remove();
+          resolve(true);
+        };
+        
+        overlay.querySelector('#confirmCancel').onclick = () => {
+          overlay.remove();
+          resolve(false);
+        };
+        
+        overlay.onclick = (e) => {
+          if (e.target === overlay) {
+            overlay.remove();
+            resolve(false);
           }
-        });
-      }
-      after.history = Array.isArray(after.history) ? after.history : [];
-      after.history.push({
-        at: nowISO(),
-        by: 'user',
-        action: action || 'Updated',
-        changes
+        };
       });
     }
 
-    function typeColor(t){
-      const palette = ['#9be5f0','#c0f4a6','#ffc48a','#fcb0c3','#b5c2ff','#d3b4ff'];
-      if (!t) return '#9be5f0';
-      const idx = Math.abs(t.split('').reduce((s,ch)=> s+ch.charCodeAt(0),0)) % palette.length;
-      return palette[idx];
-    }
-    function statusColor(s){
-      const map = { 'OK':'#c0f4a6','Needs Service':'#ffc48a','Out of Service':'#fcb0c3' };
-      return map[s] || '#9be5f0';
-    }
-    function locationColor(loc){
-      if (!loc) return '#9be5f0';
-      const palette = ['#9be5f0','#c0f4a6','#ffc48a','#fcb0c3','#b5c2ff','#d3b4ff'];
-      const idx = Math.abs(loc.split('').reduce((s,ch)=> s+ch.charCodeAt(0),0)) % palette.length;
-      return palette[idx];
+    document.addEventListener('DOMContentLoaded', async () => {
+      const startTime = performance.now();
+      
+      // Show loading state
+      document.getElementById('assetList').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><p class="mt-2">Loading assets...</p></div>';
+      
+      await loadData();
+      setupEventListeners();
+      renderAssets();
+      updateStats();
+      
+      const loadTime = Math.round(performance.now() - startTime);
+      console.log(`⚡ Page loaded in ${loadTime}ms (${allAssets.length} assets)`);
+      
+      // Show performance indicator if slow (> 2 seconds)
+      if (loadTime > 2000) {
+        console.warn(`⚠️ Slow load detected. This is likely due to network latency to PlanetScale. When deployed to production server (same datacenter), it will be 10-20x faster.`);
+      }
+    });
+
+    // Reload asset types when page becomes visible (e.g., coming back from settings)
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        reloadAssetTypes();
+      }
+    });
+
+    function reloadAssetTypes() {
+      const settings = window.RTS.getSettings();
+      const assetTypesFromSettings = settings.assetTypes || [{name:'Equipment',color:'#0ea5e9'},{name:'Asset',color:'#a855f7'}];
+      // Handle both old string format and new object format
+      allAssetTypes = assetTypesFromSettings.map(t => 
+        typeof t === 'string' ? {name:t, color:'#0ea5e9'} : {name:t.name, color:t.color||'#0ea5e9'}
+      );
+      
+      // Update filter dropdown - use array join for performance
+      const filterType = document.getElementById('filterType');
+      const currentFilter = filterType.value;
+      const options = ['<option value="">All Types</option>'];
+      
+      allAssetTypes.forEach(type => {
+        const value = type.name.toLowerCase().replace(/\s+/g, '_');
+        options.push(`<option value="${value}" data-color="${type.color}">${type.name}</option>`);
+      });
+      
+      filterType.innerHTML = options.join('');
+      filterType.value = currentFilter; // Restore selected filter
     }
 
-    function render(){
-      el.search.value = ui.search || '';
-      el.type.value = ui.type || '';
-      el.status.value = ui.status || '';
-      el.cust.value = ui.custodian || '';
-      el.group.value = ui.groupBy || '';
+    async function loadData() {
+      try {
+        // Load items and boxes in PARALLEL (not sequential)
+        const [allItems, allBoxesData] = await Promise.all([
+          window.RTS_DATA.getItems(),
+          window.RTS_DATA.getBoxes()
+        ]);
+        
+        allAssets = allItems || [];
+        allBoxes = allBoxesData || [];
+        
+        // Load locations and asset types from settings (instant - no API call)
+        const settings = window.RTS.getSettings();
+        const locationStrings = settings.locations || [];
+        // Transform string array to objects with id and name
+        allLocations = locationStrings.map(loc => ({
+          id: loc.toLowerCase().replace(/\s+/g, '_'),
+          name: loc
+        }));
+        
+        // Load asset types from settings with colors
+        const assetTypesFromSettings = settings.assetTypes || [{name:'Equipment',color:'#0ea5e9'},{name:'Asset',color:'#a855f7'}];
+        // Handle both old string format and new object format
+        allAssetTypes = assetTypesFromSettings.map(t => 
+          typeof t === 'string' ? {name:t, color:'#0ea5e9'} : {name:t.name, color:t.color||'#0ea5e9'}
+        );
+        
+        populateLocationDropdowns();
+        populateBoxDropdowns();
+        populateAssetTypeDropdowns();
+      } catch (error) {
+        console.error('Error loading data:', error);
+        document.getElementById('assetList').innerHTML = '<div class="alert alert-danger">Error loading data. Please refresh the page.</div>';
+      }
+    }
 
-      const filtered = applyFilters(items);
-      el.badge.textContent = String(filtered.length);
-      el.tbody.innerHTML = '';
-      let rows = filtered.slice();
-      if (ui.groupBy){
-        rows.sort((a,b)=>{
-          const ga = groupKey(a); const gb = groupKey(b);
-          if (ga !== gb) return ga.localeCompare(gb);
-          return (a.id||'').localeCompare(b.id||'');
+    function populateLocationDropdowns() {
+      const filterLoc = document.getElementById('filterLocation');
+      const moveToLoc = document.getElementById('moveToLocation');
+      
+      // Use array join for better performance
+      const filterOptions = ['<option value="">All Locations</option>'];
+      const moveOptions = ['<option value="">Select location...</option>'];
+      
+      allLocations.forEach(loc => {
+        filterOptions.push(`<option value="${loc.id}">${loc.name}</option>`);
+        moveOptions.push(`<option value="${loc.id}">${loc.name}</option>`);
+      });
+      
+      filterLoc.innerHTML = filterOptions.join('');
+      moveToLoc.innerHTML = moveOptions.join('');
+    }
+
+    function populateBoxDropdowns() {
+      const moveToBox = document.getElementById('moveToBox');
+      const options = ['<option value="">Select box...</option>'];
+      
+      allBoxes.forEach(box => {
+        options.push(`<option value="${box.id}">${box.name} (${box.barcode})</option>`);
+      });
+      
+      moveToBox.innerHTML = options.join('');
+    }
+
+    function populateAssetTypeDropdowns() {
+      // Populate filter dropdown - use array join instead of innerHTML +=
+      const filterType = document.getElementById('filterType');
+      const filterOptions = ['<option value="">All Types</option>'];
+      allAssetTypes.forEach(type => {
+        const value = type.name.toLowerCase().replace(/\s+/g, '_');
+        filterOptions.push(`<option value="${value}" data-color="${type.color}">${type.name}</option>`);
+      });
+      filterType.innerHTML = filterOptions.join('');
+      
+      // Populate modal form dropdown - use array join instead of innerHTML +=
+      const assetType = document.getElementById('assetType');
+      const assetTypeOptions = [];
+      allAssetTypes.forEach(type => {
+        const value = type.name.toLowerCase().replace(/\s+/g, '_');
+        assetTypeOptions.push(`<option value="${value}" data-color="${type.color}">${type.name}</option>`);
+      });
+      assetType.innerHTML = assetTypeOptions.join('');
+    }
+
+    function setupEventListeners() {
+      document.getElementById('searchInput').addEventListener('input', debounce(renderAssets, 300));
+      document.getElementById('filterType').addEventListener('change', renderAssets);
+      document.getElementById('filterStatus').addEventListener('change', renderAssets);
+      document.getElementById('filterLocation').addEventListener('change', renderAssets);
+      document.getElementById('filterBox').addEventListener('change', renderAssets);
+      document.getElementById('btnClearFilters').addEventListener('click', clearFilters);
+      document.getElementById('btnViewCards').addEventListener('click', () => switchView('cards'));
+      document.getElementById('btnViewTable').addEventListener('click', () => switchView('table'));
+      document.getElementById('btnAddAsset').addEventListener('click', () => openAssetModal());
+      document.getElementById('btnSaveAsset').addEventListener('click', saveAsset);
+      document.getElementById('btnDeleteAsset').addEventListener('click', deleteAsset);
+      document.getElementById('btnGenerateQR').addEventListener('click', generateQRCode);
+      document.getElementById('btnMoveAsset').addEventListener('click', moveAsset);
+      document.getElementById('btnUnpackAsset').addEventListener('click', unpackAsset);
+    }
+
+    function renderAssets() {
+      const search = document.getElementById('searchInput').value.toLowerCase();
+      const typeFilter = document.getElementById('filterType').value;
+      const statusFilter = document.getElementById('filterStatus').value;
+      const locationFilter = document.getElementById('filterLocation').value;
+      const boxFilter = document.getElementById('filterBox').value;
+
+      let filtered = allAssets.filter(asset => {
+        const matchSearch = !search || 
+          asset.name?.toLowerCase().includes(search) ||
+          asset.barcode?.toLowerCase().includes(search) ||
+          asset.serial_number?.toLowerCase().includes(search) ||
+          asset.category?.toLowerCase().includes(search);
+        const matchType = !typeFilter || asset.item_type === typeFilter;
+        const matchStatus = !statusFilter || asset.status === statusFilter;
+        const matchLocation = !locationFilter || asset.current_location_id === locationFilter;
+        let matchBox = true;
+        if (boxFilter === 'yes') matchBox = !!asset.current_box_id;
+        if (boxFilter === 'no') matchBox = !asset.current_box_id;
+        return matchSearch && matchType && matchStatus && matchLocation && matchBox;
+      });
+
+      // Apply sorting if in table view
+      if (currentView === 'table') {
+        filtered = getSortedAssets(filtered);
+      }
+
+      const container = document.getElementById('assetList');
+      const noResults = document.getElementById('noResults');
+      document.getElementById('assetCount').textContent = filtered.length;
+
+      if (filtered.length === 0) {
+        container.innerHTML = '';
+        noResults.style.display = 'block';
+        return;
+      }
+
+      noResults.style.display = 'none';
+      
+      if (currentView === 'table') {
+        container.innerHTML = createAssetTable(filtered);
+        
+        // Add sort handlers to table headers
+        document.querySelectorAll('.asset-table thead th.sortable').forEach(th => {
+          th.addEventListener('click', () => {
+            const column = th.dataset.column;
+            sortTable(column);
+          });
+        });
+        
+        // Update sort indicators
+        updateSortIndicators();
+        
+        // Add row click handlers
+        document.querySelectorAll('.asset-table tbody tr').forEach(row => {
+          row.addEventListener('click', () => {
+            const asset = allAssets.find(a => a.id === row.dataset.id);
+            openAssetPanel(asset);
+            // Highlight selected row
+            document.querySelectorAll('.asset-table tbody tr').forEach(r => r.classList.remove('selected'));
+            row.classList.add('selected');
+          });
         });
       } else {
-        rows.sort((a,b)=> (a.id||'').localeCompare(b.id||''));
-      }
-      let idx = 0;
-      let last = null;
-      rows.forEach(a => {
-        const g = ui.groupBy ? groupKey(a) : '';
-        if (ui.groupBy && g !== last){
-          last = g;
-          const trG = document.createElement('tr');
-          trG.className = 'mlo-group-row';
-          trG.innerHTML = `<td colspan="7">${g}</td>`;
-          el.tbody.appendChild(trG);
-        }
-        idx += 1;
-        const tr = document.createElement('tr');
-        tr.dataset.id = a.id;
-        if (ui.selectedId === a.id) tr.classList.add('mlo-row-selected');
-        const typeCol = typeColor(a.type);
-        const statusCol = statusColor(a.status);
-        const locCol = locationColor(a.location);
-        tr.innerHTML = `
-          <td>${idx}</td>
-          <td>${a.id}</td>
-          <td>${a.name}</td>
-          <td><span class="ev-type-pill" style="background:${typeCol};">${a.type||''}</span></td>
-          <td><span class="ev-type-pill" style="background:${statusCol};">${a.status||''}</span></td>
-          <td>${a.custodian}</td>
-          <td><span class="ev-type-pill" style="background:${locCol};">${a.location||''}</span></td>
-        `;
-        tr.addEventListener('click', () => { ui.selectedId = a.id; render(); });
-        el.tbody.appendChild(tr);
-      });
-      hydrate(items.find(x => x.id === ui.selectedId) || null);
-      persist();
-    }
-
-    function nextId(){
-      const n = items.length + 1;
-      return `AS-${String(n).padStart(4,'0')}`;
-    }
-
-    function add(){
-      const id = nextId();
-      const now = nowISO();
-      items.unshift({
-        id,
-        name:`New Asset ${id}`,
-        type:'Tool',
-        status:'OK',
-        custodian:'—',
-        location:'Workshop',
-        serial:'',
-        make:'',
-        model:'',
-        purchaseDate:'',
-        cost:0,
-        intervalDays:90,
-        lastService:'',
-        condition:'',
-        tags:'#asset',
-        history:[{ at: now, by:'system', action:'created asset', changes:{} }]
-      });
-      buildTypeLists();
-      ui.selectedId = id;
-      render();
-    }
-
-    function save(){
-      const id = el.f.id.value;
-      const idx = items.findIndex(a => a.id === id);
-      if (idx < 0) return;
-      const cur = items[idx];
-      const before = {...cur};
-      items[idx] = {
-        ...cur,
-        name: el.f.name.value.trim() || cur.name,
-        type: el.f.type.value.trim() || cur.type,
-        status: el.f.status.value,
-        custodian: el.f.custodian.value || '—',
-        location: el.f.location.value || cur.location,
-        serial: el.f.serial.value.trim(),
-        make: el.f.make.value.trim(),
-        model: el.f.model.value.trim(),
-        purchaseDate: el.f.purchase.value,
-        cost: parseFloat(el.f.cost.value || 0),
-        intervalDays: parseInt(el.f.interval.value || 0, 10),
-        lastService: el.f.last.value,
-        condition: el.f.condition.value,
-        tags: el.f.tags.value
-      };
-      appendHistory(items[idx], before);
-      buildTypeLists();
-      render();
-    }
-
-    function duplicate(){
-      const sel = items.find(a => a.id === ui.selectedId);
-      if (!sel) return;
-      const id = nextId();
-      const copy = {...sel, id, name: sel.name + ' (Copy)'};
-      copy.history = (sel.history||[]).slice();
-      items.unshift(copy);
-      buildTypeLists();
-      ui.selectedId = id;
-      render();
-    }
-
-    function del(){
-      const sel = items.find(a => a.id === ui.selectedId);
-      if (!sel) return;
-      appendHistory(sel, sel, 'Deleted');
-      items = items.filter(a => a.id !== sel.id);
-      ui.selectedId = null;
-      buildTypeLists();
-      render();
-    }
-
-    function bind(){
-      el.perspectives.querySelectorAll('li').forEach(li => {
-        li.addEventListener('click', () => {
-          el.perspectives.querySelectorAll('li').forEach(x=>x.classList.remove('active'));
-          li.classList.add('active');
-          ui.perspective = li.dataset.perspective;
-          render();
+        container.innerHTML = filtered.map(asset => createAssetCard(asset)).join('');
+        document.querySelectorAll('.asset-card').forEach(card => {
+          card.addEventListener('click', () => {
+            const asset = allAssets.find(a => a.id === card.dataset.id);
+            openAssetPanel(asset);
+            // Highlight selected card
+            document.querySelectorAll('.asset-card').forEach(c => c.classList.remove('selected'));
+            card.classList.add('selected');
+          });
         });
-      });
-      el.typesTree.addEventListener('click', (e) => {
-        const li = e.target.closest('li');
-        if (!li) return;
-        el.typesTree.querySelectorAll('li').forEach(x=>x.classList.remove('active'));
-        li.classList.add('active');
-        ui.typePick = li.dataset.type || '';
-        render();
-      });
-      function onInputs(){
-        ui.search = el.search.value;
-        ui.type = el.type.value;
-        ui.status = el.status.value;
-        ui.custodian = el.cust.value;
-        ui.groupBy = el.group.value;
-        render();
       }
-      el.search.addEventListener('input', onInputs);
-      el.type.addEventListener('change', onInputs);
-      el.status.addEventListener('change', onInputs);
-      el.cust.addEventListener('change', onInputs);
-      el.group.addEventListener('change', onInputs);
-      el.add.addEventListener('click', add);
-      el.save.addEventListener('click', save);
-      el.dup.addEventListener('click', duplicate);
-      el.del.addEventListener('click', del);
     }
 
-    function init(){
-      buildTypeLists();
-      bind();
-      RTS.initTriPaneResizers(el.shell, LS_PANES);
-      render();
+    function createAssetTable(assets) {
+      const rows = assets.map(asset => {
+        const box = allBoxes.find(b => b.id === asset.current_box_id);
+        const location = allLocations.find(l => l.id === asset.current_location_id);
+        
+        let locationText = '<span class="location-line">—</span>';
+        if (box && location) {
+          locationText = `<span class="location-line">📦 ${box.name}</span><span class="location-line">📍 ${location.name}</span>`;
+        } else if (box) {
+          locationText = `<span class="location-line">📦 ${box.name}</span>`;
+        } else if (location) {
+          locationText = `<span class="location-line">📍 ${location.name}</span>`;
+        }
+        
+        // Find asset type color
+        const assetTypeObj = allAssetTypes.find(t => t.name.toLowerCase().replace(/\s+/g, '_') === asset.item_type);
+        const typeColor = assetTypeObj ? assetTypeObj.color : '#0ea5e9';
+        const typeName = assetTypeObj ? assetTypeObj.name : asset.item_type;
+        
+        return `<tr data-id="${asset.id}">
+          <td class="table-barcode" title="${asset.barcode || asset.id}">${asset.barcode || asset.id}</td>
+          <td class="table-name" title="${asset.name}">${asset.name}</td>
+          <td><span class="table-badge" style="background: ${typeColor}; color: white; font-weight: 500; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;">${typeName}</span></td>
+          <td class="table-serial">${asset.serial_number || '—'}</td>
+          <td class="table-location">${locationText}</td>
+        </tr>`;
+      }).join('');
+      
+      return `<table class="asset-table">
+        <thead>
+          <tr>
+            <th class="sortable" data-column="barcode" style="width: 90px;">Barcode <span class="sort-icon"></span></th>
+            <th class="sortable" data-column="name" style="width: 140px;">Name <span class="sort-icon"></span></th>
+            <th class="sortable" data-column="type" style="width: 80px;">Type <span class="sort-icon"></span></th>
+            <th class="sortable" data-column="serial">Serial <span class="sort-icon"></span></th>
+            <th class="sortable" data-column="location">Location <span class="sort-icon"></span></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows}
+        </tbody>
+      </table>`;
     }
-    document.addEventListener('DOMContentLoaded', init);
-  })();
+    
+    function createAssetCard(asset) {
+      const box = allBoxes.find(b => b.id === asset.current_box_id);
+      const location = allLocations.find(l => l.id === asset.current_location_id);
+      let locationHtml = '';
+      if (box) locationHtml = `<div class="location-indicator in-box">📦 ${box.name}</div>`;
+      else if (location) locationHtml = `<div class="location-indicator in-location">📍 ${location.name}</div>`;
+      else locationHtml = `<div class="location-indicator unassigned">❓ Unassigned</div>`;
+
+      // Find asset type color
+      const assetTypeObj = allAssetTypes.find(t => t.name.toLowerCase().replace(/\s+/g, '_') === asset.item_type);
+      const typeColor = assetTypeObj ? assetTypeObj.color : '#0ea5e9';
+      const typeName = assetTypeObj ? assetTypeObj.name : asset.item_type;
+
+      // Build meta items - weight, value (serial shown separately)
+      const metaItems = [];
+      if (asset.weight_kg) metaItems.push(`<div class="asset-meta-item">⚖️ ${asset.weight_kg}kg</div>`);
+      if (asset.value_usd) metaItems.push(`<div class="asset-meta-item">💰 $${parseFloat(asset.value_usd).toFixed(0)}</div>`);
+
+      return `<div class="asset-card" data-id="${asset.id}">
+        <div class="asset-card-row-1">
+          <div class="asset-barcode">${asset.barcode || asset.id}</div>
+          <div class="asset-name" title="${asset.name}">${asset.name}</div>
+        </div>
+        <div class="asset-card-row">
+          ${asset.category ? `<div class="asset-category">${asset.category}</div>` : ''}
+          <span class="asset-badge" style="background: ${typeColor}; color: white; font-weight: 500;">${typeName}</span>
+          <span class="asset-badge badge-${asset.status}">${asset.status}</span>
+          ${asset.serial_number ? `<div class="asset-serial">SN: ${asset.serial_number}</div>` : ''}
+        </div>
+        ${metaItems.length > 0 || locationHtml ? `<div class="asset-card-row">
+          ${metaItems.length > 0 ? `<div class="asset-meta">${metaItems.join('')}</div>` : ''}
+          ${locationHtml}
+        </div>` : ''}
+      </div>`;
+    }
+
+    function sortTable(column) {
+      // Toggle sort direction if same column, else default to ascending
+      if (sortColumn === column) {
+        sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+      } else {
+        sortColumn = column;
+        sortDirection = 'asc';
+      }
+      
+      renderAssets();
+    }
+
+    function updateSortIndicators() {
+      document.querySelectorAll('.asset-table thead th.sortable').forEach(th => {
+        const icon = th.querySelector('.sort-icon');
+        if (th.dataset.column === sortColumn) {
+          icon.textContent = sortDirection === 'asc' ? ' ▲' : ' ▼';
+          th.classList.add('sorted');
+        } else {
+          icon.textContent = '';
+          th.classList.remove('sorted');
+        }
+      });
+    }
+
+    function getSortedAssets(assets) {
+      if (!sortColumn) return assets;
+      
+      return [...assets].sort((a, b) => {
+        let aVal, bVal;
+        
+        switch(sortColumn) {
+          case 'barcode':
+            aVal = (a.barcode || a.id || '').toLowerCase();
+            bVal = (b.barcode || b.id || '').toLowerCase();
+            break;
+          case 'name':
+            aVal = (a.name || '').toLowerCase();
+            bVal = (b.name || '').toLowerCase();
+            break;
+          case 'type':
+            aVal = (a.item_type || '').toLowerCase();
+            bVal = (b.item_type || '').toLowerCase();
+            break;
+          case 'serial':
+            aVal = (a.serial_number || '').toLowerCase();
+            bVal = (b.serial_number || '').toLowerCase();
+            break;
+          case 'location':
+            const aBox = allBoxes.find(box => box.id === a.current_box_id);
+            const bBox = allBoxes.find(box => box.id === b.current_box_id);
+            const aLoc = allLocations.find(loc => loc.id === a.current_location_id);
+            const bLoc = allLocations.find(loc => loc.id === b.current_location_id);
+            aVal = (aBox?.name || aLoc?.name || '').toLowerCase();
+            bVal = (bBox?.name || bLoc?.name || '').toLowerCase();
+            break;
+          default:
+            return 0;
+        }
+        
+        if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+        if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    function updateStats() {
+      const total = allAssets.length;
+      const equipment = allAssets.filter(a => a.item_type === 'equipment').length;
+      const assets = allAssets.filter(a => a.item_type === 'asset').length;
+      const inBoxes = allAssets.filter(a => a.current_box_id).length;
+      const maintenance = allAssets.filter(a => a.next_maintenance_date && new Date(a.next_maintenance_date) <= new Date()).length;
+      document.getElementById('statTotal').textContent = total;
+      document.getElementById('statEquipment').textContent = equipment;
+      document.getElementById('statAssets').textContent = assets;
+      document.getElementById('statInBoxes').textContent = inBoxes;
+      document.getElementById('statMaintenance').textContent = maintenance;
+    }
+
+    function openAssetPanel(asset) {
+      currentAsset = asset;
+      const panelTitle = document.getElementById('panelTitle');
+      const panelEmpty = document.getElementById('panelEmptyState');
+      const panelContent = document.getElementById('panelContent');
+      
+      if (!asset || !asset.id) {
+        panelEmpty.style.display = 'block';
+        panelContent.style.display = 'none';
+        return;
+      }
+      
+      panelEmpty.style.display = 'none';
+      panelContent.style.display = 'block';
+      panelTitle.textContent = asset.name;
+      
+      // Populate the form fields
+      const box = allBoxes.find(b => b.id === asset.current_box_id);
+      const location = allLocations.find(l => l.id === asset.current_location_id);
+      
+      let locationStatusHtml = '<ul class="mb-0" style="list-style: none; padding-left: 0; font-size: 0.9rem;">';
+      if (box) locationStatusHtml += `<li style="padding: 4px 0; border-left: 3px solid #4dd1ff; padding-left: 8px; margin-bottom: 4px;">Packed in box: <strong>${box.name}</strong> (${box.barcode})</li>`;
+      if (location) locationStatusHtml += `<li style="padding: 4px 0; border-left: 3px solid #ffc107; padding-left: 8px; margin-bottom: 4px;">Physical location: <strong>${location.name}</strong></li>`;
+      if (!box && !location) locationStatusHtml += `<li style="padding: 4px 0; border-left: 3px solid #ddd; padding-left: 8px;">No location assigned</li>`;
+      locationStatusHtml += '</ul>';
+      
+      panelContent.innerHTML = `
+        <ul class="nav nav-tabs" role="tablist">
+          <li class="nav-item">
+            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#panelTabDetails">
+              Details & Location
+            </button>
+          </li>
+          <li class="nav-item">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#panelTabMaintenance" onclick="loadAssetHistory('${asset.id}')">
+              Maintenance & History
+            </button>
+          </li>
+        </ul>
+        <div class="tab-content mt-3">
+          <div class="tab-pane fade show active" id="panelTabDetails">
+            <form id="panelAssetForm">
+              <input type="hidden" id="panelAssetId" value="${asset.id}">
+              
+              <div class="section-card details">
+                <div class="section-header">
+                  <div class="section-icon"></div>
+                  <span>Basic Information</span>
+                </div>
+                <div class="row g-2">
+                  <div class="col-md-6">
+                    <label class="form-label">Barcode / ID</label>
+                    <input type="text" class="form-control form-control-sm" id="panelAssetBarcode" value="${asset.barcode || ''}" placeholder="Auto-generated">
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Name *</label>
+                    <input type="text" class="form-control form-control-sm" id="panelAssetName" value="${asset.name || ''}" required placeholder="e.g., Front Wing Assembly">
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Type *</label>
+                    <select class="form-select form-select-sm" id="panelAssetType" required>
+                      <!-- Populated dynamically from settings -->
+                    </select>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Category</label>
+                    <select class="form-select form-select-sm" id="panelAssetCategory" onchange="togglePanelCustomCategory()">
+                      <option value="">Select category...</option>
+                      <option value="TOOLS" ${asset.category === 'TOOLS' ? 'selected' : ''}>Tools</option>
+                      <option value="AERODYNAMICS" ${asset.category === 'AERODYNAMICS' ? 'selected' : ''}>Aerodynamics</option>
+                      <option value="ENGINE PARTS" ${asset.category === 'ENGINE PARTS' ? 'selected' : ''}>Engine Parts</option>
+                      <option value="WHEELS & TYRES" ${asset.category === 'WHEELS & TYRES' ? 'selected' : ''}>Wheels & Tyres</option>
+                      <option value="ELECTRONICS" ${asset.category === 'ELECTRONICS' ? 'selected' : ''}>Electronics</option>
+                      <option value="SAFETY EQUIPMENT" ${asset.category === 'SAFETY EQUIPMENT' ? 'selected' : ''}>Safety Equipment</option>
+                      <option value="PIT EQUIPMENT" ${asset.category === 'PIT EQUIPMENT' ? 'selected' : ''}>Pit Equipment</option>
+                      <option value="FLUIDS & CHEMICALS" ${asset.category === 'FLUIDS & CHEMICALS' ? 'selected' : ''}>Fluids & Chemicals</option>
+                      <option value="SPARE PARTS" ${asset.category === 'SPARE PARTS' ? 'selected' : ''}>Spare Parts</option>
+                      <option value="GARAGE EQUIPMENT" ${asset.category === 'GARAGE EQUIPMENT' ? 'selected' : ''}>Garage Equipment</option>
+                      <option value="MEASUREMENT TOOLS" ${asset.category === 'MEASUREMENT TOOLS' ? 'selected' : ''}>Measurement Tools</option>
+                      <option value="COMMUNICATION" ${asset.category === 'COMMUNICATION' ? 'selected' : ''}>Communication</option>
+                      <option value="FASTENERS" ${asset.category === 'FASTENERS' ? 'selected' : ''}>Fasteners</option>
+                      <option value="STORAGE" ${asset.category === 'STORAGE' ? 'selected' : ''}>Storage</option>
+                      <option value="CUSTOM" ${!['TOOLS','AERODYNAMICS','ENGINE PARTS','WHEELS & TYRES','ELECTRONICS','SAFETY EQUIPMENT','PIT EQUIPMENT','FLUIDS & CHEMICALS','SPARE PARTS','GARAGE EQUIPMENT','MEASUREMENT TOOLS','COMMUNICATION','FASTENERS','STORAGE',''].includes(asset.category || '') ? 'selected' : ''}>Other (Custom)</option>
+                    </select>
+                    <input type="text" class="form-control form-control-sm mt-1" id="panelAssetCategoryCustom" value="${!['TOOLS','AERODYNAMICS','ENGINE PARTS','WHEELS & TYRES','ELECTRONICS','SAFETY EQUIPMENT','PIT EQUIPMENT','FLUIDS & CHEMICALS','SPARE PARTS','GARAGE EQUIPMENT','MEASUREMENT TOOLS','COMMUNICATION','FASTENERS','STORAGE',''].includes(asset.category || '') ? asset.category : ''}" placeholder="Enter custom category..." style="display: ${!['TOOLS','AERODYNAMICS','ENGINE PARTS','WHEELS & TYRES','ELECTRONICS','SAFETY EQUIPMENT','PIT EQUIPMENT','FLUIDS & CHEMICALS','SPARE PARTS','GARAGE EQUIPMENT','MEASUREMENT TOOLS','COMMUNICATION','FASTENERS','STORAGE',''].includes(asset.category || '') ? 'block' : 'none'};">
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Status</label>
+                    <select class="form-select form-select-sm" id="panelAssetStatus">
+                      <option value="available" ${asset.status === 'available' ? 'selected' : ''}>Available</option>
+                      <option value="in_use" ${asset.status === 'in_use' ? 'selected' : ''}>In Use</option>
+                      <option value="maintenance" ${asset.status === 'maintenance' ? 'selected' : ''}>Maintenance</option>
+                      <option value="retired" ${asset.status === 'retired' ? 'selected' : ''}>Retired</option>
+                    </select>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Serial Number</label>
+                    <input type="text" class="form-control form-control-sm" id="panelAssetSerial" value="${asset.serial_number || ''}" placeholder="Manufacturer serial">
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Weight (kg)</label>
+                    <input type="number" class="form-control form-control-sm" id="panelAssetWeight" value="${asset.weight_kg || ''}" step="0.01" placeholder="0.00">
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Value (USD)</label>
+                    <input type="number" class="form-control form-control-sm" id="panelAssetValue" value="${asset.value_usd || ''}" step="0.01" placeholder="0.00">
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label">Description / Notes</label>
+                    <textarea class="form-control form-control-sm" id="panelAssetDescription" rows="2" placeholder="Additional details...">${asset.description || ''}</textarea>
+                  </div>
+                </div>
+              </div>
+            </form>
+
+            <div class="section-card location mt-2">
+              <div class="section-header">
+                <div class="section-icon"></div>
+                <span>Location & Movement</span>
+              </div>
+              <div class="alert alert-info mb-2" style="padding: 0.5rem;">
+                <strong>Current Status:</strong>
+                <div class="mt-1" style="font-size: 0.85rem;">${locationStatusHtml}</div>
+              </div>
+              <div class="row g-2">
+                <div class="col-md-6">
+                  <label class="form-label">Move to Location</label>
+                  <select class="form-select form-select-sm" id="panelMoveToLocation">
+                    <option value="">Select location...</option>
+                    ${allLocations.map(l => `<option value="${l.id}" ${asset.current_location_id == l.id ? 'selected' : ''}>${l.name}</option>`).join('')}
+                  </select>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Pack into Box</label>
+                  <select class="form-select form-select-sm" id="panelMoveToBox">
+                    <option value="">Select box...</option>
+                    ${allBoxes.map(b => `<option value="${b.id}" ${asset.current_box_id == b.id ? 'selected' : ''}>${b.name} (${b.barcode})</option>`).join('')}
+                  </select>
+                </div>
+                <div class="col-12">
+                  <label class="form-label">Movement Note</label>
+                  <input type="text" class="form-control form-control-sm" id="panelMovementNote" placeholder="Optional note...">
+                </div>
+                <div class="col-12">
+                  <button type="button" class="btn btn-sm btn-primary me-2" onclick="moveAssetFromPanel()">
+                    Update Location
+                  </button>
+                  <button type="button" class="btn btn-sm btn-outline-secondary" onclick="unpackAssetFromPanel()">
+                    Unpack from Box
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="section-card details mt-2">
+              <div class="section-header">
+                <div class="section-icon"></div>
+                <span>QR Code & Barcode</span>
+              </div>
+              <div class="qr-section">
+                <div class="qr-preview mx-auto" id="panelQrPreview" style="width: 150px; height: 150px;">
+                  <span class="text-muted">Click Generate</span>
+                </div>
+                <div class="mt-2">
+                  <button type="button" class="btn btn-sm btn-primary me-2" onclick="generatePanelQR()">
+                    Generate QR
+                  </button>
+                  <button type="button" class="btn btn-sm btn-outline-primary" onclick="printPanelQR()">
+                    Print Label
+                  </button>
+                </div>
+                <div class="mt-1">
+                  <small class="text-muted">
+                    QR Code: <strong id="panelQrBarcodeDisplay">${asset.barcode || asset.id}</strong>
+                  </small>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="tab-pane fade" id="panelTabMaintenance">
+            <div class="section-card maintenance">
+              <div class="section-header">
+                <div class="section-icon"></div>
+                <span>Maintenance Schedule</span>
+              </div>
+              <div class="row g-2">
+                <div class="col-md-6">
+                  <label class="form-label">Last Maintenance Date</label>
+                  <input type="date" class="form-control form-control-sm" id="panelAssetLastMaintenance" value="${asset.last_maintenance_date || ''}">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Next Maintenance Due</label>
+                  <input type="date" class="form-control form-control-sm" id="panelAssetNextMaintenance" value="${asset.next_maintenance_date || ''}">
+                </div>
+              </div>
+            </div>
+
+            <div class="section-card mt-2">
+            <div class="section-card mt-2">
+              <div class="section-header">
+                <div class="section-icon"></div>
+                <span>Activity Timeline</span>
+              </div>
+              <div id="assetHistoryTimeline" class="timeline">
+                <div class="text-center text-muted py-4">
+                  <div class="spinner-border spinner-border-sm" role="status"></div>
+                  <div class="mt-2">Loading history...</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="mt-3 d-flex justify-content-between border-top pt-2">
+          <button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteAssetFromPanel()">
+            Delete Asset
+          </button>
+          <div>
+            <button type="button" class="btn btn-sm btn-primary" onclick="saveAssetFromPanel()">
+              Save Changes
+            </button>
+          </div>
+        </div>
+      `;
+      
+      // Reload asset types from settings to get latest custom types
+      const settings = window.RTS.getSettings();
+      const assetTypesFromSettings = settings.assetTypes || [{name:'Equipment',color:'#0ea5e9'},{name:'Asset',color:'#a855f7'}];
+      allAssetTypes = assetTypesFromSettings.map(t => 
+        typeof t === 'string' ? {name:t, color:'#0ea5e9'} : {name:t.name, color:t.color||'#0ea5e9'}
+      );
+      
+      // Populate asset type dropdown in panel and set selected value - use array join
+      const panelAssetType = document.getElementById('panelAssetType');
+      const options = [];
+      allAssetTypes.forEach(type => {
+        const value = type.name.toLowerCase().replace(/\s+/g, '_');
+        const selected = asset.item_type === value ? 'selected' : '';
+        options.push(`<option value="${value}" data-color="${type.color}" ${selected}>${type.name}</option>`);
+      });
+      panelAssetType.innerHTML = options.join('');
+      
+      // Auto-generate QR code after panel content is rendered
+      setTimeout(() => {
+        console.log('Auto-generating QR code for asset:', asset.barcode || asset.id);
+        generatePanelQR();
+      }, 100);
+    }
+
+    function openAssetModal(asset = null) {
+      currentAsset = asset;
+      const modal = new bootstrap.Modal(document.getElementById('assetModal'));
+      
+      console.log('Opening asset modal with asset:', asset); // Debug log
+      
+      const standardCategories = ['TOOLS', 'AERODYNAMICS', 'ENGINE PARTS', 'WHEELS & TYRES', 'ELECTRONICS', 
+                                  'SAFETY EQUIPMENT', 'PIT EQUIPMENT', 'FLUIDS & CHEMICALS', 'SPARE PARTS', 
+                                  'GARAGE EQUIPMENT', 'MEASUREMENT TOOLS', 'COMMUNICATION', 'FASTENERS', 'STORAGE'];
+      
+      // Reload asset types from settings to get latest custom types
+      const settings = window.RTS.getSettings();
+      const assetTypesFromSettings = settings.assetTypes || [{name:'Equipment',color:'#0ea5e9'},{name:'Asset',color:'#a855f7'}];
+      allAssetTypes = assetTypesFromSettings.map(t => 
+        typeof t === 'string' ? {name:t, color:'#0ea5e9'} : {name:t.name, color:t.color||'#0ea5e9'}
+      );
+      
+      // Populate asset type dropdown (needs to be done first before setting value) - use array join
+      const assetTypeSelect = document.getElementById('assetType');
+      const options = [];
+      allAssetTypes.forEach(type => {
+        const value = type.name.toLowerCase().replace(/\s+/g, '_');
+        options.push(`<option value="${value}" data-color="${type.color}">${type.name}</option>`);
+      });
+      assetTypeSelect.innerHTML = options.join('');
+      
+      if (asset && asset.id) {
+        document.getElementById('modalTitle').textContent = '✏️ Edit Asset';
+        document.getElementById('assetId').value = asset.id;
+        document.getElementById('assetBarcode').value = asset.barcode || '';
+        document.getElementById('assetName').value = asset.name || '';
+        document.getElementById('assetType').value = asset.item_type || allAssetTypes[0].toLowerCase().replace(/\s+/g, '_');
+        
+        // Handle category - check if it's a standard category or custom
+        const categorySelect = document.getElementById('assetCategory');
+        const customInput = document.getElementById('assetCategoryCustom');
+        if (asset.category && standardCategories.includes(asset.category)) {
+          categorySelect.value = asset.category;
+          customInput.style.display = 'none';
+          customInput.value = '';
+        } else if (asset.category) {
+          categorySelect.value = 'CUSTOM';
+          customInput.style.display = 'block';
+          customInput.value = asset.category;
+        } else {
+          categorySelect.value = '';
+          customInput.style.display = 'none';
+          customInput.value = '';
+        }
+        
+        document.getElementById('assetStatus').value = asset.status || 'available';
+        document.getElementById('assetSerial').value = asset.serial_number || '';
+        document.getElementById('assetWeight').value = asset.weight_kg || '';
+        document.getElementById('assetValue').value = asset.value_usd || '';
+        document.getElementById('assetDescription').value = asset.description || '';
+        document.getElementById('assetLastMaintenance').value = asset.last_maintenance_date || '';
+        document.getElementById('assetNextMaintenance').value = asset.next_maintenance_date || '';
+        document.getElementById('btnDeleteAsset').style.display = 'block';
+        
+        // Reset movement form
+        document.getElementById('moveToLocation').value = '';
+        document.getElementById('moveToBox').value = '';
+        document.getElementById('movementNote').value = '';
+        
+        updateLocationStatus(asset);
+        loadAssetHistory(asset);
+      } else {
+        document.getElementById('modalTitle').textContent = '✨ Add New Asset';
+        document.getElementById('assetForm').reset();
+        document.getElementById('assetId').value = '';
+        document.getElementById('assetCategory').value = '';
+        document.getElementById('assetCategoryCustom').style.display = 'none';
+        document.getElementById('assetCategoryCustom').value = '';
+        document.getElementById('btnDeleteAsset').style.display = 'none';
+      }
+      modal.show();
+    }
+
+    function updateLocationStatus(asset) {
+      const statusDiv = document.getElementById('locationStatus');
+      const box = allBoxes.find(b => b.id === asset.current_box_id);
+      const location = allLocations.find(l => l.id === asset.current_location_id);
+      let html = '<ul class="mb-0" style="list-style: none; padding-left: 0;">';
+      if (box) html += `<li style="padding: 8px 0; border-left: 3px solid #4dd1ff; padding-left: 12px; margin-bottom: 8px;">📦 Packed in box: <strong>${box.name}</strong> (${box.barcode})</li>`;
+      if (location) html += `<li style="padding: 8px 0; border-left: 3px solid #ffc107; padding-left: 12px; margin-bottom: 8px;">📍 Physical location: <strong>${location.name}</strong></li>`;
+      if (!box && !location) html += `<li style="padding: 8px 0; border-left: 3px solid rgba(255,255,255,0.3); padding-left: 12px;">❓ No location assigned</li>`;
+      html += '</ul>';
+      statusDiv.innerHTML = html;
+    }
+
+    async function saveAsset() {
+      const id = document.getElementById('assetId')?.value;
+      const categoryValue = getCategoryValue('assetCategory', 'assetCategoryCustom');
+      
+      console.log('Saving asset - ID:', id, 'Category:', categoryValue);
+      
+      // Validate required fields
+      const nameInput = document.getElementById('assetName');
+      if (!nameInput || !nameInput.value.trim()) {
+        showToast('Asset name is required', 'error');
+        nameInput?.focus();
+        return;
+      }
+      
+      const data = {
+        id: id || undefined,
+        barcode: document.getElementById('assetBarcode')?.value || undefined,
+        name: nameInput.value.trim(),
+        item_type: document.getElementById('assetType')?.value || 'equipment',
+        category: categoryValue,
+        status: document.getElementById('assetStatus')?.value || 'available',
+        serial_number: document.getElementById('assetSerial')?.value || '',
+        weight: parseFloat(document.getElementById('assetWeight')?.value) || 0,
+        value: parseFloat(document.getElementById('assetValue')?.value) || 0,
+        description: document.getElementById('assetDescription')?.value || '',
+        current_location_id: document.getElementById('assetLocation')?.value || null,
+        current_box_id: document.getElementById('assetBox')?.value || null,
+        last_maintenance_date: document.getElementById('assetLastMaintenance')?.value || null,
+        next_maintenance_date: document.getElementById('assetNextMaintenance')?.value || null
+      };
+      
+      console.log('Asset data to save:', data);
+      
+      try {
+        const result = await window.RTS_DATA.saveItem(data, !id);
+        console.log('Save result:', result);
+        
+        if (result.success) {
+          showToast(id ? 'Asset updated successfully' : 'Asset created successfully', 'success');
+          bootstrap.Modal.getInstance(document.getElementById('assetModal')).hide();
+          await loadData();
+          renderAssets();
+          updateStats();
+        } else {
+          showToast('Error: ' + result.error, 'error');
+        }
+      } catch (error) {
+        console.error('Error saving asset:', error);
+        showToast('Error saving asset: ' + error.message, 'error');
+      }
+    }
+
+    async function deleteAsset() {
+      if (!currentAsset) return;
+      
+      const confirmed = await showConfirm(
+        `Delete "${currentAsset.name}"? This action cannot be undone.`,
+        '⚠️ Delete Asset'
+      );
+      
+      if (!confirmed) return;
+      
+      try {
+        const result = await window.RTS_DATA.deleteItem(currentAsset.id);
+        if (result.success) {
+          showToast('Asset deleted successfully', 'success');
+          bootstrap.Modal.getInstance(document.getElementById('assetModal')).hide();
+          await loadData();
+          renderAssets();
+          updateStats();
+        } else {
+          showToast('Error: ' + result.error, 'error');
+        }
+      } catch (error) {
+        console.error('Error deleting:', error);
+        showToast('Error deleting asset', 'error');
+      }
+    }
+
+    function generateQRCode() {
+      console.log('🔄 generateQRCode (modal) called');
+      const barcode = document.getElementById('assetBarcode').value || currentAsset?.id || 'NO-ID';
+      const preview = document.getElementById('qrPreview');
+      
+      console.log('Modal barcode value:', barcode);
+      
+      if (!barcode || barcode === 'NO-ID') {
+        preview.innerHTML = '<span style="color: #dc3545;">No barcode available</span>';
+        return;
+      }
+      
+      // Check if QRCode library is loaded
+      if (typeof QRCode === 'undefined') {
+        console.warn('⏳ QR Code library not loaded yet, retrying...');
+        preview.innerHTML = '<span style="color: #ffc107;">QR Code library loading...</span>';
+        setTimeout(generateQRCode, 500); // Retry after 500ms
+        return;
+      }
+      
+      console.log('✅ Generating modal QR code for:', barcode);
+      preview.innerHTML = ''; // Clear previous content
+      
+      try {
+        // Create QR code using QRCodeJS library
+        new QRCode(preview, {
+          text: barcode,
+          width: 180,
+          height: 180,
+          colorDark: "#000000",
+          colorLight: "#ffffff",
+          correctLevel: QRCode.CorrectLevel.H
+        });
+        console.log('✅ Modal QR Code generated successfully');
+      } catch (error) {
+        console.error('❌ QR Code error:', error);
+        preview.innerHTML = '<span style="color: #dc3545;">Error generating QR: ' + error.message + '</span>';
+      }
+    }
+
+    function switchView(view) {
+      currentView = view;
+      document.getElementById('btnViewCards').classList.toggle('active', view === 'cards');
+      document.getElementById('btnViewTable').classList.toggle('active', view === 'table');
+      renderAssets();
+    }
+
+    function clearFilters() {
+      document.getElementById('searchInput').value = '';
+      document.getElementById('filterType').value = '';
+      document.getElementById('filterStatus').value = '';
+      document.getElementById('filterLocation').value = '';
+      document.getElementById('filterBox').value = '';
+      renderAssets();
+    }
+
+    function debounce(func, wait) {
+      let timeout;
+      return function executedFunction(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func(...args), wait);
+      };
+    }
+
+    // Category dropdown functions
+    function toggleCustomCategory() {
+      const categorySelect = document.getElementById('assetCategory');
+      const customInput = document.getElementById('assetCategoryCustom');
+      
+      if (categorySelect.value === 'CUSTOM') {
+        customInput.style.display = 'block';
+        customInput.focus();
+      } else {
+        customInput.style.display = 'none';
+        customInput.value = '';
+      }
+    }
+
+    function togglePanelCustomCategory() {
+      const categorySelect = document.getElementById('panelAssetCategory');
+      const customInput = document.getElementById('panelAssetCategoryCustom');
+      
+      if (categorySelect.value === 'CUSTOM') {
+        customInput.style.display = 'block';
+        customInput.focus();
+      } else {
+        customInput.style.display = 'none';
+        customInput.value = '';
+      }
+    }
+
+    function getCategoryValue(selectId, customInputId) {
+      const categorySelect = document.getElementById(selectId);
+      const customInput = document.getElementById(customInputId);
+      
+      if (!categorySelect) {
+        console.error('Category select not found:', selectId);
+        return '';
+      }
+      
+      if (categorySelect.value === 'CUSTOM') {
+        if (!customInput) {
+          console.error('Custom category input not found:', customInputId);
+          return '';
+        }
+        return customInput.value.trim() || '';
+      }
+      return categorySelect.value;
+    }
+
+    // Movement Tracking Functions
+    async function moveAsset() {
+      if (!currentAsset) return;
+      
+      const newLocationId = document.getElementById('moveToLocation').value;
+      const newBoxId = document.getElementById('moveToBox').value;
+      const note = document.getElementById('movementNote').value;
+      
+if (!newLocationId && !newBoxId) {
+        showToast('Please select a location or box to move the asset to', 'warning');
+        return;
+      }
+      
+      try {
+        const updateData = {};
+        let historyAction = '';
+        let historyNote = note || '';
+        
+        // Handle location change
+        if (newLocationId && newLocationId !== currentAsset.current_location_id) {
+          updateData.current_location_id = newLocationId;
+          const location = allLocations.find(l => l.id === newLocationId);
+          historyAction = 'Moved to location';
+          historyNote = `Moved to ${location?.name || newLocationId}${note ? '. ' + note : ''}`;
+        }
+        
+        // Handle packing into box
+        if (newBoxId && newBoxId !== currentAsset.current_box_id) {
+          const box = allBoxes.find(b => b.id === newBoxId);
+          
+          // Use the pack API
+          const packResult = await window.RTS_DATA.packItem(newBoxId, currentAsset.id);
+          
+          if (packResult.success) {
+            historyAction = 'Packed into box';
+            historyNote = `Packed into ${box?.name || newBoxId}${note ? '. ' + note : ''}`;
+          } else {
+            throw new Error(packResult.error || 'Failed to pack item');
+          }
+        } else if (Object.keys(updateData).length > 0) {
+          // Only location changed, update via items API
+          const result = await window.RTS_DATA.saveItem({ id: currentAsset.id, ...updateData });
+          if (!result.success) {
+            throw new Error(result.error || 'Failed to update location');
+          }
+        }
+        
+        // Log to history
+        if (historyAction) {
+          await logHistory('items', currentAsset.id, historyAction, historyNote);
+        }
+        
+        showToast('Asset moved successfully', 'success');
+        
+        // Reload data and update display
+        await loadData();
+        const updatedAsset = allAssets.find(a => a.id === currentAsset.id);
+        if (updatedAsset) {
+          currentAsset = updatedAsset;
+          updateLocationStatus(updatedAsset);
+          loadAssetHistory(updatedAsset);
+        }
+        
+        // Reset form
+        document.getElementById('moveToLocation').value = '';
+        document.getElementById('moveToBox').value = '';
+        document.getElementById('movementNote').value = '';
+        
+        renderAssets();
+        
+      } catch (error) {
+        console.error('Error moving asset:', error);
+        showToast('Error moving asset: ' + error.message, 'error');
+      }
+    }
+
+    async function unpackAsset(asset = null) {
+      // Use provided asset or fall back to currentAsset
+      const assetToUnpack = asset || currentAsset;
+      
+      if (!assetToUnpack || !assetToUnpack.current_box_id) {
+        showToast('Asset is not currently in a box', 'warning');
+        return;
+      }
+      
+      const confirmed = await showConfirm(
+        'Unpack this asset from its current box?',
+        '📤 Unpack Asset'
+      );
+      
+      if (!confirmed) return;
+      
+      try {
+        const box = allBoxes.find(b => b.id === assetToUnpack.current_box_id);
+        const result = await window.RTS_DATA.unpackItem(assetToUnpack.current_box_id, assetToUnpack.id);
+        
+        if (result.success) {
+          // Log to history
+          await logHistory('items', assetToUnpack.id, 'Unpacked', `Unpacked from ${box?.name || assetToUnpack.current_box_id}`);
+          
+          showToast('Asset unpacked successfully', 'success');
+          
+          // Reload and update
+          await loadData();
+          const updatedAsset = allAssets.find(a => a.id === assetToUnpack.id);
+          
+          // Update currentAsset if we're unpacking the current modal asset
+          if (!asset && updatedAsset) {
+            currentAsset = updatedAsset;
+            updateLocationStatus(updatedAsset);
+            loadAssetHistory(updatedAsset);
+          }
+          
+          renderAssets();
+        } else {
+          throw new Error(result.error || 'Failed to unpack');
+        }
+      } catch (error) {
+        console.error('Error unpacking asset:', error);
+        alert('Error unpacking asset: ' + error.message);
+      }
+    }
+
+    async function logHistory(kind, id, action, note) {
+      try {
+        const response = await fetch(`${window.RTS_CONFIG.api.baseURL}/history`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            kind: kind,
+            id: id,
+            action: action,
+            note: note || '',
+            by: 'admin',
+            tsMs: Date.now()
+          })
+        });
+        
+        if (!response.ok) {
+          console.error('Failed to log history');
+        }
+      } catch (error) {
+        console.error('Error logging history:', error);
+      }
+    }
+
+    // ==================== PANEL-SPECIFIC FUNCTIONS ====================
+    
+    async function saveAssetFromPanel() {
+      const id = document.getElementById('panelAssetId').value;
+      if (!id) {
+        alert('No asset selected');
+        return;
+      }
+
+      const data = {
+        barcode: document.getElementById('panelAssetBarcode').value || undefined,
+        name: document.getElementById('panelAssetName').value,
+        item_type: document.getElementById('panelAssetType').value,
+        category: getCategoryValue('panelAssetCategory', 'panelAssetCategoryCustom'),
+        status: document.getElementById('panelAssetStatus').value,
+        serial_number: document.getElementById('panelAssetSerial').value,
+        weight_kg: parseFloat(document.getElementById('panelAssetWeight').value) || 0,
+        value_usd: parseFloat(document.getElementById('panelAssetValue').value) || 0,
+        description: document.getElementById('panelAssetDescription').value,
+        last_maintenance_date: document.getElementById('panelAssetLastMaintenance').value || null,
+        next_maintenance_date: document.getElementById('panelAssetNextMaintenance').value || null
+      };
+
+      try {
+        const result = await window.RTS_DATA.saveItem({ id, ...data });
+        if (result.success) {
+          showToast('Asset updated successfully', 'success');
+          await loadData();
+          const updatedAsset = allAssets.find(a => a.id === id);
+          openAssetPanel(updatedAsset);
+          renderAssets();
+          updateStats();
+        } else {
+          showToast('Error: ' + result.error, 'error');
+        }
+      } catch (error) {
+        console.error('Error saving asset:', error);
+        showToast('Error saving asset', 'error');
+      }
+    }
+
+    async function deleteAssetFromPanel() {
+      const id = document.getElementById('panelAssetId').value;
+      const name = document.getElementById('panelAssetName').value;
+      
+      if (!id) return;
+      
+      const confirmed = await showConfirm(
+        `Delete "${name}"? This action cannot be undone.`,
+        '⚠️ Delete Asset'
+      );
+      
+      if (!confirmed) return;
+      
+      try {
+        const result = await window.RTS_DATA.deleteItem(id);
+        if (result.success) {
+          showToast('Asset deleted successfully', 'success');
+          document.getElementById('panelEmptyState').style.display = 'block';
+          document.getElementById('panelContent').style.display = 'none';
+          await loadData();
+          renderAssets();
+          updateStats();
+        } else {
+          showToast('Error: ' + result.error, 'error');
+        }
+      } catch (error) {
+        console.error('Error deleting:', error);
+        showToast('Error deleting asset', 'error');
+      }
+    }
+
+    async function moveAssetFromPanel() {
+      const assetId = document.getElementById('panelAssetId').value;
+      const locationId = document.getElementById('panelMoveToLocation').value;
+      const boxId = document.getElementById('panelMoveToBox').value;
+      const note = document.getElementById('panelMovementNote').value;
+
+      if (!locationId && !boxId) {
+        showToast('Please select a location or box', 'warning');
+        return;
+      }
+
+      try {
+        // Update asset with new location/box
+        const updateData = {};
+        if (locationId) updateData.current_location_id = locationId;
+        if (boxId) {
+          // Pack into box
+          await window.RTS_DATA.packItem(boxId, assetId);
+        }
+
+        if (locationId) {
+          await window.RTS_DATA.saveItem({ id: assetId, ...updateData });
+        }
+
+        await logHistory('items', assetId, 'Moved', note || 'Location updated');
+        showToast('Asset moved successfully', 'success');
+        
+        await loadData();
+        const updatedAsset = allAssets.find(a => a.id === assetId);
+        openAssetPanel(updatedAsset);
+        renderAssets();
+      } catch (error) {
+        console.error('Error moving asset:', error);
+        showToast('Error moving asset', 'error');
+      }
+    }
+
+    async function unpackAssetFromPanel() {
+      const assetId = document.getElementById('panelAssetId').value;
+      const asset = allAssets.find(a => a.id === assetId);
+      
+      if (!asset || !asset.current_box_id) {
+        showToast('Asset is not currently in a box', 'warning');
+        return;
+      }
+
+      const confirmed = await showConfirm(
+        'Unpack this asset from its current box?',
+        '📤 Unpack Asset'
+      );
+      
+      if (!confirmed) return;
+
+      try {
+        const box = allBoxes.find(b => b.id === asset.current_box_id);
+        const result = await window.RTS_DATA.unpackItem(asset.current_box_id, asset.id);
+        
+        if (result.success) {
+          await logHistory('items', asset.id, 'Unpacked', `Unpacked from ${box?.name || asset.current_box_id}`);
+          alert('Asset unpacked successfully');
+          await loadData();
+          const updatedAsset = allAssets.find(a => a.id === assetId);
+          openAssetPanel(updatedAsset);
+          renderAssets();
+        } else {
+          throw new Error(result.error || 'Failed to unpack');
+        }
+      } catch (error) {
+        console.error('Error unpacking asset:', error);
+        alert('Error unpacking asset: ' + error.message);
+      }
+    }
+
+    function generatePanelQR() {
+      console.log('🔄 generatePanelQR called');
+      
+      const barcodeInput = document.getElementById('panelAssetBarcode');
+      const preview = document.getElementById('panelQrPreview');
+      
+      console.log('Barcode input element:', barcodeInput);
+      console.log('Preview element:', preview);
+      
+      if (!barcodeInput || !preview) {
+        console.error('❌ QR elements not found in DOM');
+        if (preview) preview.innerHTML = '<span style="color: #dc3545;">Elements not found</span>';
+        return;
+      }
+      
+      const barcode = barcodeInput.value || currentAsset?.id || currentAsset?.barcode || 'NO-ID';
+      console.log('Barcode value:', barcode);
+      
+      if (!barcode || barcode === 'NO-ID') {
+        preview.innerHTML = '<span style="color: #dc3545;">No barcode available</span>';
+        return;
+      }
+      
+      // Check if QRCode library is loaded
+      if (typeof QRCode === 'undefined') {
+        console.warn('⏳ QR Code library not loaded yet, retrying...');
+        preview.innerHTML = '<span style="color: #ffc107;">QR Code library loading...</span>';
+        setTimeout(generatePanelQR, 500); // Retry after 500ms
+        return;
+      }
+      
+      console.log('✅ Generating QR code for:', barcode);
+      preview.innerHTML = ''; // Clear previous content
+      
+      try {
+        // Create QR code using QRCodeJS library
+        new QRCode(preview, {
+          text: barcode,
+          width: 180,
+          height: 180,
+          colorDark: "#000000",
+          colorLight: "#ffffff",
+          correctLevel: QRCode.CorrectLevel.H
+        });
+        console.log('✅ QR Code generated successfully');
+      } catch (error) {
+        console.error('❌ QR Code generation error:', error);
+        preview.innerHTML = '<span style="color: #dc3545;">Error generating QR: ' + error.message + '</span>';
+      }
+    }
+
+    function printPanelQR() {
+      // QRCodeJS creates an img element, not a canvas
+      const qrImg = document.querySelector('#panelQrPreview img');
+      if (!qrImg) {
+        showToast('Please generate QR code first', 'warning');
+        return;
+      }
+      
+      const win = window.open('', '_blank');
+      win.document.write(`
+        <html>
+          <head><title>Print Asset Label</title></head>
+          <body style="text-align: center; padding: 20px;">
+            <h3>${document.getElementById('panelAssetName').value}</h3>
+            <p>Barcode: ${document.getElementById('panelAssetBarcode').value}</p>
+            <img src="${qrImg.src}" />
+          </body>
+        </html>
+      `);
+      win.document.close();
+      win.print();
+    }
+
+    async function loadAssetHistory(assetId) {
+      const timelineDiv = document.getElementById('assetHistoryTimeline');
+      
+      if (!timelineDiv) {
+        console.warn('History timeline div not found');
+        return;
+      }
+      
+      // Show loading state
+      timelineDiv.innerHTML = `
+        <div class="text-center text-muted py-4">
+          <div class="spinner-border spinner-border-sm" role="status"></div>
+          <div class="mt-2">Loading history...</div>
+        </div>
+      `;
+      
+      try {
+        // Fetch history from API
+        const response = await fetch(`${window.RTS_CONFIG.api.baseURL}/items/${assetId}/history`);
+        
+        if (!response.ok) {
+          throw new Error('Failed to load history');
+        }
+        
+        const result = await response.json();
+        const history = result.history || [];
+        
+        if (history.length === 0) {
+          timelineDiv.innerHTML = `
+            <div class="timeline-empty">
+              <div class="timeline-empty-icon">📭</div>
+              <div><strong>No activity yet</strong></div>
+              <div class="mt-1">History will appear here as changes are made</div>
+            </div>
+          `;
+          return;
+        }
+        
+        // Map action types to icons
+        const actionIcons = {
+          'Created': '✨',
+          'Updated': '✏️',
+          'Moved': '📍',
+          'Packed': '📦',
+          'Unpacked': '📤',
+          'Maintenance': '🔧',
+          'Status Changed': '🔄',
+          'note_added': '📝',
+          'default': '•'
+        };
+        
+        // Generate timeline HTML
+        const timelineHTML = history.map(entry => {
+          const icon = actionIcons[entry.action] || actionIcons['default'];
+          const timestamp = new Date(entry.timestamp);
+          const timeAgo = formatTimeAgo(timestamp);
+          const dateTime = timestamp.toLocaleString();
+          
+          // User display (placeholder for now - will be user profiles later)
+          const userName = entry.performed_by_user_id || 'System';
+          
+          return `
+            <div class="timeline-item">
+              <div class="timeline-icon">${icon}</div>
+              <div class="timeline-content">
+                <div class="timeline-header">
+                  <div class="timeline-action">${entry.action}</div>
+                  <div class="timeline-time" title="${dateTime}">${timeAgo}</div>
+                </div>
+                ${entry.details ? `<div class="timeline-details">${entry.details}</div>` : ''}
+                <div class="timeline-user">
+                  👤 ${userName}
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+        
+        timelineDiv.innerHTML = timelineHTML;
+        
+      } catch (error) {
+        console.error('Error loading asset history:', error);
+        timelineDiv.innerHTML = `
+          <div class="timeline-empty">
+            <div class="timeline-empty-icon">❌</div>
+            <div><strong>Failed to load history</strong></div>
+            <div class="mt-1 text-danger">${error.message}</div>
+          </div>
+        `;
+      }
+    }
+    
+    // Helper function to format time ago
+    function formatTimeAgo(date) {
+      const seconds = Math.floor((new Date() - date) / 1000);
+      
+      if (seconds < 60) return 'Just now';
+      if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+      if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+      if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
+      
+      return date.toLocaleDateString();
+    }
+
+    // ==================== QUICK SCANNER FUNCTIONALITY ====================
+    
+    let scannerSelectedAsset = null;
+    let scannerSearchTimeout = null;
+    
+    // Keyboard listener for spacebar
+    document.addEventListener('keydown', (e) => {
+      // Open scanner with spacebar (but not when typing in an input)
+      if (e.code === 'Space' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) {
+        e.preventDefault();
+        openScanner();
+      }
+      
+      // Close scanner with ESC
+      if (e.code === 'Escape' && document.getElementById('scannerOverlay').classList.contains('active')) {
+        closeScanner();
+      }
+    });
+    
+    function openScanner() {
+      const overlay = document.getElementById('scannerOverlay');
+      const input = document.getElementById('scannerInput');
+      overlay.classList.add('active');
+      input.value = '';
+      input.focus();
+      scannerSelectedAsset = null;
+      document.getElementById('scannerActions').classList.remove('active');
+      document.getElementById('scannerResults').innerHTML = `
+        <div class="scanner-empty">
+          <div style="font-size: 3rem; margin-bottom: 10px;">📦</div>
+          <p>Start typing or scan a barcode to search assets</p>
+          <small class="text-muted">Press ESC to close</small>
+        </div>
+      `;
+    }
+    
+    function closeScanner() {
+      document.getElementById('scannerOverlay').classList.remove('active');
+      scannerSelectedAsset = null;
+    }
+    
+    // Close scanner when clicking overlay
+    document.getElementById('scannerOverlay').addEventListener('click', (e) => {
+      if (e.target.id === 'scannerOverlay') {
+        closeScanner();
+      }
+    });
+    
+    document.getElementById('btnCloseScanner').addEventListener('click', closeScanner);
+    
+    // Scanner search functionality
+    document.getElementById('scannerInput').addEventListener('input', (e) => {
+      clearTimeout(scannerSearchTimeout);
+      const query = e.target.value.trim().toLowerCase();
+      
+      if (!query) {
+        document.getElementById('scannerResults').innerHTML = `
+          <div class="scanner-empty">
+            <div style="font-size: 3rem; margin-bottom: 10px;">📦</div>
+            <p>Start typing or scan a barcode to search assets</p>
+            <small class="text-muted">Press ESC to close</small>
+          </div>
+        `;
+        document.getElementById('scannerActions').classList.remove('active');
+        scannerSelectedAsset = null;
+        return;
+      }
+      
+      scannerSearchTimeout = setTimeout(() => {
+        performScannerSearch(query);
+      }, 200);
+    });
+    
+    function performScannerSearch(query) {
+      // Search across multiple fields
+      const results = allAssets.filter(asset => {
+        const searchableFields = [
+          asset.barcode,
+          asset.id,
+          asset.serial_number,
+          asset.name,
+          asset.category,
+          asset.description
+        ].map(field => (field || '').toString().toLowerCase());
+        
+        return searchableFields.some(field => field.includes(query));
+      });
+      
+      const resultsDiv = document.getElementById('scannerResults');
+      
+      if (results.length === 0) {
+        resultsDiv.innerHTML = `
+          <div class="scanner-empty">
+            <div style="font-size: 3rem; margin-bottom: 10px;">❌</div>
+            <p>No assets found matching "${query}"</p>
+            <small class="text-muted">Try a different search term</small>
+          </div>
+        `;
+        document.getElementById('scannerActions').classList.remove('active');
+        scannerSelectedAsset = null;
+        return;
+      }
+      
+      // If exact match found (barcode/serial), auto-select it
+      const exactMatch = results.find(asset => 
+        (asset.barcode || '').toLowerCase() === query ||
+        (asset.serial_number || '').toLowerCase() === query ||
+        (asset.id || '').toLowerCase() === query
+      );
+      
+      if (exactMatch && results.length === 1) {
+        selectScannerAsset(exactMatch);
+        return;
+      }
+      
+      // Display results
+      const resultsHTML = results.slice(0, 10).map((asset, index) => {
+        const box = allBoxes.find(b => b.id === asset.current_box_id);
+        const location = allLocations.find(l => l.id === asset.current_location_id);
+        let locationText = box ? `📦 ${box.name}` : (location ? `📍 ${location.name}` : '❓ Unassigned');
+        
+        return `
+          <div class="scanner-result-item" onclick="selectScannerAssetById('${asset.id}')">
+            <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 8px;">
+              <div style="font-family: 'Courier New', monospace; color: #a64dff; font-weight: 700; min-width: 100px;">
+                ${asset.barcode || asset.id}
+              </div>
+              <div style="flex: 1; font-weight: 600; color: #1a1d24;">
+                ${asset.name}
+              </div>
+              ${asset.serial_number ? `<div style="font-size: 0.85rem; color: #667eea; font-family: monospace;">SN: ${asset.serial_number}</div>` : ''}
+            </div>
+            <div style="display: flex; gap: 10px; font-size: 0.85rem; color: #666;">
+              ${asset.category ? `<span>🏷️ ${asset.category}</span>` : ''}
+              <span>${locationText}</span>
+              <span class="badge badge-${asset.status}" style="padding: 2px 8px;">${asset.status}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+      
+      resultsDiv.innerHTML = resultsHTML + 
+        (results.length > 10 ? `<div class="text-center text-muted mt-3">Showing 10 of ${results.length} results</div>` : '');
+    }
+    
+    function selectScannerAssetById(assetId) {
+      const asset = allAssets.find(a => a.id === assetId);
+      if (!asset) return;
+      selectScannerAsset(asset);
+    }
+    
+    function selectScannerAsset(asset) {
+      scannerSelectedAsset = asset;
+      
+      // Show actions
+      document.getElementById('scannerActions').classList.add('active');
+      
+      // Display selected asset details
+      const box = allBoxes.find(b => b.id === asset.current_box_id);
+      const location = allLocations.find(l => l.id === asset.current_location_id);
+      let locationText = box ? `📦 ${box.name}` : (location ? `📍 ${location.name}` : '❓ Unassigned');
+      
+      const resultsDiv = document.getElementById('scannerResults');
+      resultsDiv.innerHTML = `
+        <div class="alert alert-info" style="margin: 0;">
+          <h5 style="margin-bottom: 15px; color: #0099cc;">✅ Asset Selected</h5>
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            <div><strong>Name:</strong> ${asset.name}</div>
+            <div><strong>Barcode:</strong> ${asset.barcode || asset.id}</div>
+            ${asset.serial_number ? `<div><strong>Serial:</strong> ${asset.serial_number}</div>` : ''}
+            ${asset.category ? `<div><strong>Category:</strong> ${asset.category}</div>` : ''}
+            <div><strong>Status:</strong> <span class="badge badge-${asset.status}">${asset.status}</span></div>
+            <div><strong>Location:</strong> ${locationText}</div>
+          </div>
+        </div>
+      `;
+    }
+    
+    // Scanner action functions
+    function scannerViewAsset() {
+      if (!scannerSelectedAsset) {
+        alert('No asset selected');
+        return;
+      }
+      // Ensure we have the latest asset data from allAssets
+      const asset = allAssets.find(a => a.id === scannerSelectedAsset.id);
+      if (!asset) {
+        alert('Asset not found');
+        return;
+      }
+      closeScanner();
+      openAssetModal(asset);
+    }
+    
+    function scannerMoveAsset() {
+      if (!scannerSelectedAsset) return;
+      const asset = allAssets.find(a => a.id === scannerSelectedAsset.id);
+      if (!asset) return;
+      closeScanner();
+      openAssetModal(asset);
+      // Switch to location tab
+      setTimeout(() => {
+        document.querySelector('[data-bs-target="#tabLocation"]').click();
+      }, 100);
+    }
+    
+    function scannerPackAsset() {
+      if (!scannerSelectedAsset) return;
+      const asset = allAssets.find(a => a.id === scannerSelectedAsset.id);
+      if (!asset) return;
+      closeScanner();
+      openAssetModal(asset);
+      setTimeout(() => {
+        document.querySelector('[data-bs-target="#tabLocation"]').click();
+        document.getElementById('moveToBox').focus();
+      }, 100);
+    }
+    
+    async function scannerUnpackAsset() {
+      if (!scannerSelectedAsset || !scannerSelectedAsset.current_box_id) {
+        alert('This asset is not in a box');
+        return;
+      }
+      // Get fresh asset data
+      const asset = allAssets.find(a => a.id === scannerSelectedAsset.id);
+      if (!asset) {
+        alert('Asset not found');
+        return;
+      }
+      if (confirm(`Unpack ${asset.name} from its box?`)) {
+        try {
+          await unpackAsset(asset);
+          closeScanner();
+          await loadData(); // Refresh data
+          renderAssets();
+        } catch (error) {
+          alert('Error unpacking asset: ' + error.message);
+        }
+      }
+    }
+    
+    function scannerAddNote() {
+      if (!scannerSelectedAsset) return;
+      const asset = allAssets.find(a => a.id === scannerSelectedAsset.id);
+      if (!asset) return;
+      const note = prompt(`Add a note for ${asset.name}:`);
+      if (note) {
+        logHistory('items', asset.id, 'note_added', note);
+        alert('Note added successfully');
+      }
+    }
+    
+    function scannerPrintLabel() {
+      if (!scannerSelectedAsset) return;
+      const asset = allAssets.find(a => a.id === scannerSelectedAsset.id);
+      if (!asset) return;
+      closeScanner();
+      openAssetModal(asset);
+      setTimeout(() => {
+        document.getElementById('btnGenerateQR').click();
+      }, 100);
+    }
   </script>
 </body>
 </html>

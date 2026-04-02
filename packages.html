@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Race Team OS – Driver Packages</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="style.css" rel="stylesheet" />
+  <style>
+    .pkg-shell { display:flex; gap:12px; }
+    .pkg-left { width:280px; min-width:240px; }
+    .pkg-right { flex:1; }
+    .pkg-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap:12px; }
+    .pkg-card { background:#0f1115; color:#e0e3e6; border:1px solid rgba(255,255,255,0.12); border-radius:10px; padding:12px; cursor:pointer; }
+    .pkg-card.small { min-height:110px; display:flex; flex-direction:column; align-items:flex-start; justify-content:space-between; }
+    .pkg-state { font-weight:700; }
+    .pkg-included { background:#0a1f12; border-color:#0ea75a; }
+    .pkg-included .pkg-state { color:#22c55e; }
+    .pkg-included .pkg-name { color:#cdebd8; }
+    .pkg-invoice { background:#1f0a0a; border-color:#c73a3a; }
+    .pkg-invoice .pkg-state { color:#ef4444; }
+    .pkg-invoice .pkg-name { color:#f2c3c3; }
+  </style>
+</head>
+<body>
+  <div id="rtsTopNav"></div>
+  <div class="rts-main container-fluid">
+    <h1 class="my-3">Driver Packages</h1>
+
+    <div class="pkg-shell">
+      <!-- LEFT: Drivers -->
+      <section class="pkg-left" aria-label="Drivers">
+        <div class="card" style="background:#0f1115; color:#e0e3e6; border:1px solid rgba(255,255,255,0.12);">
+          <div class="card-header d-flex justify-content-between align-items-center" style="border-bottom:1px solid rgba(255,255,255,0.1);">
+            <div>Drivers</div>
+            <span id="pkgDriverCount" class="badge text-bg-secondary">0</span>
+          </div>
+          <div class="card-body">
+            <input id="pkgDriverSearch" class="form-control form-control-sm mb-2" type="search" placeholder="Search drivers…" />
+            <ul id="pkgDriverList" class="list-group list-group-flush"></ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- RIGHT: Package grid -->
+      <section class="pkg-right" aria-label="Package Options">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <div class="h5 mb-0" id="pkgDriverTitle">Select a driver</div>
+          <div class="text-secondary" id="pkgSummary" style="font-size:0.9rem;"></div>
+        </div>
+        <div class="pkg-grid" id="pkgGrid"></div>
+        <div class="mt-3 text-secondary" style="font-size:0.9rem;">
+          Click a square to toggle between <span style="color:#22c55e; font-weight:600;">INCLUDED</span> and <span style="color:#ef4444; font-weight:600;">INVOICE</span>.
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="config.js"></script>
+  <script src="core.js"></script>
+  <script src="topnav.js"></script>
+  <script>
+  (function(){
+    RTS.setActiveNav();
+
+    const LS = 'rts.driver.packages.v1';
+    const pkgOptions = [
+      { key:'tyres', name:'Tyres' },
+      { key:'fuel', name:'Fuel' },
+      { key:'entry', name:'Race Entry' },
+      { key:'transport', name:'Transport' },
+      { key:'setup', name:'Setup' },
+      { key:'coaching', name:'Coaching' },
+      { key:'spares', name:'Spares' },
+      { key:'damage', name:'Damage Cover' },
+      { key:'telemetry', name:'Telemetry' },
+      { key:'seatfit', name:'Seat Fitting' },
+      { key:'pitcrew', name:'Pit Crew' },
+      { key:'lodging', name:'Accommodation' }
+    ];
+
+    const el = {
+      list: document.getElementById('pkgDriverList'),
+      count: document.getElementById('pkgDriverCount'),
+      search: document.getElementById('pkgDriverSearch'),
+      grid: document.getElementById('pkgGrid'),
+      title: document.getElementById('pkgDriverTitle'),
+      summary: document.getElementById('pkgSummary')
+    };
+
+    function getDrivers(){
+      const s = RTS.getSettings();
+      const arr = Array.isArray(s.drivers) ? s.drivers : [];
+      return arr.filter(d => d && d.active !== false);
+    }
+
+    function getStore(){ return RTS.safeLoadJSON(LS, {}); }
+    function saveStore(obj){ RTS.safeSaveJSON(LS, obj || {}); }
+
+    let selectedId = null;
+    let drivers = getDrivers();
+
+    function renderDrivers(){
+      const q = (el.search.value||'').toLowerCase();
+      const list = drivers.filter(d => `${d.name||''} ${d.raceNumber||''}`.toLowerCase().includes(q));
+      el.count.textContent = String(list.length);
+      el.list.innerHTML = '';
+      list.forEach(d => {
+        const li = document.createElement('li');
+        li.className = 'list-group-item list-group-item-action';
+        li.style.background = '#11141a'; li.style.color = '#e0e3e6';
+        li.textContent = `${d.raceNumber ? '#' + d.raceNumber + ' ' : ''}${d.name || 'Driver'}`;
+        li.onclick = ()=>{ selectedId = d.id; renderGrid(); };
+        el.list.appendChild(li);
+      });
+    }
+
+    function renderGrid(){
+      const store = getStore();
+      if (!selectedId){ el.title.textContent = 'Select a driver'; el.grid.innerHTML = ''; el.summary.textContent=''; return; }
+      const driver = drivers.find(d => d.id === selectedId);
+      el.title.textContent = driver ? `${driver.name || 'Driver'} ${driver.raceNumber ? '(' + driver.raceNumber + ')' : ''}` : 'Driver';
+      const pkg = store[selectedId] || {};
+      let inc = 0, inv = 0;
+      el.grid.innerHTML = '';
+      pkgOptions.forEach(opt => {
+        const state = (pkg[opt.key] === 'included') ? 'included' : 'invoice';
+        if (state==='included') inc++; else inv++;
+        const card = document.createElement('div');
+        card.className = 'pkg-card small ' + (state==='included' ? 'pkg-included' : 'pkg-invoice');
+        card.innerHTML = `<div class="pkg-name">${opt.name}</div><div class="pkg-state">${state==='included'?'INCLUDED':'INVOICE'}</div>`;
+        card.onclick = ()=>{
+          const cur = getStore();
+          const curr = cur[selectedId] || {};
+          curr[opt.key] = (state==='included') ? 'invoice' : 'included';
+          cur[selectedId] = curr; saveStore(cur); renderGrid();
+        };
+        el.grid.appendChild(card);
+      });
+      el.summary.textContent = `${inc} INCLUDED • ${inv} INVOICE`;
+    }
+
+    el.search.addEventListener('input', renderDrivers);
+
+    renderDrivers();
+    renderGrid();
+  })();
+  </script>
+</body>
+</html>

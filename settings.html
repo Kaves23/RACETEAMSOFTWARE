@@ -57,10 +57,24 @@
                 <li data-section="roles">Roles</li>
                 <li data-section="suppliers">Suppliers</li>
                 <li data-section="locations">Locations</li>
+                <li data-section="assetTypes">Asset Types</li>
                 <li data-section="venues">Venues</li>
                 <li data-section="eventTypes">Event Types</li>
                 <li data-section="calendar">Google Calendar</li>
+                <li data-section="setupTemplates">Setup Templates</li>
+                <li data-section="masterChecklists">Master Lists</li>
               </ul>
+
+              <div class="mlo-section-label mt-3">Appearance</div>
+              <div class="d-grid gap-1">
+                <div class="d-flex align-items-center justify-content-between p-2" style="background: rgba(255,255,255,0.05); border-radius: 5px;">
+                  <span style="font-size: 0.85rem;">Theme Mode</span>
+                  <div class="btn-group btn-group-sm" role="group" aria-label="Theme toggle">
+                    <button type="button" class="btn btn-outline-light" id="btnLightMode" onclick="setTheme('light')">Light</button>
+                    <button type="button" class="btn btn-outline-light active" id="btnDarkMode" onclick="setTheme('dark')">Dark</button>
+                  </div>
+                </div>
+              </div>
 
               <div class="mlo-section-label mt-3">Utilities</div>
               <div class="d-grid gap-1">
@@ -126,6 +140,9 @@
                     <button class="nav-link" id="tab-set-locations" data-bs-toggle="tab" data-bs-target="#paneLocation" type="button" role="tab" aria-controls="paneLocation" aria-selected="false">Locations</button>
                   </li>
                   <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tab-set-assettypes" data-bs-toggle="tab" data-bs-target="#paneAssetType" type="button" role="tab" aria-controls="paneAssetType" aria-selected="false">Asset Types</button>
+                  </li>
+                  <li class="nav-item" role="presentation">
                     <button class="nav-link" id="tab-set-venues" data-bs-toggle="tab" data-bs-target="#paneVenue" type="button" role="tab" aria-controls="paneVenue" aria-selected="false">Venues</button>
                   </li>
                   <li class="nav-item" role="presentation">
@@ -133,6 +150,12 @@
                   </li>
                   <li class="nav-item" role="presentation">
                     <button class="nav-link" id="tab-set-calendar" data-bs-toggle="tab" data-bs-target="#paneCalendar" type="button" role="tab" aria-controls="paneCalendar" aria-selected="false">Calendar</button>
+                  </li>
+                  <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tab-set-setup" data-bs-toggle="tab" data-bs-target="#paneSetupTemplates" type="button" role="tab" aria-controls="paneSetupTemplates" aria-selected="false">Setup Templates</button>
+                  </li>
+                  <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tab-set-checklists" data-bs-toggle="tab" data-bs-target="#paneMasterChecklists" type="button" role="tab" aria-controls="paneMasterChecklists" aria-selected="false">Master Lists</button>
                   </li>
                 </ul>
 
@@ -254,6 +277,16 @@
                   </div>
                 </div>
 
+                <!-- ASSET TYPE -->
+                <div id="paneAssetType" class="tab-pane fade" role="tabpanel" aria-labelledby="tab-set-assettypes">
+                  <div class="col-12">
+                    <label class="form-label">Asset type name</label>
+                    <input id="f_assettype_name" class="form-control form-control-sm" type="text" placeholder="Equipment / Tools / Consumables">
+                  </div>                  <div class="mb-2">
+                    <label class="form-label">Color</label>
+                    <input id="f_assettype_color" class="form-control form-control-sm" type="color" value="#0ea5e9">
+                  </div>                </div>
+
                 <!-- VENUE -->
                 <div id="paneVenue" class="tab-pane fade" role="tabpanel" aria-labelledby="tab-set-venues">
                   <div class="col-12">
@@ -279,6 +312,30 @@
                   <div class="col-12">
                     <label class="form-label">Colour</label>
                     <input id="f_et_color" class="form-control form-control-sm" type="color" value="#e32636" style="height:34px;">
+                  </div>
+                </div>
+
+                <!-- SETUP TEMPLATES -->
+                <div id="paneSetupTemplates" class="tab-pane fade" role="tabpanel" aria-labelledby="tab-set-setup">
+                  <div class="col-12">
+                    <label class="form-label">Template name</label>
+                    <input id="f_setup_name" class="form-control form-control-sm" type="text" placeholder="Kart Template / Car Template">
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label">Fields (comma‑separated)</label>
+                    <textarea id="f_setup_fields" class="form-control form-control-sm" rows="3" placeholder="Axle, Hubs, Caster"></textarea>
+                  </div>
+                </div>
+
+                <!-- MASTER CHECKLISTS -->
+                <div id="paneMasterChecklists" class="tab-pane fade" role="tabpanel" aria-labelledby="tab-set-checklists">
+                  <div class="col-12">
+                    <label class="form-label">Checklist name</label>
+                    <input id="f_chk_name" class="form-control form-control-sm" type="text" placeholder="Morning Warmup">
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label">Items (one per line)</label>
+                    <textarea id="f_chk_items" class="form-control form-control-sm" rows="6" placeholder="Charge batteries\nTorque wheels\nFuel top‑up"></textarea>
                   </div>
                 </div>
 
@@ -356,6 +413,36 @@
   <script src="core.js"></script>
   <script src="topnav.js"></script>
   <script>
+  // Theme switching functionality
+  const THEME_KEY = 'rts.theme';
+  
+  function setTheme(theme) {
+    if (theme === 'light') {
+      document.body.classList.add('light-mode');
+      localStorage.setItem(THEME_KEY, 'light');
+      document.getElementById('btnLightMode').classList.add('active');
+      document.getElementById('btnDarkMode').classList.remove('active');
+    } else {
+      document.body.classList.remove('light-mode');
+      localStorage.setItem(THEME_KEY, 'dark');
+      document.getElementById('btnDarkMode').classList.add('active');
+      document.getElementById('btnLightMode').classList.remove('active');
+    }
+  }
+  
+  // Load theme on page load
+  function loadTheme() {
+    const savedTheme = localStorage.getItem(THEME_KEY) || 'dark';
+    if (savedTheme === 'light') {
+      document.body.classList.add('light-mode');
+      document.getElementById('btnLightMode').classList.add('active');
+      document.getElementById('btnDarkMode').classList.remove('active');
+    }
+  }
+  
+  // Initialize theme before page renders
+  loadTheme();
+  
   (function(){
     RTS.setActiveNav();
     const LS_PANES = 'rts.settings.panes.v1';
@@ -384,9 +471,12 @@
       paneRole: document.getElementById('paneRole'),
       paneSupplier: document.getElementById('paneSupplier'),
       paneLocation: document.getElementById('paneLocation'),
+      paneAssetType: document.getElementById('paneAssetType'),
       paneVenue: document.getElementById('paneVenue'),
       paneEventType: document.getElementById('paneEventType'),
       paneCalendar: document.getElementById('paneCalendar'),
+  paneSetupTemplates: document.getElementById('paneSetupTemplates'),
+  paneMasterChecklists: document.getElementById('paneMasterChecklists'),
 
       f_drv_name: document.getElementById('f_drv_name'),
       f_drv_class: document.getElementById('f_drv_class'),
@@ -416,12 +506,20 @@
       f_sup_notes: document.getElementById('f_sup_notes'),
 
       f_loc_name: document.getElementById('f_loc_name'),
+      f_assettype_name: document.getElementById('f_assettype_name'),
+      f_assettype_color: document.getElementById('f_assettype_color'),
       f_venue_name: document.getElementById('f_venue_name'),
       f_venue_loc: document.getElementById('f_venue_loc'),
       f_venue_notes: document.getElementById('f_venue_notes'),
 
       f_et_code: document.getElementById('f_et_code'),
       f_et_color: document.getElementById('f_et_color'),
+
+  f_setup_name: document.getElementById('f_setup_name'),
+  f_setup_fields: document.getElementById('f_setup_fields'),
+
+  f_chk_name: document.getElementById('f_chk_name'),
+  f_chk_items: document.getElementById('f_chk_items'),
 
       f_cal_enabled: document.getElementById('f_cal_enabled'),
       f_cal_id: document.getElementById('f_cal_id'),
@@ -444,15 +542,18 @@
     function saveUI(){ RTS.safeSaveJSON('rts.settings.ui.v1', ui); }
 
     function showPane(section){
-      [els.paneDriver,els.paneStaff,els.paneRole,els.paneSupplier,els.paneLocation,els.paneVenue,els.paneEventType,els.paneCalendar].forEach(p=>p.style.display='none');
+      [els.paneDriver,els.paneStaff,els.paneRole,els.paneSupplier,els.paneLocation,els.paneAssetType,els.paneVenue,els.paneEventType,els.paneCalendar,els.paneSetupTemplates,els.paneMasterChecklists].forEach(p=>p.style.display='none');
       if (section==='drivers') els.paneDriver.style.display='';
       if (section==='staff') els.paneStaff.style.display='';
       if (section==='roles') els.paneRole.style.display='';
       if (section==='suppliers') els.paneSupplier.style.display='';
       if (section==='locations') els.paneLocation.style.display='';
+      if (section==='assetTypes') els.paneAssetType.style.display='';
       if (section==='venues') els.paneVenue.style.display='';
       if (section==='eventTypes') els.paneEventType.style.display='';
       if (section==='calendar') els.paneCalendar.style.display='';
+      if (section==='setupTemplates') els.paneSetupTemplates.style.display='';
+      if (section==='masterChecklists') els.paneMasterChecklists.style.display='';
     }
 
     function listFor(section){
@@ -461,9 +562,12 @@
       if(section==='roles') return (settings.roles||[]).map((n,i)=>({ id:'role_'+i, name:n }));
       if(section==='suppliers') return settings.suppliers || [];
       if(section==='locations') return (settings.locations||[]).map((n,i)=>({ id:'loc_'+i, name:n }));
+      if(section==='assetTypes') return (settings.assetTypes||[]).map((t,i)=>({ id:'assettype_'+i, name:typeof t==='string'?t:t.name, color:typeof t==='string'?'#0ea5e9':t.color }));
       if(section==='venues') return (settings.venues||[]).map(v=>({ id:v.id||RTS.uid('venue'), name:v.name, location:v.location||'', notes:v.notes||'' }));
       if(section==='eventTypes') return (settings.eventTypes||[]).map((e,i)=>({ id:'et_'+i, code:e.code, color:e.color }));
       if(section==='calendar') return [{ id:'cal_google', name:'Google Calendar', enabled:!!(settings.calendars && settings.calendars.google && settings.calendars.google.enabled) }];
+      if(section==='setupTemplates') return (settings.setupTemplates||[]).map(t=>({ id:t.id||RTS.uid('setup'), name:t.name, fields:(t.fields||[]) }));
+      if(section==='masterChecklists') return (settings.masterChecklists||[]).map(c=>({ id:c.id||RTS.uid('chk'), name:c.name, items:(c.items||[]) }));
       return [];
     }
 
@@ -473,6 +577,7 @@
       if(section==='roles') settings.roles = arr.map(x=>x.name).filter(Boolean);
       if(section==='suppliers') settings.suppliers = arr;
       if(section==='locations') settings.locations = arr.map(x=>x.name).filter(Boolean);
+      if(section==='assetTypes') settings.assetTypes = arr.map(x=>({name:x.name, color:x.color||'#0ea5e9'})).filter(x=>x.name);
       if(section==='venues') settings.venues = arr.map(x=>({ id:x.id||RTS.uid('venue'), name:x.name, location:x.location, notes:x.notes })).filter(x=>x.name);
       if(section==='eventTypes') settings.eventTypes = arr.map(x=>({ code:x.code, color:x.color })).filter(x=>x.code);
       if(section==='calendar') {
@@ -480,6 +585,8 @@
         settings.calendars.google = settings.calendars.google || {};
         // calendar saved via fields
       }
+      if(section==='setupTemplates') settings.setupTemplates = arr.map(x=>({ id:x.id||RTS.uid('setup'), name:x.name, fields:(x.fields||[]) })).filter(x=>x.name);
+      if(section==='masterChecklists') settings.masterChecklists = arr.map(x=>({ id:x.id||RTS.uid('chk'), name:x.name, items:(x.items||[]) })).filter(x=>x.name);
       RTS.saveSettings(settings);
       settings = RTS.getSettings();
     }
@@ -491,9 +598,12 @@
       else if(section==='roles') cols = ['Role'];
       else if(section==='suppliers') cols = ['Supplier','Lead','Email','Phone'];
       else if(section==='locations') cols = ['Location'];
+      else if(section==='assetTypes') cols = ['Asset Type'];
       else if(section==='venues') cols = ['Venue','Location','Notes'];
       else if(section==='eventTypes') cols = ['Type','Colour'];
       else if(section==='calendar') cols = ['Integration','Enabled'];
+      else if(section==='setupTemplates') cols = ['Template','Fields'];
+      else if(section==='masterChecklists') cols = ['Checklist','Items'];
       els.theadRow.innerHTML = cols.map(c=>`<th>${c}</th>`).join('');
     }
 
@@ -523,9 +633,12 @@
         else if(ui.section==='roles') tr.innerHTML = `<td>${r.name||''}</td>`;
         else if(ui.section==='suppliers') tr.innerHTML = `<td>${r.name||''}</td><td>${r.leadTimeDays??''}</td><td>${r.email||''}</td><td>${r.phone||''}</td>`;
         else if(ui.section==='locations') tr.innerHTML = `<td>${r.name||''}</td>`;
+        else if(ui.section==='assetTypes') tr.innerHTML = `<td><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${r.color||'#0ea5e9'};border:1px solid rgba(255,255,255,0.25);"></span> ${r.name||''}</td>`;
         else if(ui.section==='eventTypes') tr.innerHTML = `<td>${r.code||''}</td><td><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${r.color||'#e32636'};border:1px solid rgba(255,255,255,0.25);"></span> <span class="text-secondary" style="font-size:0.85rem;">${r.color||''}</span></td>`;
         else if(ui.section==='venues') tr.innerHTML = `<td>${r.name||''}</td><td>${r.location||''}</td><td class="text-secondary">${r.notes||''}</td>`;
         else if(ui.section==='calendar') tr.innerHTML = `<td>${r.name||''}</td><td>${r.enabled ? 'Yes' : 'No'}</td>`;
+        else if(ui.section==='setupTemplates') tr.innerHTML = `<td>${r.name||''}</td><td class="text-secondary">${(r.fields||[]).join(', ')}</td>`;
+        else if(ui.section==='masterChecklists') tr.innerHTML = `<td>${r.name||''}</td><td class="text-secondary">${(r.items||[]).length} items</td>`;
         tr.addEventListener('click', ()=>{ ui.selectedId = r.id; saveUI(); renderList(); loadInspector(); });
         els.tbody.appendChild(tr);
       });
@@ -600,6 +713,10 @@
       if(ui.section==='locations') {
         els.f_loc_name.value = sel ? (sel.name||'') : '';
       }
+      if(ui.section==='assetTypes') {
+        els.f_assettype_name.value = sel ? (sel.name||'') : '';
+        els.f_assettype_color.value = sel ? (sel.color||'#0ea5e9') : '#0ea5e9';
+      }
       if(ui.section==='venues') {
         els.f_venue_name.value = sel ? (sel.name||'') : '';
         els.f_venue_loc.value = sel ? (sel.location||'') : '';
@@ -608,6 +725,14 @@
       if(ui.section==='eventTypes') {
         els.f_et_code.value = sel ? (sel.code||'') : '';
         els.f_et_color.value = sel ? (sel.color||'#e32636') : '#e32636';
+      }
+      if(ui.section==='setupTemplates') {
+        els.f_setup_name.value = sel ? (sel.name||'') : '';
+        els.f_setup_fields.value = sel ? (sel.fields||[]).join(', ') : '';
+      }
+      if(ui.section==='masterChecklists') {
+        els.f_chk_name.value = sel ? (sel.name||'') : '';
+        els.f_chk_items.value = sel ? (sel.items||[]).join('\n') : '';
       }
       if(ui.section==='calendar') {
         const g = (settings.calendars && settings.calendars.google) ? settings.calendars.google : {};
@@ -692,6 +817,10 @@
       if(ui.section==='locations') {
         cur.name = els.f_loc_name.value.trim();
       }
+      if(ui.section==='assetTypes') {
+        cur.name = els.f_assettype_name.value.trim();
+        cur.color = els.f_assettype_color.value;
+      }
       if(ui.section==='venues') {
         cur.name = els.f_venue_name.value.trim();
         cur.location = els.f_venue_loc.value.trim();
@@ -700,6 +829,14 @@
       if(ui.section==='eventTypes') {
         cur.code = els.f_et_code.value.trim();
         cur.color = els.f_et_color.value;
+      }
+      if(ui.section==='setupTemplates') {
+        cur.name = els.f_setup_name.value.trim();
+        cur.fields = els.f_setup_fields.value.split(',').map(s=>s.trim()).filter(Boolean);
+      }
+      if(ui.section==='masterChecklists') {
+        cur.name = els.f_chk_name.value.trim();
+        cur.items = els.f_chk_items.value.split('\n').map(s=>s.trim()).filter(Boolean);
       }
 
       setFor(ui.section, arr);
@@ -714,8 +851,11 @@
       if(ui.section==='roles') item = { id: RTS.uid('role'), name:'New Role' };
       if(ui.section==='suppliers') item = { id: RTS.uid('sup'), name:'New Supplier', email:'', phone:'', leadTimeDays:0, vatNumber:'', accountNumber:'', notes:'' };
       if(ui.section==='locations') item = { id: RTS.uid('loc'), name:'New Location' };
+      if(ui.section==='assetTypes') item = { id: RTS.uid('assettype'), name:'New Asset Type', color:'#0ea5e9' };
       if(ui.section==='venues') item = { id: RTS.uid('venue'), name:'New Venue', location:'', notes:'' };
       if(ui.section==='eventTypes') item = { id: RTS.uid('et'), code:'New Type', color:'#e32636' };
+      if(ui.section==='setupTemplates') item = { id: RTS.uid('setup'), name:'New Template', fields:[] };
+      if(ui.section==='masterChecklists') item = { id: RTS.uid('chk'), name:'New Checklist', items:[] };
       if(!item) return;
       arr.unshift(item);
       setFor(ui.section, arr);
