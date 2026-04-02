@@ -16,6 +16,23 @@
     return;
   }
   
+  // Verify token is valid by making a quick test request
+  // This catches cases where user has a localhost token but is on production server
+  fetch('/api/auth/verify', {
+    headers: { 'Authorization': `Bearer ${token}` }
+  })
+  .then(res => {
+    if (!res.ok) {
+      console.log('🔒 Token invalid, clearing and redirecting to login...');
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user');
+      window.location.replace('/login.html');
+    }
+  })
+  .catch(err => {
+    console.error('Auth verification error:', err);
+  });
+  
   // Optionally verify token with server (commented out for now to reduce API calls)
   // You can enable this for extra security
   /*
