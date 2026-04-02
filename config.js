@@ -8,7 +8,7 @@ window.RTS_CONFIG = {
   },
   
   // Data Storage Mode: 'api' or 'localStorage'
-  dataMode: 'localStorage', // Change to 'api' to use database
+  dataMode: 'api', // Using PlanetScale PostgreSQL database
   
   settings: {
     venues: [
