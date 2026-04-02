@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Auth Test</title>
+  <style>
+    body { font-family: monospace; padding: 40px; background: #1a1a1a; color: #0f0; }
+    .test { margin: 20px 0; padding: 15px; background: #2a2a2a; border-left: 4px solid #0f0; }
+  </style>
+</head>
+<body>
+  <h1>🔍 Authentication Diagnostic</h1>
+  <div id="output"></div>
+
+  <script>
+    const output = document.getElementById('output');
+    
+    function log(msg, isError = false) {
+      const div = document.createElement('div');
+      div.className = 'test';
+      div.innerHTML = msg;
+      if (isError) div.style.borderColor = '#f00';
+      output.appendChild(div);
+    }
+
+    (async function() {
+      // Test 1: Check if auth endpoint exists
+      log('<strong>Test 1:</strong> Checking if /api/auth/login exists...');
+      try {
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: 'test', password: 'test' })
+        });
+        
+        if (response.status === 200 || response.status === 401) {
+          log('✅ Auth endpoint EXISTS and is responding');
+        } else {
+          log(`⚠️ Auth endpoint returned status: ${response.status}`, true);
+        }
+        
+        const data = await response.json();
+        log(`Response: ${JSON.stringify(data, null, 2)}`);
+      } catch (error) {
+        log(`❌ Auth endpoint ERROR: ${error.message}`, true);
+      }
+
+      // Test 2: Check current token
+      log('<br><strong>Test 2:</strong> Checking current token...');
+      const token = localStorage.getItem('auth_token');
+      const user = localStorage.getItem('user');
+      
+      if (token) {
+        log(`✅ Token found: ${token.substring(0, 20)}...`);
+        log(`User: ${user}`);
+        
+        // Test 3: Verify token with server
+        log('<br><strong>Test 3:</strong> Verifying token with server...');
+        try {
+          const verifyResponse = await fetch('/api/auth/verify', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          
+          const verifyData = await verifyResponse.json();
+          
+          if (verifyResponse.ok) {
+            log(`✅ Token is VALID: ${JSON.stringify(verifyData, null, 2)}`);
+          } else {
+            log(`❌ Token is INVALID: ${JSON.stringify(verifyData, null, 2)}`, true);
+            log(`<br><strong>SOLUTION:</strong> You need to login again at <a href="/login.html">/login.html</a>`, true);
+          }
+        } catch (error) {
+          log(`❌ Token verification failed: ${error.message}`, true);
+        }
+      } else {
+        log('❌ No token found in localStorage', true);
+        log('<br><strong>SOLUTION:</strong> Please login at <a href="/login.html">/login.html</a>', true);
+      }
+
+      // Test 4: Try to access items endpoint
+      log('<br><strong>Test 4:</strong> Testing /api/items endpoint...');
+      try {
+        const itemsResponse = await fetch('/api/items', {
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
+        
+        if (itemsResponse.ok) {
+          const itemsData = await itemsResponse.json();
+          log(`✅ Items endpoint works! Found ${itemsData.count} items`);
+        } else {
+          const itemsError = await itemsResponse.json();
+          log(`❌ Items endpoint failed (${itemsResponse.status}): ${JSON.stringify(itemsError)}`, true);
+        }
+      } catch (error) {
+        log(`❌ Items endpoint error: ${error.message}`, true);
+      }
+    })();
+  </script>
+</body>
+</html>
