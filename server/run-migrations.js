@@ -10,7 +10,8 @@ async function runMigrations() {
   const migrationsDir = path.join(__dirname, 'migrations');
   const migrationFiles = [
     '001_create_core_tables.sql',
-    '002_create_history_tables_pg.sql'
+    '002_create_history_tables_pg.sql',
+    '006_create_sessions_table.sql'
   ];
   
   for (const filename of migrationFiles) {

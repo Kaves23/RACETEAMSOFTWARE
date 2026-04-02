@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
+const db = require('../db');
 
-// In-memory session storage (upgrade to Redis for production)
-const sessions = new Map();
+// Sessions now stored in PlanetScale database for persistence across server restarts
 
 // Simple user database (upgrade to PostgreSQL for production)
 const users = [
@@ -45,16 +45,16 @@ router.post('/login', async (req, res, next) => {
     
     // Generate session token
     const token = generateToken();
-    const expiresAt = Date.now() + (24 * 60 * 60 * 1000); // 24 hours
+    const expiresAt = new Date(Date.now() + (24 * 60 * 60 * 1000)); // 24 hours
     
-    // Store session
-    sessions.set(token, {
-      userId: user.id,
-      username: user.username,
-      role: user.role,
-      createdAt: Date.now(),
-      expiresAt
-    });
+    // Store session in database
+    await db.query(
+      `INSERT INTO sessions (token, user_id, username, name, role, expires_at) 
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (token) DO UPDATE 
+       SET expires_at = $6`,
+      [token, user.id, user.username, user.name, user.role, expiresAt]
+    );
     
     console.log(`✅ User logged in: ${username} (token: ${token.substring(0, 8)}...)`);
     
@@ -75,78 +75,84 @@ router.post('/login', async (req, res, next) => {
 });
 
 // POST /api/auth/logout
-router.post('/logout', (req, res) => {
+router.post('/logout', async (req, res) => {
   const token = req.headers.authorization?.replace('Bearer ', '');
   
-  if (token && sessions.has(token)) {
-    const session = sessions.get(token);
-    console.log(`👋 User logged out: ${session.username}`);
-    sessions.delete(token);
+  if (token) {
+    const result = await db.query('SELECT username FROM sessions WHERE token = $1', [token]);
+    if (result.rows.length > 0) {
+      console.log(`👋 User logged out: ${result.rows[0].username}`);
+    }
+    await db.query('DELETE FROM sessions WHERE token = $1', [token]);
   }
   
   res.json({ success: true });
 });
 
 // GET /api/auth/verify - Check if token is valid
-router.get('/verify', (req, res) => {
+router.get('/verify', async (req, res) => {
   const token = req.headers.authorization?.replace('Bearer ', '');
   
-  if (!token || !sessions.has(token)) {
+  if (!token) {
     return res.status(401).json({ 
       success: false, 
       error: 'Invalid or expired token' 
     });
   }
   
-  const session = sessions.get(token);
+  const result = await db.query(
+    'SELECT * FROM sessions WHERE token = $1 AND expires_at > NOW()',
+    [token]
+  );
   
-  // Check if expired
-  if (Date.now() > session.expiresAt) {
-    sessions.delete(token);
+  if (result.rows.length === 0) {
     return res.status(401).json({ 
       success: false, 
-      error: 'Session expired' 
+      error: 'Invalid or expired token' 
     });
   }
   
-  const user = users.find(u => u.id === session.userId);
+  const session = result.rows[0];
   
   res.json({
     success: true,
     user: {
-      id: user.id,
-      username: user.username,
-      name: user.name,
-      role: user.role
+      id: session.user_id,
+      username: session.username,
+      name: session.name,
+      role: session.role
     }
   });
 });
 
 // Middleware to protect routes
-function requireAuth(req, res, next) {
+async function requireAuth(req, res, next) {
   const token = req.headers.authorization?.replace('Bearer ', '');
   
-  if (!token || !sessions.has(token)) {
+  if (!token) {
     return res.status(401).json({ 
       success: false, 
       error: 'Authentication required' 
     });
   }
   
-  const session = sessions.get(token);
+  const result = await db.query(
+    'SELECT * FROM sessions WHERE token = $1 AND expires_at > NOW()',
+    [token]
+  );
   
-  // Check if expired
-  if (Date.now() > session.expiresAt) {
-    sessions.delete(token);
+  if (result.rows.length === 0) {
     return res.status(401).json({ 
       success: false, 
-      error: 'Session expired' 
+      error: 'Authentication required' 
     });
   }
   
+  const session = result.rows[0];
+  
   // Attach user to request
   req.user = {
-    userId: session.userId,
+    userId: session.user_id,
     username: session.username,
     role: session.role
   };
@@ -155,19 +161,14 @@ function requireAuth(req, res, next) {
 }
 
 // Clean up expired sessions every hour
-setInterval(() => {
-  const now = Date.now();
-  let cleaned = 0;
-  
-  for (const [token, session] of sessions.entries()) {
-    if (now > session.expiresAt) {
-      sessions.delete(token);
-      cleaned++;
+setInterval(async () => {
+  try {
+    const result = await db.query('DELETE FROM sessions WHERE expires_at <= NOW()');
+    if (result.rowCount > 0) {
+      console.log(`🧹 Cleaned up ${result.rowCount} expired session(s)`);
     }
-  }
-  
-  if (cleaned > 0) {
-    console.log(`🧹 Cleaned up ${cleaned} expired session(s)`);
+  } catch (err) {
+    console.error('❌ Session cleanup error:', err);
   }
 }, 60 * 60 * 1000); // Every hour
 
