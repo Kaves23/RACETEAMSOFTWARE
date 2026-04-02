@@ -909,15 +909,27 @@
   async function apiRequest(endpoint, options = {}) {
     try {
       const url = `${API_BASE}${endpoint}`;
+      
+      // Get auth token from localStorage
+      const token = localStorage.getItem('auth_token');
+      
       const response = await fetch(url, {
         headers: {
           'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
           ...options.headers
         },
         ...options
       });
       
       if (!response.ok) {
+        // If unauthorized, redirect to login
+        if (response.status === 401) {
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('user');
+          window.location.replace('/login.html');
+          throw new Error('Session expired. Please login again.');
+        }
         throw new Error(`API error: ${response.status}`);
       }
       
