@@ -5,6 +5,8 @@
     return;
   }
   
+  console.log('🔐 Auth check running...');
+  
   // Check if user is logged in
   const token = localStorage.getItem('auth_token');
   const user = localStorage.getItem('user');
@@ -16,22 +18,30 @@
     return;
   }
   
-  // Verify token is valid by making a quick test request
-  // This catches cases where user has a localhost token but is on production server
-  fetch('/api/auth/verify', {
-    headers: { 'Authorization': `Bearer ${token}` }
-  })
-  .then(res => {
-    if (!res.ok) {
-      console.log('🔒 Token invalid, clearing and redirecting to login...');
+  // Verify token is valid with the server SYNCHRONOUSLY on page load
+  // This catches cases where server restarted and sessions were cleared
+  (async function verifyToken() {
+    try {
+      const res = await fetch('/api/auth/verify', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (!res.ok) {
+        console.log('🔒 Token invalid (server may have restarted), clearing and redirecting to login...');
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user');
+        window.location.replace('/login.html');
+        return;
+      }
+      
+      console.log('✅ Authenticated as:', JSON.parse(user).username);
+    } catch (err) {
+      console.error('⚠️ Auth verification failed:', err);
       localStorage.removeItem('auth_token');
       localStorage.removeItem('user');
       window.location.replace('/login.html');
     }
-  })
-  .catch(err => {
-    console.error('Auth verification error:', err);
-  });
+  })();
   
   // Optionally verify token with server (commented out for now to reduce API calls)
   // You can enable this for extra security
