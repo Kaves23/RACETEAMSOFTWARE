@@ -87,11 +87,11 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
         updatedAt: item.updated_at
       }));
       
-      // Separate equipment and assets based on item_type
-      equipment = mappedItems.filter(item => item.itemType === 'equipment');
-      assets = mappedItems.filter(item => item.itemType === 'asset');
+      // Show all items regardless of item_type (supports custom types from settings)
+      equipment = mappedItems.filter(item => item.itemType === 'equipment' || !['asset'].includes(item.itemType));
+      assets = mappedItems.filter(item => item.itemType === 'asset' || !['equipment'].includes(item.itemType));
       
-      console.log(`📦 Separated: ${equipment.length} equipment + ${assets.length} assets`);
+      console.log(`📦 Loaded: ${equipment.length} items in equipment view + ${assets.length} items in assets view (total: ${mappedItems.length})`);
     } catch (e) {
       console.warn('Could not load items from API, using localStorage:', e.message);
       equipment = RTS.safeLoadJSON(LS_EQUIPMENT, null) || seedEquipment();
