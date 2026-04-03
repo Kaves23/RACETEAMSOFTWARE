@@ -1907,12 +1907,22 @@
     });
 
     function reloadAssetTypes() {
-      const settings = window.RTS.getSettings();
-      const assetTypesFromSettings = settings.assetTypes || [{name:'Equipment',color:'#0ea5e9'},{name:'Asset',color:'#a855f7'}];
-      // Handle both old string format and new object format
-      allAssetTypes = assetTypesFromSettings.map(t => 
-        typeof t === 'string' ? {name:t, color:'#0ea5e9'} : {name:t.name, color:t.color||'#0ea5e9'}
-      );
+      // Load asset types from database
+      try {
+        const assetTypesResponse = await window.RTS_API.getAssetTypes();
+        if (assetTypesResponse && assetTypesResponse.success && assetTypesResponse.assetTypes.length > 0) {
+          allAssetTypes = assetTypesResponse.assetTypes;
+        } else {
+          // Fallback to localStorage if API fails
+          const settings = window.RTS.getSettings();
+          const assetTypesFromSettings = settings.assetTypes || [{name:'Equipment',color:'#0ea5e9'},{name:'Asset',color:'#a855f7'}];
+          allAssetTypes = assetTypesFromSettings.map(t => 
+            typeof t === 'string' ? {name:t, color:'#0ea5e9'} : {name:t.name, color:t.color||'#0ea5e9'}
+          );
+        }
+      } catch (error) {
+        console.error('Error loading asset types:', error);
+      }
       
       // Update filter dropdown - use array join for performance
       const filterType = document.getElementById('filterType');
@@ -1930,16 +1940,17 @@
 
     async function loadData() {
       try {
-        // Load items and boxes in PARALLEL (not sequential)
-        const [allItems, allBoxesData] = await Promise.all([
+        // Load items, boxes, and asset types in PARALLEL (not sequential)
+        const [allItems, allBoxesData, assetTypesResponse] = await Promise.all([
           window.RTS_DATA.getItems(),
-          window.RTS_DATA.getBoxes()
+          window.RTS_DATA.getBoxes(),
+          window.RTS_API.getAssetTypes().catch(() => ({ success: false, assetTypes: [] }))
         ]);
         
         allAssets = allItems || [];
         allBoxes = allBoxesData || [];
         
-        // Load locations and asset types from settings (instant - no API call)
+        // Load locations from settings (instant - no API call)
         const settings = window.RTS.getSettings();
         const locationStrings = settings.locations || [];
         // Transform string array to objects with id and name
@@ -1948,12 +1959,16 @@
           name: loc
         }));
         
-        // Load asset types from settings with colors
-        const assetTypesFromSettings = settings.assetTypes || [{name:'Equipment',color:'#0ea5e9'},{name:'Asset',color:'#a855f7'}];
-        // Handle both old string format and new object format
-        allAssetTypes = assetTypesFromSettings.map(t => 
-          typeof t === 'string' ? {name:t, color:'#0ea5e9'} : {name:t.name, color:t.color||'#0ea5e9'}
-        );
+        // Load asset types from database with fallback to settings
+        if (assetTypesResponse && assetTypesResponse.success && assetTypesResponse.assetTypes.length > 0) {
+          allAssetTypes = assetTypesResponse.assetTypes;
+        } else {
+          // Fallback to localStorage if API fails
+          const assetTypesFromSettings = settings.assetTypes || [{name:'Equipment',color:'#0ea5e9'},{name:'Asset',color:'#a855f7'}];
+          allAssetTypes = assetTypesFromSettings.map(t => 
+            typeof t === 'string' ? {name:t, color:'#0ea5e9'} : {name:t.name, color:t.color||'#0ea5e9'}
+          );
+        }
         
         populateLocationDropdowns();
         populateBoxDropdowns();

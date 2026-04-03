@@ -11,7 +11,8 @@ async function runMigrations() {
   const migrationFiles = [
     '001_create_core_tables.sql',
     '002_create_history_tables_pg.sql',
-    '006_create_sessions_table.sql'
+    '006_create_sessions_table.sql',
+    '007_create_asset_types_table.sql'
   ];
   
   for (const filename of migrationFiles) {

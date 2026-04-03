@@ -104,13 +104,30 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     boxContents = RTS.safeLoadJSON(LS_BOX_CONTENTS, null) || [];
     boxHistory = RTS.safeLoadJSON(LS_BOX_HISTORY, null) || [];
     
-    // Load asset types from settings for colored badges
-    const settings = RTS.getSettings();
-    const assetTypesFromSettings = settings.assetTypes || [{name:'Equipment',color:'#0ea5e9'},{name:'Asset',color:'#a855f7'}];
-    // Handle both old string format and new object format
-    allAssetTypes = assetTypesFromSettings.map(t => 
-      typeof t === 'string' ? {name:t, color:'#0ea5e9'} : {name:t.name, color:t.color||'#0ea5e9'}
-    );
+    // Load asset types from database API
+    try {
+      const assetTypesResponse = await RTS_API.getAssetTypes();
+      if (assetTypesResponse && assetTypesResponse.success && assetTypesResponse.assetTypes.length > 0) {
+        allAssetTypes = assetTypesResponse.assetTypes;
+        console.log(`✅ Loaded ${allAssetTypes.length} asset types from database`);
+      } else {
+        // Fallback to localStorage if API fails
+        const settings = RTS.getSettings();
+        const assetTypesFromSettings = settings.assetTypes || [{name:'Equipment',color:'#0ea5e9'},{name:'Asset',color:'#a855f7'}];
+        allAssetTypes = assetTypesFromSettings.map(t => 
+          typeof t === 'string' ? {name:t, color:'#0ea5e9'} : {name:t.name, color:t.color||'#0ea5e9'}
+        );
+        console.log(`⚠️ Using fallback asset types from localStorage`);
+      }
+    } catch (error) {
+      console.error('Error loading asset types:', error);
+      // Fallback
+      const settings = RTS.getSettings();
+      const assetTypesFromSettings = settings.assetTypes || [{name:'Equipment',color:'#0ea5e9'},{name:'Asset',color:'#a855f7'}];
+      allAssetTypes = assetTypesFromSettings.map(t => 
+        typeof t === 'string' ? {name:t, color:'#0ea5e9'} : {name:t.name, color:t.color||'#0ea5e9'}
+      );
+    }
     
     console.log(`✅ Data load complete: ${boxes.length} boxes, ${equipment.length} equipment, ${assets.length} assets`);
     

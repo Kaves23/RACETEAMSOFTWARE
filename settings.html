@@ -443,7 +443,7 @@
   // Initialize theme before page renders
   loadTheme();
   
-  (function(){
+  (async function(){
     RTS.setActiveNav();
     const LS_PANES = 'rts.settings.panes.v1';
 
@@ -538,8 +538,31 @@
     const defaultUI = { section:'drivers', search:'', selectedId:null };
     let ui = RTS.deepMerge(defaultUI, RTS.safeLoadJSON('rts.settings.ui.v1', {}));
     let settings = RTS.getSettings();
+    let assetTypesCache = null; // Cache for asset types from database
 
     function saveUI(){ RTS.safeSaveJSON('rts.settings.ui.v1', ui); }
+
+    // Load asset types from database (async)
+    async function loadAssetTypesFromDB() {
+      try {
+        const response = await RTS_API.getAssetTypes();
+        if (response && response.success) {
+          assetTypesCache = response.assetTypes || [];
+          return assetTypesCache;
+        }
+      } catch (error) {
+        console.error('Error loading asset types from database:', error);
+        // Fallback to localStorage if API fails
+        const fromSettings = settings.assetTypes || [];
+        assetTypesCache = fromSettings.map((t,i) => ({ 
+          id: 'assettype_' + i, 
+          name: typeof t === 'string' ? t : t.name, 
+          color: typeof t === 'string' ? '#0ea5e9' : t.color 
+        }));
+        return assetTypesCache;
+      }
+      return [];
+    }
 
     function showPane(section){
       // Map sections to tab button IDs
@@ -575,7 +598,7 @@
       if(section==='roles') return (settings.roles||[]).map((n,i)=>({ id:'role_'+i, name:n }));
       if(section==='suppliers') return settings.suppliers || [];
       if(section==='locations') return (settings.locations||[]).map((n,i)=>({ id:'loc_'+i, name:n }));
-      if(section==='assetTypes') return (settings.assetTypes||[]).map((t,i)=>({ id:'assettype_'+i, name:typeof t==='string'?t:t.name, color:typeof t==='string'?'#0ea5e9':t.color }));
+      if(section==='assetTypes') return assetTypesCache || []; // Use cache from database
       if(section==='venues') return (settings.venues||[]).map(v=>({ id:v.id||RTS.uid('venue'), name:v.name, location:v.location||'', notes:v.notes||'' }));
       if(section==='eventTypes') return (settings.eventTypes||[]).map((e,i)=>({ id:'et_'+i, code:e.code, color:e.color }));
       if(section==='calendar') return [{ id:'cal_google', name:'Google Calendar', enabled:!!(settings.calendars && settings.calendars.google && settings.calendars.google.enabled) }];
@@ -584,13 +607,18 @@
       return [];
     }
 
-    function setFor(section, arr){
+    async function setFor(section, arr){
       if(section==='drivers') settings.drivers = arr;
       if(section==='staff') settings.staff = arr;
       if(section==='roles') settings.roles = arr.map(x=>x.name).filter(Boolean);
       if(section==='suppliers') settings.suppliers = arr;
       if(section==='locations') settings.locations = arr.map(x=>x.name).filter(Boolean);
-      if(section==='assetTypes') settings.assetTypes = arr.map(x=>({name:x.name, color:x.color||'#0ea5e9'})).filter(x=>x.name);
+      if(section==='assetTypes') {
+        // Save to database instead of localStorage
+        assetTypesCache = arr;
+        // Will be saved individually when saveInspector is called
+        return;
+      }
       if(section==='venues') settings.venues = arr.map(x=>({ id:x.id||RTS.uid('venue'), name:x.name, location:x.location, notes:x.notes })).filter(x=>x.name);
       if(section==='eventTypes') settings.eventTypes = arr.map(x=>({ code:x.code, color:x.color })).filter(x=>x.code);
       if(section==='calendar') {
@@ -620,7 +648,12 @@
       els.theadRow.innerHTML = cols.map(c=>`<th>${c}</th>`).join('');
     }
 
-    function renderList(){
+    async function renderList(){
+      // Load asset types from database if needed
+      if(ui.section === 'assetTypes' && !assetTypesCache) {
+        await loadAssetTypesFromDB();
+      }
+      
       showPane(ui.section);
       setHeaders(ui.section);
 
@@ -652,7 +685,7 @@
         else if(ui.section==='calendar') tr.innerHTML = `<td>${r.name||''}</td><td>${r.enabled ? 'Yes' : 'No'}</td>`;
         else if(ui.section==='setupTemplates') tr.innerHTML = `<td>${r.name||''}</td><td class="text-secondary">${(r.fields||[]).join(', ')}</td>`;
         else if(ui.section==='masterChecklists') tr.innerHTML = `<td>${r.name||''}</td><td class="text-secondary">${(r.items||[]).length} items</td>`;
-        tr.addEventListener('click', ()=>{ ui.selectedId = r.id; saveUI(); renderList(); loadInspector(); });
+        tr.addEventListener('click', async ()=>{ ui.selectedId = r.id; saveUI(); await renderList(); loadInspector(); });
         els.tbody.appendChild(tr);
       });
 
@@ -833,6 +866,31 @@
       if(ui.section==='assetTypes') {
         cur.name = els.f_assettype_name.value.trim();
         cur.color = els.f_assettype_color.value;
+        // Save to database
+        (async () => {
+          try {
+            const isNew = !cur.created_at; // Check if this is a new item
+            if (isNew) {
+              await RTS_API.createAssetType({
+                id: cur.id,
+                name: cur.name,
+                color: cur.color,
+                is_active: cur.is_active !== false,
+                sort_order: cur.sort_order || 0
+              });
+            } else {
+              await RTS_API.updateAssetType(cur.id, {
+                name: cur.name,
+                color: cur.color
+              });
+            }
+            // Reload cache
+            await loadAssetTypesFromDB();
+          } catch (error) {
+            console.error('Error saving asset type:', error);
+            alert('Error saving asset type: ' + (error.message || 'Unknown error'));
+          }
+        })();
       }
       if(ui.section==='venues') {
         cur.name = els.f_venue_name.value.trim();
@@ -855,7 +913,7 @@
       setFor(ui.section, arr);
     }
 
-    function addItem(){
+    async function addItem(){
       if(ui.section==='calendar') return;
       const arr = currentArr();
       let item = null;
@@ -864,17 +922,38 @@
       if(ui.section==='roles') item = { id: RTS.uid('role'), name:'New Role' };
       if(ui.section==='suppliers') item = { id: RTS.uid('sup'), name:'New Supplier', email:'', phone:'', leadTimeDays:0, vatNumber:'', accountNumber:'', notes:'' };
       if(ui.section==='locations') item = { id: RTS.uid('loc'), name:'New Location' };
-      if(ui.section==='assetTypes') item = { id: RTS.uid('assettype'), name:'New Asset Type', color:'#0ea5e9' };
+      if(ui.section==='assetTypes') {
+        item = { id: RTS.uid('at'), name:'New Asset Type', color:'#0ea5e9', is_active: true, sort_order: arr.length };
+        // Create in database
+        try {
+          await RTS_API.createAssetType({
+            id: item.id,
+            name: item.name,
+            color: item.color,
+            is_active: item.is_active,
+            sort_order: item.sort_order
+          });
+          await loadAssetTypesFromDB();
+          ui.selectedId = item.id;
+          saveUI();
+          await renderList();
+          return;
+        } catch (error) {
+          console.error('Error creating asset type:', error);
+          alert('Error creating asset type: ' + (error.message || 'Unknown error'));
+          return;
+        }
+      }
       if(ui.section==='venues') item = { id: RTS.uid('venue'), name:'New Venue', location:'', notes:'' };
       if(ui.section==='eventTypes') item = { id: RTS.uid('et'), code:'New Type', color:'#e32636' };
       if(ui.section==='setupTemplates') item = { id: RTS.uid('setup'), name:'New Template', fields:[] };
       if(ui.section==='masterChecklists') item = { id: RTS.uid('chk'), name:'New Checklist', items:[] };
       if(!item) return;
       arr.unshift(item);
-      setFor(ui.section, arr);
+      await setFor(ui.section, arr);
       ui.selectedId = item.id;
       saveUI();
-      renderList();
+      await renderList();
     }
 
     function duplicateItem(){
@@ -893,16 +972,34 @@
       renderList();
     }
 
-    function deleteItem(){
+    async function deleteItem(){
       if(ui.section==='calendar') return;
       const arr = currentArr();
       const idx = arr.findIndex(x=>x.id===ui.selectedId);
       if(idx<0) return;
+      
+      if(ui.section==='assetTypes') {
+        // Delete from database
+        try {
+          const itemToDelete = arr[idx];
+          await RTS_API.deleteAssetType(itemToDelete.id);
+          await loadAssetTypesFromDB();
+          ui.selectedId = assetTypesCache && assetTypesCache[0] ? assetTypesCache[0].id : null;
+          saveUI();
+          await renderList();
+          return;
+        } catch (error) {
+          console.error('Error deleting asset type:', error);
+          alert('Error deleting asset type: ' + (error.error || error.message || 'Unknown error'));
+          return;
+        }
+      }
+      
       arr.splice(idx,1);
-      setFor(ui.section, arr);
+      await setFor(ui.section, arr);
       ui.selectedId = arr[0] ? arr[0].id : null;
       saveUI();
-      renderList();
+      await renderList();
     }
 
     function exportJSON(){
@@ -940,7 +1037,7 @@
     }
 
     // Events
-    els.sectionList.addEventListener('click', (e)=>{
+    els.sectionList.addEventListener('click', async (e)=>{
       const li = e.target.closest('li[data-section]');
       if(!li) return;
       ui.section = li.getAttribute('data-section');
@@ -948,11 +1045,11 @@
       ui.search = '';
       els.search.value = '';
       saveUI();
-      renderList();
+      await renderList();
     });
-    els.search.addEventListener('input', ()=>{ ui.search = els.search.value; saveUI(); renderList(); });
+    els.search.addEventListener('input', async ()=>{ ui.search = els.search.value; saveUI(); await renderList(); });
     els.btnAdd.addEventListener('click', addItem);
-    els.btnSave.addEventListener('click', ()=>{ saveInspector(); renderList(); });
+    els.btnSave.addEventListener('click', async ()=>{ saveInspector(); await renderList(); });
     els.btnDup.addEventListener('click', duplicateItem);
     els.btnDel.addEventListener('click', deleteItem);
     els.btnExport.addEventListener('click', exportJSON);
@@ -983,7 +1080,7 @@
     // Init
     ui.section = ui.section || 'drivers';
     els.search.value = ui.search || '';
-    renderList();
+    await renderList();
   })();
   </script>
 </body>

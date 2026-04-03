@@ -1032,6 +1032,34 @@
         method: 'POST',
         body: JSON.stringify({ boxId, itemId })
       });
+    },
+
+    // Get all asset types
+    async getAssetTypes() {
+      return await apiRequest('/asset-types');
+    },
+
+    // Create asset type
+    async createAssetType(data) {
+      return await apiRequest('/asset-types', {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
+    },
+
+    // Update asset type
+    async updateAssetType(id, data) {
+      return await apiRequest(`/asset-types/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data)
+      });
+    },
+
+    // Delete asset type
+    async deleteAssetType(id) {
+      return await apiRequest(`/asset-types/${id}`, {
+        method: 'DELETE'
+      });
     }
   };
 

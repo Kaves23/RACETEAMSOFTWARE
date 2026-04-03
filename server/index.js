@@ -29,11 +29,13 @@ app.use('/api/auth', authRouter);
 const boxesRouter = require('./routes/boxes');
 const itemsRouter = require('./routes/items');
 const boxContentsRouter = require('./routes/box-contents');
+const assetTypesRouter = require('./routes/asset-types');
 const importLocalStorageRouter = require('./routes/import-localStorage');
 
 app.use('/api/boxes', requireAuth, boxesRouter);
 app.use('/api/items', requireAuth, itemsRouter);
 app.use('/api/box-contents', requireAuth, boxContentsRouter);
+app.use('/api/asset-types', requireAuth, assetTypesRouter);
 app.use('/api/import-localStorage', requireAuth, importLocalStorageRouter);
 
 // Get settings (read-only endpoint) - PROTECTED
