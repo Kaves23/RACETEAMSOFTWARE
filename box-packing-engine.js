@@ -348,6 +348,49 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     });
 
     setupDragAndDrop();
+    setupResizablePanels();
+  }
+  
+  // ========== RESIZABLE PANELS ==========
+  function setupResizablePanels() {
+    const resize1 = document.getElementById('resize1');
+    const resize2 = document.getElementById('resize2');
+    const leftPanel = document.getElementById('leftPanel');
+    const middlePanel = document.getElementById('middlePanel');
+    const rightPanel = document.getElementById('rightPanel');
+    
+    function makeResizable(handle, leftEl, rightEl) {
+      let startX, startLeftWidth, startRightWidth;
+      
+      handle.addEventListener('mousedown', e => {
+        startX = e.clientX;
+        startLeftWidth = leftEl.offsetWidth;
+        startRightWidth = rightEl.offsetWidth;
+        
+        function onMouseMove(e) {
+          const dx = e.clientX - startX;
+          const newLeftWidth = startLeftWidth + dx;
+          const newRightWidth = startRightWidth - dx;
+          
+          if (newLeftWidth >= 180 && newRightWidth >= 180) {
+            leftEl.style.flex = `0 0 ${newLeftWidth}px`;
+            rightEl.style.flex = `0 0 ${newRightWidth}px`;
+          }
+        }
+        
+        function onMouseUp() {
+          document.removeEventListener('mousemove', onMouseMove);
+          document.removeEventListener('mouseup', onMouseUp);
+        }
+        
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+        e.preventDefault();
+      });
+    }
+    
+    makeResizable(resize1, leftPanel, middlePanel);
+    makeResizable(resize2, middlePanel, rightPanel);
   }
 
   // ========== RENDERING ==========
@@ -392,7 +435,11 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       const contentsBadge = contents.length > 0 ? `<div class="box-contents-badge">${contents.length}</div>` : '';
       
       return `
-        <div class="box-container${isActive}" onclick="BoxPacking.selectBox('${box.id}')">
+        <div class="box-container${isActive}" 
+             onclick="selectBox('${box.id}')"
+             ondragover="event.preventDefault(); this.style.background='#e8f0fe'"
+             ondragleave="this.style.background=''"
+             ondrop="handleBoxDrop(event, '${box.id}')">
           ${contentsBadge}
           <div class="box-barcode">${esc(box.barcode)}</div>
           <div class="box-name">${esc(box.name)}</div>
@@ -445,19 +492,22 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     const html = filtered.map(item => {
       const boxName = item.currentBoxId ? getBoxName(item.currentBoxId) : 'Not packed';
       const categoryClass = (item.category || '').toLowerCase().replace(/\s+/g, '-');
-      const isPacked = item.currentBoxId ? 'opacity:0.6' : '';
-      const isPackedClass = item.currentBoxId ? 'in-box' : '';
+      const isPacked = !!item.currentBoxId;
+      const isPackedStyle = isPacked ? 'opacity:0.4' : '';
+      const isPackedClass = isPacked ? 'in-box' : '';
+      const draggable = !isPacked;
+      const cursorStyle = isPacked ? 'cursor:not-allowed' : 'cursor:move';
       
       return `
         <div class="item-card ${isPackedClass}" 
-             draggable="true"
+             draggable="${draggable}"
              data-item-id="${item.id}"
              data-item-type="${item.type}"
-             style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 8px!important;${isPacked};cursor:move">
+             style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 8px!important;${isPackedStyle};${cursorStyle}">
           <div class="item-barcode" style="flex:0 0 auto;min-width:60px">${esc(item.barcode)}</div>
           <div class="item-name" style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(item.name)}</div>
           <div class="item-category ${categoryClass}" style="flex:0 0 auto">${esc(item.category || 'Uncategorized')}</div>
-          <div style="flex:0 0 auto;font-size:.65rem;color:#5f6368;white-space:nowrap">${item.currentBoxId ? '📦 ' + esc(boxName) : '⚠️ Unpacked'}</div>
+          <div style="flex:0 0 auto;font-size:.65rem;color:#5f6368;white-space:nowrap">${isPacked ? '📦 ' + esc(boxName) : '⚠️ Unpacked'}</div>
         </div>
       `;
     }).join('');
@@ -479,37 +529,37 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     document.getElementById('boxDetails').style.display = 'none';
     document.getElementById('boxContents').style.display = 'block';
     
-    // Update header with box name and interactive barcode
+    // Update header with box name and QR code
     document.getElementById('currentBoxTitle').innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;width:100%;gap:10px">
         <div style="flex:1;font-size:.9rem;font-weight:700;color:#202124">${esc(box.name)}</div>
-        <div style="flex:0 0 auto;display:flex;align-items:center;background:#ffffff;padding:4px 8px;border-radius:4px;border:1px solid #e0e0e0">
-          <svg id="barcode-${box.id}"></svg>
-        </div>
+        <div id="qrcode-${box.id}" style="flex:0 0 auto;padding:4px;background:#ffffff;border:1px solid #e0e0e0;border-radius:4px"></div>
       </div>
     `;
     
-    // Generate barcode using JsBarcode (with slight delay to ensure DOM is ready)
+    // Generate QR code
     setTimeout(() => {
       try {
-        JsBarcode(`#barcode-${box.id}`, box.barcode, {
-          format: "CODE128",
-          width: 1.2,
-          height: 28,
-          displayValue: true,
-          fontSize: 9,
-          margin: 2,
-          background: "#ffffff",
-          lineColor: "#1a73e8",
-          textMargin: 1
-        });
+        const qrcodeEl = document.getElementById(`qrcode-${box.id}`);
+        if (qrcodeEl && typeof QRCode !== 'undefined') {
+          qrcodeEl.innerHTML = ''; // Clear any previous QR code
+          new QRCode(qrcodeEl, {
+            text: box.barcode,
+            width: 60,
+            height: 60,
+            colorDark: "#1a73e8",
+            colorLight: "#ffffff",
+            correctLevel: QRCode.CorrectLevel.M
+          });
+        } else {
+          qrcodeEl.innerHTML = `<span style="font-family:monospace;font-size:.75rem;color:#1a73e8;font-weight:700">${esc(box.barcode)}</span>`;
+        }
       } catch (e) {
-        console.error('Barcode generation error:', e);
-        // Fallback: show text if barcode fails
-        document.getElementById(`barcode-${box.id}`).outerHTML = 
+        console.error('QR code generation error:', e);
+        document.getElementById(`qrcode-${box.id}`).innerHTML = 
           `<span style="font-family:monospace;font-size:.75rem;color:#1a73e8;font-weight:700">${esc(box.barcode)}</span>`;
       }
-    }, 10);
+    }, 50);
 
     const contents = boxContents.filter(c => c.boxId === currentBoxId);
     
@@ -601,6 +651,20 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
         draggedItemType = null;
       }
     });
+    
+    // Make function globally accessible for box card drops
+    window.handleBoxDrop = function(e, boxId) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.target.closest('.box-container').style.background = '';
+      
+      if (draggedItemId && draggedItemType) {
+        packItem(boxId, draggedItemId, draggedItemType);
+        selectBox(boxId); // Auto-select the box to show contents
+        draggedItemId = null;
+        draggedItemType = null;
+      }
+    };
   }
 
   function packItem(boxId, itemId, itemType) {
@@ -703,6 +767,9 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     currentBoxId = boxId;
     renderAll();
   }
+  
+  // Make globally accessible for onclick handlers
+  window.selectBox = selectBox;
 
   // ========== HISTORY ==========
   function addHistory(boxId, action, details) {
