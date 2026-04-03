@@ -2064,6 +2064,11 @@
       const locationFilter = document.getElementById('filterLocation').value;
       const boxFilter = document.getElementById('filterBox').value;
 
+      console.log('🎨 renderAssets called');
+      console.log('  Total assets:', allAssets.length);
+      console.log('  Type filter:', typeFilter || '(none)');
+      console.log('  Sample asset item_type:', allAssets[0]?.item_type);
+      
       let filtered = allAssets.filter(asset => {
         const matchSearch = !search || 
           asset.name?.toLowerCase().includes(search) ||
@@ -2076,8 +2081,18 @@
         let matchBox = true;
         if (boxFilter === 'yes') matchBox = !!asset.current_box_id;
         if (boxFilter === 'no') matchBox = !asset.current_box_id;
-        return matchSearch && matchType && matchStatus && matchLocation && matchBox;
+        
+        const matches = matchSearch && matchType && matchStatus && matchLocation && matchBox;
+        
+        // Debug first 3 items
+        if (allAssets.indexOf(asset) < 3) {
+          console.log(`  Asset ${asset.name}: search=${matchSearch}, type=${matchType}, status=${matchStatus}, location=${matchLocation}, box=${matchBox}, RESULT=${matches}`);
+        }
+        
+        return matches;
       });
+      
+      console.log('  Filtered count:', filtered.length);
 
       // Apply sorting if in table view
       if (currentView === 'table') {
