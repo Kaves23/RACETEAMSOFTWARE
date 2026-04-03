@@ -26,7 +26,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   let assets = [];
   let currentBoxId = null;
   let currentFilter = 'all';
-  let boxModal, historyModal;
+  let boxModal, historyModal, unpackModal;
 
   // ========== INITIALIZATION ==========
   async function init() {
@@ -323,11 +323,13 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   function initUI() {
     boxModal = new bootstrap.Modal(document.getElementById('boxModal'));
     historyModal = new bootstrap.Modal(document.getElementById('historyModal'));
+    unpackModal = new bootstrap.Modal(document.getElementById('unpackModal'));
 
     document.getElementById('btnNewBox').addEventListener('click', () => showBoxModal());
     document.getElementById('btnSaveBox').addEventListener('click', saveBox);
     document.getElementById('btnPrintLabel').addEventListener('click', printLabel);
     document.getElementById('btnBoxHistory').addEventListener('click', showHistory);
+    document.getElementById('btnConfirmUnpack').addEventListener('click', confirmUnpack);
     document.getElementById('searchBoxes').addEventListener('input', renderBoxes);
     document.getElementById('searchItems').addEventListener('input', renderItems);
     
@@ -578,7 +580,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     if (contents.length === 0) {
       document.getElementById('contentsList').innerHTML = `
         <div style="text-align:center;padding:30px;color:#5f6368;font-size:.85rem">
-          Drag items from the center panel here to pack them
+          Drag items from the left panel here to pack them
         </div>
       `;
       return;
@@ -602,7 +604,16 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       `;
     }).join('');
 
-    document.getElementById('contentsList').innerHTML = html;
+    // Add EMPTY BOX button before the contents list
+    const emptyBoxButton = `
+      <div style="margin-bottom:12px">
+        <button onclick="showUnpackModal()" class="btn btn-danger w-100" style="background:#d93025;border-color:#d93025;font-weight:600;padding:8px">
+          🗑️ EMPTY BOX
+        </button>
+      </div>
+    `;
+
+    document.getElementById('contentsList').innerHTML = emptyBoxButton + html;
   }
 
   function updateStats() {
@@ -770,6 +781,123 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   
   // Make globally accessible for onclick handlers
   window.selectBox = selectBox;
+  
+  // ========== UNPACK BOX ==========
+  function showUnpackModal() {
+    if (!currentBoxId) {
+      alert('No box selected');
+      return;
+    }
+    
+    const box = boxes.find(b => b.id === currentBoxId);
+    const contents = boxContents.filter(c => c.boxId === currentBoxId);
+    
+    if (contents.length === 0) {
+      alert('This box is already empty');
+      return;
+    }
+    
+    // Populate location dropdown
+    const settings = RTS.getSettings();
+    const locations = settings.locations || [];
+    const locationSelect = document.getElementById('unpackLocation');
+    locationSelect.innerHTML = '<option value="">Select Location</option>' +
+      locations.map(loc => `<option value="${esc(loc)}">${esc(loc)}</option>`).join('');
+    
+    // Show items that will be unpacked
+    const itemsHtml = contents.map(content => {
+      const item = getItem(content.itemId, content.itemType);
+      if (!item) return '';
+      return `
+        <div style="padding:6px;border-bottom:1px solid #e0e0e0;display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-weight:600;color:#202124;font-size:.85rem">${esc(item.name)}</div>
+            <div style="font-size:.75rem;color:#5f6368">${esc(item.barcode)} · ${esc(item.category || 'Uncategorized')}</div>
+          </div>
+          <div style="font-size:.75rem;color:#1a73e8;font-weight:600">${content.itemType === 'equipment' ? 'Equipment' : 'Asset'}</div>
+        </div>
+      `;
+    }).join('');
+    
+    document.getElementById('unpackItemsList').innerHTML = `
+      <div style="font-size:.85rem;font-weight:600;color:#202124;margin-bottom:8px">
+        Items to unpack (${contents.length}):
+      </div>
+      ${itemsHtml}
+    `;
+    
+    unpackModal.show();
+  }
+  
+  async function confirmUnpack() {
+    const locationName = document.getElementById('unpackLocation').value;
+    
+    if (!locationName) {
+      alert('Please select a location where the box is being unpacked');
+      return;
+    }
+    
+    if (!currentBoxId) {
+      alert('No box selected');
+      return;
+    }
+    
+    const box = boxes.find(b => b.id === currentBoxId);
+    const contents = boxContents.filter(c => c.boxId === currentBoxId);
+    
+    if (contents.length === 0) {
+      alert('This box is already empty');
+      return;
+    }
+    
+    // Generate location ID (same format as in assets.html: lowercase with underscores)
+    const locationId = locationName.toLowerCase().replace(/\s+/g, '_');
+    
+    try {
+      // Update each item to remove box and set location
+      for (const content of contents) {
+        const item = getItem(content.itemId, content.itemType);
+        if (item) {
+          item.currentBoxId = null;
+          item.currentLocationId = locationId;
+          
+          // Update via API if available
+          if (window.RTS_API && window.RTS_API.updateItem) {
+            try {
+              await window.RTS_API.updateItem(item.id, {
+                current_box_id: null,
+                current_location_id: locationId
+              });
+            } catch (e) {
+              console.warn('Could not update item via API:', e.message);
+            }
+          }
+        }
+      }
+      
+      // Clear box contents
+      const itemNames = contents.map(c => {
+        const item = getItem(c.itemId, c.itemType);
+        return item ? item.name : 'Unknown';
+      }).join(', ');
+      
+      boxContents = boxContents.filter(c => c.boxId !== currentBoxId);
+      
+      addHistory(currentBoxId, 'box_emptied', `Emptied ${contents.length} items to ${locationName}: ${itemNames}`);
+      
+      saveData();
+      unpackModal.hide();
+      renderAll();
+      
+      alert(`✅ Box emptied successfully! ${contents.length} items moved to ${locationName}`);
+    } catch (e) {
+      console.error('Error unpacking box:', e);
+      alert('Error unpacking box: ' + e.message);
+    }
+  }
+  
+  // Make globally accessible
+  window.showUnpackModal = showUnpackModal;
 
   // ========== HISTORY ==========
   function addHistory(boxId, action, details) {
