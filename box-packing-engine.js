@@ -348,15 +348,20 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     if (sortBoxes) sortBoxes.addEventListener('change', renderBoxes);
     if (sortItems) sortItems.addEventListener('change', renderItems);
 
-    // Filter buttons
-    document.querySelectorAll('[data-filter]').forEach(btn => {
-      btn.addEventListener('click', e => {
-        document.querySelectorAll('[data-filter]').forEach(b => b.classList.remove('active'));
-        e.target.classList.add('active');
-        currentFilter = e.target.dataset.filter;
+    // Filter dropdown
+    const filterItemType = document.getElementById('filterItemType');
+    if (filterItemType) {
+      // Populate with asset types from settings
+      const options = ['<option value="all">Filter: All Types</option>'];
+      allAssetTypes.forEach(type => {
+        options.push(`<option value="${esc(type.name.toLowerCase().replace(/\s+/g, '_'))}">${esc(type.name)}</option>`);
+      });
+      filterItemType.innerHTML = options.join('');
+      filterItemType.addEventListener('change', e => {
+        currentFilter = e.target.value;
         renderItems();
       });
-    });
+    }
 
     setupDragAndDrop();
     setupResizablePanels();
@@ -471,14 +476,16 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     const sortBy = document.getElementById('sortItems')?.value || 'name';
     let allItems = [];
 
-    // Collect items based on filter - STRICTLY separated
-    if (currentFilter === 'all') {
-      allItems = allItems.concat(equipment.map(e => ({ ...e, type: 'equipment' })));
-      allItems = allItems.concat(assets.map(a => ({ ...a, type: 'assets' })));
-    } else if (currentFilter === 'equipment') {
-      allItems = equipment.map(e => ({ ...e, type: 'equipment' }));
-    } else if (currentFilter === 'assets') {
-      allItems = assets.map(a => ({ ...a, type: 'assets' }));
+    // Collect all items
+    allItems = allItems.concat(equipment.map(e => ({ ...e, type: 'equipment' })));
+    allItems = allItems.concat(assets.map(a => ({ ...a, type: 'assets' })));
+
+    // Filter by type if not 'all'
+    if (currentFilter !== 'all') {
+      allItems = allItems.filter(item => {
+        const itemTypeKey = (item.itemType || item.type || '').toLowerCase().replace(/\s+/g, '_');
+        return itemTypeKey === currentFilter;
+      });
     }
 
     console.log(`📊 After filter, allItems count: ${allItems.length}`);
