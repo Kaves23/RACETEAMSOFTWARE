@@ -681,7 +681,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   function packItem(boxId, itemId, itemType) {
     const item = getItem(itemId, itemType);
     if (!item || item.currentBoxId) {
-      alert('Item is not available or already packed.');
+      showToast('Item is not available or already packed', 'warning');
       return;
     }
 
@@ -742,7 +742,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   function saveBox() {
     const name = document.getElementById('boxName').value.trim();
     if (!name) {
-      alert('Box name is required.');
+      showToast('Box name is required', 'warning');
       return;
     }
 
@@ -785,7 +785,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   // ========== UNPACK BOX ==========
   function showUnpackModal() {
     if (!currentBoxId) {
-      alert('No box selected');
+      showToast('No box selected', 'warning');
       return;
     }
     
@@ -793,7 +793,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     const contents = boxContents.filter(c => c.boxId === currentBoxId);
     
     if (contents.length === 0) {
-      alert('This box is already empty');
+      showToast('This box is already empty', 'info');
       return;
     }
     
@@ -833,12 +833,12 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     const locationName = document.getElementById('unpackLocation').value;
     
     if (!locationName) {
-      alert('Please select a location where the box is being unpacked');
+      showToast('Please select a location where the box is being unpacked', 'warning');
       return;
     }
     
     if (!currentBoxId) {
-      alert('No box selected');
+      showToast('No box selected', 'error');
       return;
     }
     
@@ -846,15 +846,28 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     const contents = boxContents.filter(c => c.boxId === currentBoxId);
     
     if (contents.length === 0) {
-      alert('This box is already empty');
+      showToast('This box is already empty', 'warning');
       return;
     }
+    
+    // Close the modal first
+    unpackModal.hide();
+    
+    // Show loading with item count
+    showLoading(
+      `Emptying Box: ${box.name}`,
+      `Moving ${contents.length} item${contents.length !== 1 ? 's' : ''} to ${locationName}...`
+    );
     
     // Generate location ID (same format as in assets.html: lowercase with underscores)
     const locationId = locationName.toLowerCase().replace(/\s+/g, '_');
     
     try {
+      // Small delay to show the animation
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       // Update each item to remove box and set location
+      let updateCount = 0;
       for (const content of contents) {
         const item = getItem(content.itemId, content.itemType);
         if (item) {
@@ -872,6 +885,13 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
               console.warn('Could not update item via API:', e.message);
             }
           }
+          
+          updateCount++;
+          // Update loading text with progress
+          const subtext = document.getElementById('loadingSubtext');
+          if (subtext) {
+            subtext.textContent = `${updateCount} of ${contents.length} items moved...`;
+          }
         }
       }
       
@@ -886,18 +906,65 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       addHistory(currentBoxId, 'box_emptied', `Emptied ${contents.length} items to ${locationName}: ${itemNames}`);
       
       saveData();
-      unpackModal.hide();
       renderAll();
       
-      alert(`✅ Box emptied successfully! ${contents.length} items moved to ${locationName}`);
+      // Hide loading and show success toast
+      hideLoading();
+      showToast(
+        `Box emptied successfully! ${contents.length} item${contents.length !== 1 ? 's' : ''} moved to ${locationName}`,
+        'success'
+      );
     } catch (e) {
       console.error('Error unpacking box:', e);
-      alert('Error unpacking box: ' + e.message);
+      hideLoading();
+      showToast('Error unpacking box: ' + e.message, 'error');
     }
   }
   
   // Make globally accessible
   window.showUnpackModal = showUnpackModal;
+  
+  // ========== TOAST NOTIFICATIONS ==========
+  function showToast(message, type = 'info') {
+    const container = document.getElementById('toastContainer');
+    const icons = {
+      success: '✅',
+      error: '❌',
+      warning: '⚠️',
+      info: 'ℹ️'
+    };
+    
+    const toast = document.createElement('div');
+    toast.className = `custom-toast ${type}`;
+    toast.innerHTML = `
+      <span class="toast-icon">${icons[type]}</span>
+      <span class="toast-message">${message}</span>
+      <button class="toast-close" onclick="this.parentElement.remove()">×</button>
+    `;
+    
+    container.appendChild(toast);
+    
+    // Auto remove after 4 seconds
+    setTimeout(() => {
+      toast.classList.add('removing');
+      setTimeout(() => toast.remove(), 300);
+    }, 4000);
+  }
+  
+  function showLoading(text = 'Processing...', subtext = 'Please wait') {
+    const overlay = document.getElementById('loadingOverlay');
+    const loadingText = document.getElementById('loadingText');
+    const loadingSubtext = document.getElementById('loadingSubtext');
+    
+    if (loadingText) loadingText.textContent = text;
+    if (loadingSubtext) loadingSubtext.textContent = subtext;
+    if (overlay) overlay.classList.add('show');
+  }
+  
+  function hideLoading() {
+    const overlay = document.getElementById('loadingOverlay');
+    if (overlay) overlay.classList.remove('show');
+  }
 
   // ========== HISTORY ==========
   function addHistory(boxId, action, details) {
@@ -914,7 +981,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
 
   function showHistory() {
     if (!currentBoxId) {
-      alert('Please select a box first.');
+      showToast('Please select a box first', 'warning');
       return;
     }
 
@@ -953,7 +1020,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   // ========== PRINTING ==========
   function printLabel() {
     if (!currentBoxId) {
-      alert('Please select a box first.');
+      showToast('Please select a box first', 'warning');
       return;
     }
 
