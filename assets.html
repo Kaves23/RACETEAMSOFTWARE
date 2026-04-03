@@ -1752,6 +1752,8 @@
     let sortColumn = null;
     let sortDirection = 'desc';
     let selectedAssets = new Set(); // Track selected asset IDs for bulk operations
+    let lastClickedAssetId = null; // For shift-click range selection
+    let currentFilteredAssets = []; // Track currently displayed assets for range selection
 
     // Simple cache to avoid redundant API calls
     let dataCache = {
@@ -2053,6 +2055,9 @@
       if (currentView === 'table') {
         filtered = getSortedAssets(filtered);
       }
+      
+      // Store filtered assets for shift-click range selection
+      currentFilteredAssets = filtered;
 
       const container = document.getElementById('assetList');
       const noResults = document.getElementById('noResults');
@@ -2130,7 +2135,7 @@
         const statusClass = `status-${asset.status}`;
         
         return `<tr data-id="${asset.id}" style="position: relative;">
-          <td class="checkbox-cell"><input type="checkbox" class="asset-checkbox" data-id="${asset.id}" onclick="event.stopPropagation(); toggleAssetSelection('${asset.id}')"></td>
+          <td class="checkbox-cell"><input type="checkbox" class="asset-checkbox" data-id="${asset.id}" onclick="event.stopPropagation(); toggleAssetSelection('${asset.id}', event)"></td>
           <div class="status-indicator ${statusClass}"></div>
           <td class="table-barcode" title="${asset.barcode || asset.id}">${asset.barcode || asset.id}</td>
           <td class="table-name" title="${asset.name}">${asset.name}</td>
@@ -2181,7 +2186,7 @@
       return `<div class="asset-card" data-id="${asset.id}">
         <div class="status-indicator ${statusClass}"></div>
         <div class="card-checkbox-container">
-          <input type="checkbox" class="asset-checkbox" data-id="${asset.id}" onclick="event.stopPropagation(); toggleAssetSelection('${asset.id}')">
+          <input type="checkbox" class="asset-checkbox" data-id="${asset.id}" onclick="event.stopPropagation(); toggleAssetSelection('${asset.id}', event)">
         </div>
         <div class="asset-card-row-1">
           <div class="asset-barcode">${asset.barcode || asset.id}</div>
@@ -3543,12 +3548,34 @@ if (!newLocationId && !newBoxId) {
     // BULK OPERATIONS
     // ============================================================================
     
-    function toggleAssetSelection(assetId) {
-      if (selectedAssets.has(assetId)) {
-        selectedAssets.delete(assetId);
+    function toggleAssetSelection(assetId, event) {
+      // Shift-click range selection
+      if (event && event.shiftKey && lastClickedAssetId && lastClickedAssetId !== assetId) {
+        // Find indices of both assets in the current filtered view
+        const lastIndex = currentFilteredAssets.findIndex(a => a.id === lastClickedAssetId);
+        const currentIndex = currentFilteredAssets.findIndex(a => a.id === assetId);
+        
+        if (lastIndex !== -1 && currentIndex !== -1) {
+          // Select all assets in the range (inclusive)
+          const startIndex = Math.min(lastIndex, currentIndex);
+          const endIndex = Math.max(lastIndex, currentIndex);
+          
+          for (let i = startIndex; i <= endIndex; i++) {
+            selectedAssets.add(currentFilteredAssets[i].id);
+          }
+        }
       } else {
-        selectedAssets.add(assetId);
+        // Normal click - toggle single asset
+        if (selectedAssets.has(assetId)) {
+          selectedAssets.delete(assetId);
+        } else {
+          selectedAssets.add(assetId);
+        }
       }
+      
+      // Remember this asset for next shift-click
+      lastClickedAssetId = assetId;
+      
       updateBulkToolbar();
       updateCheckboxStates();
     }
