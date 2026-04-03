@@ -1887,7 +1887,6 @@
       
       await loadData();
       setupEventListeners();
-      renderAssets();
       updateStats();
       
       const loadTime = Math.round(performance.now() - startTime);
@@ -1940,12 +1939,19 @@
 
     async function loadData() {
       try {
+        console.log('🔄 Starting loadData...');
+        
         // Load items, boxes, and asset types in PARALLEL (not sequential)
         const [allItems, allBoxesData, assetTypesResponse] = await Promise.all([
           window.RTS_DATA.getItems(),
           window.RTS_DATA.getBoxes(),
-          window.RTS_API.getAssetTypes().catch(() => ({ success: false, assetTypes: [] }))
+          window.RTS_API.getAssetTypes().catch(err => {
+            console.warn('⚠️ Failed to load asset types from API:', err);
+            return { success: false, assetTypes: [] };
+          })
         ]);
+        
+        console.log(`📦 Loaded ${allItems?.length || 0} items, ${allBoxesData?.length || 0} boxes`);
         
         allAssets = allItems || [];
         allBoxes = allBoxesData || [];
@@ -1962,20 +1968,26 @@
         // Load asset types from database with fallback to settings
         if (assetTypesResponse && assetTypesResponse.success && assetTypesResponse.assetTypes.length > 0) {
           allAssetTypes = assetTypesResponse.assetTypes;
+          console.log(`✅ Loaded ${allAssetTypes.length} asset types from database`);
         } else {
           // Fallback to localStorage if API fails
           const assetTypesFromSettings = settings.assetTypes || [{name:'Equipment',color:'#0ea5e9'},{name:'Asset',color:'#a855f7'}];
           allAssetTypes = assetTypesFromSettings.map(t => 
             typeof t === 'string' ? {name:t, color:'#0ea5e9'} : {name:t.name, color:t.color||'#0ea5e9'}
           );
+          console.log(`⚠️ Using ${allAssetTypes.length} asset types from localStorage fallback`);
         }
+        
+        console.log('🎨 Asset types:', allAssetTypes);
         
         populateLocationDropdowns();
         populateBoxDropdowns();
         populateAssetTypeDropdowns();
         renderAssets();
+        
+        console.log('✅ loadData complete');
       } catch (error) {
-        console.error('Error loading data:', error);
+        console.error('❌ Error loading data:', error);
         document.getElementById('assetList').innerHTML = '<div class="alert alert-danger">Error loading data. Please refresh the page.</div>';
       }
     }
