@@ -27,6 +27,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   let currentBoxId = null;
   let currentFilter = 'all';
   let boxModal, historyModal, unpackModal;
+  let allAssetTypes = []; // Asset types from settings with colors
 
   // ========== INITIALIZATION ==========
   async function init() {
@@ -102,6 +103,14 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     // Box contents and history still from localStorage for now
     boxContents = RTS.safeLoadJSON(LS_BOX_CONTENTS, null) || [];
     boxHistory = RTS.safeLoadJSON(LS_BOX_HISTORY, null) || [];
+    
+    // Load asset types from settings for colored badges
+    const settings = RTS.getSettings();
+    const assetTypesFromSettings = settings.assetTypes || [{name:'Equipment',color:'#0ea5e9'},{name:'Asset',color:'#a855f7'}];
+    // Handle both old string format and new object format
+    allAssetTypes = assetTypesFromSettings.map(t => 
+      typeof t === 'string' ? {name:t, color:'#0ea5e9'} : {name:t.name, color:t.color||'#0ea5e9'}
+    );
     
     console.log(`✅ Data load complete: ${boxes.length} boxes, ${equipment.length} equipment, ${assets.length} assets`);
     
@@ -500,8 +509,13 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       const draggable = !isPacked;
       const cursorStyle = isPacked ? 'cursor:not-allowed' : 'cursor:move';
       
-      // Get asset type display name and serial number
-      const assetType = item.itemType || item.type || 'Unknown';
+      // Get asset type with color (matching assets table view)
+      const itemTypeKey = item.itemType || item.type || 'equipment';
+      const assetTypeObj = allAssetTypes.find(t => t.name.toLowerCase().replace(/\s+/g, '_') === itemTypeKey);
+      const typeColor = assetTypeObj ? assetTypeObj.color : '#0ea5e9';
+      const typeName = assetTypeObj ? assetTypeObj.name : itemTypeKey;
+      
+      // Get serial number
       const serialNum = item.serialNumber || 'No S/N';
       
       return `
@@ -514,18 +528,15 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
             <div class="item-barcode" style="font-family:monospace;font-size:.7rem;font-weight:700;color:#1a73e8">${esc(item.barcode)}</div>
             <div class="item-category ${categoryClass}" style="font-size:.65rem;padding:2px 6px">${esc(item.category || 'Uncategorized')}</div>
           </div>
-          <div class="item-name" style="font-size:.8rem;color:#202124;font-weight:600;margin-bottom:3px;line-height:1.3">${esc(item.name)}</div>
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:.65rem;color:#5f6368">
-            <div style="display:flex;gap:8px">
-              <span style="font-weight:600">Type:</span>
-              <span>${esc(assetType)}</span>
-            </div>
-            <div style="display:flex;gap:8px">
+          <div class="item-name" style="font-size:.8rem;color:#202124;font-weight:600;margin-bottom:4px;line-height:1.3">${esc(item.name)}</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:3px">
+            <span style="background:${typeColor};color:white;font-weight:500;padding:3px 8px;border-radius:4px;font-size:.65rem;white-space:nowrap">${esc(typeName)}</span>
+            <div style="font-size:.65rem;color:#5f6368;display:flex;gap:4px">
               <span style="font-weight:600">S/N:</span>
               <span style="font-family:monospace">${esc(serialNum)}</span>
             </div>
           </div>
-          ${isPacked ? `<div style="font-size:.65rem;color:#ea4335;margin-top:4px;font-weight:600">📦 In ${esc(boxName)}</div>` : ''}
+          ${isPacked ? `<div style="font-size:.65rem;color:#ea4335;font-weight:600">📦 In ${esc(boxName)}</div>` : ''}
         </div>
       `;
     }).join('');
