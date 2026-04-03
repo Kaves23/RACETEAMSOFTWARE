@@ -500,16 +500,32 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       const draggable = !isPacked;
       const cursorStyle = isPacked ? 'cursor:not-allowed' : 'cursor:move';
       
+      // Get asset type display name and serial number
+      const assetType = item.itemType || item.type || 'Unknown';
+      const serialNum = item.serialNumber || 'No S/N';
+      
       return `
         <div class="item-card ${isPackedClass}" 
              draggable="${draggable}"
              data-item-id="${item.id}"
              data-item-type="${item.type}"
-             style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 8px!important;${isPackedStyle};${cursorStyle}">
-          <div class="item-barcode" style="flex:0 0 auto;min-width:60px">${esc(item.barcode)}</div>
-          <div class="item-name" style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(item.name)}</div>
-          <div class="item-category ${categoryClass}" style="flex:0 0 auto">${esc(item.category || 'Uncategorized')}</div>
-          <div style="flex:0 0 auto;font-size:.65rem;color:#5f6368;white-space:nowrap">${isPacked ? '📦 ' + esc(boxName) : '⚠️ Unpacked'}</div>
+             style="padding:8px!important;${isPackedStyle};${cursorStyle}">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+            <div class="item-barcode" style="font-family:monospace;font-size:.7rem;font-weight:700;color:#1a73e8">${esc(item.barcode)}</div>
+            <div class="item-category ${categoryClass}" style="font-size:.65rem;padding:2px 6px">${esc(item.category || 'Uncategorized')}</div>
+          </div>
+          <div class="item-name" style="font-size:.8rem;color:#202124;font-weight:600;margin-bottom:3px;line-height:1.3">${esc(item.name)}</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:.65rem;color:#5f6368">
+            <div style="display:flex;gap:8px">
+              <span style="font-weight:600">Type:</span>
+              <span>${esc(assetType)}</span>
+            </div>
+            <div style="display:flex;gap:8px">
+              <span style="font-weight:600">S/N:</span>
+              <span style="font-family:monospace">${esc(serialNum)}</span>
+            </div>
+          </div>
+          ${isPacked ? `<div style="font-size:.65rem;color:#ea4335;margin-top:4px;font-weight:600">📦 In ${esc(boxName)}</div>` : ''}
         </div>
       `;
     }).join('');
