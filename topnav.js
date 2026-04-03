@@ -143,14 +143,14 @@
       const groupModalTpl = `
         <div class="modal fade" id="rtsGroupQuickModal" tabindex="-1" aria-hidden="true">
           <div class="modal-dialog modal-dialog-centered modal-lg">
-            <div class="modal-content bg-dark text-white border-0">
-              <div class="modal-header border-0">
-                <h5 class="modal-title"><span id="rtsGroupTitle"></span></h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            <div class="modal-content" style="background:#ffffff; color:#000000; border:2px solid #000000;">
+              <div class="modal-header" style="border-bottom:2px solid #000000;">
+                <h5 class="modal-title" style="color:#000000; font-weight:700;"><span id="rtsGroupTitle"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
               </div>
-              <div class="modal-body">
+              <div class="modal-body" style="background:#ffffff;">
                 <div class="d-flex flex-wrap gap-2" id="rtsGroupButtons"></div>
-                <div class="text-secondary mt-3" style="font-size:0.85rem;">Press the highlighted letter to jump instantly.</div>
+                <div class="mt-3" style="font-size:0.85rem; color:#000000; font-weight:600;">Press the highlighted letter to jump instantly.</div>
               </div>
             </div>
           </div>
@@ -182,7 +182,7 @@
             activeGroupKeys[key] = item.href;
             const b = document.createElement('button');
             b.type = 'button';
-            b.className = 'btn btn-lg btn-outline-light mlo-btn rts-quick-btn';
+            b.className = 'btn btn-lg mlo-btn rts-quick-btn rts-quick-btn-light';
             // Square buttons with consistent width/height
             b.style.width = '220px';
             b.style.height = '220px';
