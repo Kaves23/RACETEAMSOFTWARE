@@ -469,10 +469,11 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       
       return `
         <div class="box-container${isActive}" 
-             onclick="selectBox('${box.id}')"
+             onclick="handleBoxClick(event, '${box.id}')"
              ondragover="event.preventDefault(); this.style.background='#e8f0fe'"
              ondragleave="this.style.background=''"
-             ondrop="handleBoxDrop(event, '${box.id}')">
+             ondrop="handleBoxDrop(event, '${box.id}')">  
+          <input type="checkbox" class="box-checkbox" data-box-id="${box.id}" onclick="event.stopPropagation(); toggleBoxSelection('${box.id}')">
           ${contentsBadge}
           <div class="box-barcode">${esc(box.barcode)}</div>
           <div class="box-name">${esc(box.name)}</div>
@@ -1188,6 +1189,287 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     };
   }
 
+  // ========== BOX SELECTION & BULK ACTIONS ==========
+  
+  function handleBoxClick(event, boxId) {
+    // If clicking the checkbox, let toggleBoxSelection handle it
+    if (event.target.classList.contains('box-checkbox')) {
+      return;
+    }
+    // Otherwise, select the box normally
+    selectBox(boxId);
+  }
+  
+  function toggleBoxSelection(boxId) {
+    if (selectedBoxes.has(boxId)) {
+      selectedBoxes.delete(boxId);
+    } else {
+      selectedBoxes.add(boxId);
+    }
+    updateBoxBulkToolbar();
+    updateBoxCheckboxStates();
+  }
+  
+  function updateBoxBulkToolbar() {
+    const toolbar = document.getElementById('bulkBoxActionsToolbar');
+    const count = document.getElementById('selectedBoxCount');
+    
+    if (!toolbar || !count) return;
+    
+    count.textContent = selectedBoxes.size;
+    
+    if (selectedBoxes.size > 0) {
+      toolbar.classList.add('show');
+    } else {
+      toolbar.classList.remove('show');
+    }
+  }
+  
+  function updateBoxCheckboxStates() {
+    document.querySelectorAll('.box-checkbox').forEach(cb => {
+      cb.checked = selectedBoxes.has(cb.dataset.boxId);
+    });
+  }
+  
+  function clearBoxSelection() {
+    selectedBoxes.clear();
+    document.querySelectorAll('.box-checkbox').forEach(cb => cb.checked = false);
+    updateBoxBulkToolbar();
+  }
+  
+  function toggleBulkBoxDropdown(event) {
+    event.stopPropagation();
+    const dropdown = document.getElementById('bulkBoxDropdown');
+    dropdown.classList.toggle('show');
+    
+    // Close when clicking outside
+    if (dropdown.classList.contains('show')) {
+      setTimeout(() => {
+        document.addEventListener('click', function closeDropdown(e) {
+          if (!e.target.closest('.bulk-box-actions-dropdown')) {
+            dropdown.classList.remove('show');
+            document.removeEventListener('click', closeDropdown);
+          }
+        });
+      }, 0);
+    }
+  }
+  
+  function closeBulkBoxDropdown() {
+    const dropdown = document.getElementById('bulkBoxDropdown');
+    dropdown.classList.remove('show');
+  }
+  
+  async function bulkUnpackBoxesToLocation() {
+    if (selectedBoxes.size === 0) {
+      showToast('No boxes selected', 'warning');
+      return;
+    }
+    
+    const locationName = prompt(`📍 Unpack ${selectedBoxes.size} box(es) to location:\n\nEnter location name:`);
+    if (!locationName || locationName.trim() === '') return;
+    
+    const locationId = locationName.trim().toLowerCase().replace(/\s+/g, '_');
+    const selectedBoxArray = Array.from(selectedBoxes);
+    let totalItems = 0;
+    
+    // Count total items
+    selectedBoxArray.forEach(boxId => {
+      const contents = boxContents.filter(c => c.boxId === boxId);
+      totalItems += contents.length;
+    });
+    
+    if (totalItems === 0) {
+      showToast('Selected boxes are empty', 'warning');
+      return;
+    }
+    
+    if (!confirm(`Unpack ${selectedBoxArray.length} box(es) containing ${totalItems} item(s) to "${locationName}"?`)) return;
+    
+    showLoading(`Unpacking Boxes`, `Moving ${totalItems} items to ${locationName}...`);
+    
+    try {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      for (const boxId of selectedBoxArray) {
+        const contents = boxContents.filter(c => c.boxId === boxId);
+        for (const content of contents) {
+          const item = getItem(content.itemId, content.itemType);
+          if (item) {
+            item.currentBoxId = null;
+            item.currentLocationId = locationId;
+            
+            // Update in database
+            try {
+              await RTS_API.unpackItem(content.itemId);
+              await RTS_API.updateItem(content.itemId, { current_location_id: locationId });
+            } catch (error) {
+              console.error('Error updating item:', error);
+            }
+          }
+        }
+        
+        // Remove from box_contents
+        await Promise.all(contents.map(c => RTS_API.removeFromBox(c.boxId, c.itemId)));
+      }
+      
+      // Clear box contents locally
+      boxContents = boxContents.filter(c => !selectedBoxArray.includes(c.boxId));
+      
+      saveData();
+      clearBoxSelection();
+      renderAll();
+      hideLoading();
+      showToast(`✅ Unpacked ${totalItems} items from ${selectedBoxArray.length} boxes to ${locationName}`, 'success');
+    } catch (error) {
+      hideLoading();
+      showToast(`❌ Error: ${error.message}`, 'error');
+    }
+  }
+  
+  async function bulkDeleteBoxesAndMoveItems() {
+    if (selectedBoxes.size === 0) {
+      showToast('No boxes selected', 'warning');
+      return;
+    }
+    
+    const locationName = prompt(`⚠️ Delete ${selectedBoxes.size} box(es) and move items to location:\n\nEnter location name:`);
+    if (!locationName || locationName.trim() === '') return;
+    
+    const locationId = locationName.trim().toLowerCase().replace(/\s+/g, '_');
+    const selectedBoxArray = Array.from(selectedBoxes);
+    let totalItems = 0;
+    
+    selectedBoxArray.forEach(boxId => {
+      const contents = boxContents.filter(c => c.boxId === boxId);
+      totalItems += contents.length;
+    });
+    
+    const boxNames = selectedBoxArray.map(id => boxes.find(b => b.id === id)?.name || id).join(', ');
+    
+    const confirmMsg = `⚠️ DELETE BOXES AND MOVE ITEMS\n\nThis will:\n- Delete ${selectedBoxArray.length} box(es): ${boxNames}\n- Move ${totalItems} item(s) to "${locationName}"\n\nContinue?`;
+    if (!confirm(confirmMsg)) return;
+    
+    showLoading(`Deleting Boxes`, `Moving items and deleting ${selectedBoxArray.length} boxes...`);
+    
+    try {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Move all items first
+      for (const boxId of selectedBoxArray) {
+        const contents = boxContents.filter(c => c.boxId === boxId);
+        for (const content of contents) {
+          const item = getItem(content.itemId, content.itemType);
+          if (item) {
+            item.currentBoxId = null;
+            item.currentLocationId = locationId;
+            
+            try {
+              await RTS_API.unpackItem(content.itemId);
+              await RTS_API.updateItem(content.itemId, { current_location_id: locationId });
+            } catch (error) {
+              console.error('Error updating item:', error);
+            }
+          }
+        }
+        
+        // Remove from box_contents
+        await Promise.all(contents.map(c => RTS_API.removeFromBox(c.boxId, c.itemId)));
+      }
+      
+      // Delete boxes
+      for (const boxId of selectedBoxArray) {
+        try {
+          await RTS_API.deleteBox(boxId);
+        } catch (error) {
+          console.error('Error deleting box:', error);
+        }
+      }
+      
+      // Update local state
+      boxContents = boxContents.filter(c => !selectedBoxArray.includes(c.boxId));
+      boxes = boxes.filter(b => !selectedBoxArray.includes(b.id));
+      
+      saveData();
+      clearBoxSelection();
+      renderAll();
+      hideLoading();
+      showToast(`✅ Deleted ${selectedBoxArray.length} boxes and moved ${totalItems} items to ${locationName}`, 'success');
+    } catch (error) {
+      hideLoading();
+      showToast(`❌ Error: ${error.message}`, 'error');
+    }
+  }
+  
+  async function bulkDeleteBoxesAndItems() {
+    if (selectedBoxes.size === 0) {
+      showToast('No boxes selected', 'warning');
+      return;
+    }
+    
+    const selectedBoxArray = Array.from(selectedBoxes);
+    let totalItems = 0;
+    
+    selectedBoxArray.forEach(boxId => {
+      const contents = boxContents.filter(c => c.boxId === boxId);
+      totalItems += contents.length;
+    });
+    
+    const boxNames = selectedBoxArray.map(id => boxes.find(b => b.id === id)?.name || id).join(', ');
+    
+    // First warning
+    const warning1 = `🚨 PERMANENT DELETE WARNING\n\nYou are about to:\n- DELETE ${selectedBoxArray.length} box(es): ${boxNames}\n- DELETE ${totalItems} item(s) inside them\n\nThis action CANNOT be undone!\n\nAre you sure?`;
+    if (!confirm(warning1)) return;
+    
+    // Second warning (double confirmation)
+    const warning2 = `🚨 FINAL CONFIRMATION\n\nThis will PERMANENTLY DELETE:\n- ${selectedBoxArray.length} boxes\n- ${totalItems} items\n\nType YES in your mind and click OK to proceed with deletion.`;
+    if (!confirm(warning2)) return;
+    
+    showLoading(`Deleting Everything`, `Permanently removing ${selectedBoxArray.length} boxes and ${totalItems} items...`);
+    
+    try {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Delete all items in the boxes first
+      for (const boxId of selectedBoxArray) {
+        const contents = boxContents.filter(c => c.boxId === boxId);
+        for (const content of contents) {
+          try {
+            await RTS_API.deleteItem(content.itemId);
+            
+            // Remove from local arrays
+            equipment = equipment.filter(e => e.id !== content.itemId);
+            assets = assets.filter(a => a.id !== content.itemId);
+          } catch (error) {
+            console.error('Error deleting item:', error);
+          }
+        }
+      }
+      
+      // Delete boxes
+      for (const boxId of selectedBoxArray) {
+        try {
+          await RTS_API.deleteBox(boxId);
+        } catch (error) {
+          console.error('Error deleting box:', error);
+        }
+      }
+      
+      // Update local state
+      boxContents = boxContents.filter(c => !selectedBoxArray.includes(c.boxId));
+      boxes = boxes.filter(b => !selectedBoxArray.includes(b.id));
+      
+      saveData();
+      clearBoxSelection();
+      renderAll();
+      hideLoading();
+      showToast(`✅ Permanently deleted ${selectedBoxArray.length} boxes and ${totalItems} items`, 'success');
+    } catch (error) {
+      hideLoading();
+      showToast(`❌ Error: ${error.message}`, 'error');
+    }
+  }
+
   // ========== PUBLIC API ==========
   window.BoxPacking = {
     init,
@@ -1196,6 +1478,16 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     resetDemoData,
     getDataSummary
   };
+  
+  // Expose box selection functions globally for onclick handlers
+  window.handleBoxClick = handleBoxClick;
+  window.toggleBoxSelection = toggleBoxSelection;
+  window.clearBoxSelection = clearBoxSelection;
+  window.toggleBulkBoxDropdown = toggleBulkBoxDropdown;
+  window.closeBulkBoxDropdown = closeBulkBoxDropdown;
+  window.bulkUnpackBoxesToLocation = bulkUnpackBoxesToLocation;
+  window.bulkDeleteBoxesAndMoveItems = bulkDeleteBoxesAndMoveItems;
+  window.bulkDeleteBoxesAndItems = bulkDeleteBoxesAndItems;
 
   // Auto-initialize on DOM ready
   console.log('📦 Setting up auto-initialization... readyState:', document.readyState);
