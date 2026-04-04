@@ -28,6 +28,8 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   let currentFilter = 'all';
   let boxModal, historyModal, unpackModal;
   let allAssetTypes = []; // Asset types from settings with colors
+  let selectedBoxes = new Set(); // Track selected box IDs for bulk operations
+  let selectedItems = new Set(); // Track selected item IDs for multi-drag
 
   // ========== INITIALIZATION ==========
   async function init() {
@@ -485,6 +487,10 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
 
     document.getElementById('boxesList').innerHTML = html || '<div style="text-align:center;padding:20px;color:#5f6368;font-size:.85rem">No boxes found</div>';
     document.getElementById('boxCount').textContent = filtered.length;
+    
+    // Update checkbox states and toolbar after rendering
+    updateBoxCheckboxStates();
+    updateBoxBulkToolbar();
   }
 
   function renderItems() {
@@ -533,6 +539,8 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       const isPackedClass = isPacked ? 'in-box' : '';
       const draggable = !isPacked;
       const cursorStyle = isPacked ? 'cursor:not-allowed' : 'cursor:move';
+      const isSelected = selectedItems.has(item.id);
+      const selectedClass = isSelected ? 'item-selected' : '';
       
       // Get asset type with color (matching assets table view) - case-insensitive
       const itemTypeKey = (item.itemType || item.type || 'equipment').toLowerCase();
@@ -547,11 +555,12 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       const serialNum = item.serialNumber || 'No S/N';
       
       return `
-        <div class="item-card ${isPackedClass}" 
+        <div class="item-card ${isPackedClass} ${selectedClass}" 
              draggable="${draggable}"
              data-item-id="${item.id}"
              data-item-type="${item.type}"
-             style="padding:8px!important;${isPackedStyle};${cursorStyle}">
+             style="padding:8px!important;padding-left:26px!important;${isPackedStyle};${cursorStyle}">
+          <input type="checkbox" class="item-checkbox" data-item-id="${item.id}" onclick="event.stopPropagation(); toggleItemSelection('${item.id}')" ${isSelected ? 'checked' : ''}>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
             <div class="item-barcode" style="font-family:monospace;font-size:.7rem;font-weight:700;color:#1a73e8">${esc(item.barcode)}</div>
             <div class="item-category ${categoryClass}" style="font-size:.65rem;padding:2px 6px">${esc(item.category || 'Uncategorized')}</div>
@@ -679,18 +688,34 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   function setupDragAndDrop() {
     let draggedItemId = null;
     let draggedItemType = null;
+    let draggedItems = []; // Array of {id, type} for multi-drag
 
     document.addEventListener('dragstart', e => {
       if (e.target.classList.contains('item-card') && !e.target.classList.contains('in-box')) {
         draggedItemId = e.target.dataset.itemId;
         draggedItemType = e.target.dataset.itemType;
-        e.target.style.opacity = '0.5';
+        
+        // If this item is selected and there are other selected items, drag all selected
+        if (selectedItems.has(draggedItemId) && selectedItems.size > 1) {
+          draggedItems = Array.from(selectedItems).map(id => {
+            const item = getItemById(id);
+            return item ? { id: item.id, type: item.type } : null;
+          }).filter(Boolean);
+          e.target.style.opacity = '0.5';
+          // Visual feedback for multi-drag
+          e.target.setAttribute('data-dragging-count', draggedItems.length);
+        } else {
+          // Single item drag
+          draggedItems = [{ id: draggedItemId, type: draggedItemType }];
+          e.target.style.opacity = '0.5';
+        }
       }
     });
 
     document.addEventListener('dragend', e => {
       if (e.target.classList.contains('item-card')) {
         e.target.style.opacity = '1';
+        e.target.removeAttribute('data-dragging-count');
       }
     });
 
@@ -711,10 +736,12 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       e.preventDefault();
       contentsList.style.background = '';
       
-      if (currentBoxId && draggedItemId && draggedItemType) {
-        packItem(currentBoxId, draggedItemId, draggedItemType);
+      if (currentBoxId && draggedItems.length > 0) {
+        // Pack all dragged items
+        packMultipleItems(currentBoxId, draggedItems);
         draggedItemId = null;
         draggedItemType = null;
+        draggedItems = [];
       }
     });
     
@@ -724,11 +751,12 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       e.stopPropagation();
       e.target.closest('.box-container').style.background = '';
       
-      if (draggedItemId && draggedItemType) {
-        packItem(boxId, draggedItemId, draggedItemType);
+      if (draggedItems.length > 0) {
+        packMultipleItems(boxId, draggedItems);
         selectBox(boxId); // Auto-select the box to show contents
         draggedItemId = null;
         draggedItemType = null;
+        draggedItems = [];
       }
     };
   }
@@ -1188,6 +1216,91 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       history: boxHistory.length
     };
   }
+  
+  // ========== ITEM SELECTION & MULTI-DRAG ==========
+  
+  function toggleItemSelection(itemId) {
+    if (selectedItems.has(itemId)) {
+      selectedItems.delete(itemId);
+    } else {
+      selectedItems.add(itemId);
+    }
+    // Re-render to update visual state
+    renderItems();
+  }
+  
+  function getItemById(itemId) {
+    // Search in both equipment and assets arrays
+    let item = equipment.find(e => e.id === itemId);
+    if (item) return { ...item, type: 'equipment' };
+    
+    item = assets.find(a => a.id === itemId);
+    if (item) return { ...item, type: 'assets' };
+    
+    return null;
+  }
+  
+  async function packMultipleItems(boxId, items) {
+    if (!items || items.length === 0) return;
+    
+    const box = boxes.find(b => b.id === boxId);
+    if (!box) {
+      showToast('Box not found', 'error');
+      return;
+    }
+    
+    showLoading(`Packing Items`, `Adding ${items.length} item(s) to ${box.name}...`);
+    
+    try {
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      let packedCount = 0;
+      for (const {id, type} of items) {
+        const item = getItem(id, type);
+        if (!item || item.currentBoxId) {
+          console.warn(`Item ${id} not available or already packed`);
+          continue;
+        }
+        
+        // Add to box contents
+        const content = {
+          id: RTS.uid('content'),
+          boxId: boxId,
+          itemId: id,
+          itemType: type,
+          packedAt: new Date().toISOString()
+        };
+        
+        boxContents.push(content);
+        item.currentBoxId = boxId;
+        
+        // Update in database via API
+        try {
+          await RTS_API.packItem(id, boxId);
+        } catch (error) {
+          console.error('Error packing item via API:', error);
+        }
+        
+        packedCount++;
+      }
+      
+      // Clear selection after packing
+      selectedItems.clear();
+      
+      saveData();
+      renderAll();
+      hideLoading();
+      
+      if (packedCount > 0) {
+        showToast(`✅ Packed ${packedCount} item(s) into ${box.name}`, 'success');
+      } else {
+        showToast('No items were packed (already in boxes)', 'warning');
+      }
+    } catch (error) {
+      hideLoading();
+      showToast(`❌ Error: ${error.message}`, 'error');
+    }
+  }
 
   // ========== BOX SELECTION & BULK ACTIONS ==========
   
@@ -1488,6 +1601,9 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   window.bulkUnpackBoxesToLocation = bulkUnpackBoxesToLocation;
   window.bulkDeleteBoxesAndMoveItems = bulkDeleteBoxesAndMoveItems;
   window.bulkDeleteBoxesAndItems = bulkDeleteBoxesAndItems;
+  
+  // Expose item selection functions globally
+  window.toggleItemSelection = toggleItemSelection;
 
   // Auto-initialize on DOM ready
   console.log('📦 Setting up auto-initialization... readyState:', document.readyState);
