@@ -533,9 +533,9 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       const draggable = !isPacked;
       const cursorStyle = isPacked ? 'cursor:not-allowed' : 'cursor:move';
       
-      // Get asset type with color (matching assets table view)
+      // Get asset type with color (matching assets table view) - case-insensitive
       const itemTypeKey = item.itemType || item.type || 'equipment';
-      const assetTypeObj = allAssetTypes.find(t => t.name.toLowerCase().replace(/\s+/g, '_') === itemTypeKey);
+      const assetTypeObj = allAssetTypes.find(t => t.name.toLowerCase().replace(/\s+/g, '_') === (itemTypeKey || '').toLowerCase());
       const typeColor = assetTypeObj ? assetTypeObj.color : '#0ea5e9';
       const typeName = assetTypeObj ? assetTypeObj.name : itemTypeKey;
       
