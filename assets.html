@@ -2073,6 +2073,11 @@
       console.log('  Total assets:', allAssets.length);
       console.log('  Type filter:', typeFilter || '(none)');
       console.log('  Sample asset item_type:', allAssets[0]?.item_type);
+      console.log('  All asset types loaded:', allAssetTypes.map(t => ({
+        name: t.name,
+        normalized: t.name.toLowerCase().replace(/\s+/g, '_'),
+        color: t.color
+      })));
       
       let filtered = allAssets.filter(asset => {
         const matchSearch = !search || 
@@ -2161,7 +2166,7 @@
     }
 
     function createAssetTable(assets) {
-      const rows = assets.map(asset => {
+      const rows = assets.map((asset, idx) => {
         const box = allBoxes.find(b => b.id === asset.current_box_id);
         const location = allLocations.find(l => l.id === asset.current_location_id);
         
@@ -2183,7 +2188,7 @@
         
         // Debug logging for first 3 assets
         if (idx < 3) {
-          console.log(`🔍 Asset "${asset.name}" type matching:`, {
+          console.log(`🔍 TABLE Asset "${asset.name}" type matching:`, {
             assetItemType: assetItemType,
             matched: assetTypeObj ? assetTypeObj.name : 'NO MATCH',
             allNormalizedTypes: allAssetTypes.map(t => ({ 
@@ -2242,6 +2247,22 @@
         const normalizedName = t.name.toLowerCase().replace(/\s+/g, '_');
         return normalizedName === assetItemType;
       });
+      
+      // Debug logging for first few assets (based on allAssets index)
+      const assetIdx = allAssets.findIndex(a => a.id === asset.id);
+      if (assetIdx < 3) {
+        console.log(`🔍 CARD Asset "${asset.name}" type matching:`, {
+          assetItemType: assetItemType,
+          matched: assetTypeObj ? assetTypeObj.name : 'NO MATCH',
+          matchedColor: assetTypeObj ? assetTypeObj.color : 'DEFAULT',
+          allNormalizedTypes: allAssetTypes.map(t => ({ 
+            original: t.name, 
+            normalized: t.name.toLowerCase().replace(/\s+/g, '_'),
+            color: t.color 
+          }))
+        });
+      }
+      
       const typeColor = assetTypeObj ? assetTypeObj.color : '#0ea5e9';
       const typeName = assetTypeObj ? assetTypeObj.name : asset.item_type;
       
