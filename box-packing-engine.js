@@ -534,10 +534,13 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       const cursorStyle = isPacked ? 'cursor:not-allowed' : 'cursor:move';
       
       // Get asset type with color (matching assets table view) - case-insensitive
-      const itemTypeKey = item.itemType || item.type || 'equipment';
-      const assetTypeObj = allAssetTypes.find(t => t.name.toLowerCase().replace(/\s+/g, '_') === (itemTypeKey || '').toLowerCase());
+      const itemTypeKey = (item.itemType || item.type || 'equipment').toLowerCase();
+      const assetTypeObj = allAssetTypes.find(t => {
+        const normalizedName = t.name.toLowerCase().replace(/\s+/g, '_');
+        return normalizedName === itemTypeKey;
+      });
       const typeColor = assetTypeObj ? assetTypeObj.color : '#0ea5e9';
-      const typeName = assetTypeObj ? assetTypeObj.name : itemTypeKey;
+      const typeName = assetTypeObj ? assetTypeObj.name : (item.itemType || item.type || 'equipment');
       
       // Get serial number
       const serialNum = item.serialNumber || 'No S/N';
