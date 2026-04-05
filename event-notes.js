@@ -18,6 +18,7 @@
   let currentFilter = 'all';
   let activityPollInterval = null;
   let isGeneralList = false;
+  let selectedTask = null;
   
   // Bootstrap modals
   let selectEventModal, noteModal, createListModal;
@@ -26,28 +27,13 @@
   async function init() {
     console.log('🚀 Initializing Event Notes...');
     
-    // Initialize modals
-    selectEventModal = new bootstrap.Modal(document.getElementById('selectEventModal'));
-    noteModal = new bootstrap.Modal(document.getElementById('noteModal'));
-    createListModal = new bootstrap.Modal(document.getElementById('createListModal'));
-    
-    // Event listeners
-    document.getElementById('btnSelectEvent').addEventListener('click', showEventSelector);
-    document.getElementById('btnAddNote').addEventListener('click', showAddNoteModal);
-    document.getElementById('btnSaveNote').addEventListener('click', saveNote);
-    document.getElementById('btnRefreshActivity').addEventListener('click', loadActivity);
-    document.getElementById('btnCreateCustomList').addEventListener('click', showCreateListModal);
-    document.getElementById('btnSaveCustomList').addEventListener('click', saveCustomList);
-    
-    // Filter buttons
-    document.querySelectorAll('.filter-tab').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
-        e.currentTarget.classList.add('active');
-        currentFilter = e.currentTarget.dataset.filter;
-        renderNotes();
-      });
-    });
+    // Global functions for onclick handlers
+    window.switchView = switchView;
+    window.showAddTaskModal = showAddNoteModal;
+    window.showListSelector = showEventSelector;
+    window.toggleTask = toggleNote;
+    window.selectTask = selectTask;
+    window.showCalendarView = () => alert('Calendar view coming soon!');
     
     // Load last event from localStorage
     const savedListId = localStorage.getItem('rts.notes.lastListId');
@@ -55,6 +41,9 @@
     
     if (savedListId && savedListType) {
       await window.selectList(savedListId, savedListType);
+    } else {
+      // Default to GENERAL LIST
+      await window.selectList('GENERAL', 'GENERAL');
     }
     
     console.log('✅ Event Notes initialized');
