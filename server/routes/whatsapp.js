@@ -192,18 +192,12 @@ async function processIncomingMessage({ phone, message, message_id, provider }) 
   try {
     console.log(`🔄 Processing message - Phone: ${phone}, Text: "${message}"`);
     
-    // Get WhatsApp config
-    console.log('🔍 Looking for WhatsApp config...');
-    const configResult = await db.query('SELECT * FROM whatsapp_config WHERE enabled = true LIMIT 1');
-    if (configResult.rows.length === 0) {
-      console.log('⚠️ WhatsApp not configured or disabled in whatsapp_config table');
-      console.log('⚠️ Note: This is optional - will use environment variables instead');
-      // Continue anyway - we don't actually need config for basic functionality
-    } else {
-      console.log(`✅ Found WhatsApp config:`, configResult.rows[0]);
-    }
-    
-    const config = configResult.rows.length > 0 ? configResult.rows[0] : { default_list_id: null };
+    // Use environment variables for config (no database dependency)
+    console.log('✅ Using environment variables for WhatsApp config');
+    const config = { 
+      default_list_id: null,  // Will create/use GENERAL LIST
+      provider: process.env.WHATSAPP_PROVIDER || 'twilio'
+    };
     
     // Parse message for commands
     console.log('🔍 Parsing message for commands...');
