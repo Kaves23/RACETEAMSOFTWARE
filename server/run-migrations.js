@@ -23,7 +23,8 @@ async function runMigrations() {
     '015_add_asset_box_relationships.sql',
     '016_event_packing_system.sql',
     '017_events_extended_schema.sql',
-    '018_allow_null_event_id_for_general_lists.sql'
+    '018_allow_null_event_id_for_general_lists.sql',
+    '019_add_whatsapp_columns.sql'
   ];
   
   for (const filename of migrationFiles) {
