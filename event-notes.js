@@ -54,7 +54,16 @@
     const savedListType = localStorage.getItem('rts.notes.lastListType');
     
     if (savedListId && savedListType) {
-      await window.selectList(savedListId, savedListType);
+      try {
+        await window.selectList(savedListId, savedListType);
+      } catch (error) {
+        console.warn('Failed to load saved list, falling back to GENERAL:', error);
+        // Clear invalid saved list
+        localStorage.removeItem('rts.notes.lastListId');
+        localStorage.removeItem('rts.notes.lastListType');
+        // Fall back to GENERAL LIST
+        await window.selectList('GENERAL', 'GENERAL');
+      }
     } else {
       // Default to GENERAL LIST
       await window.selectList('GENERAL', 'GENERAL');
@@ -432,7 +441,10 @@
         headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` }
       }).then(r => r.json());
       
-      if (!resp.success) throw new Error('Failed to load notes list');
+      if (!resp.success) {
+        // If list not found (404), throw specific error
+        throw new Error(resp.error || 'Failed to load notes list');
+      }
       
       currentList = resp.list;
       notes = resp.list.items || [];
@@ -466,10 +478,11 @@
       if (activityPollInterval) clearInterval(activityPollInterval);
       activityPollInterval = setInterval(loadActivity, 10000);
       
-      RTS.showToast(`Loaded notes for ${isGeneral ? 'GENERAL LIST' : resp.list.event_name}`, 'success');
+      RTS.showToast(`Loaded notes for ${isGeneral ? 'GENERAL LIST' : resp.list.event_name || resp.list.name}`, 'success');
     } catch (error) {
       console.error('Error loading notes list:', error);
       RTS.showToast('Failed to load notes list', 'error');
+      throw error; // Re-throw so init() can catch it
     }
   }
   
