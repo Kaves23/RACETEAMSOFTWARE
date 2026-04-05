@@ -44,6 +44,7 @@
     window.selectTask = selectTask;
     window.showCalendarView = () => alert('Calendar view coming soon!');
     window.saveNote = saveNote;
+    window.showAllLists = showAllLists;
     
     // Load available lists into sidebar
     await loadListsIntoSidebar();
@@ -62,6 +63,9 @@
     console.log('✅ Event Notes initialized');
   }
   
+  // Global variable to store all lists for dropdown
+  let allAvailableLists = [];
+
   // Load lists into left sidebar
   async function loadListsIntoSidebar() {
     try {
@@ -73,8 +77,11 @@
       if (!listsResp.success) return;
       
       const allLists = listsResp.lists || [];
+      allAvailableLists = allLists; // Store for dropdown
+      
       const generalList = allLists.find(l => l.name === 'GENERAL LIST');
       const customLists = allLists.filter(l => !l.event_id && l.name !== 'GENERAL LIST');
+      const eventLists = allLists.filter(l => l.event_id);
       
       let html = '';
       
@@ -89,6 +96,13 @@
       customLists.forEach(list => {
         html += `<div class="sidebar-item" data-list-id="${list.id}" onclick="window.selectList('${list.id}', 'CUSTOM')">
           <span>📋 ${list.name}</span>
+        </div>`;
+      });
+      
+      // Event lists
+      eventLists.forEach(list => {
+        html += `<div class="sidebar-item" data-list-id="${list.id}" onclick="window.selectList('${list.id}', 'EVENT')">
+          <span>📅 ${list.event_name || list.name}</span>
         </div>`;
       });
       
@@ -109,7 +123,105 @@
         item.classList.add('active');
       }
     });
+    // Clear view filters
+    document.querySelectorAll('.sidebar-item[data-view]').forEach(item => {
+      item.classList.remove('active');
+    });
   }
+
+  // Show all lists view - displays tasks from all lists
+  window.showAllLists = async function() {
+    try {
+      // Clear active states
+      document.querySelectorAll('.sidebar-item').forEach(item => item.classList.remove('active'));
+      document.querySelector('.sidebar-item[data-view="all-lists"]')?.classList.add('active');
+      
+      const listsResp = await fetch(`${API_BASE}/packing-lists`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` }
+      }).then(r => r.json());
+      
+      if (!listsResp.success) throw new Error('Failed to load lists');
+      
+      const allLists = listsResp.lists || [];
+      
+      // Load all items from all lists
+      let allTasks = [];
+      for (const list of allLists) {
+        const resp = await fetch(`${API_BASE}/packing-lists/${list.id}`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` }
+        }).then(r => r.json());
+        
+        if (resp.success && resp.list.items) {
+          resp.list.items.forEach(item => {
+            allTasks.push({
+              ...item,
+              _listName: list.name,
+              _listId: list.id
+            });
+          });
+        }
+      }
+      
+      // Sort by created date
+      allTasks.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      
+      // Render all tasks with list name
+      let html = allTasks.length > 0
+        ? allTasks.map(task => {
+            const isDone = task.status === 'packed' || task.status === 'loaded';
+            const fromWhatsApp = task.whatsapp_message_id || (task.source_notes && task.source_notes.includes('WhatsApp'));
+            
+            let author = 'Unknown';
+            if (fromWhatsApp && task.source_notes) {
+              const phoneMatch = task.source_notes.match(/\+\d+/);
+              author = phoneMatch ? phoneMatch[0] : 'WhatsApp';
+            } else if (task.created_by_name) {
+              author = task.created_by_name;
+            }
+            
+            let tags = [];
+            if (fromWhatsApp) tags.push('<span class="tag tag-whatsapp">WhatsApp</span>');
+            tags.push(`<span class="tag tag-manual">${task._listName}</span>`);
+            
+            const status = isDone ? 'Done' : 'Active';
+            const date = task.due_date ? new Date(task.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-';
+            
+            return `
+              <div class="task-item ${isDone ? 'done' : ''} ${fromWhatsApp ? 'from-whatsapp' : ''}" 
+                   data-note-id="${task.id}" 
+                   onclick="window.selectTaskFromAllLists('${task.id}', '${task._listId}')">
+                <div>
+                  <input type="checkbox" class="task-checkbox" ${isDone ? 'checked' : ''} 
+                         onclick="event.stopPropagation();">
+                </div>
+                <div class="task-name">${escapeHtml(task.item_name)}</div>
+                <div class="task-author">${author}</div>
+                <div class="task-tags">${tags.join('')}</div>
+                <div class="task-status">${status}</div>
+                <div class="task-date">${date}</div>
+              </div>
+            `;
+          }).join('')
+        : '<div class="text-center py-5" style="color:#999;"><div>No tasks found</div></div>';
+      
+      const taskListEl = document.getElementById('taskList');
+      if (taskListEl) {
+        taskListEl.innerHTML = html;
+      }
+      
+      RTS.showToast(`Showing ${allTasks.length} tasks from all lists`, 'success');
+    } catch (error) {
+      console.error('Error loading all lists:', error);
+      RTS.showToast('Failed to load all lists', 'error');
+    }
+  };
+
+  // Select task from all lists view
+  window.selectTaskFromAllLists = function(taskId, listId) {
+    // Just highlight for now - could implement detail panel
+    document.querySelectorAll('.task-item').forEach(item => item.classList.remove('selected'));
+    document.querySelector(`[data-note-id="${taskId}"]`)?.classList.add('selected');
+  };
   
   // Show event selector
   async function showEventSelector() {
@@ -716,11 +828,6 @@
   
   // Show add note modal
   function showAddNoteModal() {
-    if (!currentList) {
-      RTS.showToast('Please select an event first', 'warning');
-      return;
-    }
-    
     if (!noteModal) {
       alert('Modal not initialized. Please refresh the page.');
       return;
@@ -728,11 +835,47 @@
     
     const noteTextEl = document.getElementById('noteText');
     const noteAuthorEl = document.getElementById('noteAuthor');
+    const noteListSelectEl = document.getElementById('noteListSelect');
     
     if (noteTextEl) noteTextEl.value = '';
     if (noteAuthorEl) {
       const savedName = localStorage.getItem('rts.notes.userName') || '';
       noteAuthorEl.value = savedName;
+    }
+    
+    // Populate list dropdown
+    if (noteListSelectEl && allAvailableLists.length > 0) {
+      let options = '<option value="">Select list...</option>';
+      
+      // Group by type
+      const generalList = allAvailableLists.find(l => l.name === 'GENERAL LIST');
+      const customLists = allAvailableLists.filter(l => !l.event_id && l.name !== 'GENERAL LIST');
+      const eventLists = allAvailableLists.filter(l => l.event_id);
+      
+      if (generalList) {
+        options += `<option value="${generalList.id}">📌 ${generalList.name}</option>`;
+      }
+      
+      if (customLists.length > 0) {
+        options += '<option disabled>──────────</option>';
+        customLists.forEach(list => {
+          options += `<option value="${list.id}">📋 ${list.name}</option>`;
+        });
+      }
+      
+      if (eventLists.length > 0) {
+        options += '<option disabled>──────────</option>';
+        eventLists.forEach(list => {
+          options += `<option value="${list.id}">📅 ${list.event_name || list.name}</option>`;
+        });
+      }
+      
+      noteListSelectEl.innerHTML = options;
+      
+      // Pre-select current list if available
+      if (currentList) {
+        noteListSelectEl.value = currentList.id;
+      }
     }
     
     noteModal.show();
@@ -742,6 +885,7 @@
   async function saveNote() {
     const noteTextEl = document.getElementById('noteText');
     const noteAuthorEl = document.getElementById('noteAuthor');
+    const noteListSelectEl = document.getElementById('noteListSelect');
     
     if (!noteTextEl) {
       alert('Form not initialized. Please refresh the page.');
@@ -750,15 +894,21 @@
     
     const text = noteTextEl.value.trim();
     const author = noteAuthorEl ? noteAuthorEl.value.trim() : '';
+    const selectedListId = noteListSelectEl ? noteListSelectEl.value : (currentList ? currentList.id : null);
     
     if (!text) {
       RTS.showToast('Please enter a note', 'warning');
       return;
     }
     
+    if (!selectedListId) {
+      RTS.showToast('Please select a list', 'warning');
+      return;
+    }
+    
     try {
       const resp = await fetch(
-        `${API_BASE}/packing-lists/${currentList.id}/items`,
+        `${API_BASE}/packing-lists/${selectedListId}/items`,
         {
           method: 'POST',
           headers: {
@@ -782,13 +932,19 @@
         localStorage.setItem('rts.notes.userName', author);
       }
       
-      notes.push(resp.item);
-      renderNotes();
-      loadActivity();
-      updateStats();
+      // Refresh current view
+      if (currentList && currentList.id === selectedListId) {
+        notes.push(resp.item);
+        renderNotes();
+        loadActivity();
+        updateStats();
+      } else {
+        // Added to different list, just show success
+        RTS.showToast('Task added to selected list', 'success');
+      }
       
       if (noteModal) noteModal.hide();
-      RTS.showToast('Note added', 'success');
+      RTS.showToast('Task added', 'success');
     } catch (error) {
       console.error('Error adding note:', error);
       RTS.showToast('Failed to add note', 'error');
