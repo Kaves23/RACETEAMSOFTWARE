@@ -43,6 +43,10 @@
     window.toggleTask = toggleNote;
     window.selectTask = selectTask;
     window.showCalendarView = () => alert('Calendar view coming soon!');
+    window.saveNote = saveNote;
+    
+    // Load available lists into sidebar
+    await loadListsIntoSidebar();
     
     // Load last event from localStorage
     const savedListId = localStorage.getItem('rts.notes.lastListId');
@@ -56,6 +60,55 @@
     }
     
     console.log('✅ Event Notes initialized');
+  }
+  
+  // Load lists into left sidebar
+  async function loadListsIntoSidebar() {
+    try {
+      // Load all lists
+      const listsResp = await fetch(`${API_BASE}/packing-lists`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` }
+      }).then(r => r.json());
+      
+      if (!listsResp.success) return;
+      
+      const allLists = listsResp.lists || [];
+      const generalList = allLists.find(l => l.name === 'GENERAL LIST');
+      const customLists = allLists.filter(l => !l.event_id && l.name !== 'GENERAL LIST');
+      
+      let html = '';
+      
+      // GENERAL LIST
+      if (generalList) {
+        html += `<div class="sidebar-item" data-list-id="${generalList.id}" onclick="window.selectList('${generalList.id}', 'GENERAL')">
+          <span>📌 General</span>
+        </div>`;
+      }
+      
+      // Custom lists
+      customLists.forEach(list => {
+        html += `<div class="sidebar-item" data-list-id="${list.id}" onclick="window.selectList('${list.id}', 'CUSTOM')">
+          <span>📋 ${list.name}</span>
+        </div>`;
+      });
+      
+      const dynamicListsEl = document.getElementById('dynamicLists');
+      if (dynamicListsEl) {
+        dynamicListsEl.innerHTML = html;
+      }
+    } catch (error) {
+      console.error('Error loading sidebar lists:', error);
+    }
+  }
+  
+  // Update which list is active in sidebar
+  function updateSidebarActiveState(listId) {
+    document.querySelectorAll('#dynamicLists .sidebar-item').forEach(item => {
+      item.classList.remove('active');
+      if (item.dataset.listId === listId) {
+        item.classList.add('active');
+      }
+    });
   }
   
   // Show event selector
@@ -206,6 +259,10 @@
       renderNotes();
       loadActivity();
       
+      // Update sidebar active state
+      await loadListsIntoSidebar();
+      updateSidebarActiveState(listId);
+      
       // Start activity polling
       if (activityPollInterval) clearInterval(activityPollInterval);
       activityPollInterval = setInterval(loadActivity, 10000);
@@ -327,6 +384,10 @@
       renderNotes();
       loadActivity();
       
+      // Update sidebar active state
+      await loadListsIntoSidebar();
+      updateSidebarActiveState(listId);
+      
       // Start activity polling (every 10 seconds)
       if (activityPollInterval) clearInterval(activityPollInterval);
       activityPollInterval = setInterval(loadActivity, 10000);
@@ -375,6 +436,7 @@
     const total = allNotes.length;
     const done = allNotes.filter(n => n.status === 'packed' || n.status === 'loaded').length;
     const pending = total - done;
+    const whatsapp = allNotes.filter(n => n.whatsapp_message_id || (n.source_notes && n.source_notes.includes('WhatsApp'))).length;
     const percent = total > 0 ? Math.round((done / total) * 100) : 0;
     
     // Safe updates - elements may not exist in MLO layout
@@ -385,6 +447,7 @@
     const countAll = document.getElementById('countAll');
     const countPending = document.getElementById('countPending');
     const countDone = document.getElementById('countDone');
+    const countWhatsApp = document.getElementById('countWhatsApp');
     
     if (statTotal) statTotal.textContent = total;
     if (statPending) statPending.textContent = pending;
@@ -393,6 +456,7 @@
     if (countAll) countAll.textContent = total;
     if (countPending) countPending.textContent = pending;
     if (countDone) countDone.textContent = done;
+    if (countWhatsApp) countWhatsApp.textContent = whatsapp;
   }
   
   // Render notes
