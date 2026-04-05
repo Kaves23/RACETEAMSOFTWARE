@@ -103,24 +103,36 @@ router.get('/webhook', (req, res) => {
 // POST /api/whatsapp/webhook - Receive incoming messages
 router.post('/webhook', async (req, res) => {
   try {
-    console.log('📱 WhatsApp webhook received:', JSON.stringify(req.body, null, 2));
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('📱 WhatsApp webhook received!');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
     
     // Detect provider from request structure
     const isTwilio = req.body.From && req.body.Body;
     const isMeta = req.body.object === 'whatsapp_business_account';
     
+    console.log(`Provider detection - Twilio: ${isTwilio}, Meta: ${isMeta}`);
+    
     if (isTwilio) {
+      console.log('🟢 Routing to Twilio handler');
       await handleTwilioMessage(req.body);
     } else if (isMeta) {
+      console.log('🔵 Routing to Meta handler');
       await handleMetaMessage(req.body);
     } else {
       console.log('⚠️ Unknown WhatsApp provider format');
     }
     
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('✅ Webhook processing complete');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+    
     // Always respond 200 to avoid retries
     res.sendStatus(200);
   } catch (error) {
-    console.error('Error processing WhatsApp message:', error);
+    console.error('❌ Error processing WhatsApp message:', error);
+    console.error('Stack:', error.stack);
     res.sendStatus(200); // Still return 200 to avoid retries
   }
 });
@@ -178,33 +190,47 @@ async function handleMetaMessage(body) {
 
 async function processIncomingMessage({ phone, message, message_id, provider }) {
   try {
+    console.log(`🔄 Processing message - Phone: ${phone}, Text: "${message}"`);
+    
     // Get WhatsApp config
+    console.log('🔍 Looking for WhatsApp config...');
     const configResult = await db.query('SELECT * FROM whatsapp_config WHERE enabled = true LIMIT 1');
     if (configResult.rows.length === 0) {
-      console.log('⚠️ WhatsApp not configured or disabled');
-      return;
+      console.log('⚠️ WhatsApp not configured or disabled in whatsapp_config table');
+      console.log('⚠️ Note: This is optional - will use environment variables instead');
+      // Continue anyway - we don't actually need config for basic functionality
+    } else {
+      console.log(`✅ Found WhatsApp config:`, configResult.rows[0]);
     }
     
-    const config = configResult.rows[0];
+    const config = configResult.rows.length > 0 ? configResult.rows[0] : { default_list_id: null };
     
     // Parse message for commands
+    console.log('🔍 Parsing message for commands...');
     const parsed = parseMessage(message);
+    console.log(`📝 Parsed result:`, parsed);
     
     if (parsed.command === 'add') {
+      console.log('➡️ Routing to ADD command');
       await handleAddNote(phone, parsed.text, config.default_list_id, message_id);
     } else if (parsed.command === 'done') {
+      console.log('➡️ Routing to DONE command');
       await handleMarkDone(phone, parsed.noteNumber, message_id);
     } else if (parsed.command === 'list' || parsed.command === 'show') {
+      console.log('➡️ Routing to LIST command');
       await handleShowList(phone, config.default_list_id);
     } else if (parsed.command === 'help') {
+      console.log('➡️ Routing to HELP command');
       await handleHelp(phone);
     } else {
       // Default: treat as note to add
+      console.log('➡️ No command detected - treating as ADD NOTE (default)');
       await handleAddNote(phone, message, config.default_list_id, message_id);
     }
     
   } catch (error) {
-    console.error('Error processing message:', error);
+    console.error('❌ Error in processIncomingMessage:', error);
+    console.error('Stack:', error.stack);
   }
 }
 
@@ -238,10 +264,13 @@ function parseMessage(message) {
 // Handle: Add note
 async function handleAddNote(phone, noteText, listId, messageId) {
   try {
+    console.log(`🔵 handleAddNote called - phone: ${phone}, text: ${noteText}, messageId: ${messageId}`);
+    
     // Get or create default list if not specified
     let targetListId = listId;
     
     if (!targetListId) {
+      console.log('🔍 Looking for GENERAL LIST...');
       // Use GENERAL LIST as default
       const generalList = await db.query(`
         SELECT id FROM event_packing_lists 
@@ -251,19 +280,24 @@ async function handleAddNote(phone, noteText, listId, messageId) {
       
       if (generalList.rows.length > 0) {
         targetListId = generalList.rows[0].id;
+        console.log(`✅ Found GENERAL LIST: ${targetListId}`);
       } else {
         // Create GENERAL LIST
+        console.log('⚠️ GENERAL LIST not found, creating...');
         const newId = crypto.randomUUID();
         await db.query(`
           INSERT INTO event_packing_lists (id, name, description, status)
           VALUES ($1, 'GENERAL LIST', 'Shared notes visible on all events', 'active')
         `, [newId]);
         targetListId = newId;
+        console.log(`✅ Created GENERAL LIST: ${targetListId}`);
       }
     }
     
     // Create note item
     const itemId = crypto.randomUUID();
+    console.log(`💾 Inserting note into database - itemId: ${itemId}, listId: ${targetListId}`);
+    
     await db.query(`
       INSERT INTO event_packing_items (
         id, packing_list_id, item_name, category, priority,
@@ -271,6 +305,8 @@ async function handleAddNote(phone, noteText, listId, messageId) {
       )
       VALUES ($1, $2, $3, 'general', 'normal', 1, 'pending', $4, $5)
     `, [itemId, targetListId, noteText, `Added via WhatsApp from ${phone}`, messageId]);
+    
+    console.log(`✅ Note inserted successfully!`);
     
     // Log activity
     await db.query(`
@@ -283,19 +319,22 @@ async function handleAddNote(phone, noteText, listId, messageId) {
       crypto.randomUUID(),
       targetListId,
       itemId,
+      'item_added',
       phone,
       `Added via WhatsApp: ${noteText}`,
       phone
     ]);
     
-    console.log(`✅ Added note from ${phone}: ${noteText}`);
+    console.log(`✅ Activity logged successfully!`);
+    console.log(`🎉 COMPLETE: Added note from ${phone}: ${noteText}`);
     
-    // Send confirmation (optional - implement sendWhatsAppMessage below)
-    await sendWhatsAppMessage(phone, `✅ Added: "${noteText}"`);
+    // Send confirmation
+    await sendWhatsAppMessage(phone, `Added ✅`);
     
   } catch (error) {
-    console.error('Error adding note:', error);
-    await sendWhatsAppMessage(phone, `❌ Failed to add note. Please try again.`);
+    console.error('❌ Error adding note:', error);
+    console.error('Stack trace:', error.stack);
+    await sendWhatsAppMessage(phone, `Error - not added`);
   }
 }
 
