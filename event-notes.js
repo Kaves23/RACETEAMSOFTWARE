@@ -374,14 +374,22 @@
     const pending = total - done;
     const percent = total > 0 ? Math.round((done / total) * 100) : 0;
     
-    document.getElementById('statTotal').textContent = total;
-    document.getElementById('statPending').textContent = pending;
-    document.getElementById('statDone').textContent = done;
-    document.getElementById('statPercent').textContent = percent + '%';
+    // Safe updates - elements may not exist in MLO layout
+    const statTotal = document.getElementById('statTotal');
+    const statPending = document.getElementById('statPending');
+    const statDone = document.getElementById('statDone');
+    const statPercent = document.getElementById('statPercent');
+    const countAll = document.getElementById('countAll');
+    const countPending = document.getElementById('countPending');
+    const countDone = document.getElementById('countDone');
     
-    document.getElementById('countAll').textContent = total;
-    document.getElementById('countPending').textContent = pending;
-    document.getElementById('countDone').textContent = done;
+    if (statTotal) statTotal.textContent = total;
+    if (statPending) statPending.textContent = pending;
+    if (statDone) statDone.textContent = done;
+    if (statPercent) statPercent.textContent = percent + '%';
+    if (countAll) countAll.textContent = total;
+    if (countPending) countPending.textContent = pending;
+    if (countDone) countDone.textContent = done;
   }
   
   // Render notes
