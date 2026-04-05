@@ -147,7 +147,10 @@
         `;
       }
       
-      document.getElementById('eventsList').innerHTML = html;
+      const eventsListEl = document.getElementById('eventsList');
+      if (eventsListEl) {
+        eventsListEl.innerHTML = html;
+      }
     } catch (error) {
       console.error('Error loading lists:', error);
       RTS.showToast('Failed to load lists', 'error');
@@ -401,8 +404,16 @@
     
     // Filter notes
     let filtered = allNotes.filter(note => {
+      // Status filters
       if (currentFilter === 'pending') return note.status === 'pending';
       if (currentFilter === 'done') return note.status === 'packed' || note.status === 'loaded';
+      
+      // WhatsApp filter
+      if (currentFilter === 'whatsapp') {
+        const fromWhatsApp = note.whatsapp_message_id || (note.source_notes && note.source_notes.includes('WhatsApp'));
+        return fromWhatsApp;
+      }
+      
       return true;
     });
     
@@ -415,8 +426,16 @@
     // Show general notes first (if viewing specific event)
     if (!isGeneralList && generalNotes.length > 0) {
       const filteredGeneral = generalNotes.filter(note => {
+        // Status filters
         if (currentFilter === 'pending') return note.status === 'pending';
         if (currentFilter === 'done') return note.status === 'packed' || note.status === 'loaded';
+        
+        // WhatsApp filter
+        if (currentFilter === 'whatsapp') {
+          const fromWhatsApp = note.whatsapp_message_id || (note.source_notes && note.source_notes.includes('WhatsApp'));
+          return fromWhatsApp;
+        }
+        
         return true;
       });
       
@@ -643,17 +662,30 @@
       return;
     }
     
-    document.getElementById('noteText').value = '';
-    const savedName = localStorage.getItem('rts.notes.userName') || '';
-    document.getElementById('noteAuthor').value = savedName;
+    const noteTextEl = document.getElementById('noteText');
+    const noteAuthorEl = document.getElementById('noteAuthor');
+    
+    if (noteTextEl) noteTextEl.value = '';
+    if (noteAuthorEl) {
+      const savedName = localStorage.getItem('rts.notes.userName') || '';
+      noteAuthorEl.value = savedName;
+    }
     
     noteModal.show();
   }
   
   // Save note
   async function saveNote() {
-    const text = document.getElementById('noteText').value.trim();
-    const author = document.getElementById('noteAuthor').value.trim();
+    const noteTextEl = document.getElementById('noteText');
+    const noteAuthorEl = document.getElementById('noteAuthor');
+    
+    if (!noteTextEl) {
+      alert('Form not initialized. Please refresh the page.');
+      return;
+    }
+    
+    const text = noteTextEl.value.trim();
+    const author = noteAuthorEl ? noteAuthorEl.value.trim() : '';
     
     if (!text) {
       RTS.showToast('Please enter a note', 'warning');
@@ -785,7 +817,10 @@
         }).join('')
       : '<div class="text-center py-3" style="font-size:12px;color:#999;">No activity yet</div>';
     
-    document.getElementById('activityFeed').innerHTML = html;
+    const activityFeedEl = document.getElementById('activityFeed');
+    if (activityFeedEl) {
+      activityFeedEl.innerHTML = html;
+    }
   }
   
   // Helper functions
