@@ -159,15 +159,17 @@
       
       // Custom lists
       customLists.forEach(list => {
-        html += `<div class="sidebar-item" data-list-id="${list.id}" onclick="window.selectList('${list.id}', 'CUSTOM')">
+        html += `<div class="sidebar-item" data-list-id="${list.id}" onclick="window.selectList('${list.id}', 'CUSTOM')" style="position: relative;">
           <span>📋 ${list.name}</span>
+          <button class="sidebar-delete-btn" onclick="window.deleteList('${list.id}', '${list.name}'); event.stopPropagation();" title="Delete list">×</button>
         </div>`;
       });
       
       // Event lists
       eventLists.forEach(list => {
-        html += `<div class="sidebar-item" data-list-id="${list.id}" onclick="window.selectList('${list.id}', 'EVENT')">
+        html += `<div class="sidebar-item" data-list-id="${list.id}" onclick="window.selectList('${list.id}', 'EVENT')" style="position: relative;">
           <span>📅 ${list.event_name || list.name}</span>
+          <button class="sidebar-delete-btn" onclick="window.deleteList('${list.id}', '${list.name}'); event.stopPropagation();" title="Delete list">×</button>
         </div>`;
       });
       
@@ -298,17 +300,7 @@
     selectEventModal.show();
     
     try {
-      // Load events
-      const resp = await RTS_API.getCollectionItems('events');
-      if (!resp || !resp.success) throw new Error('Failed to load events');
-      
-      const events = resp.items || [];
-      const futureEvents = events.filter(e => {
-        if (!e.start_date) return true;
-        return new Date(e.start_date) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000); // Include events from last week
-      }).sort((a, b) => new Date(a.start_date) - new Date(b.start_date));
-      
-      // Load all lists to find custom ones
+      // Load all packing lists (matches sidebar)
       const listsResp = await fetch(`${API_BASE}/packing-lists`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` }
       }).then(r => r.json());
@@ -321,6 +313,7 @@
         !l.event_id && 
         l.name !== 'GENERAL LIST'
       ).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      const eventLists = allLists.filter(l => l.event_id).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
       
       // Build HTML
       let html = '';
@@ -340,37 +333,51 @@
         </div>
       `;
       
-      // Custom lists
+      // Custom lists with delete button
       if (customLists.length > 0) {
         html += `
           <div style="margin-bottom: 1.5rem;">
-            <h6 class="text-muted mb-2" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Custom Lists</h6>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h6 class="text-muted mb-0" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Custom Lists</h6>
+              <button class="btn btn-sm btn-outline-primary" onclick="window.showCreateListModal(); event.stopPropagation();" style="font-size: 0.7rem; padding: 2px 8px;">+ New</button>
+            </div>
             ${customLists.map(list => `
-              <div class="card bg-light border-primary mb-2" style="cursor:pointer; border-left: 3px solid #0d6efd !important;" onclick="window.selectList('${list.id}', 'CUSTOM')">
-                <div class="card-body">
+              <div class="card bg-light border-primary mb-2" style="cursor:pointer; border-left: 3px solid #0d6efd !important; position: relative;">
+                <div class="card-body" onclick="window.selectList('${list.id}', 'CUSTOM')">
                   <h6 class="mb-1">📋 ${list.name}</h6>
                   ${list.description ? `<small class="text-secondary">${list.description}</small>` : ''}
                 </div>
+                <button class="btn btn-sm btn-danger" onclick="window.deleteList('${list.id}', '${list.name}'); event.stopPropagation();" style="position: absolute; top: 8px; right: 8px; font-size: 0.7rem; padding: 2px 8px;">Delete</button>
               </div>
             `).join('')}
           </div>
         `;
+      } else {
+        html += `
+          <div style="margin-bottom: 1.5rem;">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h6 class="text-muted mb-0" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Custom Lists</h6>
+              <button class="btn btn-sm btn-outline-primary" onclick="window.showCreateListModal(); event.stopPropagation();" style="font-size: 0.7rem; padding: 2px 8px;">+ New</button>
+            </div>
+            <p class="text-muted" style="font-size: 0.85rem; margin-left: 8px;">No custom lists yet</p>
+          </div>
+        `;
       }
       
-      // Event lists
-      if (futureEvents.length > 0) {
+      // Event lists with delete button
+      if (eventLists.length > 0) {
         html += `
           <div>
             <h6 class="text-muted mb-2" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Event Lists</h6>
-            ${futureEvents.map(e => `
-              <div class="card bg-light border-secondary mb-2" style="cursor:pointer;" onclick="window.selectList('${e.id}', 'EVENT')">
-                <div class="card-body">
-                  <h6 class="mb-1">${e.name || 'Unnamed Event'}</h6>
+            ${eventLists.map(list => `
+              <div class="card bg-light border-secondary mb-2" style="cursor:pointer; position: relative;">
+                <div class="card-body" onclick="window.selectList('${list.id}', 'EVENT')">
+                  <h6 class="mb-1">📅 ${list.event_name || list.name}</h6>
                   <small class="text-secondary">
-                    ${e.start_date ? new Date(e.start_date).toLocaleDateString() : 'Date TBD'}
-                    ${e.circuit ? ' • ' + e.circuit : ''}
+                    ${list.description || 'Event packing list'}
                   </small>
                 </div>
+                <button class="btn btn-sm btn-danger" onclick="window.deleteList('${list.id}', '${list.name}'); event.stopPropagation();" style="position: absolute; top: 8px; right: 8px; font-size: 0.7rem; padding: 2px 8px;">Delete</button>
               </div>
             `).join('')}
           </div>
@@ -989,7 +996,7 @@
   }
   
   // Show create custom list modal
-  function showCreateListModal() {
+  window.showCreateListModal = function() {
     if (!createListModal) {
       alert('Modal not initialized. Please refresh the page.');
       return;
@@ -1002,7 +1009,7 @@
   }
   
   // Save custom list
-  async function saveCustomList() {
+  window.saveCustomList = async function() {
     const name = document.getElementById('customListName').value.trim();
     const description = document.getElementById('customListDescription').value.trim();
     
@@ -1030,11 +1037,53 @@
       if (createListModal) createListModal.hide();
       RTS.showToast(`Created ${name}`, 'success');
       
+      // Reload sidebar to show new list
+      await loadListsIntoSidebar();
+      
       // Load the new list
       await loadNotesList(resp.list.id, false, false); // Custom list - don't include general notes
     } catch (error) {
       console.error('Error creating custom list:', error);
       RTS.showToast('Failed to create list', 'error');
+    }
+  }
+  
+  // Delete list
+  window.deleteList = async function(listId, listName) {
+    if (listName === 'GENERAL LIST') {
+      RTS.showToast('Cannot delete GENERAL LIST', 'error');
+      return;
+    }
+    
+    if (!confirm(`Delete "${listName}"?\n\nThis will permanently delete the list and all its tasks.`)) {
+      return;
+    }
+    
+    try {
+      const resp = await fetch(`${API_BASE}/packing-lists/${listId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+        }
+      }).then(r => r.json());
+      
+      if (!resp.success) throw new Error('Failed to delete list');
+      
+      RTS.showToast(`Deleted ${listName}`, 'success');
+      
+      // Reload sidebar
+      await loadListsIntoSidebar();
+      
+      // If we just deleted the current list, switch to GENERAL
+      if (currentList && currentList.id === listId) {
+        await window.selectList('GENERAL', 'GENERAL');
+      }
+      
+      // Refresh the modal view
+      await showEventSelector();
+    } catch (error) {
+      console.error('Error deleting list:', error);
+      RTS.showToast('Failed to delete list', 'error');
     }
   }
   
