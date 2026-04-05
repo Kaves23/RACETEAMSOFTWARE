@@ -1244,7 +1244,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   }
 
   // ========== BOX MANAGEMENT ==========
-  function showBoxModal() {
+  async function showBoxModal() {
     document.getElementById('boxBarcode').value = generateBarcode();
     document.getElementById('boxName').value = '';
     document.getElementById('boxType').value = 'regular';
@@ -1252,6 +1252,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     document.getElementById('boxWidth').value = '';
     document.getElementById('boxHeight').value = '';
     document.getElementById('boxWeightCapacity').value = '';
+    document.getElementById('boxDriver').value = '';
     
     // Populate location dropdown from settings
     const settings = RTS.getSettings();
@@ -1259,6 +1260,24 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     const locationSelect = document.getElementById('boxLocation');
     locationSelect.innerHTML = '<option value="">Select Location</option>' +
       locations.map(loc => `<option value="${esc(loc)}">${esc(loc)}</option>`).join('');
+    
+    // Load and populate drivers
+    if (allDrivers.length === 0) {
+      await loadDrivers();
+    }
+    const driverSelect = document.getElementById('boxDriver');
+    driverSelect.innerHTML = '<option value="">No driver assigned</option>' +
+      allDrivers.map(d => `<option value="${d.id}">${esc(d.name || 'Unnamed')} ${d.license_number ? '- ' + esc(d.license_number) : ''}</option>`).join('');
+    
+    // Hide driver selector initially (will show if driver type selected)
+    document.getElementById('driverSelectContainer').style.display = 'none';
+    
+    // Add listener for box type changes
+    const boxTypeSelect = document.getElementById('boxType');
+    boxTypeSelect.onchange = function() {
+      const isDriver = this.value === 'driver';
+      document.getElementById('driverSelectContainer').style.display = isDriver ? 'block' : 'none';
+    };
     
     boxModal.show();
   }
@@ -1404,6 +1423,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     const locationName = document.getElementById('boxLocation').value || 'Unknown';
     const boxType = document.getElementById('boxType').value || 'regular';
     const barcode = document.getElementById('boxBarcode').value || generateBarcode();
+    const assignedDriverId = document.getElementById('boxDriver').value || null;
     const length = parseFloat(document.getElementById('boxLength').value);
     const width = parseFloat(document.getElementById('boxWidth').value);
     const height = parseFloat(document.getElementById('boxHeight').value);
@@ -1421,6 +1441,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
         barcode: barcode,
         name: name,
         box_type: boxType,
+        assigned_driver_id: assignedDriverId,
         length: length,                    // API expects 'length', not 'dimensions_length_cm'
         width: width,                      // API expects 'width', not 'dimensions_width_cm'
         height: height,                    // API expects 'height', not 'dimensions_height_cm'
