@@ -69,7 +69,63 @@
       await window.selectList('GENERAL', 'GENERAL');
     }
     
+    // Initialize column resizing
+    initColumnResize();
+    
     console.log('✅ Event Notes initialized');
+  }
+  
+  // Column resize functionality
+  function initColumnResize() {
+    const header = document.getElementById('taskHeader');
+    if (!header) return;
+    
+    // Load saved column widths or use defaults
+    const savedWidths = localStorage.getItem('taskColumnWidths');
+    const columnWidths = savedWidths ? JSON.parse(savedWidths) : [30, 'auto', 150, 100, 100, 120];
+    
+    function applyColumnWidths() {
+      const widthStr = columnWidths.map(w => w === 'auto' ? '1fr' : w + 'px').join(' ');
+      document.documentElement.style.setProperty('--col-widths', widthStr);
+    }
+    
+    applyColumnWidths();
+    
+    // Add resize event handlers
+    const resizeHandles = header.querySelectorAll('.resize-handle');
+    let isResizing = false;
+    let currentCol = null;
+    let startX = 0;
+    let startWidth = 0;
+    
+    resizeHandles.forEach(handle => {
+      handle.addEventListener('mousedown', (e) => {
+        isResizing = true;
+        currentCol = parseInt(handle.dataset.col);
+        startX = e.pageX;
+        startWidth = columnWidths[currentCol];
+        handle.classList.add('resizing');
+        e.preventDefault();
+      });
+    });
+    
+    document.addEventListener('mousemove', (e) => {
+      if (!isResizing) return;
+      
+      const diff = e.pageX - startX;
+      const newWidth = Math.max(50, startWidth + diff); // Min 50px
+      columnWidths[currentCol] = newWidth;
+      applyColumnWidths();
+    });
+    
+    document.addEventListener('mouseup', () => {
+      if (isResizing) {
+        isResizing = false;
+        document.querySelector('.resize-handle.resizing')?.classList.remove('resizing');
+        // Save column widths
+        localStorage.setItem('taskColumnWidths', JSON.stringify(columnWidths));
+      }
+    });
   }
   
   // Global variable to store all lists for dropdown
@@ -335,19 +391,25 @@
   window.selectList = async function(id, type) {
     if (selectEventModal) selectEventModal.hide();
     
-    if (type === 'GENERAL') {
-      isGeneralList = true;
-      await loadEventNotesList('GENERAL');
-    } else if (type === 'CUSTOM') {
-      isGeneralList = false;
-      await loadNotesList(id, false, false); // Custom lists don't show general notes
-    } else if (type === 'EVENT') {
-      isGeneralList = false;
-      await loadNotesList(id, false, true); // Event lists show general notes
+    try {
+      if (type === 'GENERAL') {
+        isGeneralList = true;
+        await loadEventNotesList('GENERAL');
+      } else if (type === 'CUSTOM') {
+        isGeneralList = false;
+        await loadNotesList(id, false, false); // Custom lists don't show general notes
+      } else if (type === 'EVENT') {
+        isGeneralList = false;
+        await loadNotesList(id, false, true); // Event lists show general notes
+      }
+      
+      localStorage.setItem('rts.notes.lastListId', id);
+      localStorage.setItem('rts.notes.lastListType', type);
+    } catch (error) {
+      console.error('Error in selectList:', error);
+      // If loading failed, throw error so init() can handle it
+      throw error;
     }
-    
-    localStorage.setItem('rts.notes.lastListId', id);
-    localStorage.setItem('rts.notes.lastListType', type);
   };
   
   // For backwards compatibility
