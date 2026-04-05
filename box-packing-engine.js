@@ -229,29 +229,24 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       console.log(`📦 Using ${equipment.length} equipment + ${assets.length} assets from localStorage/seed`);
     }
 
-    // Load box contents from API
+    // Load box contents from API - USE BULK ENDPOINT (1 query instead of N queries!)
     try {
-      const allBoxContents = [];
-      for (const box of boxes) {
-        try {
-          const result = await RTS_API.getBoxContents(box.id);
-          if (result.contents && result.contents.length > 0) {
-            result.contents.forEach(content => {
-              allBoxContents.push({
-                boxId: box.id,
-                itemId: content.item_id,
-                itemType: content.item_type || 'equipment',
-                packedAt: content.packed_at,
-                positionInBox: content.position_in_box
-              });
-            });
-          }
-        } catch (e) {
-          console.warn(`Could not load contents for box ${box.id}:`, e.message);
-        }
+      // Get ALL box contents in a single API call instead of looping through boxes
+      const bulkContentsResp = await RTS_API.getBoxContents();
+      
+      if (bulkContentsResp && bulkContentsResp.success && bulkContentsResp.boxContents) {
+        boxContents = bulkContentsResp.boxContents.map(content => ({
+          boxId: content.box_id,
+          itemId: content.item_id,
+          itemType: content.item_type || 'equipment',
+          packedAt: content.packed_at,
+          positionInBox: content.position_in_box
+        }));
+        console.log(`✅ Loaded ${boxContents.length} box contents from API in 1 query (was ${boxes.length} queries)`);
+      } else {
+        boxContents = [];
+        console.log('⚠️ No box contents returned from API');
       }
-      boxContents = allBoxContents;
-      console.log(`✅ Loaded ${boxContents.length} box contents from API`);
       
       // Rebuild inventoryBoxTracking Map from loaded box contents
       inventoryBoxTracking.clear();
