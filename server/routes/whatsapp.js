@@ -305,10 +305,10 @@ async function handleAddNote(phone, noteText, listId, messageId) {
     // Log activity
     await db.query(`
       INSERT INTO event_packing_activity (
-        id, packing_list_id, item_id, action_type,
+        id, packing_list_id, packing_item_id, action_type,
         action_by_name, message, whatsapp_phone
       )
-      VALUES ($1, $2, $3, 'item_added', $4, $5, $6)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
     `, [
       crypto.randomUUID(),
       targetListId,
