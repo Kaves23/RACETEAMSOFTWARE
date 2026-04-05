@@ -539,6 +539,8 @@
     let ui = RTS.deepMerge(defaultUI, RTS.safeLoadJSON('rts.settings.ui.v1', {}));
     let settings = RTS.getSettings();
     let assetTypesCache = null; // Cache for asset types from database
+    let driversCache = null; // Cache for drivers from database  
+    let staffCache = null;    // Cache for staff from database
 
     function saveUI(){ RTS.safeSaveJSON('rts.settings.ui.v1', ui); }
 
@@ -560,6 +562,36 @@
           color: typeof t === 'string' ? '#0ea5e9' : t.color 
         }));
         return assetTypesCache;
+      }
+      return [];
+    }
+
+    // Load drivers from database
+    async function loadDriversFromDB() {
+      try {
+        const response = await RTS_API.getCollectionItems('drivers');
+        if (response && response.success) {
+          driversCache = response.items || [];
+          return driversCache;
+        }
+      } catch (error) {
+        console.error('Error loading drivers from database:', error);
+        driversCache = [];
+      }
+      return [];
+    }
+
+    // Load staff from database
+    async function loadStaffFromDB() {
+      try {
+        const response = await RTS_API.getCollectionItems('staff');
+        if (response && response.success) {
+          staffCache = response.items || [];
+          return staffCache;
+        }
+      } catch (error) {
+        console.error('Error loading staff from database:', error);
+        staffCache = [];
       }
       return [];
     }
@@ -593,8 +625,8 @@
     }
 
     function listFor(section){
-      if(section==='drivers') return settings.drivers || [];
-      if(section==='staff') return settings.staff || [];
+      if(section==='drivers') return driversCache || [];
+      if(section==='staff') return staffCache || [];
       if(section==='roles') return (settings.roles||[]).map((n,i)=>({ id:'role_'+i, name:n }));
       if(section==='suppliers') return settings.suppliers || [];
       if(section==='locations') return (settings.locations||[]).map((n,i)=>({ id:'loc_'+i, name:n }));
@@ -649,7 +681,13 @@
     }
 
     async function renderList(){
-      // Load asset types from database if needed
+      // Load from database if needed
+      if(ui.section === 'drivers' && !driversCache) {
+        await loadDriversFromDB();
+      }
+      if(ui.section === 'staff' && !staffCache) {
+        await loadStaffFromDB();
+      }
       if(ui.section === 'assetTypes' && !assetTypesCache) {
         await loadAssetTypesFromDB();
       }
@@ -674,7 +712,7 @@
         const tr = document.createElement('tr');
         tr.setAttribute('data-id', r.id);
         tr.className = (r.id===ui.selectedId) ? 'mlo-row-selected' : '';
-        if(ui.section==='drivers') tr.innerHTML = `<td>${r.name||''}</td><td>${r.class||''}</td><td>${r.raceNumber||''}</td><td>${r.email||''}</td>`;
+        if(ui.section==='drivers') tr.innerHTML = `<td>${r.name||''}</td><td>${r.racing_class||''}</td><td>${r.race_number||''}</td><td>${r.contact_email||''}</td>`;
         else if(ui.section==='staff') tr.innerHTML = `<td>${r.name||''}</td><td>${r.role||''}</td><td>${r.position||''}</td><td>${r.email||''}</td>`;
         else if(ui.section==='roles') tr.innerHTML = `<td>${r.name||''}</td>`;
         else if(ui.section==='suppliers') tr.innerHTML = `<td>${r.name||''}</td><td>${r.leadTimeDays??''}</td><td>${r.email||''}</td><td>${r.phone||''}</td>`;
@@ -712,13 +750,13 @@
       if(ui.section==='drivers') {
         const d = sel || {};
         els.f_drv_name.value = d.name||'';
-        els.f_drv_class.value = d.class||'';
-        els.f_drv_number.value = d.raceNumber||'';
-        els.f_drv_email.value = d.email||'';
-        els.f_drv_phone.value = d.phone||'';
-        els.f_drv_guard_name.value = d.guardianName||'';
-        els.f_drv_guard_phone.value = d.guardianPhone||'';
-        els.f_drv_tags.value = (d.tags||[]).join(', ');
+        els.f_drv_class.value = d.racing_class||'';
+        els.f_drv_number.value = d.race_number||'';
+        els.f_drv_email.value = d.contact_email||'';
+        els.f_drv_phone.value = d.contact_phone||'';
+        els.f_drv_guard_name.value = d.guardian_name||'';
+        els.f_drv_guard_phone.value = d.guardian_phone||'';
+        els.f_drv_tags.value = Array.isArray(d.tags) ? d.tags.join(', ') : '';
         els.f_drv_notes.value = d.notes||'';
       }
       if(ui.section==='staff') {
@@ -826,15 +864,44 @@
 
       if(ui.section==='drivers') {
         cur.name = els.f_drv_name.value.trim();
-        cur.class = els.f_drv_class.value.trim();
-        cur.raceNumber = els.f_drv_number.value.trim();
-        cur.email = els.f_drv_email.value.trim();
-        cur.phone = els.f_drv_phone.value.trim();
-        cur.guardianName = els.f_drv_guard_name.value.trim();
-        cur.guardianPhone = els.f_drv_guard_phone.value.trim();
+        cur.racing_class = els.f_drv_class.value.trim();
+        cur.race_number = els.f_drv_number.value.trim();
+        cur.contact_email = els.f_drv_email.value.trim();
+        cur.contact_phone = els.f_drv_phone.value.trim();
+        cur.guardian_name = els.f_drv_guard_name.value.trim();
+        cur.guardian_phone = els.f_drv_guard_phone.value.trim();
         cur.tags = els.f_drv_tags.value.split(',').map(s=>s.trim()).filter(Boolean);
         cur.notes = els.f_drv_notes.value.trim();
-        cur.active = true;
+        cur.status = cur.status || 'active';
+        
+        // Save to database
+        (async () => {
+          try {
+            const isNew = !cur.created_at;
+            if (isNew) {
+              await RTS_API.createCollectionItem('drivers', cur);
+            } else {
+              await RTS_API.updateCollectionItem('drivers', cur.id, {
+                name: cur.name,
+                racing_class: cur.racing_class,
+                race_number: cur.race_number,
+                contact_email: cur.contact_email,
+                contact_phone: cur.contact_phone,
+                guardian_name: cur.guardian_name,
+                guardian_phone: cur.guardian_phone,
+                tags: cur.tags,
+                notes: cur.notes
+              });
+            }
+            // Reload cache
+            await loadDriversFromDB();
+            if (RTS.showToast) RTS.showToast('✅ Driver saved', 'success');
+          } catch (error) {
+            console.error('Error saving driver:', error);
+            if (RTS.showToast) RTS.showToast(`Failed to save driver: ${error.message}`, 'error');
+          }
+        })();
+        return; // Don't save to localStorage
       }
       if(ui.section==='staff') {
         cur.name = els.f_stf_name.value.trim();
@@ -917,7 +984,50 @@
       if(ui.section==='calendar') return;
       const arr = currentArr();
       let item = null;
-      if(ui.section==='drivers') item = { id: RTS.uid('drv'), name:'New Driver', class:'', raceNumber:'', email:'', phone:'', guardianName:'', guardianPhone:'', active:true, tags:[], notes:'' };
+      
+      if(ui.section==='drivers') {
+        item = { 
+          id: RTS.uid('drv'), 
+          name:'New Driver', 
+          racing_class:'', 
+          race_number:'', 
+          contact_email:'', 
+          contact_phone:'', 
+          guardian_name:'', 
+          guardian_phone:'',
+          guardian_email:'',
+          license_number:'',
+          license_expiry:null,
+          medical_expiry:null,
+          consent_expiry:null,
+          category:'',
+          team:'',
+          status:'active',
+          nationality:'',
+          date_of_birth:null,
+          emergency_contact:'',
+          tags:[], 
+          notes:'',
+          availability:{},
+          attachments:[]
+        };
+        // Create in database
+        try {
+          const resp = await RTS_API.createCollectionItem('drivers', item);
+          if (resp && resp.success) {
+            driversCache = driversCache || [];
+            driversCache.push(resp.item);
+            ui.selectedId = resp.item.id;
+            await renderList();
+            loadInspector();
+            if (RTS.showToast) RTS.showToast('✅ Driver created', 'success');
+          }
+        } catch (error) {
+          console.error('Error creating driver:', error);
+          if (RTS.showToast) RTS.showToast(`Failed to create driver: ${error.message}`, 'error');
+        }
+        return; // Don't add to localStorage
+      }
       if(ui.section==='staff') item = { id: RTS.uid('stf'), name:'New Staff', role:'', position:'', email:'', phone:'', active:true, notes:'' };
       if(ui.section==='roles') item = { id: RTS.uid('role'), name:'New Role' };
       if(ui.section==='suppliers') item = { id: RTS.uid('sup'), name:'New Supplier', email:'', phone:'', leadTimeDays:0, vatNumber:'', accountNumber:'', notes:'' };
@@ -977,6 +1087,42 @@
       const arr = currentArr();
       const idx = arr.findIndex(x=>x.id===ui.selectedId);
       if(idx<0) return;
+      
+      if(ui.section==='drivers') {
+        // Delete from database
+        try {
+          const itemToDelete = arr[idx];
+          await RTS_API.deleteCollectionItem('drivers', itemToDelete.id);
+          await loadDriversFromDB();
+          ui.selectedId = driversCache && driversCache[0] ? driversCache[0].id : null;
+          saveUI();
+          await renderList();
+          if (RTS.showToast) RTS.showToast('✅ Driver deleted', 'success');
+          return;
+        } catch (error) {
+          console.error('Error deleting driver:', error);
+          if (RTS.showToast) RTS.showToast(`Failed to delete driver: ${error.message}`, 'error');
+          return;
+        }
+      }
+
+      if(ui.section==='staff') {
+        // Delete from database
+        try {
+          const itemToDelete = arr[idx];
+          await RTS_API.deleteCollectionItem('staff', itemToDelete.id);
+          await loadStaffFromDB();
+          ui.selectedId = staffCache && staffCache[0] ? staffCache[0].id : null;
+          saveUI();
+          await renderList();
+          if (RTS.showToast) RTS.showToast('✅ Staff member deleted', 'success');
+          return;
+        } catch (error) {
+          console.error('Error deleting staff:', error);
+          if (RTS.showToast) RTS.showToast(`Failed to delete staff: ${error.message}`, 'error');
+          return;
+        }
+      }
       
       if(ui.section==='assetTypes') {
         // Delete from database

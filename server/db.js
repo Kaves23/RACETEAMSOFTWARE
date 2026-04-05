@@ -87,10 +87,60 @@ async function closePool() {
   await pool.end();
 }
 
+// Generic getAll function for any table
+async function getAll(tableName) {
+  // Whitelist allowed table names to prevent SQL injection
+  const allowedTables = [
+    'locations', 'events', 'tasks', 'notes', 'runbooks', 'drivers',
+    'expenses', 'purchase_orders', 'inventory',
+    'telemetry_uploads', 'telemetry_points', 'sessions'
+  ];
+  
+  if (!allowedTables.includes(tableName)) {
+    throw new Error(`Table ${tableName} is not allowed`);
+  }
+  
+  const sql = `SELECT * FROM ${tableName} ORDER BY created_at DESC`;
+  const result = await query(sql);
+  return result.rows;
+}
+
+// Get settings from generic settings table
+async function getSettings() {
+  try {
+    const result = await query(`SELECT data FROM settings WHERE id = 'global' LIMIT 1`);
+    if (result.rows.length > 0 && result.rows[0].data) {
+      return result.rows[0].data;
+    }
+    return {};
+  } catch (error) {
+    console.warn('Error loading settings:', error.message);
+    return {};
+  }
+}
+
+// Generic upsertMany function (placeholder - basic implementation)
+async function upsertMany(tableName, items) {
+  // This is a simplified implementation
+  // In production, you'd want proper UPSERT logic with ON CONFLICT
+  return items;
+}
+
+// Generic createOne function (placeholder - basic implementation)
+async function createOne(tableName, data) {
+  // This is a simplified implementation
+  // In production, you'd construct proper INSERT statement
+  return data;
+}
+
 module.exports = {
   pool,
   query,
   testConnection,
   closePool,
-  logHistory
+  logHistory,
+  getAll,
+  getSettings,
+  upsertMany,
+  createOne
 };

@@ -24,10 +24,13 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   let boxHistory = [];
   let equipment = [];
   let assets = [];
+  let inventoryItems = []; // Inventory items from inventory table
+  let inventoryBoxTracking = new Map(); // Track inventory item ID -> box ID mapping
   let currentBoxId = null;
   let currentFilter = 'all';
   let boxModal, historyModal, unpackModal;
   let allAssetTypes = []; // Asset types from settings with colors
+  let allLocations = []; // Locations from database
   let selectedBoxes = new Set(); // Track selected box IDs for bulk operations
   let selectedItems = new Set(); // Track selected item IDs for multi-drag
 
@@ -53,8 +56,77 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
         throw new Error('RTS_API not available');
       }
       const boxesResp = await window.RTS_API.getBoxes();
-      boxes = boxesResp.boxes || [];
+      boxes = (boxesResp.boxes || []).map(box => ({
+        id: box.id,
+        barcode: box.barcode,
+        name: box.name,
+        boxType: box.box_type || 'regular',
+        length: box.dimensions_length_cm,
+        width: box.dimensions_width_cm,
+        height: box.dimensions_height_cm,
+        weightCapacity: box.max_weight_kg,
+        currentWeight: box.current_weight_kg || 0,
+        location: box.current_location_id,
+        zone: box.current_zone,
+        assignedDriverId: box.assigned_driver_id,
+        assignedDriverName: box.assigned_driver_name,
+        status: box.status || 'available',
+        createdAt: box.created_at,
+        updatedAt: box.updated_at
+      }));
       console.log(`✅ Loaded ${boxes.length} boxes from API`);
+      
+      // If API returned empty, seed initial data
+      if (boxes.length === 0) {
+        console.log('📦 No boxes in database, creating seed data...');
+        const seedData = seedBoxes();
+        
+        // Upload seed boxes to database
+        try {
+          for (const box of seedData) {
+            await RTS_API.createBox({
+              barcode: box.barcode,
+              name: box.name,
+              dimensions_length_cm: box.length,
+              dimensions_width_cm: box.width,
+              dimensions_height_cm: box.height,
+              max_weight_kg: box.weightCapacity,
+              current_weight_kg: box.currentWeight || 0,
+              current_location_id: box.locationId || null,
+              current_truck_id: box.truckId || null,
+              current_zone: box.zone || null,
+              rfid_tag: box.rfidTag || null,
+              status: box.status || 'available'
+            });
+          }
+          console.log(`✅ Uploaded ${seedData.length} seed boxes to database`);
+          
+          // Re-fetch boxes from database to get correct IDs
+          const boxesResp = await RTS_API.getBoxes();
+          boxes = (boxesResp.boxes || []).map(box => ({
+            id: box.id,
+            barcode: box.barcode,
+            name: box.name,
+            boxType: box.box_type || 'regular',
+            length: box.dimensions_length_cm,
+            width: box.dimensions_width_cm,
+            height: box.dimensions_height_cm,
+            weightCapacity: box.max_weight_kg,
+            currentWeight: box.current_weight_kg || 0,
+            location: box.current_location_id,
+            zone: box.current_zone,
+            assignedDriverId: box.assigned_driver_id,
+            assignedDriverName: box.assigned_driver_name,
+            status: box.status || 'available',
+            createdAt: box.created_at,
+            updatedAt: box.updated_at
+          }));
+          console.log(`✅ Re-fetched ${boxes.length} boxes from database`);
+        } catch (uploadError) {
+          console.warn('Could not upload seed boxes to database:', uploadError.message);
+          boxes = seedData; // Fallback to local seed data
+        }
+      }
     } catch (e) {
       console.warn('Could not load boxes from API, using localStorage:', e.message);
       boxes = RTS.safeLoadJSON(LS_BOXES, null) || seedBoxes();
@@ -70,31 +142,86 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       const allItems = itemsResp.items || [];
       console.log(`✅ Loaded ${allItems.length} total items from API`);
       
-      // Map database fields (snake_case) to code fields (camelCase)
-      const mappedItems = allItems.map(item => ({
-        id: item.id,
-        barcode: item.barcode,
-        name: item.name,
-        description: item.description,
-        category: item.category,
-        serialNumber: item.serial_number,
-        status: item.status,
-        currentBoxId: item.current_box_id,
-        currentLocationId: item.current_location_id,
-        weightKg: item.weight_kg,
-        valueUsd: item.value_usd,
-        lastMaintenanceDate: item.last_maintenance_date,
-        nextMaintenanceDate: item.next_maintenance_date,
-        itemType: item.item_type,
-        createdAt: item.created_at,
-        updatedAt: item.updated_at
-      }));
+      // If API returned empty, seed initial data
+      if (allItems.length === 0) {
+        console.log('📦 No items in database, creating seed data...');
+        const seedEquip = seedEquipment();
+        const seedAsset = seedAssets();
+        
+        // Upload seed items to database
+        const allSeedItems = [...seedEquip, ...seedAsset];
+        try {
+          for (const item of allSeedItems) {
+            await RTS_API.createItem({
+              barcode: item.barcode,
+              name: item.name,
+              item_type: item.itemType || item.type || 'equipment',
+              category: item.category || '',
+              description: item.description || '',
+              serial_number: item.serialNumber || '',
+              status: item.status || 'available',
+              current_box_id: item.currentBoxId || null,
+              current_location_id: item.currentLocationId || null,
+              weight_kg: item.weightKg || null,
+              value_usd: item.valueUsd || null,
+              last_maintenance_date: item.lastMaintenanceDate || null,
+              next_maintenance_date: item.nextMaintenanceDate || null
+            });
+          }
+          console.log(`✅ Uploaded ${allSeedItems.length} seed items to database`);
+          
+          // Re-fetch items from database to get correct IDs
+          const itemsResp = await RTS_API.getItems();
+          allItems = (itemsResp.items || []).map(item => ({
+            id: item.id,
+            barcode: item.barcode,
+            name: item.name,
+            itemType: item.item_type,
+            category: item.category || '',
+            description: item.description || '',
+            serialNumber: item.serial_number || '',
+            currentBoxId: item.current_box_id,
+            status: item.status || 'available',
+            createdAt: item.created_at,
+            updatedAt: item.updated_at
+          }));
+          
+          // Split into equipment and assets based on item_type
+          equipment = allItems.filter(item => item.itemType === 'equipment');
+          assets = allItems.filter(item => item.itemType === 'asset');
+          console.log(`✅ Re-fetched ${allItems.length} items from database (${equipment.length} equipment, ${assets.length} assets)`);
+        } catch (uploadError) {
+          console.warn('Could not upload seed items to database:', uploadError.message);
+          equipment = seedEquip; // Fallback to local seed data
+          assets = seedAsset;
+        }
+      } else {
+        // Map database fields (snake_case) to code fields (camelCase)
+        const mappedItems = allItems.map(item => ({
+          id: item.id,
+          barcode: item.barcode,
+          name: item.name,
+          description: item.description,
+          category: item.category,
+          serialNumber: item.serial_number,
+          status: item.status,
+          currentBoxId: item.current_box_id,
+          currentLocationId: item.current_location_id,
+          weightKg: item.weight_kg,
+          valueUsd: item.value_usd,
+          lastMaintenanceDate: item.last_maintenance_date,
+          nextMaintenanceDate: item.next_maintenance_date,
+          itemType: item.item_type,
+          createdAt: item.created_at,
+          updatedAt: item.updated_at
+        }));
+        
+        // Show all items regardless of item_type (supports custom types from settings)
+        equipment = mappedItems.filter(item => item.itemType === 'equipment' || !['asset'].includes(item.itemType));
+        assets = mappedItems.filter(item => item.itemType === 'asset' || !['equipment'].includes(item.itemType));
+      }
       
-      // Show all items regardless of item_type (supports custom types from settings)
-      equipment = mappedItems.filter(item => item.itemType === 'equipment' || !['asset'].includes(item.itemType));
-      assets = mappedItems.filter(item => item.itemType === 'asset' || !['equipment'].includes(item.itemType));
-      
-      console.log(`📦 Loaded: ${equipment.length} items in equipment view + ${assets.length} items in assets view (total: ${mappedItems.length})`);
+      console.log(`📦 Loaded: ${equipment.length} items in equipment view + ${assets.length} items in assets view (total: ${equipment.length + assets.length})`);
     } catch (e) {
       console.warn('Could not load items from API, using localStorage:', e.message);
       equipment = RTS.safeLoadJSON(LS_EQUIPMENT, null) || seedEquipment();
@@ -102,8 +229,57 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       console.log(`📦 Using ${equipment.length} equipment + ${assets.length} assets from localStorage/seed`);
     }
 
-    // Box contents and history still from localStorage for now
-    boxContents = RTS.safeLoadJSON(LS_BOX_CONTENTS, null) || [];
+    // Load box contents from API
+    try {
+      const allBoxContents = [];
+      for (const box of boxes) {
+        try {
+          const result = await RTS_API.getBoxContents(box.id);
+          if (result.contents && result.contents.length > 0) {
+            result.contents.forEach(content => {
+              allBoxContents.push({
+                boxId: box.id,
+                itemId: content.item_id,
+                itemType: content.item_type || 'equipment',
+                packedAt: content.packed_at,
+                positionInBox: content.position_in_box
+              });
+            });
+          }
+        } catch (e) {
+          console.warn(`Could not load contents for box ${box.id}:`, e.message);
+        }
+      }
+      boxContents = allBoxContents;
+      console.log(`✅ Loaded ${boxContents.length} box contents from API`);
+      
+      // Rebuild inventoryBoxTracking Map from loaded box contents
+      inventoryBoxTracking.clear();
+      boxContents.forEach(content => {
+        if (content.itemType === 'inventory') {
+          // Store both versions to handle type mismatches
+          inventoryBoxTracking.set(content.itemId, content.boxId);
+          inventoryBoxTracking.set(String(content.itemId), content.boxId);
+          console.log(`  📦 Inventory item ${content.itemId} is in box ${content.boxId}`);
+        }
+      });
+      console.log(`✅ Rebuilt inventory box tracking: ${inventoryBoxTracking.size / 2} inventory items in boxes`);
+    } catch (e) {
+      console.warn('Could not load box contents from API, using localStorage:', e.message);
+      boxContents = RTS.safeLoadJSON(LS_BOX_CONTENTS, null) || [];
+      
+      // Rebuild inventoryBoxTracking from localStorage fallback too
+      inventoryBoxTracking.clear();
+      boxContents.forEach(content => {
+        if (content.itemType === 'inventory') {
+          inventoryBoxTracking.set(content.itemId, content.boxId);
+          inventoryBoxTracking.set(String(content.itemId), content.boxId);
+        }
+      });
+      console.log(`✅ Rebuilt inventory box tracking from localStorage: ${inventoryBoxTracking.size / 2} items`);
+    }
+    
+    // Box history - For now keep in localStorage, will add API endpoint later
     boxHistory = RTS.safeLoadJSON(LS_BOX_HISTORY, null) || [];
     
     // Load asset types from database API
@@ -131,17 +307,78 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       );
     }
     
+    // Load locations from database API
+    try {
+      const locationsResponse = await RTS_API.getLocations({ is_active: true });
+      if (locationsResponse && locationsResponse.items && locationsResponse.items.length > 0) {
+        allLocations = locationsResponse.items;
+        console.log(`✅ Loaded ${allLocations.length} locations from database`);
+      } else {
+        // Fallback to locations from settings
+        const settings = RTS.getSettings();
+        const settingsLocations = settings.locations || [];
+        allLocations = settingsLocations.map((loc, idx) => ({
+          id: `loc-${idx}`,
+          name: typeof loc === 'string' ? loc : loc.name,
+          is_active: true
+        }));
+        console.log(`⚠️ No locations in database, using ${allLocations.length} from settings`);
+      }
+    } catch (error) {
+      console.error('Error loading locations:', error);
+      // Fallback to settings on error
+      const settings = RTS.getSettings();
+      const settingsLocations = settings.locations || [];
+      allLocations = settingsLocations.map((loc, idx) => ({
+        id: `loc-${idx}`,
+        name: typeof loc === 'string' ? loc : loc.name,
+        is_active: true
+      }));
+      console.log(`⚠️ Error loading locations, using ${allLocations.length} from settings`);
+    }
+    
     console.log(`✅ Data load complete: ${boxes.length} boxes, ${equipment.length} equipment, ${assets.length} assets`);
     
     // Seed box contents if empty (pack items into boxes for testing)
     if (boxContents.length === 0 && boxes.length > 0) {
-      seedBoxContents();
+      await seedBoxContents();
     }
     
     saveData();
   }
+
+  // Load inventory items from database
+  async function loadInventoryItems() {
+    try {
+      console.log('📦 Loading inventory items from API...');
+      
+      // Use RTS_API if available, otherwise fallback to RTS wrapper
+      let response = null;
+      if (typeof RTS_API !== 'undefined' && RTS_API.getCollectionItems) {
+        response = await RTS_API.getCollectionItems('inventory');
+      } else if (typeof RTS !== 'undefined' && RTS.apiGetCollectionItems) {
+        response = await RTS.apiGetCollectionItems('inventory');
+      }
+      
+      // Extract items array from response object
+      if (response && response.items && Array.isArray(response.items)) {
+        inventoryItems = response.items;
+        console.log(`✅ Loaded ${inventoryItems.length} inventory items from database`);
+        if (inventoryItems.length > 0) {
+          console.log(`  📋 First inventory item ID: ${inventoryItems[0].id}, type: ${typeof inventoryItems[0].id}`);
+          console.log(`  📋 Sample inventory IDs:`, inventoryItems.slice(0, 5).map(i => i.id));
+        }
+      } else {
+        inventoryItems = [];
+        console.log('📋 No inventory items found');
+      }
+    } catch (error) {
+      console.error('❌ Error loading inventory items:', error);
+      inventoryItems = [];
+    }
+  }
   
-  function seedBoxContents() {
+  async function seedBoxContents() {
     // Pack equipment and assets into boxes for testing
     // Strategy: Distribute items across boxes to show realistic packing
     
@@ -152,6 +389,8 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     
     // Pack 3-5 items per box (randomized)
     let itemIndex = 0;
+    const packedItems = [];
+    
     boxes.forEach((box, boxIndex) => {
       const itemsToPackInThisBox = 3 + Math.floor(Math.random() * 3); // 3-5 items
       
@@ -159,13 +398,15 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
         const item = allItems[itemIndex];
         
         // Create box content entry
-        boxContents.push({
+        const boxContent = {
           id: RTS.uid('content'),
           boxId: box.id,
           itemId: item.id,
           itemType: item.type,
           packedAt: new Date(Date.now() - Math.random() * 20 * 24 * 60 * 60 * 1000).toISOString() // Random within last 20 days
-        });
+        };
+        boxContents.push(boxContent);
+        packedItems.push({ boxId: box.id, itemId: item.id });
         
         // Update item's currentBoxId
         if (item.type === 'equipment') {
@@ -190,14 +431,36 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
         });
       }
     });
+    
+    // Upload box contents to database in batches (parallel requests for speed)
+    if (packedItems.length > 0) {
+      try {
+        console.log(`📦 Uploading ${packedItems.length} seed box contents to database...`);
+        
+        // Process in batches of 10 for parallel speed
+        const batchSize = 10;
+        for (let i = 0; i < packedItems.length; i += batchSize) {
+          const batch = packedItems.slice(i, i + batchSize);
+          await Promise.all(batch.map(packed => 
+            RTS_API.packItem(packed.boxId, packed.itemId).catch(err => {
+              console.warn(`Failed to pack item ${packed.itemId}:`, err.message);
+            })
+          ));
+          console.log(`📦 Uploaded ${Math.min(i + batchSize, packedItems.length)}/${packedItems.length} box contents...`);
+        }
+        
+        console.log(`✅ Successfully uploaded ${packedItems.length} box contents to database`);
+      } catch (uploadError) {
+        console.warn('Could not upload box contents to database:', uploadError.message);
+      }
+    }
   }
 
   function saveData() {
-    RTS.safeSaveJSON(LS_BOXES, boxes);
-    RTS.safeSaveJSON(LS_BOX_CONTENTS, boxContents);
-    RTS.safeSaveJSON(LS_BOX_HISTORY, boxHistory);
-    RTS.safeSaveJSON(LS_EQUIPMENT, equipment);
-    RTS.safeSaveJSON(LS_ASSETS, assets);
+    // Data now stored in PlanetScale database via API calls
+    // No longer using localStorage for business data (boxes, items, box_contents)
+    // Only UI preferences and auth tokens remain in localStorage
+    console.log('📊 Data persisted to PlanetScale database');
   }
 
   function seedBoxes() {
@@ -370,20 +633,160 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     // Filter dropdown
     const filterItemType = document.getElementById('filterItemType');
     if (filterItemType) {
-      // Populate with asset types from settings
-      const options = ['<option value="all">Filter: All Types</option>'];
+      // Populate with asset types from settings + Inventory option
+      const options = [
+        '<option value="all">Filter: All Types</option>',
+        '<option value="inventory" style="background:#e8f0fe;color:#1a73e8;font-weight:600">📦 Inventory Items</option>'
+      ];
       allAssetTypes.forEach(type => {
-        options.push(`<option value="${esc(type.name.toLowerCase().replace(/\s+/g, '_'))}">${esc(type.name)}</option>`);
+        options.push(`<option value="${esc(type.name.toLowerCase().replace(/\s+/g, '_'))}" style="background:${type.color};color:#fff;font-weight:600">${esc(type.name)}</option>`);
       });
       filterItemType.innerHTML = options.join('');
-      filterItemType.addEventListener('change', e => {
+      filterItemType.addEventListener('change', async e => {
         currentFilter = e.target.value;
+        // If inventory filter selected, fetch inventory items
+        if (currentFilter === 'inventory') {
+          await loadInventoryItems();
+        }
         renderItems();
       });
     }
+    
+    // Setup custom modal buttons
+    setupCustomModals();
 
     setupDragAndDrop();
     setupResizablePanels();
+  }
+  
+  // ========== CUSTOM MODAL HELPERS ==========
+  function setupCustomModals() {
+    // Prompt modal
+    const promptModal = new bootstrap.Modal(document.getElementById('customPromptModal'));
+    const promptInput = document.getElementById('promptModalInput');
+    const btnPromptConfirm = document.getElementById('btnPromptConfirm');
+    let promptResolve = null;
+    
+    window.customPrompt = function(title, message, placeholder = '') {
+      return new Promise((resolve) => {
+        document.getElementById('promptModalTitle').textContent = title;
+        document.getElementById('promptModalMessage').textContent = message;
+        promptInput.value = '';
+        promptInput.placeholder = placeholder;
+        promptResolve = resolve;
+        promptModal.show();
+        setTimeout(() => promptInput.focus(), 300);
+      });
+    };
+    
+    btnPromptConfirm.addEventListener('click', () => {
+      const value = promptInput.value.trim();
+      if (value && promptResolve) {
+        const resolve = promptResolve;
+        promptResolve = null;
+        promptModal.hide();
+        resolve(value);
+      }
+    });
+    
+    document.getElementById('customPromptModal').addEventListener('hidden.bs.modal', () => {
+      if (promptResolve) {
+        const resolve = promptResolve;
+        promptResolve = null;
+        resolve(null);
+      }
+    });
+    
+    promptInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && promptInput.value.trim()) {
+        btnPromptConfirm.click();
+      }
+    });
+    
+    // Confirm modal
+    const confirmModal = new bootstrap.Modal(document.getElementById('customConfirmModal'));
+    const btnConfirmYes = document.getElementById('btnConfirmYes');
+    let confirmResolve = null;
+    let confirmResult = null;
+    
+    window.customConfirm = function(title, message, confirmButtonText = 'Confirm', isDanger = false) {
+      return new Promise((resolve) => {
+        document.getElementById('confirmModalTitle').textContent = title;
+        document.getElementById('confirmModalMessage').textContent = message;
+        btnConfirmYes.textContent = confirmButtonText;
+        btnConfirmYes.className = isDanger ? 'btn btn-danger' : 'btn btn-primary';
+        confirmResolve = resolve;
+        confirmResult = null;
+        confirmModal.show();
+      });
+    };
+    
+    btnConfirmYes.addEventListener('click', () => {
+      if (confirmResolve) {
+        confirmResult = true;
+        confirmModal.hide();
+      }
+    });
+    
+    document.getElementById('customConfirmModal').addEventListener('hidden.bs.modal', () => {
+      if (confirmResolve) {
+        const resolve = confirmResolve;
+        confirmResolve = null;
+        resolve(confirmResult === true);
+        confirmResult = null;
+      }
+    });
+    
+    // Select modal (for location picker)
+    const selectModal = new bootstrap.Modal(document.getElementById('customSelectModal'));
+    const selectDropdown = document.getElementById('selectModalDropdown');
+    const btnSelectConfirm = document.getElementById('btnSelectConfirm');
+    let selectResolve = null;
+    
+    window.customSelect = function(title, message, options = []) {
+      return new Promise((resolve) => {
+        document.getElementById('selectModalTitle').textContent = title;
+        document.getElementById('selectModalMessage').textContent = message;
+        
+        // Populate dropdown with options
+        let optionsHTML = '<option value="">Select...</option>';
+        options.forEach(opt => {
+          const value = opt.value || opt.id || opt;
+          const label = opt.label || opt.name || opt;
+          optionsHTML += `<option value="${value}">${label}</option>`;
+        });
+        selectDropdown.innerHTML = optionsHTML;
+        
+        selectResolve = resolve;
+        selectModal.show();
+        setTimeout(() => selectDropdown.focus(), 300);
+      });
+    };
+    
+    btnSelectConfirm.addEventListener('click', () => {
+      const value = selectDropdown.value;
+      if (value && selectResolve) {
+        const resolve = selectResolve;
+        selectResolve = null;
+        selectModal.hide();
+        
+        // Find the selected option's full data
+        const selectedOption = allLocations.find(loc => loc.id === value);
+        resolve(selectedOption);
+      }
+    });
+    
+    document.getElementById('customSelectModal').addEventListener('hidden.bs.modal', () => {
+      if (selectResolve) {
+        const resolve = selectResolve;
+        selectResolve = null;
+        resolve(null);
+      }
+    });
+    
+    selectDropdown.addEventListener('change', (e) => {
+      btnSelectConfirm.disabled = !e.target.value;
+    });
   }
   
   // ========== RESIZABLE PANELS ==========
@@ -467,16 +870,34 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     const html = filtered.map(box => {
       const contents = boxContents.filter(c => c.boxId === box.id);
       const isActive = currentBoxId === box.id ? ' active' : '';
+      const isDriverBox = box.boxType === 'driver' || box.box_type === 'driver';
+      const driverBoxClass = isDriverBox ? ' driver-box' : '';
       const contentsBadge = contents.length > 0 ? `<div class="box-contents-badge">${contents.length}</div>` : '';
       
+      // Driver badge with assignment info
+      let driverBadge = '';
+      if (isDriverBox) {
+        const assignedDriverId = box.assignedDriverId || box.assigned_driver_id;
+        const driverName = assignedDriverId ? (box.assignedDriverName || 'Assigned') : 'Unassigned';
+        const assignIcon = assignedDriverId ? '✓' : '○';
+        driverBadge = `
+          <div class="driver-box-badge" onclick="event.stopPropagation(); showDriverAssignmentModal('${box.id}')" 
+               title="Click to ${assignedDriverId ? 'change' : 'assign'} driver" 
+               style="cursor:pointer;user-select:none;">
+            🚗 ${assignIcon} ${esc(driverName)}
+          </div>
+        `;
+      }
+      
       return `
-        <div class="box-container${isActive}" 
+        <div class="box-container${isActive}${driverBoxClass}" 
              onclick="handleBoxClick(event, '${box.id}')"
-             ondragover="event.preventDefault(); this.style.background='#e8f0fe'"
+             ondragover="event.preventDefault(); this.style.background='${isDriverBox ? '#ffe0e0' : '#e8f0fe'}'"
              ondragleave="this.style.background=''"
              ondrop="handleBoxDrop(event, '${box.id}')">  
           <input type="checkbox" class="box-checkbox" data-box-id="${box.id}" onclick="event.stopPropagation(); toggleBoxSelection('${box.id}')">
           ${contentsBadge}
+          ${driverBadge}
           <div class="box-barcode">${esc(box.barcode)}</div>
           <div class="box-name">${esc(box.name)}</div>
           <div class="box-dims">${box.length || 0}×${box.width || 0}×${box.height || 0}cm | ${box.weightCapacity || 0}kg</div>
@@ -494,40 +915,58 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   }
 
   function renderItems() {
-    console.log(`🔄 renderItems called - filter: ${currentFilter}, equipment: ${equipment.length}, assets: ${assets.length}`);
+    console.log(`🔄 renderItems called - filter: ${currentFilter}, equipment: ${equipment.length}, assets: ${assets.length}, inventory: ${inventoryItems.length}`);
     
     const search = document.getElementById('searchItems').value.toLowerCase();
     const sortBy = document.getElementById('sortItems')?.value || 'name';
     let allItems = [];
 
-    // Collect all items
-    allItems = allItems.concat(equipment.map(e => ({ ...e, type: 'equipment' })));
-    allItems = allItems.concat(assets.map(a => ({ ...a, type: 'assets' })));
-
-    // Filter by type if not 'all'
-    if (currentFilter !== 'all') {
-      allItems = allItems.filter(item => {
-        const itemTypeKey = (item.itemType || item.type || '').toLowerCase().replace(/\s+/g, '_');
-        return itemTypeKey === currentFilter;
+    // If inventory filter is selected, show only inventory items
+    if (currentFilter === 'inventory') {
+      allItems = inventoryItems.map(inv => {
+        // Check tracking Map with both ID types
+        const boxId = inventoryBoxTracking.get(inv.id) || inventoryBoxTracking.get(String(inv.id));
+        return {
+          id: inv.id,
+          barcode: String(inv.sku || inv.id || ''),
+          name: String(inv.name || 'Unnamed Item'),
+          category: String(inv.category || 'Inventory'),
+          type: 'inventory',
+          itemType: 'Inventory',
+          serialNumber: String(inv.sku || 'N/A'),
+          currentBoxId: boxId || null
+        };
       });
+    } else {
+      // Collect all items
+      allItems = allItems.concat(equipment.map(e => ({ ...e, type: 'equipment' })));
+      allItems = allItems.concat(assets.map(a => ({ ...a, type: 'assets' })));
+
+      // Filter by type if not 'all'
+      if (currentFilter !== 'all') {
+        allItems = allItems.filter(item => {
+          const itemTypeKey = (item.itemType || item.type || '').toLowerCase().replace(/\s+/g, '_');
+          return itemTypeKey === currentFilter;
+        });
+      }
     }
 
     console.log(`📊 After filter, allItems count: ${allItems.length}`);
 
     // Show ALL items (not just packed ones) - users can drag them into boxes
     const filtered = allItems.filter(item =>
-      (item.barcode || '').toLowerCase().includes(search) ||
-      (item.name || '').toLowerCase().includes(search) ||
-      (item.category || '').toLowerCase().includes(search)
+      String(item.barcode || '').toLowerCase().includes(search) ||
+      String(item.name || '').toLowerCase().includes(search) ||
+      String(item.category || '').toLowerCase().includes(search)
     );
 
     console.log(`🔍 After search filter, items: ${filtered.length}`);
 
     // Sort items
     filtered.sort((a, b) => {
-      if (sortBy === 'name') return (a.name || '').localeCompare(b.name || '');
-      if (sortBy === 'barcode') return (a.barcode || '').localeCompare(b.barcode || '');
-      if (sortBy === 'category') return (a.category || '').localeCompare(b.category || '');
+      if (sortBy === 'name') return String(a.name || '').localeCompare(String(b.name || ''));
+      if (sortBy === 'barcode') return String(a.barcode || '').localeCompare(String(b.barcode || ''));
+      if (sortBy === 'category') return String(a.category || '').localeCompare(String(b.category || ''));
       return 0;
     });
 
@@ -796,6 +1235,12 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     if (item) {
       item.currentBoxId = null;
       addHistory(content.boxId, 'item_removed', `Removed ${item.name} (${item.barcode})`);
+      
+      // For inventory items, also clear the tracking Map
+      if (content.itemType === 'inventory') {
+        inventoryBoxTracking.delete(content.itemId);
+        inventoryBoxTracking.delete(String(content.itemId));
+      }
     }
 
     boxContents = boxContents.filter(c => c.id !== contentId);
@@ -807,6 +1252,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   function showBoxModal() {
     document.getElementById('boxBarcode').value = generateBarcode();
     document.getElementById('boxName').value = '';
+    document.getElementById('boxType').value = 'regular';
     document.getElementById('boxLength').value = '';
     document.getElementById('boxWidth').value = '';
     document.getElementById('boxHeight').value = '';
@@ -822,32 +1268,212 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     boxModal.show();
   }
 
-  function saveBox() {
+  // Driver Assignment
+  let allDrivers = [];
+  
+  async function loadDrivers() {
+    try {
+      const resp = await RTS_API.getCollectionItems('drivers');
+      if (resp && resp.items) {
+        allDrivers = resp.items;
+        console.log(`✅ Loaded ${allDrivers.length} drivers`);
+      }
+    } catch (error) {
+      console.error('❌ Error loading drivers:', error);
+      allDrivers = [];
+    }
+  }
+  
+  async function showDriverAssignmentModal(boxId) {
+    const box = boxes.find(b => b.id === boxId);
+    if (!box) return;
+    
+    if (allDrivers.length === 0) {
+      await loadDrivers();
+    }
+    
+    // Create driver selection HTML
+    const driverOptions = allDrivers.map(driver => `
+      <div class="driver-option" data-driver-id="${driver.id}" onclick="selectDriver('${driver.id}')">
+        <div style="font-weight:600">${esc(driver.name || 'Unnamed Driver')}</div>
+        <div style="font-size:0.85rem;color:#5f6368">${esc(driver.license_number || 'No license')}</div>
+      </div>
+    `).join('');
+    
+    const currentDriverId = box.assignedDriverId || box.assigned_driver_id;
+    const unassignBtn = currentDriverId ? `
+      <button class="btn btn-outline-secondary" onclick="assignDriverToBox('${boxId}', null)">🚫 Unassign Driver</button>
+    ` : '';
+    
+    // Show modal
+    const modalHtml = `
+      <div class="modal fade show" id="driverAssignModal" style="display:block;background:rgba(0,0,0,0.5)">
+        <div class="modal-dialog">
+          <div class="modal-content" style="background:#ffffff;color:#202124">
+            <div class="modal-header" style="background:#f8f9fa;border-color:#e0e0e0">
+              <h5 class="modal-title" style="font-weight:700">🚗 Assign Driver to Box</h5>
+              <button type="button" class="btn-close" onclick="closeDriverAssignModal()"></button>
+            </div>
+            <div class="modal-body">
+              <div style="margin-bottom:15px;padding:12px;background:#f8f9fa;border-radius:6px">
+                <div style="font-weight:600;margin-bottom:4px">${esc(box.name)}</div>
+                <div style="font-size:0.85rem;color:#5f6368">Barcode: ${esc(box.barcode)}</div>
+              </div>
+              <div style="margin-bottom:15px">
+                <input type="text" id="driverSearch" class="form-control" placeholder="Search drivers..." 
+                       oninput="filterDriverOptions()" style="margin-bottom:10px">
+              </div>
+              <div id="driverOptionsList" style="max-height:300px;overflow-y:auto">
+                ${driverOptions || '<div style="text-align:center;padding:20px;color:#5f6368">No drivers available</div>'}
+              </div>
+            </div>
+            <div class="modal-footer" style="border-color:#e0e0e0">
+              ${unassignBtn}
+              <button class="btn btn-secondary" onclick="closeDriverAssignModal()">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // Store boxId for later use
+    window.currentAssignBoxId = boxId;
+  }
+  
+  function closeDriverAssignModal() {
+    const modal = document.getElementById('driverAssignModal');
+    if (modal) modal.remove();
+    window.currentAssignBoxId = null;
+  }
+  
+  function selectDriver(driverId) {
+    if (!window.currentAssignBoxId) return;
+    assignDriverToBox(window.currentAssignBoxId, driverId);
+  }
+  
+  function filterDriverOptions() {
+    const search = document.getElementById('driverSearch').value.toLowerCase();
+    const options = document.querySelectorAll('.driver-option');
+    options.forEach(opt => {
+      const text = opt.textContent.toLowerCase();
+      opt.style.display = text.includes(search) ? 'block' : 'none';
+    });
+  }
+  
+  async function assignDriverToBox(boxId, driverId) {
+    try {
+      const box = boxes.find(b => b.id === boxId);
+      if (!box) throw new Error('Box not found');
+      
+      // Update via API
+      const resp = await RTS_API.updateBox(boxId, {
+        assigned_driver_id: driverId
+      });
+      
+      if (resp && resp.success) {
+        // Update local state
+        box.assignedDriverId = driverId;
+        if (driverId) {
+          const driver = allDrivers.find(d => d.id === driverId);
+          box.assignedDriverName = driver ? driver.name : null;
+          showToast(`✅ Box assigned to ${driver.name}`, 'success');
+        } else {
+          box.assignedDriverName = null;
+          showToast('✅ Driver unassigned from box', 'success');
+        }
+        
+        renderBoxes();
+        closeDriverAssignModal();
+      }
+    } catch (error) {
+      console.error('❌ Error assigning driver:', error);
+      showToast('❌ Failed to assign driver', 'error');
+    }
+  }
+  
+  window.showDriverAssignmentModal = showDriverAssignmentModal;
+  window.closeDriverAssignModal = closeDriverAssignModal;
+  window.selectDriver = selectDriver;
+  window.filterDriverOptions = filterDriverOptions;
+  window.assignDriverToBox = assignDriverToBox;
+
+  async function saveBox() {
     const name = document.getElementById('boxName').value.trim();
     if (!name) {
       showToast('Box name is required', 'warning');
       return;
     }
 
-    const newBox = {
-      id: RTS.uid('box'),
-      barcode: document.getElementById('boxBarcode').value || generateBarcode(),
-      name: name,
-      length: parseFloat(document.getElementById('boxLength').value) || 0,
-      width: parseFloat(document.getElementById('boxWidth').value) || 0,
-      height: parseFloat(document.getElementById('boxHeight').value) || 0,
-      weightCapacity: parseFloat(document.getElementById('boxWeightCapacity').value) || 0,
-      location: document.getElementById('boxLocation').value || 'Unknown',
-      status: 'available',
-      createdAt: new Date().toISOString()
-    };
-
-    boxes.push(newBox);
-    addHistory(newBox.id, 'created', `Box created at ${newBox.location}`);
+    const locationName = document.getElementById('boxLocation').value || 'Unknown';
+    const boxType = document.getElementById('boxType').value || 'regular';
+    const barcode = document.getElementById('boxBarcode').value || generateBarcode();
+    const length = parseFloat(document.getElementById('boxLength').value);
+    const width = parseFloat(document.getElementById('boxWidth').value);
+    const height = parseFloat(document.getElementById('boxHeight').value);
+    const weightCapacity = parseFloat(document.getElementById('boxWeightCapacity').value) || 0;
     
-    saveData();
-    boxModal.hide();
-    renderAll();
+    // Validate dimensions
+    if (!length || length <= 0 || !width || width <= 0 || !height || height <= 0) {
+      showToast('Please enter valid dimensions (length, width, height must be greater than 0)', 'warning');
+      return;
+    }
+    
+    // Save to database FIRST - this is the source of truth
+    try {
+      const resp = await RTS_API.createBox({
+        barcode: barcode,
+        name: name,
+        box_type: boxType,
+        length: length,                    // API expects 'length', not 'dimensions_length_cm'
+        width: width,                      // API expects 'width', not 'dimensions_width_cm'
+        height: height,                    // API expects 'height', not 'dimensions_height_cm'
+        max_weight: weightCapacity,        // API expects 'max_weight', not 'max_weight_kg'
+        current_weight: 0,
+        location_id: null,                 // Use null for now - locations will be strings stored in location field
+        status: 'available'
+      });
+      
+      if (resp && resp.success && resp.box) {
+        // Box successfully saved to database - now add to local state
+        const newBox = {
+          id: resp.box.id,
+          barcode: resp.box.barcode,
+          name: resp.box.name,
+          boxType: resp.box.box_type || 'regular',
+          length: resp.box.dimensions_length_cm,
+          width: resp.box.dimensions_width_cm,
+          height: resp.box.dimensions_height_cm,
+          weightCapacity: resp.box.max_weight_kg,
+          currentWeight: resp.box.current_weight_kg || 0,
+          location: locationName,  // Use the location name from the form (not persisted to DB yet)
+          assignedDriverId: resp.box.assigned_driver_id,
+          assignedDriverName: resp.box.assigned_driver_name,
+          status: resp.box.status || 'available',
+          createdAt: resp.box.created_at,
+          updatedAt: resp.box.updated_at
+        };
+        
+        boxes.push(newBox);
+        addHistory(newBox.id, 'created', `${boxType === 'driver' ? '🚗 Driver box' : 'Box'} created at ${locationName}`);
+        
+        console.log(`✅ Created ${boxType} box in database:`, newBox.name);
+        boxModal.hide();
+        renderAll();
+        
+        if (boxType === 'driver') {
+          showToast(`🚗 Driver box "${newBox.name}" created and saved to database!`, 'success');
+        } else {
+          showToast(`✅ Box "${newBox.name}" created and saved to database!`, 'success');
+        }
+      } else {
+        throw new Error('Database did not return box data');
+      }
+    } catch (error) {
+      console.error('❌ Error creating box in database:', error);
+      showToast('❌ Failed to create box in database. Please try again.', 'error');
+    }
   }
 
   function generateBarcode() {
@@ -957,24 +1583,39 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
           item.currentBoxId = null;
           item.currentLocationId = locationId;
           
-          // Update via API if available
-          if (window.RTS_API && window.RTS_API.updateItem) {
-            try {
-              await window.RTS_API.updateItem(item.id, {
-                current_box_id: null,
-                current_location_id: locationId
-              });
-            } catch (e) {
-              console.warn('Could not update item via API:', e.message);
+          // For inventory items, also clear the tracking Map
+          if (content.itemType === 'inventory') {
+            inventoryBoxTracking.delete(content.itemId);
+            inventoryBoxTracking.delete(String(content.itemId));
+            
+            // Unpack via inventory API
+            if (window.RTS_API && window.RTS_API.unpackInventoryItem) {
+              try {
+                await window.RTS_API.unpackInventoryItem(item.id);
+              } catch (e) {
+                console.warn('Could not unpack inventory item via API:', e.message);
+              }
+            }
+          } else {
+            // Update via API for equipment/assets
+            if (window.RTS_API && window.RTS_API.updateItem) {
+              try {
+                await window.RTS_API.updateItem(item.id, {
+                  current_box_id: null,
+                  current_location_id: locationId
+                });
+              } catch (e) {
+                console.warn('Could not update item via API:', e.message);
+              }
             }
           }
-          
           updateCount++;
-          // Update loading text with progress
-          const subtext = document.getElementById('loadingSubtext');
-          if (subtext) {
-            subtext.textContent = `${updateCount} of ${contents.length} items moved...`;
-          }
+        }
+        
+        // Update loading text with progress
+        const subtext = document.getElementById('loadingSubtext');
+        if (subtext) {
+          subtext.textContent = `${updateCount} of ${contents.length} items moved...`;
         }
       }
       
@@ -1042,6 +1683,11 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     if (loadingText) loadingText.textContent = text;
     if (loadingSubtext) loadingSubtext.textContent = subtext;
     if (overlay) overlay.classList.add('show');
+  }
+  
+  function updateLoadingText(subtext) {
+    const loadingSubtext = document.getElementById('loadingSubtext');
+    if (loadingSubtext) loadingSubtext.textContent = subtext;
   }
   
   function hideLoading() {
@@ -1180,6 +1826,29 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       return equipment.find(e => e.id === id);
     } else if (type === 'assets') {
       return assets.find(a => a.id === id);
+    } else if (type === 'inventory') {
+      // Find in inventoryItems array, but create a temporary item object
+      // since inventory items don't have currentBoxId tracking yet
+      console.log(`  🔍 Looking for inventory item with id: ${id}, type: ${typeof id}`);
+      console.log(`  📊 inventoryItems array length: ${inventoryItems.length}`);
+      const invItem = inventoryItems.find(i => i.id === id || String(i.id) === String(id));
+      console.log(`  📌 Found inventory item:`, invItem ? `"${invItem.name}"` : 'NOT FOUND');
+      if (invItem) {
+        // Check if this inventory item is already packed in a box
+        const packedBoxId = inventoryBoxTracking.get(id) || inventoryBoxTracking.get(String(id));
+        console.log(`  📦 Tracking Map says boxId: ${packedBoxId}`);
+        // Return a modified version with the required properties
+        return {
+          id: invItem.id,
+          barcode: String(invItem.sku || invItem.id || ''),
+          name: String(invItem.name || 'Unnamed Item'),
+          category: String(invItem.category || 'Inventory'),
+          type: 'inventory',
+          itemType: 'Inventory',
+          serialNumber: String(invItem.sku || 'N/A'),
+          currentBoxId: packedBoxId || null
+        };
+      }
     }
     return null;
   }
@@ -1225,8 +1894,27 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     } else {
       selectedItems.add(itemId);
     }
-    // Re-render to update visual state
-    renderItems();
+    // Update visual state without re-rendering entire list
+    updateItemCheckboxStates();
+  }
+  
+  function updateItemCheckboxStates() {
+    // Update checkboxes and selected class for all items
+    document.querySelectorAll('.item-checkbox').forEach(cb => {
+      const itemId = cb.dataset.itemId;
+      const isSelected = selectedItems.has(itemId);
+      cb.checked = isSelected;
+      
+      // Update the parent item-card's selected class
+      const itemCard = cb.closest('.item-card');
+      if (itemCard) {
+        if (isSelected) {
+          itemCard.classList.add('item-selected');
+        } else {
+          itemCard.classList.remove('item-selected');
+        }
+      }
+    });
   }
   
   function getItemById(itemId) {
@@ -1256,11 +1944,19 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       
       let packedCount = 0;
       for (const {id, type} of items) {
+        console.log(`🔍 Attempting to pack item ${id} (type: ${type})`);
         const item = getItem(id, type);
-        if (!item || item.currentBoxId) {
-          console.warn(`Item ${id} not available or already packed`);
+        if (!item) {
+          console.warn(`❌ Item ${id} (type: ${type}) not found`);
           continue;
         }
+        console.log(`  📋 Item found: "${item.name}", currentBoxId: ${item.currentBoxId}`);
+        if (item.currentBoxId) {
+          console.warn(`⚠️ Item ${id} "${item.name}" (type: ${type}) already packed in box ${item.currentBoxId}`);
+          continue;
+        }
+        
+        console.log(`✅ Packing item ${id} "${item.name}" into box ${boxId}`);
         
         // Add to box contents
         const content = {
@@ -1274,11 +1970,26 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
         boxContents.push(content);
         item.currentBoxId = boxId;
         
-        // Update in database via API
-        try {
-          await RTS_API.packItem(id, boxId);
-        } catch (error) {
-          console.error('Error packing item via API:', error);
+        // For inventory items, also update the tracking Map
+        if (type === 'inventory') {
+          // Store both numeric and string versions to handle type mismatches
+          inventoryBoxTracking.set(id, boxId);
+          inventoryBoxTracking.set(String(id), boxId);
+          console.log(`  📦 Updated inventory tracking for ID ${id} -> box ${boxId}`);
+          
+          // Update in database via inventory API
+          try {
+            await RTS_API.packInventoryItem(boxId, id);
+          } catch (error) {
+            console.error('Error packing inventory item via API:', error);
+          }
+        } else {
+          // Update in database via items API for equipment/assets
+          try {
+            await RTS_API.packItem(boxId, id);
+          } catch (error) {
+            console.error('Error packing item via API:', error);
+          }
         }
         
         packedCount++;
@@ -1379,10 +2090,31 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       return;
     }
     
-    const locationName = prompt(`📍 Unpack ${selectedBoxes.size} box(es) to location:\n\nEnter location name:`);
-    if (!locationName || locationName.trim() === '') return;
+    // Ensure we have locations (check database or fallback to settings)
+    if (allLocations.length === 0) {
+      const settings = RTS.getSettings();
+      const settingsLocations = settings.locations || [];
+      if (settingsLocations.length > 0) {
+        allLocations = settingsLocations.map((loc, idx) => ({
+          id: `loc-${idx}`,
+          name: typeof loc === 'string' ? loc : loc.name,
+          is_active: true
+        }));
+      } else {
+        showToast('No locations available. Please add locations in settings.', 'error');
+        return;
+      }
+    }
     
-    const locationId = locationName.trim().toLowerCase().replace(/\s+/g, '_');
+    const location = await customSelect(
+      '📍 Unpack Boxes to Location',
+      `Select location to unpack ${selectedBoxes.size} box(es):`,
+      allLocations
+    );
+    if (!location) return;
+    
+    const locationId = location.id;
+    const locationName = location.name;
     const selectedBoxArray = Array.from(selectedBoxes);
     let totalItems = 0;
     
@@ -1397,7 +2129,12 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       return;
     }
     
-    if (!confirm(`Unpack ${selectedBoxArray.length} box(es) containing ${totalItems} item(s) to "${locationName}"?`)) return;
+    const confirmed = await customConfirm(
+      'Confirm Unpack',
+      `Unpack ${selectedBoxArray.length} box(es) containing ${totalItems} item(s) to "${locationName}"?`,
+      'Unpack'
+    );
+    if (!confirmed) return;
     
     showLoading(`Unpacking Boxes`, `Moving ${totalItems} items to ${locationName}...`);
     
@@ -1412,12 +2149,25 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
             item.currentBoxId = null;
             item.currentLocationId = locationId;
             
-            // Update in database
-            try {
-              await RTS_API.unpackItem(content.itemId);
-              await RTS_API.updateItem(content.itemId, { current_location_id: locationId });
-            } catch (error) {
-              console.error('Error updating item:', error);
+            // For inventory items, also clear the tracking Map
+            if (content.itemType === 'inventory') {
+              inventoryBoxTracking.delete(content.itemId);
+              inventoryBoxTracking.delete(String(content.itemId));
+              
+              // Update via inventory API
+              try {
+                await RTS_API.unpackInventoryItem(content.itemId);
+              } catch (error) {
+                console.error('Error unpacking inventory item:', error);
+              }
+            } else {
+              // Update in database for equipment/assets
+              try {
+                await RTS_API.unpackItem(content.itemId);
+                await RTS_API.updateItem(content.itemId, { current_location_id: locationId });
+              } catch (error) {
+                console.error('Error updating item:', error);
+              }
             }
           }
         }
@@ -1446,10 +2196,31 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       return;
     }
     
-    const locationName = prompt(`⚠️ Delete ${selectedBoxes.size} box(es) and move items to location:\n\nEnter location name:`);
-    if (!locationName || locationName.trim() === '') return;
+    // Ensure we have locations (check database or fallback to settings)
+    if (allLocations.length === 0) {
+      const settings = RTS.getSettings();
+      const settingsLocations = settings.locations || [];
+      if (settingsLocations.length > 0) {
+        allLocations = settingsLocations.map((loc, idx) => ({
+          id: `loc-${idx}`,
+          name: typeof loc === 'string' ? loc : loc.name,
+          is_active: true
+        }));
+      } else {
+        showToast('No locations available. Please add locations in settings.', 'error');
+        return;
+      }
+    }
     
-    const locationId = locationName.trim().toLowerCase().replace(/\s+/g, '_');
+    const location = await customSelect(
+      '⚠️ Delete Boxes and Move Items',
+      `Select location to move items from ${selectedBoxes.size} box(es):`,
+      allLocations
+    );
+    if (!location) return;
+    
+    const locationId = location.id;
+    const locationName = location.name;
     const selectedBoxArray = Array.from(selectedBoxes);
     let totalItems = 0;
     
@@ -1460,8 +2231,13 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     
     const boxNames = selectedBoxArray.map(id => boxes.find(b => b.id === id)?.name || id).join(', ');
     
-    const confirmMsg = `⚠️ DELETE BOXES AND MOVE ITEMS\n\nThis will:\n- Delete ${selectedBoxArray.length} box(es): ${boxNames}\n- Move ${totalItems} item(s) to "${locationName}"\n\nContinue?`;
-    if (!confirm(confirmMsg)) return;
+    const confirmed = await customConfirm(
+      '⚠️ Delete Boxes and Move Items',
+      `This will:\n- Delete ${selectedBoxArray.length} box(es): ${boxNames}\n- Move ${totalItems} item(s) to "${locationName}"\n\nContinue?`,
+      'Delete Boxes',
+      false
+    );
+    if (!confirmed) return;
     
     showLoading(`Deleting Boxes`, `Moving items and deleting ${selectedBoxArray.length} boxes...`);
     
@@ -1477,11 +2253,25 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
             item.currentBoxId = null;
             item.currentLocationId = locationId;
             
-            try {
-              await RTS_API.unpackItem(content.itemId);
-              await RTS_API.updateItem(content.itemId, { current_location_id: locationId });
-            } catch (error) {
-              console.error('Error updating item:', error);
+            // For inventory items, also clear the tracking Map
+            if (content.itemType === 'inventory') {
+              inventoryBoxTracking.delete(content.itemId);
+              inventoryBoxTracking.delete(String(content.itemId));
+              
+              // Update via inventory API
+              try {
+                await RTS_API.unpackInventoryItem(content.itemId);
+              } catch (error) {
+                console.error('Error unpacking inventory item:', error);
+              }
+            } else {
+              // Update in database for equipment/assets
+              try {
+                await RTS_API.unpackItem(content.itemId);
+                await RTS_API.updateItem(content.itemId, { current_location_id: locationId });
+              } catch (error) {
+                console.error('Error updating item:', error);
+              }
             }
           }
         }
@@ -1531,41 +2321,78 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     const boxNames = selectedBoxArray.map(id => boxes.find(b => b.id === id)?.name || id).join(', ');
     
     // First warning
-    const warning1 = `🚨 PERMANENT DELETE WARNING\n\nYou are about to:\n- DELETE ${selectedBoxArray.length} box(es): ${boxNames}\n- DELETE ${totalItems} item(s) inside them\n\nThis action CANNOT be undone!\n\nAre you sure?`;
-    if (!confirm(warning1)) return;
+    const confirmed1 = await customConfirm(
+      '🚨 Permanent Delete Warning',
+      `You are about to:\n- DELETE ${selectedBoxArray.length} box(es): ${boxNames}\n- DELETE ${totalItems} item(s) inside them\n\nThis action CANNOT be undone!\n\nAre you sure?`,
+      'Continue',
+      true
+    );
+    if (!confirmed1) return;
+    
+    // Wait for first modal to fully close before showing second
+    await new Promise(resolve => setTimeout(resolve, 400));
     
     // Second warning (double confirmation)
-    const warning2 = `🚨 FINAL CONFIRMATION\n\nThis will PERMANENTLY DELETE:\n- ${selectedBoxArray.length} boxes\n- ${totalItems} items\n\nType YES in your mind and click OK to proceed with deletion.`;
-    if (!confirm(warning2)) return;
+    const confirmed2 = await customConfirm(
+      '🚨 Final Confirmation',
+      `This will PERMANENTLY DELETE:\n- ${selectedBoxArray.length} boxes\n- ${totalItems} items\n\nThis action is irreversible. Proceed with deletion?`,
+      'Delete Everything',
+      true
+    );
+    if (!confirmed2) return;
     
     showLoading(`Deleting Everything`, `Permanently removing ${selectedBoxArray.length} boxes and ${totalItems} items...`);
     
     try {
-      await new Promise(resolve => setTimeout(resolve, 500));
+      let deletedItems = 0;
+      let deletedBoxes = 0;
       
-      // Delete all items in the boxes first
+      // Delete all items in the boxes first (in batches for speed)
+      const allItemsToDelete = [];
       for (const boxId of selectedBoxArray) {
         const contents = boxContents.filter(c => c.boxId === boxId);
-        for (const content of contents) {
+        allItemsToDelete.push(...contents);
+      }
+      
+      // Process items in batches of 10
+      const batchSize = 10;
+      for (let i = 0; i < allItemsToDelete.length; i += batchSize) {
+        const batch = allItemsToDelete.slice(i, i + batchSize);
+        await Promise.all(batch.map(async (content) => {
           try {
-            await RTS_API.deleteItem(content.itemId);
-            
-            // Remove from local arrays
-            equipment = equipment.filter(e => e.id !== content.itemId);
-            assets = assets.filter(a => a.id !== content.itemId);
+            // Call appropriate delete API based on item type
+            if (content.itemType === 'inventory') {
+              await RTS_API.deleteInventoryItem(content.itemId);
+              // Clear tracking and remove from inventory array
+              inventoryBoxTracking.delete(content.itemId);
+              inventoryBoxTracking.delete(String(content.itemId));
+              inventoryItems = inventoryItems.filter(inv => inv.id !== content.itemId);
+            } else {
+              await RTS_API.deleteItem(content.itemId);
+              // Remove from equipment/assets arrays
+              equipment = equipment.filter(e => e.id !== content.itemId);
+              assets = assets.filter(a => a.id !== content.itemId);
+            }
+            deletedItems++;
           } catch (error) {
             console.error('Error deleting item:', error);
           }
-        }
+        }));
+        updateLoadingText(`Deleting items ${deletedItems}/${allItemsToDelete.length}...`);
       }
       
-      // Delete boxes
-      for (const boxId of selectedBoxArray) {
-        try {
-          await RTS_API.deleteBox(boxId);
-        } catch (error) {
-          console.error('Error deleting box:', error);
-        }
+      // Delete boxes (in batches)
+      for (let i = 0; i < selectedBoxArray.length; i += batchSize) {
+        const batch = selectedBoxArray.slice(i, i + batchSize);
+        await Promise.all(batch.map(async (boxId) => {
+          try {
+            await RTS_API.deleteBox(boxId);
+            deletedBoxes++;
+          } catch (error) {
+            console.error('Error deleting box:', error);
+          }
+        }));
+        updateLoadingText(`Deleting boxes ${deletedBoxes}/${selectedBoxArray.length}...`);
       }
       
       // Update local state
@@ -1604,6 +2431,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   
   // Expose item selection functions globally
   window.toggleItemSelection = toggleItemSelection;
+  window.updateItemCheckboxStates = updateItemCheckboxStates;
 
   // Auto-initialize on DOM ready
   console.log('📦 Setting up auto-initialization... readyState:', document.readyState);

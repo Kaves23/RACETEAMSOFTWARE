@@ -1,1229 +1,1636 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Race Team OS – Inventory</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
-  <link href="style.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="style.css" rel="stylesheet">
+  <style>
+    /* MODERN LIGHT MODE DESIGN - Matches Box Packing */
+    body.page-inventory,
+    body.page-inventory .rts-main {
+      background-color: #f5f7fa !important;
+      color: #202124 !important;
+    }
+    
+    /* Panel System */
+    .inventory-container{display:flex;gap:8px;height:calc(100vh - 160px)}
+    .panel{background:#fff;border-radius:6px;border:1px solid #e0e0e0;display:flex;flex-direction:column;overflow:hidden}
+    .panel-header{padding:10px 12px;background:#f8f9fa;border-bottom:1px solid #e0e0e0;font-weight:700;font-size:.85rem;display:flex;justify-content:space-between;align-items:center}
+    .panel-body{flex:1;overflow-y:auto;padding:8px}
+    
+    /* Lists */
+    .list-panel{flex:0 0 240px}
+    .table-panel{flex:1;min-width:0}
+    .detail-panel{flex:0 0 320px}
+    
+    /* Item Cards for List View */
+    .inventory-row{background:#f8f9fa;border:1px solid #d0d0d0;border-radius:4px;padding:8px 10px;margin-bottom:4px;cursor:pointer;transition:all .15s}
+    .inventory-row:hover{background:#e8f0fe;border-color:#1a73e8}
+    .inventory-row.active{background:#e8f0fe;border-color:#1967d2;box-shadow:0 0 0 1px rgba(26,115,232,.2)}
+    .inventory-row.selected{background:#e3f2fd;border-left:3px solid #1a73e8}
+    .inventory-row.low-stock{border-left:3px solid #fbbc04}
+    .inventory-row.out-of-stock{border-left:3px solid #ea4335}
+    
+    .item-name{font-weight:600;font-size:.85rem;color:#202124;margin-bottom:2px}
+    .item-sku{font-family:'Courier New',monospace;font-size:.7rem;color:#1a73e8;margin-bottom:2px}
+    .item-meta{font-size:.7rem;color:#202124;display:flex;gap:8px;flex-wrap:wrap}
+    .item-qty{font-weight:700;color:#202124}
+    .item-qty.low{color:#fbbc04}
+    .item-qty.out{color:#ea4335}
+    
+    /* Search and filters */
+    .search-section{position:sticky;top:0;background:#fff;padding-bottom:8px;z-index:10;border-bottom:1px solid #e0e0e0;margin-bottom:8px}
+    .filter-group{display:flex;gap:6px;margin-top:6px}
+    
+    /* Stat badges */
+    .stat-badge{background:#e8f0fe;color:#1a73e8;padding:3px 8px;border-radius:8px;font-size:.75rem;font-weight:700}
+    .stat-badge.warning{background:#fef7e0;color:#f9ab00}
+    .stat-badge.danger{background:#fce8e6;color:#d93025}
+    
+    /* Bulk Actions Toolbar */
+    #bulkActionsToolbar{position:sticky;top:0;z-index:100;background:#1a73e8;color:#fff;padding:12px 16px;margin:-8px -8px 12px -8px;border-radius:6px;display:none}
+    #bulkActionsToolbar.show{display:block}
+    .bulk-info{font-weight:700;margin-bottom:8px}
+    .bulk-btn{background:#fff;color:#1a73e8;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-weight:600;font-size:.8rem;margin-right:8px}
+    .bulk-btn:hover{background:#f1f3f4}
+    
+    /* Form inputs */
+    .form-control,.form-select{font-size:.8rem;color:#202124;background:#fff;border:1px solid #d0d0d0}
+    .form-label{font-weight:600;font-size:.75rem;color:#202124;margin-bottom:4px}
+    
+    /* Table */
+    .inventory-table{width:100%;font-size:.8rem}
+    .inventory-table thead th{background:#f8f9fa;color:#202124;font-weight:700;padding:8px;border-bottom:2px solid #e0e0e0;position:sticky;top:0;z-index:5}
+    .inventory-table tbody td{padding:8px;border-bottom:1px solid #f0f0f0;color:#202124}
+    .inventory-table tbody td strong{color:#202124}
+    .inventory-table tbody tr:hover{background:#f8f9fa}
+    .inventory-table tbody tr.selected{background:#e3f2fd}
+    
+    /* Category pills */
+    .category-pill{display:inline-block;padding:2px 8px;border-radius:3px;font-size:.7rem;font-weight:700;text-transform:uppercase}
+    
+    /* Location distribution */
+    .location-dist{display:inline-flex;gap:4px;align-items:center;flex-wrap:wrap}
+    .loc-badge{font-size:.65rem;padding:2px 6px;border-radius:3px;background:#e8f0fe;color:#1a73e8;font-weight:600;white-space:nowrap;cursor:help}
+    .loc-badge:hover{background:#1a73e8;color:#fff}
+    .loc-badge.primary{background:#1a73e8;color:#fff;font-weight:700}
+    .loc-more{font-size:.65rem;color:#202124;cursor:pointer;text-decoration:underline}
+    .loc-more:hover{color:#1a73e8}
+    .category-consumables{background:#e8f5e9;color:#2e7d32}
+    .category-spares{background:#e3f2fd;color:#1565c0}
+    .category-tyres{background:#fff3e0;color:#e65100}
+    .category-tools{background:#f3e5f5;color:#6a1b9a}
+    
+    /* Loading Overlay */
+    .loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      backdrop-filter: blur(4px);
+    }
+    .loading-overlay.show {
+      display: flex;
+    }
+    .loading-spinner {
+      text-align: center;
+      color: white;
+    }
+    .spinner-circle {
+      width: 60px;
+      height: 60px;
+      border: 4px solid rgba(255, 255, 255, 0.3);
+      border-top: 4px solid #fff;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .loading-text {
+      margin-top: 16px;
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+    .loading-subtext {
+      margin-top: 6px;
+      font-size: 0.9rem;
+      opacity: 0.9;
+    }
+    
+    /* Toast container */
+    .toast-container {
+      position: fixed;
+      top: 80px;
+      right: 20px;
+      z-index: 10001;
+    }
+    .toast {
+      min-width: 280px;
+      background: #fff;
+      border-left: 4px solid #1a73e8;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    .toast.success {
+      border-left-color: #34a853;
+    }
+    .toast.error {
+      border-left-color: #ea4335;
+    }
+    .toast.warning {
+      border-left-color: #fbbc04;
+    }
+    
+    /* Item Info Section */
+    .item-info-section {
+      background: #f8f9fa;
+      border-radius: 4px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    .item-info-section h6 {
+      font-size: 0.75rem;
+      color: #202124;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+    .location-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 8px;
+      background: #fff;
+      border-radius: 3px;
+      margin-bottom: 4px;
+      font-size: 0.8rem;
+    }
+    .location-item .loc-name {
+      color: #202124;
+      font-weight: 600;
+    }
+    .location-item .loc-qty {
+      color: #1a73e8;
+      font-weight: 700;
+    }
+    .box-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 8px;
+      background: #fff;
+      border-radius: 3px;
+      margin-bottom: 4px;
+      font-size: 0.8rem;
+    }
+    .box-item .box-name {
+      color: #202124;
+      font-weight: 600;
+      flex: 1;
+    }
+    .box-item .box-qty {
+      color: #1a73e8;
+      font-weight: 700;
+      margin-right: 8px;
+    }
+    .box-item .box-location {
+      color: #5f6368;
+      font-size: 0.7rem;
+    }
+    .info-empty {
+      text-align: center;
+      padding: 12px;
+      color: #5f6368;
+      font-size: 0.8rem;
+      font-style: italic;
+    }
+    
+    /* Responsive */
+    @media (max-width: 992px) {
+      .inventory-container{flex-direction:column;height:auto}
+      .list-panel,.detail-panel{flex:0 0 auto;width:100%}
+    }
+  </style>
 </head>
 <body class="page-inventory">
   <div id="rtsTopNav"></div>
+  
   <div class="rts-main container-fluid">
-    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-center">
       <div>
-        <h1 class="h4 mb-1">Inventory</h1>
-        <div class="text-secondary" style="font-size:0.85rem;">
-          Stock management and parts tracking system.
+        <h1 class="h4 mb-1" style="color:#202124">Inventory Management</h1>
+        <p style="font-size:0.85rem;margin:0;color:#202124">Stock tracking, reordering, and parts management</p>
+      </div>
+      <div class="d-flex gap-2">
+        <button class="btn btn-outline-success btn-sm" id="btnShopifySync" title="Sync with Shopify">
+          <i class="bi bi-arrow-repeat"></i> Shopify
+        </button>
+        <button class="btn btn-outline-primary btn-sm" id="btnImportCSV" title="Import inventory from CSV">
+          <i class="bi bi-upload"></i> Import
+        </button>
+        <button class="btn btn-primary btn-sm" id="btnAddItem">
+          <i class="bi bi-plus-circle"></i> Add Item
+        </button>
+      </div>
+    </div>
+    
+    <div class="inventory-container">
+      <!-- Left Panel - Filters -->
+      <div class="panel list-panel">
+        <div class="panel-header">
+          <span>Filters & Views</span>
+          <span class="stat-badge" id="totalItemsBadge">0</span>
+        </div>
+        <div class="panel-body">
+          <div class="mb-3">
+            <h6 style="font-size:.75rem;color:#202124;text-transform:uppercase;margin-bottom:8px">Stock Status</h6>
+            <div class="list-group list-group-flush">
+              <button class="list-group-item list-group-item-action active" data-view="all">
+                All Items <span class="badge bg-primary rounded-pill float-end" id="countAll">0</span>
+              </button>
+              <button class="list-group-item list-group-item-action" data-view="low">
+                Low Stock <span class="badge bg-warning rounded-pill float-end" id="countLow">0</span>
+              </button>
+              <button class="list-group-item list-group-item-action" data-view="out">
+                Out of Stock <span class="badge bg-danger rounded-pill float-end" id="countOut">0</span>
+              </button>
+              <button class="list-group-item list-group-item-action" data-view="expiring">
+                Expiring Soon <span class="badge bg-warning rounded-pill float-end" id="countExpiring">0</span>
+              </button>
+            </div>
+          </div>
+          
+          <div class="mb-3">
+            <h6 style="font-size:.75rem;color:#202124;text-transform:uppercase;margin-bottom:8px">Categories</h6>
+            <div id="categoryList"></div>
+          </div>
+          
+          <div class="mb-3">
+            <h6  style="font-size:.75rem;color:#202124;text-transform:uppercase;margin-bottom:8px">Locations</h6>
+            <div id="locationList"></div>
+          </div>
+          
+          <div class="mb-3">
+            <h6 style="font-size:.75rem;color:#202124;text-transform:uppercase;margin-bottom:8px">Suppliers</h6>
+            <div id="supplierList"></div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Middle Panel - Items List/Table -->
+      <div class="panel table-panel">
+        <div class="panel-header">
+          <span id="viewTitle">All Items</span>
+          <div class="d-flex gap-2 align-items-center">
+            <span class="stat-badge" id="filteredCount">0 shown</span>
+            <div class="btn-group btn-group-sm">
+              <button class="btn btn-outline-secondary active" data-display="table" title="Table view">
+                <i class="bi bi-table"></i>
+              </button>
+              <button class="btn btn-outline-secondary" data-display="cards" title="Card view">
+                <i class="bi bi-grid"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="panel-body">
+          <!-- Bulk Actions Toolbar -->
+          <div id="bulkActionsToolbar">
+            <div class="bulk-info">
+              <span id="selectedCount">0</span> items selected
+              <button class="btn-close btn-close-white float-end" id="btnClearSelection"></button>
+            </div>
+            <button class="bulk-btn" id="btnBulkUpdateLocation">📍 Update Location</button>
+            <button class="bulk-btn" id="btnBulkUpdateSupplier">🏭 Update Supplier</button>
+            <button class="bulk-btn" id="btnBulkDelete">🗑 Delete Selected</button>
+          </div>
+          
+          <!-- Search and Filters -->
+          <div class="search-section">
+            <input type="text" class="form-control form-control-sm" id="searchInput" placeholder="Search by name, SKU, or part number...">
+            <div class="filter-group">
+              <select class="form-select form-select-sm" id="filterCategory">
+                <option value="">All Categories</option>
+              </select>
+              <select class="form-select form-select-sm" id="filterLocation">
+                <option value="">All Locations</option>
+              </select>
+              <select class="form-select form-select-sm" id="filterSupplier">
+                <option value="">All Suppliers</option>
+              </select>
+              <select class="form-select form-select-sm" id="sortBy">
+                <option value="name">Sort: Name</option>
+                <option value="qty">Sort: Quantity</option>
+                <option value="category">Sort: Category</option>
+                <option value="location">Sort: Location</option>
+                <option value="lastUsed">Sort: Last Used</option>
+              </select>
+            </div>
+          </div>
+          
+          <!-- Table View -->
+          <div id="tableView">
+            <table class="inventory-table">
+              <thead>
+                <tr>
+                  <th style="width:30px"><input type="checkbox" id="selectAll"></th>
+                  <th>Item</th>
+                  <th style="width:100px">SKU</th>
+                  <th style="width:80px">Qty</th>
+                  <th style="width:60px">UoM</th>
+                  <th style="width:100px">Category</th>
+                  <th style="width:120px">Location</th>
+                  <th style="width:120px">Supplier</th>
+                  <th style="width:80px">Reorder</th>
+                  <th style="width:40px"></th>
+                </tr>
+              </thead>
+              <tbody id="inventoryTableBody"></tbody>
+            </table>
+          </div>
+          
+          <!-- Card View -->
+          <div id="cardView" style="display:none"></div>
+        </div>
+      </div>
+      
+      <!-- Right Panel - Details -->
+      <div class="panel detail-panel">
+        <div class="panel-header">
+          <span>Item Details</span>
+          <span class="stat-badge" id="detailBadge">No selection</span>
+        </div>
+        <div class="panel-body">
+          <div id="noSelection" style="text-align:center;padding:40px 20px;color:#202124">
+            <p style="font-size:2rem">📦</p>
+            <p>Select an item to view details</p>
+          </div>
+          
+          <div id="itemInfo" style="display:none">
+            <!-- Location Distribution -->
+            <div class="item-info-section">
+              <h6>📍 Location Distribution</h6>
+              <div id="locationDistribution"></div>
+            </div>
+            
+            <!-- Boxes Containing This Item -->
+            <div class="item-info-section">
+              <h6>📦 In Boxes</h6>
+              <div id="boxesContaining"></div>
+            </div>
+          </div>
+          
+          <form id="itemForm" style="display:none">
+            <div class="mb-2">
+              <label class="form-label">Item Name *</label>
+              <input type="text" class="form-control form-control-sm" id="itemName" required>
+            </div>
+            
+            <div class="row g-2 mb-2">
+              <div class="col-6">
+                <label class="form-label">SKU / Part #</label>
+                <input type="text" class="form-control form-control-sm" id="itemSku">
+              </div>
+              <div class="col-6">
+                <label class="form-label">Category *</label>
+                <select class="form-select form-select-sm" id="itemCategory" required></select>
+              </div>
+            </div>
+            
+            <div class="row g-2 mb-2">
+              <div class="col-4">
+                <label class="form-label">Quantity *</label>
+                <input type="number" class="form-control form-control-sm" id="itemQty" min="0" step="0.01" required>
+              </div>
+              <div class="col-4">
+                <label class="form-label">UoM</label>
+                <input type="text" class="form-control form-control-sm" id="itemUom" placeholder="ea">
+              </div>
+              <div class="col-4">
+                <label class="form-label">Min Qty</label>
+                <input type="number" class="form-control form-control-sm" id="itemReorder" min="0" step="0.01">
+              </div>
+            </div>
+            
+            <div class="mb-2">
+              <label class="form-label">Location</label>
+              <select class="form-select form-select-sm" id="itemLocation"></select>
+            </div>
+            
+            <div class="mb-2">
+              <label class="form-label">Supplier</label>
+              <select class="form-select form-select-sm" id="itemSupplier"></select>
+            </div>
+            
+            <div class="row g-2 mb-2">
+              <div class="col-6">
+                <label class="form-label">Lead Time (days)</label>
+                <input type="number" class="form-control form-control-sm" id="itemLeadDays" min="0">
+              </div>
+              <div class="col-6">
+                <label class="form-label">Unit Cost</label>
+                <input type="number" class="form-control form-control-sm" id="itemCost" min="0" step="0.01">
+              </div>
+            </div>
+            
+            <div class="mb-2">
+              <label class="form-label">Description / Notes</label>
+              <textarea class="form-control form-control-sm" id="itemNotes" rows="3"></textarea>
+            </div>
+            
+            <div class="mb-3 form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="itemAutoReorder">
+              <label class="form-check-label" for="itemAutoReorder">Auto-reorder when low</label>
+            </div>
+            
+            <div class="d-grid gap-2">
+              <button type="submit" class="btn btn-primary btn-sm">💾 Save Item</button>
+              <button type="button" class="btn btn-outline-danger btn-sm" id="btnDeleteItem">🗑 Delete Item</button>
+            </div>
+            
+            <input type="hidden" id="itemId">
+          </form>
         </div>
       </div>
     </div>
-
-        <div class="mlo-shell" id="invShell">
-          <!-- LEFT -->
-          <section class="mlo-pane mlo-pane-left" aria-label="Inventory navigation">
-            <div class="mlo-pane-header">
-              <div class="d-flex justify-content-between align-items-center">
-                <div class="mlo-title">Perspectives</div>
-                <span class="badge text-bg-secondary" id="invCountBadge">0</span>
-              </div>
-            </div>
-            <div class="mlo-pane-content">
-              <div class="mlo-section-label">Smart lists</div>
-              <ul class="mlo-tree pastel-tree" id="invPerspectiveList">
-                <li class="active" data-perspective="all">All Items</li>
-                <li data-perspective="low">Low Stock</li>
-                <li data-perspective="out">Out of Stock</li>
-                <li data-perspective="recent">Recently Used</li>
-              </ul>
-
-              <div class="mlo-section-label mt-3">Locations</div>
-              <ul class="mlo-tree pastel-tree" id="invLocationList"></ul>
-
-              <div class="mlo-section-label mt-3">Suppliers</div>
-              <ul class="mlo-tree pastel-tree" id="invSupplierList"></ul>
-              <div class="mlo-section-label mt-3">Drivers</div>
-              <ul class="mlo-tree pastel-tree" id="invDriverList"></ul>
-            </div>
-          </section>
-
-          <div class="mlo-resizer" data-resize="left" title="Drag to resize"></div>
-
-          <!-- MIDDLE -->
-          <section class="mlo-pane mlo-pane-mid" aria-label="Inventory list">
-            <div class="mlo-pane-header">
-              <div class="d-flex flex-wrap align-items-center gap-1">
-                <input id="invSearch" type="text" class="form-control form-control-sm" placeholder="Search…" style="max-width: 220px;">
-                <select id="invLocation" class="form-select form-select-sm" style="max-width: 200px;"></select>
-                <select id="invSupplier" class="form-select form-select-sm" style="max-width: 200px;"></select>
-                <select id="invGroup" class="form-select form-select-sm" style="max-width: 190px;">
-                  <option value="">Group: None</option>
-                  <option value="location">Group: Location</option>
-                  <option value="supplier">Group: Supplier</option>
-                  <option value="category">Group: Category</option>
-                  <option value="low">Group: Low Stock</option>
-                </select>
-                <button class="btn btn-sm btn-outline-light mlo-btn" id="btnAddInv" type="button">Add Item</button>
-                <button class="btn btn-sm btn-outline-light mlo-btn" id="btnLogUsage" type="button" title="Log usage time against parts attached to an asset">Log Usage</button>
-              </div>
-            </div>
-
-            <div class="mlo-pane-content" style="padding:0;">
-              <table class="table table-dark table-hover mlo-table" style="margin:0;">
-                <colgroup id="invColGroup">
-                  <col>
-                  <col>
-                  <col>
-                  <col>
-                  <col>
-                  <col>
-                  <col>
-                  <col>
-                  <col>
-                  <col>
-                  <col>
-                  <col>
-                </colgroup>
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>Item</th>
-                    <th>Qty</th>
-                    <th>UoM</th>
-                    <th>Reorder</th>
-                    <th>Supplier</th>
-                    <th>Location</th>
-                    <th>Driver</th>
-                    <th>Compliance</th>
-                    <th>Auto-PO</th>
-                    <th>Serials</th>
-                    <th>Lifing</th>
-                  </tr>
-                </thead>
-                <tbody id="invTbody"></tbody>
-              </table>
-            </div>
-          </section>
-
-          <div class="mlo-resizer" data-resize="right" title="Drag to resize"></div>
-
-          <!-- RIGHT -->
-          <section class="mlo-pane mlo-pane-right mlo-inspector" aria-label="Inventory inspector">
-            <div class="mlo-pane-header">
-              <div class="d-flex justify-content-between align-items-center">
-                <div class="mlo-title">Inspector</div>
-                <span class="badge text-bg-secondary" id="invInspectorBadge">No selection</span>
-              </div>
-            </div>
-            <div class="mlo-pane-content">
-              <form id="invForm" autocomplete="off">
-                <ul class="nav nav-tabs nav-dark mb-2" role="tablist">
-                  <li class="nav-item" role="presentation">
-                    <button class="nav-link active" id="tab-inv-details" data-bs-toggle="tab" data-bs-target="#pane-inv-details" type="button" role="tab" aria-controls="pane-inv-details" aria-selected="true">Details</button>
-                  </li>
-                </ul>
-                <div class="tab-content">
-                  <div class="tab-pane fade show active" id="pane-inv-details" role="tabpanel" aria-labelledby="tab-inv-details">
-                    <div class="row g-2">
-                  <div class="col-4">
-                    <label class="form-label">ID</label>
-                    <input id="f_inv_id" class="form-control form-control-sm" type="text" readonly>
-                  </div>
-                  <div class="col-8">
-                    <label class="form-label">Item</label>
-                    <input id="f_inv_name" class="form-control form-control-sm" type="text" placeholder="e.g. Chain lube">
-                  </div>
-
-                  <div class="col-4">
-                    <label class="form-label">Qty on hand</label>
-                    <input id="f_inv_qty" class="form-control form-control-sm" type="number" step="0.01" min="0">
-                  </div>
-                  <div class="col-4">
-                    <label class="form-label">UoM</label>
-                    <input id="f_inv_uom" class="form-control form-control-sm" type="text" placeholder="L, ea, set">
-                  </div>
-                  <div class="col-4">
-                    <label class="form-label">Reorder point</label>
-                    <input id="f_inv_reorder" class="form-control form-control-sm" type="number" step="0.01" min="0">
-                  </div>
-
-                  <div class="col-6">
-                    <label class="form-label">Category</label>
-                    <select id="f_inv_cat" class="form-select form-select-sm"></select>
-                  </div>
-                  <div class="col-6">
-                    <label class="form-label">Location</label>
-                    <select id="f_inv_loc" class="form-select form-select-sm"></select>
-                  </div>
-
-                  <div class="col-6">
-                    <label class="form-label">Supplier</label>
-                    <select id="f_inv_supplier" class="form-select form-select-sm"></select>
-                  </div>
-                  <div class="col-6">
-                    <label class="form-label">Assigned driver</label>
-                    <select id="f_inv_driver" class="form-select form-select-sm"></select>
-                  </div>
-                  <div class="col-3">
-                    <label class="form-label">Lead time (days)</label>
-                    <input id="f_inv_lead" class="form-control form-control-sm" type="number" step="1" min="0">
-                  </div>
-                  <div class="col-3">
-                    <label class="form-label">Unit cost</label>
-                    <input id="f_inv_cost" class="form-control form-control-sm" type="number" step="0.01" min="0">
-                  </div>
-
-                  <div class="col-6">
-                    <label class="form-label">Homologation / Part No.</label>
-                    <input id="f_inv_homolog" class="form-control form-control-sm" type="text" placeholder="e.g. FIA H-1234 or supplier PN">
-                  </div>
-                  <div class="col-3">
-                    <label class="form-label">Expiry</label>
-                    <input id="f_inv_expiry" class="form-control form-control-sm" type="date">
-                  </div>
-                  <div class="col-3 d-flex align-items-center" style="padding-top: 1.2rem;">
-                    <div class="form-check form-switch">
-                      <input class="form-check-input" type="checkbox" id="f_inv_auto">
-                      <label class="form-check-label" for="f_inv_auto">Auto reorder</label>
-                    </div>
-                  </div>
-
-                  <div id="lifingSection" class="col-12">
-                    <hr class="border-secondary">
-                    <div class="d-flex justify-content-between align-items-center">
-                      <div class="mlo-title">Lifing</div>
-                      <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" id="f_inv_lifingEnabled">
-                        <label class="form-check-label" for="f_inv_lifingEnabled">Enable lifing</label>
-                      </div>
-                    </div>
-                    <div id="lifingHint" class="text-muted small mb-2" style="display:none;">Lifing applies to Tyres. Toggle above to enable for other items.</div>
-                    <div class="row g-2">
-                      <div class="col-3">
-                        <label class="form-label">Cycles</label>
-                        <input id="f_inv_cycles" class="form-control form-control-sm" type="number" min="0" step="1">
-                      </div>
-                      <div class="col-3">
-                        <label class="form-label">Heat (min)</label>
-                        <input id="f_inv_heat" class="form-control form-control-sm" type="number" min="0" step="1">
-                      </div>
-                      <div class="col-3">
-                        <label class="form-label">Cycle limit</label>
-                        <input id="f_inv_cycleLimit" class="form-control form-control-sm" type="number" min="0" step="1">
-                      </div>
-                      <div class="col-3">
-                        <label class="form-label">Heat limit (min)</label>
-                        <input id="f_inv_heatLimit" class="form-control form-control-sm" type="number" min="0" step="1">
-                      </div>
-                      <div class="col-6">
-                        <label class="form-label">Condition</label>
-                        <select id="f_inv_condition" class="form-select form-select-sm">
-                          <option>OK</option>
-                          <option>Wear</option>
-                          <option>Fail</option>
-                        </select>
-                      </div>
-                      <div class="col-6">
-                        <label class="form-label">Last inspection</label>
-                        <input id="f_inv_inspect" class="form-control form-control-sm" type="date">
-                      </div>
-                    </div>
-                    <div class="mlo-title mt-2">Tyre Serials</div>
-                    <div class="row g-2">
-                      <div class="col-3">
-                        <label class="form-label">FL</label>
-                        <input id="f_inv_serialFL" class="form-control form-control-sm" type="text" placeholder="Front Left serial">
-                      </div>
-                      <div class="col-3">
-                        <label class="form-label">FR</label>
-                        <input id="f_inv_serialFR" class="form-control form-control-sm" type="text" placeholder="Front Right serial">
-                      </div>
-                      <div class="col-3">
-                        <label class="form-label">RR</label>
-                        <input id="f_inv_serialRR" class="form-control form-control-sm" type="text" placeholder="Rear Right serial">
-                      </div>
-                      <div class="col-3">
-                        <label class="form-label">RL</label>
-                        <input id="f_inv_serialRL" class="form-control form-control-sm" type="text" placeholder="Rear Left serial">
-                      </div>
-                    </div>
-                  </div>
-
-                  <div id="usageSection" class="col-12">
-                    <hr class="border-secondary">
-                    <div class="mlo-title">Usage</div>
-                    <div class="row g-2">
-                      <div class="col-4">
-                        <label class="form-label">Initial value</label>
-                        <input id="f_inv_usageInit" class="form-control form-control-sm" type="number" min="0" step="1" placeholder="e.g. 0 (minutes)">
-                      </div>
-                      <div class="col-4">
-                        <label class="form-label">Current value</label>
-                        <input id="f_inv_usageCur" class="form-control form-control-sm" type="number" min="0" step="1" placeholder="minutes">
-                      </div>
-                      <div class="col-4">
-                        <label class="form-label">Service limit</label>
-                        <input id="f_inv_usageLimit" class="form-control form-control-sm" type="number" min="0" step="1" placeholder="minutes">
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="col-12">
-                    <label class="form-label">Burn rate notes</label>
-                    <textarea id="f_inv_burn" class="form-control form-control-sm" rows="2" placeholder="Typical usage per event, per driver, etc."></textarea>
-                  </div>
-
-                  <div class="col-12">
-                    <label class="form-label">Notes</label>
-                    <textarea id="f_inv_notes" class="form-control form-control-sm" rows="4" placeholder="Serial ranges, storage instructions, safety notes …"></textarea>
-                  </div>
-
-                  <div class="col-12 d-flex gap-1 mt-1">
-                    <button class="btn btn-sm btn-primary mlo-btn" id="btnSaveInv" type="button">Save</button>
-                    <button class="btn btn-sm btn-outline-light mlo-btn" id="btnDupInv" type="button">Duplicate</button>
-                    <!-- Deletion disabled: inventory must be invoiced out -->
-                    <button class="btn btn-sm btn-outline-danger mlo-btn" id="btnDelInv" type="button" disabled data-bs-toggle="tooltip" data-bs-placement="top" title="Inventory cannot be deleted. To remove stock, add it to an invoice and issue it to a customer.">Delete</button>
-                    <button class="btn btn-sm btn-warning mlo-btn" id="btnDraftPO" type="button" title="Create a draft purchase order for low stock">Draft PO</button>
-                    <button class="btn btn-sm btn-outline-light mlo-btn" id="btnAddCycle" type="button" title="Increment cycle count">+1 Cycle</button>
-                    <button class="btn btn-sm btn-outline-light mlo-btn" id="btnAddHeat" type="button" title="Add 10 minutes heat">+10 min Heat</button>
-                    <button class="btn btn-sm btn-outline-light mlo-btn" id="btnMarkInspect" type="button" title="Mark last inspection as today">Mark Inspected</button>
-                  </div>
-                  <div class="alert alert-warning mt-2 py-1" role="alert" style="background:rgba(255,193,7,0.12); border-color:rgba(255,193,7,0.25); color:#fff;">
-                    Inventory removal policy: items cannot be deleted here. To reduce stock, you must invoice the item out to a customer via the Invoicing section.
-                  </div>
-                    </div>
-                  </div>
-                </div>
-              </form>
-            </div>
-          </section>
+  </div>
+  
+  <!-- Custom Modals -->
+  <div class="modal fade" id="customConfirmModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="confirmModalTitle">Confirm Action</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p id="confirmModalMessage" style="white-space:pre-line"></p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" id="btnConfirmYes">Confirm</button>
         </div>
       </div>
-
+    </div>
+  </div>
+  
+  <div class="modal fade" id="customPromptModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="promptModalTitle">Input Required</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p id="promptModalMessage"></p>
+          <input type="text" class="form-control" id="promptModalInput">
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" id="btnPromptConfirm">OK</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="modal fade" id="customSelectModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="selectModalTitle">Select Option</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p id="selectModalMessage"></p>
+          <select class="form-select" id="selectModalDropdown"></select>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" id="btnSelectConfirm">Confirm</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Shopify Integration Modal -->
+  <div class="modal fade" id="shopifyModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">
+            <i class="bi bi-bag-check text-success"></i> Shopify Integration
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="alert alert-info mb-3">
+            <strong>Connect to Shopify</strong><br>
+            Sync your Shopify inventory with this system. You'll need your Shopify store name and an API access token.
+            <a href="https://help.shopify.com/en/manual/apps/custom-apps" target="_blank" class="alert-link">Learn how to create an API token →</a>
+          </div>
+          
+          <form id="shopifyForm">
+            <div class="mb-3">
+              <label class="form-label">Shop Name *</label>
+              <div class="input-group">
+                <input type="text" class="form-control" id="shopifyShopName" placeholder="mystore" required>
+                <span class="input-group-text">.myshopify.com</span>
+              </div>
+              <small class="text-muted">Enter your Shopify store name (e.g., "mystore" for mystore.myshopify.com)</small>
+            </div>
+            
+            <div class="mb-3">
+              <label class="form-label">Admin API Access Token *</label>
+              <input type="password" class="form-control" id="shopifyAccessToken" placeholder="shpat_..." required>
+              <small class="text-muted">Your Shopify Admin API access token (starts with "shpat_")</small>
+            </div>
+            
+            <div class="mb-3">
+              <button type="button" class="btn btn-outline-secondary btn-sm" id="btnTestConnection">
+                <i class="bi bi-plugin"></i> Test Connection
+              </button>
+              <span id="connectionStatus" class="ms-2"></span>
+            </div>
+            
+            <hr>
+            
+            <div class="mb-3">
+              <label class="form-label">Sync Options</label>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="shopifyOverwriteExisting" checked>
+                <label class="form-check-label" for="shopifyOverwriteExisting">
+                  Update existing items (matched by SKU)
+                </label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="shopifySyncLocations" checked>
+                <label class="form-check-label" for="shopifySyncLocations">
+                  Sync location inventory levels
+                </label>
+              </div>
+            </div>
+            
+            <div id="syncProgress" style="display:none" class="mb-3">
+              <div class="progress">
+                <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%"></div>
+              </div>
+              <small class="text-muted mt-1 d-block" id="syncProgressText">Syncing...</small>
+            </div>
+            
+            <div id="syncResults" style="display:none" class="alert"></div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-success" id="btnStartSync">
+            <i class="bi bi-arrow-repeat"></i> Start Sync
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-spinner">
+      <div class="spinner-circle"></div>
+      <div class="loading-text" id="loadingText">Processing...</div>
+      <div class="loading-subtext" id="loadingSubtext">Please wait</div>
+    </div>
+  </div>
+  
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+  
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="core.js"></script>
+  <script src="config.js?v=20260404-1640"></script>
+  <script src="core.js?v=20260404-1640"></script>
   <script src="topnav.js"></script>
   <script>
-  (function(){
-    RTS.setActiveNav();
-
-  const LS_INV = 'rts.inventory.v4';
-    const LS_UI = 'rts.inventory.ui.v4';
-    const LS_PANES = 'rts.inventory.panes.v4';
-  const LS_PODRAFTS = 'rts.podrafts.v1';
-  const LS_COLS = 'rts.inventory.cols.v1';
-  const LS_ORDERS = 'rts.orders.v1';
-
-  const settings = RTS.getSettings();
-  const LOCATIONS = (settings.locations||[]).slice();
-  const SUPPLIERS = (settings.suppliers||[]).map(s=>s.name).filter(Boolean);
-  const CATS = (settings.categories||['Consumables','Spares','Tyres','Tools & PPE']);
-    const UOMS = ['ea','L','ml','set','box'];
-  let _invTooltips = [];
-
-    function seed(){
-      const names = ['Chain lube','2T oil','Fuel (98)','Tyre sets (slick)','Tyre sets (wet)','Sprocket 82T','Sprocket 84T','Chain 219','Brake fluid','Cable ties','Rags','Spark plugs','Carb jets','Nuts & bolts kit','Gloves','Cleaning spray'];
-      const out = [];
-      for (let i=1;i<=200;i++){
-        const n = names[i % names.length];
-        const cat = CATS[i % CATS.length];
-        const loc = LOCATIONS[i % LOCATIONS.length];
-        const sup = SUPPLIERS[i % SUPPLIERS.length];
-        const u = UOMS[i % UOMS.length];
-        const reorder = (i % 7 === 0) ? 10 : (i % 5 === 0) ? 2 : 5;
-        const qty = Math.max(0, reorder + (i % 17) - 8);
-        // some items carry homologation/expiry, and auto reorder enabled
-        const hasHom = (cat === 'Tyres' || cat === 'Spares') && (i % 3 === 0);
-        const expiry = hasHom ? (new Date(Date.now() + ((i % 12) - 6) * 30 * 86400000)).toISOString().slice(0,10) : '';
-        const isTyre = (cat === 'Tyres');
-        const cycleLimit = isTyre ? 6 : 0;
-        const heatLimit = isTyre ? 600 : 0; // minutes
-        const cycles = isTyre ? (i % 7) : 0;
-        const heat = isTyre ? ((i % 15) * 30) : 0;
-        out.push({
-          id: i,
-          name: `${n} ${i}`,
-          qty,
-          uom: u,
-          reorder,
-          supplier: sup,
-          location: loc,
-          category: cat,
-          leadDays: (i % 10) + 1,
-          unitCost: Math.round((15 + (i % 40)) * 10) / 10,
-          burn: '',
-          notes: '',
-          lastUsedTs: Date.now() - (i % 30) * 86400000,
-          homolog: hasHom ? `H-${(1000 + i)}` : '',
-          expiry: expiry,
-          auto: (i % 4 === 0),
-          // lifing
-          cycles,
-          heatMin: heat,
-          lifeCycleLimit: cycleLimit,
-          lifeHeatLimit: heatLimit,
-          condition: isTyre ? ((i % 9===0)?'Wear':'OK') : '',
-          lastInspection: isTyre ? new Date(Date.now() - (i%20)*86400000).toISOString().slice(0,10) : '',
-          // usage
-          initial_value: 0,
-          current_value: 0,
-          service_limit: 0
-        });
+    // Modern Inventory Management System
+    (function() {
+      'use strict';
+      
+      // State
+      let allItems = [];
+      let filteredItems = [];
+      let selectedItems = new Set();
+      let currentFilter = { view: 'all', category: '', location: '', supplier: '', search: '' };
+      let  currentSort = 'name';
+      let displayMode = 'table';
+      let selectedItemId = null;
+      
+      // Settings
+      const settings = RTS.getSettings();
+      const CATEGORIES = settings.categories || ['Consumables', 'Spares', 'Tyres', 'Tools & PPE'];
+      const LOCATIONS = settings.locations || [];
+      const SUPPLIERS = (settings.suppliers || []).map(s => typeof s === 'string' ? s : s.name).filter(Boolean);
+      
+      // Initialize
+      async function init() {
+        console.log('🚀 Inventory Manager Init');
+        RTS.setActiveNav();
+        setupModals();
+        setupEventListeners();
+        await loadData();
+        populateDropdowns();
+        renderAll();
       }
-      return out;
-    }
-
-    const defaultUI = {
-      perspective: 'all',
-      locationPick: '',
-      supplierPick: '',
-      driverPick: '',
-      search: '',
-      location: '',
-      supplier: '',
-      groupBy: '',
-      selectedId: null
-    };
-
-    let items = [];
-    async function loadItems(){
-      try {
-        items = await RTS.apiGetCollection('inventory');
-      } catch(_e){ items = RTS.safeLoadJSON(LS_INV, null) || []; }
-      if (!Array.isArray(items) || items.length === 0) items = seed();
-    }
-    // Compute incoming quantities from open orders (not Received/Closed)
-    function computeIncomingMap(){
-      const orders = RTS.safeLoadJSON(LS_ORDERS, []) || [];
-      const map = new Map();
-      try {
-        orders.filter(o => !['Received','Closed'].includes(String(o.status||''))).forEach(o => {
-          (Array.isArray(o.items) ? o.items : []).forEach(li => {
-            const ref = String(li.ref||'');
-            const qty = Number(li.qty||0);
-            const recv = Number(li.recv||0);
-            const pend = Math.max(0, qty - recv);
-            if (!ref || pend <= 0) return;
-            if (ref.startsWith('inventory:')){
-              const id = ref.split(':')[1];
-              map.set(id, (map.get(id)||0) + pend);
+      
+      // Load data from API
+      async function loadData() {
+        showLoading('Loading Inventory', 'Fetching items from database...');
+        try {
+          // Try API first, fallback to RTS wrapper which handles localStorage
+          let items = [];
+          
+          if (typeof RTS_API !== 'undefined' && RTS_API.getCollectionItems) {
+            const response = await RTS_API.getCollectionItems('inventory');
+            items = response.items || [];
+          } else if (typeof RTS !== 'undefined' && RTS.apiGetCollectionItems) {
+            items = await RTS.apiGetCollectionItems('inventory');
+          }
+          
+          if (items && items.length > 0) {
+            allItems = items.map(item => {
+              // Parse location distribution if available
+              let locationDist = {};
+              try {
+                if (item.location_distribution) {
+                  locationDist = typeof item.location_distribution === 'string' 
+                    ? JSON.parse(item.location_distribution) 
+                    : item.location_distribution;
+                }
+              } catch (e) {
+                console.warn('Failed to parse location_distribution:', e);
+              }
+              
+              return {
+                id: item.id,
+                name: item.name,
+                sku: item.sku || '',
+                category: item.category || 'Consumables',
+                qty: parseFloat(item.quantity) || 0,
+                uom: item.unit_of_measure || 'ea',
+                reorder: parseFloat(item.min_quantity) || 0,
+                location: item.location_id || '',
+                locationDist: locationDist,
+                supplier: item.supplier || '',
+                leadDays: parseInt(item.lead_time_days) || 0,
+                cost: parseFloat(item.unit_cost) || 0,
+                notes: item.notes || '',
+                auto: item.auto_reorder || false,
+                lastUsed: item.last_used_date || null
+              };
+            });
+            console.log(`✅ Loaded ${allItems.length} items from database`);
+          } else {
+            // Seed data if empty
+            allItems = seedData();
+            console.log(`📦 Seeded ${allItems.length} items`);
+          }
+        } catch (error) {
+          console.error('Error loading inventory:', error);
+          showToast('Error loading inventory: ' + error.message, 'error');
+          allItems = seedData();
+        }
+        hideLoading();
+      }
+      
+      // Seed sample data
+      function seedData() {
+        const names = ['Chain lube', '2T oil', 'Fuel', 'Tyre sets (slick)', 'Tyre sets (wet)', 
+                       'Sprocket 82T', 'Sprocket 84T', 'Chain 219', 'Brake fluid', 'Cable ties'];
+        const items = [];
+        for (let i = 1; i <= 50; i++) {
+          const cat = CATEGORIES[i % CATEGORIES.length];
+          const totalQty = Math.floor(Math.random() * 50);
+          
+          // Create realistic location distribution
+          const locationDist = {};
+          if (totalQty > 0) {
+            // Distribute across 1-4 locations
+            const numLocations = Math.min(1 + Math.floor(Math.random() * 3), LOCATIONS.length, Math.ceil(totalQty / 5));
+            let remaining = totalQty;
+            
+            for (let j = 0; j < numLocations && remaining > 0; j++) {
+              const loc = LOCATIONS[(i + j) % LOCATIONS.length] || 'Warehouse';
+              const amount = j === numLocations - 1 ? remaining : Math.floor(Math.random() * remaining) + 1;
+              locationDist[loc] = amount;
+              remaining -= amount;
+            }
+          }
+          
+          items.push({
+            id: `item-${i}`,
+            name: `${names[i % names.length]} ${i}`,
+            sku: `SKU-${String(i).padStart(4, '0')}`,
+            category: cat,
+            qty: totalQty,
+            uom: 'ea',
+            reorder: 5 + (i % 10),
+            location: LOCATIONS[i % LOCATIONS.length] || 'Warehouse',
+            locationDist: locationDist, // Distribution across locations
+            supplier: SUPPLIERS[i % SUPPLIERS.length] || 'Generic Supplier',
+            leadDays: 3 + (i % 7),
+            cost: 10 + Math.random() * 90,
+            notes: '',
+            auto: i % 4 === 0,
+            lastUsed: new Date(Date.now() - Math.random() * 30 * 86400000).toISOString()
+          });
+        }
+        return items;
+      }
+      
+      // Setup modals
+      function setupModals() {
+        const confirmModal = new bootstrap.Modal(document.getElementById('customConfirmModal'));
+        const promptModal = new bootstrap.Modal(document.getElementById('customPromptModal'));
+        const selectModal = new bootstrap.Modal(document.getElementById('customSelectModal'));
+        
+        let confirmResolve = null;
+        let confirmResult = null;
+        
+        window.customConfirm = function(title, message, confirmText = 'Confirm', isDanger = false) {
+          return new Promise((resolve) => {
+            document.getElementById('confirmModalTitle').textContent = title;
+            document.getElementById('confirmModalMessage').textContent = message;
+            const btn = document.getElementById('btnConfirmYes');
+            btn.textContent = confirmText;
+            btn.className = isDanger ? 'btn btn-danger' : 'btn btn-primary';
+            confirmResolve = resolve;
+            confirmResult = null;
+            confirmModal.show();
+          });
+        };
+        
+        document.getElementById('btnConfirmYes').addEventListener('click', () => {
+          if (confirmResolve) {
+            confirmResult = true;
+            confirmModal.hide();
+          }
+        });
+        
+        document.getElementById('customConfirmModal').addEventListener('hidden.bs.modal', () => {
+          if (confirmResolve) {
+            const resolve = confirmResolve;
+            confirmResolve = null;
+            resolve(confirmResult === true);
+            confirmResult = null;
+          }
+        });
+        
+        // Similar setup for prompt and select modals...
+      }
+      
+      // Setup event listeners
+      function setupEventListeners() {
+        // View filters
+        document.querySelectorAll('[data-view]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            document.querySelectorAll('[data-view]').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentFilter.view = btn.dataset.view;
+            applyFilters();
+          });
+        });
+        
+        // Display mode
+        document.querySelectorAll('[data-display]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            document.querySelectorAll('[data-display]').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            displayMode = btn.dataset.display;
+            renderItems();
+          });
+        });
+        
+        // Search and filters
+        document.getElementById('searchInput').addEventListener('input', debounce(() => {
+          currentFilter.search = document.getElementById('searchInput').value.toLowerCase();
+          applyFilters();
+        }, 300));
+        
+        document.getElementById('filterCategory').addEventListener('change', () => {
+          currentFilter.category = document.getElementById('filterCategory').value;
+          applyFilters();
+        });
+        
+        document.getElementById('filterLocation').addEventListener('change', () => {
+          currentFilter.location = document.getElementById('filterLocation').value;
+          applyFilters();
+        });
+        
+        document.getElementById('filterSupplier').addEventListener('change', () => {
+          currentFilter.supplier = document.getElementById('filterSupplier').value;
+          applyFilters();
+        });
+        
+        document.getElementById('sortBy').addEventListener('change', () => {
+          currentSort = document.getElementById('sortBy').value;
+          sortAndRender();
+        });
+        
+        // Select all
+        document.getElementById('selectAll').addEventListener('change', (e) => {
+          if (e.target.checked) {
+            filteredItems.forEach(item => selectedItems.add(item.id));
+          } else {
+            selectedItems.clear();
+          }
+          updateBulkToolbar();
+          renderItems();
+        });
+        
+        // Bulk actions
+        document.getElementById('btnClearSelection').addEventListener('click', () => {
+          selectedItems.clear();
+          updateBulkToolbar();
+          renderItems();
+        });
+        
+        document.getElementById('btnBulkDelete').addEventListener('click', bulkDelete);
+        document.getElementById('btnBulkUpdateLocation').addEventListener('click', bulkUpdateLocation);
+        document.getElementById('btnBulkUpdateSupplier').addEventListener('click', bulkUpdateSupplier);
+        
+        // Add item
+        document.getElementById('btnAddItem').addEventListener('click', () => {
+          selectedItemId = null;
+          showItemForm(null);
+        });
+        
+        // Shopify sync
+        document.getElementById('btnShopifySync').addEventListener('click', openShopifyModal);
+        
+        // Item form
+        document.getElementById('itemForm').addEventListener('submit', saveItem);
+        document.getElementById('btnDeleteItem').addEventListener('click', deleteItem);
+      }
+      
+      // Populate dropdowns
+      function populateDropdowns() {
+        const catOptions = CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('');
+        const locOptions = LOCATIONS.map(l => `<option value="${l}">${l}</option>`).join('');
+        const supOptions = SUPPLIERS.map(s => `<option value="${s}">${s}</option>`).join('');
+        
+        document.getElementById('filterCategory').innerHTML = '<option value="">All Categories</option>' + catOptions;
+        document.getElementById('filterLocation').innerHTML = '<option value="">All Locations</option>' + locOptions;
+        document.getElementById('filterSupplier').innerHTML = '<option value="">All Suppliers</option>' + supOptions;
+        
+        document.getElementById('itemCategory').innerHTML = '<option value="">Select...</option>' + catOptions;
+        document.getElementById('itemLocation').innerHTML = '<option value="">Select...</option>' + locOptions;
+        document.getElementById('itemSupplier').innerHTML = '<option value="">Select...</option>' + supOptions;
+        
+        // Render category/location/supplier lists
+        renderFilterLists();
+      }
+      
+      // Render filter lists
+      function renderFilterLists() {
+        // Categories
+        const catCounts = {};
+        allItems.forEach(item => {
+          catCounts[item.category] = (catCounts[item.category] || 0) + 1;
+        });
+        
+        document.getElementById('categoryList').innerHTML = Object.entries(catCounts)
+          .map(([cat, count]) => `
+            <button class="list-group-item list-group-item-action" data-filter-cat="${cat}">
+              ${cat} <span class="badge bg-secondary rounded-pill float-end">${count}</span>
+            </button>
+          `).join('');
+        
+        document.querySelectorAll('[data-filter-cat]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            currentFilter.category = btn.dataset.filterCat;
+            document.getElementById('filterCategory').value = currentFilter.category;
+            applyFilters();
+          });
+        });
+        
+        // Similar for locations and suppliers...
+      }
+      
+      // Apply filters
+      function applyFilters() {
+        filteredItems = allItems.filter(item => {
+          // View filter
+          if (currentFilter.view === 'low' && item.qty >= item.reorder) return false;
+          if (currentFilter.view === 'out' && item.qty > 0) return false;
+          if (currentFilter.view === 'expiring') return false; // TODO: implement expiry logic
+          
+          // Category/location/supplier
+          if (currentFilter.category && item.category !== currentFilter.category) return false;
+          if (currentFilter.location && item.location !== currentFilter.location) return false;
+          if (currentFilter.supplier && item.supplier !== currentFilter.supplier) return false;
+          
+          // Search
+          if (currentFilter.search) {
+            const searchStr = currentFilter.search;
+            if (!item.name.toLowerCase().includes(searchStr) && 
+                !item.sku.toLowerCase().includes(searchStr)) {
+              return false;
+            }
+          }
+          
+          return true;
+        });
+        
+        sortAndRender();
+      }
+      
+      // Sort and render
+      function sortAndRender() {
+        filteredItems.sort((a, b) => {
+          switch (currentSort) {
+            case 'name': return a.name.localeCompare(b.name);
+            case 'qty': return b.qty - a.qty;
+            case 'category': return a.category.localeCompare(b.category);
+            case 'location': return a.location.localeCompare(b.location);
+            case 'lastUsed': return new Date(b.lastUsed) - new Date(a.lastUsed);
+            default: return 0;
+          }
+        });
+        
+        renderItems();
+        updateCounts();
+      }
+      
+      // Render items
+      function renderItems() {
+        if (displayMode === 'table') {
+          renderTableView();
+        } else {
+          renderCardView();
+        }
+        updateBulkToolbar();
+      }
+      
+      // Render table view
+      function renderTableView() {
+        document.getElementById('tableView').style.display = 'block';
+        document.getElementById('cardView').style.display = 'none';
+        
+        const tbody = document.getElementById('inventoryTableBody');
+        tbody.innerHTML = filteredItems.map(item => {
+          const qtyClass = item.qty === 0 ? 'out' : (item.qty <= item.reorder ? 'low' : '');
+          const catClass = `category-${item.category.toLowerCase().replace(/\s+/g, '-')}`;
+          
+          // Generate location distribution display
+          let locationDisplay = item.location || '-';
+          if (item.locationDist && Object.keys(item.locationDist).length > 0) {
+            const entries = Object.entries(item.locationDist).sort((a, b) => b[1] - a[1]);
+            const badges = entries.slice(0, 2).map(([loc, qty], idx) => 
+              `<span class="loc-badge ${idx === 0 ? 'primary' : ''}" title="${loc}: ${qty} ${item.uom}">${loc.substring(0, 3)}: ${qty}</span>`
+            ).join('');
+            
+            const moreCount = entries.length - 2;
+            const moreHtml = moreCount > 0 ? `<span class="loc-more" title="${entries.slice(2).map(([l, q]) => `${l}: ${q}`).join(', ')}">+${moreCount}</span>` : '';
+            
+            locationDisplay = `<div class="location-dist">${badges}${moreHtml}</div>`;
+          }
+          
+          return `
+            <tr class="${selectedItems.has(item.id) ? 'selected' : ''}" data-item-id="${item.id}">
+              <td><input type="checkbox" class="item-checkbox" ${selectedItems.has(item.id) ? 'checked' : ''}></td>
+              <td><strong>${item.name}</strong></td>
+              <td><code style="font-size:.75rem;color:#000">${item.sku}</code></td>
+              <td class="item-qty ${qtyClass}"><strong>${item.qty}</strong></td>
+              <td><strong>${item.uom}</strong></td>
+              <td><span class="category-pill ${catClass}">${item.category}</span></td>
+              <td>${locationDisplay}</td>
+              <td><strong>${item.supplier || '-'}</strong></td>
+              <td><strong>${item.reorder}</strong></td>
+              <td>
+                <button class="btn btn-sm btn-outline-primary" onclick="window.viewItem('${item.id}')">
+                  <i class="bi bi-eye"></i>
+                </button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+        
+        // Add click handlers
+        tbody.querySelectorAll('.item-checkbox').forEach(cb => {
+          cb.addEventListener('change', (e) => {
+            e.stopPropagation();
+            const row = e.target.closest('tr');
+            const itemId = row.dataset.itemId;
+            if (e.target.checked) {
+              selectedItems.add(itemId);
+            } else {
+              selectedItems.delete(itemId);
+            }
+            updateBulkToolbar();
+            renderItems();
+          });
+        });
+        
+        tbody.querySelectorAll('tr').forEach(row => {
+          row.addEventListener('click', (e) => {
+            if (!e.target.closest('.item-checkbox') && !e.target.closest('button')) {
+              const itemId = row.dataset.itemId;
+              viewItem(itemId);
             }
           });
         });
-      } catch(_e){}
-      return map;
-    }
-    let ui = RTS.deepMerge(defaultUI, RTS.safeLoadJSON(LS_UI, {}));
-
-    const el = {
-      shell: document.getElementById('invShell'),
-      badge: document.getElementById('invCountBadge'),
-      ibadge: document.getElementById('invInspectorBadge'),
-      perspectives: document.getElementById('invPerspectiveList'),
-      locTree: document.getElementById('invLocationList'),
-      supTree: document.getElementById('invSupplierList'),
-  driverTree: document.getElementById('invDriverList'),
-  tbody: document.getElementById('invTbody'),
-  colgroup: document.getElementById('invColGroup'),
-      search: document.getElementById('invSearch'),
-      location: document.getElementById('invLocation'),
-      supplier: document.getElementById('invSupplier'),
-      group: document.getElementById('invGroup'),
-      add: document.getElementById('btnAddInv'),
-      save: document.getElementById('btnSaveInv'),
-      dup: document.getElementById('btnDupInv'),
-      del: document.getElementById('btnDelInv'),
-      po: document.getElementById('btnDraftPO'),
-      addCycle: document.getElementById('btnAddCycle'),
-      addHeat: document.getElementById('btnAddHeat'),
-      markInspect: document.getElementById('btnMarkInspect'),
-  lifingSection: document.getElementById('lifingSection'),
-  lifingHint: document.getElementById('lifingHint'),
-      f: {
-        id: document.getElementById('f_inv_id'),
-        name: document.getElementById('f_inv_name'),
-        qty: document.getElementById('f_inv_qty'),
-        uom: document.getElementById('f_inv_uom'),
-        reorder: document.getElementById('f_inv_reorder'),
-  cat: document.getElementById('f_inv_cat'),
-  loc: document.getElementById('f_inv_loc'),
-  supplier: document.getElementById('f_inv_supplier'),
-        driver: document.getElementById('f_inv_driver'),
-        lead: document.getElementById('f_inv_lead'),
-        cost: document.getElementById('f_inv_cost'),
-        burn: document.getElementById('f_inv_burn'),
-        notes: document.getElementById('f_inv_notes'),
-        homolog: document.getElementById('f_inv_homolog'),
-        expiry: document.getElementById('f_inv_expiry'),
-        auto: document.getElementById('f_inv_auto'),
-        cycles: document.getElementById('f_inv_cycles'),
-        heat: document.getElementById('f_inv_heat'),
-        cycleLimit: document.getElementById('f_inv_cycleLimit'),
-        heatLimit: document.getElementById('f_inv_heatLimit'),
-        condition: document.getElementById('f_inv_condition'),
-  inspect: document.getElementById('f_inv_inspect'),
-  lifingEnabled: document.getElementById('f_inv_lifingEnabled'),
-        serialFL: document.getElementById('f_inv_serialFL'),
-        serialFR: document.getElementById('f_inv_serialFR'),
-        serialRR: document.getElementById('f_inv_serialRR'),
-        serialRL: document.getElementById('f_inv_serialRL'),
-        // usage
-        usageInit: document.getElementById('f_inv_usageInit'),
-        usageCur: document.getElementById('f_inv_usageCur'),
-        usageLimit: document.getElementById('f_inv_usageLimit')
       }
-    };
-    function ensureOption(sel, val){
-      if (!sel || !val) return;
-      const exists = Array.from(sel.options||[]).some(o => o.value === val);
-      if (!exists) {
-        const opt = document.createElement('option'); opt.value = val; opt.textContent = val; sel.appendChild(opt);
+      
+      // Render card view
+      function renderCardView() {
+        document.getElementById('tableView').style.display = 'none';
+        document.getElementById('cardView').style.display = 'block';
+        
+        // TODO: Implement card view layout
       }
-    }
-    function fillInspectorSelects(){
-      if (el.f.cat) el.f.cat.innerHTML = CATS.map(v=>`<option>${v}</option>`).join('');
-      if (el.f.loc) el.f.loc.innerHTML = LOCATIONS.map(v=>`<option>${v}</option>`).join('');
-      if (el.f.supplier) el.f.supplier.innerHTML = SUPPLIERS.map(v=>`<option>${v}</option>`).join('');
-      // Drivers from settings
-      const driverNames = Array.isArray(settings.drivers)
-        ? settings.drivers.map(d => (typeof d === 'string' ? d : d.name)).filter(Boolean)
-        : [];
-      if (el.f.driver) el.f.driver.innerHTML = '<option value="">— Unassigned —</option>' + driverNames.map(n=>`<option value="${n}">${n}</option>`).join('');
-    }
-    function lifingStatus(it){
-      const cl = Number(it.lifeCycleLimit||0), hl = Number(it.lifeHeatLimit||0);
-      const c = Number(it.cycles||0), h = Number(it.heatMin||0);
-      if (!cl && !hl) return '—';
-      const overC = cl && c >= cl;
-      const overH = hl && h >= hl;
-      const warnC = cl && c >= Math.max(1, Math.floor(cl*0.8)) && !overC;
-      const warnH = hl && h >= Math.max(1, Math.floor(hl*0.8)) && !overH;
-      if (overC || overH || it.condition==='Fail') return `<span class="badge text-bg-danger">FAIL</span>`;
-      if (warnC || warnH || it.condition==='Wear') return `<span class="badge text-bg-warning">WARN</span>`;
-      return `<span class="badge text-bg-success">OK</span>`;
-    }
-
-    function serialsText(it){
-      const parts = [];
-      if (it.serialFL) parts.push(`FL ${it.serialFL}`);
-      if (it.serialFR) parts.push(`FR ${it.serialFR}`);
-      if (it.serialRR) parts.push(`RR ${it.serialRR}`);
-      if (it.serialRL) parts.push(`RL ${it.serialRL}`);
-      if (parts.length === 0) return '—';
-      return `<small>${parts.join(' • ')}</small>`;
-    }
-
-    function persist(){
-      RTS.safeSaveJSON(LS_INV, items);
-      RTS.safeSaveJSON(LS_UI, ui);
-    }
-    async function sync(){
-      try { await RTS.apiSyncCollection('inventory', items); } catch(_e){ /* offline fallback already saved locally */ }
-    }
-
-    function applyColWidths(widths){
-      if (!el.colgroup) return;
-      const cols = el.colgroup.querySelectorAll('col');
-      widths = Array.isArray(widths) ? widths : [];
-      cols.forEach((c, i) => {
-        const w = widths[i];
-        if (typeof w === 'number' && w > 30) c.style.width = w + 'px';
-        else c.style.width = '';
-      });
-    }
-
-    function computeInitialColWidths(){
-      const theadRow = el.shell.querySelector('.mlo-table thead tr');
-      if (!theadRow || !el.colgroup) return [];
-      const ths = Array.from(theadRow.children);
-      const widths = ths.map(th => Math.max(60, Math.round(th.getBoundingClientRect().width)));
-      applyColWidths(widths);
-      RTS.safeSaveJSON(LS_COLS, widths);
-      return widths;
-    }
-
-    function autoFitColumn(idx){
-      const table = el.shell.querySelector('.mlo-table');
-      if (!table || !el.colgroup) return;
-      const th = table.querySelector('thead tr').children[idx];
-      const rows = Array.from(table.querySelectorAll('tbody tr')).slice(0, 100); // sample up to 100 rows
-      // Use canvas to measure text width based on computed font
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      const refCell = table.querySelector('tbody tr td');
-      const font = refCell ? getComputedStyle(refCell).font : '12px sans-serif';
-      ctx.font = font;
-      let max = ctx.measureText((th.textContent||'').trim()).width;
-      rows.forEach(r => {
-        const cell = r.children[idx];
-        if (!cell) return;
-        const txt = (cell.textContent||'').trim();
-        const w = ctx.measureText(txt).width;
-        if (w > max) max = w;
-      });
-      // Add padding allowance
-      const newW = Math.min(420, Math.max(60, Math.round(max + 24))); // clamp between 60 and 420
-      const cols = el.colgroup.querySelectorAll('col');
-      if (cols[idx]) cols[idx].style.width = newW + 'px';
-      // persist widths
-      const widths = Array.from(cols).map(c => {
-        const w = parseInt((c.style.width||'').replace('px',''), 10);
-        return isNaN(w) ? null : w;
-      });
-      RTS.safeSaveJSON(LS_COLS, widths);
-    }
-
-    function setupColumnResizers(){
-      const theadRow = el.shell.querySelector('.mlo-table thead tr');
-      if (!theadRow) return;
-      const saved = RTS.safeLoadJSON(LS_COLS, []);
-      if (Array.isArray(saved) && saved.length) applyColWidths(saved); else computeInitialColWidths();
-      const ths = Array.from(theadRow.children);
-      ths.forEach((th, idx) => {
-        th.style.position = 'relative';
-        if (idx === ths.length - 1) return; // skip last column
-        const grip = document.createElement('span');
-        grip.className = 'inv-col-resizer';
-        grip.title = 'Drag to resize';
-        th.appendChild(grip);
-        let startX = 0, startW = 0;
-        const onMouseMove = (e) => {
-          const dx = e.clientX - startX;
-          const newW = Math.max(50, startW + dx);
-          const cols = el.colgroup.querySelectorAll('col');
-          if (cols[idx]) cols[idx].style.width = newW + 'px';
-        };
-        const onMouseUp = () => {
-          document.removeEventListener('mousemove', onMouseMove);
-          document.removeEventListener('mouseup', onMouseUp);
-          // persist widths
-          const cols = el.colgroup.querySelectorAll('col');
-          const widths = Array.from(cols).map(c => {
-            const w = parseInt((c.style.width||'').replace('px',''), 10);
-            return isNaN(w) ? null : w;
-          });
-          RTS.safeSaveJSON(LS_COLS, widths);
-        };
-        grip.addEventListener('mousedown', (e) => {
-          startX = e.clientX;
-          const rect = th.getBoundingClientRect();
-          startW = rect.width;
-          document.addEventListener('mousemove', onMouseMove);
-          document.addEventListener('mouseup', onMouseUp);
-          e.preventDefault();
-          e.stopPropagation();
-        });
-        grip.addEventListener('dblclick', (e) => {
-          autoFitColumn(idx);
-          e.preventDefault();
-          e.stopPropagation();
-        });
-      });
-    }
-
-    function isExpired(dateStr){
-      if (!dateStr) return false;
-      const d = new Date(dateStr);
-      return isNaN(d.getTime()) ? false : (d.getTime() < Date.now());
-    }
-
-    function complianceBadge(it){
-      if (it.expiry){
-        const bad = isExpired(it.expiry);
-        const lab = bad ? 'EXPIRED' : 'OK';
-        const cls = bad ? 'text-bg-danger' : 'text-bg-success';
-        const date = it.expiry;
-        return `<span class="badge ${cls}">${lab}</span> <small class="text-muted">${date}</small>`;
-      }
-      return '—';
-    }
-
-    function rebuildTrees(){
-      const uniqLoc = Array.from(new Set(items.map(i=>i.location))).sort();
-      const uniqSup = Array.from(new Set(items.map(i=>i.supplier))).sort();
-      const driverNames = Array.isArray(settings.drivers)
-        ? settings.drivers.map(d => (typeof d === 'string' ? d : d.name)).filter(Boolean)
-        : [];
-      const uniqDrv = Array.from(new Set(items.map(i=>i.driver).concat(driverNames))).filter(Boolean).sort();
-
-      el.location.innerHTML = '<option value="">Location: All</option>' + uniqLoc.map(v=>`<option>${v}</option>`).join('');
-  el.supplier.innerHTML = '<option value="">All</option>' + uniqSup.map(v=>`<option>${v}</option>`).join('');
-
-      el.locTree.innerHTML = '';
-      const liAllL = document.createElement('li'); liAllL.textContent = 'All locations'; liAllL.dataset.location = ''; if (!ui.locationPick) liAllL.classList.add('active');
-      el.locTree.appendChild(liAllL);
-      uniqLoc.forEach(v => {
-        const li = document.createElement('li'); li.textContent = v; li.dataset.location = v; if (ui.locationPick === v) li.classList.add('active');
-        el.locTree.appendChild(li);
-      });
-
-      el.supTree.innerHTML = '';
-  const liAllS = document.createElement('li'); liAllS.textContent = 'All'; liAllS.dataset.supplier = ''; if (!ui.supplierPick) liAllS.classList.add('active');
-      el.supTree.appendChild(liAllS);
-      uniqSup.forEach(v => {
-        const li = document.createElement('li'); li.textContent = v; li.dataset.supplier = v; if (ui.supplierPick === v) li.classList.add('active');
-        el.supTree.appendChild(li);
-      });
-
-      // Drivers tree
-      if (el.driverTree){
-        el.driverTree.innerHTML = '';
-        const liAllD = document.createElement('li'); liAllD.textContent = 'All drivers'; liAllD.dataset.driver = ''; if (!ui.driverPick) liAllD.classList.add('active');
-        el.driverTree.appendChild(liAllD);
-        uniqDrv.forEach(v => {
-          const li = document.createElement('li'); li.textContent = v; li.dataset.driver = v; if (ui.driverPick === v) li.classList.add('active');
-          el.driverTree.appendChild(li);
-        });
-      }
-    }
-
-    function applyFilters(list){
-      let out = list.slice();
-
-      if (ui.perspective === 'low') out = out.filter(i => i.qty > 0 && i.qty <= i.reorder);
-      if (ui.perspective === 'out') out = out.filter(i => i.qty <= 0);
-      if (ui.perspective === 'recent') out = out.filter(i => (Date.now() - (i.lastUsedTs||0)) <= 7*86400000);
-
-      if (ui.locationPick) out = out.filter(i => i.location === ui.locationPick);
-      if (ui.supplierPick) out = out.filter(i => i.supplier === ui.supplierPick);
-  if (ui.driverPick) out = out.filter(i => (i.driver||'') === ui.driverPick);
-
-      if (ui.search){
-        const q = ui.search.toLowerCase();
-        out = out.filter(i => (`${i.name} ${i.category} ${i.supplier} ${i.location}`).toLowerCase().includes(q));
-      }
-      if (ui.location) out = out.filter(i => i.location === ui.location);
-      if (ui.supplier) out = out.filter(i => i.supplier === ui.supplier);
-
-      return out;
-    }
-
-    function groupKey(it){
-      switch(ui.groupBy){
-        case 'location': return it.location || '—';
-        case 'supplier': return it.supplier || '—';
-        case 'category': return it.category || '—';
-        case 'low': return (it.qty <= it.reorder) ? 'Low / At risk' : 'OK';
-        default: return '';
-      }
-    }
-
-    function render(){
-      el.search.value = ui.search || '';
-      el.location.value = ui.location || '';
-      el.supplier.value = ui.supplier || '';
-      el.group.value = ui.groupBy || '';
-
-  const filtered = applyFilters(items);
-  const incomingMap = computeIncomingMap();
-      el.badge.textContent = String(filtered.length);
-      el.tbody.innerHTML = '';
-
-      let rows = filtered.slice().sort((a,b) => (a.name||'').localeCompare(b.name||''));
-      if (ui.groupBy){
-        rows.sort((a,b) => {
-          const ga = groupKey(a); const gb = groupKey(b);
-          if (ga !== gb) return ga.localeCompare(gb);
-          return (a.name||'').localeCompare(b.name||'');
-        });
-      }
-
-      let idx = 0;
-      let lastGroup = null;
-      rows.forEach(it => {
-        const g = ui.groupBy ? groupKey(it) : '';
-        if (ui.groupBy && g !== lastGroup){
-          lastGroup = g;
-          const trG = document.createElement('tr');
-          trG.className = 'mlo-group-row';
-          trG.innerHTML = `<td colspan="12">${g}</td>`;
-          el.tbody.appendChild(trG);
+      
+      // View item details
+      window.viewItem = function(itemId) {
+        selectedItemId = itemId;
+        const item = allItems.find(i => i.id === itemId);
+        if (item) {
+          showItemForm(item);
         }
-        idx += 1;
-        const tr = document.createElement('tr');
-        tr.dataset.id = String(it.id);
-        if (ui.selectedId === it.id) tr.classList.add('mlo-row-selected');
-        const isOut = (it.qty <= 0);
-        if (isOut) tr.classList.add('inv-row-out');
-        const isLow = (it.qty > 0 && it.qty <= it.reorder);
-  if (isLow) tr.classList.add('inv-row-low');
-        const overUse = Number(it.current_value||0) > Number(it.service_limit||0) && Number(it.service_limit||0) > 0;
-        if (overUse) {
-          tr.classList.add('inv-row-over');
-          tr.setAttribute('data-bs-toggle', 'tooltip');
-          tr.setAttribute('data-bs-placement', 'top');
-          tr.setAttribute('title', `Usage over limit (${it.current_value} > ${it.service_limit})`);
-        }
-        // Add helpful tooltip on hover
-        if (isOut){
-          tr.setAttribute('data-bs-toggle', 'tooltip');
-          tr.setAttribute('data-bs-placement', 'top');
-          tr.setAttribute('title', 'Out of stock');
-        } else if (isLow){
-          tr.setAttribute('data-bs-toggle', 'tooltip');
-          tr.setAttribute('data-bs-placement', 'top');
-          tr.setAttribute('title', `Low stock (\u2264 ${it.reorder})`);
-        }
-  const incoming = incomingMap.get(String(it.id)) || 0;
-  const qtyLabel = `${it.qty}${it.qty <= 0 ? ' (OUT)' : (isLow ? ' (LOW)' : '')}` + (incoming > 0 ? ` \u00A0 <span class="badge" style="background:rgba(77,209,255,0.18); border:1px solid rgba(77,209,255,0.35); color:#d9f7ff;">+${incoming} incoming</span>` : '');
-        const isTyre = (it.category === 'Tyres');
-  const lifingActive = isTyre || !!it.lifingEnabled;
-  const serials = isTyre ? serialsText(it) : '—';
-        tr.innerHTML = `
-          <td>${idx}</td>
-          <td>${it.name}</td>
-          <td>${qtyLabel}</td>
-          <td>${it.uom}</td>
-          <td>${it.reorder}</td>
-          <td>${it.supplier}</td>
-          <td>${it.location}</td>
-          <td><span class="inv-driver-label">${it.driver || '—'}</span></td>
-          <td>${complianceBadge(it)}</td>
-          <td>${it.auto ? '<span class="badge text-bg-warning">Yes</span>' : 'No'}</td>
-          <td>${serials}</td>
-          <td>${lifingActive ? lifingStatus(it) : '—'}</td>
-        `;
-        tr.addEventListener('click', () => select(it.id));
-        // Ensure robust hover highlight regardless of CSS conflicts
-        tr.addEventListener('mouseenter', () => tr.classList.add('inv-hover'));
-        tr.addEventListener('mouseleave', () => tr.classList.remove('inv-hover'));
-        el.tbody.appendChild(tr);
-      });
-
-      hydrate(items.find(x => x.id === ui.selectedId) || null);
-      // Initialize Bootstrap tooltips for marked rows
-      try {
-        if (_invTooltips && _invTooltips.length){ _invTooltips.forEach(t => { try { t.dispose(); } catch(_e){} }); _invTooltips = []; }
-        el.tbody.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(elm => {
-          try { _invTooltips.push(new bootstrap.Tooltip(elm)); } catch(_e){}
-        });
-      } catch(_e){}
-      persist();
-    }
-
-    function hydrate(it){
-      if (!it){
-        el.ibadge.textContent = 'No selection';
-        Object.values(el.f).forEach(inp => inp.value='');
-        if (el.lifingSection) el.lifingSection.style.display = 'none';
-        if (el.lifingHint) el.lifingHint.style.display = 'none';
-        return;
-      }
-      el.ibadge.textContent = `Item #${it.id}`;
-      el.f.id.value = it.id;
-      el.f.name.value = it.name || '';
-      el.f.qty.value = it.qty;
-      el.f.uom.value = it.uom || '';
-      el.f.reorder.value = it.reorder;
-      el.f.cat.value = it.category || '';
-      el.f.loc.value = it.location || '';
-      el.f.supplier.value = it.supplier || '';
-  ensureOption(el.f.cat, el.f.cat.value);
-  ensureOption(el.f.loc, el.f.loc.value);
-  ensureOption(el.f.supplier, el.f.supplier.value);
-      // driver hydrate
-      if (el.f.driver){
-        const dval = it.driver || '';
-        ensureOption(el.f.driver, dval);
-        el.f.driver.value = dval;
-      }
-      el.f.lead.value = it.leadDays || 0;
-      el.f.cost.value = it.unitCost || 0;
-      el.f.burn.value = it.burn || '';
-      el.f.notes.value = it.notes || '';
-      el.f.homolog.value = it.homolog || '';
-      el.f.expiry.value = it.expiry || '';
-      el.f.auto.checked = !!it.auto;
-      el.f.cycles.value = Number(it.cycles||0);
-      el.f.heat.value = Number(it.heatMin||0);
-      el.f.cycleLimit.value = Number(it.lifeCycleLimit||0);
-      el.f.heatLimit.value = Number(it.lifeHeatLimit||0);
-      el.f.condition.value = it.condition || 'OK';
-      el.f.inspect.value = it.lastInspection || '';
-  el.f.serialFL.value = it.serialFL || '';
-  el.f.serialFR.value = it.serialFR || '';
-  el.f.serialRR.value = it.serialRR || '';
-  el.f.serialRL.value = it.serialRL || '';
-  // usage fields
-  if (el.f.usageInit) el.f.usageInit.value = Number(it.initial_value||0);
-  if (el.f.usageCur) el.f.usageCur.value = Number(it.current_value||0);
-  if (el.f.usageLimit) el.f.usageLimit.value = Number(it.service_limit||0);
-      const isTyre = (it.category||'') === 'Tyres';
-      // checkbox reflects explicit enable or Tyres category
-      if (el.f.lifingEnabled) el.f.lifingEnabled.checked = !!it.lifingEnabled || isTyre;
-      const lifingActive = isTyre || (el.f.lifingEnabled ? !!el.f.lifingEnabled.checked : false);
-      if (el.lifingSection) el.lifingSection.style.display = '';
-      if (el.lifingHint) el.lifingHint.style.display = lifingActive ? 'none' : '';
-      // Enable/disable lifing inputs based on active flag
-      const setDisabled = (disabled) => {
-        if (el.f.cycles) el.f.cycles.disabled = disabled;
-        if (el.f.heat) el.f.heat.disabled = disabled;
-        if (el.f.cycleLimit) el.f.cycleLimit.disabled = disabled;
-        if (el.f.heatLimit) el.f.heatLimit.disabled = disabled;
-        if (el.f.condition) el.f.condition.disabled = disabled;
-        if (el.f.inspect) el.f.inspect.disabled = disabled;
-        if (el.f.serialFL) el.f.serialFL.disabled = disabled;
-        if (el.f.serialFR) el.f.serialFR.disabled = disabled;
-        if (el.f.serialRR) el.f.serialRR.disabled = disabled;
-        if (el.f.serialRL) el.f.serialRL.disabled = disabled;
       };
-      setDisabled(!lifingActive);
-      // Enable/disable Draft PO button based on low stock & auto reorder
-      const need = Math.max(0, (it.reorder||0) - (it.qty||0));
-      if (el.po){
-        el.po.disabled = !(it.auto && need > 0);
-        el.po.title = el.po.disabled ? 'Enable Auto reorder and ensure stock is below reorder point' : `Draft PO for ${need} ${it.uom||''}`;
-      }
-      if (el.addCycle) el.addCycle.disabled = !lifingActive;
-      if (el.addHeat) el.addHeat.disabled = !lifingActive;
-      if (el.markInspect) el.markInspect.disabled = !lifingActive;
-    }
-
-    function select(id){
-      ui.selectedId = id;
-      render();
-    }
-
-    async function add(){
-      const payload = { name: `New item`, qty: 0, uom: 'ea', reorder: 1, supplier: '—', location: 'Workshop', category: 'Consumables', leadDays: 3, unitCost: 0, burn: '', notes: '', lastUsedTs: Date.now() };
-      try {
-        const created = await RTS.apiCreate('inventory', payload);
-        items.unshift(created);
-        rebuildTrees();
-        ui.selectedId = created.id;
-        render();
-        await sync();
-      } catch(err){
-        alert('Add failed: ' + (err && err.message ? err.message : String(err)));
-      }
-    }
-
-    async function save(){
-      const id = parseInt(el.f.id.value, 10);
-      const idx = items.findIndex(x => x.id === id);
-      if (idx < 0) return;
-      const cur = items[idx];
-      items[idx] = {
-        ...cur,
-        name: el.f.name.value.trim() || cur.name,
-        qty: parseFloat(el.f.qty.value || 0),
-        uom: el.f.uom.value.trim() || cur.uom,
-        reorder: parseFloat(el.f.reorder.value || 0),
-        category: el.f.cat.value.trim(),
-        location: el.f.loc.value.trim() || 'Workshop',
-        supplier: el.f.supplier.value.trim() || '—',
-        driver: el.f.driver ? (el.f.driver.value || '') : (cur.driver || ''),
-        leadDays: parseInt(el.f.lead.value || 0, 10),
-        unitCost: parseFloat(el.f.cost.value || 0),
-        burn: el.f.burn.value,
-        notes: el.f.notes.value,
-        homolog: el.f.homolog.value.trim(),
-        expiry: el.f.expiry.value || '',
-        auto: !!el.f.auto.checked,
-        lifingEnabled: !!(el.f.lifingEnabled && el.f.lifingEnabled.checked),
-        cycles: parseInt(el.f.cycles.value||0,10),
-        heatMin: parseInt(el.f.heat.value||0,10),
-        lifeCycleLimit: parseInt(el.f.cycleLimit.value||0,10),
-        lifeHeatLimit: parseInt(el.f.heatLimit.value||0,10),
-        condition: el.f.condition.value || 'OK',
-        lastInspection: el.f.inspect.value || '',
-        serialFL: el.f.serialFL.value.trim(),
-        serialFR: el.f.serialFR.value.trim(),
-        serialRR: el.f.serialRR.value.trim(),
-        serialRL: el.f.serialRL.value.trim(),
-        // usage
-        initial_value: parseInt((el.f.usageInit && el.f.usageInit.value)||0,10),
-        current_value: parseInt((el.f.usageCur && el.f.usageCur.value)||0,10),
-        service_limit: parseInt((el.f.usageLimit && el.f.usageLimit.value)||0,10)
-      };
-      rebuildTrees();
-      render();
-      await sync();
-    }
-
-    async function dup(){
-      const sel = items.find(x => x.id === ui.selectedId);
-      if (!sel) return;
-      try {
-        const created = await RTS.apiCreate('inventory', { ...sel, name: sel.name + ' (Copy)' });
-        items.unshift(created);
-        rebuildTrees();
-        ui.selectedId = created.id;
-        render();
-        await sync();
-      } catch(err){ alert('Duplicate failed: ' + (err && err.message ? err.message : String(err))); }
-    }
-
-    async function del(){
-      const sel = items.find(x => x.id === ui.selectedId);
-      if (!sel) return;
-      items = items.filter(x => x.id !== sel.id);
-      ui.selectedId = null;
-      rebuildTrees();
-      render();
-      await sync();
-    }
-
-    function draftPO(){
-      const sel = items.find(x => x.id === ui.selectedId);
-      if (!sel) return;
-      const need = Math.max(0, (sel.reorder||0) - (sel.qty||0));
-      if (!sel.auto || need <= 0){ alert('Draft PO only available when Auto reorder is enabled and stock is below the reorder point.'); return; }
-      const drafts = RTS.safeLoadJSON(LS_PODRAFTS, []);
-      const po = {
-        id: RTS.uid('po'),
-        createdTs: Date.now(),
-        itemId: sel.id,
-        itemName: sel.name,
-        supplier: sel.supplier || '—',
-        qty: need,
-        uom: sel.uom || '',
-        location: sel.location || '',
-        unitCost: sel.unitCost || 0
-      };
-      drafts.push(po);
-      RTS.safeSaveJSON(LS_PODRAFTS, drafts);
-      el.ibadge.textContent = `PO drafted: ${need} ${po.uom} → ${po.supplier}`;
-    }
-
-    function addCycle(){
-      const sel = items.find(x => x.id === ui.selectedId);
-      if (!sel) return;
-      sel.cycles = Number(sel.cycles||0) + 1;
-      render();
-    }
-
-    function addHeat(){
-      const sel = items.find(x => x.id === ui.selectedId);
-      if (!sel) return;
-      sel.heatMin = Number(sel.heatMin||0) + 10;
-      render();
-    }
-
-    function markInspected(){
-      const sel = items.find(x => x.id === ui.selectedId);
-      if (!sel) return;
-      sel.lastInspection = new Date().toISOString().slice(0,10);
-      render();
-    }
-
-    function bind(){
-      el.perspectives.querySelectorAll('li').forEach(li => {
-        li.addEventListener('click', () => {
-          el.perspectives.querySelectorAll('li').forEach(x => x.classList.remove('active'));
-          li.classList.add('active');
-          ui.perspective = li.dataset.perspective;
-          render();
-        });
-      });
-
-      el.locTree.addEventListener('click', (e)=>{
-        const li = e.target.closest('li'); if (!li) return;
-        el.locTree.querySelectorAll('li').forEach(x=>x.classList.remove('active'));
-        li.classList.add('active');
-        ui.locationPick = li.dataset.location || '';
-        render();
-      });
-      el.supTree.addEventListener('click', (e)=>{
-        const li = e.target.closest('li'); if (!li) return;
-        el.supTree.querySelectorAll('li').forEach(x=>x.classList.remove('active'));
-        li.classList.add('active');
-        ui.supplierPick = li.dataset.supplier || '';
-        render();
-      });
-
-      if (el.driverTree){
-        el.driverTree.addEventListener('click', (e)=>{
-          const li = e.target.closest('li'); if (!li) return;
-          el.driverTree.querySelectorAll('li').forEach(x=>x.classList.remove('active'));
-          li.classList.add('active');
-          ui.driverPick = li.dataset.driver || '';
-          render();
-        });
-      }
-
-      function onInputs(){
-        ui.search = el.search.value;
-        ui.location = el.location.value;
-        ui.supplier = el.supplier.value;
-        ui.groupBy = el.group.value;
-        render();
-      }
-      el.search.addEventListener('input', onInputs);
-      el.location.addEventListener('change', onInputs);
-      el.supplier.addEventListener('change', onInputs);
-      el.group.addEventListener('change', onInputs);
-
-      el.add.addEventListener('click', add);
-      el.save.addEventListener('click', save);
-      el.dup.addEventListener('click', dup);
-      // Deletion disabled: show reminder tooltip/alert if clicked programmatically
-      if (el.del){
-        try { new bootstrap.Tooltip(el.del); } catch(_e){}
-        el.del.addEventListener('click', (e)=>{
-          e.preventDefault();
-          e.stopPropagation();
-          alert('Inventory cannot be deleted. To remove stock, add the item to an invoice and issue it to a customer.');
-        });
-      }
-  const logBtn = document.getElementById('btnLogUsage');
-  if (logBtn) logBtn.addEventListener('click', openLogUsageModal);
-      if (el.po) el.po.addEventListener('click', draftPO);
-      if (el.addCycle) el.addCycle.addEventListener('click', addCycle);
-      if (el.addHeat) el.addHeat.addEventListener('click', addHeat);
-      if (el.markInspect) el.markInspect.addEventListener('click', markInspected);
-      if (el.f.lifingEnabled) {
-        el.f.lifingEnabled.addEventListener('change', () => {
-          const isTyre = (el.f.cat.value||'') === 'Tyres';
-          const active = isTyre || !!el.f.lifingEnabled.checked;
-          if (el.lifingHint) el.lifingHint.style.display = active ? 'none' : '';
-          const setDisabled = (disabled) => {
-            if (el.f.cycles) el.f.cycles.disabled = disabled;
-            if (el.f.heat) el.f.heat.disabled = disabled;
-            if (el.f.cycleLimit) el.f.cycleLimit.disabled = disabled;
-            if (el.f.heatLimit) el.f.heatLimit.disabled = disabled;
-            if (el.f.condition) el.f.condition.disabled = disabled;
-            if (el.f.inspect) el.f.inspect.disabled = disabled;
-            if (el.f.serialFL) el.f.serialFL.disabled = disabled;
-            if (el.f.serialFR) el.f.serialFR.disabled = disabled;
-            if (el.f.serialRR) el.f.serialRR.disabled = disabled;
-            if (el.f.serialRL) el.f.serialRL.disabled = disabled;
-          };
-          setDisabled(!active);
-          if (el.addCycle) el.addCycle.disabled = !active;
-          if (el.addHeat) el.addHeat.disabled = !active;
-          if (el.markInspect) el.markInspect.disabled = !active;
-        });
-      }
-    }
-    // Log Usage modal ----------------------------------------------------
-    function parseDuration(input){
-      const s = String(input||'').trim().toLowerCase();
-      if (!s) return 0;
-      // HH:MM format
-      const hm = s.match(/^([0-9]{1,2}):([0-9]{1,2})$/);
-      if (hm) return (parseInt(hm[1],10)*60) + parseInt(hm[2],10);
-      // 1.5h or 1.5 hours
-      const fracH = s.match(/^([0-9]+(?:\.[0-9]+)?)\s*h/);
-      if (fracH) return Math.round(parseFloat(fracH[1])*60);
-      // Xh Ym
-      const hxmy = s.match(/^([0-9]+)\s*h(?:ours?)?\s*([0-9]+)\s*m/);
-      if (hxmy) return (parseInt(hxmy[1],10)*60) + parseInt(hxmy[2],10);
-      // Xm or X min(s)
-      const mins = s.match(/^([0-9]+)\s*m(?:in(?:s)?)?$/);
-      if (mins) return parseInt(mins[1],10);
-      // X hours
-      const hours = s.match(/^([0-9]+)\s*h(?:ours?)?$/);
-      if (hours) return parseInt(hours[1],10)*60;
-      // plain number assume minutes
-      const num = parseInt(s,10);
-      return isNaN(num) ? 0 : num;
-    }
-
-    function assetsWithAttachments(){
-      const assets = RTS.safeLoadJSON('rts.assets.v4', []) || [];
-      return Array.isArray(assets) ? assets : [];
-    }
-
-    function openLogUsageModal(){
-      try {
-        let modalEl = document.getElementById('invLogUsageModal');
-        if (!modalEl){
-          const tpl = `
-            <div class="modal fade" id="invLogUsageModal" tabindex="-1" aria-hidden="true">
-              <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content" style="background:#0f1115; color:#e0e3e6; border:1px solid rgba(255,255,255,0.12);">
-                  <div class="modal-header" style="border-bottom:1px solid rgba(255,255,255,0.1);">
-                    <h5 class="modal-title">Log Usage</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                  </div>
-                  <div class="modal-body">
-                    <div class="mb-2">
-                      <label class="form-label">Asset (chassis / engine)</label>
-                      <select id="f_usage_asset" class="form-select form-select-sm"></select>
-                    </div>
-                    <div class="mb-2">
-                      <label class="form-label">Run duration</label>
-                      <input id="f_usage_duration" class="form-control form-control-sm" type="text" placeholder="e.g. 15 mins, 1h 30m, 00:20">
-                      <div class="text-secondary" style="font-size:0.8rem;">Duration is interpreted in minutes; supports formats like "15 mins", "1.5h", "1h 30m", or "00:15".</div>
-                    </div>
-                    <div class="form-check">
-                      <input class="form-check-input" type="checkbox" id="f_usage_fallback">
-                      <label class="form-check-label" for="f_usage_fallback">No attached parts? Let me choose inventory items manually.</label>
-                    </div>
-                    <div id="usageFallbackPicker" style="display:none;" class="mt-2">
-                      <label class="form-label">Select parts</label>
-                      <select id="f_usage_parts" class="form-select form-select-sm" multiple size="6"></select>
-                    </div>
-                  </div>
-                  <div class="modal-footer" style="border-top:1px solid rgba(255,255,255,0.1);">
-                    <button class="btn btn-sm btn-primary mlo-btn" id="btnApplyUsage" type="button">Apply</button>
-                    <button type="button" class="btn btn-sm btn-outline-light mlo-btn" data-bs-dismiss="modal">Close</button>
-                  </div>
-                </div>
-              </div>
-            </div>`;
-          const tmp = document.createElement('div'); tmp.innerHTML = tpl.trim();
-          document.body.appendChild(tmp.firstChild);
-          modalEl = document.getElementById('invLogUsageModal');
+      
+      // Show item form
+      async function showItemForm(item) {
+        document.getElementById('noSelection').style.display = 'none';
+        document.getElementById('itemForm').style.display = 'block';
+        document.getElementById('itemInfo').style.display = 'block';
+        
+        if (item) {
+          document.getElementById('itemId').value = item.id;
+          document.getElementById('itemName').value = item.name;
+          document.getElementById('itemSku').value = item.sku;
+          document.getElementById('itemCategory').value = item.category;
+          document.getElementById('itemQty').value = item.qty;
+          document.getElementById('itemUom').value = item.uom;
+          document.getElementById('itemReorder').value = item.reorder;
+          document.getElementById('itemLocation').value = item.location;
+          document.getElementById('itemSupplier').value = item.supplier;
+          document.getElementById('itemLeadDays').value = item.leadDays;
+          document.getElementById('itemCost').value = item.cost;
+          document.getElementById('itemNotes').value = item.notes;
+          document.getElementById('itemAutoReorder').checked = item.auto;
+          document.getElementById('detailBadge').textContent = 'Editing';
+          
+          // Populate location distribution
+          populateLocationDistribution(item);
+          
+          // Fetch and populate boxes containing this item
+          await populateBoxesContaining(item);
+        } else {
+          document.getElementById('itemForm').reset();
+          document.getElementById('itemId').value = '';
+          document.getElementById('detailBadge').textContent = 'New Item';
+          document.getElementById('itemInfo').style.display = 'none';
         }
-        const modal = new bootstrap.Modal(modalEl);
-        // populate assets
-        const assets = assetsWithAttachments();
-        const assetSel = modalEl.querySelector('#f_usage_asset');
-        assetSel.innerHTML = assets.map(a=>`<option value="${a.id}">${(a.name||a.title||'Asset')} ${a.id}</option>`).join('');
-        // fallback picker wiring
-        const fallChk = modalEl.querySelector('#f_usage_fallback');
-        const fallWrap = modalEl.querySelector('#usageFallbackPicker');
-        const partsSel = modalEl.querySelector('#f_usage_parts');
-        fallChk.addEventListener('change', ()=>{
-          fallWrap.style.display = fallChk.checked ? '' : 'none';
-          if (fallChk.checked){
-            partsSel.innerHTML = items.map(it=>`<option value="${it.id}">${it.name}</option>`).join('');
-          }
-        });
-        // apply button
-        const applyBtn = modalEl.querySelector('#btnApplyUsage');
-        applyBtn.onclick = ()=>{
-          const durStr = modalEl.querySelector('#f_usage_duration').value;
-          const minutes = parseDuration(durStr);
-          if (!minutes || minutes <= 0){ alert('Enter a valid duration.'); return; }
-          const assetId = assetSel.value;
-          const asset = assets.find(a=>String(a.id)===String(assetId));
-          let targetIds = [];
-          if (fallChk.checked){
-            targetIds = Array.from(partsSel.selectedOptions||[]).map(o=>parseInt(o.value,10));
+      }
+      
+      // Populate location distribution display
+      function populateLocationDistribution(item) {
+        const container = document.getElementById('locationDistribution');
+        
+        if (!item.locationDist || Object.keys(item.locationDist).length === 0) {
+          container.innerHTML = '<div class="info-empty">No location data available</div>';
+          return;
+        }
+        
+        // Sort by quantity (highest first)
+        const entries = Object.entries(item.locationDist).sort((a, b) => b[1] - a[1]);
+        
+        const html = entries.map(([location, qty]) => `
+          <div class="location-item">
+            <span class="loc-name">${location}</span>
+            <span class="loc-qty">${qty} ${item.uom}</span>
+          </div>
+        `).join('');
+        
+        container.innerHTML = html;
+      }
+      
+      // Populate boxes containing this item
+      async function populateBoxesContaining(item) {
+        const container = document.getElementById('boxesContaining');
+        container.innerHTML = '<div class="info-empty">Loading...</div>';
+        
+        try {
+          // Fetch ALL box contents from API
+          let boxContents = [];
+          if (typeof RTS_API !== 'undefined' && RTS_API.getAllBoxContents) {
+            boxContents = await RTS_API.getAllBoxContents();
           } else {
-            // Assumption: assets carry attached inventory ids in a field like attachedInventoryIds
-            const linked = Array.isArray(asset && asset.attachedInventoryIds) ? asset.attachedInventoryIds : [];
-            targetIds = linked.map(id=>parseInt(id,10));
+            // Fallback: if getAllBoxContents not available, skip this feature
+            container.innerHTML = '<div class="info-empty">Box tracking not available</div>';
+            return;
           }
-          if (!targetIds.length){ alert('No parts selected/attached. Enable the fallback picker to choose parts manually.'); return; }
-          items.forEach(it=>{
-            if (targetIds.includes(it.id)) it.current_value = Number(it.current_value||0) + minutes;
+          
+          // Filter to only contents that match this item (by ID, name, or SKU)
+          const matchingContents = boxContents.filter(bc => 
+            bc.item_id === item.id || 
+            bc.item_name === item.name || 
+            (item.sku && bc.item_barcode === item.sku)
+          );
+          
+          if (matchingContents.length === 0) {
+            container.innerHTML = '<div class="info-empty">Not currently in any boxes</div>';
+            return;
+          }
+          
+          // Fetch boxes to get names and locations
+          let boxes = [];
+          if (typeof RTS_API !== 'undefined' && RTS_API.getBoxes) {
+            boxes = await RTS_API.getBoxes();
+          }
+          
+          // Create a map of box_id to box info
+          const boxMap = {};
+          boxes.forEach(box => {
+            boxMap[box.id] = box;
           });
-          render();
-          modal.hide();
-        };
-        modal.show();
-      } catch(e){ alert('Unable to open Log Usage modal: ' + (e && e.message ? e.message : String(e))); }
-    }
-
-    async function init(){
-      setupColumnResizers();
-      fillInspectorSelects();
-      await loadItems();
-      rebuildTrees();
-      bind();
-      RTS.initTriPaneResizers(el.shell, LS_PANES);
-      render();
-      // Enable crosshair overlay on this page
-      if (window.RTS && typeof window.RTS.enableCrosshair === 'function'){
-        window.RTS.enableCrosshair({ thickness:2, opacity:0.7 });
+          
+          // Generate HTML for each box containing this item
+          const html = matchingContents.map(content => {
+            const box = boxMap[content.box_id];
+            const boxName = box ? box.name : (content.box_name || 'Unknown Box');
+            const boxLocation = box && box.location ? box.location : '';
+            
+            return `
+              <div class="box-item">
+                <span class="box-name">${boxName}</span>
+                <span class="box-qty">${content.quantity || 1} ${item.uom}</span>
+                ${boxLocation ? `<span class="box-location">${boxLocation}</span>` : ''}
+              </div>
+            `;
+          }).join('');
+          
+          container.innerHTML = html;
+        } catch (error) {
+          console.error('Error fetching box contents:', error);
+          container.innerHTML = '<div class="info-empty">Error loading box data</div>';
+        }
       }
-    }
-    document.addEventListener('DOMContentLoaded', init);
-  })();
+      
+      // Save item
+      async function saveItem(e) {
+        e.preventDefault();
+        
+        const itemData = {
+          name: document.getElementById('itemName').value,
+          sku: document.getElementById('itemSku').value,
+          category: document.getElementById('itemCategory').value,
+          quantity: parseFloat(document.getElementById('itemQty').value) || 0,
+          unit_of_measure: document.getElementById('itemUom').value || 'ea',
+          min_quantity: parseFloat(document.getElementById('itemReorder').value) || 0,
+          location_id: document.getElementById('itemLocation').value,
+          supplier: document.getElementById('itemSupplier').value,
+          lead_time_days: parseInt(document.getElementById('itemLeadDays').value) || 0,
+          unit_cost: parseFloat(document.getElementById('itemCost').value) || 0,
+          notes: document.getElementById('itemNotes').value,
+          auto_reorder: document.getElementById('itemAutoReorder').checked
+        };
+        
+        showLoading('Saving Item', 'Updating database...');
+        
+        try {
+          if (selectedItemId) {
+            // Update existing
+            if (typeof RTS_API !== 'undefined' && RTS_API.updateCollectionItem) {
+              await RTS_API.updateCollectionItem('inventory', selectedItemId, itemData);
+            } else if (typeof RTS !== 'undefined' && RTS.apiUpdateCollectionItem) {
+              await RTS.apiUpdateCollectionItem('inventory', selectedItemId, itemData);
+            }
+            const idx = allItems.findIndex(i => i.id === selectedItemId);
+            if (idx >= 0) {
+              allItems[idx] = { ...allItems[idx], ...mapToLocal(itemData), id: selectedItemId };
+            }
+            showToast('Item updated successfully', 'success');
+          } else {
+            // Create new
+            let response;
+            if (typeof RTS_API !== 'undefined' && RTS_API.createCollectionItem) {
+              response = await RTS_API.createCollectionItem('inventory', itemData);
+            } else if (typeof RTS !== 'undefined' && RTS.apiCreateCollectionItem) {
+              response = await RTS.apiCreateCollectionItem('inventory', itemData);
+            }
+            allItems.push({ ...mapToLocal(itemData), id: response.item.id });
+            showToast('Item created successfully', 'success');
+          }
+          
+          await loadData();
+          applyFilters();
+          document.getElementById('itemForm').reset();
+          document.getElementById('noSelection').style.display = 'block';
+          document.getElementById('itemForm').style.display = 'none';
+        } catch (error) {
+          showToast('Error saving item: ' + error.message, 'error');
+        }
+        
+        hideLoading();
+      }
+      
+      // Delete item
+      async function deleteItem() {
+        if (!selectedItemId) return;
+        
+        const confirmed = await customConfirm(
+          'Delete Item',
+          'Are you sure you want to delete this item? This action cannot be undone.',
+          'Delete',
+          true
+        );
+        
+        if (!confirmed) return;
+        
+        showLoading('Deleting Item', 'Removing from database...');
+        
+        try {
+          if (typeof RTS_API !== 'undefined' && RTS_API.deleteCollectionItem) {
+            await RTS_API.deleteCollectionItem('inventory', selectedItemId);
+          } else if (typeof RTS !== 'undefined' && RTS.apiDeleteCollectionItem) {
+            await RTS.apiDeleteCollectionItem('inventory', selectedItemId);
+          }
+          allItems = allItems.filter(i => i.id !== selectedItemId);
+          selectedItemId = null;
+          
+          document.getElementById('itemForm').reset();
+          document.getElementById('noSelection').style.display = 'block';
+          document.getElementById('itemForm').style.display = 'none';
+          
+          applyFilters();
+          showToast('Item deleted successfully', 'success');
+        } catch (error) {
+          showToast('Error deleting item: ' + error.message, 'error');
+        }
+        
+        hideLoading();
+      }
+      
+      // Bulk actions
+      async function bulkDelete() {
+        if (selectedItems.size === 0) return;
+        
+        const confirmed = await customConfirm(
+          'Delete Multiple Items',
+          `Are you sure you want to delete ${selectedItems.size} items? This action cannot be undone.`,
+          'Delete All',
+          true
+        );
+        
+        if (!confirmed) return;
+        
+        showLoading('Deleting Items', `Removing ${selectedItems.size} items...`);
+        
+        try {
+          for (const itemId of selectedItems) {
+            if (typeof RTS_API !== 'undefined' && RTS_API.deleteCollectionItem) {
+              await RTS_API.deleteCollectionItem('inventory', itemId);
+            } else if (typeof RTS !== 'undefined' && RTS.apiDeleteCollectionItem) {
+              await RTS.apiDeleteCollectionItem('inventory', itemId);
+            }
+          }
+          
+          allItems = allItems.filter(i => !selectedItems.has(i.id));
+          selectedItems.clear();
+          applyFilters();
+          showToast(`Deleted ${selectedItems.size} items successfully`, 'success');
+        } catch (error) {
+          showToast('Error deleting items: ' + error.message, 'error');
+        }
+        
+        hideLoading();
+      }
+      
+      async function bulkUpdateLocation() {
+        // TODO: Implement
+        showToast('Bulk location update - coming soon', 'warning');
+      }
+      
+      async function bulkUpdateSupplier() {
+        // TODO: Implement
+        showToast('Bulk supplier update - coming soon', 'warning');
+      }
+      
+      // Update counts
+      function updateCounts() {
+        document.getElementById('totalItemsBadge').textContent = allItems.length;
+        document.getElementById('filteredCount').textContent = `${filteredItems.length} shown`;
+        
+        document.getElementById('countAll').textContent = allItems.length;
+        document.getElementById('countLow').textContent = allItems.filter(i => i.qty > 0 && i.qty <= i.reorder).length;
+        document.getElementById('countOut').textContent = allItems.filter(i => i.qty === 0).length;
+        document.getElementById('countExpiring').textContent = 0;
+      }
+      
+      // Update bulk toolbar
+      function updateBulkToolbar() {
+        const toolbar = document.getElementById('bulkActionsToolbar');
+        if (selectedItems.size > 0) {
+          toolbar.classList.add('show');
+          document.getElementById('selectedCount').textContent = selectedItems.size;
+        } else {
+          toolbar.classList.remove('show');
+        }
+        
+        document.getElementById('selectAll').checked = selectedItems.size === filteredItems.length && filteredItems.length > 0;
+      }
+      
+      // Render all
+      function renderAll() {
+        applyFilters();
+        renderFilterLists();
+        updateCounts();
+      }
+      
+      // Helpers
+      function mapToLocal(apiData) {
+        return {
+          name: apiData.name,
+          sku: apiData.sku || '',
+          category: apiData.category || 'Consumables',
+          qty: parseFloat(apiData.quantity) || 0,
+          uom: apiData.unit_of_measure || 'ea',
+          reorder: parseFloat(apiData.min_quantity) || 0,
+          location: apiData.location_id || '',
+          supplier: apiData.supplier || '',
+          leadDays: parseInt(apiData.lead_time_days) || 0,
+          cost: parseFloat(apiData.unit_cost) || 0,
+          notes: apiData.notes || '',
+          auto: apiData.auto_reorder || false,
+          lastUsed: apiData.last_used_date || null
+        };
+      }
+      
+      function showLoading(text, subtext) {
+        document.getElementById('loadingText').textContent = text;
+        document.getElementById('loadingSubtext').textContent = subtext;
+        document.getElementById('loadingOverlay').classList.add('show');
+      }
+      
+      function hideLoading() {
+        document.getElementById('loadingOverlay').classList.remove('show');
+      }
+      
+      function showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `toast align-items-center text-white bg-${type === 'success' ? 'success' : type === 'error' ? 'danger' : 'warning'} border-0 show`;
+        toast.setAttribute('role', 'alert');
+        toast.innerHTML = `
+          <div class="d-flex">
+            <div class="toast-body">${message}</div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+          </div>
+        `;
+        
+        document.getElementById('toastContainer').appendChild(toast);
+        setTimeout(() => toast.remove(), 5000);
+      }
+      
+      // ==============================================
+      // SHOPIFY INTEGRATION
+      // ==============================================
+      
+      let shopifyModal, shopifySettings = {};
+      
+      function openShopifyModal() {
+        if (!shopifyModal) {
+          shopifyModal = new bootstrap.Modal(document.getElementById('shopifyModal'));
+          
+          // Setup modal event handlers
+          document.getElementById('btnTestConnection').addEventListener('click', testShopifyConnection);
+          document.getElementById('btnStartSync').addEventListener('click', startShopifySync);
+        }
+        
+        // Load saved settings
+        loadShopifySettings();
+        
+        shopifyModal.show();
+      }
+      
+      async function loadShopifySettings() {
+        try {
+          const response = await fetch(`${RTS_API.baseURL}/shopify/settings`, {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+            }
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.config) {
+              document.getElementById('shopifyShopName').value = data.config.shop || '';
+              shopifySettings = data.config;
+              
+              if (data.config.hasAccessToken) {
+                document.getElementById('shopifyAccessToken').placeholder = '••••••••••••';
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error loading Shopify settings:', error);
+        }
+      }
+      
+      async function testShopifyConnection() {
+        const shop = document.getElementById('shopifyShopName').value.trim();
+        let accessToken = document.getElementById('shopifyAccessToken').value.trim();
+        
+        // Use saved token if input is placeholder
+        if (!accessToken || accessToken.length < 10) {
+          if (shopifySettings.accessToken) {
+            accessToken = shopifySettings.accessToken;
+          } else {
+            showToast('Please enter an access token', 'error');
+            return;
+          }
+        }
+        
+        if (!shop) {
+          showToast('Please enter your shop name', 'error');
+          return;
+        }
+        
+        const fullShop = shop.includes('.myshopify.com') ? shop : `${shop}.myshopify.com`;
+        
+        showLoading('Testing Connection', 'Connecting to Shopify...');
+        
+        try {
+          const response = await fetch(`${RTS_API.baseURL}/shopify/test-connection`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ shop: fullShop, accessToken })
+          });
+          
+          const data = await response.json();
+          
+          hideLoading();
+          
+          if (data.success) {
+            document.getElementById('connectionStatus').innerHTML = 
+              '<span class="text-success"><i class="bi bi-check-circle-fill"></i> Connected!</span>';
+            showToast('Successfully connected to Shopify', 'success');
+            
+            // Save settings
+            await saveShopifySettings(fullShop, accessToken);
+          } else {
+            document.getElementById('connectionStatus').innerHTML = 
+              '<span class="text-danger"><i class="bi bi-x-circle-fill"></i> Failed</span>';
+            showToast(data.error || 'Connection failed', 'error');
+          }
+        } catch (error) {
+          hideLoading();
+          document.getElementById('connectionStatus').innerHTML = 
+            '<span class="text-danger"><i class="bi bi-x-circle-fill"></i> Error</span>';
+          showToast('Error testing connection: ' + error.message, 'error');
+        }
+      }
+      
+      async function saveShopifySettings(shop, accessToken) {
+        try {
+          const response = await fetch(`${RTS_API.baseURL}/shopify/settings`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ shop, accessToken })
+          });
+          
+          if (response.ok) {
+            shopifySettings = { shop, accessToken };
+          }
+        } catch (error) {
+          console.error('Error saving Shopify settings:', error);
+        }
+      }
+      
+      async function startShopifySync() {
+        const shop = document.getElementById('shopifyShopName').value.trim();
+        let accessToken = document.getElementById('shopifyAccessToken').value.trim();
+        
+        // Use saved token if input is placeholder
+        if (!accessToken || accessToken.length < 10) {
+          if (shopifySettings.accessToken) {
+            accessToken = shopifySettings.accessToken;
+          } else {
+            showToast('Please enter an access token', 'error');
+            return;
+          }
+        }
+        
+        if (!shop) {
+          showToast('Please enter your shop name', 'error');
+          return;
+        }
+        
+        const fullShop = shop.includes('.myshopify.com') ? shop : `${shop}.myshopify.com`;
+        
+        // Show progress
+        document.getElementById('syncProgress').style.display = 'block';
+        document.getElementById('syncResults').style.display = 'none';
+        document.getElementById('btnStartSync').disabled = true;
+        document.getElementById('syncProgressText').textContent = 'Fetching products from Shopify...';
+        
+        try {
+          const response = await fetch(`${RTS_API.baseURL}/shopify/sync-inventory`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ 
+              shop: fullShop, 
+              accessToken,
+              locationMapping: {} // TODO: Add location mapping UI if needed
+            })
+          });
+          
+          const data = await response.json();
+          
+          document.getElementById('syncProgress').style.display = 'none';
+          document.getElementById('btnStartSync').disabled = false;
+          
+          if (data.success) {
+            const resultsDiv = document.getElementById('syncResults');
+            resultsDiv.className = 'alert alert-success';
+            resultsDiv.innerHTML = `
+              <strong><i class="bi bi-check-circle"></i> Sync Complete!</strong><br>
+              Successfully synced <strong>${data.synced}</strong> items from ${data.total} Shopify products.
+              ${data.errors && data.errors.length > 0 ? `<br><small>${data.errors.length} items had errors.</small>` : ''}
+            `;
+            resultsDiv.style.display = 'block';
+            
+            showToast(`Synced ${data.synced} items from Shopify`, 'success');
+            
+            // Reload inventory data
+            setTimeout(() => {
+              shopifyModal.hide();
+              loadData();
+            }, 2000);
+          } else {
+            const resultsDiv = document.getElementById('syncResults');
+            resultsDiv.className = 'alert alert-danger';
+            resultsDiv.innerHTML = `
+              <strong><i class="bi bi-x-circle"></i> Sync Failed</strong><br>
+              ${data.error || 'Unknown error occurred'}
+            `;
+            resultsDiv.style.display = 'block';
+            
+            showToast('Sync failed: ' + (data.error || 'Unknown error'), 'error');
+          }
+        } catch (error) {
+          document.getElementById('syncProgress').style.display = 'none';
+          document.getElementById('btnStartSync').disabled = false;
+          
+          const resultsDiv = document.getElementById('syncResults');
+          resultsDiv.className = 'alert alert-danger';
+          resultsDiv.innerHTML = `
+            <strong><i class="bi bi-x-circle"></i> Error</strong><br>
+            ${error.message}
+          `;
+          resultsDiv.style.display = 'block';
+          
+          showToast('Sync error: ' + error.message, 'error');
+        }
+      }
+      
+      // ==============================================
+      // UTILITY FUNCTIONS
+      // ==============================================
+      
+      function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+          const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+          };
+          clearTimeout(timeout);
+          timeout = setTimeout(later, wait);
+        };
+      }
+      
+      // Initialize on DOM ready
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+      } else {
+        init();
+      }
+    })();
   </script>
 </body>
 </html>

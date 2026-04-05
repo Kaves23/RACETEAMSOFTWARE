@@ -7,27 +7,32 @@ router.get('/', async (req, res, next) => {
   try {
     const { status, location_id, search } = req.query;
     
-    let query = 'SELECT * FROM boxes WHERE 1=1';
+    let query = `
+      SELECT b.*, d.name as assigned_driver_name
+      FROM boxes b
+      LEFT JOIN drivers d ON b.assigned_driver_id = d.id
+      WHERE 1=1
+    `;
     const params = [];
     let paramCount = 1;
     
     if (status) {
-      query += ` AND status = $${paramCount++}`;
+      query += ` AND b.status = $${paramCount++}`;
       params.push(status);
     }
     
     if (location_id) {
-      query += ` AND location_id = $${paramCount++}`;
+      query += ` AND b.location_id = $${paramCount++}`;
       params.push(location_id);
     }
     
     if (search) {
-      query += ` AND (name ILIKE $${paramCount} OR barcode ILIKE $${paramCount})`;
+      query += ` AND (b.name ILIKE $${paramCount} OR b.barcode ILIKE $${paramCount})`;
       params.push(`%${search}%`);
       paramCount++;
     }
     
-    query += ' ORDER BY created_at DESC';
+    query += ' ORDER BY b.created_at DESC';
     
     const result = await pool.query(query, params);
     res.json({ success: true, count: result.rows.length, boxes: result.rows });
@@ -80,14 +85,37 @@ router.post('/', async (req, res, next) => {
       current_truck_id,
       current_zone,
       rfid_tag,
-      status
+      status,
+      box_type,
+      assigned_driver_id
     } = req.body;
     
     // Validate required fields
-    if (!name || !length || !width || !height) {
+    if (!name || typeof name !== 'string') {
       return res.status(400).json({ 
         success: false, 
-        error: 'Missing required fields: name, length, width, height' 
+        error: 'Box name is required' 
+      });
+    }
+    
+    if (length === undefined || length === null || isNaN(length) || length <= 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Valid length is required (must be > 0)' 
+      });
+    }
+    
+    if (width === undefined || width === null || isNaN(width) || width <= 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Valid width is required (must be > 0)' 
+      });
+    }
+    
+    if (height === undefined || height === null || isNaN(height) || height <= 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Valid height is required (must be > 0)' 
       });
     }
     
@@ -99,15 +127,16 @@ router.post('/', async (req, res, next) => {
       INSERT INTO boxes (
         id, barcode, name, dimensions_length_cm, dimensions_width_cm, dimensions_height_cm, 
         max_weight_kg, current_weight_kg, current_location_id, 
-        current_truck_id, current_zone, rfid_tag, status
+        current_truck_id, current_zone, rfid_tag, status, box_type, assigned_driver_id
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
       ON CONFLICT (barcode) DO UPDATE SET
         name = EXCLUDED.name,
         dimensions_length_cm = EXCLUDED.dimensions_length_cm,
         dimensions_width_cm = EXCLUDED.dimensions_width_cm,
         dimensions_height_cm = EXCLUDED.dimensions_height_cm,
         max_weight_kg = EXCLUDED.max_weight_kg,
+        box_type = EXCLUDED.box_type,
         updated_at = NOW()
       RETURNING *
     `;
@@ -125,7 +154,9 @@ router.post('/', async (req, res, next) => {
       current_truck_id || null,
       current_zone || null,
       rfid_tag || null,
-      status || 'warehouse'
+      status || 'warehouse',
+      box_type || 'regular',
+      assigned_driver_id || null
     ];
     
     const result = await pool.query(query, values);
@@ -153,7 +184,8 @@ router.put('/:id', async (req, res, next) => {
       current_truck_id,
       current_zone,
       rfid_tag,
-      status
+      status,
+      assigned_driver_id
     } = req.body;
     
     const query = `
@@ -169,14 +201,17 @@ router.put('/:id', async (req, res, next) => {
           current_zone = COALESCE($9, current_zone),
           rfid_tag = COALESCE($10, rfid_tag),
           status = COALESCE($11, status),
+          assigned_driver_id = $12,
           updated_at = NOW()
-      WHERE id = $12
+      WHERE id = $13
       RETURNING *
     `;
     
     const values = [
       name, length, width, height, max_weight, current_weight,
-      location_id, current_truck_id, current_zone, rfid_tag, status, id
+      location_id, current_truck_id, current_zone, rfid_tag, status,
+      assigned_driver_id !== undefined ? assigned_driver_id : null,
+      id
     ];
     
     const result = await pool.query(query, values);

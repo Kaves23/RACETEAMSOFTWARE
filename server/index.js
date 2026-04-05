@@ -31,12 +31,22 @@ const itemsRouter = require('./routes/items');
 const boxContentsRouter = require('./routes/box-contents');
 const assetTypesRouter = require('./routes/asset-types');
 const importLocalStorageRouter = require('./routes/import-localStorage');
+const collectionsRouter = require('./routes/collections');
+const shopifyRouter = require('./routes/shopify');
+const inventoryRouter = require('./routes/inventory');
+const packingRouter = require('./routes/packing');
+const whatsappRouter = require('./routes/whatsapp');
 
 app.use('/api/boxes', requireAuth, boxesRouter);
 app.use('/api/items', requireAuth, itemsRouter);
 app.use('/api/box-contents', requireAuth, boxContentsRouter);
 app.use('/api/asset-types', requireAuth, assetTypesRouter);
 app.use('/api/import-localStorage', requireAuth, importLocalStorageRouter);
+app.use('/api/collections', requireAuth, collectionsRouter);
+app.use('/api/shopify', requireAuth, shopifyRouter);
+app.use('/api/inventory', requireAuth, inventoryRouter);
+app.use('/api/packing-lists', requireAuth, packingRouter);
+app.use('/api/whatsapp', whatsappRouter); // Webhook must be public, individual routes handle auth
 
 // Get settings (read-only endpoint) - PROTECTED
 app.get('/api/settings', requireAuth, async (req, res) => {

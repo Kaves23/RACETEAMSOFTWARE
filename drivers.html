@@ -20,7 +20,12 @@
         <div class="mlo-pane-header">
           <div class="d-flex justify-content-between align-items-center">
             <div class="mlo-title">Drivers</div>
-            <span class="badge text-bg-secondary" id="drvCountBadge">0</span>
+            <div class="d-flex align-items-center gap-2">
+              <button class="btn btn-sm btn-primary" id="btnAddDriver" title="Add new driver" style="padding:4px 12px;font-size:0.85rem;font-weight:600">
+                + Add Driver
+              </button>
+              <span class="badge text-bg-secondary" id="drvCountBadge">0</span>
+            </div>
           </div>
         </div>
         <div class="mlo-pane-content">
@@ -231,6 +236,7 @@
     const LS_PANES = 'rts.drivers.panes.v1';
     let settings = RTS.getSettings();
     const events = RTS.safeLoadJSON('rts.events.v4', []) || [];
+    let drivers = []; // Load from database instead of settings
 
     function escapeHtml(str){
       return String(str||'')
@@ -246,21 +252,22 @@
       count: document.getElementById('drvCountBadge'),
       list: document.getElementById('drvList'),
       tbody: document.getElementById('drvTbody'),
-  search: document.getElementById('drvSearch'),
+      search: document.getElementById('drvSearch'),
       ibadge: document.getElementById('drvInspectorBadge'),
       docsBody: document.getElementById('drvDocsTbody'),
       availBody: document.getElementById('drvAvailTbody'),
       complianceBadge: document.getElementById('drvComplianceBadge'),
       btnSave: document.getElementById('btnDrvSave'),
+      btnAddDriver: document.getElementById('btnAddDriver'),
       btnAttach: document.getElementById('btnDrvAttach'),
       btnAddUrl: document.getElementById('btnDrvAddUrl'),
-  midTeleBody: document.getElementById('drvMidTeleBody'),
-  telUploads: document.getElementById('drvTelUploads'),
-  btnTelUpload: document.getElementById('btnTelUpload'),
-  btnTelExample: document.getElementById('btnTelExample'),
-  telFile: document.getElementById('f_tel_file'),
-  telSession: document.getElementById('f_tel_session'),
-  telTags: document.getElementById('f_tel_tags'),
+      midTeleBody: document.getElementById('drvMidTeleBody'),
+      telUploads: document.getElementById('drvTelUploads'),
+      btnTelUpload: document.getElementById('btnTelUpload'),
+      btnTelExample: document.getElementById('btnTelExample'),
+      telFile: document.getElementById('f_tel_file'),
+      telSession: document.getElementById('f_tel_session'),
+      telTags: document.getElementById('f_tel_tags'),
       f: {
         name: document.getElementById('f_drv_name2'),
         class: document.getElementById('f_drv_class2'),
@@ -281,16 +288,31 @@
 
     let ui = { search:'', selectedId: null };
 
+    // Load drivers from database
+    async function loadDrivers() {
+      try {
+        const resp = await RTS_API.getCollectionItems('drivers');
+        if (resp && resp.items) {
+          drivers = resp.items;
+          console.log(`✅ Loaded ${drivers.length} drivers from database`);
+        }
+      } catch (error) {
+        console.error('❌ Error loading drivers:', error);
+        if (RTS.showToast) RTS.showToast('Failed to load drivers', 'error');
+        drivers = [];
+      }
+    }
+
     function buildDriverList(){
-      const drivers = (settings.drivers||[]).filter(d=>{
+      const filtered = drivers.filter(d=>{
         if (ui.search){
           const q = ui.search.toLowerCase();
-          return (`${d.name||''} ${d.class||''} ${d.raceNumber||''}`).toLowerCase().includes(q);
+          return (`${d.name||''} ${d.class||''} ${d.race_number||''}`).toLowerCase().includes(q);
         }
         return true;
       });
       el.list.innerHTML = '';
-      drivers.forEach(d=>{
+      filtered.forEach(d=>{
         const li = document.createElement('li');
         li.textContent = d.name || d.id;
         li.dataset.id = d.id;
@@ -298,12 +320,12 @@
         li.addEventListener('click', ()=>{ ui.selectedId = d.id; render(); });
         el.list.appendChild(li);
       });
-      el.count.textContent = drivers.length;
-      if (!ui.selectedId && drivers[0]) ui.selectedId = drivers[0].id;
+      el.count.textContent = filtered.length;
+      if (!ui.selectedId && filtered[0]) ui.selectedId = filtered[0].id;
     }
 
-    function render(){
-      settings = RTS.getSettings();
+    async function render(){
+      await loadDrivers();
       buildDriverList();
       renderDocs();
       hydrateInspector();
@@ -311,9 +333,51 @@
       renderMidTelemetryList();
     }
 
+    async function addNewDriver() {
+      const name = prompt('Enter driver name:');
+      if (!name || !name.trim()) return;
+      
+      try {
+        const newDriver = {
+          name: name.trim(),
+          racing_class: '',
+          race_number: '',
+          contact_email: '',
+          contact_phone: '',
+          guardian_name: '',
+          guardian_phone: '',
+          guardian_email: '',
+          license_number: '',
+          license_expiry: null,
+          medical_expiry: null,
+          consent_expiry: null,
+          category: '',
+          team: '',
+          status: 'active',
+          nationality: '',
+          date_of_birth: null,
+          emergency_contact: '',
+          tags: [],
+          notes: '',
+          availability: {},
+          attachments: []
+        };
+        
+        const resp = await RTS_API.createCollectionItem('drivers', newDriver);
+        if (resp && resp.success) {
+          if (RTS.showToast) RTS.showToast(`✅ Driver "${name}" added`, 'success');
+          ui.selectedId = resp.item?.id;
+          await render();
+        } else {
+          throw new Error(resp.error || 'Failed to create driver');
+        }
+      } catch (error) {
+        console.error('❌ Error adding driver:', error);
+        if (RTS.showToast) RTS.showToast(`Failed to add driver: ${error.message}`, 'error');
+      }
+    }
+
     function renderDocs(){
-      settings = RTS.getSettings();
-      const drivers = settings.drivers||[];
       const cur = drivers.find(d=>d.id===ui.selectedId);
       const driverId = cur ? cur.id : null;
       const docs = [];
@@ -388,7 +452,7 @@
     }
 
     function complianceSummary(drv){
-      const dates = [drv.licenseExpiry, drv.medicalExpiry, drv.consentExpiry].filter(Boolean);
+      const dates = [drv.license_expiry, drv.medical_expiry, drv.consent_expiry].filter(Boolean);
       if (dates.length===0) return '—';
       const expired = dates.some(isExpired);
       if (expired) return '<span class="badge text-bg-danger">EXPIRED</span>';
@@ -399,7 +463,6 @@
     }
 
     function hydrateInspector(){
-      const drivers = settings.drivers||[];
       const cur = drivers.find(d=>d.id===ui.selectedId) || null;
       el.ibadge.textContent = cur ? (cur.name||cur.id||'—') : 'No selection';
       ['name','class','number','email','phone','gname','gphone','tags','notes'].forEach(k=>{
@@ -412,16 +475,16 @@
       if (!cur) return;
       el.f.name.value = cur.name||'';
       el.f.class.value = cur.class||'';
-      el.f.number.value = cur.raceNumber||'';
+      el.f.number.value = cur.race_number||'';
       el.f.email.value = cur.email||'';
       el.f.phone.value = cur.phone||'';
-      el.f.gname.value = cur.guardianName||'';
-      el.f.gphone.value = cur.guardianPhone||'';
+      el.f.gname.value = cur.guardian_name||'';
+      el.f.gphone.value = cur.guardian_phone||'';
       el.f.tags.value = (cur.tags||[]).join(', ');
       el.f.notes.value = cur.notes||'';
-      el.f.licExp.value = cur.licenseExpiry||'';
-      el.f.medExp.value = cur.medicalExpiry||'';
-      el.f.consentExp.value = cur.consentExpiry||'';
+      el.f.licExp.value = cur.license_expiry||'';
+      el.f.medExp.value = cur.medical_expiry||'';
+      el.f.consentExp.value = cur.consent_expiry||'';
       el.complianceBadge.innerHTML = complianceSummary(cur);
       // docs
       (cur.attachments||[]).forEach((doc,i)=>{
@@ -466,7 +529,6 @@
 
     function renderMidTelemetryList(){
       el.midTeleBody.innerHTML = '';
-      const drivers = settings.drivers||[];
       const cur = drivers.find(d=>d.id===ui.selectedId) || null;
       if (!cur) return;
       RTS.apiGetTelemetryUploads(cur.id).then(list => {
@@ -566,7 +628,6 @@
 
     function renderTelemetryUploads(){
       el.telUploads.innerHTML = '';
-      const drivers = settings.drivers||[];
       const cur = drivers.find(d=>d.id===ui.selectedId) || null;
       if (!cur) return;
       RTS.apiGetTelemetryUploads(cur.id).then(list => {
@@ -612,7 +673,6 @@
     }
 
     async function uploadTelemetry(){
-      const drivers = settings.drivers||[];
       const cur = drivers.find(d=>d.id===ui.selectedId) || null;
       if (!cur) { alert('Select a driver first'); return; }
       const file = el.telFile.files && el.telFile.files[0];
@@ -636,7 +696,6 @@
 
     async function loadExampleTelemetry(){
       // Fetch bundled example CSVs and upload for current driver
-      const drivers = settings.drivers||[];
       const cur = drivers.find(d=>d.id===ui.selectedId) || null;
       if (!cur) { alert('Select a driver first'); return; }
       const samples = [
@@ -658,84 +717,98 @@
       alert('Example telemetry loaded.');
     }
 
-    function setAvailability(eventId, status){
-      const drivers = settings.drivers||[];
-      const idx = drivers.findIndex(d=>d.id===ui.selectedId);
-      if (idx<0) return;
-      const cur = drivers[idx];
-      cur.availability = cur.availability || {};
-      cur.availability[eventId] = status;
-      RTS.saveSettings(settings);
+    async function setAvailability(eventId, status){
+      const cur = drivers.find(d=>d.id===ui.selectedId);
+      if (!cur) return;
+      const availability = cur.availability || {};
+      availability[eventId] = status;
+      try {
+        await RTS_API.updateCollectionItem('drivers', cur.id, { availability });
+        cur.availability = availability;
+      } catch (error) {
+        console.error('❌ Error updating availability:', error);
+      }
     }
 
     async function attachFromDrive(){
       try{
         const picked = await RTS.pickDriveFiles({ multiSelect: true, includeFolders: false });
         if (!picked || picked.length===0) return;
-        const drivers = settings.drivers||[];
-        const idx = drivers.findIndex(d=>d.id===ui.selectedId);
-        if (idx<0) return;
-        const cur = drivers[idx];
-        cur.attachments = cur.attachments || [];
+        const cur = drivers.find(d=>d.id===ui.selectedId);
+        if (!cur) return;
+        const attachments = cur.attachments || [];
         picked.forEach(p=>{
-          cur.attachments.push({ name: p.name || 'Drive file', url: p.url || p.webViewLink || '' });
+          attachments.push({ name: p.name || 'Drive file', url: p.url || p.webViewLink || '' });
         });
-        RTS.saveSettings(settings);
+        await RTS_API.updateCollectionItem('drivers', cur.id, { attachments });
+        cur.attachments = attachments;
         hydrateInspector();
         renderDocs();
       } catch(e){ alert('Drive attach error: ' + (e && e.message ? e.message : String(e))); }
     }
 
-    function addUrl(){
+    async function addUrl(){
       const name = prompt('Document title'); if (name===null) return;
       const url = prompt('Link URL (https://…)'); if (url===null) return;
-      const drivers = settings.drivers||[];
-      const idx = drivers.findIndex(d=>d.id===ui.selectedId);
-      if (idx<0) return;
-      const cur = drivers[idx];
-      cur.attachments = cur.attachments || [];
-      cur.attachments.push({ name, url });
-      RTS.saveSettings(settings);
+      const cur = drivers.find(d=>d.id===ui.selectedId);
+      if (!cur) return;
+      const attachments = cur.attachments || [];
+      attachments.push({ name, url });
+      await RTS_API.updateCollectionItem('drivers', cur.id, { attachments });
+      cur.attachments = attachments;
       hydrateInspector();
       renderDocs();
     }
 
-    function deleteAttachment(i){
-      const drivers = settings.drivers||[];
-      const idx = drivers.findIndex(d=>d.id===ui.selectedId);
-      if (idx<0) return;
-      const cur = drivers[idx];
-      cur.attachments = (cur.attachments||[]).filter((_,idx2)=>idx2!==i);
-      RTS.saveSettings(settings);
+    async function deleteAttachment(i){
+      const cur = drivers.find(d=>d.id===ui.selectedId);
+      if (!cur) return;
+      const attachments = (cur.attachments||[]).filter((_,idx2)=>idx2!==i);
+      await RTS_API.updateCollectionItem('drivers', cur.id, { attachments });
+      cur.attachments = attachments;
       hydrateInspector();
       renderDocs();
     }
 
-    function saveDriver(){
-      const drivers = settings.drivers||[];
-      const idx = drivers.findIndex(d=>d.id===ui.selectedId);
-      if (idx<0) return;
-      const cur = drivers[idx];
-      cur.name = el.f.name.value.trim();
-      cur.class = el.f.class.value.trim();
-      cur.raceNumber = el.f.number.value.trim();
-      cur.email = el.f.email.value.trim();
-      cur.phone = el.f.phone.value.trim();
-      cur.guardianName = el.f.gname.value.trim();
-      cur.guardianPhone = el.f.gphone.value.trim();
-      cur.tags = el.f.tags.value.split(',').map(s=>s.trim()).filter(Boolean);
-      cur.notes = el.f.notes.value.trim();
-      cur.licenseExpiry = el.f.licExp.value || '';
-      cur.medicalExpiry = el.f.medExp.value || '';
-      cur.consentExpiry = el.f.consentExp.value || '';
-      RTS.saveSettings(settings);
-      hydrateInspector();
-      buildDriverList();
+    async function saveDriver(){
+      const cur = drivers.find(d=>d.id===ui.selectedId);
+      if (!cur) return;
+      
+      const updates = {
+        name: el.f.name.value.trim(),
+        class: el.f.class.value.trim(),
+        race_number: el.f.number.value.trim(),
+        email: el.f.email.value.trim(),
+        phone: el.f.phone.value.trim(),
+        guardian_name: el.f.gname.value.trim(),
+        guardian_phone: el.f.gphone.value.trim(),
+        tags: el.f.tags.value.split(',').map(s=>s.trim()).filter(Boolean),
+        notes: el.f.notes.value.trim(),
+        license_expiry: el.f.licExp.value || null,
+        medical_expiry: el.f.medExp.value || null,
+        consent_expiry: el.f.consentExp.value || null
+      };
+      
+      try {
+        const resp = await RTS_API.updateCollectionItem('drivers', cur.id, updates);
+        if (resp && resp.success) {
+          if (RTS.showToast) RTS.showToast('✅ Driver saved', 'success');
+          Object.assign(cur, updates);
+          hydrateInspector();
+          buildDriverList();
+        } else {
+          throw new Error('Save failed');
+        }
+      } catch (error) {
+        console.error('❌ Error saving driver:', error);
+        if (RTS.showToast) RTS.showToast('Failed to save driver', 'error');
+      }
     }
 
     function bind(){
       el.search.addEventListener('input', ()=>{ ui.search = el.search.value; renderDocs(); });
       if (el.btnSave) el.btnSave.addEventListener('click', saveDriver);
+      if (el.btnAddDriver) el.btnAddDriver.addEventListener('click', addNewDriver);
       if (el.btnAttach) el.btnAttach.addEventListener('click', attachFromDrive);
       if (el.btnAddUrl) el.btnAddUrl.addEventListener('click', addUrl);
       if (el.btnTelUpload) el.btnTelUpload.addEventListener('click', uploadTelemetry);
@@ -745,7 +818,6 @@
     function init(){
       bind();
       render();
-      if (!ui.selectedId && (settings.drivers||[])[0]) { ui.selectedId = settings.drivers[0].id; render(); }
     }
     document.addEventListener('DOMContentLoaded', init);
   })();

@@ -168,6 +168,121 @@ window.RTS_API = {
     return await this.request(`/box-contents/${boxId}/clear`, {
       method: 'DELETE'
     });
+  },
+
+  async getAllBoxContents() {
+    const response = await this.request('/box-contents');
+    return response.boxContents || [];
+  },
+
+  // ============================================
+  // ASSET TYPES API
+  // ============================================
+  
+  async getAssetTypes() {
+    return await this.request('/asset-types');
+  },
+
+  async createAssetType(assetTypeData) {
+    return await this.request('/asset-types', {
+      method: 'POST',
+      body: JSON.stringify(assetTypeData)
+    });
+  },
+
+  async updateAssetType(id, assetTypeData) {
+    return await this.request(`/asset-types/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(assetTypeData)
+    });
+  },
+
+  async deleteAssetType(id) {
+    return await this.request(`/asset-types/${id}`, {
+      method: 'DELETE'
+    });
+  },
+
+  // ============================================
+  // LOCATIONS API (via Collections)
+  // ============================================
+  
+  async getLocations(filters = {}) {
+    const params = new URLSearchParams(filters);
+    const response = await this.request(`/collections/locations?${params}`);
+    return response;
+  },
+
+  async getLocation(id) {
+    return await this.request(`/collections/locations/${id}`);
+  },
+
+  async createLocation(locationData) {
+    return await this.request('/collections/locations', {
+      method: 'POST',
+      body: JSON.stringify(locationData)
+    });
+  },
+
+  async updateLocation(id, locationData) {
+    return await this.request(`/collections/locations/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(locationData)
+    });
+  },
+
+  async deleteLocation(id) {
+    return await this.request(`/collections/locations/${id}`, {
+      method: 'DELETE'
+    });
+  },
+
+  // ============================================
+  // GENERIC COLLECTION API (for backward compatibility)
+  // ============================================
+  
+  async getCollection(collection) {
+    return await this.request(`/${collection}`);
+  },
+
+  // ============================================
+  // COLLECTIONS API (tasks, notes, runbooks, drivers, expenses, purchase_orders, inventory, events)
+  // ============================================
+  
+  async getCollectionItems(table, filters = {}) {
+    const params = new URLSearchParams(filters);
+    return await this.request(`/collections/${table}?${params}`);
+  },
+
+  async getCollectionItem(table, id) {
+    return await this.request(`/collections/${table}/${id}`);
+  },
+
+  async createCollectionItem(table, data) {
+    return await this.request(`/collections/${table}`, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  async updateCollectionItem(table, id, data) {
+    return await this.request(`/collections/${table}/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  },
+
+  async deleteCollectionItem(table, id) {
+    return await this.request(`/collections/${table}/${id}`, {
+      method: 'DELETE'
+    });
+  },
+
+  async bulkUpsertCollection(table, items) {
+    return await this.request(`/collections/${table}/bulk`, {
+      method: 'POST',
+      body: JSON.stringify({ items })
+    });
   }
 };
 

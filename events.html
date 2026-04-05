@@ -45,9 +45,16 @@
       background: #ff5ab5 !important;
       color: #ffffff !important;
     }
+    
+    /* Light mode adjustments for events page */
+    body.light-mode .mlo-pane-right #f_ev_type,
+    body.light-mode .mlo-pane-right #f_ev_type + .form-select,
+    body.light-mode .mlo-pane-right label[for="f_ev_type"] {
+      color: #000000 !important;
+    }
   </style>
 </head>
-<body>
+<body class="light-mode">
   <div id="rtsTopNav"></div>
   <div class="rts-version-badge">v3</div>
   <div class="rts-main container-fluid">
@@ -577,12 +584,116 @@
       selectedId: null
     };
 
-    let events = RTS.safeLoadJSON(LS_DATA, null);
-    if(!Array.isArray(events) || events.length===0) events = seedEvents();
+    let events = [];
+    let eventsCache = []; // Cache of database events
     let venues = Array.isArray(settings.venues) && settings.venues.length ? settings.venues.slice() : seedVenues();
     settings.venues = venues.slice();
     RTS.saveSettings(settings);
     let ui = RTS.deepMerge(defaultUI, RTS.safeLoadJSON(LS_UI, {}));
+    
+    // Load events from database
+    async function loadEventsFromDB() {
+      try {
+        const resp = await RTS_API.getCollectionItems('events');
+        if (!resp || !resp.success) throw new Error('Failed to load events');
+        eventsCache = (resp.items || []).map(dbEventToLocal);
+        events = eventsCache.slice();
+        if (events.length === 0) {
+          events = seedEvents();
+          // Save seed events to database
+          for (const ev of events) {
+            await createEventInDB(ev);
+          }
+        }
+        render();
+      } catch (error) {
+        console.error('Error loading events from database:', error);
+        RTS.showToast('Failed to load events', 'error');
+      }
+    }
+    
+    // Map database event to localStorage format
+    function dbEventToLocal(dbEv) {
+      return {
+        id: dbEv.id,
+        title: dbEv.name || '',
+        start: dbEv.start_date || '',
+        end: dbEv.end_date || dbEv.start_date || '',
+        type: dbEv.event_type || 'Test Day',
+        status: dbEv.status || 'Planned',
+        venue: dbEv.circuit || '',
+        brief: dbEv.brief || '',
+        drivers: dbEv.drivers || [],
+        crew: dbEv.crew || [],
+        documents: dbEv.documents || [],
+        runbook: dbEv.runbook || {},
+        setups: dbEv.setups || [],
+        runPlan: dbEv.run_plan || [],
+        checklists: dbEv.checklists || [],
+        sessionLogs: dbEv.session_logs || {},
+        createdAt: dbEv.created_at,
+        updatedAt: dbEv.updated_at
+      };
+    }
+    
+    // Map local event to database format
+    function localEventToDB(localEv) {
+      return {
+        id: localEv.id,
+        name: localEv.title || '',
+        start_date: localEv.start || null,
+        end_date: localEv.end || localEv.start || null,
+        event_type: localEv.type || 'Test Day',
+        status: localEv.status || 'Planned',
+        circuit: localEv.venue || '',
+        brief: localEv.brief || '',
+        drivers: localEv.drivers || [],
+        crew: localEv.crew || [],
+        documents: localEv.documents || [],
+        runbook: localEv.runbook || {},
+        setups: localEv.setups || [],
+        run_plan: localEv.runPlan || [],
+        checklists: localEv.checklists || [],
+        session_logs: localEv.sessionLogs || {}
+      };
+    }
+    
+    // Create event in database
+    async function createEventInDB(ev) {
+      try {
+        const data = localEventToDB(ev);
+        const resp = await RTS_API.createCollectionItem('events', data);
+        if (!resp || !resp.success) throw new Error('Failed to create event');
+        return resp.item;
+      } catch (error) {
+        console.error('Error creating event:', error);
+        throw error;
+      }
+    }
+    
+    // Update event in database
+    async function updateEventInDB(ev) {
+      try {
+        const data = localEventToDB(ev);
+        const resp = await RTS_API.updateCollectionItem('events', ev.id, data);
+        if (!resp || !resp.success) throw new Error('Failed to update event');
+        return resp.item;
+      } catch (error) {
+        console.error('Error updating event:', error);
+        throw error;
+      }
+    }
+    
+    // Delete event from database
+    async function deleteEventFromDB(id) {
+      try {
+        const resp = await RTS_API.deleteCollectionItem('events', id);
+        if (!resp || !resp.success) throw new Error('Failed to delete event');
+      } catch (error) {
+        console.error('Error deleting event:', error);
+        throw error;
+      }
+    }
 
     // Deep link: events.html?select=<eventId>
     (function(){
@@ -686,11 +797,22 @@
 
     RTS.initTriPaneResizers(els.shell, LS_PANES);
 
-    function saveAll() {
-      RTS.safeSaveJSON(LS_DATA, events);
+    async function saveAll() {
       RTS.safeSaveJSON(LS_UI, ui);
       settings.venues = venues;
       RTS.saveSettings(settings);
+      // Events are saved individually to database, not in bulk
+    }
+    
+    // Save individual event to database
+    async function saveEvent(ev) {
+      if (!ev || !ev.id) return;
+      try {
+        await updateEventInDB(ev);
+      } catch (error) {
+        console.error('Failed to save event:', error);
+        RTS.showToast('Failed to save event', 'error');
+      }
     }
     // ---------- Setups ----------
     function ensureSetups(ev){ if (!ev.setups) ev.setups = []; return ev.setups; }
@@ -714,7 +836,7 @@
         els.setupFields.appendChild(col);
       });
     }
-    function addSetup(){
+    async function addSetup(){
       const ev = getSelected(); if(!ev) return;
       const tpls = setupTemplates();
       const tpl = tpls.find(t=>String(t.id)===String(els.setupTpl.value)) || tpls[0];
@@ -722,7 +844,8 @@
       els.setupFields.querySelectorAll('.setup-field').forEach(inp=>{ values[inp.getAttribute('data-key')] = inp.value; });
       ensureSetups(ev).push({ id: RTS.uid('setupv'), templateId: tpl?.id, templateName: tpl?.name, driverId: els.setupDriver.value||'', at: nowISO(), values });
       ev.updatedAt = nowISO();
-      saveAll();
+      await saveEvent(ev);
+      await saveAll();
       renderSetupCompareOptions();
       alert('Setup saved.');
     }
@@ -769,13 +892,14 @@
       });
       updateCountdown();
     }
-    function addRunPlan(){
+    async function addRunPlan(){
       const ev = getSelected(); if(!ev) return;
       const start = els.rpStart.value; if (!start) return;
       ensureRunPlan(ev).push({ id: RTS.uid('sess'), start, name: els.rpName.value.trim()||'Session', driver: els.rpDriver.value||'', status: els.rpStatus.value||'Pending', durationMin: Number(els.rpDur.value||0) || 0 });
       ev.updatedAt = nowISO();
       els.rpStart.value=''; els.rpName.value=''; els.rpStatus.value='Pending'; els.rpDur.value='';
-      saveAll();
+      await saveEvent(ev);
+      await saveAll();
       renderRunPlan();
     }
     function driverNames(){ return (RTS.getSettings().drivers||[]).map(d=> d.name || d.displayName || d.id); }
@@ -852,7 +976,7 @@
       const masters = (RTS.getSettings().masterChecklists||[]).slice();
       els.chkMaster.innerHTML = masters.map(m=>`<option value="${m.id}">${escapeHtml(m.name||'Checklist')}</option>`).join('');
     }
-    function spawnChecklist(){
+    async function spawnChecklist(){
       const ev = getSelected(); if(!ev) return;
       const masters = (RTS.getSettings().masterChecklists||[]).slice();
       const m = masters.find(x=> String(x.id)===String(els.chkMaster.value)) || masters[0];
@@ -860,7 +984,8 @@
       const items = (m.items||[]).map(txt => ({ id: RTS.uid('item'), text: txt, done: false }));
       ensureEventChecklists(ev).push({ id: RTS.uid('chk'), name: m.name||'Checklist', items });
       ev.updatedAt = nowISO();
-      saveAll();
+      await saveEvent(ev);
+      await saveAll();
       renderEventChecklists();
     }
     function renderEventChecklists(){
@@ -1517,7 +1642,7 @@
       }).filter(r=>r.staffId);
     }
 
-    function saveInspector() {
+    async function saveInspector() {
       const ev = getSelected();
       if(!ev) return;
       ev.title = els.f_title.value.trim();
@@ -1544,12 +1669,15 @@
       if (ev.rtsNew) delete ev.rtsNew;
       // clear any synthetic title note so the centre pane shows the real title
       if (ev._rts_syntheticTitle) delete ev._rts_syntheticTitle;
-      saveAll();
+      
+      await saveEvent(ev);
+      await saveAll();
       render();
+      RTS.showToast('Event saved', 'success');
     }
 
-    function addEvent() {
-      const id = Math.max(1000, ...events.map(e=>e.id||0)) + 1;
+    async function addEvent() {
+      const id = RTS.uid('event');
       const today = isoLocal(new Date());
       const typeList = getEventTypes();
       const ev = {
@@ -1564,6 +1692,11 @@
         drivers: [],
         crew: [],
         documents: [],
+        runbook: {},
+        setups: [],
+        runPlan: [],
+        checklists: [],
+        sessionLogs: {},
         createdAt: nowISO(),
         updatedAt: nowISO(),
         // flag new events so they can be visually highlighted until edited/saved
@@ -1577,16 +1710,22 @@
       ui.groupBy = '';
       ui.perspective = 'all';
 
-      events.unshift(ev);
-      ui.selectedId = id;
-      saveAll();
-      render();
+      try {
+        await createEventInDB(ev);
+        events.unshift(ev);
+        ui.selectedId = id;
+        await saveAll();
+        render();
+        RTS.showToast('Event created', 'success');
+      } catch (error) {
+        RTS.showToast('Failed to create event', 'error');
+      }
     }
 
-    function duplicateEvent() {
+    async function duplicateEvent() {
       const ev = getSelected();
       if(!ev) return;
-      const id = Math.max(1000, ...events.map(e=>e.id||0)) + 1;
+      const id = RTS.uid('event');
       const copy = JSON.parse(JSON.stringify(ev));
       copy.id = id;
       copy.title = (copy.title||'Event') + ' (Copy)';
@@ -1596,33 +1735,49 @@
   copy.drivers = [];
   copy.crew = [];
   copy.documents = [];
-      events.unshift(copy);
-      ui.selectedId = id;
-      saveAll();
-      render();
+      
+      try {
+        await createEventInDB(copy);
+        events.unshift(copy);
+        ui.selectedId = id;
+        await saveAll();
+        render();
+        RTS.showToast('Event duplicated', 'success');
+      } catch (error) {
+        RTS.showToast('Failed to duplicate event', 'error');
+      }
     }
 
-    function deleteEvent() {
+    async function deleteEvent() {
       const idx = events.findIndex(e=>e.id===ui.selectedId);
       if(idx<0) return;
-      events.splice(idx,1);
-      ui.selectedId = events[0] ? events[0].id : null;
-      saveAll();
-      render();
+      const ev = events[idx];
+      
+      try {
+        await deleteEventFromDB(ev.id);
+        events.splice(idx,1);
+        ui.selectedId = events[0] ? events[0].id : null;
+        await saveAll();
+        render();
+        RTS.showToast('Event deleted', 'success');
+      } catch (error) {
+        RTS.showToast('Failed to delete event', 'error');
+      }
     }
 
-    function addCrewRow() {
+    async function addCrewRow() {
       const ev = getSelected();
       if(!ev) return;
       ev.crew = Array.isArray(ev.crew) ? ev.crew : [];
       const staff = staffOptions();
       ev.crew.push({ staffId: staff[0] ? staff[0].id : '', role: (RTS.getSettings().roles||['Crew'])[0] });
       ev.updatedAt = nowISO();
-      saveAll();
+      await saveEvent(ev);
+      await saveAll();
       loadInspector();
     }
 
-    function addDoc() {
+    async function addDoc() {
       const ev = getSelected();
       if(!ev) return;
       const name = els.docName.value.trim();
@@ -1633,7 +1788,8 @@
       els.docName.value = '';
       els.docUrl.value = '';
       ev.updatedAt = nowISO();
-      saveAll();
+      await saveEvent(ev);
+      await saveAll();
       loadInspector();
     }
 
@@ -1810,7 +1966,7 @@
 
     // Init
     wireUI();
-    render();
+    loadEventsFromDB(); // Load from database instead of localStorage
   })();
   </script>
 </body>

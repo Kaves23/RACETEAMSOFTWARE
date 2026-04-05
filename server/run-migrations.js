@@ -12,7 +12,18 @@ async function runMigrations() {
     '001_create_core_tables.sql',
     '002_create_history_tables_pg.sql',
     '006_create_sessions_table.sql',
-    '007_create_asset_types_table.sql'
+    '007_create_asset_types_table.sql',
+    '008_add_custom_asset_types.sql',
+    '009_seed_locations.sql',
+    '010_create_remaining_tables.sql',
+    '011_add_shopify_support.sql',
+    '012_add_inventory_box_tracking.sql',
+    '013_add_driver_boxes.sql',
+    '014_fix_drivers_schema.sql',
+    '015_add_asset_box_relationships.sql',
+    '016_event_packing_system.sql',
+    '017_events_extended_schema.sql',
+    '018_allow_null_event_id_for_general_lists.sql'
   ];
   
   for (const filename of migrationFiles) {

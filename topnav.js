@@ -21,6 +21,7 @@
     { label: 'Logistics', items: [
       { href: 'load.html', label: 'Load Plan', key: 'L' },
       { href: 'box-packing.html', label: 'Box Packing', key: 'B' },
+      { href: 'event-notes.html', label: 'Event Notes', key: 'N' },
       { href: 'inventory.html', label: 'Inventory', key: 'V' },
       { href: 'assets.html', label: 'Assets', key: 'A' }
     ]},
@@ -31,6 +32,7 @@
     ]},
     { label: 'Team', items: [
       { href: 'drivers.html', label: 'Drivers', key: 'D' },
+      { href: 'driver-dashboard.html', label: 'Driver Dashboard', key: 'H' },
       { href: 'performance.html', label: 'Performance', key: 'P' },
       { href: 'strategy.html', label: 'Strategy', key: 'S' },
       { href: 'incidents.html', label: 'Incidents', key: 'N' }

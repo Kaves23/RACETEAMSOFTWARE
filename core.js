@@ -359,6 +359,77 @@
       return item;
     }
   }
+  
+  // NEW: Collections API helpers (tasks, notes, runbooks, drivers, expenses, etc.)
+  async function apiGetCollectionItems(table, filters = {}) {
+    try {
+      if (!window.RTS_API) throw new Error('RTS_API not available');
+      return await window.RTS_API.getCollectionItems(table, filters);
+    } catch (err) {
+      console.warn(`apiGetCollectionItems(${table}) failed:`, err.message);
+      const localKey = 'rts.' + table + '.v4';
+      return { success: true, items: safeLoadJSON(localKey, []), count: 0 };
+    }
+  }
+
+  async function apiCreateCollectionItem(table, data) {
+    try {
+      if (!window.RTS_API) throw new Error('RTS_API not available');
+      return await window.RTS_API.createCollectionItem(table, data);
+    } catch (err) {
+      console.warn(`apiCreateCollectionItem(${table}) failed:`, err.message);
+      const localKey = 'rts.' + table + '.v4';
+      const items = safeLoadJSON(localKey, []);
+      const item = { id: generateId(), ...data };
+      items.push(item);
+      safeSaveJSON(localKey, items);
+      return { success: true, item };
+    }
+  }
+
+  async function apiUpdateCollectionItem(table, id, data) {
+    try {
+      if (!window.RTS_API) throw new Error('RTS_API not available');
+      return await window.RTS_API.updateCollectionItem(table, id, data);
+    } catch (err) {
+      console.warn(`apiUpdateCollectionItem(${table}, ${id}) failed:`, err.message);
+      const localKey = 'rts.' + table + '.v4';
+      const items = safeLoadJSON(localKey, []);
+      const index = items.findIndex(item => item.id === id);
+      if (index >= 0) {
+        items[index] = { ...items[index], ...data };
+        safeSaveJSON(localKey, items);
+        return { success: true, item: items[index] };
+      }
+      return { success: false, error: 'Not found' };
+    }
+  }
+
+  async function apiDeleteCollectionItem(table, id) {
+    try {
+      if (!window.RTS_API) throw new Error('RTS_API not available');
+      return await window.RTS_API.deleteCollectionItem(table, id);
+    } catch (err) {
+      console.warn(`apiDeleteCollectionItem(${table}, ${id}) failed:`, err.message);
+      const localKey = 'rts.' + table + '.v4';
+      const items = safeLoadJSON(localKey, []);
+      const filtered = items.filter(item => item.id !== id);
+      safeSaveJSON(localKey, filtered);
+      return { success: true };
+    }
+  }
+
+  async function apiBulkUpsertCollection(table, items) {
+    try {
+      if (!window.RTS_API) throw new Error('RTS_API not available');
+      return await window.RTS_API.bulkUpsertCollection(table, items);
+    } catch (err) {
+      console.warn(`apiBulkUpsertCollection(${table}) failed:`, err.message);
+      const localKey = 'rts.' + table + '.v4';
+      safeSaveJSON(localKey, items);
+      return { success: true, count: items.length };
+    }
+  }
 
   async function apiLogHistory(kind, id, entry){
     try {
@@ -825,11 +896,47 @@
     apiGetCollection: apiGetCollection,
     apiSyncCollection: apiSyncCollection,
     apiCreate,
+    apiGetCollectionItems,
+    apiCreateCollectionItem,
+    apiUpdateCollectionItem,
+    apiDeleteCollectionItem,
+    apiBulkUpsertCollection,
     apiLogHistory,
     apiUploadTelemetry,
     apiGetTelemetryUploads,
     apiGetTelemetryPoints,
-    activateTabFromQuery
+    activateTabFromQuery,
+    showToast: function(message, type = 'info') {
+      const colors = {
+        success: '#34a853',
+        error: '#ea4335',
+        warning: '#fbbc04',
+        info: '#4285f4'
+      };
+      const toast = document.createElement('div');
+      toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: ${colors[type] || colors.info};
+        color: white;
+        padding: 12px 20px;
+        border-radius: 6px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        z-index: 10000;
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.9rem;
+        font-weight: 600;
+        animation: slideIn 0.3s ease;
+      `;
+      toast.textContent = message;
+      document.body.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.3s';
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    }
   };
 
   // ----------------------------
@@ -1059,6 +1166,157 @@
     async deleteAssetType(id) {
       return await apiRequest(`/asset-types/${id}`, {
         method: 'DELETE'
+      });
+    },
+
+    // Pack inventory item into box
+    async packInventoryItem(boxId, itemId) {
+      return await apiRequest('/inventory/pack', {
+        method: 'POST',
+        body: JSON.stringify({ boxId, itemId })
+      });
+    },
+
+    // Unpack inventory item from box
+    async unpackInventoryItem(itemId) {
+      return await apiRequest('/inventory/unpack', {
+        method: 'POST',
+        body: JSON.stringify({ itemId })
+      });
+    },
+
+    // Update inventory item
+    async updateInventoryItem(id, data) {
+      return await apiRequest(`/inventory/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data)
+      });
+    },
+
+    // Delete inventory item
+    async deleteInventoryItem(id) {
+      return await apiRequest(`/inventory/${id}`, {
+        method: 'DELETE'
+      });
+    },
+
+    // Generic collection methods (for tables like drivers, tasks, notes, etc.)
+    async getCollectionItems(tableName) {
+      return await apiRequest(`/collections/${tableName}`);
+    },
+
+    async createCollectionItem(tableName, data) {
+      return await apiRequest(`/collections/${tableName}`, {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
+    },
+
+    async updateCollectionItem(tableName, id, data) {
+      return await apiRequest(`/collections/${tableName}/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data)
+      });
+    },
+
+    async deleteCollectionItem(tableName, id) {
+      return await apiRequest(`/collections/${tableName}/${id}`, {
+        method: 'DELETE'
+      });
+    },
+
+    // Get all locations (placeholder - using settings for now)
+    async getLocations() {
+      // TODO: Create locations table and API endpoint
+      // For now, return empty array (code will fall back to settings)
+      return { success: true, items: [] };
+    },
+
+    // ============================================
+    // PACKING LIST API
+    // ============================================
+    
+    // Get packing list for an event
+    async getEventPackingList(eventId) {
+      return await apiRequest(`/events/${eventId}/packing-list`);
+    },
+    
+    // Create packing list for event
+    async createPackingList(data) {
+      return await apiRequest('/packing-lists', {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
+    },
+    
+    // Get items in a packing list
+    async getPackingItems(listId) {
+      return await apiRequest(`/packing-lists/${listId}/items`);
+    },
+    
+    // Add item to packing list
+    async addPackingItem(listId, data) {
+      return await apiRequest(`/packing-lists/${listId}/items`, {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
+    },
+    
+    // Mark item as packed
+    async markItemPacked(listId, itemId, data) {
+      return await apiRequest(`/packing-lists/${listId}/items/${itemId}/mark-packed`, {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
+    },
+    
+    // Mark item as loaded
+    async markItemLoaded(listId, itemId, data) {
+      return await apiRequest(`/packing-lists/${listId}/items/${itemId}/mark-loaded`, {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
+    },
+    
+    // Report issue with item
+    async reportPackingIssue(listId, itemId, data) {
+      return await apiRequest(`/packing-lists/${listId}/items/${itemId}/report-issue`, {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
+    },
+    
+    // Get packing activity feed
+    async getPackingActivity(listId, since = null) {
+      const url = since 
+        ? `/packing-lists/${listId}/activity?since=${since}`
+        : `/packing-lists/${listId}/activity`;
+      return await apiRequest(url);
+    },
+    
+    // Get event vehicles
+    async getEventVehicles(eventId) {
+      return await apiRequest(`/events/${eventId}/vehicles`);
+    },
+    
+    // Create packing list from template
+    async createPackingListFromTemplate(listId, templateId) {
+      return await apiRequest(`/packing-lists/${listId}/create-from-template`, {
+        method: 'POST',
+        body: JSON.stringify({ template_id: templateId })
+      });
+    },
+    
+    // Get packing templates
+    async getPackingTemplates() {
+      return await apiRequest('/packing-templates');
+    },
+    
+    // Subscribe phone to event packing updates
+    async subscribeToPackingList(data) {
+      return await apiRequest('/whatsapp/subscribe', {
+        method: 'POST',
+        body: JSON.stringify(data)
       });
     }
   };
