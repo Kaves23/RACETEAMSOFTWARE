@@ -448,16 +448,23 @@ Just send any text, or:
 // SEND MESSAGES
 // ============================================
 
+// Send WhatsApp message
 async function sendWhatsAppMessage(to, message) {
   try {
-    // Get config
-    const configResult = await db.query('SELECT * FROM whatsapp_config WHERE enabled = true LIMIT 1');
-    if (configResult.rows.length === 0) {
-      console.log('⚠️ Cannot send message: WhatsApp not configured');
+    // Use environment variables for config
+    const provider = process.env.WHATSAPP_PROVIDER || 'twilio';
+    
+    const config = {
+      provider: provider,
+      account_sid: process.env.WHATSAPP_ACCOUNT_SID,
+      api_token: process.env.WHATSAPP_API_TOKEN,
+      phone_number: process.env.WHATSAPP_PHONE_NUMBER
+    };
+    
+    if (!config.account_sid || !config.api_token || !config.phone_number) {
+      console.log('⚠️ Cannot send message: WhatsApp credentials not configured in environment');
       return;
     }
-    
-    const config = configResult.rows[0];
     
     if (config.provider === 'twilio') {
       await sendTwilioMessage(to, message, config);
