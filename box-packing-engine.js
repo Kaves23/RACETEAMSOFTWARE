@@ -43,6 +43,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     RTS.setActiveNav();
     await loadData();
     console.log('📊 After loadData - equipment:', equipment.length, 'assets:', assets.length, 'boxes:', boxes.length);
+    await loadDrivers(); // Load drivers from PlanetScale database on init
     initUI();
     renderAll();
   }
@@ -1261,13 +1262,18 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     locationSelect.innerHTML = '<option value="">Select Location</option>' +
       locations.map(loc => `<option value="${esc(loc)}">${esc(loc)}</option>`).join('');
     
-    // Load and populate drivers
+    // Populate drivers from PlanetScale database
+    // Reload to ensure we have latest drivers
     if (allDrivers.length === 0) {
       await loadDrivers();
     }
     const driverSelect = document.getElementById('boxDriver');
-    driverSelect.innerHTML = '<option value="">No driver assigned</option>' +
-      allDrivers.map(d => `<option value="${d.id}">${esc(d.name || 'Unnamed')} ${d.license_number ? '- ' + esc(d.license_number) : ''}</option>`).join('');
+    if (allDrivers.length > 0) {
+      driverSelect.innerHTML = '<option value="">No driver assigned</option>' +
+        allDrivers.map(d => `<option value="${d.id}">${esc(d.name || 'Unnamed')} ${d.license_number ? '- ' + esc(d.license_number) : ''}</option>`).join('');
+    } else {
+      driverSelect.innerHTML = '<option value="">No drivers available (add in Drivers page)</option>';
+    }
     
     // Hide driver selector initially (will show if driver type selected)
     document.getElementById('driverSelectContainer').style.display = 'none';
@@ -1285,15 +1291,21 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   // Driver Assignment
   let allDrivers = [];
   
+  // Load drivers from PlanetScale database (NOT from settings)
   async function loadDrivers() {
     try {
+      console.log('🔄 Loading drivers from PlanetScale database...');
       const resp = await RTS_API.getCollectionItems('drivers');
       if (resp && resp.items) {
         allDrivers = resp.items;
-        console.log(`✅ Loaded ${allDrivers.length} drivers`);
+        console.log(`✅ Loaded ${allDrivers.length} drivers from PlanetScale database`);
+        console.log('   Drivers:', allDrivers.map(d => d.name || 'Unnamed').join(', '));
+      } else {
+        console.warn('⚠️ No drivers returned from database');
+        allDrivers = [];
       }
     } catch (error) {
-      console.error('❌ Error loading drivers:', error);
+      console.error('❌ Error loading drivers from database:', error);
       allDrivers = [];
     }
   }
@@ -1302,6 +1314,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     const box = boxes.find(b => b.id === boxId);
     if (!box) return;
     
+    // Reload drivers to ensure we have the latest data from PlanetScale
     if (allDrivers.length === 0) {
       await loadDrivers();
     }
