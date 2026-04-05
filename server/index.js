@@ -7,7 +7,8 @@ const db = require('./db');
 
 const app = express();
 app.use(cors());
-app.use(bodyParser.json());
+app.use(bodyParser.json()); // For JSON requests
+app.use(bodyParser.urlencoded({ extended: true })); // For form-encoded requests (Twilio sends this format!)
 
 // Serve static files from parent directory (HTML, CSS, JS files)
 app.use(express.static(path.join(__dirname, '..')));
