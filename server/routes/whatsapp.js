@@ -114,28 +114,51 @@ router.post('/webhook', async (req, res) => {
     
     console.log(`Provider detection - Twilio: ${isTwilio}, Meta: ${isMeta}`);
     
+    let replyMessage = null;
+    
     if (isTwilio) {
       console.log('🟢 Routing to Twilio handler');
-      await handleTwilioMessage(req.body);
+      replyMessage = await handleTwilioMessage(req.body);
+      
+      // Send TwiML response for immediate reply
+      if (replyMessage) {
+        console.log(`📤 Sending TwiML reply: "${replyMessage}"`);
+        res.set('Content-Type', 'text/xml');
+        res.send(`<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Message>${escapeXml(replyMessage)}</Message>
+</Response>`);
+      } else {
+        res.sendStatus(200);
+      }
     } else if (isMeta) {
       console.log('🔵 Routing to Meta handler');
       await handleMetaMessage(req.body);
+      res.sendStatus(200);
     } else {
       console.log('⚠️ Unknown WhatsApp provider format');
+      res.sendStatus(200);
     }
     
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('✅ Webhook processing complete');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-    
-    // Always respond 200 to avoid retries
-    res.sendStatus(200);
   } catch (error) {
     console.error('❌ Error processing WhatsApp message:', error);
     console.error('Stack:', error.stack);
     res.sendStatus(200); // Still return 200 to avoid retries
   }
 });
+
+// Helper function to escape XML special characters
+function escapeXml(unsafe) {
+  return unsafe
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
 
 // ============================================
 // MESSAGE HANDLERS
@@ -149,12 +172,14 @@ async function handleTwilioMessage(body) {
   
   console.log(`📨 Twilio message from ${from}: ${messageBody}`);
   
-  await processIncomingMessage({
+  const reply = await processIncomingMessage({
     phone: from.replace('whatsapp:', ''),
     message: messageBody,
     message_id: messageSid,
     provider: 'twilio'
   });
+  
+  return reply; // Return reply for TwiML response
 }
 
 // Handle Meta WhatsApp message
@@ -204,27 +229,32 @@ async function processIncomingMessage({ phone, message, message_id, provider }) 
     const parsed = parseMessage(message);
     console.log(`📝 Parsed result:`, parsed);
     
+    let reply = null;
+    
     if (parsed.command === 'add') {
       console.log('➡️ Routing to ADD command');
-      await handleAddNote(phone, parsed.text, config.default_list_id, message_id);
+      reply = await handleAddNote(phone, parsed.text, config.default_list_id, message_id);
     } else if (parsed.command === 'done') {
       console.log('➡️ Routing to DONE command');
-      await handleMarkDone(phone, parsed.noteNumber, message_id);
+      reply = await handleMarkDone(phone, parsed.noteNumber, message_id);
     } else if (parsed.command === 'list' || parsed.command === 'show') {
       console.log('➡️ Routing to LIST command');
-      await handleShowList(phone, config.default_list_id);
+      reply = await handleShowList(phone, config.default_list_id);
     } else if (parsed.command === 'help') {
       console.log('➡️ Routing to HELP command');
-      await handleHelp(phone);
+      reply = await handleHelp(phone);
     } else {
       // Default: treat as note to add
       console.log('➡️ No command detected - treating as ADD NOTE (default)');
-      await handleAddNote(phone, message, config.default_list_id, message_id);
+      reply = await handleAddNote(phone, message, config.default_list_id, message_id);
     }
+    
+    return reply;
     
   } catch (error) {
     console.error('❌ Error in processIncomingMessage:', error);
     console.error('Stack:', error.stack);
+    return '❌ Error processing message';
   }
 }
 
@@ -322,13 +352,13 @@ async function handleAddNote(phone, noteText, listId, messageId) {
     console.log(`✅ Activity logged successfully!`);
     console.log(`🎉 COMPLETE: Added note from ${phone}: ${noteText}`);
     
-    // Send confirmation
-    await sendWhatsAppMessage(phone, `Added ✅`);
+    // Return confirmation
+    return `✅ Added: "${noteText}"`;
     
   } catch (error) {
     console.error('❌ Error adding note:', error);
     console.error('Stack trace:', error.stack);
-    await sendWhatsAppMessage(phone, `Error - not added`);
+    return '❌ Error - not added';
   }
 }
 
@@ -336,8 +366,7 @@ async function handleAddNote(phone, noteText, listId, messageId) {
 async function handleMarkDone(phone, noteNumber, messageId) {
   try {
     if (!noteNumber) {
-      await sendWhatsAppMessage(phone, '❌ Please specify a note number. Example: "Done: #5"');
-      return;
+      return '❌ Please specify a note number. Example: "Done: #5"';
     }
     
     // Get recent pending notes for this phone
@@ -352,8 +381,7 @@ async function handleMarkDone(phone, noteNumber, messageId) {
     `, [phone]);
     
     if (noteNumber < 1 || noteNumber > notes.rows.length) {
-      await sendWhatsAppMessage(phone, `❌ Note #${noteNumber} not found. Send "list" to see all notes.`);
-      return;
+      return `❌ Note #${noteNumber} not found. Send "list" to see all notes.`;
     }
     
     const note = notes.rows[noteNumber - 1];
@@ -384,11 +412,11 @@ async function handleMarkDone(phone, noteNumber, messageId) {
       phone
     ]);
     
-    await sendWhatsAppMessage(phone, `✅ Marked done: "${note.item_name}"`);
+    return `✅ Marked done: "${note.item_name}"`;
     
   } catch (error) {
     console.error('Error marking done:', error);
-    await sendWhatsAppMessage(phone, '❌ Failed to mark note as done.');
+    return '❌ Failed to mark note as done.';
   }
 }
 
@@ -405,8 +433,7 @@ async function handleShowList(phone, listId) {
     `, [listId]);
     
     if (notes.rows.length === 0) {
-      await sendWhatsAppMessage(phone, '✅ All caught up! No pending notes.');
-      return;
+      return '✅ All caught up! No pending notes.';
     }
     
     let message = '📋 *Pending Notes:*\n\n';
@@ -415,10 +442,11 @@ async function handleShowList(phone, listId) {
     });
     message += `\nReply "Done: #1" to mark as complete`;
     
-    await sendWhatsAppMessage(phone, message);
+    return message;
     
   } catch (error) {
     console.error('Error showing list:', error);
+    return '❌ Error loading list';
   }
 }
 
@@ -441,7 +469,7 @@ Just send any text, or:
 "help" or "?"
   `.trim();
   
-  await sendWhatsAppMessage(phone, helpMessage);
+  return helpMessage;
 }
 
 // ============================================
