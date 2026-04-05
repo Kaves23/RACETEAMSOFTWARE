@@ -413,65 +413,48 @@
       ? filtered.map(note => renderNoteItem(note, false)).join('')
       : (!html ? '<div class="text-center text-secondary py-5"><div>No notes match current filter</div></div>' : '');
     
-    document.getElementById('notesList').innerHTML = html || '<div class="text-center text-secondary py-5"><div>No notes yet</div></div>';
+    document.getElementById('taskList').innerHTML = html || '<div class="text-center py-5" style="color:#999;"><div>No tasks yet</div></div>';
   }
   
-  // Render single note
+  // Render single note/task
   function renderNoteItem(note, isFromGeneral = false) {
     const isDone = note.status === 'packed' || note.status === 'loaded';
-    const checkbox = isDone ? '☑' : '☐';
-    const generalClass = isFromGeneral ? 'general' : '';
-    
-    // Check if note came from WhatsApp (has source_notes with WhatsApp or has whatsapp_message_id)
     const fromWhatsApp = note.whatsapp_message_id || 
       (note.source_notes && note.source_notes.includes('WhatsApp'));
     
-    // Format meta info for the right side
-    let metaInfo = '';
-    if (isDone && note.packed_by_name) {
-      metaInfo = note.packed_by_name;
-    } else if (note.created_at) {
-      metaInfo = formatTimeAgo(note.created_at);
+    // Author: WhatsApp phone or created_by
+    let author = 'Unknown';
+    if (fromWhatsApp && note.source_notes) {
+      const phoneMatch = note.source_notes.match(/\+\d+/);
+      author = phoneMatch ? phoneMatch[0] : 'WhatsApp';
+    } else if (note.created_by_name) {
+      author = note.created_by_name;
     }
     
+    // Tags
+    let tags = [];
+    if (fromWhatsApp) tags.push('<span class="tag tag-whatsapp">WhatsApp</span>');
+    if (isFromGeneral) tags.push('<span class="tag tag-manual">General</span>');
+    
+    // Status
+    const status = isDone ? 'Done' : 'Active';
+    
+    // Due date
+    const date = note.due_date ? new Date(note.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-';
+    
     return `
-      <div class="note-item ${isDone ? 'done' : ''} ${generalClass} ${fromWhatsApp ? 'from-whatsapp' : ''}" data-note-id="${note.id}">
-        <div style="font-size:16px; cursor:pointer; flex-shrink:0;" onclick="window.toggleNote('${note.id}', ${isFromGeneral})">
-          ${checkbox}
+      <div class="task-item ${isDone ? 'done' : ''} ${fromWhatsApp ? 'from-whatsapp' : ''}" 
+           data-note-id="${note.id}" 
+           onclick="window.selectTask('${note.id}', ${isFromGeneral})">
+        <div>
+          <input type="checkbox" class="task-checkbox" ${isDone ? 'checked' : ''} 
+                 onclick="event.stopPropagation(); window.toggleNote('${note.id}', ${isFromGeneral})">
         </div>
-        
-        ${fromWhatsApp ? '<span class="whatsapp-indicator" title="Added via WhatsApp">✉️</span>' : ''}
-        
-        <div class="note-text">
-          ${escapeHtml(note.item_name)}
-        </div>
-        
-        <div class="note-meta">
-          ${metaInfo}
-        </div>
-        
-        <div class="dropdown" style="flex-shrink:0;">
-          <button class="btn btn-sm p-0" type="button" data-bs-toggle="dropdown" style="font-size:16px;color:#999;line-height:1;border:none;background:none;">
-            ⋮
-          </button>
-          <ul class="dropdown-menu dropdown-menu-light dropdown-menu-end">
-            ${!isDone ? `
-              <li><a class="dropdown-item" href="#" onclick="window.markAsDone('${note.id}', ${isFromGeneral}); return false;">
-                ✅ Mark as Done
-              </a></li>
-            ` : `
-              <li><a class="dropdown-item" href="#" onclick="window.markAsPending('${note.id}', ${isFromGeneral}); return false;">
-                ↩️ Mark as Pending
-              </a></li>
-            `}
-            ${!isFromGeneral || isGeneralList ? `
-              <li><hr class="dropdown-divider"></li>
-              <li><a class="dropdown-item text-danger" href="#" onclick="window.deleteNote('${note.id}', ${isFromGeneral}); return false;">
-                🗑️ Delete
-              </a></li>
-            ` : ''}
-          </ul>
-        </div>
+        <div class="task-name">${escapeHtml(note.item_name)}</div>
+        <div class="task-author">${author}</div>
+        <div class="task-tags">${tags.join('')}</div>
+        <div class="task-status">${status}</div>
+        <div class="task-date">${date}</div>
       </div>
     `;
   }
@@ -790,6 +773,71 @@
     if (seconds < 86400) return Math.floor(seconds / 3600) + ' hours ago';
     return Math.floor(seconds / 86400) + ' days ago';
   }
+  
+  // Export functions for onclick handlers in HTML
+  window.switchView = function(view) {
+    currentFilter = view;
+    document.querySelectorAll('.sidebar-item').forEach(item => {
+      item.classList.remove('active');
+      if (item.dataset.view === view) item.classList.add('active');
+    });
+    renderNotes();
+  };
+  
+  window.selectTask = function(noteId, isFromGeneral = false) {
+    const noteList = isFromGeneral ? generalNotes : notes;
+    const note = noteList.find(n => n.id === noteId);
+    if (!note) return;
+    
+    // Update selected state
+    document.querySelectorAll('.task-item').forEach(item => item.classList.remove('selected'));
+    document.querySelector(`[data-note-id="${noteId}"]`)?.classList.add('selected');
+    
+    // Show task details in right panel
+    const isDone = note.status === 'packed' || note.status === 'loaded';
+    const fromWhatsApp = note.whatsapp_message_id || (note.source_notes && note.source_notes.includes('WhatsApp'));
+    
+    document.getElementById('detailHeader').textContent = isDone ? 'Task (Done)' : 'Task';
+    document.getElementById('detailContent').innerHTML = `
+      <div class="detail-field">
+        <div class="detail-label">Task Name</div>
+        <input type="text" class="detail-input" value="${escapeHtml(note.item_name)}" id="editTaskName">
+      </div>
+      <div class="detail-field">
+        <div class="detail-label">Description</div>
+        <textarea class="detail-textarea" id="editTaskDesc">${escapeHtml(note.source_notes || '')}</textarea>
+      </div>
+      <div class="detail-field">
+        <div class="detail-label">Status</div>
+        <div class="detail-value">${isDone ? '✅ Done' : '⭕ Active'}</div>
+      </div>
+      <div class="detail-field">
+        <div class="detail-label">Source</div>
+        <div class="detail-value">${fromWhatsApp ? '📱 WhatsApp' : '💻 Manual'}</div>
+      </div>
+      <div class="detail-field">
+        <div class="detail-label">Created</div>
+        <div class="detail-value">${note.created_at ? new Date(note.created_at).toLocaleString() : '-'}</div>
+      </div>
+      <div class="detail-field">
+        <div class="detail-label">Due Date</div>
+        <input type="date" class="detail-input" value="${note.due_date || ''}" id="editTaskDue">
+      </div>
+      <div class="d-flex gap-2">
+        <button class="detail-button detail-button-primary" onclick="window.saveTaskDetails('${note.id}', ${isFromGeneral})">Save</button>
+        <button class="detail-button" onclick="window.deleteNote('${note.id}', ${isFromGeneral})">Delete</button>
+      </div>
+    `;
+  };
+  
+  window.saveTaskDetails = async function(noteId, isFromGeneral = false) {
+    // TODO: Implement save
+    alert('Save functionality coming soon!');
+  };
+  
+  window.showAddTaskModal = showAddNoteModal;
+  window.showListSelector = showEventSelector;
+  window.showCalendarView = () => alert('Calendar view coming soon!');
   
   // Start
   if (document.readyState === 'loading') {
