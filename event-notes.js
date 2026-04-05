@@ -40,11 +40,11 @@
     document.getElementById('btnSaveCustomList').addEventListener('click', saveCustomList);
     
     // Filter buttons
-    document.querySelectorAll('.filter-btn').forEach(btn => {
+    document.querySelectorAll('.filter-tab').forEach(btn => {
       btn.addEventListener('click', (e) => {
-        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-        e.target.classList.add('active');
-        currentFilter = e.target.dataset.filter;
+        document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
+        e.currentTarget.classList.add('active');
+        currentFilter = e.currentTarget.dataset.filter;
         renderNotes();
       });
     });
@@ -188,11 +188,10 @@
       notes = resp.list.items || [];
       
       // Update UI
-      document.getElementById('pageSubtitle').textContent = 
-        resp.list.description || 'Custom shared list';
-      document.getElementById('currentListInfo').style.display = 'block';
-      document.getElementById('currentListName').textContent = resp.list.name;
-      document.getElementById('generalBadge').style.display = 'none';
+      const listNameEl = document.querySelector('#pageSubtitle #currentListName');
+      if (listNameEl) {
+        listNameEl.textContent = resp.list.name + (resp.list.description ? ' - ' + resp.list.description : '');
+      }
       
       // Don't load general notes for custom lists
       generalNotes = [];
@@ -200,9 +199,6 @@
       updateStats();
       renderNotes();
       loadActivity();
-      
-      // Show WhatsApp hint
-      document.getElementById('whatsappHint').style.display = 'block';
       
       // Start activity polling
       if (activityPollInterval) clearInterval(activityPollInterval);
@@ -307,27 +303,23 @@
       notes = resp.list.items || [];
       
       // Update UI
-      if (isGeneral) {
-        document.getElementById('pageSubtitle').textContent = 'General shared notes - visible on all events';
-        document.getElementById('currentListInfo').style.display = 'block';
-        document.getElementById('currentListName').textContent = 'GENERAL LIST';
-        document.getElementById('generalBadge').style.display = 'inline-block';
-      } else {
-        document.getElementById('pageSubtitle').textContent = 
-          `${resp.list.event_name || 'Event'} - Shared notes and tasks`;
-        document.getElementById('currentListInfo').style.display = 'none';
-        document.getElementById('generalBadge').style.display = 'none';
-        
-        // Also load general notes if viewing a specific event
+      const listNameEl = document.querySelector('#pageSubtitle #currentListName');
+      if (listNameEl) {
+        if (isGeneral) {
+          listNameEl.textContent = 'GENERAL LIST - Shared notes visible on all events';
+        } else {
+          listNameEl.textContent = `${resp.list.event_name || resp.list.name} - Shared notes and tasks`;
+        }
+      }
+      
+      // Load general notes if viewing a specific event
+      if (!isGeneral) {
         await loadGeneralNotes();
       }
       
       updateStats();
       renderNotes();
       loadActivity();
-      
-      // Show WhatsApp hint
-      document.getElementById('whatsappHint').style.display = 'block';
       
       // Start activity polling (every 10 seconds)
       if (activityPollInterval) clearInterval(activityPollInterval);
@@ -441,21 +433,25 @@
     const checkbox = isDone ? '☑' : '☐';
     const generalClass = isFromGeneral ? 'general' : '';
     
+    // Check if note came from WhatsApp (has source_notes with WhatsApp or has whatsapp_message_id)
+    const fromWhatsApp = note.whatsapp_message_id || 
+      (note.source_notes && note.source_notes.includes('WhatsApp'));
+    
     // Format meta info for the right side
     let metaInfo = '';
     if (isDone && note.packed_by_name) {
-      metaInfo = `${note.packed_by_name}`;
+      metaInfo = note.packed_by_name;
     } else if (note.created_at) {
       metaInfo = formatTimeAgo(note.created_at);
     }
     
     return `
-      <div class="note-item ${isDone ? 'done' : ''} ${generalClass}" data-note-id="${note.id}">
-        <div style="font-size:1.2rem; cursor:pointer; line-height:1;" onclick="window.toggleNote('${note.id}', ${isFromGeneral})">
+      <div class="note-item ${isDone ? 'done' : ''} ${generalClass} ${fromWhatsApp ? 'from-whatsapp' : ''}" data-note-id="${note.id}">
+        <div style="font-size:16px; cursor:pointer; flex-shrink:0;" onclick="window.toggleNote('${note.id}', ${isFromGeneral})">
           ${checkbox}
         </div>
         
-        ${isFromGeneral ? '<span class="badge bg-danger" style="font-size:0.7rem;">GEN</span>' : ''}
+        ${fromWhatsApp ? '<span class="whatsapp-indicator" title="Added via WhatsApp">✉️</span>' : ''}
         
         <div class="note-text">
           ${escapeHtml(note.item_name)}
@@ -465,8 +461,8 @@
           ${metaInfo}
         </div>
         
-        <div class="dropdown">
-          <button class="btn btn-sm btn-link text-secondary p-0" type="button" data-bs-toggle="dropdown" style="font-size:1.2rem; line-height:1;">
+        <div class="dropdown" style="flex-shrink:0;">
+          <button class="btn btn-sm p-0" type="button" data-bs-toggle="dropdown" style="font-size:16px;color:#999;line-height:1;border:none;background:none;">
             ⋮
           </button>
           <ul class="dropdown-menu dropdown-menu-light dropdown-menu-end">
@@ -771,13 +767,19 @@
   // Render activity feed
   function renderActivity() {
     const html = activityData.length > 0
-      ? activityData.map(a => `
-          <div class="activity-item">
-            <div class="time">${formatTimeAgo(a.action_at)}</div>
-            <div>${a.message || `${a.action_type} by ${a.action_by_name || 'Someone'}`}</div>
-          </div>
-        `).join('')
-      : '<div class="text-center text-secondary py-3" style="font-size:0.85rem;">No activity yet</div>';
+      ? activityData.map(a => {
+          const fromWhatsApp = a.whatsapp_phone || (a.message && a.message.includes('WhatsApp'));
+          return `
+            <div class="activity-item ${fromWhatsApp ? 'from-whatsapp' : ''}">
+              <div class="time">${formatTimeAgo(a.action_at)}</div>
+              <div style="font-size:13px;color:#333;">
+                ${fromWhatsApp ? '<span style="color:#25d366;">📱</span> ' : ''}
+                ${a.message || `${a.action_type} by ${a.action_by_name || 'Someone'}`}
+              </div>
+            </div>
+          `;
+        }).join('')
+      : '<div class="text-center py-3" style="font-size:12px;color:#999;">No activity yet</div>';
     
     document.getElementById('activityFeed').innerHTML = html;
   }
