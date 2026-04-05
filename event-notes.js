@@ -27,6 +27,15 @@
   async function init() {
     console.log('🚀 Initializing Event Notes...');
     
+    // Initialize modals (check if elements exist first)
+    const selectModalEl = document.getElementById('selectEventModal');
+    const noteModalEl = document.getElementById('noteModal');
+    const createListModalEl = document.getElementById('createListModal');
+    
+    if (selectModalEl) selectEventModal = new bootstrap.Modal(selectModalEl);
+    if (noteModalEl) noteModal = new bootstrap.Modal(noteModalEl);
+    if (createListModalEl) createListModal = new bootstrap.Modal(createListModalEl);
+    
     // Global functions for onclick handlers
     window.switchView = switchView;
     window.showAddTaskModal = showAddNoteModal;
@@ -51,6 +60,11 @@
   
   // Show event selector
   async function showEventSelector() {
+    if (!selectEventModal) {
+      alert('Modal not initialized. Please refresh the page.');
+      return;
+    }
+    
     selectEventModal.show();
     
     try {
@@ -142,7 +156,7 @@
   
   // Select list (event, general, or custom)
   window.selectList = async function(id, type) {
-    selectEventModal.hide();
+    if (selectEventModal) selectEventModal.hide();
     
     if (type === 'GENERAL') {
       isGeneralList = true;
@@ -616,6 +630,11 @@
       return;
     }
     
+    if (!noteModal) {
+      alert('Modal not initialized. Please refresh the page.');
+      return;
+    }
+    
     document.getElementById('noteText').value = '';
     const savedName = localStorage.getItem('rts.notes.userName') || '';
     document.getElementById('noteAuthor').value = savedName;
@@ -664,7 +683,7 @@
       loadActivity();
       updateStats();
       
-      noteModal.hide();
+      if (noteModal) noteModal.hide();
       RTS.showToast('Note added', 'success');
     } catch (error) {
       console.error('Error adding note:', error);
@@ -674,7 +693,12 @@
   
   // Show create custom list modal
   function showCreateListModal() {
-    selectEventModal.hide();
+    if (!createListModal) {
+      alert('Modal not initialized. Please refresh the page.');
+      return;
+    }
+    
+    if (selectEventModal) selectEventModal.hide();
     document.getElementById('customListName').value = '';
     document.getElementById('customListDescription').value = '';
     createListModal.show();
@@ -706,7 +730,7 @@
       
       if (!resp.success) throw new Error('Failed to create list');
       
-      createListModal.hide();
+      if (createListModal) createListModal.hide();
       RTS.showToast(`Created ${name}`, 'success');
       
       // Load the new list
