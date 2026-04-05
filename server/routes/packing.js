@@ -130,12 +130,8 @@ router.post('/', async (req, res) => {
       });
     }
     
-    if (!event_id && name !== 'GENERAL LIST') {
-      return res.status(400).json({
-        success: false,
-        error: 'event_id is required for non-general lists'
-      });
-    }
+    // event_id can be null for GENERAL LIST or custom lists
+    // Only validation: name must be provided
     
     const id = require('crypto').randomUUID();
     
@@ -200,6 +196,42 @@ router.put('/:id', async (req, res) => {
     res.json({ success: true, list: result.rows[0] });
   } catch (error) {
     console.error('Error updating packing list:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// DELETE /api/packing-lists/:id - Delete packing list
+router.delete('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Check if list exists and get its name
+    const checkResult = await db.query(
+      'SELECT name FROM event_packing_lists WHERE id = $1',
+      [id]
+    );
+    
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Packing list not found' });
+    }
+    
+    // Prevent deleting GENERAL LIST
+    if (checkResult.rows[0].name === 'GENERAL LIST') {
+      return res.status(400).json({ success: false, error: 'Cannot delete GENERAL LIST' });
+    }
+    
+    // Delete all items in the list first
+    await db.query('DELETE FROM event_packing_items WHERE list_id = $1', [id]);
+    
+    // Delete all activity for the list
+    await db.query('DELETE FROM event_packing_activity WHERE list_id = $1', [id]);
+    
+    // Delete the list
+    await db.query('DELETE FROM event_packing_lists WHERE id = $1', [id]);
+    
+    res.json({ success: true, message: 'Packing list deleted' });
+  } catch (error) {
+    console.error('Error deleting packing list:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
