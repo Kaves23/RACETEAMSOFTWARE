@@ -331,10 +331,10 @@
       await loadEventNotesList('GENERAL');
     } else if (type === 'CUSTOM') {
       isGeneralList = false;
-      await loadCustomList(id);
+      await loadNotesList(id, false, false); // Custom lists don't show general notes
     } else if (type === 'EVENT') {
       isGeneralList = false;
-      await loadEventNotesList(id);
+      await loadNotesList(id, false, true); // Event lists show general notes
     }
     
     localStorage.setItem('rts.notes.lastListId', id);
@@ -345,46 +345,6 @@
   window.selectEvent = function(eventId) {
     window.selectList(eventId, eventId === 'GENERAL' ? 'GENERAL' : 'EVENT');
   };
-  
-  // Load custom list
-  async function loadCustomList(listId) {
-    try {
-      const resp = await fetch(`${API_BASE}/packing-lists/${listId}`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` }
-      }).then(r => r.json());
-      
-      if (!resp.success) throw new Error('Failed to load list');
-      
-      currentList = resp.list;
-      notes = resp.list.items || [];
-      
-      // Update UI
-      const listNameEl = document.querySelector('#pageSubtitle #currentListName');
-      if (listNameEl) {
-        listNameEl.textContent = resp.list.name + (resp.list.description ? ' - ' + resp.list.description : '');
-      }
-      
-      // Don't load general notes for custom lists
-      generalNotes = [];
-      
-      updateStats();
-      renderNotes();
-      loadActivity();
-      
-      // Update sidebar active state
-      await loadListsIntoSidebar();
-      updateSidebarActiveState(listId);
-      
-      // Start activity polling
-      if (activityPollInterval) clearInterval(activityPollInterval);
-      activityPollInterval = setInterval(loadActivity, 10000);
-      
-      RTS.showToast(`Loaded ${resp.list.name}`, 'success');
-    } catch (error) {
-      console.error('Error loading custom list:', error);
-      RTS.showToast('Failed to load list', 'error');
-    }
-  }
   
   // Load notes list for event
   async function loadEventNotesList(eventId) {
@@ -431,7 +391,7 @@
         const eventLists = listsResp.lists?.filter(l => l.event_id === eventId) || [];
         
         if (eventLists.length > 0) {
-          await loadNotesList(eventLists[0].id, false);
+          await loadNotesList(eventLists[0].id, false, true); // Event list - include general notes
         } else {
           // Create new notes list for this event
           const eventResp = await RTS_API.getCollectionItems('events');
@@ -456,7 +416,7 @@
           
           if (!createResp.success) throw new Error('Failed to create notes list');
           
-          await loadNotesList(createResp.list.id, false);
+          await loadNotesList(createResp.list.id, false, true); // Event list - include general notes
         }
       }
     } catch (error) {
@@ -466,7 +426,7 @@
   }
   
   // Load specific notes list
-  async function loadNotesList(listId, isGeneral = false) {
+  async function loadNotesList(listId, isGeneral = false, includeGeneralNotes = false) {
     try {
       const resp = await fetch(`${API_BASE}/packing-lists/${listId}`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` }
@@ -487,9 +447,11 @@
         }
       }
       
-      // Load general notes if viewing a specific event
-      if (!isGeneral) {
+      // Load general notes only if requested (for event lists)
+      if (!isGeneral && includeGeneralNotes) {
         await loadGeneralNotes();
+      } else {
+        generalNotes = [];
       }
       
       updateStats();
@@ -994,7 +956,7 @@
       RTS.showToast(`Created ${name}`, 'success');
       
       // Load the new list
-      await loadCustomList(resp.list.id);
+      await loadNotesList(resp.list.id, false, false); // Custom list - don't include general notes
     } catch (error) {
       console.error('Error creating custom list:', error);
       RTS.showToast('Failed to create list', 'error');
