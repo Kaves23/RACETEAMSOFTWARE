@@ -441,29 +441,35 @@
     const checkbox = isDone ? '☑' : '☐';
     const generalClass = isFromGeneral ? 'general' : '';
     
+    // Format meta info for the right side
+    let metaInfo = '';
+    if (isDone && note.packed_by_name) {
+      metaInfo = `${note.packed_by_name}`;
+    } else if (note.created_at) {
+      metaInfo = formatTimeAgo(note.created_at);
+    }
+    
     return `
       <div class="note-item ${isDone ? 'done' : ''} ${generalClass}" data-note-id="${note.id}">
-        <div style="font-size:1.5rem; cursor:pointer;" onclick="window.toggleNote('${note.id}', ${isFromGeneral})">
+        <div style="font-size:1.2rem; cursor:pointer; line-height:1;" onclick="window.toggleNote('${note.id}', ${isFromGeneral})">
           ${checkbox}
         </div>
         
-        <div class="flex-grow-1">
-          <div class="mb-1">
-            ${isFromGeneral ? '<span class="badge bg-danger me-2">GENERAL</span>' : ''}
-            ${escapeHtml(note.item_name)}
-          </div>
-          <div class="small text-secondary">
-            ${note.packed_by_name ? `✅ Done by ${note.packed_by_name}` : ''}
-            ${note.packed_at ? ` • ${formatTimeAgo(note.packed_at)}` : ''}
-            ${note.source_notes ? `<br>💬 ${escapeHtml(note.source_notes)}` : ''}
-          </div>
+        ${isFromGeneral ? '<span class="badge bg-danger" style="font-size:0.7rem;">GEN</span>' : ''}
+        
+        <div class="note-text">
+          ${escapeHtml(note.item_name)}
+        </div>
+        
+        <div class="note-meta">
+          ${metaInfo}
         </div>
         
         <div class="dropdown">
-          <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+          <button class="btn btn-sm btn-link text-secondary p-0" type="button" data-bs-toggle="dropdown" style="font-size:1.2rem; line-height:1;">
             ⋮
           </button>
-          <ul class="dropdown-menu dropdown-menu-light">
+          <ul class="dropdown-menu dropdown-menu-light dropdown-menu-end">
             ${!isDone ? `
               <li><a class="dropdown-item" href="#" onclick="window.markAsDone('${note.id}', ${isFromGeneral}); return false;">
                 ✅ Mark as Done
