@@ -336,8 +336,14 @@ router.put('/:listId/items/:itemId', async (req, res) => {
     const updates = req.body;
     
     const allowedFields = [
-      'item_name', 'source_notes', 'category', 'priority',
-      'quantity', 'required', 'source_location', 'notes'
+      'item_name', 'source_notes', 'category', 'priority', 'status',
+      'quantity', 'required', 'source_location', 'notes',
+      'assigned_to_user_id', 'assigned_to_name',
+      'start_date', 'due_date', 'completed_at',
+      'estimated_hours', 'actual_hours', 'progress_percent',
+      'tags', 'created_by_user_id', 'created_by_name',
+      'parent_item_id', 'dependencies', 'color',
+      'is_milestone', 'blocked_reason', 'sort_order'
     ];
     
     const fields = [];
@@ -372,7 +378,7 @@ router.put('/:listId/items/:itemId', async (req, res) => {
     }
     
     // Log activity
-    await logActivity(listId, itemId, 'item_updated', null, null, `Updated: ${result.rows[0].item_name}`);
+    await logActivity(listId, itemId, 'item_updated', updates.assigned_to_user_id || null, updates.assigned_to_name || null, `Updated: ${result.rows[0].item_name}`);
     
     res.json({ success: true, item: result.rows[0] });
   } catch (error) {

@@ -679,43 +679,89 @@
   
   // Render single note/task
   function renderNoteItem(note, isFromGeneral = false) {
-    const isDone = note.status === 'packed' || note.status === 'loaded';
+    const isDone = note.status === 'packed' || note.status === 'loaded' || note.status === 'completed';
     const fromWhatsApp = note.whatsapp_message_id || 
       (note.source_notes && note.source_notes.includes('WhatsApp'));
     
-    // Author: WhatsApp phone or created_by
-    let author = 'Unknown';
-    if (fromWhatsApp && note.source_notes) {
-      const phoneMatch = note.source_notes.match(/\+\d+/);
-      author = phoneMatch ? phoneMatch[0] : 'WhatsApp';
-    } else if (note.created_by_name) {
-      author = note.created_by_name;
-    }
+    // Priority badge
+    const priorityIcons = {
+      critical: '🔴',
+      high: '🟠',
+      normal: '⚪',
+      low: '🟢'
+    };
+    const priorityIcon = priorityIcons[note.priority] || priorityIcons.normal;
+    
+    // Status badge
+    const statusDisplay = {
+      pending: '⭕ Pending',
+      in_progress: '🔄 In Progress',
+      completed: '✅ Completed',
+      blocked: '🚫 Blocked',
+      packed: '📦 Packed',
+      loaded: '🚚 Loaded',
+      missing: '❌ Missing'
+    };
+    const statusText = statusDisplay[note.status] || note.status;
+    
+    // Dates
+    const startDate = note.start_date ? new Date(note.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-';
+    const dueDate = note.due_date ? new Date(note.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-';
+    
+    // Assigned to
+    const assignedTo = note.assigned_to_name || 'Unassigned';
+    
+    // Progress bar
+    const progress = note.progress_percent || 0;
+    const progressColor = progress >= 75 ? '#28a745' : progress >= 50 ? '#ffc107' : progress >= 25 ? '#fd7e14' : '#6c757d';
     
     // Tags
     let tags = [];
-    if (fromWhatsApp) tags.push('<span class="tag tag-whatsapp">WhatsApp</span>');
-    if (isFromGeneral) tags.push('<span class="tag tag-manual">General</span>');
+    if (fromWhatsApp) tags.push('<span class="tag tag-whatsapp">📱</span>');
+    if (isFromGeneral) tags.push('<span class="tag tag-general">📌 General</span>');
+    if (note.is_milestone) tags.push('<span class="tag tag-milestone">🏁 Milestone</span>');
+    if (note.tags) {
+      const taskTags = note.tags.split(',').map(t => t.trim()).filter(Boolean);
+      taskTags.forEach(tag => tags.push(`<span class="tag">${escapeHtml(tag)}</span>`));
+    }
     
-    // Status
-    const status = isDone ? 'Done' : 'Active';
-    
-    // Due date
-    const date = note.due_date ? new Date(note.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-';
+    // Category badge
+    const categoryBadge = note.category ? `<span class="category-badge">${escapeHtml(note.category)}</span>` : '';
     
     return `
-      <div class="task-item ${isDone ? 'done' : ''} ${fromWhatsApp ? 'from-whatsapp' : ''}" 
+      <div class="task-item ${isDone ? 'done' : ''} ${note.status === 'blocked' ? 'blocked' : ''}" 
            data-note-id="${note.id}" 
            onclick="window.selectTask('${note.id}', ${isFromGeneral})">
-        <div>
+        <div class="task-col task-checkbox-col">
           <input type="checkbox" class="task-checkbox" ${isDone ? 'checked' : ''} 
                  onclick="event.stopPropagation(); window.toggleNote('${note.id}', ${isFromGeneral})">
         </div>
-        <div class="task-name">${escapeHtml(note.item_name)}</div>
-        <div class="task-author">${author}</div>
-        <div class="task-tags">${tags.join('')}</div>
-        <div class="task-status">${status}</div>
-        <div class="task-date">${date}</div>
+        <div class="task-col task-priority-col" title="${note.priority}">${priorityIcon}</div>
+        <div class="task-col task-name-col">
+          <div class="task-name-text">${escapeHtml(note.item_name)}</div>
+          ${categoryBadge}
+        </div>
+        <div class="task-col task-assigned-col">${escapeHtml(assignedTo)}</div>
+        <div class="task-col task-status-col">
+          <span class="status-badge status-${note.status}">${statusText}</span>
+        </div>
+        <div class="task-col task-dates-col">
+          <div class="date-row">
+            <span class="date-label">Start:</span>
+            <span class="date-value">${startDate}</span>
+          </div>
+          <div class="date-row">
+            <span class="date-label">Due:</span>
+            <span class="date-value ${note.due_date && new Date(note.due_date) < new Date() && !isDone ? 'overdue' : ''}">${dueDate}</span>
+          </div>
+        </div>
+        <div class="task-col task-progress-col">
+          <div class="progress-mini">
+            <div class="progress-mini-bar" style="width: ${progress}%; background: ${progressColor};"></div>
+          </div>
+          <div class="progress-text">${progress}%</div>
+        </div>
+        <div class="task-col task-tags-col">${tags.join('')}</div>
       </div>
     `;
   }
@@ -1167,43 +1213,184 @@
     document.querySelector(`[data-note-id="${noteId}"]`)?.classList.add('selected');
     
     // Show task details in right panel
-    const isDone = note.status === 'packed' || note.status === 'loaded';
+    const isDone = note.status === 'packed' || note.status === 'loaded' || note.status === 'completed';
     const fromWhatsApp = note.whatsapp_message_id || (note.source_notes && note.source_notes.includes('WhatsApp'));
     
-    document.getElementById('detailHeader').textContent = isDone ? 'Task (Done)' : 'Task';
+    // Priority colors
+    const priorityColors = {
+      critical: '#dc3545',
+      high: '#fd7e14',
+      normal: '#6c757d',
+      low: '#28a745'
+    };
+    const priorityColor = priorityColors[note.priority] || priorityColors.normal;
+    
+    document.getElementById('detailHeader').textContent = isDone ? 'Task (Completed)' : 'Task';
     document.getElementById('detailContent').innerHTML = `
       <div class="detail-field">
         <div class="detail-label">Task Name</div>
         <input type="text" class="detail-input" value="${escapeHtml(note.item_name)}" id="editTaskName">
       </div>
+      
       <div class="detail-field">
         <div class="detail-label">Description</div>
-        <textarea class="detail-textarea" id="editTaskDesc">${escapeHtml(note.source_notes || '')}</textarea>
+        <textarea class="detail-textarea" id="editTaskDesc" rows="3">${escapeHtml(note.source_notes || '')}</textarea>
       </div>
+      
+      <div class="row">
+        <div class="col-6">
+          <div class="detail-field">
+            <div class="detail-label">Status</div>
+            <select class="detail-input" id="editTaskStatus">
+              <option value="pending" ${note.status === 'pending' ? 'selected' : ''}>Pending</option>
+              <option value="in_progress" ${note.status === 'in_progress' ? 'selected' : ''}>In Progress</option>
+              <option value="completed" ${note.status === 'completed' ? 'selected' : ''}>Completed</option>
+              <option value="blocked" ${note.status === 'blocked' ? 'selected' : ''}>Blocked</option>
+              <option value="packed" ${note.status === 'packed' ? 'selected' : ''}>Packed</option>
+              <option value="loaded" ${note.status === 'loaded' ? 'selected' : ''}>Loaded</option>
+            </select>
+          </div>
+        </div>
+        <div class="col-6">
+          <div class="detail-field">
+            <div class="detail-label">Priority</div>
+            <select class="detail-input" id="editTaskPriority" style="border-left: 4px solid ${priorityColor};">
+              <option value="critical">🔴 Critical</option>
+              <option value="high">🟠 High</option>
+              <option value="normal" ${note.priority === 'normal' ? 'selected' : ''}>⚪ Normal</option>
+              <option value="low">🟢 Low</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      
+      <div class="row">
+        <div class="col-6">
+          <div class="detail-field">
+            <div class="detail-label">Start Date</div>
+            <input type="date" class="detail-input" value="${note.start_date || ''}" id="editTaskStartDate">
+          </div>
+        </div>
+        <div class="col-6">
+          <div class="detail-field">
+            <div class="detail-label">Due Date</div>
+            <input type="date" class="detail-input" value="${note.due_date || ''}" id="editTaskDueDate">
+          </div>
+        </div>
+      </div>
+      
       <div class="detail-field">
-        <div class="detail-label">Status</div>
-        <div class="detail-value">${isDone ? '✅ Done' : '⭕ Active'}</div>
+        <div class="detail-label">Assigned To</div>
+        <input type="text" class="detail-input" value="${escapeHtml(note.assigned_to_name || '')}" id="editTaskAssignedTo" placeholder="Name of person assigned">
       </div>
+      
       <div class="detail-field">
-        <div class="detail-label">Source</div>
-        <div class="detail-value">${fromWhatsApp ? '📱 WhatsApp' : '💻 Manual'}</div>
+        <div class="detail-label">Progress</div>
+        <div class="d-flex align-items-center gap-2">
+          <input type="range" class="form-range" min="0" max="100" step="5" value="${note.progress_percent || 0}" id="editTaskProgress" style="flex: 1;">
+          <span id="progressValue" style="min-width: 40px; font-weight: bold;">${note.progress_percent || 0}%</span>
+        </div>
+        <div class="progress mt-1" style="height: 6px;">
+          <div class="progress-bar" id="progressBar" style="width: ${note.progress_percent || 0}%; background: linear-gradient(90deg, #3b82f6, #8b5cf6);"></div>
+        </div>
       </div>
+      
+      <div class="row">
+        <div class="col-6">
+          <div class="detail-field">
+            <div class="detail-label">Estimated Hours</div>
+            <input type="number" class="detail-input" value="${note.estimated_hours || ''}" id="editTaskEstimated" placeholder="0.0" step="0.5" min="0">
+          </div>
+        </div>
+        <div class="col-6">
+          <div class="detail-field">
+            <div class="detail-label">Actual Hours</div>
+            <input type="number" class="detail-input" value="${note.actual_hours || ''}" id="editTaskActual" placeholder="0.0" step="0.5" min="0">
+          </div>
+        </div>
+      </div>
+      
       <div class="detail-field">
-        <div class="detail-label">Created</div>
-        <div class="detail-value">${note.created_at ? new Date(note.created_at).toLocaleString() : '-'}</div>
+        <div class="detail-label">Category</div>
+        <input type="text" class="detail-input" value="${escapeHtml(note.category || '')}" id="editTaskCategory" placeholder="e.g., Setup, Equipment, Logistics">
       </div>
+      
+      <div class="detail-field">
+        <div class="detail-label">Tags</div>
+        <input type="text" class="detail-input" value="${escapeHtml(note.tags || '')}" id="editTaskTags" placeholder="Comma-separated tags">
+      </div>
+      
+      ${note.status === 'blocked' ? `
+        <div class="detail-field">
+          <div class="detail-label">Blocked Reason</div>
+          <textarea class="detail-textarea" id="editTaskBlocked" rows="2">${escapeHtml(note.blocked_reason || '')}</textarea>
+        </div>
+      ` : ''}
+      
+      <div class="detail-field">
+        <div class="detail-label" style="display: inline-flex; align-items: center; gap: 8px;">
+          <input type="checkbox" id="editTaskMilestone" ${note.is_milestone ? 'checked' : ''}>
+          <span>Mark as Milestone</span>
+        </div>
+      </div>
+      
+      <hr style="margin: 1.5rem 0; border-color: rgba(0,0,0,0.1);">
+      
+      <div class="detail-field" style="font-size: 12px; color: #666;">
+        <div><strong>Source:</strong> ${fromWhatsApp ? '📱 WhatsApp' : '💻 Manual'}</div>
+        <div><strong>Created:</strong> ${note.created_at ? new Date(note.created_at).toLocaleString() : '-'}</div>
+        ${note.created_by_name ? `<div><strong>Created By:</strong> ${note.created_by_name}</div>` : ''}
+        ${note.updated_at ? `<div><strong>Last Updated:</strong> ${new Date(note.updated_at).toLocaleString()}</div>` : ''}
+      </div>
+      
       <div class="d-flex gap-2 mt-3">
-        <button class="detail-button detail-button-primary" onclick="window.saveTaskDetails('${note.id}', ${isFromGeneral})">Save</button>
-        <button class="detail-button" onclick="window.deleteNote('${note.id}', ${isFromGeneral})">Delete</button>
+        <button class="detail-button detail-button-primary" onclick="window.saveTaskDetails('${note.id}', ${isFromGeneral})">💾 Save Changes</button>
+        <button class="detail-button" style="background: #dc3545; color: white;" onclick="window.deleteNote('${note.id}', ${isFromGeneral})">🗑️ Delete</button>
       </div>
     `;
+    
+    // Add progress slider listener
+    const progressSlider = document.getElementById('editTaskProgress');
+    const progressValue = document.getElementById('progressValue');
+    const progressBar = document.getElementById('progressBar');
+    
+    if (progressSlider && progressValue && progressBar) {
+      progressSlider.addEventListener('input', (e) => {
+        const val = e.target.value;
+        progressValue.textContent = val + '%';
+        progressBar.style.width = val + '%';
+      });
+    }
+    
+    // Add status change listener for blocked reason
+    const statusSelect = document.getElementById('editTaskStatus');
+    if (statusSelect) {
+      statusSelect.addEventListener('change', (e) => {
+        if (e.target.value === 'blocked') {
+          // Re-render to show blocked reason field
+          window.selectTask(noteId, isFromGeneral);
+        }
+      });
+    }
   };
   
   window.saveTaskDetails = async function(noteId, isFromGeneral = false) {
     try {
-      // Get the updated values from the form
+      // Get all the updated values from the form
       const itemName = document.getElementById('editTaskName')?.value.trim();
       const sourceNotes = document.getElementById('editTaskDesc')?.value.trim();
+      const status = document.getElementById('editTaskStatus')?.value;
+      const priority = document.getElementById('editTaskPriority')?.value;
+      const startDate = document.getElementById('editTaskStartDate')?.value;
+      const dueDate = document.getElementById('editTaskDueDate')?.value;
+      const assignedTo = document.getElementById('editTaskAssignedTo')?.value.trim();
+      const progress = document.getElementById('editTaskProgress')?.value;
+      const estimated = document.getElementById('editTaskEstimated')?.value;
+      const actual = document.getElementById('editTaskActual')?.value;
+      const category = document.getElementById('editTaskCategory')?.value.trim();
+      const tags = document.getElementById('editTaskTags')?.value.trim();
+      const isMilestone = document.getElementById('editTaskMilestone')?.checked;
+      const blockedReason = document.getElementById('editTaskBlocked')?.value?.trim();
       
       if (!itemName) {
         alert('Task name is required');
@@ -1223,8 +1410,27 @@
       // Prepare update payload
       const updates = {
         item_name: itemName,
-        source_notes: sourceNotes
+        source_notes: sourceNotes,
+        status: status,
+        priority: priority,
+        progress_percent: parseInt(progress) || 0,
+        is_milestone: isMilestone
       };
+      
+      // Add optional fields if provided
+      if (startDate) updates.start_date = startDate;
+      if (dueDate) updates.due_date = dueDate;
+      if (assignedTo) updates.assigned_to_name = assignedTo;
+      if (estimated) updates.estimated_hours = parseFloat(estimated);
+      if (actual) updates.actual_hours = parseFloat(actual);
+      if (category) updates.category = category;
+      if (tags) updates.tags = tags;
+      if (status === 'blocked' && blockedReason) updates.blocked_reason = blockedReason;
+      
+      // Set completed_at if status is completed
+      if (status === 'completed' || status === 'packed' || status === 'loaded') {
+        updates.completed_at = new Date().toISOString();
+      }
       
       // Call API to update
       const token = localStorage.getItem('auth_token');
@@ -1253,9 +1459,11 @@
       // Refresh the view
       renderNotes();
       selectTask(noteId, isFromGeneral);
+      updateStats();
+      loadActivity();
       
       if (RTS.showToast) {
-        RTS.showToast('✅ Task saved', 'success');
+        RTS.showToast('✅ Task saved successfully', 'success');
       }
     } catch (error) {
       console.error('Error saving task:', error);

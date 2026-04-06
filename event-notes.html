@@ -136,9 +136,9 @@
     /* Column Headers */
     .task-header {
       display: grid;
-      grid-template-columns: var(--col-widths, 30px 1fr 150px 100px 100px 120px);
-      gap: 8px;
-      padding: 6px 12px;
+      grid-template-columns: var(--col-widths, 32px 40px minmax(200px, 2fr) minmax(100px, 1fr) minmax(120px, 1fr) minmax(140px, 1fr) 100px minmax(100px, 1fr));
+      gap: 12px;
+      padding: 8px 16px;
       background: #fafafa;
       border-bottom: 1px solid #e0e0e0;
       font-size: 11px;
@@ -146,6 +146,7 @@
       color: #666;
       text-transform: uppercase;
       position: relative;
+align-items: center;
     }
     
     .task-header > div {
@@ -176,9 +177,9 @@
     /* Task Items */
     .task-item {
       display: grid;
-      grid-template-columns: var(--col-widths, 30px 1fr 150px 100px 100px 120px);
-      gap: 8px;
-      padding: 6px 12px;
+      grid-template-columns: var(--col-widths, 32px 40px minmax(200px, 2fr) minmax(100px, 1fr) minmax(120px, 1fr) minmax(140px, 1fr) 100px minmax(100px, 1fr));
+      gap: 12px;
+      padding: 10px 16px;
       border-bottom: 1px solid #f5f5f5;
       align-items: center;
       font-size: 13px;
@@ -192,15 +193,21 @@
     
     .task-item.selected {
       background: #e3f2fd;
+      border-left: 3px solid #2196f3;
     }
     
     .task-item.done {
-      opacity: 0.5;
+      opacity: 0.6;
     }
     
-    .task-item.done .task-name {
+    .task-item.done .task-name-text {
       text-decoration: line-through;
       color: #999;
+    }
+    
+    .task-item.blocked {
+      background: #fff3e0;
+      border-left: 3px solid #ff9800;
     }
     
     /* WhatsApp highlighting */
@@ -213,20 +220,71 @@
       background: linear-gradient(90deg, rgba(37, 211, 102, 0.12) 0%, transparent 100%);
     }
     
-    .task-checkbox {
-      width: 16px;
-      height: 16px;
-      cursor: pointer;
+    /* Task Columns */
+    .task-col {
+      overflow: hidden;
     }
     
-    .task-name {
+    .task-checkbox-col {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .task-checkbox {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+      border: 2px solid #ccc;
+      appearance: none;
+      border-radius: 3px;
+      position: relative;
+    }
+    
+    .task-checkbox:checked {
+      background: #28a745;
+      border-color: #28a745;
+    }
+    
+    .task-checkbox:checked::after {
+      content: "✓";
+      position: absolute;
+      color: white;
+      font-size: 14px;
+      top: -2px;
+      left: 2px;
+    }
+    
+    .task-priority-col {
+      font-size: 18px;
+      text-align: center;
+    }
+    
+    .task-name-col {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .task-name-text {
       color: #333;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      font-weight: 500;
     }
     
-    .task-author {
+    .category-badge {
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 10px;
+      font-weight: 600;
+      background: #e3f2fd;
+      color: #1976d2;
+      white-space: nowrap;
+    }
+    
+    .task-assigned-col {
       color: #666;
       font-size: 12px;
       white-space: nowrap;
@@ -234,21 +292,96 @@
       text-overflow: ellipsis;
     }
     
-    .task-tags {
+    .task-status-col {
+      font-size: 12px;
+    }
+    
+    .status-badge {
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+      display: inline-block;
+    }
+    
+    .status-pending { background: #fff3e0; color: #f57c00; }
+    .status-in_progress { background: #e3f2fd; color: #1976d2; }
+    .status-completed { background: #e8f5e9; color: #2e7d32; }
+    .status-blocked { background: #ffebee; color: #c62828; }
+    .status-packed { background: #e3f2fd; color: #0288d1; }
+    .status-loaded { background: #e8f5e9; color: #388e3c; }
+    .status-missing { background: #ffebee; color: #d32f2f; }
+    
+    .task-dates-col {
+      font-size: 11px;
+    }
+    
+    .date-row {
       display: flex;
       gap: 4px;
-      flex-wrap: nowrap;
+      margin-bottom: 2px;
+    }
+    
+    .date-label {
+      color: #999;
+      font-weight: 600;
+      min-width: 35px;
+    }
+    
+    .date-value {
+      color: #666;
+    }
+    
+    .date-value.overdue {
+      color: #d32f2f;
+      font-weight: 600;
+    }
+    
+    .task-progress-col {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    
+    .progress-mini {
+      height: 6px;
+      background: #e0e0e0;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    
+    .progress-mini-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+      transition: width 0.3s;
+    }
+    
+    .progress-text {
+      font-size: 10px;
+      color: #999;
+      text-align: center;
+    }
+    
+    .task-tags-col {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
     }
     
     .tag {
-      padding: 2px 8px;
-      border-radius: 3px;
-      font-size: 11px;
-      font-weight: 500;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 10px;
+      font-weight: 600;
       white-space: nowrap;
+      background: #f0f0f0;
+      color: #666;
     }
     
     .tag-whatsapp { background: #e8f5e9; color: #2e7d32; }
+    .tag-general { background: #ffebee; color: #c62828; }
+    .tag-milestone { background: #fff3e0; color: #f57c00; }
     .tag-urgent { background: #ffebee; color: #c62828; }
     .tag-manual { background: #e3f2fd; color: #1976d2; }
     
@@ -401,11 +534,13 @@
       <!-- Column Headers -->
       <div class="task-header" id="taskHeader">
         <div></div>
-        <div>Task<span class="resize-handle" data-col="1"></span></div>
-        <div>Author<span class="resize-handle" data-col="2"></span></div>
-        <div>Tags<span class="resize-handle" data-col="3"></span></div>
+        <div>❗</div>
+        <div>Task Name<span class="resize-handle" data-col="2"></span></div>
+        <div>Assigned To<span class="resize-handle" data-col="3"></span></div>
         <div>Status<span class="resize-handle" data-col="4"></span></div>
-        <div>Due Date</div>
+        <div>Dates<span class="resize-handle" data-col="5"></span></div>
+        <div>Progress<span class="resize-handle" data-col="6"></span></div>
+        <div>Tags</div>
       </div>
 
       <!-- Task List -->
