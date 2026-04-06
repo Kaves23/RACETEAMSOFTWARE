@@ -80,9 +80,9 @@
     const header = document.getElementById('taskHeader');
     if (!header) return;
     
-    // Load saved column widths or use defaults
+    // Load saved column widths or use defaults (8 columns: Task Name, Flag, Relation, Event, Complete, Due Date, Assigned, Tags)
     const savedWidths = localStorage.getItem('taskColumnWidths');
-    const columnWidths = savedWidths ? JSON.parse(savedWidths) : [30, 'auto', 150, 100, 100, 120];
+    const columnWidths = savedWidths ? JSON.parse(savedWidths) : [250, 60, 120, 120, 80, 110, 120, 120];
     
     function applyColumnWidths() {
       const widthStr = columnWidths.map(w => w === 'auto' ? '1fr' : w + 'px').join(' ');
@@ -790,14 +790,6 @@
         <div class="task-col task-date-col ${isOverdue ? 'overdue' : ''}">${dueDate}</div>
         <div class="task-col task-assigned-col" style="font-size: 11px;">${escapeHtml(assignedTo)}</div>
         <div class="task-col task-tags-col">${tags.join(' ')}</div>
-      </div>
-        <div class="task-col task-progress-col">
-          <div class="progress-mini">
-            <div class="progress-mini-bar" style="width: ${progress}%; background: ${progressColor};"></div>
-          </div>
-          <span class="progress-text">${progress}%</span>
-        </div>
-        <div class="task-col task-tags-col">${tags.join('')}</div>
       </div>
     `;
   }
