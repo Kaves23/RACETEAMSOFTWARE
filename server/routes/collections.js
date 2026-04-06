@@ -89,7 +89,13 @@ router.post('/:table', async (req, res) => {
     
     // Build insert SQL dynamically
     const columns = Object.keys(data);
-    const values = Object.values(data);
+    const values = Object.values(data).map(val => {
+      // Convert arrays and objects to JSON strings for JSONB columns
+      if (typeof val === 'object' && val !== null && !(val instanceof Date)) {
+        return JSON.stringify(val);
+      }
+      return val;
+    });
     const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
     
     const sql = `
@@ -121,7 +127,13 @@ router.put('/:table/:id', async (req, res) => {
     
     // Build update SQL dynamically
     const columns = Object.keys(data);
-    const values = Object.values(data);
+    const values = Object.values(data).map(val => {
+      // Convert arrays and objects to JSON strings for JSONB columns
+      if (typeof val === 'object' && val !== null && !(val instanceof Date)) {
+        return JSON.stringify(val);
+      }
+      return val;
+    });
     const setClause = columns.map((col, i) => `${col} = $${i + 1}`).join(', ');
     
     const sql = `
@@ -183,7 +195,13 @@ router.post('/:table/bulk', async (req, res) => {
       
       // Try to update first, if not found then insert
       const columns = Object.keys(item);
-      const values = Object.values(item);
+      const values = Object.values(item).map(val => {
+        // Convert arrays and objects to JSON strings for JSONB columns
+        if (typeof val === 'object' && val !== null && !(val instanceof Date)) {
+          return JSON.stringify(val);
+        }
+        return val;
+      });
       
       // Build upsert using INSERT ... ON CONFLICT
       const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
