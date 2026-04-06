@@ -746,20 +746,13 @@
           <span class="status-badge status-${note.status}">${statusText}</span>
         </div>
         <div class="task-col task-dates-col">
-          <div class="date-row">
-            <span class="date-label">Start:</span>
-            <span class="date-value">${startDate}</span>
-          </div>
-          <div class="date-row">
-            <span class="date-label">Due:</span>
-            <span class="date-value ${note.due_date && new Date(note.due_date) < new Date() && !isDone ? 'overdue' : ''}">${dueDate}</span>
-          </div>
+          <span class="date-row"><span class="date-label">S:</span> <span class="date-value">${startDate}</span></span><span class="date-row"><span class="date-label">D:</span> <span class="date-value ${note.due_date && new Date(note.due_date) < new Date() && !isDone ? 'overdue' : ''}">${dueDate}</span></span>
         </div>
         <div class="task-col task-progress-col">
           <div class="progress-mini">
             <div class="progress-mini-bar" style="width: ${progress}%; background: ${progressColor};"></div>
           </div>
-          <div class="progress-text">${progress}%</div>
+          <span class="progress-text">${progress}%</span>
         </div>
         <div class="task-col task-tags-col">${tags.join('')}</div>
       </div>

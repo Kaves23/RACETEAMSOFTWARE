@@ -24,7 +24,11 @@ async function runMigrations() {
     '016_event_packing_system.sql',
     '017_events_extended_schema.sql',
     '018_allow_null_event_id_for_general_lists.sql',
-    '019_add_whatsapp_columns.sql'
+    '019_add_whatsapp_columns.sql',
+    '020_optimize_box_contents_query.sql',
+    '021_add_box_performance_indexes.sql',
+    '022_add_driver_fields.sql',
+    '023_enhance_event_notes_with_task_features.sql'
   ];
   
   for (const filename of migrationFiles) {
