@@ -409,8 +409,11 @@
             
             <div class="row g-2 mb-2">
               <div class="col-4">
-                <label class="form-label">Quantity *</label>
-                <input type="number" class="form-control form-control-sm" id="itemQty" min="0" step="0.01" required>
+                <label class="form-label">
+                  Quantity * 
+                  <small class="text-muted">(auto-calculated)</small>
+                </label>
+                <input type="number" class="form-control form-control-sm" id="itemQty" min="0" step="0.01" readonly style="background: #e9ecef;">
               </div>
               <div class="col-4">
                 <label class="form-label">UoM</label>
@@ -422,9 +425,20 @@
               </div>
             </div>
             
+            <!-- Multi-Location Distribution -->
             <div class="mb-2">
-              <label class="form-label">Location</label>
-              <select class="form-select form-select-sm" id="itemLocation"></select>
+              <label class="form-label">
+                Location Distribution
+                <small class="text-muted">(track items across multiple locations)</small>
+              </label>
+              <div id="locationDistributionEditor" class="border rounded p-2" style="background: #f8f9fa;">
+                <!-- Location entries will be added here -->
+                <div id="locationEntries"></div>
+                <button type="button" class="btn btn-sm btn-outline-primary w-100 mt-2" onclick="addLocationEntry()">
+                  + Add Location
+                </button>
+              </div>
+              <small class="text-muted">Total quantity will be calculated from all locations</small>
             </div>
             
             <div class="mb-2">
@@ -1079,13 +1093,15 @@
           document.getElementById('itemQty').value = item.qty;
           document.getElementById('itemUom').value = item.uom;
           document.getElementById('itemReorder').value = item.reorder;
-          document.getElementById('itemLocation').value = item.location;
           document.getElementById('itemSupplier').value = item.supplier;
           document.getElementById('itemLeadDays').value = item.leadDays;
           document.getElementById('itemCost').value = item.cost;
           document.getElementById('itemNotes').value = item.notes;
           document.getElementById('itemAutoReorder').checked = item.auto;
           document.getElementById('detailBadge').textContent = 'Editing';
+          
+          // Load location distribution into editor
+          loadLocationDistributionEditor(item.locationDist);
           
           // Populate location distribution
           populateLocationDistribution(item);
@@ -1097,6 +1113,9 @@
           document.getElementById('itemId').value = '';
           document.getElementById('detailBadge').textContent = 'New Item';
           document.getElementById('itemInfo').style.display = 'none';
+          
+          // Initialize location editor with one empty entry
+          loadLocationDistributionEditor({});
         }
       }
       
@@ -1132,6 +1151,107 @@
           container.innerHTML = '<div class="info-empty">No location data available</div>';
         }
       }
+      
+      // ===== MULTI-LOCATION MANAGEMENT =====
+      
+      // Add a new location entry row
+      window.addLocationEntry = function(location = '', quantity = 0) {
+        const container = document.getElementById('locationEntries');
+        const entryId = `loc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        
+        const locOptions = LOCATIONS.map(l => `<option value="${l}">${l}</option>`).join('');
+        
+        const entryHtml = `
+          <div class="location-entry mb-2" id="${entryId}" style="display: flex; gap: 8px; align-items: center;">
+            <select class="form-select form-select-sm location-select" style="flex: 2;">
+              <option value="">Select location...</option>
+              ${locOptions}
+            </select>
+            <input type="number" class="form-control form-control-sm location-qty" 
+                   placeholder="Qty" min="0" step="0.01" value="${quantity}" 
+                   style="flex: 1; max-width: 100px;">
+            <button type="button" class="btn btn-sm btn-outline-danger" 
+                    onclick="removeLocationEntry('${entryId}')" 
+                    style="flex-shrink: 0;">×</button>
+          </div>
+        `;
+        
+        container.insertAdjacentHTML('beforeend', entryHtml);
+        
+        // Set the location value after insert
+        if (location) {
+          const select = document.querySelector(`#${entryId} .location-select`);
+          if (select) select.value = location;
+        }
+        
+        updateTotalQuantity();
+      };
+      
+      // Remove a location entry
+      window.removeLocationEntry = function(entryId) {
+        const entry = document.getElementById(entryId);
+        if (entry) {
+          entry.remove();
+          updateTotalQuantity();
+        }
+      };
+      
+      // Update total quantity from all locations
+      function updateTotalQuantity() {
+        const entries = document.querySelectorAll('.location-entry');
+        let total = 0;
+        
+        entries.forEach(entry => {
+          const qtyInput = entry.querySelector('.location-qty');
+          const qty = parseFloat(qtyInput.value) || 0;
+          total += qty;
+        });
+        
+        // Update the main quantity field
+        document.getElementById('itemQty').value = total;
+      }
+      
+      // Listen to quantity changes in location entries
+      document.addEventListener('input', function(e) {
+        if (e.target.classList.contains('location-qty')) {
+          updateTotalQuantity();
+        }
+      });
+      
+      // Load location distribution into editor
+      function loadLocationDistributionEditor(locationDist) {
+        const container = document.getElementById('locationEntries');
+        container.innerHTML = ''; // Clear existing entries
+        
+        if (locationDist && Object.keys(locationDist).length > 0) {
+          // Load existing distribution
+          Object.entries(locationDist).forEach(([location, quantity]) => {
+            addLocationEntry(location, quantity);
+          });
+        } else {
+          // Start with one empty entry
+          addLocationEntry();
+        }
+      }
+      
+      // Get location distribution from editor
+      function getLocationDistributionFromEditor() {
+        const entries = document.querySelectorAll('.location-entry');
+        const distribution = {};
+        
+        entries.forEach(entry => {
+          const location = entry.querySelector('.location-select').value;
+          const quantity = parseFloat(entry.querySelector('.location-qty').value) || 0;
+          
+          if (location && quantity > 0) {
+            distribution[location] = quantity;
+          }
+        });
+        
+        return distribution;
+      }
+      
+      // ===== END MULTI-LOCATION MANAGEMENT =====
       
       // Populate boxes containing this item
       async function populateBoxesContaining(item) {
@@ -1199,6 +1319,9 @@
       async function saveItem(e) {
         e.preventDefault();
         
+        // Get location distribution from editor
+        const locationDistribution = getLocationDistributionFromEditor();
+        
         const itemData = {
           name: document.getElementById('itemName').value,
           sku: document.getElementById('itemSku').value,
@@ -1206,7 +1329,7 @@
           quantity: parseFloat(document.getElementById('itemQty').value) || 0,
           unit_of_measure: document.getElementById('itemUom').value || 'ea',
           min_quantity: parseFloat(document.getElementById('itemReorder').value) || 0,
-          location_id: document.getElementById('itemLocation').value,
+          location_distribution: JSON.stringify(locationDistribution),
           supplier: document.getElementById('itemSupplier').value,
           lead_time_days: parseInt(document.getElementById('itemLeadDays').value) || 0,
           unit_cost: parseFloat(document.getElementById('itemCost').value) || 0,
