@@ -242,37 +242,56 @@
       // Render all tasks with list name
       let html = allTasks.length > 0
         ? allTasks.map(task => {
-            const isDone = task.status === 'packed' || task.status === 'loaded';
+            const isDone = task.status === 'packed' || task.status === 'loaded' || task.status === 'completed';
             const fromWhatsApp = task.whatsapp_message_id || (task.source_notes && task.source_notes.includes('WhatsApp'));
             
-            let author = 'Unknown';
-            if (fromWhatsApp && task.source_notes) {
-              const phoneMatch = task.source_notes.match(/\+\d+/);
-              author = phoneMatch ? phoneMatch[0] : 'WhatsApp';
-            } else if (task.created_by_name) {
-              author = task.created_by_name;
+            let tags = [];
+            if (fromWhatsApp) tags.push('<span class="tag tag-whatsapp">📱</span>');
+            if (task.is_milestone) tags.push('<span class="tag tag-milestone">🏁</span>');
+            if (task.tags) {
+              const taskTags = task.tags.split(',').map(t => t.trim()).filter(Boolean);
+              taskTags.forEach(tag => tags.push(`<span class="tag">${escapeHtml(tag)}</span>`));
             }
             
-            let tags = [];
-            if (fromWhatsApp) tags.push('<span class="tag tag-whatsapp">WhatsApp</span>');
-            tags.push(`<span class="tag tag-manual">${task._listName}</span>`);
-            
-            const status = isDone ? 'Done' : 'Active';
             const date = task.due_date ? new Date(task.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-';
+            
+            const progress = task.progress_percent || 0;
+            const priorityIcons = {
+              critical: '🔴',
+              high: '🟠',
+              normal: '⚪',
+              low: '🟢'
+            };
+            const priorityIcon = priorityIcons[task.priority] || priorityIcons.normal;
+            
+            const relationName = task._listName || 'Unknown';
+            const eventName = task.linked_event_id ? '🎯 [Event]' : '-';
+            const assignedTo = task.assigned_to_name || '-';
             
             return `
               <div class="task-item ${isDone ? 'done' : ''} ${fromWhatsApp ? 'from-whatsapp' : ''}" 
                    data-note-id="${task.id}" 
                    onclick="window.selectTaskFromAllLists('${task.id}', '${task._listId}')">
-                <div>
+                <div class="task-col task-name-col" style="display: flex; align-items: center; gap: 4px;">
                   <input type="checkbox" class="task-checkbox" ${isDone ? 'checked' : ''} 
-                         onclick="event.stopPropagation();">
+                         onclick="event.stopPropagation();" 
+                         style="margin: 0 4px;">
+                  <span class="task-name-text">${escapeHtml(task.item_name)}</span>
                 </div>
-                <div class="task-name">${escapeHtml(task.item_name)}</div>
-                <div class="task-author">${author}</div>
-                <div class="task-tags">${tags.join('')}</div>
-                <div class="task-status">${status}</div>
-                <div class="task-date">${date}</div>
+                <div class="task-col task-flag-col" title="${task.priority}">${priorityIcon}</div>
+                <div class="task-col task-relation-col">${escapeHtml(relationName)}</div>
+                <div class="task-col task-event-col">${eventName}</div>
+                <div class="task-col task-progress-col">
+                  <div style="display: flex; align-items: center; gap: 4px;">
+                    <div style="flex: 1; height: 4px; background: #e0e0e0; border-radius: 2px; overflow: hidden;">
+                      <div style="height: 100%; width: ${progress}%; background: linear-gradient(90deg, #3b82f6, #8b5cf6);"></div>
+                    </div>
+                    <span style="font-size: 10px; color: #666; min-width: 30px;">${progress}%</span>
+                  </div>
+                </div>
+                <div class="task-col task-date-col">${date}</div>
+                <div class="task-col task-assigned-col" style="font-size: 11px;">${escapeHtml(assignedTo)}</div>
+                <div class="task-col task-tags-col">${tags.join(' ')}</div>
               </div>
             `;
           }).join('')
