@@ -1104,22 +1104,33 @@
       function populateLocationDistribution(item) {
         const container = document.getElementById('locationDistribution');
         
-        if (!item.locationDist || Object.keys(item.locationDist).length === 0) {
-          container.innerHTML = '<div class="info-empty">No location data available</div>';
-          return;
+        // Check if we have location distribution data (multi-location tracking)
+        if (item.locationDist && Object.keys(item.locationDist).length > 0) {
+          // Sort by quantity (highest first)
+          const entries = Object.entries(item.locationDist).sort((a, b) => b[1] - a[1]);
+          
+          const html = entries.map(([location, qty]) => `
+            <div class="location-item">
+              <span class="loc-name">${location}</span>
+              <span class="loc-qty">${qty} ${item.uom}</span>
+            </div>
+          `).join('');
+          
+          container.innerHTML = html;
         }
-        
-        // Sort by quantity (highest first)
-        const entries = Object.entries(item.locationDist).sort((a, b) => b[1] - a[1]);
-        
-        const html = entries.map(([location, qty]) => `
-          <div class="location-item">
-            <span class="loc-name">${location}</span>
-            <span class="loc-qty">${qty} ${item.uom}</span>
-          </div>
-        `).join('');
-        
-        container.innerHTML = html;
+        // Fallback: if single location_id is set but no distribution
+        else if (item.location) {
+          container.innerHTML = `
+            <div class="location-item">
+              <span class="loc-name">${item.location}</span>
+              <span class="loc-qty">${item.qty} ${item.uom}</span>
+            </div>
+          `;
+        }
+        // No location data at all
+        else {
+          container.innerHTML = '<div class="info-empty">No location data available</div>';
+        }
       }
       
       // Populate boxes containing this item
