@@ -145,7 +145,7 @@
       const groupModalTpl = `
         <div class="modal fade" id="rtsGroupQuickModal" tabindex="-1" aria-hidden="true">
           <div class="modal-dialog modal-dialog-centered modal-lg">
-            <div class="modal-content" style="background:#ffffff; color:#000000; border:2px solid #000000;">
+            <div class="modal-content" style="background:#ffffff; color:#000000; border:2px solid #000000; font-family: 'Sedgwick Ave Display', 'Rubik Wet Paint', 'Bangers', 'Permanent Marker', 'Montserrat', system-ui, sans-serif;">
               <div class="modal-header" style="border-bottom:2px solid #000000;">
                 <h5 class="modal-title" style="color:#000000; font-weight:700;"><span id="rtsGroupTitle"></span></h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
