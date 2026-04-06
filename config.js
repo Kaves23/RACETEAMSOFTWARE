@@ -3,10 +3,7 @@
 window.RTS_CONFIG = {
   // API Configuration
   api: {
-    // Auto-detect: use api subdomain in production, relative URL for local dev
-    baseURL: window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-      ? '/api' // Local development
-      : 'https://api.kokororacing.co.za/api', // Production
+    baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)
     timeout: 10000
   },
   
