@@ -3,19 +3,49 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const path = require('path');
+const os = require('os');
 const db = require('./db');
+const constants = require('./constants');
+
+// ===== ENVIRONMENT VARIABLE VALIDATION =====
+if (!process.env.DATABASE_URL) {
+  console.error('❌ FATAL: DATABASE_URL environment variable is required');
+  process.exit(1);
+}
 
 const app = express();
+
+// Security headers with helmet (CSP)
+const helmet = require('helmet');
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'", "https://cdn.jsdelivr.net"],
+      objectSrc: ["'none'"],
+      upgradeInsecureRequests: []
+    }
+  }
+}));
+
 app.use(cors());
-app.use(bodyParser.json()); // For JSON requests
-app.use(bodyParser.urlencoded({ extended: true })); // For form-encoded requests (Twilio sends this format!)
+
+// Request size limits to prevent DOS attacks
+app.use(bodyParser.json({ limit: constants.REQUEST_SIZE_LIMIT }));
+app.use(bodyParser.urlencoded({ extended: true, limit: constants.REQUEST_SIZE_LIMIT }))
 
 // Serve static files from parent directory (HTML, CSS, JS files)
 app.use(express.static(path.join(__dirname, '..')));
 
-// Request logging
+// Request logging (only in development)
 app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} ${req.method} ${req.path}`);
+  if (constants.LOG_REQUEST_DETAILS) {
+    console.log(`${new Date().toISOString()} ${req.method} ${req.path}`);
+  }
   next();
 });
 
@@ -28,6 +58,7 @@ app.use('/api/auth', authRouter);
 
 // PostgreSQL-specific routes for logistics (boxes, items, box_contents) - PROTECTED
 const boxesRouter = require('./routes/boxes');
+const boxAssignmentsRouter = require('./routes/box-assignments');
 const itemsRouter = require('./routes/items');
 const boxContentsRouter = require('./routes/box-contents');
 const assetTypesRouter = require('./routes/asset-types');
@@ -39,6 +70,7 @@ const packingRouter = require('./routes/packing');
 const whatsappRouter = require('./routes/whatsapp');
 
 app.use('/api/boxes', requireAuth, boxesRouter);
+app.use('/api/box-assignments', requireAuth, boxAssignmentsRouter);
 app.use('/api/items', requireAuth, itemsRouter);
 app.use('/api/box-contents', requireAuth, boxContentsRouter);
 app.use('/api/asset-types', requireAuth, assetTypesRouter);
@@ -186,18 +218,59 @@ app.get('/api/telemetry/points', requireAuth, async (req, res) => {
   }
 });
 
-// start server
-const port = Number(process.env.PORT || 9090);
+// ===== GLOBAL ERROR HANDLER (must be last middleware) =====
+app.use((err, req, res, next) => {
+  console.error('❌ Unhandled error:', err);
+  res.status(err.status || 500).json({ 
+    success: false, 
+    error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message 
+  });
+});
+
+// ===== SESSION CLEANUP CRON JOB =====
+// Remove expired sessions every hour to prevent database bloat
+setInterval(async () => {
+  try {
+    await db.query('DELETE FROM sessions WHERE expires_at < NOW()');
+    if (constants.LOG_REQUEST_DETAILS) {
+      console.log('✅ Expired sessions cleaned up');
+    }
+  } catch (error) {
+    console.error('❌ Session cleanup error:', error);
+  }
+}, constants.SESSION_CLEANUP_INTERVAL_MS);
+
+// Helper to get network IP addresses
+function getNetworkAddresses() {
+  const interfaces = os.networkInterfaces();
+  const addresses = [];
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name]) {
+      if (iface.family === 'IPv4' && !iface.internal) {
+        addresses.push(iface.address);
+      }
+    }
+  }
+  return addresses;
+}
+
+// Start server
+const port = Number(process.env.PORT || constants.DEFAULT_PORT);
 app.listen(port, '0.0.0.0', () => {
+  const networkIPs = getNetworkAddresses();
+  const networkIP = networkIPs.length > 0 ? networkIPs[0] : 'N/A';
+  
   console.log(`\n🚀 Race Team API Server`);
   console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
   console.log(`📡 Server running on port: ${port}`);
   console.log(`🏠 Local: http://localhost:${port}`);
-  console.log(`🌐 Network: http://10.0.0.30:${port}`);
-  console.log(`🏥 Health check: http://10.0.0.30:${port}/api/health`);
-  console.log(`📦 Boxes API: http://10.0.0.30:${port}/api/boxes`);
-  console.log(`🔧 Items API: http://10.0.0.30:${port}/api/items`);
-  console.log(`📋 Contents API: http://10.0.0.30:${port}/api/box-contents`);
+  console.log(`🌐 Network: http://${networkIP}:${port}`);
+  console.log(`🏥 Health check: http://${networkIP}:${port}/api/health`);
+  console.log(`📦 Boxes API: http://${networkIP}:${port}/api/boxes`);
+  console.log(`🔧 Items API: http://${networkIP}:${port}/api/items`);
+  console.log(`📋 Contents API: http://${networkIP}:${port}/api/box-contents`);
+  console.log(`🔒 Security: Helmet CSP enabled`);
+  console.log(`⏰ Session cleanup: Every ${constants.SESSION_CLEANUP_INTERVAL_MS / 60000} minutes`);
   console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
 });
 

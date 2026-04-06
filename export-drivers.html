@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Export Drivers from localStorage | Race Team Software</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body { padding: 20px; background: #f5f5f5; }
+    .export-container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    pre { background: #f8f9fa; padding: 20px; border-radius: 6px; max-height: 400px; overflow-y: auto; }
+    .btn-export { background: #1a73e8; color: white; font-weight: 600; }
+    .btn-export:hover { background: #1557b0; }
+  </style>
+</head>
+<body>
+
+<div class="export-container">
+  <h1>📤 Export Drivers from localStorage</h1>
+  
+  <div class="alert alert-info">
+    <strong>ℹ️ About:</strong> This tool exports drivers from your browser's localStorage so you can review them before migrating to PlanetScale.
+  </div>
+
+  <button id="btnExport" class="btn btn-export btn-lg">📤 Export Drivers</button>
+  
+  <div id="resultsSection" style="display: none; margin-top: 20px;">
+    <h5>Drivers Found: <span id="driverCount">0</span></h5>
+    
+    <div style="margin: 20px 0;">
+      <button id="btnCopy" class="btn btn-secondary">📋 Copy JSON</button>
+      <button id="btnDownload" class="btn btn-secondary">💾 Download JSON File</button>
+      <a href="migrate-drivers.html" class="btn btn-primary">🚀 Go to Migration Tool</a>
+    </div>
+    
+    <pre id="driversJson"></pre>
+  </div>
+
+</div>
+
+<script src="core.js"></script>
+<script>
+(function() {
+  const btnExport = document.getElementById('btnExport');
+  const btnCopy = document.getElementById('btnCopy');
+  const btnDownload = document.getElementById('btnDownload');
+  const resultsSection = document.getElementById('resultsSection');
+  const driverCount = document.getElementById('driverCount');
+  const driversJson = document.getElementById('driversJson');
+
+  let exportedDrivers = [];
+
+  btnExport.addEventListener('click', () => {
+    const settings = RTS.getSettings();
+    exportedDrivers = settings.drivers || [];
+
+    driverCount.textContent = exportedDrivers.length;
+    
+    if (exportedDrivers.length === 0) {
+      alert('No drivers found in localStorage. Please add drivers in Settings first.');
+      return;
+    }
+
+    const jsonStr = JSON.stringify(exportedDrivers, null, 2);
+    driversJson.textContent = jsonStr;
+    resultsSection.style.display = 'block';
+  });
+
+  btnCopy.addEventListener('click', () => {
+    const jsonStr = JSON.stringify(exportedDrivers, null, 2);
+    navigator.clipboard.writeText(jsonStr).then(() => {
+      const originalText = btnCopy.textContent;
+      btnCopy.textContent = '✅ Copied!';
+      setTimeout(() => {
+        btnCopy.textContent = originalText;
+      }, 2000);
+    });
+  });
+
+  btnDownload.addEventListener('click', () => {
+    const jsonStr = JSON.stringify(exportedDrivers, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `drivers-export-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+})();
+</script>
+
+</body>
+</html>

@@ -6,7 +6,7 @@ const db = require('../db');
 
 // Valid table names (whitelist for security)
 const VALID_TABLES = [
-  'tasks', 'notes', 'runbooks', 'drivers', 
+  'tasks', 'notes', 'runbooks', 'drivers', 'staff',
   'expenses', 'purchase_orders', 'inventory', 'events', 'locations'
 ];
 

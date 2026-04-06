@@ -49,14 +49,28 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   }
 
   async function loadData() {
-    console.log('🔄 Loading data...');
+    console.log('🔄 Loading data in parallel...');
     
-    // Load boxes from API
+    // Load ALL data in parallel for better performance
     try {
       if (!window.RTS_API) {
         throw new Error('RTS_API not available');
       }
-      const boxesResp = await window.RTS_API.getBoxes();
+      
+      console.log('⏱️ Starting parallel data load...');
+      const startTime = Date.now();
+      
+      // Execute all API calls in parallel
+      const [boxesResp, itemsResp, contentsResp] = await Promise.all([
+        window.RTS_API.getBoxes(),
+        window.RTS_API.getItems(),
+        window.RTS_API.getBoxContents()
+      ]);
+      
+      const loadTime = Date.now() - startTime;
+      console.log(`✅ Parallel load completed in ${loadTime}ms`);
+      
+      // Process boxes response
       boxes = (boxesResp.boxes || []).map(box => ({
         id: box.id,
         barcode: box.barcode,
@@ -230,10 +244,8 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       console.log(`📦 Using ${equipment.length} equipment + ${assets.length} assets from localStorage/seed`);
     }
 
-    // Load box contents from API - USE BULK ENDPOINT (1 query instead of N queries!)
+    // Process box contents (already loaded in parallel)
     try {
-      // Get ALL box contents in a single API call instead of looping through boxes
-      const bulkContentsResp = await RTS_API.getBoxContents();
       
       if (bulkContentsResp && bulkContentsResp.success && bulkContentsResp.boxContents) {
         boxContents = bulkContentsResp.boxContents.map(content => ({
@@ -1296,16 +1308,33 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     try {
       console.log('🔄 Loading drivers from PlanetScale database...');
       const resp = await RTS_API.getCollectionItems('drivers');
-      if (resp && resp.items) {
+      
+      if (!resp) {
+        console.error('❌ No response from drivers API');
+        showToast('⚠️ Could not connect to drivers database', 'warning');
+        allDrivers = [];
+        return;
+      }
+      
+      if (!resp.success) {
+        console.error('❌ Drivers API returned error:', resp.error || 'Unknown error');
+        showToast(`❌ Failed to load drivers: ${resp.error || 'Unknown error'}`, 'error');
+        allDrivers = [];
+        return;
+      }
+      
+      if (resp.items && resp.items.length > 0) {
         allDrivers = resp.items;
         console.log(`✅ Loaded ${allDrivers.length} drivers from PlanetScale database`);
         console.log('   Drivers:', allDrivers.map(d => d.name || 'Unnamed').join(', '));
       } else {
-        console.warn('⚠️ No drivers returned from database');
+        console.warn('⚠️ No drivers found in database');
+        console.warn('💡 Add drivers in Settings → Drivers first, then run migrate-drivers.html');
         allDrivers = [];
       }
     } catch (error) {
       console.error('❌ Error loading drivers from database:', error);
+      showToast(`❌ Driver loading failed: ${error.message}`, 'error');
       allDrivers = [];
     }
   }
@@ -1394,12 +1423,45 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       const box = boxes.find(b => b.id === boxId);
       if (!box) throw new Error('Box not found');
       
-      // Update via API
+      // Get previous driver ID to close old assignment
+      const previousDriverId = box.assignedDriverId || box.assigned_driver_id;
+      
+      // Update box's current driver via API
       const resp = await RTS_API.updateBox(boxId, {
         assigned_driver_id: driverId
       });
       
       if (resp && resp.success) {
+        // If there was a previous driver, close that box_assignment record
+        if (previousDriverId && previousDriverId !== driverId) {
+          try {
+            await fetch(`${API_BASE_URL}/box-assignments/unassign`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ box_id: boxId, driver_id: previousDriverId })
+            });
+          } catch (e) {
+            console.warn('Could not close previous box assignment:', e);
+          }
+        }
+        
+        // If assigning a new driver, create box_assignment record for many-to-many tracking
+        if (driverId) {
+          try {
+            await fetch(`${API_BASE_URL}/box-assignments`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                box_id: boxId, 
+                driver_id: driverId,
+                assigned_by: 'user' // Could track actual user_id if auth is available
+              })
+            });
+          } catch (e) {
+            console.warn('Could not create box_assignment record:', e);
+          }
+        }
+        
         // Update local state
         box.assignedDriverId = driverId;
         if (driverId) {
@@ -2113,6 +2175,67 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     dropdown.classList.remove('show');
   }
   
+  async function bulkMoveBoxesToLocation() {
+    if (selectedBoxes.size === 0) {
+      showToast('No boxes selected', 'warning');
+      return;
+    }
+    
+    // Ensure we have locations
+    if (allLocations.length === 0) {
+      const settings = RTS.getSettings();
+      const settingsLocations = settings.locations || [];
+      if (settingsLocations.length > 0) {
+        allLocations = settingsLocations.map((loc, idx) => ({
+          id: `loc-${idx}`,
+          name: typeof loc === 'string' ? loc : loc.name,
+          is_active: true
+        }));
+      } else {
+        showToast('No locations available. Please add locations in settings.', 'error');
+        return;
+      }
+    }
+    
+    const location = await customSelect(
+      '📦 Move Boxes to Location',
+      `Select location to move ${selectedBoxes.size} box(es) (items stay packed):`,
+      allLocations
+    );
+    if (!location) return;
+    
+    const locationId = location.id;
+    const locationName = location.name;
+    const selectedBoxArray = Array.from(selectedBoxes);
+    
+    showLoading(`Moving ${selectedBoxArray.length} boxes to ${locationName}...`);
+    
+    try {
+      // Update each box's location via API
+      await Promise.all(selectedBoxArray.map(boxId => 
+        RTS_API.updateBox(boxId, { location_id: locationId })
+      ));
+      
+      // Update local state
+      selectedBoxArray.forEach(boxId => {
+        const box = boxes.find(b => b.id === boxId);
+        if (box) {
+          box.currentLocationId = locationId;
+          box.locationName = locationName;
+        }
+      });
+      
+      saveData();
+      clearBoxSelection();
+      renderAll();
+      hideLoading();
+      showToast(`✅ Moved ${selectedBoxArray.length} boxes to ${locationName}`, 'success');
+    } catch (error) {
+      hideLoading();
+      showToast(`❌ Error: ${error.message}`, 'error');
+    }
+  }
+  
   async function bulkUnpackBoxesToLocation() {
     if (selectedBoxes.size === 0) {
       showToast('No boxes selected', 'warning');
@@ -2454,6 +2577,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   window.clearBoxSelection = clearBoxSelection;
   window.toggleBulkBoxDropdown = toggleBulkBoxDropdown;
   window.closeBulkBoxDropdown = closeBulkBoxDropdown;
+  window.bulkMoveBoxesToLocation = bulkMoveBoxesToLocation;
   window.bulkUnpackBoxesToLocation = bulkUnpackBoxesToLocation;
   window.bulkDeleteBoxesAndMoveItems = bulkDeleteBoxesAndMoveItems;
   window.bulkDeleteBoxesAndItems = bulkDeleteBoxesAndItems;

@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Migrate Drivers to PlanetScale | Race Team Software</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body { padding: 20px; background: #f5f5f5; }
+    .migration-container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    .driver-item { padding: 12px; margin: 8px 0; background: #f8f9fa; border-radius: 6px; border-left: 4px solid #1a73e8; }
+    .driver-item.migrated { border-left-color: #34a853; background: #e8f5e9; }
+    .driver-item.error { border-left-color: #ea4335; background: #fce8e6; }
+    .status-badge { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 0.85rem; font-weight: 600; }
+    .status-badge.pending { background: #e8f0fe; color: #1a73e8; }
+    .status-badge.success { background: #e8f5e9; color: #34a853; }
+    .status-badge.error { background: #fce8e6; color: #ea4335; }
+    .progress-section { margin: 20px 0; padding: 20px; background: #f8f9fa; border-radius: 6px; }
+    .btn-migrate { background: #1a73e8; color: white; font-weight: 600; padding: 12px 24px; }
+    .btn-migrate:hover { background: #1557b0; }
+    .log-container { max-height: 300px; overflow-y: auto; background: #f8f9fa; padding: 15px; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 0.9rem; }
+    .log-entry { margin: 4px 0; }
+    .log-entry.success { color: #34a853; }
+    .log-entry.error { color: #ea4335; }
+    .log-entry.info { color: #5f6368; }
+  </style>
+</head>
+<body>
+
+<div class="migration-container">
+  <h1 style="margin-bottom: 20px;">🚗 Migrate Drivers to PlanetScale</h1>
+  
+  <div class="alert alert-info">
+    <strong>ℹ️ About this migration:</strong><br>
+    This will migrate all drivers from localStorage (settings) to the PlanetScale database.
+    After migration, drivers will be stored permanently in the cloud database.
+  </div>
+
+  <!-- Step 1: Load from localStorage -->
+  <div class="progress-section">
+    <h5>Step 1: Load Drivers from localStorage</h5>
+    <button id="btnLoadDrivers" class="btn btn-primary">📂 Load Drivers</button>
+    <div id="driversFound" style="margin-top: 10px;"></div>
+  </div>
+
+  <!-- Step 2: Preview drivers -->
+  <div id="previewSection" style="display: none;">
+    <div class="progress-section">
+      <h5>Step 2: Preview Drivers to Migrate</h5>
+      <div id="driversList"></div>
+      <div style="margin-top: 20px;">
+        <button id="btnMigrate" class="btn btn-migrate">🚀 Migrate All Drivers to PlanetScale</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 3: Migration log -->
+  <div id="logSection" style="display: none; margin-top: 20px;">
+    <h5>Migration Log</h5>
+    <div class="log-container" id="migrationLog"></div>
+  </div>
+
+  <!-- Step 4: Results -->
+  <div id="resultsSection" style="display: none; margin-top: 20px;">
+    <div class="alert alert-success">
+      <h5>✅ Migration Complete!</h5>
+      <p id="resultsSummary"></p>
+      <a href="settings.html" class="btn btn-success">Go to Settings → Drivers</a>
+      <a href="box-packing.html" class="btn btn-primary">Test in Box Packing</a>
+    </div>
+  </div>
+
+</div>
+
+<script src="core.js"></script>
+<script>
+(async function() {
+  const btnLoadDrivers = document.getElementById('btnLoadDrivers');
+  const btnMigrate = document.getElementById('btnMigrate');
+  const driversFound = document.getElementById('driversFound');
+  const previewSection = document.getElementById('previewSection');
+  const driversList = document.getElementById('driversList');
+  const logSection = document.getElementById('logSection');
+  const migrationLog = document.getElementById('migrationLog');
+  const resultsSection = document.getElementById('resultsSection');
+  const resultsSummary = document.getElementById('resultsSummary');
+
+  let localDrivers = [];
+
+  function addLog(message, type = 'info') {
+    const entry = document.createElement('div');
+    entry.className = `log-entry ${type}`;
+    entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+    migrationLog.appendChild(entry);
+    migrationLog.scrollTop = migrationLog.scrollHeight;
+  }
+
+  // Step 1: Load drivers from localStorage
+  btnLoadDrivers.addEventListener('click', () => {
+    const settings = RTS.getSettings();
+    localDrivers = settings.drivers || [];
+
+    if (localDrivers.length === 0) {
+      driversFound.innerHTML = '<div class="alert alert-warning">No drivers found in localStorage. Please add drivers in Settings first.</div>';
+      return;
+    }
+
+    driversFound.innerHTML = `
+      <div class="alert alert-success">
+        ✅ Found <strong>${localDrivers.length}</strong> driver(s) in localStorage
+      </div>
+    `;
+
+    // Show preview
+    previewSection.style.display = 'block';
+    driversList.innerHTML = localDrivers.map((driver, idx) => {
+      const name = driver.name || driver;
+      const license = driver.license_number || driver.licenseNumber || 'N/A';
+      const phone = driver.phone || 'N/A';
+      
+      return `
+        <div class="driver-item" id="driver-${idx}">
+          <div style="font-weight: 600;">${name}</div>
+          <div style="font-size: 0.9rem; color: #5f6368;">
+            License: ${license} | Phone: ${phone}
+          </div>
+          <span class="status-badge pending" id="status-${idx}">Pending</span>
+        </div>
+      `;
+    }).join('');
+  });
+
+  // Step 2: Migrate to PlanetScale
+  btnMigrate.addEventListener('click', async () => {
+    btnMigrate.disabled = true;
+    logSection.style.display = 'block';
+    migrationLog.innerHTML = '';
+
+    addLog(`Starting migration of ${localDrivers.length} drivers...`, 'info');
+
+    let migrated = 0;
+    let errors = 0;
+
+    for (let i = 0; i < localDrivers.length; i++) {
+      const driver = localDrivers[i];
+      const driverName = driver.name || driver;
+      
+      try {
+        addLog(`Migrating driver: ${driverName}`, 'info');
+
+        // Prepare driver data for database
+        const driverData = {
+          id: driver.id || `driver-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          name: driver.name || driver,
+          license_number: driver.license_number || driver.licenseNumber || null,
+          license_expiry: driver.license_expiry || driver.licenseExpiry || null,
+          phone: driver.phone || null,
+          email: driver.email || null,
+          emergency_contact: driver.emergency_contact || driver.emergencyContact || null,
+          emergency_phone: driver.emergency_phone || driver.emergencyPhone || null,
+          blood_type: driver.blood_type || driver.bloodType || null,
+          medical_notes: driver.medical_notes || driver.medicalNotes || null,
+          address: driver.address || null,
+          insurance_provider: driver.insurance_provider || driver.insuranceProvider || null,
+          insurance_policy: driver.insurance_policy || driver.insurancePolicy || null,
+          is_active: driver.is_active !== false && driver.active !== false
+        };
+
+        // Send to API
+        const response = await fetch(`${API_BASE_URL}/collections/drivers`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('rts.token')}`
+          },
+          body: JSON.stringify(driverData)
+        });
+
+        if (response.ok) {
+          addLog(`✅ Successfully migrated: ${driverName}`, 'success');
+          document.getElementById(`status-${i}`).textContent = 'Migrated';
+          document.getElementById(`status-${i}`).className = 'status-badge success';
+          document.getElementById(`driver-${i}`).classList.add('migrated');
+          migrated++;
+        } else {
+          throw new Error(`API returned ${response.status}`);
+        }
+
+      } catch (error) {
+        addLog(`❌ Failed to migrate ${driverName}: ${error.message}`, 'error');
+        document.getElementById(`status-${i}`).textContent = 'Error';
+        document.getElementById(`status-${i}`).className = 'status-badge error';
+        document.getElementById(`driver-${i}`).classList.add('error');
+        errors++;
+      }
+
+      // Small delay between requests
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
+    // Show results
+    addLog(`Migration complete! Migrated: ${migrated}, Errors: ${errors}`, migrated > 0 ? 'success' : 'error');
+    
+    resultsSection.style.display = 'block';
+    resultsSummary.innerHTML = `
+      <strong>Migrated:</strong> ${migrated} driver(s)<br>
+      <strong>Errors:</strong> ${errors} driver(s)<br>
+      <strong>Total:</strong> ${localDrivers.length} driver(s)
+    `;
+
+    if (migrated > 0) {
+      addLog('📋 Drivers are now stored in PlanetScale database', 'success');
+      addLog('💡 You can now use Settings → Drivers to manage them', 'info');
+    }
+  });
+
+  // Auto-load on page load if not logged in
+  window.addEventListener('DOMContentLoaded', () => {
+    const token = localStorage.getItem('rts.token');
+    if (!token) {
+      document.body.innerHTML = `
+        <div class="migration-container">
+          <div class="alert alert-warning">
+            <h5>⚠️ Authentication Required</h5>
+            <p>Please <a href="index.html">log in</a> before migrating drivers.</p>
+          </div>
+        </div>
+      `;
+    }
+  });
+
+})();
+</script>
+
+</body>
+</html>

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
 const db = require('../db');
+const constants = require('../constants');
 
 // Sessions now stored in PlanetScale database for persistence across server restarts
 
@@ -45,7 +46,7 @@ router.post('/login', async (req, res, next) => {
     
     // Generate session token
     const token = generateToken();
-    const expiresAt = new Date(Date.now() + (24 * 60 * 60 * 1000)); // 24 hours
+    const expiresAt = new Date(Date.now() + constants.SESSION_EXPIRY_MS); // 2 hours
     
     // Store session in database
     await db.query(
@@ -160,16 +161,6 @@ async function requireAuth(req, res, next) {
   next();
 }
 
-// Clean up expired sessions every hour
-setInterval(async () => {
-  try {
-    const result = await db.query('DELETE FROM sessions WHERE expires_at <= NOW()');
-    if (result.rowCount > 0) {
-      console.log(`🧹 Cleaned up ${result.rowCount} expired session(s)`);
-    }
-  } catch (err) {
-    console.error('❌ Session cleanup error:', err);
-  }
-}, 60 * 60 * 1000); // Every hour
+// Note: Session cleanup is handled in server/index.js main cron job
 
 module.exports = { router, requireAuth };

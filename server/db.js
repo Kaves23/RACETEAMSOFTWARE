@@ -1,13 +1,17 @@
 // PlanetScale PostgreSQL Database Connection
 require('dotenv').config();
 const { Client, Pool } = require('pg');
+const constants = require('./constants');
 
-// Create connection pool
+// Create connection pool with optimized configuration
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
     rejectUnauthorized: true
-  }
+  },
+  max: constants.DB_POOL_MAX_CONNECTIONS,
+  idleTimeoutMillis: constants.DB_POOL_IDLE_TIMEOUT_MS,
+  connectionTimeoutMillis: constants.DB_POOL_CONNECTION_TIMEOUT_MS
 });
 
 // Helper function to execute queries

@@ -5,14 +5,16 @@ const { pool } = require('../db');
 // POST /api/import-localStorage - Import localStorage data to database
 router.post('/', async (req, res, next) => {
   try {
-    const { boxes, equipment, assets, boxContents, events, tasks } = req.body;
+    const { boxes, equipment, assets, boxContents, events, tasks, drivers, staff } = req.body;
     
     const results = {
       boxes: { inserted: 0, updated: 0, errors: 0 },
       items: { inserted: 0, updated: 0, errors: 0 },
       boxContents: { inserted: 0, updated: 0, errors: 0 },
       events: { inserted: 0, updated: 0, errors: 0 },
-      tasks: { inserted: 0, updated: 0, errors: 0 }
+      tasks: { inserted: 0, updated: 0, errors: 0 },
+      drivers: { inserted: 0, updated: 0, errors: 0 },
+      staff: { inserted: 0, updated: 0, errors: 0 }
     };
 
     // Import Boxes
@@ -155,6 +157,108 @@ router.post('/', async (req, res, next) => {
         } catch (error) {
           console.error('Error importing box content:', error.message);
           results.boxContents.errors++;
+        }
+      }
+    }
+
+    // Import Drivers
+    if (drivers && drivers.length > 0) {
+      for (const driver of drivers) {
+        try {
+          // Handle both object and string formats
+          const driverName = typeof driver === 'string' ? driver : (driver.name || 'Unnamed Driver');
+          
+          const query = `
+            INSERT INTO drivers (
+              id, name, license_number, license_expiry,
+              phone, email, emergency_contact, emergency_phone,
+              blood_type, medical_notes, address,
+              insurance_provider, insurance_policy,
+              is_active, created_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+            ON CONFLICT (id) DO UPDATE SET
+              name = EXCLUDED.name,
+              license_number = EXCLUDED.license_number,
+              phone = EXCLUDED.phone,
+              email = EXCLUDED.email,
+              updated_at = NOW()
+            RETURNING (xmax = 0) AS inserted
+          `;
+          
+          const values = [
+            driver.id || `driver-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            driverName,
+            driver.license_number || driver.licenseNumber || null,
+            driver.license_expiry || driver.licenseExpiry || null,
+            driver.phone || null,
+            driver.email || null,
+            driver.emergency_contact || driver.emergencyContact || null,
+            driver.emergency_phone || driver.emergencyPhone || null,
+            driver.blood_type || driver.bloodType || null,
+            driver.medical_notes || driver.medicalNotes || null,
+            driver.address || null,
+            driver.insurance_provider || driver.insuranceProvider || null,
+            driver.insurance_policy || driver.insurancePolicy || null,
+            driver.is_active !== false && driver.active !== false,
+            driver.created_at || driver.createdAt || new Date().toISOString()
+          ];
+          
+          const result = await pool.query(query, values);
+          if (result.rows[0].inserted) {
+            results.drivers.inserted++;
+          } else {
+            results.drivers.updated++;
+          }
+        } catch (error) {
+          console.error('Error importing driver:', error.message);
+          results.drivers.errors++;
+        }
+      }
+    }
+
+    // Import Staff
+    if (staff && staff.length > 0) {
+      for (const member of staff) {
+        try {
+          const staffName = typeof member === 'string' ? member : (member.name || 'Unnamed Staff');
+          
+          const query = `
+            INSERT INTO staff (
+              id, name, role, email, phone, emergency_contact,
+              hourly_rate, is_active, created_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            ON CONFLICT (id) DO UPDATE SET
+              name = EXCLUDED.name,
+              role = EXCLUDED.role,
+              phone = EXCLUDED.phone,
+              email = EXCLUDED.email,
+              updated_at = NOW()
+            RETURNING (xmax = 0) AS inserted
+          `;
+          
+          const values = [
+            member.id || `staff-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            staffName,
+            member.role || null,
+            member.email || null,
+            member.phone || null,
+            member.emergency_contact || member.emergencyContact || null,
+            member.hourly_rate || member.hourlyRate || null,
+            member.is_active !== false && member.active !== false,
+            member.created_at || member.createdAt || new Date().toISOString()
+          ];
+          
+          const result = await pool.query(query, values);
+          if (result.rows[0].inserted) {
+            results.staff.inserted++;
+          } else {
+            results.staff.updated++;
+          }
+        } catch (error) {
+          console.error('Error importing staff:', error.message);
+          results.staff.errors++;
         }
       }
     }
