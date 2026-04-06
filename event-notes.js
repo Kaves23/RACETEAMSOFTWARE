@@ -1192,11 +1192,7 @@
         <div class="detail-label">Created</div>
         <div class="detail-value">${note.created_at ? new Date(note.created_at).toLocaleString() : '-'}</div>
       </div>
-      <div class="detail-field">
-        <div class="detail-label">Due Date</div>
-        <input type="date" class="detail-input" value="${note.due_date || ''}" id="editTaskDue">
-      </div>
-      <div class="d-flex gap-2">
+      <div class="d-flex gap-2 mt-3">
         <button class="detail-button detail-button-primary" onclick="window.saveTaskDetails('${note.id}', ${isFromGeneral})">Save</button>
         <button class="detail-button" onclick="window.deleteNote('${note.id}', ${isFromGeneral})">Delete</button>
       </div>
@@ -1208,7 +1204,6 @@
       // Get the updated values from the form
       const itemName = document.getElementById('editTaskName')?.value.trim();
       const sourceNotes = document.getElementById('editTaskDesc')?.value.trim();
-      const dueDate = document.getElementById('editTaskDue')?.value;
       
       if (!itemName) {
         alert('Task name is required');
@@ -1230,10 +1225,6 @@
         item_name: itemName,
         source_notes: sourceNotes
       };
-      
-      if (dueDate) {
-        updates.due_date = dueDate;
-      }
       
       // Call API to update
       const token = localStorage.getItem('auth_token');

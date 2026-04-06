@@ -337,8 +337,7 @@ router.put('/:listId/items/:itemId', async (req, res) => {
     
     const allowedFields = [
       'item_name', 'source_notes', 'category', 'priority',
-      'quantity', 'required', 'source_location', 'notes',
-      'due_date'
+      'quantity', 'required', 'source_location', 'notes'
     ];
     
     const fields = [];
