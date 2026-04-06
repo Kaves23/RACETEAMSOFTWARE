@@ -80,6 +80,13 @@
     const header = document.getElementById('taskHeader');
     if (!header) return;
     
+    // Clear old column widths to use new CSS defaults
+    localStorage.removeItem('taskColumnWidths');
+    
+    // Use CSS-defined grid instead of JavaScript overrides
+    // Column resizing will be added back later if needed
+    return;
+    
     // Load saved column widths or use defaults (8 columns: Task Name, Flag, Relation, Event, Complete, Due Date, Assigned, Tags)
     const savedWidths = localStorage.getItem('taskColumnWidths');
     const columnWidths = savedWidths ? JSON.parse(savedWidths) : [250, 60, 120, 120, 80, 110, 120, 120];
