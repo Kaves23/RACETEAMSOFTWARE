@@ -329,6 +329,59 @@ router.post('/:listId/items', async (req, res) => {
   }
 });
 
+// PUT /api/packing-lists/:listId/items/:itemId - Update item details
+router.put('/:listId/items/:itemId', async (req, res) => {
+  try {
+    const { listId, itemId } = req.params;
+    const updates = req.body;
+    
+    const allowedFields = [
+      'item_name', 'source_notes', 'category', 'priority',
+      'quantity', 'required', 'source_location', 'notes',
+      'due_date'
+    ];
+    
+    const fields = [];
+    const values = [];
+    
+    Object.keys(updates).forEach(key => {
+      if (allowedFields.includes(key)) {
+        fields.push(`${key} = $${values.length + 1}`);
+        values.push(updates[key]);
+      }
+    });
+    
+    if (fields.length === 0) {
+      return res.status(400).json({ success: false, error: 'No valid fields to update' });
+    }
+    
+    fields.push(`updated_at = NOW()`);
+    values.push(itemId);
+    values.push(listId);
+    
+    const sql = `
+      UPDATE event_packing_items
+      SET ${fields.join(', ')}
+      WHERE id = $${values.length - 1} AND packing_list_id = $${values.length}
+      RETURNING *
+    `;
+    
+    const result = await db.query(sql, values);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Item not found' });
+    }
+    
+    // Log activity
+    await logActivity(listId, itemId, 'item_updated', null, null, `Updated: ${result.rows[0].item_name}`);
+    
+    res.json({ success: true, item: result.rows[0] });
+  } catch (error) {
+    console.error('Error updating item:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // POST /api/packing-lists/:listId/items/:itemId/mark-packed
 router.post('/:listId/items/:itemId/mark-packed', async (req, res) => {
   try {

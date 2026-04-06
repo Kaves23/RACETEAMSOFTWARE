@@ -1204,8 +1204,72 @@
   };
   
   window.saveTaskDetails = async function(noteId, isFromGeneral = false) {
-    // TODO: Implement save
-    alert('Save functionality coming soon!');
+    try {
+      // Get the updated values from the form
+      const itemName = document.getElementById('editTaskName')?.value.trim();
+      const sourceNotes = document.getElementById('editTaskDesc')?.value.trim();
+      const dueDate = document.getElementById('editTaskDue')?.value;
+      
+      if (!itemName) {
+        alert('Task name is required');
+        return;
+      }
+      
+      // Find the note to get the list ID
+      const noteList = isFromGeneral ? generalNotes : notes;
+      const note = noteList.find(n => n.id === noteId);
+      if (!note) {
+        alert('Task not found');
+        return;
+      }
+      
+      const listId = note.packing_list_id;
+      
+      // Prepare update payload
+      const updates = {
+        item_name: itemName,
+        source_notes: sourceNotes
+      };
+      
+      if (dueDate) {
+        updates.due_date = dueDate;
+      }
+      
+      // Call API to update
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`${API_BASE}/packing-lists/${listId}/items/${noteId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(updates)
+      });
+      
+      const data = await response.json();
+      
+      if (!data.success) {
+        alert('Error saving task: ' + (data.error || 'Unknown error'));
+        return;
+      }
+      
+      // Update local cache
+      const index = noteList.findIndex(n => n.id === noteId);
+      if (index >= 0) {
+        Object.assign(noteList[index], data.item);
+      }
+      
+      // Refresh the view
+      renderNotes();
+      selectTask(noteId, isFromGeneral);
+      
+      if (RTS.showToast) {
+        RTS.showToast('✅ Task saved', 'success');
+      }
+    } catch (error) {
+      console.error('Error saving task:', error);
+      alert('Failed to save task: ' + error.message);
+    }
   };
   
   window.showAddTaskModal = showAddNoteModal;
