@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Event Notes - Race Team OS Mobile</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <style>
+    * {
+      -webkit-tap-highlight-color: rgba(0,0,0,0);
+      box-sizing: border-box;
+    }
+    
+    :root {
+      --primary-color: #2196f3;
+      --bg-light: #f5f5f5;
+      --bg-card: #ffffff;
+      --text-primary: #333;
+      --text-secondary: #666;
+      --border-color: #e0e0e0;
+      --safe-area-top: env(safe-area-inset-top);
+      --safe-area-bottom: env(safe-area-inset-bottom);
+    }
+    
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg-light);
+      color: var(--text-primary);
+      overflow-x: hidden;
+      height: 100vh;
+      height: 100dvh;
+      position: fixed;
+      width: 100%;
+    }
+    
+    /* Header */
+    .mobile-header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: calc(52px + var(--safe-area-top));
+      padding-top: var(--safe-area-top);
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-left: 12px;
+      padding-right: 12px;
+      z-index: 1000;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    .mobile-header h1 {
+      margin: 0;
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--primary-color);
+    }
+    
+    .header-btn {
+      background: none;
+      border: none;
+      color: var(--primary-color);
+      font-size: 1.3rem;
+      padding: 6px;
+      cursor: pointer;
+      min-width: 40px;
+      min-height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    /* Main content area */
+    .mobile-content {
+      position: fixed;
+      top: calc(52px + var(--safe-area-top));
+      bottom: calc(60px + var(--safe-area-bottom));
+      left: 0;
+      right: 0;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    
+    /* Bottom navigation */
+    .mobile-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: calc(60px + var(--safe-area-bottom));
+      padding-bottom: var(--safe-area-bottom);
+      background: var(--bg-card);
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      z-index: 1000;
+      box-shadow: 0 -1px 3px rgba(0,0,0,0.1);
+    }
+    
+    .nav-btn {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 4px;
+      border: none;
+      background: none;
+      color: var(--text-secondary);
+      cursor: pointer;
+      min-height: 52px;
+      transition: all 0.2s;
+    }
+    
+    .nav-btn.active {
+      color: var(--primary-color);
+    }
+    
+    .nav-btn .icon {
+      font-size: 1.3rem;
+      margin-bottom: 2px;
+    }
+    
+    .nav-btn .label {
+      font-size: 0.65rem;
+      font-weight: 500;
+    }
+    
+    /* Views */
+    .view {
+      display: none;
+      padding: 12px;
+      padding-bottom: 70px;
+    }
+    
+    .view.active {
+      display: block;
+    }
+    
+    /* List card */
+    .list-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    
+    .list-card:active {
+      transform: scale(0.98);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    .list-card-name {
+      font-weight: 600;
+      font-size: 1rem;
+      margin-bottom: 4px;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .list-card-meta {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+    }
+    
+    .badge {
+      background: var(--primary-color);
+      color: white;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      margin-left: auto;
+    }
+    
+    /* Task item */
+    .task-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 8px;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .task-item:active {
+      background: #f8f9fa;
+    }
+    
+    .task-item.done {
+      opacity: 0.5;
+    }
+    
+    .task-item.from-whatsapp {
+      border-left: 3px solid #25d366;
+      background: linear-gradient(90deg, rgba(37, 211, 102, 0.05) 0%, transparent 100%);
+    }
+    
+    .task-checkbox {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    
+    .task-content {
+      flex: 1;
+      min-width: 0;
+    }
+    
+    .task-name {
+      font-size: 0.95rem;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+      word-wrap: break-word;
+    }
+    
+    .task-item.done .task-name {
+      text-decoration: line-through;
+      color: var(--text-secondary);
+    }
+    
+    .task-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      font-size: 0.7rem;
+      color: var(--text-secondary);
+    }
+    
+    .tag {
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 0.65rem;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    
+    .tag-whatsapp { background: #e8f5e9; color: #2e7d32; }
+    .tag-urgent { background: #ffebee; color: #c62828; }
+    .tag-manual { background: #e3f2fd; color: #1976d2; }
+    
+    /* Buttons */
+    .btn-action {
+      padding: 8px 14px;
+      background: var(--primary-color);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      cursor: pointer;
+      min-height: 38px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    
+    .btn-action:active {
+      opacity: 0.8;
+    }
+    
+    .btn-secondary {
+      background: var(--bg-card);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+    }
+    
+    .btn-block {
+      width: 100%;
+    }
+    
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: 50px 20px;
+      color: var(--text-secondary);
+    }
+    
+    .empty-state .icon {
+      font-size: 3.5rem;
+      margin-bottom: 12px;
+      opacity: 0.5;
+    }
+    
+    .empty-state h2 {
+      font-size: 1.2rem;
+      margin-bottom: 6px;
+      color: var(--text-primary);
+    }
+    
+    .empty-state p {
+      font-size: 0.85rem;
+      margin-bottom: 20px;
+    }
+    
+    /* Filter tabs */
+    .filter-tabs {
+      display: flex;
+      overflow-x: auto;
+      gap: 6px;
+      padding-bottom: 10px;
+      margin-bottom: 12px;
+      -webkit-overflow-scrolling: touch;
+    }
+    
+    .filter-tabs::-webkit-scrollbar {
+      display: none;
+    }
+    
+    .filter-tab {
+      flex-shrink: 0;
+      padding: 6px 12px;
+      border-radius: 16px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      color: var(--text-secondary);
+      font-size: 0.8rem;
+      font-weight: 500;
+      cursor: pointer;
+      min-height: 34px;
+      display: flex;
+      align-items: center;
+      white-space: nowrap;
+    }
+    
+    .filter-tab.active {
+      background: var(--primary-color);
+      color: white;
+      border-color: var(--primary-color);
+    }
+    
+    /* Back button */
+    .back-btn {
+      background: none;
+      border: none;
+      color: var(--primary-color);
+      font-size: 1.5rem;
+      padding: 0;
+      cursor: pointer;
+      min-width: 40px;
+      min-height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    /* Detail view */
+    .detail-section {
+      background: var(--bg-card);
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+    
+    .detail-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      margin-bottom: 6px;
+      letter-spacing: 0.5px;
+    }
+    
+    .detail-value {
+      font-size: 0.9rem;
+      color: var(--text-primary);
+    }
+    
+    .detail-textarea {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-size: 0.9rem;
+      min-height: 80px;
+      resize: vertical;
+      font-family: inherit;
+    }
+    
+    /* Modal-like overlay */
+    .overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 2000;
+      display: none;
+    }
+    
+    .overlay.active {
+      display: block;
+    }
+    
+    .modal-sheet {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--bg-card);
+      border-radius: 16px 16px 0 0;
+      padding: 20px;
+      padding-bottom: calc(20px + var(--safe-area-bottom));
+      transform: translateY(100%);
+      transition: transform 0.3s ease;
+      z-index: 2001;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    
+    .modal-sheet.active {
+      transform: translateY(0);
+    }
+    
+    .modal-header {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border-color);
+    }
+    
+    .form-group {
+      margin-bottom: 14px;
+    }
+    
+    .form-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+      display: block;
+    }
+    
+    .form-input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-family: inherit;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <div class="mobile-header">
+    <h1 id="headerTitle">📋 Event Notes</h1>
+    <button class="header-btn" id="btnAdd" onclick="showAddTask()">+</button>
+  </div>
+
+  <!-- Main content -->
+  <div class="mobile-content">
+    <!-- Lists View -->
+    <div class="view active" id="viewLists">
+      <div id="listsContainer"></div>
+    </div>
+
+    <!-- Tasks View -->
+    <div class="view" id="viewTasks">
+      <div class="filter-tabs" id="filterTabs">
+        <div class="filter-tab active" onclick="filterTasks('all')">All</div>
+        <div class="filter-tab" onclick="filterTasks('pending')">Active</div>
+        <div class="filter-tab" onclick="filterTasks('done')">Done</div>
+        <div class="filter-tab" onclick="filterTasks('whatsapp')">WhatsApp</div>
+      </div>
+      <div id="tasksContainer"></div>
+    </div>
+
+    <!-- Task Detail View -->
+    <div class="view" id="viewDetail">
+      <div id="detailContainer"></div>
+    </div>
+  </div>
+
+  <!-- Bottom Navigation -->
+  <div class="mobile-nav">
+    <button class="nav-btn active" onclick="showLists()">
+      <div class="icon">📂</div>
+      <div class="label">Lists</div>
+    </button>
+    <button class="nav-btn" onclick="showCurrentList()">
+      <div class="icon">✓</div>
+      <div class="label">Tasks</div>
+    </button>
+  </div>
+
+  <!-- Add Task Modal -->
+  <div class="overlay" id="addTaskOverlay" onclick="closeAddTask()"></div>
+  <div class="modal-sheet" id="addTaskModal">
+    <div class="modal-header">Add Task</div>
+    <div class="form-group">
+      <label class="form-label">Task Description</label>
+      <textarea class="form-input" id="newTaskText" rows="3" placeholder="What needs to be done?"></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Your Name (optional)</label>
+      <input type="text" class="form-input" id="newTaskAuthor" placeholder="Who's adding this?">
+    </div>
+    <button class="btn-action btn-block" onclick="saveNewTask()">Add Task</button>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // State
+    const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3000/api' : '/api';
+    let currentList = null;
+    let currentFilter = 'all';
+    let allLists = [];
+    let currentTasks = [];
+    
+    // Initialize
+    async function init() {
+      await loadLists();
+      
+      // Load last viewed list
+      const savedListId = localStorage.getItem('rts.mobile.notes.lastList');
+      if (savedListId) {
+        const list = allLists.find(l => l.id == savedListId);
+        if (list) {
+          selectList(list);
+          return;
+        }
+      }
+      
+      // Default to GENERAL LIST or first list
+      const generalList = allLists.find(l => l.name === 'GENERAL LIST');
+      if (generalList) {
+        selectList(generalList);
+      } else if (allLists.length > 0) {
+        selectList(allLists[0]);
+      }
+    }
+    
+    // Load all lists
+    async function loadLists() {
+      try {
+        const response = await fetch(`${API_BASE}/packing-lists`);
+        const data = await response.json();
+        
+        if (data.success) {
+          allLists = data.lists || [];
+          renderLists();
+        }
+      } catch (error) {
+        console.error('Error loading lists:', error);
+        document.getElementById('listsContainer').innerHTML = `
+          <div class="empty-state">
+            <div class="icon">⚠️</div>
+            <h2>Connection Error</h2>
+            <p>Could not load lists. Check your connection.</p>
+          </div>
+        `;
+      }
+    }
+    
+    // Render lists
+    function renderLists() {
+      const container = document.getElementById('listsContainer');
+      
+      if (allLists.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="icon">📋</div>
+            <h2>No Lists Yet</h2>
+            <p>Create a list from the desktop app to get started.</p>
+          </div>
+        `;
+        return;
+      }
+      
+      const generalLists = allLists.filter(l => l.name === 'GENERAL LIST');
+      const customLists = allLists.filter(l => !l.event_id && l.name !== 'GENERAL LIST');
+      const eventLists = allLists.filter(l => l.event_id);
+      
+      let html = '';
+      
+      // General
+      generalLists.forEach(list => {
+        html += `
+          <div class="list-card" onclick="selectList(${JSON.stringify(list).replace(/"/g, '&quot;')})">
+            <div class="list-card-name">
+              📌 ${list.name}
+              <span class="badge">${list.task_count || 0}</span>
+            </div>
+            <div class="list-card-meta">General task list</div>
+          </div>
+        `;
+      });
+      
+      // Custom
+      customLists.forEach(list => {
+        html += `
+          <div class="list-card" onclick="selectList(${JSON.stringify(list).replace(/"/g, '&quot;')})">
+            <div class="list-card-name">
+              📋 ${list.name}
+              <span class="badge">${list.task_count || 0}</span>
+            </div>
+            <div class="list-card-meta">${list.description || 'Custom list'}</div>
+          </div>
+        `;
+      });
+      
+      // Events
+      eventLists.forEach(list => {
+        html += `
+          <div class="list-card" onclick="selectList(${JSON.stringify(list).replace(/"/g, '&quot;')})">
+            <div class="list-card-name">
+              📅 ${list.event_name || list.name}
+              <span class="badge">${list.task_count || 0}</span>
+            </div>
+            <div class="list-card-meta">${list.event_date || 'Event list'}</div>
+          </div>
+        `;
+      });
+      
+      container.innerHTML = html;
+    }
+    
+    // Select a list
+    async function selectList(list) {
+      currentList = list;
+      localStorage.setItem('rts.mobile.notes.lastList', list.id);
+      
+      document.getElementById('headerTitle').textContent = list.event_name || list.name;
+      
+      await loadTasks();
+      showView('viewTasks');
+      updateNav(1);
+    }
+    
+    // Load tasks for current list
+    async function loadTasks() {
+      if (!currentList) return;
+      
+      try {
+        const response = await fetch(`${API_BASE}/packing-lists/${currentList.id}/tasks`);
+        const data = await response.json();
+        
+        if (data.success) {
+          currentTasks = data.tasks || [];
+          renderTasks();
+        }
+      } catch (error) {
+        console.error('Error loading tasks:', error);
+      }
+    }
+    
+    // Render tasks
+    function renderTasks() {
+      const container = document.getElementById('tasksContainer');
+      
+      let filteredTasks = currentTasks;
+      
+      if (currentFilter === 'pending') {
+        filteredTasks = currentTasks.filter(t => !t.done);
+      } else if (currentFilter === 'done') {
+        filteredTasks = currentTasks.filter(t => t.done);
+      } else if (currentFilter === 'whatsapp') {
+        filteredTasks = currentTasks.filter(t => t.source === 'whatsapp');
+      }
+      
+      if (filteredTasks.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="icon">📝</div>
+            <h2>No Tasks</h2>
+            <p>${currentFilter === 'all' ? 'Add a new task to get started.' : 'No tasks in this filter.'}</p>
+          </div>
+        `;
+        return;
+      }
+      
+      const html = filteredTasks.map(task => {
+        const tags = [];
+        if (task.source === 'whatsapp') tags.push('<span class="tag tag-whatsapp">WhatsApp</span>');
+        if (task.urgent) tags.push('<span class="tag tag-urgent">Urgent</span>');
+        
+        const dueDate = task.due_date ? new Date(task.due_date).toLocaleDateString() : '';
+        
+        return `
+          <div class="task-item ${task.done ? 'done' : ''} ${task.source === 'whatsapp' ? 'from-whatsapp' : ''}" 
+               onclick="viewTask(${task.id})">
+            <input type="checkbox" class="task-checkbox" 
+                   ${task.done ? 'checked' : ''} 
+                   onclick="toggleTask(${task.id}); event.stopPropagation();">
+            <div class="task-content">
+              <div class="task-name">${task.task || task.text || ''}</div>
+              <div class="task-meta">
+                ${task.author || 'Unknown'}
+                ${tags.join(' ')}
+                ${dueDate ? `· ${dueDate}` : ''}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+      
+      container.innerHTML = html;
+    }
+    
+    // Filter tasks
+    function filterTasks(filter) {
+      currentFilter = filter;
+      
+      // Update active tab
+      document.querySelectorAll('.filter-tab').forEach((tab, idx) => {
+        tab.classList.remove('active');
+        if ((filter === 'all' && idx === 0) ||
+            (filter === 'pending' && idx === 1) ||
+            (filter === 'done' && idx === 2) ||
+            (filter === 'whatsapp' && idx === 3)) {
+          tab.classList.add('active');
+        }
+      });
+      
+      renderTasks();
+    }
+    
+    // Toggle task done status
+    async function toggleTask(taskId) {
+      const task = currentTasks.find(t => t.id === taskId);
+      if (!task) return;
+      
+      try {
+        const response = await fetch(`${API_BASE}/packing-lists/${currentList.id}/tasks/${taskId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ done: !task.done })
+        });
+        
+        if (response.ok) {
+          task.done = !task.done;
+          renderTasks();
+        }
+      } catch (error) {
+        console.error('Error toggling task:', error);
+      }
+    }
+    
+    // View task details
+    function viewTask(taskId) {
+      const task = currentTasks.find(t => t.id === taskId);
+      if (!task) return;
+      
+      const container = document.getElementById('detailContainer');
+      
+      const html = `
+        <div class="detail-section">
+          <div class="detail-label">Task</div>
+          <div class="detail-value">${task.task || task.text || ''}</div>
+        </div>
+        
+        <div class="detail-section">
+          <div class="detail-label">Status</div>
+          <div class="detail-value">${task.done ? '✅ Done' : '⭕ Active'}</div>
+        </div>
+        
+        ${task.author ? `
+        <div class="detail-section">
+          <div class="detail-label">Author</div>
+          <div class="detail-value">${task.author}</div>
+        </div>
+        ` : ''}
+        
+        ${task.source === 'whatsapp' ? `
+        <div class="detail-section">
+          <div class="detail-label">Source</div>
+          <div class="detail-value">📱 WhatsApp</div>
+        </div>
+        ` : ''}
+        
+        ${task.due_date ? `
+        <div class="detail-section">
+          <div class="detail-label">Due Date</div>
+          <div class="detail-value">${new Date(task.due_date).toLocaleString()}</div>
+        </div>
+        ` : ''}
+        
+        ${task.notes ? `
+        <div class="detail-section">
+          <div class="detail-label">Notes</div>
+          <div class="detail-value">${task.notes}</div>
+        </div>
+        ` : ''}
+        
+        <button class="btn-action btn-block" onclick="toggleTask(${task.id}); showCurrentList();">
+          ${task.done ? 'Mark as Active' : 'Mark as Done'}
+        </button>
+      `;
+      
+      container.innerHTML = html;
+      showView('viewDetail');
+    }
+    
+    // Show add task modal
+    function showAddTask() {
+      if (!currentList) {
+        alert('Please select a list first');
+        showLists();
+        return;
+      }
+      
+      document.getElementById('newTaskText').value = '';
+      document.getElementById('newTaskAuthor').value = localStorage.getItem('rts.mobile.notes.author') || '';
+      
+      document.getElementById('addTaskOverlay').classList.add('active');
+      document.getElementById('addTaskModal').classList.add('active');
+    }
+    
+    // Close add task modal
+    function closeAddTask() {
+      document.getElementById('addTaskOverlay').classList.remove('active');
+      document.getElementById('addTaskModal').classList.remove('active');
+    }
+    
+    // Save new task
+    async function saveNewTask() {
+      const text = document.getElementById('newTaskText').value.trim();
+      const author = document.getElementById('newTaskAuthor').value.trim();
+      
+      if (!text) {
+        alert('Please enter a task description');
+        return;
+      }
+      
+      if (author) {
+        localStorage.setItem('rts.mobile.notes.author', author);
+      }
+      
+      try {
+        const response = await fetch(`${API_BASE}/packing-lists/${currentList.id}/tasks`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            task: text,
+            author: author || 'Mobile User',
+            source: 'mobile'
+          })
+        });
+        
+        if (response.ok) {
+          closeAddTask();
+          await loadTasks();
+        }
+      } catch (error) {
+        console.error('Error creating task:', error);
+        alert('Failed to create task');
+      }
+    }
+    
+    // Navigation
+    function showLists() {
+      showView('viewLists');
+      updateNav(0);
+      document.getElementById('headerTitle').textContent = '📋 Event Notes';
+    }
+    
+    function showCurrentList() {
+      if (currentList) {
+        showView('viewTasks');
+        updateNav(1);
+        document.getElementById('headerTitle').textContent = currentList.event_name || currentList.name;
+      } else {
+        showLists();
+      }
+    }
+    
+    function showView(viewId) {
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      document.getElementById(viewId).classList.add('active');
+    }
+    
+    function updateNav(activeIndex) {
+      const navBtns = document.querySelectorAll('.nav-btn');
+      navBtns.forEach((btn, idx) => {
+        if (idx === activeIndex) {
+          btn.classList.add('active');
+        } else {
+          btn.classList.remove('active');
+        }
+      });
+    }
+    
+    // Initialize on load
+    document.addEventListener('DOMContentLoaded', init);
+    
+    // Prevent pull-to-refresh
+    document.body.addEventListener('touchmove', function(e) {
+      if (e.target.closest('.mobile-content') || e.target.closest('.filter-tabs')) {
+        return;
+      }
+      if (e.cancelable) {
+        e.preventDefault();
+      }
+    }, { passive: false });
+  </script>
+</body>
+</html>
