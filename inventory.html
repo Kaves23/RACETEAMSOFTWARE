@@ -1253,15 +1253,25 @@
         
         if (!confirmed) return;
         
-        showLoading('Deleting Item', 'Removing from database...');
+        showLoading('Deleting Item', 'Removing item...');
         
         try {
-          if (typeof RTS_API !== 'undefined' && RTS_API.deleteCollectionItem) {
-            await RTS_API.deleteCollectionItem('inventory', selectedItemId);
-          } else if (typeof RTS !== 'undefined' && RTS.apiDeleteCollectionItem) {
-            await RTS.apiDeleteCollectionItem('inventory', selectedItemId);
+          // Check if this is a demo/seeded item (starts with 'item-')
+          if (selectedItemId.startsWith('item-')) {
+            // Local-only demo data, just remove from array
+            allItems = allItems.filter(i => i.id !== selectedItemId);
+            showToast('Demo item removed (not in database)', 'success');
+          } else {
+            // Real database item, delete via API
+            if (typeof RTS_API !== 'undefined' && RTS_API.deleteCollectionItem) {
+              await RTS_API.deleteCollectionItem('inventory', selectedItemId);
+            } else if (typeof RTS !== 'undefined' && RTS.apiDeleteCollectionItem) {
+              await RTS.apiDeleteCollectionItem('inventory', selectedItemId);
+            }
+            allItems = allItems.filter(i => i.id !== selectedItemId);
+            showToast('Item deleted successfully', 'success');
           }
-          allItems = allItems.filter(i => i.id !== selectedItemId);
+          
           selectedItemId = null;
           
           document.getElementById('itemForm').reset();
@@ -1269,7 +1279,6 @@
           document.getElementById('itemForm').style.display = 'none';
           
           applyFilters();
-          showToast('Item deleted successfully', 'success');
         } catch (error) {
           showToast('Error deleting item: ' + error.message, 'error');
         }
@@ -1281,30 +1290,55 @@
       async function bulkDelete() {
         if (selectedItems.size === 0) return;
         
+        const itemCount = selectedItems.size;
+        
         const confirmed = await customConfirm(
           'Delete Multiple Items',
-          `Are you sure you want to delete ${selectedItems.size} items? This action cannot be undone.`,
+          `Are you sure you want to delete ${itemCount} items? This action cannot be undone.`,
           'Delete All',
           true
         );
         
         if (!confirmed) return;
         
-        showLoading('Deleting Items', `Removing ${selectedItems.size} items...`);
+        showLoading('Deleting Items', `Removing ${itemCount} items...`);
         
         try {
+          let deletedCount = 0;
+          let localOnlyCount = 0;
+          
           for (const itemId of selectedItems) {
-            if (typeof RTS_API !== 'undefined' && RTS_API.deleteCollectionItem) {
-              await RTS_API.deleteCollectionItem('inventory', itemId);
-            } else if (typeof RTS !== 'undefined' && RTS.apiDeleteCollectionItem) {
-              await RTS.apiDeleteCollectionItem('inventory', itemId);
+            // Check if this is a demo/seeded item (starts with 'item-')
+            if (itemId.startsWith('item-')) {
+              // Local-only demo data, just remove from array
+              localOnlyCount++;
+            } else {
+              // Real database item, delete via API
+              try {
+                if (typeof RTS_API !== 'undefined' && RTS_API.deleteCollectionItem) {
+                  await RTS_API.deleteCollectionItem('inventory', itemId);
+                  deletedCount++;
+                } else if (typeof RTS !== 'undefined' && RTS.apiDeleteCollectionItem) {
+                  await RTS.apiDeleteCollectionItem('inventory', itemId);
+                  deletedCount++;
+                }
+              } catch (err) {
+                console.warn(`Failed to delete item ${itemId}:`, err.message);
+                // Continue with other deletions
+              }
             }
           }
           
+          // Remove all selected items from local array
           allItems = allItems.filter(i => !selectedItems.has(i.id));
           selectedItems.clear();
           applyFilters();
-          showToast(`Deleted ${selectedItems.size} items successfully`, 'success');
+          
+          if (localOnlyCount > 0) {
+            showToast(`Removed ${localOnlyCount} demo items (${deletedCount} from database)`, 'success');
+          } else {
+            showToast(`Deleted ${deletedCount} items successfully`, 'success');
+          }
         } catch (error) {
           showToast('Error deleting items: ' + error.message, 'error');
         }
