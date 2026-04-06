@@ -343,7 +343,8 @@ router.put('/:listId/items/:itemId', async (req, res) => {
       'estimated_hours', 'actual_hours', 'progress_percent',
       'tags', 'created_by_user_id', 'created_by_name',
       'parent_item_id', 'dependencies', 'color',
-      'is_milestone', 'blocked_reason', 'sort_order'
+      'is_milestone', 'blocked_reason', 'sort_order',
+      'font_family', 'font_size', 'linked_event_id', 'is_expanded'
     ];
     
     const fields = [];

@@ -28,7 +28,8 @@ async function runMigrations() {
     '020_optimize_box_contents_query.sql',
     '021_add_box_performance_indexes.sql',
     '022_add_driver_fields.sql',
-    '023_enhance_event_notes_with_task_features.sql'
+    '023_enhance_event_notes_with_task_features.sql',
+    '024_add_task_styling_and_event_link.sql'
   ];
   
   for (const filename of migrationFiles) {

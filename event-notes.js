@@ -626,7 +626,7 @@
     let filtered = allNotes.filter(note => {
       // Status filters
       if (currentFilter === 'pending') return note.status === 'pending';
-      if (currentFilter === 'done') return note.status === 'packed' || note.status === 'loaded';
+      if (currentFilter === 'done') return note.status === 'packed' || note.status === 'loaded' || note.status === 'completed';
       
       // WhatsApp filter
       if (currentFilter === 'whatsapp') {
@@ -637,9 +637,6 @@
       return true;
     });
     
-    // Sort by created date (newest first)
-    filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-    
     // Build HTML
     let html = '';
     
@@ -648,7 +645,7 @@
       const filteredGeneral = generalNotes.filter(note => {
         // Status filters
         if (currentFilter === 'pending') return note.status === 'pending';
-        if (currentFilter === 'done') return note.status === 'packed' || note.status === 'loaded';
+        if (currentFilter === 'done') return note.status === 'packed' || note.status === 'loaded' || note.status === 'completed';
         
         // WhatsApp filter
         if (currentFilter === 'whatsapp') {
@@ -661,7 +658,8 @@
       
       if (filteredGeneral.length > 0) {
         html += '<div class="mb-2 px-3 py-2" style="background: rgba(220,53,69,0.1); border-left: 3px solid #dc3545;"><strong class="text-danger">📌 GENERAL NOTES (on all events)</strong></div>';
-        html += filteredGeneral.map(note => renderNoteItem(note, true)).join('');
+        const generalTree = buildTree(filteredGeneral);
+        html += renderTree(generalTree, true);
         
         if (filtered.length > 0) {
           html += '<div class="mb-2 px-3 py-2" style="background: rgba(0,0,0,0.05); border-top: 2px solid #dee2e6; margin-top: 1rem;"><strong>Event-Specific Notes</strong></div>';
@@ -669,19 +667,61 @@
       }
     }
     
-    // Show event-specific notes
-    html += filtered.length > 0
-      ? filtered.map(note => renderNoteItem(note, false)).join('')
-      : (!html ? '<div class="text-center text-secondary py-5"><div>No notes match current filter</div></div>' : '');
+    // Show event-specific notes as tree
+    if (filtered.length > 0) {
+      const eventTree = buildTree(filtered);
+      html += renderTree(eventTree, false);
+    } else if (!html) {
+      html = '<div class="text-center text-secondary py-5"><div>No notes match current filter</div></div>';
+    }
     
     document.getElementById('taskList').innerHTML = html || '<div class="text-center py-5" style="color:#999;"><div>No tasks yet</div></div>';
   }
   
+  // Build hierarchical tree from flat data
+  function buildTree(items) {
+    const itemsById = {};
+    const rootItems = [];
+    
+    // First pass: index all items
+    items.forEach(item => {
+      itemsById[item.id] = { ...item, children: [] };
+    });
+    
+    // Second pass: build parent-child relationships
+    items.forEach(item => {
+      if (item.parent_item_id && itemsById[item.parent_item_id]) {
+        itemsById[item.parent_item_id].children.push(itemsById[item.id]);
+      } else {
+        rootItems.push(itemsById[item.id]);
+      }
+    });
+    
+    return rootItems;
+  }
+  
+  // Render tree recursively
+  function renderTree(items, isFromGeneral, depth = 0) {
+    return items.map(item => {
+      const html = renderNoteItem(item, isFromGeneral, depth);
+      const childrenHtml = item.children && item.children.length > 0 && (item.is_expanded !== false)
+        ? renderTree(item.children, isFromGeneral, depth + 1)
+        : '';
+      return html + childrenHtml;
+    }).join('');
+  }
+  
   // Render single note/task
-  function renderNoteItem(note, isFromGeneral = false) {
+  function renderNoteItem(note, isFromGeneral = false, depth = 0) {
     const isDone = note.status === 'packed' || note.status === 'loaded' || note.status === 'completed';
     const fromWhatsApp = note.whatsapp_message_id || 
       (note.source_notes && note.source_notes.includes('WhatsApp'));
+    
+    // Custom styling
+    const customColor = note.color || '';
+    const customFont = note.font_family || '';
+    const customSize = note.font_size || '12px';
+    const customStyle = `${customColor ? 'background-color: ' + customColor + ';' : ''} ${customFont ? 'font-family: ' + customFont + ';' : ''} font-size: ${customSize};`;
     
     // Priority badge
     const priorityIcons = {
@@ -692,62 +732,65 @@
     };
     const priorityIcon = priorityIcons[note.priority] || priorityIcons.normal;
     
-    // Status badge
-    const statusDisplay = {
-      pending: '⭕ Pending',
-      in_progress: '🔄 In Progress',
-      completed: '✅ Completed',
-      blocked: '🚫 Blocked',
-      packed: '📦 Packed',
-      loaded: '🚚 Loaded',
-      missing: '❌ Missing'
-    };
-    const statusText = statusDisplay[note.status] || note.status;
+    // Relation (list name)
+    const relationName = isFromGeneral ? 'GENERAL' : (currentList?.name || 'Event List');
     
-    // Dates
-    const startDate = note.start_date ? new Date(note.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-';
+    // Event name (if linked)
+    const eventName = note.linked_event_id ? '🎯 [Event]' : '-';
+    
+    // Completion percentage
+    const progress = note.progress_percent || 0;
+    
+    // Due date
     const dueDate = note.due_date ? new Date(note.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-';
+    const isOverdue = note.due_date && new Date(note.due_date) < new Date() && !isDone;
     
     // Assigned to
-    const assignedTo = note.assigned_to_name || 'Unassigned';
-    
-    // Progress bar
-    const progress = note.progress_percent || 0;
-    const progressColor = progress >= 75 ? '#28a745' : progress >= 50 ? '#ffc107' : progress >= 25 ? '#fd7e14' : '#6c757d';
+    const assignedTo = note.assigned_to_name || '-';
     
     // Tags
     let tags = [];
     if (fromWhatsApp) tags.push('<span class="tag tag-whatsapp">📱</span>');
-    if (isFromGeneral) tags.push('<span class="tag tag-general">📌 General</span>');
-    if (note.is_milestone) tags.push('<span class="tag tag-milestone">🏁 Milestone</span>');
+    if (isFromGeneral) tags.push('<span class="tag tag-general">📌</span>');
+    if (note.is_milestone) tags.push('<span class="tag tag-milestone">🏁</span>');
     if (note.tags) {
       const taskTags = note.tags.split(',').map(t => t.trim()).filter(Boolean);
       taskTags.forEach(tag => tags.push(`<span class="tag">${escapeHtml(tag)}</span>`));
     }
     
-    // Category badge
-    const categoryBadge = note.category ? `<span class="category-badge">${escapeHtml(note.category)}</span>` : '';
+    // Expand/collapse arrow
+    const hasChildren = note.children && note.children.length > 0;
+    const expandIcon = hasChildren ? (note.is_expanded !== false ? '▼' : '▶') : '';
+    const indent = depth * 20;
     
     return `
       <div class="task-item ${isDone ? 'done' : ''} ${note.status === 'blocked' ? 'blocked' : ''}" 
            data-note-id="${note.id}" 
+           data-depth="${depth}"
+           style="${customStyle}"
            onclick="window.selectTask('${note.id}', ${isFromGeneral})">
-        <div class="task-col task-checkbox-col">
+        <div class="task-col task-name-col" style="padding-left: ${indent}px; display: flex; align-items: center; gap: 4px;">
+          ${hasChildren ? `<span class="expand-icon" onclick="window.toggleExpand('${note.id}', ${isFromGeneral}, event)" style="cursor: pointer; width: 16px; text-align: center; user-select: none;">${expandIcon}</span>` : '<span style="width: 16px;"></span>'}
           <input type="checkbox" class="task-checkbox" ${isDone ? 'checked' : ''} 
-                 onclick="event.stopPropagation(); window.toggleNote('${note.id}', ${isFromGeneral})">
+                 onclick="event.stopPropagation(); window.toggleNote('${note.id}', ${isFromGeneral})" 
+                 style="margin: 0 4px;">
+          <span class="task-name-text" style="${isDone ? 'text-decoration: line-through; color: #999;' : ''}">${escapeHtml(note.item_name)}</span>
         </div>
-        <div class="task-col task-priority-col" title="${note.priority}">${priorityIcon}</div>
-        <div class="task-col task-name-col">
-          <div class="task-name-text">${escapeHtml(note.item_name)}</div>
-          ${categoryBadge}
+        <div class="task-col task-flag-col" title="${note.priority}">${priorityIcon}</div>
+        <div class="task-col task-relation-col">${escapeHtml(relationName)}</div>
+        <div class="task-col task-event-col">${eventName}</div>
+        <div class="task-col task-progress-col">
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <div style="flex: 1; height: 4px; background: #e0e0e0; border-radius: 2px; overflow: hidden;">
+              <div style="height: 100%; width: ${progress}%; background: linear-gradient(90deg, #3b82f6, #8b5cf6);"></div>
+            </div>
+            <span style="font-size: 10px; color: #666; min-width: 30px;">${progress}%</span>
+          </div>
         </div>
-        <div class="task-col task-assigned-col">${escapeHtml(assignedTo)}</div>
-        <div class="task-col task-status-col">
-          <span class="status-badge status-${note.status}">${statusText}</span>
-        </div>
-        <div class="task-col task-dates-col">
-          <span class="date-row"><span class="date-label">S:</span> <span class="date-value">${startDate}</span></span><span class="date-row"><span class="date-label">D:</span> <span class="date-value ${note.due_date && new Date(note.due_date) < new Date() && !isDone ? 'overdue' : ''}">${dueDate}</span></span>
-        </div>
+        <div class="task-col task-date-col ${isOverdue ? 'overdue' : ''}">${dueDate}</div>
+        <div class="task-col task-assigned-col" style="font-size: 11px;">${escapeHtml(assignedTo)}</div>
+        <div class="task-col task-tags-col">${tags.join(' ')}</div>
+      </div>
         <div class="task-col task-progress-col">
           <div class="progress-mini">
             <div class="progress-mini-bar" style="width: ${progress}%; background: ${progressColor};"></div>
@@ -769,6 +812,41 @@
       window.markAsDone(noteId, isFromGeneral);
     } else {
       window.markAsPending(noteId, isFromGeneral);
+    }
+  };
+  
+  // Toggle expand/collapse for hierarchical tasks
+  window.toggleExpand = async function(noteId, isFromGeneral = false, event) {
+    event.stopPropagation();
+    const noteList = isFromGeneral ? generalNotes : notes;
+    const note = noteList.find(n => n.id === noteId);
+    if (!note) return;
+    
+    try {
+      const listId = await getListIdForNote(isFromGeneral);
+      if (!listId) throw new Error('List not found');
+      
+      const resp = await fetch(
+        `${API_BASE}/packing-lists/${listId}/items/${noteId}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+          },
+          body: JSON.stringify({ is_expanded: !(note.is_expanded !== false) })
+        }
+      ).then(r => r.json());
+      
+      if (!resp.success) throw new Error('Failed to toggle expand');
+      
+      // Update local data
+      const idx = noteList.findIndex(n => n.id === noteId);
+      if (idx >= 0) noteList[idx] = resp.item;
+      
+      renderNotes();
+    } catch (error) {
+      console.error('Error toggling expand:', error);
     }
   };
   
@@ -1313,6 +1391,55 @@
         <input type="text" class="detail-input" value="${escapeHtml(note.tags || '')}" id="editTaskTags" placeholder="Comma-separated tags">
       </div>
       
+      <hr style="margin: 1rem 0; border-color: rgba(0,0,0,0.1);">
+      
+      <div class="detail-field">
+        <div class="detail-label">🎨 Row Background Color</div>
+        <div class="d-flex gap-2 align-items-center">
+          <input type="color" class="form-control" value="${note.color || '#ffffff'}" id="editTaskColor" style="width: 60px; height: 40px;">
+          <button class="detail-button" style="padding: 4px 8px; font-size: 11px;" onclick="document.getElementById('editTaskColor').value='#ffffff'">Clear</button>
+        </div>
+      </div>
+      
+      <div class="row">
+        <div class="col-6">
+          <div class="detail-field">
+            <div class="detail-label">Font Family</div>
+            <select class="detail-input" id="editTaskFontFamily">
+              <option value="" ${!note.font_family ? 'selected' : ''}>Default</option>
+              <option value="Arial, sans-serif" ${note.font_family === 'Arial, sans-serif' ? 'selected' : ''}>Arial</option>
+              <option value="'Courier New', monospace" ${note.font_family === "'Courier New', monospace" ? 'selected' : ''}>Courier New</option>
+              <option value="Georgia, serif" ${note.font_family === 'Georgia, serif' ? 'selected' : ''}>Georgia</option>
+              <option value="'Times New Roman', serif" ${note.font_family === "'Times New Roman', serif" ? 'selected' : ''}>Times New Roman</option>
+              <option value="Verdana, sans-serif" ${note.font_family === 'Verdana, sans-serif' ? 'selected' : ''}>Verdana</option>
+              <option value="'Trebuchet MS', sans-serif" ${note.font_family === "'Trebuchet MS', sans-serif" ? 'selected' : ''}>Trebuchet MS</option>
+            </select>
+          </div>
+        </div>
+        <div class="col-6">
+          <div class="detail-field">
+            <div class="detail-label">Font Size</div>
+            <select class="detail-input" id="editTaskFontSize">
+              <option value="" ${!note.font_size ? 'selected' : ''}>Default (12px)</option>
+              <option value="10px" ${note.font_size === '10px' ? 'selected' : ''}>10px (Small)</option>
+              <option value="11px" ${note.font_size === '11px' ? 'selected' : ''}>11px</option>
+              <option value="12px" ${note.font_size === '12px' ? 'selected' : ''}>12px (Normal)</option>
+              <option value="13px" ${note.font_size === '13px' ? 'selected' : ''}>13px</option>
+              <option value="14px" ${note.font_size === '14px' ? 'selected' : ''}>14px (Large)</option>
+              <option value="16px" ${note.font_size === '16px' ? 'selected' : ''}>16px</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      
+      <div class="detail-field">
+        <div class="detail-label">🎯 Link to Event</div>
+        <select class="detail-input" id="editTaskLinkedEvent">
+          <option value="">No event linked</option>
+          <!-- Event options will be populated dynamically -->
+        </select>
+      </div>
+      
       ${note.status === 'blocked' ? `
         <div class="detail-field">
           <div class="detail-label">Blocked Reason</div>
@@ -1365,7 +1492,37 @@
         }
       });
     }
+    
+    // Load events into dropdown
+    loadEventsForDropdown(note.linked_event_id);
   };
+  
+  // Load events into the linked event dropdown
+  async function loadEventsForDropdown(selectedEventId) {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`${API_BASE}/collections/events?sort=date&order=desc&limit=50`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      
+      if (data.success && data.data) {
+        const dropdown = document.getElementById('editTaskLinkedEvent');
+        if (dropdown) {
+          let options = '<option value="">No event linked</option>';
+          data.data.forEach(event => {
+            const eventDate = event.date ? new Date(event.date).toLocaleDateString() : '';
+            const label = `${event.name || 'Untitled'} ${eventDate ? '(' + eventDate + ')' : ''}`;
+            const selected = event.id === selectedEventId ? 'selected' : '';
+            options += `<option value="${event.id}" ${selected}>${label}</option>`;
+          });
+          dropdown.innerHTML = options;
+        }
+      }
+    } catch (error) {
+      console.error('Error loading events:', error);
+    }
+  }
   
   window.saveTaskDetails = async function(noteId, isFromGeneral = false) {
     try {
@@ -1384,6 +1541,10 @@
       const tags = document.getElementById('editTaskTags')?.value.trim();
       const isMilestone = document.getElementById('editTaskMilestone')?.checked;
       const blockedReason = document.getElementById('editTaskBlocked')?.value?.trim();
+      const color = document.getElementById('editTaskColor')?.value;
+      const fontFamily = document.getElementById('editTaskFontFamily')?.value;
+      const fontSize = document.getElementById('editTaskFontSize')?.value;
+      const linkedEvent = document.getElementById('editTaskLinkedEvent')?.value;
       
       if (!itemName) {
         alert('Task name is required');
@@ -1419,6 +1580,10 @@
       if (category) updates.category = category;
       if (tags) updates.tags = tags;
       if (status === 'blocked' && blockedReason) updates.blocked_reason = blockedReason;
+      if (color) updates.color = color;
+      if (fontFamily) updates.font_family = fontFamily;
+      if (fontSize) updates.font_size = fontSize;
+      if (linkedEvent) updates.linked_event_id = linkedEvent;
       
       // Set completed_at if status is completed
       if (status === 'completed' || status === 'packed' || status === 'loaded') {
