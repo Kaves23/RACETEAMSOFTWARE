@@ -7,10 +7,14 @@ router.post('/pack', async (req, res, next) => {
   try {
     const { boxId, itemId, quantity } = req.body;
     
+    console.log('📦 /api/inventory/pack called:', { boxId, itemId, quantity });
+    
     if (!boxId || !itemId) {
+      console.error('❌ Missing fields:', { boxId, itemId });
       return res.status(400).json({ 
         success: false, 
-        error: 'Missing required fields: boxId, itemId' 
+        error: 'Missing required fields: boxId, itemId',
+        received: { boxId, itemId, quantity }
       });
     }
     

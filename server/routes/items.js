@@ -284,13 +284,26 @@ router.post('/pack', async (req, res, next) => {
         return res.status(404).json({ success: false, error: 'Item not found' });
       }
       
-      // Also create box_contents entry for tracking
-      await client.query(
-        `INSERT INTO box_contents (box_id, item_id, item_type, packed_at)
-         VALUES ($1, $2, 'equipment', NOW())
-         ON CONFLICT (box_id, item_id) DO UPDATE SET packed_at = NOW(), item_type = 'equipment'`,
+      // Check if box_contents entry already exists
+      const existingContent = await client.query(
+        'SELECT * FROM box_contents WHERE box_id = $1 AND item_id = $2 AND item_type IN (\'equipment\', \'asset\')',
         [boxId, itemId]
       );
+      
+      if (existingContent.rows.length === 0) {
+        // Create new box_contents entry
+        await client.query(
+          `INSERT INTO box_contents (box_id, item_id, item_type, packed_at)
+           VALUES ($1, $2, 'equipment', NOW())`,
+          [boxId, itemId]
+        );
+      } else {
+        // Update existing entry timestamp
+        await client.query(
+          `UPDATE box_contents SET packed_at = NOW() WHERE box_id = $1 AND item_id = $2 AND item_type IN ('equipment', 'asset')`,
+          [boxId, itemId]
+        );
+      }
       
       await client.query('COMMIT');
       
