@@ -51,6 +51,9 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   async function loadData() {
     console.log('🔄 Loading data in parallel...');
     
+    // Declare these at function scope so they're accessible in all try blocks
+    let boxesResp, itemsResp, contentsResp;
+    
     // Load ALL data in parallel for better performance
     try {
       if (!window.RTS_API) {
@@ -61,7 +64,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       const startTime = Date.now();
       
       // Execute all API calls in parallel
-      const [boxesResp, itemsResp, contentsResp] = await Promise.all([
+      [boxesResp, itemsResp, contentsResp] = await Promise.all([
         window.RTS_API.getBoxes(),
         window.RTS_API.getItems(),
         window.RTS_API.getBoxContents()
