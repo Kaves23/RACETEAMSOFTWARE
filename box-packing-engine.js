@@ -275,7 +275,6 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
           const quantity = content.quantityPacked || 1;
           const currentTotal = inventoryQuantities.get(content.itemId) || 0;
           inventoryQuantities.set(content.itemId, currentTotal + quantity);
-          inventoryQuantities.set(String(content.itemId), currentTotal + quantity);
           console.log(`  📦 Inventory item ${content.itemId}: +${quantity} units (total: ${currentTotal + quantity})`);
         }
       });
@@ -283,7 +282,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       // Store as global for use in rendering
       window.inventoryPackedQuantities = inventoryQuantities;
       
-      console.log(`✅ Rebuilt inventory quantities tracking: ${inventoryQuantities.size / 2} inventory items with packed units`);
+      console.log(`✅ Rebuilt inventory quantities tracking: ${inventoryQuantities.size} inventory items with packed units`);
     } catch (e) {
       console.warn('Could not load box contents from API, using localStorage:', e.message);
       boxContents = RTS.safeLoadJSON(LS_BOX_CONTENTS, null) || [];
@@ -296,11 +295,10 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
           const quantity = content.quantityPacked || 1;
           const currentTotal = inventoryQuantities.get(content.itemId) || 0;
           inventoryQuantities.set(content.itemId, currentTotal + quantity);
-          inventoryQuantities.set(String(content.itemId), currentTotal + quantity);
         }
       });
       window.inventoryPackedQuantities = inventoryQuantities;
-      console.log(`✅ Rebuilt inventory quantities from localStorage: ${inventoryQuantities.size / 2} items`);
+      console.log(`✅ Rebuilt inventory quantities from localStorage: ${inventoryQuantities.size} items`);
     }
     
     // Box history - For now keep in localStorage, will add API endpoint later
@@ -362,6 +360,9 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     }
     
     console.log(`✅ Data load complete: ${boxes.length} boxes, ${equipment.length} equipment, ${assets.length} assets`);
+    
+    // Always load inventory items on startup so packed inventory items can be resolved
+    await loadInventoryItems();
     
     // Seed box contents if empty (pack items into boxes for testing)
     if (boxContents.length === 0 && boxes.length > 0) {
