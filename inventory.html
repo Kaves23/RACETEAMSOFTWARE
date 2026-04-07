@@ -628,7 +628,7 @@
   
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="config.js?v=20260404-1640"></script>
-  <script src="core.js?v=20260404-1640"></script>
+  <script src="core.js?v=20260407-2200"></script>
   <script src="topnav.js"></script>
   <script>
     // Modern Inventory Management System
@@ -647,7 +647,7 @@
       // Settings
       const settings = RTS.getSettings();
       const CATEGORIES = settings.categories || ['Consumables', 'Spares', 'Tyres', 'Tools & PPE'];
-      const LOCATIONS = settings.locations || [];
+      let LOCATIONS = []; // Loaded from DB in init()
       const SUPPLIERS = (settings.suppliers || []).map(s => typeof s === 'string' ? s : s.name).filter(Boolean);
       
       // Initialize
@@ -656,6 +656,11 @@
         RTS.setActiveNav();
         setupModals();
         setupEventListeners();
+        // Load locations from DB
+        try {
+          const locResp = await RTS_API.getLocations();
+          if (locResp && locResp.items) LOCATIONS = locResp.items.filter(l => l.is_active !== false);
+        } catch (e) { console.warn('Could not load locations:', e.message); }
         await loadData();
         populateDropdowns();
         renderAll();

@@ -414,7 +414,7 @@
       </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="core.js?v=20260407-1700"></script>
+  <script src="core.js?v=20260407-2200"></script>
   <script src="topnav.js?v=20260407-1700"></script>
   <script>
   // Theme switching functionality
@@ -546,8 +546,24 @@
     let assetTypesCache = null; // Cache for asset types from database
     let driversCache = null; // Cache for drivers from database  
     let staffCache = null;    // Cache for staff from database
+    let locationsCache = null; // Cache for locations from database
 
     function saveUI(){ RTS.safeSaveJSON('rts.settings.ui.v1', ui); }
+
+    // Load locations from database
+    async function loadLocationsFromDB() {
+      try {
+        const response = await RTS_API.getLocations();
+        if (response && response.items) {
+          locationsCache = response.items;
+          return locationsCache;
+        }
+      } catch (error) {
+        console.error('Error loading locations from database:', error);
+        locationsCache = [];
+      }
+      return [];
+    }
 
     // Load asset types from database (async)
     async function loadAssetTypesFromDB() {
@@ -634,7 +650,7 @@
       if(section==='staff') return staffCache || [];
       if(section==='roles') return (settings.roles||[]).map((n,i)=>({ id:'role_'+i, name:n }));
       if(section==='suppliers') return settings.suppliers || [];
-      if(section==='locations') return (settings.locations||[]).map((n,i)=>({ id:'loc_'+i, name:n }));
+      if(section==='locations') return locationsCache || [];
       if(section==='assetTypes') return assetTypesCache || []; // Use cache from database
       if(section==='venues') return (settings.venues||[]).map(v=>({ id:v.id||RTS.uid('venue'), name:v.name, location:v.location||'', notes:v.notes||'' }));
       if(section==='eventTypes') return (settings.eventTypes||[]).map((e,i)=>({ id:'et_'+i, code:e.code, color:e.color }));
@@ -649,7 +665,7 @@
       if(section==='staff') settings.staff = arr;
       if(section==='roles') settings.roles = arr.map(x=>x.name).filter(Boolean);
       if(section==='suppliers') settings.suppliers = arr;
-      if(section==='locations') settings.locations = arr.map(x=>x.name).filter(Boolean);
+      if(section==='locations') { /* saved to DB in saveInspector */ return; }
       if(section==='assetTypes') {
         // Save to database instead of localStorage
         assetTypesCache = arr;
@@ -692,6 +708,9 @@
       }
       if(ui.section === 'staff' && !staffCache) {
         await loadStaffFromDB();
+      }
+      if(ui.section === 'locations' && !locationsCache) {
+        await loadLocationsFromDB();
       }
       if(ui.section === 'assetTypes' && !assetTypesCache) {
         await loadAssetTypesFromDB();
@@ -937,6 +956,23 @@
       }
       if(ui.section==='locations') {
         cur.name = els.f_loc_name.value.trim();
+        // Save to database
+        (async () => {
+          try {
+            const isNew = !cur.created_at;
+            if (isNew) {
+              await RTS_API.createCollectionItem('locations', { id: cur.id, name: cur.name, location_type: 'other', is_active: true });
+            } else {
+              await RTS_API.updateCollectionItem('locations', cur.id, { name: cur.name });
+            }
+            await loadLocationsFromDB();
+            if (RTS.showToast) RTS.showToast('✅ Location saved', 'success');
+          } catch (error) {
+            console.error('Error saving location:', error);
+            if (RTS.showToast) RTS.showToast('Failed to save location: ' + error.message, 'error');
+          }
+        })();
+        return;
       }
       if(ui.section==='assetTypes') {
         cur.name = els.f_assettype_name.value.trim();
@@ -1040,8 +1076,24 @@
       if(ui.section==='roles') item = { id: RTS.uid('role'), name:'New Role' };
       if(ui.section==='suppliers') item = { id: RTS.uid('sup'), name:'New Supplier', email:'', phone:'', leadTimeDays:0, vatNumber:'', accountNumber:'', notes:'' };
       if(ui.section==='locations') item = { id: RTS.uid('loc'), name:'New Location' };
+      // Create in database
+      if(ui.section==='locations') {
+        try {
+          const resp = await RTS_API.createCollectionItem('locations', { id: item.id, name: item.name, location_type: 'other', is_active: true });
+          if (resp && resp.success) {
+            await loadLocationsFromDB();
+            ui.selectedId = item.id;
+            saveUI();
+            await renderList();
+            if (RTS.showToast) RTS.showToast('✅ Location created', 'success');
+          }
+        } catch (error) {
+          console.error('Error creating location:', error);
+          if (RTS.showToast) RTS.showToast('Failed to create location: ' + error.message, 'error');
+        }
+        return;
+      }
       if(ui.section==='assetTypes') {
-        item = { id: RTS.uid('at'), name:'New Asset Type', color:'#0ea5e9', is_active: true, sort_order: arr.length };
         // Create in database
         try {
           await RTS_API.createAssetType({
@@ -1132,6 +1184,23 @@
         }
       }
       
+      if(ui.section==='locations') {
+        try {
+          const itemToDelete = arr[idx];
+          await RTS_API.deleteCollectionItem('locations', itemToDelete.id);
+          await loadLocationsFromDB();
+          ui.selectedId = locationsCache && locationsCache[0] ? locationsCache[0].id : null;
+          saveUI();
+          await renderList();
+          if (RTS.showToast) RTS.showToast('✅ Location deleted', 'success');
+          return;
+        } catch (error) {
+          console.error('Error deleting location:', error);
+          if (RTS.showToast) RTS.showToast('Failed to delete location: ' + error.message, 'error');
+          return;
+        }
+      }
+
       if(ui.section==='assetTypes') {
         // Delete from database
         try {

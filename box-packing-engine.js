@@ -234,9 +234,9 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
           updatedAt: item.updated_at
         }));
         
-        // Show all items regardless of item_type (supports custom types from settings)
-        equipment = mappedItems.filter(item => item.itemType === 'equipment' || !['asset'].includes(item.itemType));
-        assets = mappedItems.filter(item => item.itemType === 'asset' || !['equipment'].includes(item.itemType));
+        // equipment = items with type 'equipment'; assets = everything else (asset, custom types, etc.)
+        equipment = mappedItems.filter(item => item.itemType === 'equipment');
+        assets = mappedItems.filter(item => item.itemType !== 'equipment');
       }
       
       console.log(`📦 Loaded: ${equipment.length} items in equipment view + ${assets.length} items in assets view (total: ${equipment.length + assets.length})`);
@@ -332,30 +332,19 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       );
     }
     
-    // Load locations from database API, fall back to settings locations
+    // Load locations from database only — no localStorage fallback
     try {
       const locationsResponse = await RTS_API.getLocations({ is_active: true });
       if (locationsResponse && locationsResponse.items && locationsResponse.items.length > 0) {
         allLocations = locationsResponse.items;
         console.log(`✅ Loaded ${allLocations.length} locations from database`);
       } else {
-        const settingsLocs = (RTS.getSettings().locations || []);
-        allLocations = settingsLocs.map((loc, idx) => ({
-          id: `loc-${idx}`,
-          name: typeof loc === 'string' ? loc : loc.name,
-          is_active: true
-        }));
-        console.log(`⚠️ No DB locations — using ${allLocations.length} from settings`);
+        allLocations = [];
+        console.warn('⚠️ No locations in database — add them in Settings > Locations');
       }
     } catch (error) {
       console.error('Error loading locations:', error);
-      const settingsLocs = (RTS.getSettings().locations || []);
-      allLocations = settingsLocs.map((loc, idx) => ({
-        id: `loc-${idx}`,
-        name: typeof loc === 'string' ? loc : loc.name,
-        is_active: true
-      }));
-      console.log(`⚠️ DB error — using ${allLocations.length} locations from settings`);
+      allLocations = [];
     }
     
     console.log(`✅ Data load complete: ${boxes.length} boxes, ${equipment.length} equipment, ${assets.length} assets`);
@@ -1370,12 +1359,10 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     document.getElementById('boxWeightCapacity').value = '';
     document.getElementById('boxDriver').value = '';
     
-    // Populate location dropdown from settings
-    const settings = RTS.getSettings();
-    const locations = settings.locations || [];
+    // Populate location dropdown from DB locations
     const locationSelect = document.getElementById('boxLocation');
     locationSelect.innerHTML = '<option value="">Select Location</option>' +
-      locations.map(loc => `<option value="${esc(loc)}">${esc(loc)}</option>`).join('');
+      allLocations.map(loc => `<option value="${esc(loc.id)}">${esc(loc.name)}</option>`).join('');
     
     // Populate drivers from PlanetScale database
     // Reload to ensure we have latest drivers
@@ -1739,13 +1726,10 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       return;
     }
     
-    // Populate location dropdown
+    // Populate location dropdown from DB locations
     const locationSelect = document.getElementById('unpackLocation');
-    const locOptions = allLocations && allLocations.length > 0
-      ? allLocations
-      : (RTS.getSettings().locations || []).map((l, i) => ({ id: `loc-${i}`, name: typeof l === 'string' ? l : l.name }));
     locationSelect.innerHTML = '<option value="">Select Location</option>' +
-      locOptions.map(loc => `<option value="${esc(loc.name)}">${esc(loc.name)}</option>`).join('');
+      allLocations.map(loc => `<option value="${esc(loc.id)}">${esc(loc.name)}</option>`).join('');
 
     // Update modal title, description, button text for single vs full-box mode
     const titleEl = document.getElementById('unpackModalTitle');
@@ -1792,12 +1776,12 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   }
 
   async function confirmUnpack() {
-    const locationName = document.getElementById('unpackLocation').value;
-
-    if (!locationName) {
+    const locationId = document.getElementById('unpackLocation').value;
+    if (!locationId) {
       showToast('Please select a location', 'warning');
       return;
     }
+    const locationName = allLocations.find(l => l.id === locationId)?.name || locationId;
 
     const singleContentId = document.getElementById('unpackSingleContentId').value;
     const isSingleItem = !!singleContentId;
@@ -1824,8 +1808,6 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       isSingleItem ? `Removing Item` : `Emptying Box: ${box?.name}`,
       `Moving ${contents.length} item${contents.length !== 1 ? 's' : ''} to ${locationName}...`
     );
-
-    const locationId = locationName.toLowerCase().replace(/\s+/g, '_');
 
     try {
       await new Promise(resolve => setTimeout(resolve, 300));
@@ -2376,22 +2358,11 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       return;
     }
     
-    // Ensure we have locations
     if (allLocations.length === 0) {
-      const settings = RTS.getSettings();
-      const settingsLocations = settings.locations || [];
-      if (settingsLocations.length > 0) {
-        allLocations = settingsLocations.map((loc, idx) => ({
-          id: `loc-${idx}`,
-          name: typeof loc === 'string' ? loc : loc.name,
-          is_active: true
-        }));
-      } else {
-        showToast('No locations available. Please add locations in settings.', 'error');
-        return;
-      }
+      showToast('No locations available. Add them in Settings > Locations.', 'error');
+      return;
     }
-    
+
     const location = await customSelect(
       '📦 Move Boxes to Location',
       `Select location to move ${selectedBoxes.size} box(es) (items stay packed):`,
@@ -2437,22 +2408,11 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       return;
     }
     
-    // Ensure we have locations (check database or fallback to settings)
     if (allLocations.length === 0) {
-      const settings = RTS.getSettings();
-      const settingsLocations = settings.locations || [];
-      if (settingsLocations.length > 0) {
-        allLocations = settingsLocations.map((loc, idx) => ({
-          id: `loc-${idx}`,
-          name: typeof loc === 'string' ? loc : loc.name,
-          is_active: true
-        }));
-      } else {
-        showToast('No locations available. Please add locations in settings.', 'error');
-        return;
-      }
+      showToast('No locations available. Add them in Settings > Locations.', 'error');
+      return;
     }
-    
+
     const location = await customSelect(
       '📍 Unpack Boxes to Location',
       `Select location to unpack ${selectedBoxes.size} box(es):`,
@@ -2543,22 +2503,11 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       return;
     }
     
-    // Ensure we have locations (check database or fallback to settings)
     if (allLocations.length === 0) {
-      const settings = RTS.getSettings();
-      const settingsLocations = settings.locations || [];
-      if (settingsLocations.length > 0) {
-        allLocations = settingsLocations.map((loc, idx) => ({
-          id: `loc-${idx}`,
-          name: typeof loc === 'string' ? loc : loc.name,
-          is_active: true
-        }));
-      } else {
-        showToast('No locations available. Please add locations in settings.', 'error');
-        return;
-      }
+      showToast('No locations available. Add them in Settings > Locations.', 'error');
+      return;
     }
-    
+
     const location = await customSelect(
       '⚠️ Delete Boxes and Move Items',
       `Select location to move items from ${selectedBoxes.size} box(es):`,

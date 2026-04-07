@@ -36,7 +36,9 @@ async function runMigrations() {
     '028_add_quantity_to_box_contents.sql',
     '029_add_driver_colors.sql',
     '030_clean_drivers_columns.sql',
-    '031_replace_locations_with_real_data.sql'
+    '031_replace_locations_with_real_data.sql',
+    '032_cleanup_orphaned_box_references.sql',
+    '033_fix_location_ids_and_add_fks.sql'
   ];
   
   for (const filename of migrationFiles) {

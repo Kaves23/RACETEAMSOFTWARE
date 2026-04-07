@@ -236,7 +236,7 @@
         { id: uid('sup'), name:'Supplier – Fuel', email:'', phone:'', leadTimeDays:1, vatNumber:'', accountNumber:'', notes:'' },
         { id: uid('sup'), name:'Supplier – Engine Service', email:'', phone:'', leadTimeDays:7, vatNumber:'', accountNumber:'', notes:'' }
       ],
-      locations: ['Workshop','Trailer','Trackside Box','Store Room','Office'],
+      locations: [],
       assetTypes: [
         { name: 'Equipment', color: '#0ea5e9' },
         { name: 'Asset', color: '#a855f7' },
