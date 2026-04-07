@@ -900,6 +900,19 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     const search = document.getElementById('searchBoxes').value.toLowerCase();
     const sortBy = document.getElementById('sortBoxes')?.value || 'name';
     
+    // Debug: log driver assignment state
+    const assignedBoxes = boxes.filter(b => b.assignedDriverId || b.assigned_driver_id);
+    console.log(`🎨 renderBoxes: ${boxes.length} boxes, ${assignedBoxes.length} with driver assigned`);
+    if (assignedBoxes.length > 0) {
+      assignedBoxes.forEach(b => {
+        const dId = b.assignedDriverId || b.assigned_driver_id;
+        const drv = allDrivers.find(d => d.id === dId);
+        console.log(`   Box "${b.name}" → driver ${dId}, color: ${drv?.color || '(no color field)'}`);
+      });
+    } else {
+      console.log(`   Sample box keys:`, boxes[0] ? Object.keys(boxes[0]) : 'no boxes');
+    }
+    
     let filtered = boxes.filter(b =>
       (b.barcode || '').toLowerCase().includes(search) ||
       (b.name || '').toLowerCase().includes(search) ||
