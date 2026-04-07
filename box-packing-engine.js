@@ -957,10 +957,8 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
         const driverName = assignedDriverId ? (box.assignedDriverName || driver?.name || 'Assigned') : 'Unassigned';
         const assignIcon = assignedDriverId ? '✓' : '○';
         
-        // Inline styles using driver color
-        const badgeStyle = assignedDriverId 
-          ? `background:linear-gradient(135deg,${driverColor},${adjustBrightness(driverColor, -20)})!important` 
-          : 'background:#9e9e9e!important';
+        // Badge style - use inline background only if unassigned (CSS var handles assigned color)
+        const badgeStyle = assignedDriverId ? '' : 'background:#9e9e9e!important';
         
         driverBadge = `
           <div class="driver-box-badge" onclick="event.stopPropagation(); showDriverAssignmentModal('${box.id}')" 
@@ -977,7 +975,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
              ondragover="event.preventDefault(); this.style.background='${isDriverBox ? hexToRgba(driverColor, 0.15) : '#e8f0fe'}'"
              ondragleave="this.style.background=''"
              ondrop="handleBoxDrop(event, '${box.id}')"
-             style="${isDriverBox && assignedDriverId ? `border:2px solid ${driverColor};box-shadow:0 0 14px 3px ${hexToRgba(driverColor, 0.55)};` : ''}">  
+             style="${isDriverBox && assignedDriverId ? `--driver-color:${driverColor};` : ''}">  
           <input type="checkbox" class="box-checkbox" data-box-id="${box.id}" onclick="event.stopPropagation(); toggleBoxSelection('${box.id}')">
           ${contentsBadge}
           ${driverBadge}
