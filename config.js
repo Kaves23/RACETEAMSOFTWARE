@@ -147,6 +147,8 @@ window.RTS_API = {
   // ============================================
   
   async getBoxContents(boxId) {
+    // No boxId → fetch ALL box contents from bulk endpoint
+    if (!boxId) return await this.request('/box-contents');
     return await this.request(`/box-contents/${boxId}`);
   },
 

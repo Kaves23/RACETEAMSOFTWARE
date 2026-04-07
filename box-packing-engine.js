@@ -1695,7 +1695,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     
     // Reload box contents from DB for this box to ensure fresh data
     try {
-      const contentsResp = await RTS_API.getBoxContents();
+      const contentsResp = await RTS_API.getBoxContents(currentBoxId);
       if (contentsResp && contentsResp.success && contentsResp.contents) {
         boxContents = contentsResp.contents.map(c => ({
           id: c.id,
