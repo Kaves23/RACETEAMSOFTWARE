@@ -1946,13 +1946,17 @@
       try {
         console.log('🔄 Starting loadData...');
         
-        // Load items, boxes, and asset types in PARALLEL (not sequential)
-        const [allItems, allBoxesData, assetTypesResponse] = await Promise.all([
+        // Load items, boxes, asset types, and locations in PARALLEL
+        const [allItems, allBoxesData, assetTypesResponse, locationsResponse] = await Promise.all([
           window.RTS_DATA.getItems(),
           window.RTS_DATA.getBoxes(),
           window.RTS_API.getAssetTypes().catch(err => {
             console.warn('⚠️ Failed to load asset types from API:', err);
             return { success: false, assetTypes: [] };
+          }),
+          window.RTS_API.getLocations().catch(err => {
+            console.warn('⚠️ Failed to load locations from API:', err);
+            return { success: false, items: [] };
           })
         ]);
         
@@ -1961,14 +1965,19 @@
         allAssets = allItems || [];
         allBoxes = allBoxesData || [];
         
-        // Load locations from settings (instant - no API call)
-        const settings = window.RTS.getSettings();
-        const locationStrings = settings.locations || [];
-        // Transform string array to objects with id and name
-        allLocations = locationStrings.map(loc => ({
-          id: loc.toLowerCase().replace(/\s+/g, '_'),
-          name: loc
-        }));
+        // Load locations from database; fall back to settings (localStorage)
+        if (locationsResponse && locationsResponse.items && locationsResponse.items.length > 0) {
+          allLocations = locationsResponse.items.filter(l => l.is_active !== false);
+          console.log(`✅ Loaded ${allLocations.length} locations from database`);
+        } else {
+          const settings = window.RTS.getSettings();
+          const locationStrings = settings.locations || [];
+          allLocations = locationStrings.map(loc => ({
+            id: loc.toLowerCase().replace(/\s+/g, '_'),
+            name: loc
+          }));
+          console.log(`⚠️ Using ${allLocations.length} locations from localStorage fallback`);
+        }
         
         // Load asset types from database with fallback to settings
         if (assetTypesResponse && assetTypesResponse.success && assetTypesResponse.assetTypes.length > 0) {
@@ -1976,7 +1985,8 @@
           console.log(`✅ Loaded ${allAssetTypes.length} asset types from database`);
         } else {
           // Fallback to localStorage if API fails
-          const assetTypesFromSettings = settings.assetTypes || [{name:'Equipment',color:'#0ea5e9'},{name:'Asset',color:'#a855f7'}];
+          const settingsFallback = window.RTS.getSettings();
+          const assetTypesFromSettings = settingsFallback.assetTypes || [{name:'Equipment',color:'#0ea5e9'},{name:'Asset',color:'#a855f7'}];
           allAssetTypes = assetTypesFromSettings.map(t => 
             typeof t === 'string' ? {name:t, color:'#0ea5e9'} : {name:t.name, color:t.color||'#0ea5e9'}
           );

@@ -1281,10 +1281,16 @@
       });
     },
 
-    // Get all locations (placeholder - using settings for now)
+    // Get all locations from the locations table
     async getLocations() {
-      // TODO: Create locations table and API endpoint
-      // For now, return empty array (code will fall back to settings)
+      try {
+        const resp = await apiRequest('/collections/locations');
+        if (resp && resp.success && Array.isArray(resp.items) && resp.items.length > 0) {
+          return { success: true, items: resp.items.filter(l => l.is_active !== false) };
+        }
+      } catch (e) {
+        console.warn('getLocations: API fetch failed', e.message);
+      }
       return { success: true, items: [] };
     },
 

@@ -331,34 +331,30 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       );
     }
     
-    // Load locations from database API
+    // Load locations from database API, fall back to settings locations
     try {
       const locationsResponse = await RTS_API.getLocations({ is_active: true });
       if (locationsResponse && locationsResponse.items && locationsResponse.items.length > 0) {
         allLocations = locationsResponse.items;
         console.log(`✅ Loaded ${allLocations.length} locations from database`);
       } else {
-        // Fallback to locations from settings
-        const settings = RTS.getSettings();
-        const settingsLocations = settings.locations || [];
-        allLocations = settingsLocations.map((loc, idx) => ({
+        const settingsLocs = (RTS.getSettings().locations || []);
+        allLocations = settingsLocs.map((loc, idx) => ({
           id: `loc-${idx}`,
           name: typeof loc === 'string' ? loc : loc.name,
           is_active: true
         }));
-        console.log(`⚠️ No locations in database, using ${allLocations.length} from settings`);
+        console.log(`⚠️ No DB locations — using ${allLocations.length} from settings`);
       }
     } catch (error) {
       console.error('Error loading locations:', error);
-      // Fallback to settings on error
-      const settings = RTS.getSettings();
-      const settingsLocations = settings.locations || [];
-      allLocations = settingsLocations.map((loc, idx) => ({
+      const settingsLocs = (RTS.getSettings().locations || []);
+      allLocations = settingsLocs.map((loc, idx) => ({
         id: `loc-${idx}`,
         name: typeof loc === 'string' ? loc : loc.name,
         is_active: true
       }));
-      console.log(`⚠️ Error loading locations, using ${allLocations.length} from settings`);
+      console.log(`⚠️ DB error — using ${allLocations.length} locations from settings`);
     }
     
     console.log(`✅ Data load complete: ${boxes.length} boxes, ${equipment.length} equipment, ${assets.length} assets`);
@@ -1360,32 +1356,9 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
 
     const item = getItem(content.itemId, content.itemType);
     if (!item) return;
-    
-    const boxName = getBoxName(content.boxId);
-    
-    try {
-      showLoading('Unpacking Item', `Removing ${item.name} from ${boxName}...`);
-      
-      // Call API to unpack from database
-      if (content.itemType === 'inventory') {
-        await RTS_API.unpackInventoryItem(content.itemId);
-      } else {
-        await RTS_API.unpackItem(content.itemId);
-      }
-      
-      // Reload data from API to get fresh state
-      await loadData();
-      renderAll();
-      
-      hideLoading();
-      showToast(`✅ Removed ${item.name} from ${boxName}`, 'success');
-      
-      addHistory(content.boxId, 'item_removed', `Removed ${item.name} (${item.barcode})`);
-    } catch (error) {
-      hideLoading();
-      console.error('Error unpacking item:', error);
-      showToast(`Error: ${error.message || 'Failed to unpack item'}`, 'error');
-    }
+
+    // Show the unpack modal in single-item mode
+    showUnpackModal(contentId);
   }
 
   // ========== BOX MANAGEMENT ==========
@@ -1746,29 +1719,56 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   window.selectBox = selectBox;
   
   // ========== UNPACK BOX ==========
-  function showUnpackModal() {
-    if (!currentBoxId) {
+  function showUnpackModal(singleContentId = null) {
+    // Determine if single-item or whole-box mode
+    const isSingleItem = !!singleContentId;
+    const targetBoxId = isSingleItem
+      ? boxContents.find(c => c.id === singleContentId)?.boxId
+      : currentBoxId;
+
+    if (!targetBoxId) {
       showToast('No box selected', 'warning');
       return;
     }
-    
-    const box = boxes.find(b => b.id === currentBoxId);
-    const contents = boxContents.filter(c => c.boxId === currentBoxId);
-    
+
+    const box = boxes.find(b => b.id === targetBoxId);
+    const contents = isSingleItem
+      ? boxContents.filter(c => c.id === singleContentId)
+      : boxContents.filter(c => c.boxId === targetBoxId);
+
     if (contents.length === 0) {
       showToast('This box is already empty', 'info');
       return;
     }
     
-    // Populate location dropdown – use allLocations (from DB) first, fallback to settings
+    // Populate location dropdown
     const locationSelect = document.getElementById('unpackLocation');
     const locOptions = allLocations && allLocations.length > 0
       ? allLocations
       : (RTS.getSettings().locations || []).map((l, i) => ({ id: `loc-${i}`, name: typeof l === 'string' ? l : l.name }));
     locationSelect.innerHTML = '<option value="">Select Location</option>' +
       locOptions.map(loc => `<option value="${esc(loc.name)}">${esc(loc.name)}</option>`).join('');
-    
-    // Show items that will be unpacked
+
+    // Update modal title, description, button text for single vs full-box mode
+    const titleEl = document.getElementById('unpackModalTitle');
+    const descEl = document.getElementById('unpackModalDesc');
+    const btnEl = document.getElementById('btnConfirmUnpack');
+    const hiddenId = document.getElementById('unpackSingleContentId');
+
+    if (isSingleItem) {
+      const item = getItem(contents[0].itemId, contents[0].itemType);
+      titleEl.textContent = 'Remove Item - Select Location';
+      descEl.textContent = `"${item?.name || 'Item'}" will be unpacked and moved to the selected location.`;
+      btnEl.textContent = 'Remove Item';
+      hiddenId.value = singleContentId;
+    } else {
+      titleEl.textContent = 'Empty Box - Select Unpack Location';
+      descEl.textContent = 'All items from this box will be unpacked and moved to the selected location.';
+      btnEl.textContent = 'Empty Box';
+      hiddenId.value = '';
+    }
+
+    // Show items list
     const itemsHtml = contents.map(content => {
       const item = getItem(content.itemId, content.itemType);
       if (!item) return '';
@@ -1778,125 +1778,109 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
             <div style="font-weight:600;color:#202124;font-size:.85rem">${esc(item.name)}</div>
             <div style="font-size:.75rem;color:#5f6368">${esc(item.barcode)} · ${esc(item.category || 'Uncategorized')}</div>
           </div>
-          <div style="font-size:.75rem;color:#1a73e8;font-weight:600">${content.itemType === 'equipment' ? 'Equipment' : 'Asset'}</div>
+          <div style="font-size:.75rem;color:#1a73e8;font-weight:600">${content.itemType === 'equipment' ? 'Equipment' : content.itemType === 'inventory' ? 'Inventory' : 'Asset'}</div>
         </div>
       `;
     }).join('');
-    
+
     document.getElementById('unpackItemsList').innerHTML = `
       <div style="font-size:.85rem;font-weight:600;color:#202124;margin-bottom:8px">
-        Items to unpack (${contents.length}):
+        Item${contents.length !== 1 ? 's' : ''} to unpack (${contents.length}):
       </div>
       ${itemsHtml}
     `;
-    
+
     unpackModal.show();
   }
-  
+
   async function confirmUnpack() {
     const locationName = document.getElementById('unpackLocation').value;
-    
+
     if (!locationName) {
-      showToast('Please select a location where the box is being unpacked', 'warning');
+      showToast('Please select a location', 'warning');
       return;
     }
-    
-    if (!currentBoxId) {
-      showToast('No box selected', 'error');
-      return;
+
+    const singleContentId = document.getElementById('unpackSingleContentId').value;
+    const isSingleItem = !!singleContentId;
+
+    // Determine which content rows to unpack
+    let contents;
+    let targetBoxId;
+    if (isSingleItem) {
+      const content = boxContents.find(c => c.id === singleContentId);
+      if (!content) { showToast('Item not found', 'error'); return; }
+      contents = [content];
+      targetBoxId = content.boxId;
+    } else {
+      if (!currentBoxId) { showToast('No box selected', 'error'); return; }
+      contents = boxContents.filter(c => c.boxId === currentBoxId);
+      targetBoxId = currentBoxId;
+      if (contents.length === 0) { showToast('This box is already empty', 'warning'); return; }
     }
-    
-    const box = boxes.find(b => b.id === currentBoxId);
-    const contents = boxContents.filter(c => c.boxId === currentBoxId);
-    
-    if (contents.length === 0) {
-      showToast('This box is already empty', 'warning');
-      return;
-    }
-    
-    // Close the modal first
+
+    const box = boxes.find(b => b.id === targetBoxId);
     unpackModal.hide();
-    
-    // Show loading with item count
+
     showLoading(
-      `Emptying Box: ${box.name}`,
+      isSingleItem ? `Removing Item` : `Emptying Box: ${box?.name}`,
       `Moving ${contents.length} item${contents.length !== 1 ? 's' : ''} to ${locationName}...`
     );
-    
-    // Generate location ID (same format as in assets.html: lowercase with underscores)
+
     const locationId = locationName.toLowerCase().replace(/\s+/g, '_');
-    
+
     try {
-      // Small delay to show the animation
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Update each item to remove box and set location
+      await new Promise(resolve => setTimeout(resolve, 300));
+
       let updateCount = 0;
       for (const content of contents) {
         const item = getItem(content.itemId, content.itemType);
         if (item) {
           item.currentBoxId = null;
           item.currentLocationId = locationId;
-          
-          // For inventory items, also clear the tracking Map
+
           if (content.itemType === 'inventory') {
             inventoryBoxTracking.delete(content.itemId);
-            inventoryBoxTracking.delete(String(content.itemId));
-            
-            // Unpack via inventory API
-            if (window.RTS_API && window.RTS_API.unpackInventoryItem) {
-              try {
-                await window.RTS_API.unpackInventoryItem(item.id);
-              } catch (e) {
-                console.warn('Could not unpack inventory item via API:', e.message);
-              }
+            if (window.RTS_API?.unpackInventoryItem) {
+              try { await window.RTS_API.unpackInventoryItem(item.id); }
+              catch (e) { console.warn('unpackInventoryItem failed:', e.message); }
             }
           } else {
-            // Update via API for equipment/assets
-            if (window.RTS_API && window.RTS_API.updateItem) {
-              try {
-                await window.RTS_API.updateItem(item.id, {
-                  current_box_id: null,
-                  current_location_id: locationId
-                });
-              } catch (e) {
-                console.warn('Could not update item via API:', e.message);
-              }
+            if (window.RTS_API?.updateItem) {
+              try { await window.RTS_API.updateItem(item.id, { current_box_id: null, current_location_id: locationId }); }
+              catch (e) { console.warn('updateItem failed:', e.message); }
             }
           }
           updateCount++;
         }
-        
-        // Update loading text with progress
+
         const subtext = document.getElementById('loadingSubtext');
-        if (subtext) {
-          subtext.textContent = `${updateCount} of ${contents.length} items moved...`;
-        }
+        if (subtext) subtext.textContent = `${updateCount} of ${contents.length} items moved...`;
       }
-      
-      // Clear box contents
-      const itemNames = contents.map(c => {
-        const item = getItem(c.itemId, c.itemType);
-        return item ? item.name : 'Unknown';
-      }).join(', ');
-      
-      boxContents = boxContents.filter(c => c.boxId !== currentBoxId);
-      
-      addHistory(currentBoxId, 'box_emptied', `Emptied ${contents.length} items to ${locationName}: ${itemNames}`);
-      
+
+      const contentIds = new Set(contents.map(c => c.id));
+      boxContents = boxContents.filter(c => !contentIds.has(c.id));
+
+      const itemNames = contents.map(c => getItem(c.itemId, c.itemType)?.name || 'Unknown').join(', ');
+      if (isSingleItem) {
+        addHistory(targetBoxId, 'item_removed', `Removed ${itemNames} to ${locationName}`);
+      } else {
+        addHistory(targetBoxId, 'box_emptied', `Emptied ${contents.length} items to ${locationName}: ${itemNames}`);
+      }
+
       saveData();
       renderAll();
-      
-      // Hide loading and show success toast
       hideLoading();
       showToast(
-        `Box emptied successfully! ${contents.length} item${contents.length !== 1 ? 's' : ''} moved to ${locationName}`,
+        isSingleItem
+          ? `✅ ${itemNames} moved to ${locationName}`
+          : `✅ Box emptied! ${contents.length} item${contents.length !== 1 ? 's' : ''} moved to ${locationName}`,
         'success'
       );
     } catch (e) {
-      console.error('Error unpacking box:', e);
+      console.error('Error unpacking:', e);
       hideLoading();
-      showToast('Error unpacking box: ' + e.message, 'error');
+      showToast('Error unpacking: ' + e.message, 'error');
     }
   }
   

@@ -34,7 +34,9 @@ async function runMigrations() {
     '026_add_location_distribution.sql',
     '027_add_item_type_to_box_contents.sql',
     '028_add_quantity_to_box_contents.sql',
-    '029_add_driver_colors.sql'
+    '029_add_driver_colors.sql',
+    '030_clean_drivers_columns.sql',
+    '031_replace_locations_with_real_data.sql'
   ];
   
   for (const filename of migrationFiles) {
