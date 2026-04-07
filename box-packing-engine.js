@@ -2054,11 +2054,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   }
 
   function getItem(id, type) {
-    if (type === 'equipment') {
-      return equipment.find(e => e.id === id);
-    } else if (type === 'asset' || type === 'assets') {
-      return assets.find(a => a.id === id);
-    } else if (type === 'inventory') {
+    if (type === 'inventory') {
       // Find in inventoryItems array, but create a temporary item object
       // since inventory items don't have currentBoxId tracking yet
       console.log(`  🔍 Looking for inventory item with id: ${id}, type: ${typeof id}`);
@@ -2084,7 +2080,10 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
         };
       }
     }
-    return null;
+    // For equipment/asset/custom types: item_type in box_contents may not match
+    // the actual item_type stored on the item (e.g. box has 'equipment' but item
+    // has a custom type like 'Engine'). Search both arrays by ID — IDs are unique.
+    return equipment.find(e => e.id === id) || assets.find(a => a.id === id) || null;
   }
 
   function esc(str) {
