@@ -2263,14 +2263,6 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       }
     }
   }
-      } else {
-        showToast('No items were packed (already in boxes)', 'warning');
-      }
-    } catch (error) {
-      hideLoading();
-      showToast(`❌ Error: ${error.message}`, 'error');
-    }
-  }
 
   // ========== BOX SELECTION & BULK ACTIONS ==========
   
