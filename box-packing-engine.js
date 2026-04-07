@@ -958,9 +958,10 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       return `
         <div class="box-container${isActive}${driverBoxClass}" 
              onclick="handleBoxClick(event, '${box.id}')"
-             ondragover="event.preventDefault(); this.style.background='${isDriverBox ? '#ffe0e0' : '#e8f0fe'}'"
+             ondragover="event.preventDefault(); this.style.background='${isDriverBox ? hexToRgba(driverColor, 0.15) : '#e8f0fe'}'"
              ondragleave="this.style.background=''"
-             ondrop="handleBoxDrop(event, '${box.id}')">  
+             ondrop="handleBoxDrop(event, '${box.id}')"
+             style="${isDriverBox && assignedDriverId ? `border:2px solid ${driverColor};box-shadow:0 0 14px 3px ${hexToRgba(driverColor, 0.55)};` : ''}">  
           <input type="checkbox" class="box-checkbox" data-box-id="${box.id}" onclick="event.stopPropagation(); toggleBoxSelection('${box.id}')">
           ${contentsBadge}
           ${driverBadge}
@@ -1701,9 +1702,30 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     return `BOX-${String(maxNum + 1).padStart(3, '0')}`;
   }
 
-  function selectBox(boxId) {
+  async function selectBox(boxId) {
     currentBoxId = boxId;
-    renderAll();
+    renderBoxes();   // Highlight selected box immediately
+    renderItems();
+    updateStats();
+    
+    // Reload box contents from DB for this box to ensure fresh data
+    try {
+      const contentsResp = await RTS_API.getBoxContents();
+      if (contentsResp && contentsResp.success && contentsResp.contents) {
+        boxContents = contentsResp.contents.map(c => ({
+          id: c.id,
+          boxId: c.box_id,
+          itemId: c.item_id,
+          itemType: c.item_type || 'equipment',
+          quantityPacked: c.quantity_packed || 1,
+          packedAt: c.packed_at
+        }));
+      }
+    } catch (e) {
+      console.warn('Could not reload box contents:', e.message);
+    }
+    
+    renderBoxContents();
   }
   
   // Make globally accessible for onclick handlers
@@ -1724,12 +1746,13 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       return;
     }
     
-    // Populate location dropdown
-    const settings = RTS.getSettings();
-    const locations = settings.locations || [];
+    // Populate location dropdown – use allLocations (from DB) first, fallback to settings
     const locationSelect = document.getElementById('unpackLocation');
+    const locOptions = allLocations && allLocations.length > 0
+      ? allLocations
+      : (RTS.getSettings().locations || []).map((l, i) => ({ id: `loc-${i}`, name: typeof l === 'string' ? l : l.name }));
     locationSelect.innerHTML = '<option value="">Select Location</option>' +
-      locations.map(loc => `<option value="${esc(loc)}">${esc(loc)}</option>`).join('');
+      locOptions.map(loc => `<option value="${esc(loc.name)}">${esc(loc.name)}</option>`).join('');
     
     // Show items that will be unpacked
     const itemsHtml = contents.map(content => {
@@ -2178,13 +2201,11 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
           continue;
         }
         
-        // Prompt for quantity
-        const quantityStr = prompt(
-          `How many units of "${item.name}" to pack into ${box.name}?\n\n` +
-          `Available: ${availableQty} units\n` +
-          `Total: ${totalQty} units\n` +
-          `Already packed: ${packedQty} units`,
-          Math.min(availableQty, 1).toString()
+        // Styled quantity prompt
+        const quantityStr = await customPrompt(
+          `📦 Pack "${item.name}"`,
+          `Packing into: ${box.name}\n\nAvailable: ${availableQty} of ${totalQty} units (${packedQty} already packed).\n\nHow many units to pack?`,
+          `1 – ${availableQty}`
         );
         
         if (!quantityStr || quantityStr.trim() === '') {
