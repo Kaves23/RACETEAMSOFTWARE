@@ -1013,8 +1013,58 @@
 (function() {
   const API_BASE = window.RTS_CONFIG?.api?.baseURL || '/api';
 
+  // Auto-login if no token exists
+  async function ensureAuthenticated() {
+    let token = localStorage.getItem('auth_token');
+    
+    // If token exists, verify it's still valid
+    if (token) {
+      try {
+        const response = await fetch(`${API_BASE}/auth/verify`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) {
+          return token; // Token is valid
+        }
+      } catch (e) {
+        // Token validation failed, remove it
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user');
+        token = null;
+      }
+    }
+    
+    // No token or invalid token - auto-login with default credentials
+    if (!token) {
+      try {
+        const response = await fetch(`${API_BASE}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: 'admin', password: 'password' })
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          localStorage.setItem('auth_token', data.token);
+          localStorage.setItem('user', JSON.stringify(data.user));
+          console.log('✅ Auto-logged in as:', data.user.username);
+          return data.token;
+        } else {
+          console.error('❌ Auto-login failed:', response.status);
+          return null;
+        }
+      } catch (error) {
+        console.error('❌ Auto-login error:', error);
+        return null;
+      }
+    }
+  }
+
   async function apiRequest(endpoint, options = {}) {
     try {
+      // Ensure we have a valid token before making requests
+      await ensureAuthenticated();
+      
       const url = `${API_BASE}${endpoint}`;
       
       // Get auth token from localStorage
@@ -1030,12 +1080,19 @@
       });
       
       if (!response.ok) {
-        // If unauthorized, redirect to login
+        // If unauthorized, try to re-authenticate once
         if (response.status === 401) {
           localStorage.removeItem('auth_token');
           localStorage.removeItem('user');
-          window.location.replace('/login.html');
-          throw new Error('Session expired. Please login again.');
+          
+          // Try auto-login one more time
+          const newToken = await ensureAuthenticated();
+          if (newToken) {
+            // Retry the original request with new token
+            return await apiRequest(endpoint, options);
+          }
+          
+          throw new Error('Authentication failed');
         }
         throw new Error(`API error: ${response.status}`);
       }
