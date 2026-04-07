@@ -1339,25 +1339,38 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     renderAll();
   }
 
-  function removeItem(contentId) {
+  async function removeItem(contentId) {
     const content = boxContents.find(c => c.id === contentId);
     if (!content) return;
 
     const item = getItem(content.itemId, content.itemType);
-    if (item) {
-      item.currentBoxId = null;
-      addHistory(content.boxId, 'item_removed', `Removed ${item.name} (${item.barcode})`);
+    if (!item) return;
+    
+    const boxName = getBoxName(content.boxId);
+    
+    try {
+      showLoading('Unpacking Item', `Removing ${item.name} from ${boxName}...`);
       
-      // For inventory items, also clear the tracking Map
+      // Call API to unpack from database
       if (content.itemType === 'inventory') {
-        inventoryBoxTracking.delete(content.itemId);
-        inventoryBoxTracking.delete(String(content.itemId));
+        await RTS_API.unpackInventoryItem(content.itemId);
+      } else {
+        await RTS_API.unpackItem(content.itemId);
       }
+      
+      // Reload data from API to get fresh state
+      await loadData();
+      renderAll();
+      
+      hideLoading();
+      showToast(`✅ Removed ${item.name} from ${boxName}`, 'success');
+      
+      addHistory(content.boxId, 'item_removed', `Removed ${item.name} (${item.barcode})`);
+    } catch (error) {
+      hideLoading();
+      console.error('Error unpacking item:', error);
+      showToast(`Error: ${error.message || 'Failed to unpack item'}`, 'error');
     }
-
-    boxContents = boxContents.filter(c => c.id !== contentId);
-    saveData();
-    renderAll();
   }
 
   // ========== BOX MANAGEMENT ==========
