@@ -21,8 +21,9 @@
     { label: 'Logistics', items: [
       { href: 'load.html', label: 'Load Plan', key: 'L' },
       { href: 'box-packing.html', label: 'Box Packing', key: 'B' },
+      { href: 'vehicles.html', label: 'Vehicles', key: 'V' },
       { href: 'event-notes.html', label: 'Event Notes', key: 'N' },
-      { href: 'inventory.html', label: 'Inventory', key: 'V' },
+      { href: 'inventory.html', label: 'Inventory', key: 'I' },
       { href: 'assets.html', label: 'Assets', key: 'A' }
     ]},
     { label: 'Tech', items: [

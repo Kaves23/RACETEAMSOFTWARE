@@ -206,6 +206,39 @@ window.RTS_API = {
   },
 
   // ============================================
+  // TRUCKS / VEHICLES API
+  // ============================================
+
+  async getTrucks(filters = {}) {
+    const params = new URLSearchParams(filters);
+    return await this.request(`/trucks?${params}`);
+  },
+
+  async getTruck(id) {
+    return await this.request(`/trucks/${id}`);
+  },
+
+  async createTruck(data) {
+    return await this.request('/trucks', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  async updateTruck(id, data) {
+    return await this.request(`/trucks/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  },
+
+  async deleteTruck(id) {
+    return await this.request(`/trucks/${id}`, {
+      method: 'DELETE'
+    });
+  },
+
+  // ============================================
   // LOCATIONS API (via Collections)
   // ============================================
   

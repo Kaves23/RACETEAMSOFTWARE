@@ -102,8 +102,55 @@ console.log('📦 load-engine.js loading...');
       console.error('Failed to load from API:', e);
       boxes = seedBoxes();
     }
-    
-    trucks = RTS.safeLoadJSON(LS_TRUCKS, null) || seedTrucks();
+
+    // Load trucks from database (fall back to localStorage seed if unavailable)
+    try {
+      const trucksResp = await window.RTS_API.getTrucks();
+      const apiTrucks = trucksResp.trucks || [];
+      if (apiTrucks.length > 0) {
+        trucks = apiTrucks.map(t => {
+          // DB dimensions are in metres; engine expects centimetres
+          const length = t.dimensions_length_m ? Math.round(t.dimensions_length_m * 100) : 408;
+          const width  = t.dimensions_width_m  ? Math.round(t.dimensions_width_m  * 100) : 210;
+          const height = t.dimensions_height_m ? Math.round(t.dimensions_height_m * 100) : 210;
+          // Compute 1-metre grid zones from dimensions
+          const gridSize  = 100;
+          const numGridsX = Math.max(1, Math.floor(length / gridSize));
+          const numGridsZ = Math.max(1, Math.floor(width  / gridSize));
+          const zones     = {};
+          for (let x = 0; x < numGridsX; x++) {
+            for (let z = 0; z < numGridsZ; z++) {
+              const gridNum = (x * 2) + (z === 0 ? 2 : 1);
+              zones[`grid-${gridNum}`] = {
+                maxWeight: t.max_weight_kg ? Math.round(t.max_weight_kg / (numGridsX * numGridsZ)) : 400,
+                maxVolume: parseFloat(((gridSize / 100) * (gridSize / 100) * (height / 100)).toFixed(3)),
+                gridX: x, gridZ: z,
+                posX: -length / 2 + (x * gridSize) + (gridSize / 2),
+                posZ: -width  / 2 + (z * gridSize) + (gridSize / 2)
+              };
+            }
+          }
+          return {
+            id:         t.id,
+            name:       t.name || t.registration,
+            type:       t.truck_type || 'Trailer',
+            registration: t.registration,
+            length, width, height,
+            maxWeight:  t.max_weight_kg  || 3500,
+            color:      0x4a90e2,
+            gridSize, numGridsX, numGridsZ, zones
+          };
+        });
+        console.log(`✅ Loaded ${trucks.length} vehicle(s) from database`);
+      } else {
+        console.warn('⚠️ No vehicles in DB yet — using seed. Add vehicles at Logistics → Vehicles.');
+        trucks = seedTrucks();
+      }
+    } catch (e) {
+      console.warn('Could not load trucks from API, using local seed:', e.message);
+      trucks = RTS.safeLoadJSON(LS_TRUCKS, null) || seedTrucks();
+    }
+
     loadPlans = RTS.safeLoadJSON(LS_LOAD_PLANS, null) || [];
     currentLoad = RTS.safeLoadJSON(LS_CURRENT, null) || createEmptyLoad();
     saveData();
