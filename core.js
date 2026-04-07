@@ -1380,6 +1380,39 @@
         method: 'POST',
         body: JSON.stringify(data)
       });
+    },
+
+    // ============================================
+    // TRUCKS / VEHICLES API
+    // ============================================
+
+    async getTrucks(filters = {}) {
+      const params = new URLSearchParams(filters);
+      return await apiRequest(`/trucks?${params}`);
+    },
+
+    async getTruck(id) {
+      return await apiRequest(`/trucks/${id}`);
+    },
+
+    async createTruck(data) {
+      return await apiRequest('/trucks', {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
+    },
+
+    async updateTruck(id, data) {
+      return await apiRequest(`/trucks/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data)
+      });
+    },
+
+    async deleteTruck(id) {
+      return await apiRequest(`/trucks/${id}`, {
+        method: 'DELETE'
+      });
     }
   };
 
