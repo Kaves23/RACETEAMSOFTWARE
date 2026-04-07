@@ -91,6 +91,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
         assignedDriverId: box.assigned_driver_id,
         assignedDriverName: box.assigned_driver_name,
         status: box.status || 'available',
+        itemCount: box.item_count || 0,
         createdAt: box.created_at,
         updatedAt: box.updated_at
       }));
@@ -942,15 +943,15 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
         return volB - volA;
       }
       if (sortBy === 'contents') {
-        const countA = boxContents.filter(c => c.boxId === a.id).length;
-        const countB = boxContents.filter(c => c.boxId === b.id).length;
+        const countA = a.itemCount ?? boxContents.filter(c => c.boxId === a.id).length;
+        const countB = b.itemCount ?? boxContents.filter(c => c.boxId === b.id).length;
         return countB - countA;
       }
       return 0;
     });
 
     const html = filtered.map(box => {
-      const contents = boxContents.filter(c => c.boxId === box.id);
+      const contentsCount = box.itemCount ?? boxContents.filter(c => c.boxId === box.id).length;
       const isActive = currentBoxId === box.id ? ' active' : '';
       const assignedDriverId = box.assignedDriverId || box.assigned_driver_id;
       const isDriverBox = !!(assignedDriverId) || box.boxType === 'driver' || box.box_type === 'driver';
@@ -961,10 +962,10 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       
       // Use driver color for styling
       const driverBoxClass = isDriverBox ? ` driver-box driver-box-${assignedDriverId || 'unassigned'}` : '';
-      const contentsBadge = contents.length > 0 ? `<div class="box-contents-badge">${contents.length}</div>` : '';
+      const contentsBadge = contentsCount > 0 ? `<div class="box-contents-badge">${contentsCount}</div>` : '';
       
       // Fix 16: Empty box indicator
-      const emptyBadge = contents.length === 0
+      const emptyBadge = contentsCount === 0
         ? `<div style="position:absolute;top:6px;right:6px;background:#e0e0e0;color:#666;font-size:.6rem;font-weight:700;padding:2px 6px;border-radius:3px;letter-spacing:.5px">EMPTY</div>`
         : '';
       

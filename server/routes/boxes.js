@@ -5,10 +5,30 @@ const { pool } = require('../db');
 // GET /api/boxes - Get all boxes
 router.get('/', async (req, res, next) => {
   try {
-    const { status, location_id, search } = req.query;
+    const { status, location_id, search, fields } = req.query;
+
+    // Fix 10: Support ?fields=id,name,barcode,status for lightweight list loads
+    // Always include item_count (denormalised by trigger – no subquery needed)
+    const SAFE_FIELDS = new Set([
+      'id','barcode','name','box_type','status','item_count',
+      'current_weight_kg','max_weight_kg','current_location_id','current_truck_id',
+      'current_zone','rfid_tag','assigned_driver_id','dimensions_length_cm',
+      'dimensions_width_cm','dimensions_height_cm','created_at','updated_at'
+    ]);
+    let selectedFields;
+    if (fields) {
+      selectedFields = fields.split(',')
+        .map(f => f.trim())
+        .filter(f => SAFE_FIELDS.has(f))
+        .map(f => `b.${f}`);
+      if (selectedFields.length === 0) selectedFields = null;
+    }
+    const selectClause = selectedFields
+      ? `${selectedFields.join(', ')}, d.name as assigned_driver_name`
+      : 'b.*, d.name as assigned_driver_name';
     
     let query = `
-      SELECT b.*, d.name as assigned_driver_name
+      SELECT ${selectClause}
       FROM boxes b
       LEFT JOIN drivers d ON b.assigned_driver_id = d.id
       WHERE 1=1
@@ -22,7 +42,7 @@ router.get('/', async (req, res, next) => {
     }
     
     if (location_id) {
-      query += ` AND b.location_id = $${paramCount++}`;
+      query += ` AND b.current_location_id = $${paramCount++}`;
       params.push(location_id);
     }
     
@@ -32,7 +52,7 @@ router.get('/', async (req, res, next) => {
       paramCount++;
     }
     
-    query += ' ORDER BY b.created_at DESC';
+    query += ' ORDER BY b.name ASC';
     
     const result = await pool.query(query, params);
     res.json({ success: true, count: result.rows.length, boxes: result.rows });
