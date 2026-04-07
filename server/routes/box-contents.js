@@ -54,43 +54,50 @@ router.post('/pack', async (req, res, next) => {
       return res.status(404).json({ success: false, error: 'Box not found' });
     }
     
-    // Check if item exists
-    const itemCheck = await pool.query('SELECT id, name, barcode, current_box_id, weight_kg FROM items WHERE id = $1', [item_id]);
-    if (itemCheck.rows.length === 0) {
-      return res.status(404).json({ success: false, error: 'Item not found' });
-    }
-    
-    // Check if item is already in another box
-    if (itemCheck.rows[0].current_box_id && itemCheck.rows[0].current_box_id !== box_id) {
-      return res.status(400).json({ 
-        success: false, 
-        error: `Item is already packed in box ${itemCheck.rows[0].current_box_id}` 
-      });
-    }
-    
-    // Fix 17: Check weight limit before packing
-    const box = boxCheck.rows[0];
-    const item = itemCheck.rows[0];
-    if (box.max_weight_kg && item.weight_kg) {
-      const currentWeight = parseFloat(box.current_weight_kg) || 0;
-      const itemWeight = parseFloat(item.weight_kg);
-      if (currentWeight + itemWeight > parseFloat(box.max_weight_kg)) {
-        return res.status(400).json({
-          success: false,
-          error: `Weight limit exceeded: box capacity is ${box.max_weight_kg}kg, currently ${currentWeight}kg, item weighs ${itemWeight}kg`
-        });
-      }
-    }
-    
     // Fix 11: Use authenticated user ID from requireAuth middleware
     const userId = req.user?.userId || packed_by_user_id || null;
+    const box = boxCheck.rows[0];
 
     // Start transaction
     const client = await pool.connect();
     
     try {
       await client.query('BEGIN');
-      
+
+      // Fix 8: Atomic conditional claim — prevents TOCTOU race condition.
+      // UPDATE succeeds only if the item is unpacked OR already in this same box.
+      const itemClaim = await client.query(
+        `UPDATE items SET current_box_id = $1, updated_at = NOW()
+         WHERE id = $2 AND (current_box_id IS NULL OR current_box_id = $1)
+         RETURNING id, name, barcode, weight_kg`,
+        [box_id, item_id]
+      );
+      if (itemClaim.rows.length === 0) {
+        const exists = await client.query('SELECT id, current_box_id FROM items WHERE id = $1', [item_id]);
+        await client.query('ROLLBACK');
+        if (exists.rows.length === 0) {
+          return res.status(404).json({ success: false, error: 'Item not found' });
+        }
+        return res.status(409).json({
+          success: false,
+          error: `Item is already packed in another box (${exists.rows[0].current_box_id})`
+        });
+      }
+      const item = itemClaim.rows[0];
+
+      // Fix 17: Weight limit check (inside transaction so rollback undoes the claim)
+      if (box.max_weight_kg && item.weight_kg) {
+        const currentWeight = parseFloat(box.current_weight_kg) || 0;
+        const itemWeight = parseFloat(item.weight_kg);
+        if (currentWeight + itemWeight > parseFloat(box.max_weight_kg)) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({
+            success: false,
+            error: `Weight limit exceeded: box capacity is ${box.max_weight_kg}kg, currently ${currentWeight}kg, item weighs ${itemWeight}kg`
+          });
+        }
+      }
+
       // Auto-assign position if not provided (Fix 12: track position_in_box)
       let resolvedPosition = position_in_box;
       if (resolvedPosition === undefined || resolvedPosition === null) {
@@ -113,12 +120,6 @@ router.post('/pack', async (req, res, next) => {
       `;
       
       const result = await client.query(insertQuery, [box_id, item_id, userId, resolvedPosition]);
-      
-      // Update item's current_box_id
-      await client.query(
-        'UPDATE items SET current_box_id = $1, updated_at = NOW() WHERE id = $2',
-        [box_id, item_id]
-      );
       
       // Fix 9: Recalculate and update box current_weight_kg from all packed items
       await client.query(`

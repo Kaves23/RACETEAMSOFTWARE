@@ -282,18 +282,26 @@ router.post('/pack', async (req, res, next) => {
         return res.status(404).json({ success: false, error: 'Box not found' });
       }
 
-      // Update item's current_box_id
+      // Fix 8: Atomic conditional claim — prevents TOCTOU race condition.
+      // UPDATE succeeds only if the item is unpacked OR already in this same box.
       const result = await client.query(
-        'UPDATE items SET current_box_id = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
+        'UPDATE items SET current_box_id = $1, updated_at = NOW() WHERE id = $2 AND (current_box_id IS NULL OR current_box_id = $1) RETURNING *',
         [boxId, itemId]
       );
       
       if (result.rows.length === 0) {
+        const exists = await client.query('SELECT id, current_box_id FROM items WHERE id = $1', [itemId]);
         await client.query('ROLLBACK');
-        return res.status(404).json({ success: false, error: 'Item not found' });
+        if (exists.rows.length === 0) {
+          return res.status(404).json({ success: false, error: 'Item not found' });
+        }
+        return res.status(409).json({
+          success: false,
+          error: `Item is already packed in another box (${exists.rows[0].current_box_id})`
+        });
       }
 
-      // Fix 17: Check weight limit
+      // Fix 17: Weight limit check (inside transaction so rollback undoes the claim)
       const box = boxRow.rows[0];
       const item = result.rows[0];
       if (box.max_weight_kg && item.weight_kg) {

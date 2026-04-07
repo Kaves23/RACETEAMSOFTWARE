@@ -39,7 +39,8 @@ async function runMigrations() {
     '031_replace_locations_with_real_data.sql',
     '032_cleanup_orphaned_box_references.sql',
     '033_fix_location_ids_and_add_fks.sql',
-    '034_data_quality_and_constraints.sql'
+    '034_data_quality_and_constraints.sql',
+    '035_schema_improvements.sql'
   ];
   
   for (const filename of migrationFiles) {
