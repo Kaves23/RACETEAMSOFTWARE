@@ -7,7 +7,7 @@
   RTS.setActiveNav();
   
   // API Base URL
-  const API_BASE = window.RTS_CONFIG?.api?.baseURL || 'http://localhost:3000/api';
+  const API_BASE = (window.RTS_CONFIG?.api?.baseURL) || '/api';
   
   // State
   let currentEvent = null;

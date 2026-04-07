@@ -295,14 +295,13 @@
   // ----------------------------
   // API facade: talk to PITWALL server when available, fallback to localStorage
   // ----------------------------
-  const API_BASE = (function(){
-    try { return window.RTS_CONFIG && window.RTS_CONFIG.apiBase ? window.RTS_CONFIG.apiBase : ((location.hostname==='localhost' || location.hostname==='127.0.0.1') ? 'http://localhost:9090' : ''); } catch(_e){ return ''; }
-  })();
+  // Legacy telemetry apiFetch uses empty string base - always use relative /api paths
+  const API_BASE = '';
 
   async function apiFetch(path, opts){
     opts = opts || {};
-    if (!API_BASE) throw new Error('No API_BASE configured');
-    const url = (path.indexOf('/')===0) ? (API_BASE + path) : (API_BASE + '/' + path);
+    // Always use relative paths - works on any hostname (production, staging, local)
+    const url = path.indexOf('/') === 0 ? path : '/' + path;
     const res = await fetch(url, opts);
     if (!res.ok) throw new Error('API error: ' + res.status + ' ' + res.statusText);
     return res.json();
