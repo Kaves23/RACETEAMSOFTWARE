@@ -275,7 +275,8 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
           const quantity = content.quantityPacked || 1;
           const currentTotal = inventoryQuantities.get(content.itemId) || 0;
           inventoryQuantities.set(content.itemId, currentTotal + quantity);
-          console.log(`  📦 Inventory item ${content.itemId}: +${quantity} units (total: ${currentTotal + quantity})`);
+          inventoryBoxTracking.set(content.itemId, content.boxId);
+          console.log(`  📦 Inventory item ${content.itemId}: +${quantity} units (total: ${currentTotal + quantity}), boxId: ${content.boxId}`);
         }
       });
       
@@ -295,6 +296,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
           const quantity = content.quantityPacked || 1;
           const currentTotal = inventoryQuantities.get(content.itemId) || 0;
           inventoryQuantities.set(content.itemId, currentTotal + quantity);
+          inventoryBoxTracking.set(content.itemId, content.boxId);
         }
       });
       window.inventoryPackedQuantities = inventoryQuantities;
