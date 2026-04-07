@@ -87,6 +87,14 @@ router.post('/:table', async (req, res) => {
       data.id = require('crypto').randomUUID();
     }
     
+    // Strip keys that don't correspond to real columns (prevents 500 on schema changes)
+    const colResult = await db.query(
+      `SELECT column_name FROM information_schema.columns WHERE table_name = $1 AND table_schema = 'public'`,
+      [table]
+    );
+    const validColumns = new Set(colResult.rows.map(r => r.column_name));
+    Object.keys(data).forEach(k => { if (!validColumns.has(k)) delete data[k]; });
+
     // Build insert SQL dynamically
     const columns = Object.keys(data);
     const values = Object.values(data).map(val => {
@@ -136,6 +144,14 @@ router.put('/:table/:id', async (req, res) => {
     // Remove id from data to avoid updating it
     delete data.id;
     
+    // Strip keys that don't correspond to real columns
+    const colResult2 = await db.query(
+      `SELECT column_name FROM information_schema.columns WHERE table_name = $1 AND table_schema = 'public'`,
+      [table]
+    );
+    const validCols = new Set(colResult2.rows.map(r => r.column_name));
+    Object.keys(data).forEach(k => { if (!validCols.has(k)) delete data[k]; });
+
     // Add updated_at timestamp
     data.updated_at = new Date();
     
