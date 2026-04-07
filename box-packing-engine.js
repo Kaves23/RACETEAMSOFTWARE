@@ -252,6 +252,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       
       if (contentsResp && contentsResp.success && contentsResp.boxContents) {
         boxContents = contentsResp.boxContents.map(content => ({
+          id: String(content.id),
           boxId: content.box_id,
           itemId: content.item_id,
           itemType: content.item_type || 'equipment',
@@ -1354,10 +1355,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     const content = boxContents.find(c => c.id === contentId);
     if (!content) return;
 
-    const item = getItem(content.itemId, content.itemType);
-    if (!item) return;
-
-    // Show the unpack modal in single-item mode
+    // Show the unpack modal in single-item mode (item lookup happens inside modal)
     showUnpackModal(contentId);
   }
 
@@ -2063,7 +2061,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   function getItem(id, type) {
     if (type === 'equipment') {
       return equipment.find(e => e.id === id);
-    } else if (type === 'assets') {
+    } else if (type === 'asset' || type === 'assets') {
       return assets.find(a => a.id === id);
     } else if (type === 'inventory') {
       // Find in inventoryItems array, but create a temporary item object
