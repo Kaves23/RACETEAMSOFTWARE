@@ -2048,6 +2048,8 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
           type: 'inventory',
           itemType: 'Inventory',
           serialNumber: String(invItem.sku || 'N/A'),
+          totalQuantity: invItem.quantity || 0,
+          quantity: invItem.quantity || 0,
           currentBoxId: packedBoxId || null
         };
       }
