@@ -927,8 +927,8 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     const html = filtered.map(box => {
       const contents = boxContents.filter(c => c.boxId === box.id);
       const isActive = currentBoxId === box.id ? ' active' : '';
-      const isDriverBox = box.boxType === 'driver' || box.box_type === 'driver';
       const assignedDriverId = box.assignedDriverId || box.assigned_driver_id;
+      const isDriverBox = !!(assignedDriverId) || box.boxType === 'driver' || box.box_type === 'driver';
       
       // Get driver color if box is assigned to a driver
       const driver = assignedDriverId ? allDrivers.find(d => d.id === assignedDriverId) : null;
