@@ -147,6 +147,14 @@
                     <input id="f_drv_tags2" class="form-control form-control-sm" type="text" placeholder="A, OKN, Academy">
                   </div>
                   <div class="col-12">
+                    <label class="form-label">Driver Color (for assigned boxes)</label>
+                    <div class="d-flex gap-2 align-items-center">
+                      <input id="f_drv_color" type="color" class="form-control form-control-sm" value="#ea4335" style="width:60px;height:38px;cursor:pointer">
+                      <input id="f_drv_color_text" type="text" class="form-control form-control-sm" value="#ea4335" placeholder="#ea4335" maxlength="7" style="flex:1;font-family:monospace;text-transform:uppercase">
+                      <small class="text-muted">Boxes assigned to this driver will glow with this color</small>
+                    </div>
+                  </div>
+                  <div class="col-12">
                     <label class="form-label">Notes</label>
                     <textarea id="f_drv_notes2" class="form-control form-control-sm" rows="3"></textarea>
                   </div>
@@ -280,7 +288,9 @@
         notes: document.getElementById('f_drv_notes2'),
         licExp: document.getElementById('f_drv_license_exp'),
         medExp: document.getElementById('f_drv_med_exp'),
-        consentExp: document.getElementById('f_drv_consent_exp')
+        consentExp: document.getElementById('f_drv_consent_exp'),
+        color: document.getElementById('f_drv_color'),
+        colorText: document.getElementById('f_drv_color_text')
       }
     };
 
@@ -485,6 +495,10 @@
       el.f.licExp.value = cur.license_expiry||'';
       el.f.medExp.value = cur.medical_expiry||'';
       el.f.consentExp.value = cur.consent_expiry||'';
+      // Set color fields
+      const driverColor = cur.color || '#ea4335';
+      if (el.f.color) el.f.color.value = driverColor;
+      if (el.f.colorText) el.f.colorText.value = driverColor.toUpperCase();
       el.complianceBadge.innerHTML = complianceSummary(cur);
       // docs
       (cur.attachments||[]).forEach((doc,i)=>{
@@ -786,7 +800,8 @@
         notes: el.f.notes.value.trim(),
         license_expiry: el.f.licExp.value || null,
         medical_expiry: el.f.medExp.value || null,
-        consent_expiry: el.f.consentExp.value || null
+        consent_expiry: el.f.consentExp.value || null,
+        color: el.f.color.value || '#ea4335'
       };
       
       try {
@@ -813,6 +828,19 @@
       if (el.btnAddUrl) el.btnAddUrl.addEventListener('click', addUrl);
       if (el.btnTelUpload) el.btnTelUpload.addEventListener('click', uploadTelemetry);
       if (el.btnTelExample) el.btnTelExample.addEventListener('click', loadExampleTelemetry);
+      
+      // Color picker sync
+      if (el.f.color && el.f.colorText) {
+        el.f.color.addEventListener('input', (e) => {
+          el.f.colorText.value = e.target.value.toUpperCase();
+        });
+        el.f.colorText.addEventListener('input', (e) => {
+          const val = e.target.value.trim();
+          if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+            el.f.color.value = val;
+          }
+        });
+      }
     }
 
     function init(){

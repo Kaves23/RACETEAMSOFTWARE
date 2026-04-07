@@ -2,10 +2,10 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../db');
 
-// POST /api/inventory/pack - Pack inventory item into box
+// POST /api/inventory/pack - Pack inventory item into box (with quantity)
 router.post('/pack', async (req, res, next) => {
   try {
-    const { boxId, itemId } = req.body;
+    const { boxId, itemId, quantity } = req.body;
     
     if (!boxId || !itemId) {
       return res.status(400).json({ 
@@ -14,34 +14,107 @@ router.post('/pack', async (req, res, next) => {
       });
     }
     
-    // Update inventory item's current_box_id
-    const result = await pool.query(
-      'UPDATE inventory SET current_box_id = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
-      [boxId, itemId]
-    );
+    const quantityToPack = parseInt(quantity) || 1;
     
-    if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, error: 'Inventory item not found' });
+    if (quantityToPack <= 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Quantity must be greater than 0' 
+      });
     }
     
-    // Also create box_contents entry
-    await pool.query(
-      `INSERT INTO box_contents (box_id, item_id, item_type, packed_at)
-       VALUES ($1, $2, 'inventory', NOW())
-       ON CONFLICT (box_id, item_id) DO UPDATE SET packed_at = NOW()`,
-      [boxId, itemId]
-    );
+    const client = await pool.connect();
     
-    res.json({ success: true, item: result.rows[0] });
+    try {
+      await client.query('BEGIN');
+      
+      // Get current inventory item
+      const invResult = await client.query(
+        'SELECT * FROM inventory WHERE id = $1',
+        [itemId]
+      );
+      
+      if (invResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ success: false, error: 'Inventory item not found' });
+      }
+      
+      const inventoryItem = invResult.rows[0];
+      
+      // Calculate already packed quantity across all boxes
+      const packedResult = await client.query(
+        `SELECT COALESCE(SUM(quantity_packed), 0) as total_packed 
+         FROM box_contents 
+         WHERE item_id = $1 AND item_type = 'inventory'`,
+        [itemId]
+      );
+      
+      const alreadyPacked = parseInt(packedResult.rows[0].total_packed) || 0;
+      const availableQuantity = inventoryItem.quantity - alreadyPacked;
+      
+      if (quantityToPack > availableQuantity) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ 
+          success: false, 
+          error: `Insufficient quantity. Available: ${availableQuantity}, Requested: ${quantityToPack}` 
+        });
+      }
+      
+      // Check if this item is already in this box
+      const existingEntry = await client.query(
+        'SELECT * FROM box_contents WHERE box_id = $1 AND item_id = $2 AND item_type = \'inventory\'',
+        [boxId, itemId]
+      );
+      
+      if (existingEntry.rows.length > 0) {
+        // Update existing entry - add to quantity
+        await client.query(
+          `UPDATE box_contents 
+           SET quantity_packed = quantity_packed + $1, packed_at = NOW() 
+           WHERE box_id = $2 AND item_id = $3 AND item_type = 'inventory'`,
+          [quantityToPack, boxId, itemId]
+        );
+      } else {
+        // Create new box_contents entry
+        await client.query(
+          `INSERT INTO box_contents (box_id, item_id, item_type, quantity_packed, packed_at)
+           VALUES ($1, $2, 'inventory', $3, NOW())`,
+          [boxId, itemId, quantityToPack]
+        );
+      }
+      
+      // Don't update current_box_id for inventory - it can be in multiple boxes
+      // Just update the timestamp
+      await client.query(
+        'UPDATE inventory SET updated_at = NOW() WHERE id = $1',
+        [itemId]
+      );
+      
+      await client.query('COMMIT');
+      
+      res.json({ 
+        success: true, 
+        message: `Packed ${quantityToPack} units into box`,
+        item: inventoryItem,
+        quantityPacked: quantityToPack,
+        totalPacked: alreadyPacked + quantityToPack,
+        availableQuantity: availableQuantity - quantityToPack
+      });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   } catch (error) {
     next(error);
   }
 });
 
-// POST /api/inventory/unpack - Unpack inventory item from box
+// POST /api/inventory/unpack - Unpack inventory item from box (specific box or all boxes)
 router.post('/unpack', async (req, res, next) => {
   try {
-    const { itemId } = req.body;
+    const { itemId, boxId, quantity } = req.body;
     
     if (!itemId) {
       return res.status(400).json({ 
@@ -50,23 +123,79 @@ router.post('/unpack', async (req, res, next) => {
       });
     }
     
-    // Clear inventory item's current_box_id
-    const result = await pool.query(
-      'UPDATE inventory SET current_box_id = NULL, updated_at = NOW() WHERE id = $1 RETURNING *',
-      [itemId]
-    );
+    const client = await pool.connect();
     
-    if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, error: 'Inventory item not found' });
+    try {
+      await client.query('BEGIN');
+      
+      if (boxId) {
+        // Unpack from specific box
+        const quantityToUnpack = parseInt(quantity) || null;
+        
+        if (quantityToUnpack && quantityToUnpack > 0) {
+          // Unpack specific quantity
+          const currentEntry = await client.query(
+            'SELECT * FROM box_contents WHERE box_id = $1 AND item_id = $2 AND item_type = \'inventory\'',
+            [boxId, itemId]
+          );
+          
+          if (currentEntry.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ success: false, error: 'Item not found in this box' });
+          }
+          
+          const currentQty = currentEntry.rows[0].quantity_packed;
+          
+          if (quantityToUnpack >= currentQty) {
+            // Remove entire entry
+            await client.query(
+              `DELETE FROM box_contents WHERE box_id = $1 AND item_id = $2 AND item_type = 'inventory'`,
+              [boxId, itemId]
+            );
+          } else {
+            // Reduce quantity
+            await client.query(
+              `UPDATE box_contents 
+               SET quantity_packed = quantity_packed - $1 
+               WHERE box_id = $2 AND item_id = $3 AND item_type = 'inventory'`,
+              [quantityToUnpack, boxId, itemId]
+            );
+          }
+        } else {
+          // Remove all from this box
+          await client.query(
+            `DELETE FROM box_contents WHERE box_id = $1 AND item_id = $2 AND item_type = 'inventory'`,
+            [boxId, itemId]
+          );
+        }
+      } else {
+        // Remove from ALL boxes
+        await client.query(
+          `DELETE FROM box_contents WHERE item_id = $1 AND item_type = 'inventory'`,
+          [itemId]
+        );
+      }
+      
+      // Update inventory item timestamp
+      const result = await client.query(
+        'UPDATE inventory SET updated_at = NOW() WHERE id = $1 RETURNING *',
+        [itemId]
+      );
+      
+      if (result.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ success: false, error: 'Inventory item not found' });
+      }
+      
+      await client.query('COMMIT');
+      
+      res.json({ success: true, item: result.rows[0] });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
     }
-    
-    // Remove from box_contents
-    await pool.query(
-      `DELETE FROM box_contents WHERE item_id = $1 AND item_type = 'inventory'`,
-      [itemId]
-    );
-    
-    res.json({ success: true, item: result.rows[0] });
   } catch (error) {
     next(error);
   }

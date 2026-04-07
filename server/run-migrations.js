@@ -31,7 +31,10 @@ async function runMigrations() {
     '023_enhance_event_notes_with_task_features.sql',
     '024_add_task_styling_and_event_link.sql',
     '025_add_inventory_fields.sql',
-    '026_add_location_distribution.sql'
+    '026_add_location_distribution.sql',
+    '027_add_item_type_to_box_contents.sql',
+    '028_add_quantity_to_box_contents.sql',
+    '029_add_driver_colors.sql'
   ];
   
   for (const filename of migrationFiles) {

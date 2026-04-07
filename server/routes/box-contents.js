@@ -2,21 +2,23 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../db');
 
-// GET /api/box-contents - Get all box contents
+// GET /api/box-contents - Get all box contents (items + inventory)
 router.get('/', async (req, res, next) => {
   try {
     const query = `
       SELECT 
         bc.*,
-        i.name as item_name, 
-        i.barcode as item_barcode, 
-        i.item_type, 
-        i.category,
+        COALESCE(i.name, inv.name) as item_name,
+        COALESCE(i.barcode, inv.sku) as item_barcode,
+        COALESCE(bc.item_type, i.item_type, 'inventory') as item_type,
+        COALESCE(i.category, inv.category) as category,
         b.name as box_name,
         b.barcode as box_barcode
       FROM box_contents bc
-      JOIN items i ON bc.item_id = i.id
+      LEFT JOIN items i ON bc.item_id = i.id AND (bc.item_type IS NULL OR bc.item_type != 'inventory')
+      LEFT JOIN inventory inv ON bc.item_id = inv.id AND bc.item_type = 'inventory'
       JOIN boxes b ON bc.box_id = b.id
+      WHERE COALESCE(i.id, inv.id) IS NOT NULL
       ORDER BY bc.packed_at DESC
     `;
     
@@ -169,7 +171,7 @@ router.post('/unpack', async (req, res, next) => {
   }
 });
 
-// GET /api/box-contents/:box_id - Get all items in a box
+// GET /api/box-contents/:box_id - Get all items in a box (items + inventory)
 router.get('/:box_id', async (req, res, next) => {
   try {
     const { box_id } = req.params;
@@ -177,13 +179,20 @@ router.get('/:box_id', async (req, res, next) => {
     const query = `
       SELECT 
         bc.*,
-        i.name, i.barcode as item_barcode, i.item_type, i.category, 
-        i.description, i.weight_kg, i.status as item_status,
+        COALESCE(i.name, inv.name) as name,
+        COALESCE(i.barcode, inv.sku) as item_barcode,
+        COALESCE(bc.item_type, i.item_type, 'inventory') as item_type,
+        COALESCE(i.category, inv.category) as category,
+        COALESCE(i.description, inv.description) as description,
+        COALESCE(i.weight_kg, 0) as weight_kg,
+        COALESCE(i.status, 'available') as item_status,
         u.username as packed_by_username
       FROM box_contents bc
-      JOIN items i ON bc.item_id = i.id
+      LEFT JOIN items i ON bc.item_id = i.id AND (bc.item_type IS NULL OR bc.item_type != 'inventory')
+      LEFT JOIN inventory inv ON bc.item_id = inv.id AND bc.item_type = 'inventory'
       LEFT JOIN users u ON bc.packed_by_user_id = u.id
       WHERE bc.box_id = $1
+        AND COALESCE(i.id, inv.id) IS NOT NULL
       ORDER BY bc.packed_at DESC
     `;
     

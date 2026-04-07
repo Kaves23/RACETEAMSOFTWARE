@@ -247,13 +247,14 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     // Process box contents (already loaded in parallel)
     try {
       
-      if (bulkContentsResp && bulkContentsResp.success && bulkContentsResp.boxContents) {
-        boxContents = bulkContentsResp.boxContents.map(content => ({
+      if (contentsResp && contentsResp.success && contentsResp.boxContents) {
+        boxContents = contentsResp.boxContents.map(content => ({
           boxId: content.box_id,
           itemId: content.item_id,
           itemType: content.item_type || 'equipment',
           packedAt: content.packed_at,
-          positionInBox: content.position_in_box
+          positionInBox: content.position_in_box,
+          quantityPacked: content.quantity_packed || 1
         }));
         console.log(`✅ Loaded ${boxContents.length} box contents from API in 1 query (was ${boxes.length} queries)`);
       } else {
@@ -262,29 +263,41 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       }
       
       // Rebuild inventoryBoxTracking Map from loaded box contents
+      // Changed: Track quantities, not just presence
       inventoryBoxTracking.clear();
+      const inventoryQuantities = new Map(); // itemId -> total packed quantity
+      
       boxContents.forEach(content => {
         if (content.itemType === 'inventory') {
-          // Store both versions to handle type mismatches
-          inventoryBoxTracking.set(content.itemId, content.boxId);
-          inventoryBoxTracking.set(String(content.itemId), content.boxId);
-          console.log(`  📦 Inventory item ${content.itemId} is in box ${content.boxId}`);
+          const quantity = content.quantityPacked || 1;
+          const currentTotal = inventoryQuantities.get(content.itemId) || 0;
+          inventoryQuantities.set(content.itemId, currentTotal + quantity);
+          inventoryQuantities.set(String(content.itemId), currentTotal + quantity);
+          console.log(`  📦 Inventory item ${content.itemId}: +${quantity} units (total: ${currentTotal + quantity})`);
         }
       });
-      console.log(`✅ Rebuilt inventory box tracking: ${inventoryBoxTracking.size / 2} inventory items in boxes`);
+      
+      // Store as global for use in rendering
+      window.inventoryPackedQuantities = inventoryQuantities;
+      
+      console.log(`✅ Rebuilt inventory quantities tracking: ${inventoryQuantities.size / 2} inventory items with packed units`);
     } catch (e) {
       console.warn('Could not load box contents from API, using localStorage:', e.message);
       boxContents = RTS.safeLoadJSON(LS_BOX_CONTENTS, null) || [];
       
       // Rebuild inventoryBoxTracking from localStorage fallback too
       inventoryBoxTracking.clear();
+      const inventoryQuantities = new Map();
       boxContents.forEach(content => {
         if (content.itemType === 'inventory') {
-          inventoryBoxTracking.set(content.itemId, content.boxId);
-          inventoryBoxTracking.set(String(content.itemId), content.boxId);
+          const quantity = content.quantityPacked || 1;
+          const currentTotal = inventoryQuantities.get(content.itemId) || 0;
+          inventoryQuantities.set(content.itemId, currentTotal + quantity);
+          inventoryQuantities.set(String(content.itemId), currentTotal + quantity);
         }
       });
-      console.log(`✅ Rebuilt inventory box tracking from localStorage: ${inventoryBoxTracking.size / 2} items`);
+      window.inventoryPackedQuantities = inventoryQuantities;
+      console.log(`✅ Rebuilt inventory quantities from localStorage: ${inventoryQuantities.size / 2} items`);
     }
     
     // Box history - For now keep in localStorage, will add API endpoint later
@@ -839,6 +852,36 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     makeResizable(resize2, middlePanel, rightPanel);
   }
 
+  // ========== COLOR UTILITY FUNCTIONS ==========
+  function hexToRgba(hex, alpha = 1) {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r},${g},${b},${alpha})`;
+  }
+  
+  function lightenColor(hex, percent) {
+    const num = parseInt(hex.replace('#', ''), 16);
+    const amt = Math.round(2.55 * percent);
+    const R = (num >> 16) + amt;
+    const G = (num >> 8 & 0x00FF) + amt;
+    const B = (num & 0x0000FF) + amt;
+    return '#' + (0x1000000 + 
+      (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 + 
+      (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 + 
+      (B < 255 ? B < 1 ? 0 : B : 255)
+    ).toString(16).slice(1);
+  }
+  
+  function adjustBrightness(hex, percent) {
+    const num = parseInt(hex.replace('#', ''), 16);
+    const amt = Math.round(2.55 * percent);
+    const R = Math.max(0, Math.min(255, (num >> 16) + amt));
+    const G = Math.max(0, Math.min(255, (num >> 8 & 0x00FF) + amt));
+    const B = Math.max(0, Math.min(255, (num & 0x0000FF) + amt));
+    return '#' + (0x1000000 + R * 0x10000 + G * 0x100 + B).toString(16).slice(1);
+  }
+  
   // ========== RENDERING ==========
   function renderAll() {
     renderBoxes();
@@ -879,19 +922,31 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       const contents = boxContents.filter(c => c.boxId === box.id);
       const isActive = currentBoxId === box.id ? ' active' : '';
       const isDriverBox = box.boxType === 'driver' || box.box_type === 'driver';
-      const driverBoxClass = isDriverBox ? ' driver-box' : '';
+      const assignedDriverId = box.assignedDriverId || box.assigned_driver_id;
+      
+      // Get driver color if box is assigned to a driver
+      const driver = assignedDriverId ? allDrivers.find(d => d.id === assignedDriverId) : null;
+      const driverColor = driver?.color || '#ea4335'; // Default red if no color
+      
+      // Use driver color for styling
+      const driverBoxClass = isDriverBox ? ` driver-box driver-box-${assignedDriverId || 'unassigned'}` : '';
       const contentsBadge = contents.length > 0 ? `<div class="box-contents-badge">${contents.length}</div>` : '';
       
       // Driver badge with assignment info
       let driverBadge = '';
       if (isDriverBox) {
-        const assignedDriverId = box.assignedDriverId || box.assigned_driver_id;
-        const driverName = assignedDriverId ? (box.assignedDriverName || 'Assigned') : 'Unassigned';
+        const driverName = assignedDriverId ? (box.assignedDriverName || driver?.name || 'Assigned') : 'Unassigned';
         const assignIcon = assignedDriverId ? '✓' : '○';
+        
+        // Inline styles using driver color
+        const badgeStyle = assignedDriverId 
+          ? `background:linear-gradient(135deg,${driverColor},${adjustBrightness(driverColor, -20)})!important` 
+          : 'background:#9e9e9e!important';
+        
         driverBadge = `
           <div class="driver-box-badge" onclick="event.stopPropagation(); showDriverAssignmentModal('${box.id}')" 
                title="Click to ${assignedDriverId ? 'change' : 'assign'} driver" 
-               style="cursor:pointer;user-select:none;">
+               style="cursor:pointer;user-select:none;${badgeStyle}">
             🚗 ${assignIcon} ${esc(driverName)}
           </div>
         `;
@@ -932,8 +987,12 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     // If inventory filter is selected, show only inventory items
     if (currentFilter === 'inventory') {
       allItems = inventoryItems.map(inv => {
-        // Check tracking Map with both ID types
-        const boxId = inventoryBoxTracking.get(inv.id) || inventoryBoxTracking.get(String(inv.id));
+        // Calculate packed quantity across all boxes
+        const packedQty = (window.inventoryPackedQuantities?.get(inv.id) || 
+                          window.inventoryPackedQuantities?.get(String(inv.id))) || 0;
+        const totalQty = inv.quantity || 0;
+        const availableQty = totalQty - packedQty;
+        
         return {
           id: inv.id,
           barcode: String(inv.sku || inv.id || ''),
@@ -942,7 +1001,10 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
           type: 'inventory',
           itemType: 'Inventory',
           serialNumber: String(inv.sku || 'N/A'),
-          currentBoxId: boxId || null
+          totalQuantity: totalQty,
+          packedQuantity: packedQty,
+          availableQuantity: availableQty,
+          currentBoxId: null // Inventory items can be in multiple boxes
         };
       });
     } else {
@@ -981,11 +1043,44 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     const html = filtered.map(item => {
       const boxName = item.currentBoxId ? getBoxName(item.currentBoxId) : 'Not packed';
       const categoryClass = (item.category || '').toLowerCase().replace(/\s+/g, '-');
-      const isPacked = !!item.currentBoxId;
-      const isPackedStyle = isPacked ? 'opacity:0.4' : '';
-      const isPackedClass = isPacked ? 'in-box' : '';
-      const draggable = !isPacked;
-      const cursorStyle = isPacked ? 'cursor:not-allowed' : 'cursor:move';
+      
+      // For inventory items, check if ALL units are packed
+      let isPacked = false;
+      let isPackedStyle = '';
+      let isPackedClass = '';
+      let draggable = true;
+      let cursorStyle = 'cursor:move';
+      let quantityInfo = '';
+      
+      if (item.type === 'inventory') {
+        // Inventory: only grey out if all units are packed
+        const allPacked = (item.availableQuantity || 0) === 0;
+        isPacked = allPacked;
+        isPackedStyle = allPacked ? 'opacity:0.4' : '';
+        isPackedClass = allPacked ? 'in-box' : '';
+        draggable = !allPacked;
+        cursorStyle = allPacked ? 'cursor:not-allowed' : 'cursor:move';
+        
+        // Show quantity info
+        const totalQty = item.totalQuantity || 0;
+        const packedQty = item.packedQuantity || 0;
+        const availQty = item.availableQuantity || 0;
+        quantityInfo = `
+          <div style="font-size:.75rem;color:#5f6368;margin-top:3px;font-weight:600">
+            📦 Qty: <span style="color:#34a853">${availQty} available</span> / 
+            <span style="color:#ea4335">${packedQty} packed</span> / 
+            <span style="color:#1a73e8">${totalQty} total</span>
+          </div>
+        `;
+      } else {
+        // Equipment/Assets: packed if currentBoxId exists
+        isPacked = !!item.currentBoxId;
+        isPackedStyle = isPacked ? 'opacity:0.4' : '';
+        isPackedClass = isPacked ? 'in-box' : '';
+        draggable = !isPacked;
+        cursorStyle = isPacked ? 'cursor:not-allowed' : 'cursor:move';
+      }
+      
       const isSelected = selectedItems.has(item.id);
       const selectedClass = isSelected ? 'item-selected' : '';
       
@@ -1020,6 +1115,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
               <span style="font-family:monospace">${esc(serialNum)}</span>
             </div>
           </div>
+          ${quantityInfo}
           ${isPacked ? `<div style="font-size:.65rem;color:#ea4335;font-weight:600">📦 In ${esc(boxName)}</div>` : ''}
         </div>
       `;
@@ -1101,13 +1197,18 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       const item = getItem(content.itemId, content.itemType);
       if (!item) return '';
       
+      // Show quantity for inventory items
+      const quantityBadge = content.itemType === 'inventory' && content.quantityPacked 
+        ? `<span style="background:#34a853;color:white;padding:2px 6px;border-radius:3px;font-size:.7rem;font-weight:700;margin-right:8px">${content.quantityPacked}×</span>` 
+        : '';
+      
       return `
         <div class="packed-item">
           <div class="packed-item-info">
-            <div class="packed-item-barcode">${esc(item.barcode)}</div>
+            <div class="packed-item-barcode">${quantityBadge}${esc(item.barcode)}</div>
             <div class="packed-item-name">${esc(item.name)}</div>
             <div style="font-size:.75rem;color:#5f6368;margin-top:3px">
-              ${esc(item.category || 'Uncategorized')} · ${content.itemType === 'equipment' ? 'Equipment' : 'Asset'}
+              ${esc(item.category || 'Uncategorized')} · ${content.itemType === 'equipment' ? 'Equipment' : content.itemType === 'inventory' ? 'Inventory' : 'Asset'}
             </div>
           </div>
           <button class="btn-remove-item" onclick="BoxPacking.removeItem('${content.id}')">✕</button>
@@ -1349,12 +1450,22 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     }
     
     // Create driver selection HTML
-    const driverOptions = allDrivers.map(driver => `
-      <div class="driver-option" data-driver-id="${driver.id}" onclick="selectDriver('${driver.id}')">
-        <div style="font-weight:600">${esc(driver.name || 'Unnamed Driver')}</div>
-        <div style="font-size:0.85rem;color:#5f6368">${esc(driver.license_number || 'No license')}</div>
-      </div>
-    `).join('');
+    const driverOptions = allDrivers.map(driver => {
+      const driverColor = driver.color || '#ea4335';
+      const colorDot = `<div style="width:24px;height:24px;background:${driverColor};border-radius:50%;border:2px solid #fff;box-shadow:0 2px 4px rgba(0,0,0,0.2)"></div>`;
+      
+      return `
+        <div class="driver-option" data-driver-id="${driver.id}" onclick="selectDriver('${driver.id}')">
+          <div style="display:flex;align-items:center;gap:12px">
+            ${colorDot}
+            <div style="flex:1">
+              <div style="font-weight:600">${esc(driver.name || 'Unnamed Driver')}</div>
+              <div style="font-size:0.85rem;color:#5f6368">${esc(driver.license_number || 'No license')}</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
     
     const currentDriverId = box.assignedDriverId || box.assigned_driver_id;
     const unassignBtn = currentDriverId ? `
@@ -2028,73 +2139,130 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       return;
     }
     
-    showLoading(`Packing Items`, `Adding ${items.length} item(s) to ${box.name}...`);
+    // If packing inventory items, ask for quantity
+    const inventoryItems = items.filter(item => item.type === 'inventory');
+    const nonInventoryItems = items.filter(item => item.type !== 'inventory');
     
-    try {
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
-      let packedCount = 0;
-      for (const {id, type} of items) {
-        console.log(`🔍 Attempting to pack item ${id} (type: ${type})`);
+    // Handle inventory items with quantity prompt
+    if (inventoryItems.length > 0) {
+      for (const {id, type} of inventoryItems) {
         const item = getItem(id, type);
-        if (!item) {
-          console.warn(`❌ Item ${id} (type: ${type}) not found`);
+        if (!item) continue;
+        
+        // Calculate available quantity
+        const packedQty = (window.inventoryPackedQuantities?.get(id) || 
+                          window.inventoryPackedQuantities?.get(String(id))) || 0;
+        const totalQty = item.totalQuantity || item.quantity || 0;
+        const availableQty = totalQty - packedQty;
+        
+        if (availableQty <= 0) {
+          showToast(`No units available for ${item.name}`, 'warning');
           continue;
         }
-        console.log(`  📋 Item found: "${item.name}", currentBoxId: ${item.currentBoxId}`);
-        if (item.currentBoxId) {
-          console.warn(`⚠️ Item ${id} "${item.name}" (type: ${type}) already packed in box ${item.currentBoxId}`);
+        
+        // Prompt for quantity
+        const quantityStr = prompt(
+          `How many units of "${item.name}" to pack into ${box.name}?\n\n` +
+          `Available: ${availableQty} units\n` +
+          `Total: ${totalQty} units\n` +
+          `Already packed: ${packedQty} units`,
+          Math.min(availableQty, 1).toString()
+        );
+        
+        if (!quantityStr || quantityStr.trim() === '') {
+          continue; // User cancelled
+        }
+        
+        const quantity = parseInt(quantityStr);
+        if (isNaN(quantity) || quantity <= 0) {
+          showToast('Invalid quantity', 'error');
           continue;
         }
         
-        console.log(`✅ Packing item ${id} "${item.name}" into box ${boxId}`);
+        if (quantity > availableQty) {
+          showToast(`Only ${availableQty} units available`, 'error');
+          continue;
+        }
         
-        // Add to box contents
-        const content = {
-          id: RTS.uid('content'),
-          boxId: boxId,
-          itemId: id,
-          itemType: type,
-          packedAt: new Date().toISOString()
-        };
+        showLoading(`Packing Inventory`, `Adding ${quantity} units of ${item.name} to ${box.name}...`);
         
-        boxContents.push(content);
-        item.currentBoxId = boxId;
-        
-        // For inventory items, also update the tracking Map
-        if (type === 'inventory') {
-          // Store both numeric and string versions to handle type mismatches
-          inventoryBoxTracking.set(id, boxId);
-          inventoryBoxTracking.set(String(id), boxId);
-          console.log(`  📦 Updated inventory tracking for ID ${id} -> box ${boxId}`);
+        try {
+          // Call API with quantity
+          await RTS_API.packInventoryItem(boxId, id, quantity);
           
-          // Update in database via inventory API
-          try {
-            await RTS_API.packInventoryItem(boxId, id);
-          } catch (error) {
-            console.error('Error packing inventory item via API:', error);
+          // Update local tracking
+          const currentPacked = window.inventoryPackedQuantities?.get(id) || 0;
+          window.inventoryPackedQuantities.set(id, currentPacked + quantity);
+          window.inventoryPackedQuantities.set(String(id), currentPacked + quantity);
+          
+          hideLoading();
+          showToast(`✅ Packed ${quantity} units into ${box.name}`, 'success');
+          
+          // Reload data to get updated state
+          await loadData();
+          renderAll();
+        } catch (error) {
+          hideLoading();
+          console.error('Error packing inventory item:', error);
+          showToast(`Error: ${error.message || 'Failed to pack item'}`, 'error');
+        }
+      }
+    }
+    
+    // Handle non-inventory items (equipment/assets) - existing logic
+    if (nonInventoryItems.length > 0) {
+      showLoading(`Packing Items`, `Adding ${nonInventoryItems.length} item(s) to ${box.name}...`);
+      
+      try {
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        let packedCount = 0;
+        for (const {id, type} of nonInventoryItems) {
+          console.log(`🔍 Attempting to pack item ${id} (type: ${type})`);
+          const item = getItem(id, type);
+          if (!item) {
+            console.warn(`❌ Item ${id} (type: ${type}) not found`);
+            continue;
           }
-        } else {
+          console.log(`  📋 Item found: "${item.name}", currentBoxId: ${item.currentBoxId}`);
+          if (item.currentBoxId) {
+            console.warn(`⚠️ Item ${id} "${item.name}" (type: ${type}) already packed in box ${item.currentBoxId}`);
+            continue;
+          }
+          
+          console.log(`✅ Packing item ${id} "${item.name}" into box ${boxId}`);
+          
           // Update in database via items API for equipment/assets
           try {
             await RTS_API.packItem(boxId, id);
           } catch (error) {
             console.error('Error packing item via API:', error);
           }
+          
+          packedCount++;
         }
         
-        packedCount++;
+        // Clear selection after packing
+        selectedItems.clear();
+        
+        hideLoading();
+        
+        if (packedCount > 0) {
+          showToast(`✅ Packed ${packedCount} item(s) into ${box.name}`, 'success');
+          
+          // Reload data to get updated state
+          await loadData();
+          renderAll();
+        } else {
+          showToast('No items were packed (already in boxes)', 'warning');
+        }
+      } catch (error) {
+        hideLoading();
+        console.error('Error in packMultipleItems:', error);
+        showToast(`Error: ${error.message || 'Failed to pack items'}`, 'error');
       }
-      
-      // Clear selection after packing
-      selectedItems.clear();
-      
-      saveData();
-      renderAll();
-      hideLoading();
-      
-      if (packedCount > 0) {
-        showToast(`✅ Packed ${packedCount} item(s) into ${box.name}`, 'success');
+    }
+  }
       } else {
         showToast('No items were packed (already in boxes)', 'warning');
       }

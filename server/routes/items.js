@@ -268,17 +268,39 @@ router.post('/pack', async (req, res, next) => {
       });
     }
     
-    // Update item's current_box_id
-    const result = await pool.query(
-      'UPDATE items SET current_box_id = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
-      [boxId, itemId]
-    );
+    const client = await pool.connect();
     
-    if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, error: 'Item not found' });
+    try {
+      await client.query('BEGIN');
+      
+      // Update item's current_box_id
+      const result = await client.query(
+        'UPDATE items SET current_box_id = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
+        [boxId, itemId]
+      );
+      
+      if (result.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ success: false, error: 'Item not found' });
+      }
+      
+      // Also create box_contents entry for tracking
+      await client.query(
+        `INSERT INTO box_contents (box_id, item_id, item_type, packed_at)
+         VALUES ($1, $2, 'equipment', NOW())
+         ON CONFLICT (box_id, item_id) DO UPDATE SET packed_at = NOW(), item_type = 'equipment'`,
+        [boxId, itemId]
+      );
+      
+      await client.query('COMMIT');
+      
+      res.json({ success: true, item: result.rows[0] });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
     }
-    
-    res.json({ success: true, item: result.rows[0] });
   } catch (error) {
     next(error);
   }
@@ -296,17 +318,37 @@ router.post('/unpack', async (req, res, next) => {
       });
     }
     
-    // Clear item's current_box_id
-    const result = await pool.query(
-      'UPDATE items SET current_box_id = NULL, updated_at = NOW() WHERE id = $1 RETURNING *',
-      [itemId]
-    );
+    const client = await pool.connect();
     
-    if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, error: 'Item not found' });
+    try {
+      await client.query('BEGIN');
+      
+      // Clear item's current_box_id
+      const result = await client.query(
+        'UPDATE items SET current_box_id = NULL, updated_at = NOW() WHERE id = $1 RETURNING *',
+        [itemId]
+      );
+      
+      if (result.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ success: false, error: 'Item not found' });
+      }
+      
+      // Remove from box_contents table
+      await client.query(
+        `DELETE FROM box_contents WHERE item_id = $1 AND item_type IN ('equipment', 'asset')`,
+        [itemId]
+      );
+      
+      await client.query('COMMIT');
+      
+      res.json({ success: true, item: result.rows[0] });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
     }
-    
-    res.json({ success: true, item: result.rows[0] });
   } catch (error) {
     next(error);
   }
