@@ -6,6 +6,16 @@ const constants = require('../constants');
 
 // Sessions now stored in PlanetScale database for persistence across server restarts
 
+// ── In-memory token cache: avoids 1 DB query per API request ──────────────────
+// Entry: { user, expiresAt (ms) }. Max 60s TTL – well within the 2-hour session.
+const _tokenCache = new Map();
+const TOKEN_CACHE_TTL_MS = 60_000; // 60 seconds
+// Prune stale entries every 5 minutes so the Map doesn't grow unbounded
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, v] of _tokenCache) if (v.expiresAt <= now) _tokenCache.delete(k);
+}, 5 * 60_000).unref(); // .unref() so this timer never keeps the process alive
+
 // Simple user database (upgrade to PostgreSQL for production)
 const users = [
   {
@@ -80,6 +90,7 @@ router.post('/logout', async (req, res) => {
   const token = req.headers.authorization?.replace('Bearer ', '');
   
   if (token) {
+    _tokenCache.delete(token); // Evict immediately from cache
     const result = await db.query('SELECT username FROM sessions WHERE token = $1', [token]);
     if (result.rows.length > 0) {
       console.log(`👋 User logged out: ${result.rows[0].username}`);
@@ -136,6 +147,13 @@ async function requireAuth(req, res, next) {
       error: 'Authentication required' 
     });
   }
+
+  // Fast path: serve from in-memory cache (avoids 1 DB query per API call)
+  const cached = _tokenCache.get(token);
+  if (cached && cached.expiresAt > Date.now()) {
+    req.user = cached.user;
+    return next();
+  }
   
   const result = await db.query(
     'SELECT * FROM sessions WHERE token = $1 AND expires_at > NOW()',
@@ -143,6 +161,7 @@ async function requireAuth(req, res, next) {
   );
   
   if (result.rows.length === 0) {
+    _tokenCache.delete(token); // Remove any stale entry
     return res.status(401).json({ 
       success: false, 
       error: 'Authentication required' 
@@ -157,6 +176,9 @@ async function requireAuth(req, res, next) {
     username: session.username,
     role: session.role
   };
+
+  // Populate cache for subsequent requests
+  _tokenCache.set(token, { user: req.user, expiresAt: Date.now() + TOKEN_CACHE_TTL_MS });
   
   next();
 }

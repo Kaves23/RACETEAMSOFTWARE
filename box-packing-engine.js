@@ -17,6 +17,38 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   const LS_BOX_HISTORY = 'rts.box.history.v1';
   const LS_EQUIPMENT = 'rts.equipment.v1';
   const LS_ASSETS = 'rts.assets.v1';
+  const SS_CACHE_KEY = 'rts.bp.cache.v1'; // sessionStorage key for stale-while-revalidate
+  const SS_CACHE_MAX_AGE_MS = 5 * 60_000;  // Max age before cache is ignored (5 min)
+
+  // ========== FRESHNESS INDICATOR ==========
+  // States: 'loading' | 'cached' | 'refreshing' | 'live' | 'error'
+  function setFreshnessState(state, label) {
+    const indicator = document.getElementById('dataFreshnessIndicator');
+    const dot       = document.getElementById('dataFreshnessDot');
+    const text      = document.getElementById('dataFreshnessText');
+    if (!indicator || !dot || !text) return;
+    const styles = {
+      loading:    { bg:'#fff8e1', color:'#f57f17', border:'#ffe082', dotColor:'#ffa000', spin:true,  lbl: label||'LOADING'    },
+      cached:     { bg:'#fff3e0', color:'#e65100', border:'#ffcc80', dotColor:'#ff9800', spin:false, lbl: label||'CACHED'     },
+      refreshing: { bg:'#e3f2fd', color:'#1565c0', border:'#90caf9', dotColor:'#1e88e5', spin:true,  lbl: label||'REFRESHING' },
+      live:       { bg:'#e8f5e9', color:'#2e7d32', border:'#a5d6a7', dotColor:'#43a047', spin:false, lbl: label||'LIVE'       },
+      error:      { bg:'#fce4ec', color:'#b71c1c', border:'#ef9a9a', dotColor:'#e53935', spin:false, lbl: label||'ERROR'      },
+    };
+    const s = styles[state] || styles.live;
+    indicator.style.background   = s.bg;
+    indicator.style.color        = s.color;
+    indicator.style.borderColor  = s.border;
+    dot.style.background         = s.dotColor;
+    dot.style.animation          = s.spin ? 'bp-dot-pulse 1s ease-in-out infinite' : 'none';
+    text.textContent             = s.lbl;
+    // Inject keyframes once
+    if (!document.getElementById('bp-dot-keyframes')) {
+      const style = document.createElement('style');
+      style.id = 'bp-dot-keyframes';
+      style.textContent = '@keyframes bp-dot-pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(1.3)}}';
+      document.head.appendChild(style);
+    }
+  }
 
   // ========== STATE ==========
   let boxes = [];
@@ -43,14 +75,112 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     console.log('🔍 RTS_API.getItems available?', !!window.RTS_API?.getItems);
     
     RTS.setActiveNav();
-    await loadData();
-    console.log('📊 After loadData - equipment:', equipment.length, 'assets:', assets.length, 'boxes:', boxes.length);
-    await loadDrivers(); // Load drivers from PlanetScale database on init
-    initUI();
-    renderAll();
+    setFreshnessState('loading');
+
+    // ── Stale-while-revalidate ────────────────────────────────────────────────
+    // Expose force-refresh so the indicator can be clicked
+    window.__bpForceRefresh = async () => {
+      setFreshnessState('refreshing');
+      await loadData(true);
+      renderAll();
+    };
+
+    const cached = _readCache();
+    if (cached) {
+      // Render cached data instantly, then silently fetch live in background
+      _applyApiResponses(cached.boxesResp, cached.itemsResp, cached.contentsResp);
+      setFreshnessState('cached', `CACHED ${_cacheAgeLabel(cached.ts)}`);
+      await loadDrivers();
+      initUI();
+      renderAll();
+      // Background live refresh
+      setFreshnessState('refreshing');
+      loadData(true).then(() => {
+        renderAll();
+        setFreshnessState('live');
+      }).catch(() => setFreshnessState('error'));
+    } else {
+      // No cache — full blocking load
+      await loadData(false);
+      console.log('📊 After loadData - equipment:', equipment.length, 'assets:', assets.length, 'boxes:', boxes.length);
+      await loadDrivers();
+      initUI();
+      renderAll();
+      setFreshnessState('live');
+    }
   }
 
-  async function loadData() {
+  function _cacheAgeLabel(ts) {
+    const secs = Math.round((Date.now() - ts) / 1000);
+    if (secs < 60) return `${secs}s ago`;
+    return `${Math.round(secs / 60)}m ago`;
+  }
+
+  function _readCache() {
+    try {
+      const raw = sessionStorage.getItem(SS_CACHE_KEY);
+      if (!raw) return null;
+      const obj = JSON.parse(raw);
+      if (!obj || !obj.ts || Date.now() - obj.ts > SS_CACHE_MAX_AGE_MS) return null;
+      return obj;
+    } catch { return null; }
+  }
+
+  function _writeCache(boxesResp, itemsResp, contentsResp) {
+    try {
+      sessionStorage.setItem(SS_CACHE_KEY, JSON.stringify({ ts: Date.now(), boxesResp, itemsResp, contentsResp }));
+    } catch { /* quota exceeded — ignore */ }
+  }
+
+  // Apply raw API responses to module state — used by the cache path in init()
+  function _applyApiResponses(boxesResp, itemsResp, contentsResp) {
+    // ── Boxes ────────────────────────────────────────────────────────────────
+    boxes = (boxesResp?.boxes || []).map(b => ({
+      id: b.id, barcode: b.barcode, name: b.name,
+      boxType: b.box_type || 'regular',
+      length: b.dimensions_length_cm, width: b.dimensions_width_cm, height: b.dimensions_height_cm,
+      weightCapacity: b.max_weight_kg, currentWeight: b.current_weight_kg || 0,
+      location: b.current_location_id, zone: b.current_zone,
+      assignedDriverId: b.assigned_driver_id, assignedDriverName: b.assigned_driver_name,
+      status: b.status || 'available', itemCount: b.item_count || 0,
+      createdAt: b.created_at, updatedAt: b.updated_at
+    }));
+    // ── Items ─────────────────────────────────────────────────────────────────
+    const mapped = (itemsResp?.items || []).map(i => ({
+      id: i.id, barcode: i.barcode, name: i.name, description: i.description,
+      category: i.category, serialNumber: i.serial_number, status: i.status,
+      currentBoxId: i.current_box_id, currentLocationId: i.current_location_id,
+      weightKg: i.weight_kg, valueUsd: i.value_usd,
+      lastMaintenanceDate: i.last_maintenance_date, nextMaintenanceDate: i.next_maintenance_date,
+      itemType: i.item_type, createdAt: i.created_at, updatedAt: i.updated_at
+    }));
+    equipment = mapped.filter(i => i.itemType === 'equipment');
+    assets    = mapped.filter(i => i.itemType !== 'equipment');
+    // ── Box Contents ──────────────────────────────────────────────────────────
+    if (contentsResp?.success && contentsResp.boxContents) {
+      boxContents = contentsResp.boxContents.map(c => ({
+        id: String(c.id), boxId: c.box_id, itemId: c.item_id,
+        itemType: c.item_type || 'equipment', packedAt: c.packed_at,
+        positionInBox: c.position_in_box, quantityPacked: c.quantity_packed || 1
+      }));
+    } else {
+      boxContents = [];
+    }
+    // Rebuild inventory tracking
+    inventoryBoxTracking.clear();
+    const invQty = new Map();
+    boxContents.forEach(c => {
+      if (c.itemType === 'inventory') {
+        const q = c.quantityPacked || 1;
+        invQty.set(c.itemId, (invQty.get(c.itemId) || 0) + q);
+        inventoryBoxTracking.set(c.itemId, c.boxId);
+      }
+    });
+    window.inventoryPackedQuantities = invQty;
+    boxHistory = RTS.safeLoadJSON(LS_BOX_HISTORY, null) || [];
+  }
+
+  async function loadData(isRefresh = false) {
     console.log('🔄 Loading data in parallel...');
     
     // Declare these at function scope so they're accessible in all try blocks
@@ -74,7 +204,10 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       
       const loadTime = Date.now() - startTime;
       console.log(`✅ Parallel load completed in ${loadTime}ms`);
-      
+
+      // Persist to cache for next page open
+      _writeCache(boxesResp, itemsResp, contentsResp);
+
       // Process boxes response
       boxes = (boxesResp.boxes || []).map(box => ({
         id: box.id,

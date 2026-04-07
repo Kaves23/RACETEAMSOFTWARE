@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const compression = require('compression');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const path = require('path');
@@ -14,6 +15,9 @@ if (!process.env.DATABASE_URL) {
 }
 
 const app = express();
+
+// Gzip all API responses – cuts JSON payload 60-80%
+app.use(compression());
 
 // Security headers with helmet (CSP)
 const helmet = require('helmet');
