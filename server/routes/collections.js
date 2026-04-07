@@ -119,6 +119,13 @@ router.put('/:table/:id', async (req, res) => {
     const { id } = req.params;
     const data = req.body;
     
+    // Log data for debugging
+    if (table === 'drivers') {
+      console.log('🔍 Updating driver:', id);
+      console.log('🔍 Fields being updated:', Object.keys(data));
+      console.log('🔍 Full data:', JSON.stringify(data, null, 2));
+    }
+    
     // Remove id from data to avoid updating it
     delete data.id;
     
