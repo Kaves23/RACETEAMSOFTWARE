@@ -231,15 +231,8 @@ router.delete('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
     
-    // Check if box has contents
-    const contents = await pool.query('SELECT COUNT(*) FROM box_contents WHERE box_id = $1', [id]);
-    
-    if (parseInt(contents.rows[0].count) > 0) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Cannot delete box with contents. Unpack items first.' 
-      });
-    }
+    // Cascade delete box_contents first, then the box
+    await pool.query('DELETE FROM box_contents WHERE box_id = $1', [id]);
     
     const result = await pool.query('DELETE FROM boxes WHERE id = $1 RETURNING *', [id]);
     
