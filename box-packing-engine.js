@@ -33,6 +33,8 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   let allLocations = []; // Locations from database
   let selectedBoxes = new Set(); // Track selected box IDs for bulk operations
   let selectedItems = new Set(); // Track selected item IDs for multi-drag
+  let itemsPage = 1; // Fix 14: pagination state
+  const ITEMS_PER_PAGE = 50;
 
   // ========== INITIALIZATION ==========
   async function init() {
@@ -357,7 +359,30 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       await seedBoxContents();
     }
     
+    // Fix 15: Warn about items with no location and no box
+    const lostItems = [...equipment, ...assets].filter(item => !item.currentBoxId && !item.currentLocationId);
+    if (lostItems.length > 0) {
+      showLostItemsWarning(lostItems);
+    } else {
+      const existing = document.getElementById('lostItemsBanner');
+      if (existing) existing.remove();
+    }
+
     saveData();
+  }
+
+  function showLostItemsWarning(items) {
+    let banner = document.getElementById('lostItemsBanner');
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'lostItemsBanner';
+      banner.style.cssText = 'background:#fff3cd;color:#856404;border:1px solid #ffc107;padding:10px 14px;margin:8px;border-radius:6px;font-size:.8rem;display:flex;align-items:center;gap:10px;';
+      const container = document.querySelector('.left-panel') || document.body;
+      container.prepend(banner);
+    }
+    const names = items.slice(0, 3).map(i => i.name).join(', ');
+    const more = items.length > 3 ? ` +${items.length - 3} more` : '';
+    banner.innerHTML = `<span style="font-size:1.1rem">⚠️</span><div><strong>${items.length} unassigned item${items.length > 1 ? 's' : ''}</strong> — no box or location set.<br><span style="opacity:.8">${names}${more}</span></div>`;
   }
 
   // Load inventory items from database
@@ -635,7 +660,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     document.getElementById('btnBoxHistory').addEventListener('click', showHistory);
     document.getElementById('btnConfirmUnpack').addEventListener('click', confirmUnpack);
     document.getElementById('searchBoxes').addEventListener('input', renderBoxes);
-    document.getElementById('searchItems').addEventListener('input', renderItems);
+    document.getElementById('searchItems').addEventListener('input', () => { itemsPage = 1; renderItems(); });
     
     // Sort dropdowns
     const sortBoxes = document.getElementById('sortBoxes');
@@ -657,6 +682,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       filterItemType.innerHTML = options.join('');
       filterItemType.addEventListener('change', async e => {
         currentFilter = e.target.value;
+        itemsPage = 1; // Fix 14: reset to page 1 on filter change
         // If inventory filter selected, fetch inventory items
         if (currentFilter === 'inventory') {
           await loadInventoryItems();
@@ -937,6 +963,11 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       const driverBoxClass = isDriverBox ? ` driver-box driver-box-${assignedDriverId || 'unassigned'}` : '';
       const contentsBadge = contents.length > 0 ? `<div class="box-contents-badge">${contents.length}</div>` : '';
       
+      // Fix 16: Empty box indicator
+      const emptyBadge = contents.length === 0
+        ? `<div style="position:absolute;top:6px;right:6px;background:#e0e0e0;color:#666;font-size:.6rem;font-weight:700;padding:2px 6px;border-radius:3px;letter-spacing:.5px">EMPTY</div>`
+        : '';
+      
       // Driver badge with assignment info
       let driverBadge = '';
       if (isDriverBox) {
@@ -964,6 +995,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
              style="${isDriverBox && assignedDriverId ? `--driver-color:${driverColor};` : ''}">  
           <input type="checkbox" class="box-checkbox" data-box-id="${box.id}" onclick="event.stopPropagation(); toggleBoxSelection('${box.id}')">
           ${contentsBadge}
+          ${emptyBadge}
           ${driverBadge}
           <div class="box-barcode">${esc(box.barcode)}</div>
           <div class="box-name">${esc(box.name)}</div>
@@ -1044,68 +1076,37 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       return 0;
     });
 
-    const html = filtered.map(item => {
+
+    // Fix 14: Pagination — slice to current page
+    const totalItems = filtered.length;
+    const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+    if (itemsPage > totalPages) itemsPage = Math.max(1, totalPages);
+    const start = (itemsPage - 1) * ITEMS_PER_PAGE;
+    const pageItems = filtered.slice(start, start + ITEMS_PER_PAGE);
+
+    const html = pageItems.map(item => {
       const boxName = item.currentBoxId ? getBoxName(item.currentBoxId) : 'Not packed';
       const categoryClass = (item.category || '').toLowerCase().replace(/\s+/g, '-');
-      
-      // For inventory items, check if ALL units are packed
-      let isPacked = false;
-      let isPackedStyle = '';
-      let isPackedClass = '';
-      let draggable = true;
-      let cursorStyle = 'cursor:move';
-      let quantityInfo = '';
-      
+      let isPacked = false, isPackedStyle = '', isPackedClass = '', draggable = true, cursorStyle = 'cursor:move', quantityInfo = '';
       if (item.type === 'inventory') {
-        // Inventory: only grey out if all units are packed
         const allPacked = (item.availableQuantity || 0) === 0;
-        isPacked = allPacked;
-        isPackedStyle = allPacked ? 'opacity:0.4' : '';
-        isPackedClass = allPacked ? 'in-box' : '';
-        draggable = !allPacked;
-        cursorStyle = allPacked ? 'cursor:not-allowed' : 'cursor:move';
-        
-        // Show quantity info
-        const totalQty = item.totalQuantity || 0;
-        const packedQty = item.packedQuantity || 0;
-        const availQty = item.availableQuantity || 0;
-        quantityInfo = `
-          <div style="font-size:.75rem;color:#5f6368;margin-top:3px;font-weight:600">
-            📦 Qty: <span style="color:#34a853">${availQty} available</span> / 
-            <span style="color:#ea4335">${packedQty} packed</span> / 
-            <span style="color:#1a73e8">${totalQty} total</span>
-          </div>
-        `;
+        isPacked = allPacked; isPackedStyle = allPacked ? 'opacity:0.4' : ''; isPackedClass = allPacked ? 'in-box' : '';
+        draggable = !allPacked; cursorStyle = allPacked ? 'cursor:not-allowed' : 'cursor:move';
+        const totalQty = item.totalQuantity || 0, packedQty = item.packedQuantity || 0, availQty = item.availableQuantity || 0;
+        quantityInfo = `<div style="font-size:.75rem;color:#5f6368;margin-top:3px;font-weight:600">📦 Qty: <span style="color:#34a853">${availQty} available</span> / <span style="color:#ea4335">${packedQty} packed</span> / <span style="color:#1a73e8">${totalQty} total</span></div>`;
       } else {
-        // Equipment/Assets: packed if currentBoxId exists
-        isPacked = !!item.currentBoxId;
-        isPackedStyle = isPacked ? 'opacity:0.4' : '';
-        isPackedClass = isPacked ? 'in-box' : '';
-        draggable = !isPacked;
-        cursorStyle = isPacked ? 'cursor:not-allowed' : 'cursor:move';
+        isPacked = !!item.currentBoxId; isPackedStyle = isPacked ? 'opacity:0.4' : ''; isPackedClass = isPacked ? 'in-box' : '';
+        draggable = !isPacked; cursorStyle = isPacked ? 'cursor:not-allowed' : 'cursor:move';
       }
-      
       const isSelected = selectedItems.has(item.id);
       const selectedClass = isSelected ? 'item-selected' : '';
-      
-      // Get asset type with color (matching assets table view) - case-insensitive
       const itemTypeKey = (item.itemType || item.type || 'equipment').toLowerCase();
-      const assetTypeObj = allAssetTypes.find(t => {
-        const normalizedName = t.name.toLowerCase().replace(/\s+/g, '_');
-        return normalizedName === itemTypeKey;
-      });
+      const assetTypeObj = allAssetTypes.find(t => t.name.toLowerCase().replace(/\s+/g, '_') === itemTypeKey);
       const typeColor = assetTypeObj ? assetTypeObj.color : '#0ea5e9';
       const typeName = assetTypeObj ? assetTypeObj.name : (item.itemType || item.type || 'equipment');
-      
-      // Get serial number
       const serialNum = item.serialNumber || 'No S/N';
-      
       return `
-        <div class="item-card ${isPackedClass} ${selectedClass}" 
-             draggable="${draggable}"
-             data-item-id="${item.id}"
-             data-item-type="${item.type}"
-             style="padding:8px!important;padding-left:26px!important;${isPackedStyle};${cursorStyle}">
+        <div class="item-card ${isPackedClass} ${selectedClass}" draggable="${draggable}" data-item-id="${item.id}" data-item-type="${item.type}" style="padding:8px!important;padding-left:26px!important;${isPackedStyle};${cursorStyle}">
           <input type="checkbox" class="item-checkbox" data-item-id="${item.id}" onclick="event.stopPropagation(); toggleItemSelection('${item.id}')" ${isSelected ? 'checked' : ''}>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
             <div class="item-barcode" style="font-family:monospace;font-size:.7rem;font-weight:700;color:#1a73e8">${esc(item.barcode)}</div>
@@ -1114,10 +1115,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
           <div class="item-name" style="font-size:.8rem;color:#202124;font-weight:600;margin-bottom:4px;line-height:1.3">${esc(item.name)}</div>
           <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:3px">
             <span style="background:${typeColor};color:white;font-weight:500;padding:3px 8px;border-radius:4px;font-size:.65rem;white-space:nowrap">${esc(typeName)}</span>
-            <div style="font-size:.65rem;color:#5f6368;display:flex;gap:4px">
-              <span style="font-weight:600">S/N:</span>
-              <span style="font-family:monospace">${esc(serialNum)}</span>
-            </div>
+            <div style="font-size:.65rem;color:#5f6368;display:flex;gap:4px"><span style="font-weight:600">S/N:</span><span style="font-family:monospace">${esc(serialNum)}</span></div>
           </div>
           ${quantityInfo}
           ${isPacked ? `<div style="font-size:.65rem;color:#ea4335;font-weight:600">📦 In ${esc(boxName)}</div>` : ''}
@@ -1125,8 +1123,23 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       `;
     }).join('');
 
-    document.getElementById('itemsList').innerHTML = html || '<div style="text-align:center;padding:20px;color:#5f6368;font-size:.85rem">No items found</div>';
-    document.getElementById('itemCount').textContent = filtered.length;
+    // Pagination controls
+    let paginationHtml = '';
+    if (totalPages > 1) {
+      paginationHtml = `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px;border-top:1px solid #e0e0e0;background:#f8f9fa;font-size:.75rem;color:#5f6368">
+          <span>${start + 1}–${Math.min(start + ITEMS_PER_PAGE, totalItems)} of ${totalItems}</span>
+          <div style="display:flex;gap:6px">
+            <button onclick="BoxPacking.prevPage()" ${itemsPage <= 1 ? 'disabled' : ''} style="padding:2px 8px;border:1px solid #d0d0d0;background:${itemsPage <= 1 ? '#f0f0f0' : '#fff'};border-radius:4px;cursor:${itemsPage <= 1 ? 'default' : 'pointer'}">‹</button>
+            <span style="padding:2px 6px">${itemsPage}/${totalPages}</span>
+            <button onclick="BoxPacking.nextPage()" ${itemsPage >= totalPages ? 'disabled' : ''} style="padding:2px 8px;border:1px solid #d0d0d0;background:${itemsPage >= totalPages ? '#f0f0f0' : '#fff'};border-radius:4px;cursor:${itemsPage >= totalPages ? 'default' : 'pointer'}">›</button>
+          </div>
+        </div>
+      `;
+    }
+
+    document.getElementById('itemsList').innerHTML = (html || '<div style="text-align:center;padding:20px;color:#5f6368;font-size:.85rem">No items found</div>') + paginationHtml;
+    document.getElementById('itemCount').textContent = totalItems;
   }
 
   function renderBoxContents() {
@@ -1212,7 +1225,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
             <div class="packed-item-barcode">${quantityBadge}${esc(item.barcode)}</div>
             <div class="packed-item-name">${esc(item.name)}</div>
             <div style="font-size:.75rem;color:#5f6368;margin-top:3px">
-              ${esc(item.category || 'Uncategorized')} · ${content.itemType === 'equipment' ? 'Equipment' : content.itemType === 'inventory' ? 'Inventory' : 'Asset'}
+              ${esc(item.category || 'Uncategorized')} · ${content.itemType === 'equipment' ? 'Equipment' : content.itemType === 'inventory' ? 'Inventory' : 'Asset'}${item.serialNumber ? ` · <span style="font-family:monospace;color:#1a73e8">SN: ${esc(item.serialNumber)}</span>` : ''}
             </div>
           </div>
           <button class="btn-remove-item" onclick="BoxPacking.removeItem('${content.id}')">✕</button>
@@ -2712,7 +2725,9 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     selectBox,
     removeItem,
     resetDemoData,
-    getDataSummary
+    getDataSummary,
+    prevPage() { if (itemsPage > 1) { itemsPage--; renderItems(); } },
+    nextPage() { itemsPage++; renderItems(); }
   };
   
   // Expose box selection functions globally for onclick handlers

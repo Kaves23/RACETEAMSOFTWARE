@@ -150,10 +150,10 @@ window.RTS_API = {
     return await this.request(`/box-contents/${boxId}`);
   },
 
-  async packItem(boxId, itemId, packedByUserId = 'admin-001') {
+  async packItem(boxId, itemId, positionInBox = null) {
     return await this.request('/box-contents/pack', {
       method: 'POST',
-      body: JSON.stringify({ box_id: boxId, item_id: itemId, packed_by_user_id: packedByUserId })
+      body: JSON.stringify({ box_id: boxId, item_id: itemId, position_in_box: positionInBox })
     });
   },
 

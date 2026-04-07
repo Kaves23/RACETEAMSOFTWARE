@@ -268,11 +268,20 @@ router.post('/pack', async (req, res, next) => {
       });
     }
     
+    const userId = req.user?.userId || null;
+
     const client = await pool.connect();
     
     try {
       await client.query('BEGIN');
       
+      // Fetch box to check weight limit
+      const boxRow = await client.query('SELECT id, max_weight_kg, current_weight_kg FROM boxes WHERE id = $1', [boxId]);
+      if (boxRow.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ success: false, error: 'Box not found' });
+      }
+
       // Update item's current_box_id
       const result = await client.query(
         'UPDATE items SET current_box_id = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
@@ -283,27 +292,65 @@ router.post('/pack', async (req, res, next) => {
         await client.query('ROLLBACK');
         return res.status(404).json({ success: false, error: 'Item not found' });
       }
+
+      // Fix 17: Check weight limit
+      const box = boxRow.rows[0];
+      const item = result.rows[0];
+      if (box.max_weight_kg && item.weight_kg) {
+        const currentWeight = parseFloat(box.current_weight_kg) || 0;
+        const itemWeight = parseFloat(item.weight_kg);
+        if (currentWeight + itemWeight > parseFloat(box.max_weight_kg)) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({
+            success: false,
+            error: `Weight limit exceeded: box capacity is ${box.max_weight_kg}kg, currently ${currentWeight}kg, item weighs ${itemWeight}kg`
+          });
+        }
+      }
       
       // Check if box_contents entry already exists
       const existingContent = await client.query(
-        'SELECT * FROM box_contents WHERE box_id = $1 AND item_id = $2 AND item_type IN (\'equipment\', \'asset\')',
+        "SELECT * FROM box_contents WHERE box_id = $1 AND item_id = $2 AND item_type IN ('equipment', 'asset')",
         [boxId, itemId]
       );
       
       if (existingContent.rows.length === 0) {
-        // Create new box_contents entry
+        // Auto-assign position
+        const maxPosResult = await client.query(
+          'SELECT COALESCE(MAX(position_in_box), 0) + 1 AS next_pos FROM box_contents WHERE box_id = $1',
+          [boxId]
+        );
+        const position = maxPosResult.rows[0].next_pos;
         await client.query(
-          `INSERT INTO box_contents (box_id, item_id, item_type, packed_at)
-           VALUES ($1, $2, 'equipment', NOW())`,
-          [boxId, itemId]
+          `INSERT INTO box_contents (box_id, item_id, item_type, packed_by_user_id, position_in_box, packed_at)
+           VALUES ($1, $2, 'equipment', $3, $4, NOW())`,
+          [boxId, itemId, userId, position]
         );
       } else {
-        // Update existing entry timestamp
         await client.query(
-          `UPDATE box_contents SET packed_at = NOW() WHERE box_id = $1 AND item_id = $2 AND item_type IN ('equipment', 'asset')`,
-          [boxId, itemId]
+          "UPDATE box_contents SET packed_at = NOW(), packed_by_user_id = $3 WHERE box_id = $1 AND item_id = $2 AND item_type IN ('equipment', 'asset')",
+          [boxId, itemId, userId]
         );
       }
+      
+      // Fix 9: Recalculate box weight
+      await client.query(`
+        UPDATE boxes
+        SET current_weight_kg = (
+          SELECT COALESCE(SUM(i.weight_kg), 0)
+          FROM box_contents bc
+          JOIN items i ON i.id = bc.item_id
+          WHERE bc.box_id = $1 AND i.weight_kg IS NOT NULL AND bc.item_type != 'inventory'
+        ),
+        updated_at = NOW()
+        WHERE id = $1
+      `, [boxId]);
+
+      // Fix 3: Write to item_history
+      await client.query(
+        "INSERT INTO item_history (item_id, action, to_box_id, performed_by_user_id, timestamp) VALUES ($1, 'packed', $2, $3, NOW())",
+        [itemId, boxId, userId]
+      );
       
       await client.query('COMMIT');
       
@@ -331,11 +378,16 @@ router.post('/unpack', async (req, res, next) => {
       });
     }
     
+    const userId = req.user?.userId || null;
     const client = await pool.connect();
     
     try {
       await client.query('BEGIN');
       
+      // Get the box ID before clearing it
+      const itemBefore = await client.query('SELECT current_box_id FROM items WHERE id = $1', [itemId]);
+      const fromBoxId = boxId || (itemBefore.rows[0]?.current_box_id) || null;
+
       // Clear item's current_box_id
       const result = await client.query(
         'UPDATE items SET current_box_id = NULL, updated_at = NOW() WHERE id = $1 RETURNING *',
@@ -349,8 +401,29 @@ router.post('/unpack', async (req, res, next) => {
       
       // Remove from box_contents table
       await client.query(
-        `DELETE FROM box_contents WHERE item_id = $1 AND item_type IN ('equipment', 'asset')`,
+        "DELETE FROM box_contents WHERE item_id = $1 AND item_type IN ('equipment', 'asset')",
         [itemId]
+      );
+
+      // Fix 9: Recalculate box weight if we know which box it came from
+      if (fromBoxId) {
+        await client.query(`
+          UPDATE boxes
+          SET current_weight_kg = (
+            SELECT COALESCE(SUM(i.weight_kg), 0)
+            FROM box_contents bc
+            JOIN items i ON i.id = bc.item_id
+            WHERE bc.box_id = $1 AND i.weight_kg IS NOT NULL AND bc.item_type != 'inventory'
+          ),
+          updated_at = NOW()
+          WHERE id = $1
+        `, [fromBoxId]);
+      }
+
+      // Fix 3: Write to item_history
+      await client.query(
+        "INSERT INTO item_history (item_id, action, from_box_id, performed_by_user_id, timestamp) VALUES ($1, 'unpacked', $2, $3, NOW())",
+        [itemId, fromBoxId, userId]
       );
       
       await client.query('COMMIT');

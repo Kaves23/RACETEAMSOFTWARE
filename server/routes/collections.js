@@ -119,13 +119,20 @@ router.put('/:table/:id', async (req, res) => {
     const { id } = req.params;
     const data = req.body;
     
-    // Log data for debugging
-    if (table === 'drivers') {
-      console.log('🔍 Updating driver:', id);
-      console.log('🔍 Fields being updated:', Object.keys(data));
-      console.log('🔍 Full data:', JSON.stringify(data, null, 2));
+    // Fix 19: Validate driver color uniqueness before saving
+    if (table === 'drivers' && data.color) {
+      const colorCheck = await db.query(
+        'SELECT id, name FROM drivers WHERE color = $1 AND id != $2',
+        [data.color, id]
+      );
+      if (colorCheck.rows.length > 0) {
+        return res.status(409).json({
+          success: false,
+          error: `Color ${data.color} is already used by driver "${colorCheck.rows[0].name}". Each driver must have a unique colour.`
+        });
+      }
     }
-    
+
     // Remove id from data to avoid updating it
     delete data.id;
     

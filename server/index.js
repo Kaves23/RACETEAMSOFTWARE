@@ -253,16 +253,20 @@ app.use((err, req, res, next) => {
 
 // ===== SESSION CLEANUP CRON JOB =====
 // Remove expired sessions every hour to prevent database bloat
-setInterval(async () => {
+// Also run immediately on startup to clean any accumulated stale sessions
+async function cleanExpiredSessions() {
   try {
-    await db.query('DELETE FROM sessions WHERE expires_at < NOW()');
-    if (constants.LOG_REQUEST_DETAILS) {
-      console.log('✅ Expired sessions cleaned up');
+    const result = await db.query('DELETE FROM sessions WHERE expires_at < NOW()');
+    if (constants.LOG_REQUEST_DETAILS && result.rowCount > 0) {
+      console.log(`✅ Cleaned ${result.rowCount} expired session(s)`);
     }
   } catch (error) {
     console.error('❌ Session cleanup error:', error);
   }
-}, constants.SESSION_CLEANUP_INTERVAL_MS);
+}
+
+cleanExpiredSessions(); // Run once on startup
+setInterval(cleanExpiredSessions, constants.SESSION_CLEANUP_INTERVAL_MS);
 
 // Helper to get network IP addresses
 function getNetworkAddresses() {
