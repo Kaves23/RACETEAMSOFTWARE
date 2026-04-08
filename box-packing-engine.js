@@ -144,7 +144,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       location: b.current_location_id, zone: b.current_zone,
       assignedDriverId: b.assigned_driver_id, assignedDriverName: b.assigned_driver_name,
       status: b.status || 'available', itemCount: b.item_count || 0,
-      truckId: b.current_truck_id || null,
+      truckId: b.load_plan_truck_id || b.current_truck_id || null,
       createdAt: b.created_at, updatedAt: b.updated_at
     }));
     // ── Items ─────────────────────────────────────────────────────────────────

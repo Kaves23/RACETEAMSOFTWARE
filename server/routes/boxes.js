@@ -27,8 +27,10 @@ router.get('/', async (req, res, next) => {
       ? `${selectedFields.join(', ')}, d.name as assigned_driver_name`
       : 'b.*, d.name as assigned_driver_name';
     
+    const truckSubquery = `(SELECT lp.truck_id FROM load_plan_boxes lpb JOIN load_plans lp ON lp.id = lpb.load_plan_id WHERE lpb.box_id = b.id ORDER BY lpb.added_at DESC LIMIT 1) AS load_plan_truck_id`;
+
     let query = `
-      SELECT ${selectClause}
+      SELECT ${selectClause}, ${truckSubquery}
       FROM boxes b
       LEFT JOIN drivers d ON b.assigned_driver_id = d.id
       WHERE 1=1
