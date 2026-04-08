@@ -1413,6 +1413,28 @@
       return await apiRequest(`/trucks/${id}`, {
         method: 'DELETE'
       });
+    },
+
+    // ---- Inventory Categories ----
+    async getInventoryCategories() {
+      return await apiRequest('/inventory-categories');
+    },
+    async createInventoryCategory(data) {
+      return await apiRequest('/inventory-categories', {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
+    },
+    async updateInventoryCategory(id, data) {
+      return await apiRequest(`/inventory-categories/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data)
+      });
+    },
+    async deleteInventoryCategory(id) {
+      return await apiRequest(`/inventory-categories/${id}`, {
+        method: 'DELETE'
+      });
     }
   };
 

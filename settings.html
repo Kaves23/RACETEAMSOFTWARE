@@ -63,6 +63,7 @@
                 <li data-section="calendar">Google Calendar</li>
                 <li data-section="setupTemplates">Setup Templates</li>
                 <li data-section="masterChecklists">Master Lists</li>
+                <li data-section="invCategories">Inv. Categories</li>
               </ul>
 
               <div class="mlo-section-label mt-3">Appearance</div>
@@ -156,6 +157,9 @@
                   </li>
                   <li class="nav-item" role="presentation">
                     <button class="nav-link" id="tab-set-checklists" data-bs-toggle="tab" data-bs-target="#paneMasterChecklists" type="button" role="tab" aria-controls="paneMasterChecklists" aria-selected="false">Master Lists</button>
+                  </li>
+                  <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tab-set-invcategories" data-bs-toggle="tab" data-bs-target="#paneInvCategories" type="button" role="tab" aria-controls="paneInvCategories" aria-selected="false">Inv. Categories</button>
                   </li>
                 </ul>
 
@@ -343,6 +347,21 @@
                   </div>
                 </div>
 
+                <!-- INV. CATEGORIES -->
+                <div id="paneInvCategories" class="tab-pane fade" role="tabpanel" aria-labelledby="tab-set-invcategories">
+                  <div class="col-12">
+                    <label class="form-label">Category name</label>
+                    <input id="f_invcat_name" class="form-control form-control-sm" type="text" placeholder="Consumables">
+                  </div>
+                  <div class="col-12 mt-2">
+                    <label class="form-label">Sort order</label>
+                    <input id="f_invcat_sort" class="form-control form-control-sm" type="number" min="0" step="1" placeholder="0">
+                  </div>
+                  <div class="text-secondary mt-2" style="font-size:0.75rem;">
+                    Categories are stored in the database. No local fallback — if the DB is unreachable, inventory will show an error.
+                  </div>
+                </div>
+
                 <!-- CALENDAR -->
                 <div id="paneCalendar" class="tab-pane fade" role="tabpanel" aria-labelledby="tab-set-calendar">
                   <div class="col-12">
@@ -526,6 +545,9 @@
   f_chk_name: document.getElementById('f_chk_name'),
   f_chk_items: document.getElementById('f_chk_items'),
 
+  f_invcat_name: document.getElementById('f_invcat_name'),
+  f_invcat_sort: document.getElementById('f_invcat_sort'),
+
       f_cal_enabled: document.getElementById('f_cal_enabled'),
       f_cal_id: document.getElementById('f_cal_id'),
       f_cal_notes: document.getElementById('f_cal_notes'),
@@ -547,6 +569,7 @@
     let driversCache = null; // Cache for drivers from database  
     let staffCache = null;    // Cache for staff from database
     let locationsCache = null; // Cache for locations from database
+    let inventoryCategoriesCache = null; // Cache for inventory categories from database
 
     function saveUI(){ RTS.safeSaveJSON('rts.settings.ui.v1', ui); }
 
@@ -585,6 +608,23 @@
         return assetTypesCache;
       }
       return [];
+    }
+
+    // Load inventory categories from database (no fallback)
+    async function loadInventoryCategoriesFromDB() {
+      try {
+        const response = await RTS_API.getInventoryCategories();
+        if (response && response.success) {
+          inventoryCategoriesCache = response.categories || [];
+          return inventoryCategoriesCache;
+        }
+        throw new Error('Unexpected response');
+      } catch (error) {
+        console.error('Error loading inventory categories from database:', error);
+        inventoryCategoriesCache = null; // null = failed, not available
+        if (RTS.showToast) RTS.showToast('⚠ Could not load inventory categories from DB', 'error');
+        return [];
+      }
     }
 
     // Load drivers from database
@@ -630,7 +670,8 @@
         'eventTypes': 'tab-set-eventtypes',
         'calendar': 'tab-set-calendar',
         'setupTemplates': 'tab-set-setup',
-        'masterChecklists': 'tab-set-checklists'
+        'masterChecklists': 'tab-set-checklists',
+        'invCategories': 'tab-set-invcategories'
       };
       
       // Activate the corresponding Bootstrap tab
@@ -657,6 +698,7 @@
       if(section==='calendar') return [{ id:'cal_google', name:'Google Calendar', enabled:!!(settings.calendars && settings.calendars.google && settings.calendars.google.enabled) }];
       if(section==='setupTemplates') return (settings.setupTemplates||[]).map(t=>({ id:t.id||RTS.uid('setup'), name:t.name, fields:(t.fields||[]) }));
       if(section==='masterChecklists') return (settings.masterChecklists||[]).map(c=>({ id:c.id||RTS.uid('chk'), name:c.name, items:(c.items||[]) }));
+      if(section==='invCategories') return inventoryCategoriesCache || [];
       return [];
     }
 
@@ -698,6 +740,7 @@
       else if(section==='calendar') cols = ['Integration','Enabled'];
       else if(section==='setupTemplates') cols = ['Template','Fields'];
       else if(section==='masterChecklists') cols = ['Checklist','Items'];
+      else if(section==='invCategories') cols = ['Category','Sort'];
       els.theadRow.innerHTML = cols.map(c=>`<th>${c}</th>`).join('');
     }
 
@@ -714,6 +757,9 @@
       }
       if(ui.section === 'assetTypes' && !assetTypesCache) {
         await loadAssetTypesFromDB();
+      }
+      if(ui.section === 'invCategories' && inventoryCategoriesCache === null) {
+        await loadInventoryCategoriesFromDB();
       }
       
       showPane(ui.section);
@@ -747,6 +793,7 @@
         else if(ui.section==='calendar') tr.innerHTML = `<td>${r.name||''}</td><td>${r.enabled ? 'Yes' : 'No'}</td>`;
         else if(ui.section==='setupTemplates') tr.innerHTML = `<td>${r.name||''}</td><td class="text-secondary">${(r.fields||[]).join(', ')}</td>`;
         else if(ui.section==='masterChecklists') tr.innerHTML = `<td>${r.name||''}</td><td class="text-secondary">${(r.items||[]).length} items</td>`;
+        else if(ui.section==='invCategories') tr.innerHTML = `<td>${r.name||''}</td><td class="text-secondary">${r.sort_order ?? ''}</td>`;
         tr.addEventListener('click', async ()=>{ ui.selectedId = r.id; saveUI(); await renderList(); loadInspector(); });
         els.tbody.appendChild(tr);
       });
@@ -842,6 +889,10 @@
       if(ui.section==='masterChecklists') {
         els.f_chk_name.value = sel ? (sel.name||'') : '';
         els.f_chk_items.value = sel ? (sel.items||[]).join('\n') : '';
+      }
+      if(ui.section==='invCategories') {
+        els.f_invcat_name.value = sel ? (sel.name||'') : '';
+        els.f_invcat_sort.value = sel ? (sel.sort_order ?? 0) : 0;
       }
       if(ui.section==='calendar') {
         const g = (settings.calendars && settings.calendars.google) ? settings.calendars.google : {};
@@ -1020,6 +1071,23 @@
         cur.name = els.f_chk_name.value.trim();
         cur.items = els.f_chk_items.value.split('\n').map(s=>s.trim()).filter(Boolean);
       }
+      if(ui.section==='invCategories') {
+        cur.name = els.f_invcat_name.value.trim();
+        cur.sort_order = parseInt(els.f_invcat_sort.value || '0', 10);
+        // Save to database
+        (async () => {
+          try {
+            await RTS_API.updateInventoryCategory(cur.id, { name: cur.name, sort_order: cur.sort_order });
+            await loadInventoryCategoriesFromDB();
+            await renderList();
+            if (RTS.showToast) RTS.showToast('✅ Category saved', 'success');
+          } catch (error) {
+            console.error('Error saving inventory category:', error);
+            if (RTS.showToast) RTS.showToast('Failed to save category: ' + error.message, 'error');
+          }
+        })();
+        return;
+      }
 
       setFor(ui.section, arr);
     }
@@ -1118,6 +1186,24 @@
       if(ui.section==='eventTypes') item = { id: RTS.uid('et'), code:'New Type', color:'#e32636' };
       if(ui.section==='setupTemplates') item = { id: RTS.uid('setup'), name:'New Template', fields:[] };
       if(ui.section==='masterChecklists') item = { id: RTS.uid('chk'), name:'New Checklist', items:[] };
+      if(ui.section==='invCategories') {
+        const maxSort = (inventoryCategoriesCache || []).reduce((m, c) => Math.max(m, c.sort_order || 0), -1);
+        const newCat = { id: RTS.uid('cat'), name: 'New Category', sort_order: maxSort + 1 };
+        try {
+          const resp = await RTS_API.createInventoryCategory(newCat);
+          if (resp && resp.success) {
+            await loadInventoryCategoriesFromDB();
+            ui.selectedId = resp.category.id;
+            saveUI();
+            await renderList();
+            if (RTS.showToast) RTS.showToast('✅ Category created', 'success');
+          }
+        } catch (error) {
+          console.error('Error creating inventory category:', error);
+          if (RTS.showToast) RTS.showToast('Failed to create category: ' + error.message, 'error');
+        }
+        return;
+      }
       if(!item) return;
       arr.unshift(item);
       await setFor(ui.section, arr);
@@ -1214,6 +1300,23 @@
         } catch (error) {
           console.error('Error deleting asset type:', error);
           alert('Error deleting asset type: ' + (error.error || error.message || 'Unknown error'));
+          return;
+        }
+      }
+
+      if(ui.section==='invCategories') {
+        try {
+          const itemToDelete = arr[idx];
+          await RTS_API.deleteInventoryCategory(itemToDelete.id);
+          await loadInventoryCategoriesFromDB();
+          ui.selectedId = inventoryCategoriesCache && inventoryCategoriesCache[0] ? inventoryCategoriesCache[0].id : null;
+          saveUI();
+          await renderList();
+          if (RTS.showToast) RTS.showToast('✅ Category deleted', 'success');
+          return;
+        } catch (error) {
+          console.error('Error deleting inventory category:', error);
+          if (RTS.showToast) RTS.showToast('Failed to delete category: ' + error.message, 'error');
           return;
         }
       }

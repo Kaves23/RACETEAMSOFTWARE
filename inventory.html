@@ -646,7 +646,7 @@
       
       // Settings
       const settings = RTS.getSettings();
-      const CATEGORIES = settings.categories || ['Consumables', 'Spares', 'Tyres', 'Tools & PPE'];
+      let CATEGORIES = []; // Loaded from DB in init() — no local fallback
       let LOCATIONS = []; // Loaded from DB in init()
       const SUPPLIERS = (settings.suppliers || []).map(s => typeof s === 'string' ? s : s.name).filter(Boolean);
       
@@ -661,6 +661,16 @@
           const locResp = await RTS_API.getLocations();
           if (locResp && locResp.items) LOCATIONS = locResp.items.filter(l => l.is_active !== false);
         } catch (e) { console.warn('Could not load locations:', e.message); }
+        // Load categories from DB — no fallback
+        try {
+          const catResp = await RTS_API.getInventoryCategories();
+          if (!catResp || !catResp.success) throw new Error('Invalid response');
+          CATEGORIES = catResp.categories.map(c => c.name);
+        } catch (e) {
+          console.error('Could not load inventory categories from DB:', e.message);
+          showLoading('⚠ Database Unavailable', 'Could not load inventory categories. Check connection and reload.');
+          return;
+        }
         await loadData();
         populateDropdowns();
         renderAll();
