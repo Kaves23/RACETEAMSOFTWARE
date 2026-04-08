@@ -91,6 +91,7 @@ CREATE TABLE IF NOT EXISTS drivers (
 );
 
 CREATE INDEX IF NOT EXISTS idx_drivers_status ON drivers(status);
+ALTER TABLE drivers ADD COLUMN IF NOT EXISTS category VARCHAR(50);
 CREATE INDEX IF NOT EXISTS idx_drivers_category ON drivers(category);
 CREATE INDEX IF NOT EXISTS idx_drivers_team ON drivers(team);
 

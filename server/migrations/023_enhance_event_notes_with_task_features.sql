@@ -22,9 +22,11 @@ ADD COLUMN IF NOT EXISTS is_milestone BOOLEAN DEFAULT false,
 ADD COLUMN IF NOT EXISTS blocked_reason TEXT;
 
 -- Add foreign key for parent items (subtasks)
-ALTER TABLE event_packing_items 
-ADD CONSTRAINT fk_parent_item 
-FOREIGN KEY (parent_item_id) REFERENCES event_packing_items(id) ON DELETE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE event_packing_items
+    ADD CONSTRAINT fk_parent_item
+    FOREIGN KEY (parent_item_id) REFERENCES event_packing_items(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- Add indexes for new task-related queries
 CREATE INDEX IF NOT EXISTS idx_packing_items_assigned_to ON event_packing_items(assigned_to_user_id);

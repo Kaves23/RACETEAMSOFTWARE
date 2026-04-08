@@ -15,9 +15,11 @@ ALTER TABLE event_packing_items
 ADD COLUMN IF NOT EXISTS linked_event_id VARCHAR(36);
 
 -- Add foreign key for linked events
-ALTER TABLE event_packing_items 
-ADD CONSTRAINT fk_linked_event 
-FOREIGN KEY (linked_event_id) REFERENCES events(id) ON DELETE SET NULL;
+DO $$ BEGIN
+  ALTER TABLE event_packing_items
+    ADD CONSTRAINT fk_linked_event
+    FOREIGN KEY (linked_event_id) REFERENCES events(id) ON DELETE SET NULL;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- Add index for event queries
 CREATE INDEX IF NOT EXISTS idx_packing_items_linked_event ON event_packing_items(linked_event_id);

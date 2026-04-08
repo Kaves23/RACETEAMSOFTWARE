@@ -22,7 +22,8 @@ CREATE INDEX IF NOT EXISTS idx_sessions_token_hash ON sessions USING hash(token)
 -- ===================================================================
 DO $$ BEGIN
   ALTER TABLE box_contents ADD CONSTRAINT uq_box_contents_box_item UNIQUE (box_id, item_id);
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+EXCEPTION WHEN duplicate_object THEN NULL;
+         WHEN duplicate_table  THEN NULL; END $$;
 
 -- ===================================================================
 -- Fix 3: NOT NULL on status columns (all rows already have values)

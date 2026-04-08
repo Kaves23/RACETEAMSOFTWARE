@@ -31,17 +31,27 @@ UPDATE boxes      SET current_location_id = NULL WHERE current_location_id IS NO
 DELETE FROM box_contents WHERE box_id NOT IN (SELECT id FROM boxes);
 
 -- Step 5: Add missing FK constraints
-ALTER TABLE items ADD CONSTRAINT fk_items_current_box
-  FOREIGN KEY (current_box_id) REFERENCES boxes(id) ON DELETE SET NULL;
+DO $$ BEGIN
+  ALTER TABLE items ADD CONSTRAINT fk_items_current_box
+    FOREIGN KEY (current_box_id) REFERENCES boxes(id) ON DELETE SET NULL;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-ALTER TABLE items ADD CONSTRAINT fk_items_current_location
-  FOREIGN KEY (current_location_id) REFERENCES locations(id) ON DELETE SET NULL;
+DO $$ BEGIN
+  ALTER TABLE items ADD CONSTRAINT fk_items_current_location
+    FOREIGN KEY (current_location_id) REFERENCES locations(id) ON DELETE SET NULL;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-ALTER TABLE inventory ADD CONSTRAINT fk_inventory_location
-  FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE SET NULL;
+DO $$ BEGIN
+  ALTER TABLE inventory ADD CONSTRAINT fk_inventory_location
+    FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE SET NULL;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-ALTER TABLE boxes ADD CONSTRAINT fk_boxes_current_location
-  FOREIGN KEY (current_location_id) REFERENCES locations(id) ON DELETE SET NULL;
+DO $$ BEGIN
+  ALTER TABLE boxes ADD CONSTRAINT fk_boxes_current_location
+    FOREIGN KEY (current_location_id) REFERENCES locations(id) ON DELETE SET NULL;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-ALTER TABLE box_contents ADD CONSTRAINT fk_box_contents_box
-  FOREIGN KEY (box_id) REFERENCES boxes(id) ON DELETE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE box_contents ADD CONSTRAINT fk_box_contents_box
+    FOREIGN KEY (box_id) REFERENCES boxes(id) ON DELETE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;

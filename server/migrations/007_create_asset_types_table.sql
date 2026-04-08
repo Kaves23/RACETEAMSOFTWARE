@@ -35,8 +35,9 @@ INSERT INTO asset_types (id, name, color, sort_order) VALUES
   ('at-6', 'Filters', '#84cc16', 6),
   ('at-7', 'Diagnostics', '#f59e0b', 7),
   ('at-8', 'Lifting', '#ec4899', 8)
-ON CONFLICT (name) 
+ON CONFLICT (id) 
 DO UPDATE SET
+  name = EXCLUDED.name,
   color = EXCLUDED.color,
   sort_order = EXCLUDED.sort_order,
   updated_at = CURRENT_TIMESTAMP;

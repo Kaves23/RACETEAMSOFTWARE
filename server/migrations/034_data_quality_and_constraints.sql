@@ -21,24 +21,29 @@ DROP INDEX IF EXISTS idx_box_contents_box_id;
 DROP INDEX IF EXISTS idx_box_contents_item_id;
 
 -- Fix 5: Add CHECK constraints on status columns
-ALTER TABLE items
-  ADD CONSTRAINT chk_items_status
-  CHECK (status IN ('available', 'in_use', 'maintenance', 'retired', 'lost', 'warehouse'));
+DO $$ BEGIN
+  ALTER TABLE items ADD CONSTRAINT chk_items_status
+    CHECK (status IN ('available', 'in_use', 'maintenance', 'retired', 'lost', 'warehouse'));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-ALTER TABLE boxes
-  ADD CONSTRAINT chk_boxes_status
-  CHECK (status IN ('available', 'warehouse', 'in_use', 'packed', 'in_transit', 'maintenance'));
+DO $$ BEGIN
+  ALTER TABLE boxes ADD CONSTRAINT chk_boxes_status
+    CHECK (status IN ('available', 'warehouse', 'in_use', 'packed', 'in_transit', 'maintenance'));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-ALTER TABLE drivers
-  ADD CONSTRAINT chk_drivers_status
-  CHECK (status IN ('active', 'inactive', 'suspended'));
+DO $$ BEGIN
+  ALTER TABLE drivers ADD CONSTRAINT chk_drivers_status
+    CHECK (status IN ('active', 'inactive', 'suspended'));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- Fix 6: Add FK boxes.current_truck_id → trucks (was missing from migration 033)
-ALTER TABLE boxes
-  ADD CONSTRAINT fk_boxes_current_truck
-  FOREIGN KEY (current_truck_id) REFERENCES trucks(id) ON DELETE SET NULL;
+DO $$ BEGIN
+  ALTER TABLE boxes ADD CONSTRAINT fk_boxes_current_truck
+    FOREIGN KEY (current_truck_id) REFERENCES trucks(id) ON DELETE SET NULL;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- Fix 7: Add CHECK constraint to prevent negative inventory quantities
-ALTER TABLE inventory
-  ADD CONSTRAINT chk_inventory_quantity_non_negative
-  CHECK (quantity >= 0);
+DO $$ BEGIN
+  ALTER TABLE inventory ADD CONSTRAINT chk_inventory_quantity_non_negative
+    CHECK (quantity >= 0);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;

@@ -33,8 +33,8 @@ ON box_contents(box_id, item_id)
 WHERE item_type != 'inventory';
 
 -- Add check constraint to ensure quantity is positive
-ALTER TABLE box_contents 
-ADD CONSTRAINT check_quantity_positive 
-CHECK (quantity_packed > 0);
+DO $$ BEGIN
+  ALTER TABLE box_contents ADD CONSTRAINT check_quantity_positive CHECK (quantity_packed > 0);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 COMMENT ON COLUMN box_contents.quantity_packed IS 'Number of units packed (for inventory items). Always 1 for equipment/assets.';
