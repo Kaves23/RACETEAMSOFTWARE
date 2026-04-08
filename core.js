@@ -1401,8 +1401,9 @@
       return await apiRequest(`/trucks/${id}`);
     },
 
-    async getLoadPlanDraft() {
-      return await apiRequest('/load-plans/draft');
+    async getLoadPlanDraft(truckId) {
+      const qs = truckId ? `?truck_id=${encodeURIComponent(truckId)}` : '';
+      return await apiRequest(`/load-plans/draft${qs}`);
     },
 
     async saveLoadPlanDraft(data) {

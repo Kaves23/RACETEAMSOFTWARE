@@ -2,14 +2,20 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../db');
 
-// GET /api/load-plans/draft
-// Returns the single active Draft plan with its box placements.
+// GET /api/load-plans/draft?truck_id=X
+// Returns the Draft plan for the given truck (or the most recent draft if no truck_id).
 // If none exists, returns { plan: null, placements: [] }
 router.get('/draft', async (req, res, next) => {
   try {
-    const planResult = await pool.query(
-      `SELECT * FROM load_plans WHERE status = 'Draft' ORDER BY updated_at DESC LIMIT 1`
-    );
+    const { truck_id } = req.query;
+    const planResult = truck_id
+      ? await pool.query(
+          `SELECT * FROM load_plans WHERE status = 'Draft' AND truck_id = $1 ORDER BY updated_at DESC LIMIT 1`,
+          [truck_id]
+        )
+      : await pool.query(
+          `SELECT * FROM load_plans WHERE status = 'Draft' ORDER BY updated_at DESC LIMIT 1`
+        );
 
     if (planResult.rows.length === 0) {
       return res.json({ success: true, plan: null, placements: [] });

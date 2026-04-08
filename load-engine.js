@@ -302,7 +302,35 @@ console.log('📦 load-engine.js loading...');
 
     // Event listeners
     selectEvent.addEventListener('change', e => { currentLoad.eventId = e.target.value || null; saveData(); updateStats(); });
-    selectTruck.addEventListener('change', e => { currentLoad.truckId = e.target.value || null; saveData(); renderAll(); });
+    selectTruck.addEventListener('change', async e => {
+      const newTruckId = e.target.value || null;
+      currentLoad.truckId = newTruckId;
+      // Load the draft plan for this specific truck (empty zones if none saved)
+      if (newTruckId) {
+        try {
+          const resp = await window.RTS_API.getLoadPlanDraft(newTruckId);
+          if (resp && resp.success && resp.plan) {
+            const validBoxIds = new Set(boxes.map(b => b.id));
+            currentLoad = {
+              id: resp.plan.id,
+              eventId: resp.plan.event_id || null,
+              truckId: resp.plan.truck_id,
+              placements: (resp.placements || []).filter(p => validBoxIds.has(p.boxId)),
+              status: resp.plan.status || 'Draft',
+              createdAt: resp.plan.created_at,
+              updatedAt: resp.plan.updated_at
+            };
+          } else {
+            // No plan saved for this truck yet — show empty zones
+            currentLoad = { ...createEmptyLoad(), truckId: newTruckId };
+          }
+        } catch (err) {
+          console.error('Could not load plan for truck:', err.message);
+          currentLoad = { ...createEmptyLoad(), truckId: newTruckId };
+        }
+      }
+      renderAll();
+    });
     
     document.getElementById('btnAddBox').addEventListener('click', () => showBoxModal());
     document.getElementById('btnSaveBox').addEventListener('click', saveBox);
