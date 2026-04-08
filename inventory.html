@@ -645,10 +645,9 @@
       let selectedItemId = null;
       
       // Settings
-      const settings = RTS.getSettings();
       let CATEGORIES = []; // Loaded from DB in init() — no local fallback
       let LOCATIONS = []; // Loaded from DB in init()
-      const SUPPLIERS = (settings.suppliers || []).map(s => typeof s === 'string' ? s : s.name).filter(Boolean);
+      let SUPPLIERS = []; // Loaded from DB in init() — no local fallback
       
       // Initialize
       async function init() {
@@ -669,6 +668,16 @@
         } catch (e) {
           console.error('Could not load inventory categories from DB:', e.message);
           showLoading('⚠ Database Unavailable', 'Could not load inventory categories. Check connection and reload.');
+          return;
+        }
+        // Load suppliers from DB — no fallback
+        try {
+          const supResp = await RTS_API.getSuppliers();
+          if (!supResp || !supResp.success) throw new Error('Invalid response');
+          SUPPLIERS = supResp.suppliers || [];
+        } catch (e) {
+          console.error('Could not load suppliers from DB:', e.message);
+          showLoading('⚠ Database Unavailable', 'Could not load suppliers. Check connection and reload.');
           return;
         }
         await loadData();
@@ -911,8 +920,8 @@
       // Populate dropdowns
       function populateDropdowns() {
         const catOptions = CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('');
-        const locOptions = LOCATIONS.map(l => `<option value="${l}">${l}</option>`).join('');
-        const supOptions = SUPPLIERS.map(s => `<option value="${s}">${s}</option>`).join('');
+        const locOptions = LOCATIONS.map(l => `<option value="${l.name||l}">${l.name||l}</option>`).join('');
+        const supOptions = SUPPLIERS.map(s => `<option value="${s.name||s}">${s.name||s}</option>`).join('');
         
         document.getElementById('filterCategory').innerHTML = '<option value="">All Categories</option>' + catOptions;
         document.getElementById('filterLocation').innerHTML = '<option value="">All Locations</option>' + locOptions;
@@ -1173,7 +1182,7 @@
         const container = document.getElementById('locationEntries');
         const entryId = `loc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         
-        const locOptions = LOCATIONS.map(l => `<option value="${l}">${l}</option>`).join('');
+        const locOptions = LOCATIONS.map(l => `<option value="${l.name||l}">${l.name||l}</option>`).join('');
         
         const entryHtml = `
           <div class="location-entry mb-2" id="${entryId}" style="display: flex; gap: 8px; align-items: center;">

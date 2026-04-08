@@ -1435,6 +1435,28 @@
       return await apiRequest(`/inventory-categories/${id}`, {
         method: 'DELETE'
       });
+    },
+
+    // ---- Suppliers ----
+    async getSuppliers() {
+      return await apiRequest('/suppliers');
+    },
+    async createSupplier(data) {
+      return await apiRequest('/suppliers', {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
+    },
+    async updateSupplier(id, data) {
+      return await apiRequest(`/suppliers/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data)
+      });
+    },
+    async deleteSupplier(id) {
+      return await apiRequest(`/suppliers/${id}`, {
+        method: 'DELETE'
+      });
     }
   };
 

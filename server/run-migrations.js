@@ -43,7 +43,8 @@ async function runMigrations() {
     '035_schema_improvements.sql',
     '036_performance_and_integrity.sql',
     '037_trucks_notes_column.sql',
-    '038_inventory_categories.sql'
+    '038_inventory_categories.sql',
+    '039_suppliers_table.sql'
   ];
   
   for (const filename of migrationFiles) {

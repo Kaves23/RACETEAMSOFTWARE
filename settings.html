@@ -565,11 +565,12 @@
     const defaultUI = { section:'drivers', search:'', selectedId:null };
     let ui = RTS.deepMerge(defaultUI, RTS.safeLoadJSON('rts.settings.ui.v1', {}));
     let settings = RTS.getSettings();
-    let assetTypesCache = null; // Cache for asset types from database
-    let driversCache = null; // Cache for drivers from database  
-    let staffCache = null;    // Cache for staff from database
-    let locationsCache = null; // Cache for locations from database
-    let inventoryCategoriesCache = null; // Cache for inventory categories from database
+    let assetTypesCache = null;
+    let driversCache = null;
+    let staffCache = null;
+    let locationsCache = null;
+    let inventoryCategoriesCache = null;
+    let suppliersCache = null; // Cache for suppliers from database
 
     function saveUI(){ RTS.safeSaveJSON('rts.settings.ui.v1', ui); }
 
@@ -623,6 +624,23 @@
         console.error('Error loading inventory categories from database:', error);
         inventoryCategoriesCache = null; // null = failed, not available
         if (RTS.showToast) RTS.showToast('⚠ Could not load inventory categories from DB', 'error');
+        return [];
+      }
+    }
+
+    // Load suppliers from database (no fallback)
+    async function loadSuppliersFromDB() {
+      try {
+        const response = await RTS_API.getSuppliers();
+        if (response && response.success) {
+          suppliersCache = response.suppliers || [];
+          return suppliersCache;
+        }
+        throw new Error('Unexpected response');
+      } catch (error) {
+        console.error('Error loading suppliers from database:', error);
+        suppliersCache = null;
+        if (RTS.showToast) RTS.showToast('⚠ Could not load suppliers from DB', 'error');
         return [];
       }
     }
@@ -690,7 +708,7 @@
       if(section==='drivers') return driversCache || [];
       if(section==='staff') return staffCache || [];
       if(section==='roles') return (settings.roles||[]).map((n,i)=>({ id:'role_'+i, name:n }));
-      if(section==='suppliers') return settings.suppliers || [];
+      if(section==='suppliers') return suppliersCache || [];
       if(section==='locations') return locationsCache || [];
       if(section==='assetTypes') return assetTypesCache || []; // Use cache from database
       if(section==='venues') return (settings.venues||[]).map(v=>({ id:v.id||RTS.uid('venue'), name:v.name, location:v.location||'', notes:v.notes||'' }));
@@ -706,7 +724,7 @@
       if(section==='drivers') settings.drivers = arr;
       if(section==='staff') settings.staff = arr;
       if(section==='roles') settings.roles = arr.map(x=>x.name).filter(Boolean);
-      if(section==='suppliers') settings.suppliers = arr;
+      if(section==='suppliers') { /* saved to DB in saveInspector */ return; }
       if(section==='locations') { /* saved to DB in saveInspector */ return; }
       if(section==='assetTypes') {
         // Save to database instead of localStorage
@@ -761,6 +779,9 @@
       if(ui.section === 'invCategories' && inventoryCategoriesCache === null) {
         await loadInventoryCategoriesFromDB();
       }
+      if(ui.section === 'suppliers' && suppliersCache === null) {
+        await loadSuppliersFromDB();
+      }
       
       showPane(ui.section);
       setHeaders(ui.section);
@@ -785,7 +806,7 @@
         if(ui.section==='drivers') tr.innerHTML = `<td>${r.name||''}</td><td>${r.racing_class||''}</td><td>${r.race_number||''}</td><td>${r.contact_email||''}</td>`;
         else if(ui.section==='staff') tr.innerHTML = `<td>${r.name||''}</td><td>${r.role||''}</td><td>${r.position||''}</td><td>${r.email||''}</td>`;
         else if(ui.section==='roles') tr.innerHTML = `<td>${r.name||''}</td>`;
-        else if(ui.section==='suppliers') tr.innerHTML = `<td>${r.name||''}</td><td>${r.leadTimeDays??''}</td><td>${r.email||''}</td><td>${r.phone||''}</td>`;
+        else if(ui.section==='suppliers') tr.innerHTML = `<td>${r.name||''}</td><td>${r.lead_time_days??r.leadTimeDays??''}</td><td>${r.email||''}</td><td>${r.phone||''}</td>`;
         else if(ui.section==='locations') tr.innerHTML = `<td>${r.name||''}</td>`;
         else if(ui.section==='assetTypes') tr.innerHTML = `<td><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${r.color||'#0ea5e9'};border:1px solid rgba(255,255,255,0.25);"></span> ${r.name||''}</td>`;
         else if(ui.section==='eventTypes') tr.innerHTML = `<td>${r.code||''}</td><td><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${r.color||'#e32636'};border:1px solid rgba(255,255,255,0.25);"></span> <span class="text-secondary" style="font-size:0.85rem;">${r.color||''}</span></td>`;
@@ -858,9 +879,9 @@
         els.f_sup_name.value = s.name||'';
         els.f_sup_email.value = s.email||'';
         els.f_sup_phone.value = s.phone||'';
-        els.f_sup_lead.value = (s.leadTimeDays ?? '');
-        els.f_sup_vat.value = s.vatNumber||'';
-        els.f_sup_account.value = s.accountNumber||'';
+        els.f_sup_lead.value = s.lead_time_days ?? s.leadTimeDays ?? '';
+        els.f_sup_vat.value = s.vat_number || s.vatNumber || '';
+        els.f_sup_account.value = s.account_number || s.accountNumber || '';
         els.f_sup_notes.value = s.notes||'';
       }
       if(ui.section==='roles') {
@@ -994,13 +1015,33 @@
         els.f_role_name.value = sel ? (sel.name||'') : '';
       }
       if(ui.section==='suppliers') {
-        cur.name = els.f_sup_name.value.trim();
-        cur.email = els.f_sup_email.value.trim();
-        cur.phone = els.f_sup_phone.value.trim();
-        cur.leadTimeDays = parseInt(els.f_sup_lead.value || '0', 10);
-        cur.vatNumber = els.f_sup_vat.value.trim();
-        cur.accountNumber = els.f_sup_account.value.trim();
-        cur.notes = els.f_sup_notes.value.trim();
+        const supData = {
+          name: els.f_sup_name.value.trim(),
+          email: els.f_sup_email.value.trim(),
+          phone: els.f_sup_phone.value.trim(),
+          lead_time_days: parseInt(els.f_sup_lead.value || '0', 10),
+          vat_number: els.f_sup_vat.value.trim(),
+          account_number: els.f_sup_account.value.trim(),
+          notes: els.f_sup_notes.value.trim()
+        };
+        // Save to database
+        (async () => {
+          try {
+            const isNew = !cur.created_at;
+            if (isNew) {
+              await RTS_API.createSupplier({ id: cur.id, ...supData });
+            } else {
+              await RTS_API.updateSupplier(cur.id, supData);
+            }
+            await loadSuppliersFromDB();
+            await renderList();
+            if (RTS.showToast) RTS.showToast('✅ Supplier saved', 'success');
+          } catch (error) {
+            console.error('Error saving supplier:', error);
+            if (RTS.showToast) RTS.showToast('Failed to save supplier: ' + error.message, 'error');
+          }
+        })();
+        return;
       }
       if(ui.section==='roles') {
         cur.name = els.f_role_name.value.trim();
@@ -1142,7 +1183,23 @@
       }
       if(ui.section==='staff') item = { id: RTS.uid('stf'), name:'New Staff', role:'', position:'', email:'', phone:'', active:true, notes:'' };
       if(ui.section==='roles') item = { id: RTS.uid('role'), name:'New Role' };
-      if(ui.section==='suppliers') item = { id: RTS.uid('sup'), name:'New Supplier', email:'', phone:'', leadTimeDays:0, vatNumber:'', accountNumber:'', notes:'' };
+      if(ui.section==='suppliers') {
+        const newSup = { id: RTS.uid('sup'), name: 'New Supplier', email: '', phone: '', lead_time_days: 0, vat_number: '', account_number: '', notes: '' };
+        try {
+          const resp = await RTS_API.createSupplier(newSup);
+          if (resp && resp.success) {
+            await loadSuppliersFromDB();
+            ui.selectedId = resp.supplier.id;
+            saveUI();
+            await renderList();
+            if (RTS.showToast) RTS.showToast('✅ Supplier created', 'success');
+          }
+        } catch (error) {
+          console.error('Error creating supplier:', error);
+          if (RTS.showToast) RTS.showToast('Failed to create supplier: ' + error.message, 'error');
+        }
+        return;
+      }
       if(ui.section==='locations') item = { id: RTS.uid('loc'), name:'New Location' };
       // Create in database
       if(ui.section==='locations') {
@@ -1283,6 +1340,23 @@
         } catch (error) {
           console.error('Error deleting location:', error);
           if (RTS.showToast) RTS.showToast('Failed to delete location: ' + error.message, 'error');
+          return;
+        }
+      }
+
+      if(ui.section==='suppliers') {
+        try {
+          const itemToDelete = arr[idx];
+          await RTS_API.deleteSupplier(itemToDelete.id);
+          await loadSuppliersFromDB();
+          ui.selectedId = suppliersCache && suppliersCache[0] ? suppliersCache[0].id : null;
+          saveUI();
+          await renderList();
+          if (RTS.showToast) RTS.showToast('✅ Supplier deleted', 'success');
+          return;
+        } catch (error) {
+          console.error('Error deleting supplier:', error);
+          if (RTS.showToast) RTS.showToast('Failed to delete supplier: ' + error.message, 'error');
           return;
         }
       }
