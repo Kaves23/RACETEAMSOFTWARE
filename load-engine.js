@@ -303,6 +303,17 @@ console.log('📦 load-engine.js loading...');
     document.getElementById('btnSaveLoad').addEventListener('click', saveLoadPlan);
     document.getElementById('btnClearLoad').addEventListener('click', clearLoad);
     document.getElementById('btnPrintBarcodes').addEventListener('click', printBarcodes);
+    document.getElementById('btnExportPackingList').addEventListener('click', () => {
+      new bootstrap.Modal(document.getElementById('exportModal')).show();
+    });
+    document.getElementById('btnExportCSV').addEventListener('click', () => {
+      bootstrap.Modal.getInstance(document.getElementById('exportModal')).hide();
+      exportPackingListCSV();
+    });
+    document.getElementById('btnExportPDF').addEventListener('click', () => {
+      bootstrap.Modal.getInstance(document.getElementById('exportModal')).hide();
+      exportPackingListPDF();
+    });
     document.getElementById('btn2DView').addEventListener('click', () => switchView('2D'));
     document.getElementById('btn3DView').addEventListener('click', () => switchView('3D'));
     document.getElementById('btnOptimize').addEventListener('click', autoOptimize);
@@ -1630,13 +1641,140 @@ console.log('📦 load-engine.js loading...');
     showBoxModal(boxId);
   }
 
+  // ========== EXPORT PACKING LIST ==========
+  function buildPackingListData() {
+    // Returns an array of { box, zone, items[] } for currently loaded boxes only
+    const truck = getTruck();
+    return currentLoad.placements.map(p => {
+      const box = getBox(p.boxId);
+      if (!box) return null;
+      const zoneLabel = truck ? `Zone ${p.zone.replace('grid-', '')}` : p.zone;
+      const items = box.contentsItems && box.contentsItems.length > 0
+        ? box.contentsItems
+        : [];
+      return { box, zoneLabel, items };
+    }).filter(Boolean);
+  }
+
+  function exportPackingListCSV() {
+    const data = buildPackingListData();
+    if (!data.length) { alert('No boxes are loaded on the trailer yet.'); return; }
+
+    const truck = getTruck();
+    const event = events.find(e => e.id === currentLoad.eventId);
+    const lines = [];
+
+    // Header rows
+    lines.push(`Packing List Export`);
+    lines.push(`Trailer,${truck ? truck.name : 'Unknown'}`);
+    lines.push(`Event,${event ? (event.title || event.name) : 'None selected'}`);
+    lines.push(`Exported,${new Date().toLocaleString()}`);
+    lines.push('');
+
+    // Column headers
+    lines.push('Box Name,Box Barcode,Zone,Item Barcode,Item Name,Item Type');
+
+    data.forEach(({ box, zoneLabel, items }) => {
+      if (items.length === 0) {
+        // Box is loaded but empty
+        lines.push(`"${box.name}","${box.barcode}","${zoneLabel}","","(empty box)",""`);
+      } else {
+        items.forEach((item, idx) => {
+          lines.push(`"${idx === 0 ? box.name : ''}","${idx === 0 ? box.barcode : ''}","${idx === 0 ? zoneLabel : ''}","${item.barcode || ''}","${item.name || ''}","${item.type || ''}"`);
+        });
+      }
+    });
+
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const truckName = truck ? truck.name.replace(/[^a-z0-9]/gi, '-') : 'trailer';
+    const dateStr = new Date().toISOString().slice(0,10);
+    a.href = url;
+    a.download = `packing-list-${truckName}-${dateStr}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function exportPackingListPDF() {
+    const data = buildPackingListData();
+    if (!data.length) { alert('No boxes are loaded on the trailer yet.'); return; }
+
+    const truck = getTruck();
+    const event = events.find(e => e.id === currentLoad.eventId);
+    const dateStr = new Date().toLocaleDateString();
+
+    let html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Packing List</title>
+  <style>
+    body { font-family: Arial, sans-serif; font-size: 11pt; margin: 20mm; color: #111; }
+    h1 { font-size: 16pt; margin: 0 0 4px; }
+    .meta { font-size: 9pt; color: #555; margin-bottom: 16px; }
+    .box-section { margin-bottom: 18px; page-break-inside: avoid; border: 1px solid #ddd; border-radius: 4px; overflow: hidden; }
+    .box-header { background: #1a73e8; color: #fff; padding: 6px 10px; display: flex; justify-content: space-between; align-items: baseline; }
+    .box-title { font-size: 12pt; font-weight: 700; }
+    .box-meta { font-size: 9pt; opacity: 0.85; }
+    table { width: 100%; border-collapse: collapse; }
+    th { background: #f1f3f4; font-size: 9pt; text-align: left; padding: 4px 8px; border-bottom: 1px solid #ddd; color: #444; }
+    td { padding: 4px 8px; font-size: 10pt; border-bottom: 1px solid #f0f0f0; }
+    tr:last-child td { border-bottom: none; }
+    .empty-row { color: #999; font-style: italic; font-size: 9pt; padding: 6px 8px; }
+    @media print {
+      body { margin: 12mm; }
+      .no-print { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Trailer Packing List</h1>
+  <div class="meta">
+    <strong>Trailer:</strong> ${esc(truck ? truck.name : 'Unknown')} &nbsp;|&nbsp;
+    <strong>Event:</strong> ${esc(event ? (event.title || event.name) : 'None selected')} &nbsp;|&nbsp;
+    <strong>Date:</strong> ${dateStr} &nbsp;|&nbsp;
+    <strong>Boxes Loaded:</strong> ${data.length}
+  </div>`;
+
+    data.forEach(({ box, zoneLabel, items }) => {
+      html += `
+  <div class="box-section">
+    <div class="box-header">
+      <span class="box-title">${esc(box.name)}</span>
+      <span class="box-meta">${esc(box.barcode)} &bull; ${esc(zoneLabel)}</span>
+    </div>`;
+
+      if (items.length === 0) {
+        html += `<div class="empty-row">No items packed in this box</div>`;
+      } else {
+        html += `<table><thead><tr><th>#</th><th>Barcode</th><th>Item Name</th><th>Type</th></tr></thead><tbody>`;
+        items.forEach((item, idx) => {
+          html += `<tr><td>${idx + 1}</td><td>${esc(item.barcode || '—')}</td><td>${esc(item.name || '—')}</td><td>${esc(item.type || '—')}</td></tr>`;
+        });
+        html += `</tbody></table>`;
+      }
+      html += `</div>`;
+    });
+
+    html += `</body></html>`;
+
+    const win = window.open('', '_blank');
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 400);
+  }
+
   // ========== PUBLIC API ==========
   window.LoadEngine = {
     init,
     selectBox,
     removeBox,
     showBoxModal,
-    toggleBoxExpand
+    toggleBoxExpand,
+    exportPackingListCSV,
+    exportPackingListPDF
   };
 
   // Auto-initialize on DOM ready
