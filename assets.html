@@ -1944,22 +1944,36 @@
 
     async function loadData() {
       try {
+        const setStep = (msg, sub = '') => {
+          const el = document.getElementById('assetList');
+          if (el && el.querySelector('.load-step')) {
+            el.querySelector('.load-step').textContent = msg;
+            el.querySelector('.load-step-sub').textContent = sub;
+          } else if (el) {
+            el.innerHTML = `<div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><p class="mt-2 load-step fw-semibold">${msg}</p><small class="text-muted load-step-sub">${sub}</small></div>`;
+          }
+        };
+        setStep('Loading assets…', 'Connecting to database');
         console.log('🔄 Starting loadData...');
-        
-        // Load items, boxes, asset types, and locations in PARALLEL
-        const [allItems, allBoxesData, assetTypesResponse, locationsResponse] = await Promise.all([
-          window.RTS_DATA.getItems(),
-          window.RTS_DATA.getBoxes(),
-          window.RTS_API.getAssetTypes().catch(err => {
-            console.warn('⚠️ Failed to load asset types from API:', err);
-            return { success: false, assetTypes: [] };
-          }),
-          window.RTS_API.getLocations().catch(err => {
-            console.warn('⚠️ Failed to load locations from API:', err);
-            return { success: false, items: [] };
-          })
-        ]);
-        
+
+        // Start all requests in parallel immediately
+        const itemsP = window.RTS_DATA.getItems();
+        const boxesP = window.RTS_DATA.getBoxes();
+        const typesP = window.RTS_API.getAssetTypes().catch(err => {
+          console.warn('⚠️ Failed to load asset types from API:', err);
+          return { success: false, assetTypes: [] };
+        });
+        const locsP = window.RTS_API.getLocations().catch(err => {
+          console.warn('⚠️ Failed to load locations from API:', err);
+          return { success: false, items: [] };
+        });
+
+        // Await items first to show live count, then wait for references
+        const allItems = await itemsP;
+        setStep(`${allItems?.length || 0} assets loaded — loading references…`);
+        const [allBoxesData, assetTypesResponse, locationsResponse] = await Promise.all([boxesP, typesP, locsP]);
+        setStep('Rendering…');
+
         console.log(`📦 Loaded ${allItems?.length || 0} items, ${allBoxesData?.length || 0} boxes`);
         
         allAssets = allItems || [];
@@ -2751,7 +2765,12 @@
       };
       
       console.log('Asset data to save:', data);
-      
+
+      const btn = document.getElementById('btnSaveAsset');
+      const origHTML = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Saving…';
+
       try {
         const result = await window.RTS_DATA.saveItem(data, !id);
         console.log('Save result:', result);
@@ -2759,7 +2778,13 @@
         if (result.success) {
           showToast(id ? 'Asset updated successfully' : 'Asset created successfully', 'success');
           bootstrap.Modal.getInstance(document.getElementById('assetModal')).hide();
-          await loadData();
+          // Update local array directly — no full reload needed
+          if (id) {
+            const idx = allAssets.findIndex(a => a.id === id);
+            if (idx !== -1) allAssets[idx] = result.item; else allAssets.unshift(result.item);
+          } else {
+            allAssets.unshift(result.item);
+          }
           renderAssets();
           updateStats();
         } else {
@@ -2768,6 +2793,9 @@
       } catch (error) {
         console.error('Error saving asset:', error);
         showToast('Error saving asset: ' + error.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = origHTML;
       }
     }
 
@@ -2786,7 +2814,9 @@
         if (result.success) {
           showToast('Asset deleted successfully', 'success');
           bootstrap.Modal.getInstance(document.getElementById('assetModal')).hide();
-          await loadData();
+          // Remove from local array directly — no full reload needed
+          allAssets = allAssets.filter(a => a.id !== currentAsset.id);
+          currentAsset = null;
           renderAssets();
           updateStats();
         } else {
