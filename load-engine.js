@@ -65,16 +65,20 @@ console.log('📦 load-engine.js loading...');
         if (contents.length > 0) {
           const itemsList = contents.map(c => {
             const item = apiItems.find(i => i.id === c.item_id);
-            if (item) {
-              contentsItems.push({
-                id: item.id,
-                barcode: item.barcode,
-                name: item.name,
-                type: item.item_type
-              });
-              return `${item.barcode}: ${item.name}`;
-            }
-            return null;
+            // item may be undefined for inventory-type rows — fall back to the
+            // item_name / item_barcode / item_type columns returned by the
+            // box-contents JOIN query (which already covers both tables)
+            const name    = item ? item.name     : c.item_name;
+            const barcode = item ? item.barcode  : c.item_barcode;
+            const type    = item ? item.item_type : c.item_type;
+            if (!name) return null;
+            contentsItems.push({
+              id:      item ? item.id : c.item_id,
+              barcode: barcode,
+              name:    name,
+              type:    type
+            });
+            return `${barcode}: ${name}`;
           }).filter(Boolean);
           
           contentsText = itemsList.length > 0 
