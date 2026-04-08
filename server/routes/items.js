@@ -316,7 +316,13 @@ router.post('/pack', async (req, res, next) => {
         }
       }
       
-      // Check if box_contents entry already exists
+      // Remove any stale box_contents entries for this item in OTHER boxes (data reconciliation)
+      await client.query(
+        "DELETE FROM box_contents WHERE item_id = $1 AND box_id != $2 AND item_type IN ('equipment', 'asset')",
+        [itemId, boxId]
+      );
+
+      // Check if box_contents entry already exists for THIS box
       const existingContent = await client.query(
         "SELECT * FROM box_contents WHERE box_id = $1 AND item_id = $2 AND item_type IN ('equipment', 'asset')",
         [boxId, itemId]
