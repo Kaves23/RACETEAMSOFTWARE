@@ -66,6 +66,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   let selectedBoxes = new Set(); // Track selected box IDs for bulk operations
   let selectedItems = new Set(); // Track selected item IDs for multi-drag
   let boxLoadFilter = 'all'; // 'all' | 'available' | 'loaded'
+  let itemLocationFilter = ''; // '' = all locations, or a location id
   let itemsPage = 1; // Fix 14: pagination state
   const ITEMS_PER_PAGE = 50;
 
@@ -477,6 +478,13 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       if (locationsResponse && locationsResponse.items && locationsResponse.items.length > 0) {
         allLocations = locationsResponse.items;
         console.log(`✅ Loaded ${allLocations.length} locations from database`);
+        // Populate the location filter dropdown
+        const locSel = document.getElementById('filterItemLocation');
+        if (locSel) {
+          locSel.innerHTML = '<option value="">All Locations</option>' +
+            allLocations.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
+          locSel.value = itemLocationFilter;
+        }
       } else {
         allLocations = [];
         console.warn('⚠️ No locations in database — add them in Settings > Locations');
@@ -801,6 +809,8 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     // Tab search inputs
     const searchAssetsEl = document.getElementById('searchAssets');
     const searchInvEl    = document.getElementById('searchInventory');
+    const locFilterEl = document.getElementById('filterItemLocation');
+    if (locFilterEl) locFilterEl.addEventListener('change', () => { itemLocationFilter = locFilterEl.value; itemsPage = 1; renderItems(); });
     if (searchAssetsEl) searchAssetsEl.addEventListener('input', () => { itemsPage = 1; renderItems(); });
     if (searchInvEl)    searchInvEl.addEventListener('input',    () => { itemsPage = 1; renderItems(); });
 
@@ -1220,6 +1230,11 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
 
     console.log(`📊 After filter, allItems count: ${allItems.length}`);
 
+    // Apply location filter (assets only — inventory items don't have a location)
+    if (itemLocationFilter && currentFilter !== 'inventory') {
+      allItems = allItems.filter(item => item.currentLocationId === itemLocationFilter);
+    }
+
     // Show ALL items (not just packed ones) - users can drag them into boxes
     const filtered = allItems.filter(item =>
       String(item.barcode || '').toLowerCase().includes(search) ||
@@ -1234,6 +1249,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       if (sortBy === 'name') return String(a.name || '').localeCompare(String(b.name || ''));
       if (sortBy === 'barcode') return String(a.barcode || '').localeCompare(String(b.barcode || ''));
       if (sortBy === 'category') return String(a.category || '').localeCompare(String(b.category || ''));
+      if (sortBy === 'location') return String(a.currentLocationId || '').localeCompare(String(b.currentLocationId || ''));
       return 0;
     });
 
