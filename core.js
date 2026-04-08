@@ -1401,6 +1401,17 @@
       return await apiRequest(`/trucks/${id}`);
     },
 
+    async getLoadPlanDraft() {
+      return await apiRequest('/load-plans/draft');
+    },
+
+    async saveLoadPlanDraft(data) {
+      return await apiRequest('/load-plans/draft', {
+        method: 'PUT',
+        body: JSON.stringify(data)
+      });
+    },
+
     async createTruck(data) {
       return await apiRequest('/trucks', {
         method: 'POST',

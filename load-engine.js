@@ -161,7 +161,52 @@ console.log('📦 load-engine.js loading...');
     }
 
     loadPlans = RTS.safeLoadJSON(LS_LOAD_PLANS, null) || [];
-    currentLoad = RTS.safeLoadJSON(LS_CURRENT, null) || createEmptyLoad();
+
+    // Load current load from DB first, fall back to localStorage
+    try {
+      const draftResp = await window.RTS_API.getLoadPlanDraft();
+      if (draftResp && draftResp.success && draftResp.plan) {
+        const plan = draftResp.plan;
+        const placements = draftResp.placements || [];
+        // Validate: keep only placements whose boxId exists in loaded boxes
+        const validBoxIds = new Set(boxes.map(b => b.id));
+        const validPlacements = placements.filter(p => validBoxIds.has(p.boxId));
+        currentLoad = {
+          id: plan.id,
+          eventId: plan.event_id || null,
+          truckId: plan.truck_id || (trucks.length > 0 ? trucks[0].id : null),
+          placements: validPlacements,
+          status: plan.status || 'Draft',
+          createdAt: plan.created_at,
+          updatedAt: plan.updated_at
+        };
+        console.log(`✅ Loaded draft plan from DB: ${validPlacements.length} placements`);
+      } else {
+        // No DB draft — try localStorage, then fresh load
+        const lsLoad = RTS.safeLoadJSON(LS_CURRENT, null);
+        if (lsLoad) {
+          currentLoad = lsLoad;
+          // Migrate truckId if it no longer matches any loaded truck
+          if (currentLoad.truckId && trucks.length > 0 && !trucks.find(t => t.id === currentLoad.truckId)) {
+            console.warn('⚠️ Saved truckId no longer valid, migrating to first truck');
+            currentLoad.truckId = trucks[0].id;
+          }
+          console.log(`📦 Loaded draft plan from localStorage: ${currentLoad.placements?.length || 0} placements`);
+        } else {
+          currentLoad = createEmptyLoad();
+          console.log('📦 No saved plan found, starting fresh');
+        }
+      }
+    } catch (e) {
+      console.warn('Could not load draft plan from API:', e.message);
+      const lsLoad = RTS.safeLoadJSON(LS_CURRENT, null);
+      currentLoad = lsLoad || createEmptyLoad();
+      // Migrate truckId if needed
+      if (currentLoad.truckId && trucks.length > 0 && !trucks.find(t => t.id === currentLoad.truckId)) {
+        currentLoad.truckId = trucks[0].id;
+      }
+    }
+
     saveData();
   }
 
@@ -170,6 +215,14 @@ console.log('📦 load-engine.js loading...');
     RTS.safeSaveJSON(LS_TRUCKS, trucks);
     RTS.safeSaveJSON(LS_LOAD_PLANS, loadPlans);
     RTS.safeSaveJSON(LS_CURRENT, currentLoad);
+    // Persist to DB asynchronously (fire and forget — localStorage is backup)
+    if (window.RTS_API && currentLoad) {
+      window.RTS_API.saveLoadPlanDraft({
+        truck_id: currentLoad.truckId || null,
+        event_id: currentLoad.eventId || null,
+        placements: currentLoad.placements || []
+      }).catch(e => console.warn('Could not save draft plan to DB:', e.message));
+    }
   }
 
   function createEmptyLoad() {
