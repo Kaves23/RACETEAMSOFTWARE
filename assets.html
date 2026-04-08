@@ -1911,18 +1911,16 @@
     });
 
     async function reloadAssetTypes() {
-      // Load asset types from database
+      // Load asset types from database only — no fallback
       try {
         const assetTypesResponse = await window.RTS_API.getAssetTypes();
-        if (assetTypesResponse && assetTypesResponse.success && assetTypesResponse.assetTypes.length > 0) {
+        if (assetTypesResponse && assetTypesResponse.success && assetTypesResponse.assetTypes?.length > 0) {
           allAssetTypes = assetTypesResponse.assetTypes;
+        } else if (!assetTypesResponse?.success) {
+          console.error('Could not load asset types from database.');
+          // Leave allAssetTypes as-is so the dropdown doesn't blank out silently
         } else {
-          // Fallback to localStorage if API fails
-          const settings = window.RTS.getSettings();
-          const assetTypesFromSettings = settings.assetTypes || [{name:'Equipment',color:'#0ea5e9'},{name:'Asset',color:'#a855f7'}];
-          allAssetTypes = assetTypesFromSettings.map(t => 
-            typeof t === 'string' ? {name:t, color:'#0ea5e9'} : {name:t.name, color:t.color||'#0ea5e9'}
-          );
+          allAssetTypes = [];
         }
       } catch (error) {
         console.error('Error loading asset types:', error);
@@ -1960,8 +1958,8 @@
         const itemsP = window.RTS_DATA.getItems();
         const boxesP = window.RTS_DATA.getBoxes();
         const typesP = window.RTS_API.getAssetTypes().catch(err => {
-          console.warn('⚠️ Failed to load asset types from API:', err);
-          return { success: false, assetTypes: [] };
+          console.error('⚠️ Failed to load asset types from API:', err);
+          return { success: false, assetTypes: null }; // null = error, not just empty
         });
         const locsP = window.RTS_API.getLocations().catch(err => {
           console.warn('⚠️ Failed to load locations from API:', err);
@@ -1988,18 +1986,17 @@
           console.warn('⚠️ No locations in database');
         }
         
-        // Load asset types from database with fallback to settings
-        if (assetTypesResponse && assetTypesResponse.success && assetTypesResponse.assetTypes.length > 0) {
+        // Load asset types from database only — no fallback
+        if (assetTypesResponse && assetTypesResponse.success && assetTypesResponse.assetTypes?.length > 0) {
           allAssetTypes = assetTypesResponse.assetTypes;
           console.log(`✅ Loaded ${allAssetTypes.length} asset types from database`);
+        } else if (assetTypesResponse && assetTypesResponse.assetTypes === null) {
+          // API error — hard fail
+          document.getElementById('assetList').innerHTML = '<div class="alert alert-danger m-3">⚠️ Could not load asset types from database. Please check your connection and refresh.</div>';
+          return;
         } else {
-          // Fallback to localStorage if API fails
-          const settingsFallback = window.RTS.getSettings();
-          const assetTypesFromSettings = settingsFallback.assetTypes || [{name:'Equipment',color:'#0ea5e9'},{name:'Asset',color:'#a855f7'}];
-          allAssetTypes = assetTypesFromSettings.map(t => 
-            typeof t === 'string' ? {name:t, color:'#0ea5e9'} : {name:t.name, color:t.color||'#0ea5e9'}
-          );
-          console.log(`⚠️ Using ${allAssetTypes.length} asset types from localStorage fallback`);
+          allAssetTypes = [];
+          console.warn('⚠️ No asset types defined in database — add them in Settings.');
         }
         
         console.log('🎨 Asset types:', allAssetTypes);
@@ -2619,14 +2616,7 @@
         </div>
       `;
       
-      // Reload asset types from settings to get latest custom types
-      const settings = window.RTS.getSettings();
-      const assetTypesFromSettings = settings.assetTypes || [{name:'Equipment',color:'#0ea5e9'},{name:'Asset',color:'#a855f7'}];
-      allAssetTypes = assetTypesFromSettings.map(t => 
-        typeof t === 'string' ? {name:t, color:'#0ea5e9'} : {name:t.name, color:t.color||'#0ea5e9'}
-      );
-      
-      // Populate asset type dropdown in panel and set selected value - use array join
+      // Populate asset type dropdown in panel from already-loaded DB data
       const panelAssetType = document.getElementById('panelAssetType');
       const options = [];
       allAssetTypes.forEach(type => {
@@ -2653,20 +2643,17 @@
                                   'SAFETY EQUIPMENT', 'PIT EQUIPMENT', 'FLUIDS & CHEMICALS', 'SPARE PARTS', 
                                   'GARAGE EQUIPMENT', 'MEASUREMENT TOOLS', 'COMMUNICATION', 'FASTENERS', 'STORAGE'];
       
-      // Reload asset types from settings to get latest custom types
-      const settings = window.RTS.getSettings();
-      const assetTypesFromSettings = settings.assetTypes || [{name:'Equipment',color:'#0ea5e9'},{name:'Asset',color:'#a855f7'}];
-      allAssetTypes = assetTypesFromSettings.map(t => 
-        typeof t === 'string' ? {name:t, color:'#0ea5e9'} : {name:t.name, color:t.color||'#0ea5e9'}
-      );
-      
-      // Populate asset type dropdown (needs to be done first before setting value) - use array join
+      // Populate asset type dropdown from already-loaded DB data
       const assetTypeSelect = document.getElementById('assetType');
       const options = [];
-      allAssetTypes.forEach(type => {
-        const value = type.name.toLowerCase().replace(/\s+/g, '_');
-        options.push(`<option value="${value}" data-color="${type.color}">${type.name}</option>`);
-      });
+      if (allAssetTypes.length === 0) {
+        options.push('<option value="">⚠️ No asset types — add them in Settings</option>');
+      } else {
+        allAssetTypes.forEach(type => {
+          const value = type.name.toLowerCase().replace(/\s+/g, '_');
+          options.push(`<option value="${value}" data-color="${type.color}">${type.name}</option>`);
+        });
+      }
       assetTypeSelect.innerHTML = options.join('');
       
       if (asset && asset.id) {
