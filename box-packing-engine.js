@@ -794,44 +794,53 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     document.getElementById('btnBoxHistory').addEventListener('click', showHistory);
     document.getElementById('btnConfirmUnpack').addEventListener('click', confirmUnpack);
     document.getElementById('searchBoxes').addEventListener('input', renderBoxes);
-    document.getElementById('searchItems').addEventListener('input', () => { itemsPage = 1; renderItems(); });
-    
+
+    // Tab search inputs
+    const searchAssetsEl = document.getElementById('searchAssets');
+    const searchInvEl    = document.getElementById('searchInventory');
+    if (searchAssetsEl) searchAssetsEl.addEventListener('input', () => { itemsPage = 1; renderItems(); });
+    if (searchInvEl)    searchInvEl.addEventListener('input',    () => { itemsPage = 1; renderItems(); });
+
+    // Legacy hidden search (kept for any code still referencing it)
+    const legacySearch = document.getElementById('searchItems');
+    if (legacySearch) legacySearch.addEventListener('input', () => { itemsPage = 1; renderItems(); });
+
     // Sort dropdowns
     const sortBoxes = document.getElementById('sortBoxes');
-    const sortItems = document.getElementById('sortItems');
     if (sortBoxes) sortBoxes.addEventListener('change', renderBoxes);
-    if (sortItems) sortItems.addEventListener('change', renderItems);
 
-    // Filter dropdown
-    const filterItemType = document.getElementById('filterItemType');
-    if (filterItemType) {
-      // Populate with asset types from settings + Inventory option
-      const options = [
-        '<option value="all">Filter: All Types</option>',
-        '<option value="inventory" style="background:#e8f0fe;color:#1a73e8;font-weight:600">📦 Inventory Items</option>'
-      ];
-      allAssetTypes.forEach(type => {
-        options.push(`<option value="${esc(type.name.toLowerCase().replace(/\s+/g, '_'))}" style="background:${type.color};color:#fff;font-weight:600">${esc(type.name)}</option>`);
-      });
-      filterItemType.innerHTML = options.join('');
-      filterItemType.addEventListener('change', async e => {
-        currentFilter = e.target.value;
-        itemsPage = 1; // Fix 14: reset to page 1 on filter change
-        // If inventory filter selected, fetch inventory items
-        if (currentFilter === 'inventory') {
-          await loadInventoryItems();
-        }
-        renderItems();
-      });
-    }
-    
+    // Default to assets tab
+    currentFilter = 'all';
+
     // Setup custom modal buttons
     setupCustomModals();
 
     setupDragAndDrop();
     setupResizablePanels();
   }
-  
+
+  // ========== ITEMS TAB SWITCHING ==========
+  function switchItemsTab(tab) {
+    currentFilter = tab === 'inventory' ? 'inventory' : 'all';
+    itemsPage = 1;
+
+    // Tab button active states
+    document.getElementById('tabBtnAssets')?.classList.toggle('active', tab === 'assets');
+    document.getElementById('tabBtnInventory')?.classList.toggle('active', tab === 'inventory');
+
+    // Tab pane visibility
+    document.getElementById('paneAssets')?.classList.toggle('active', tab === 'assets');
+    document.getElementById('paneInventory')?.classList.toggle('active', tab === 'inventory');
+
+    if (tab === 'inventory') {
+      loadInventoryItems().then(() => renderItems());
+    } else {
+      renderItems();
+    }
+  }
+  // Expose so onclick in HTML works within the IIFE
+  window.switchItemsTab = switchItemsTab;
+
   // ========== CUSTOM MODAL HELPERS ==========
   function setupCustomModals() {
     // Prompt modal
@@ -1150,7 +1159,11 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   function renderItems() {
     console.log(`🔄 renderItems called - filter: ${currentFilter}, equipment: ${equipment.length}, assets: ${assets.length}, inventory: ${inventoryItems.length}`);
     
-    const search = document.getElementById('searchItems').value.toLowerCase();
+    // Read from the active tab's search input
+    const activeSearchEl = currentFilter === 'inventory'
+      ? document.getElementById('searchInventory')
+      : document.getElementById('searchAssets');
+    const search = (activeSearchEl?.value || document.getElementById('searchItems')?.value || '').toLowerCase();
     const sortBy = document.getElementById('sortItems')?.value || 'name';
     let allItems = [];
 
@@ -1273,7 +1286,14 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     }
 
     document.getElementById('itemsList').innerHTML = (html || '<div style="text-align:center;padding:20px;color:#5f6368;font-size:.85rem">No items found</div>') + paginationHtml;
-    document.getElementById('itemCount').textContent = totalItems;
+    // Update the active tab badge
+    if (currentFilter === 'inventory') {
+      const invBadge = document.getElementById('inventoryCount');
+      if (invBadge) invBadge.textContent = totalItems;
+    } else {
+      const assetBadge = document.getElementById('itemCount');
+      if (assetBadge) assetBadge.textContent = totalItems;
+    }
   }
 
   function renderBoxContents() {
