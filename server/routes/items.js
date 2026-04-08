@@ -119,11 +119,12 @@ router.post('/', async (req, res, next) => {
       current_location_id,
       last_maintenance_date,
       next_maintenance_date,
-      weight,
       value,
       serial_number,
       status
     } = req.body;
+    // Accept both 'weight' and 'weight_kg' field names; default to 0 (column is NOT NULL)
+    const weight = req.body.weight_kg ?? req.body.weight ?? 0;
     
     // Validate required fields
     if (!name || !item_type) {
@@ -164,8 +165,8 @@ router.post('/', async (req, res, next) => {
       current_location_id || null,
       last_maintenance_date || null,
       next_maintenance_date || null,
-      weight || null,
-      value || null,
+      Number(weight) || 0,
+      value ?? null,
       serial_number || null,
       status || 'warehouse'
     ];
