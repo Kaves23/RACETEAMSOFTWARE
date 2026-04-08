@@ -30,15 +30,22 @@ console.log('📦 load-engine.js loading...');
   // ========== INITIALIZATION ==========
   async function init() {
     RTS.setActiveNav();
-    loadEvents();
+    await loadEvents();
     await loadData();
     initUI();
     renderAll();
   }
 
-  function loadEvents() {
-    const eventsStore = RTS.safeLoadJSON('rts.events.v4', []);
-    events = Array.isArray(eventsStore) ? eventsStore : [];
+  async function loadEvents() {
+    try {
+      const resp = await window.RTS_API.getCollectionItems('events');
+      const rows = resp.items || resp.data || resp || [];
+      events = Array.isArray(rows) ? rows : [];
+    } catch (err) {
+      console.warn('loadEvents: API failed, falling back to localStorage', err.message);
+      const eventsStore = RTS.safeLoadJSON('rts.events.v4', []);
+      events = Array.isArray(eventsStore) ? eventsStore : [];
+    }
   }
 
   async function loadData() {
