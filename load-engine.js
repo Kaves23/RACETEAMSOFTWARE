@@ -489,32 +489,25 @@ console.log('📦 load-engine.js loading...');
           totalVolume += (box.length * box.width * box.height) / 1000000;
           const boxVolume = ((box.length * box.width * box.height) / 1000000).toFixed(2);
           
-          // Load box contents from box-packing system
-          const boxContents = RTS.safeLoadJSON('rts.box.contents.v1', []);
-          const equipment = RTS.safeLoadJSON('rts.equipment.v1', []);
-          const assets = RTS.safeLoadJSON('rts.assets.v1', []);
-          const contents = boxContents.filter(c => c.boxId === box.id);
+          // Use contentsItems already loaded from DB during loadData()
+          const contentsItems = box.contentsItems || [];
           
           // Build contents list
           let contentsList = '';
-          if (contents.length > 0) {
-            contentsList = contents.map((c, index) => {
-              const item = equipment.find(e => e.id === c.itemId) || assets.find(a => a.id === c.itemId);
-              if (item) {
-                const serialBadge = item.barcode 
-                  ? `<span style="background:#9334e6;color:#fff;padding:2px 6px;border-radius:3px;font-size:.65rem;font-family:monospace;font-weight:700;white-space:nowrap">${esc(item.barcode)}</span>`
-                  : `<span style="background:#9334e6;color:#fff;padding:2px 6px;border-radius:3px;font-size:.65rem;white-space:nowrap">—</span>`;
-                return `
-                  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:3px 0;border-bottom:1px solid rgba(0,0,0,.05)">
-                    <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0">
-                      <span style="color:#5f6368;font-weight:600;font-size:.7rem;flex:0 0 auto">${index + 1}.</span>
-                      <span style="color:#202124;font-size:.75rem;font-weight:500;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(item.name)}</span>
-                    </div>
-                    ${serialBadge}
+          if (contentsItems.length > 0) {
+            contentsList = contentsItems.map((item, index) => {
+              const serialBadge = item.barcode 
+                ? `<span style="background:#9334e6;color:#fff;padding:2px 6px;border-radius:3px;font-size:.65rem;font-family:monospace;font-weight:700;white-space:nowrap">${esc(item.barcode)}</span>`
+                : `<span style="background:#9334e6;color:#fff;padding:2px 6px;border-radius:3px;font-size:.65rem;white-space:nowrap">—</span>`;
+              return `
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:3px 0;border-bottom:1px solid rgba(0,0,0,.05)">
+                  <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0">
+                    <span style="color:#5f6368;font-weight:600;font-size:.7rem;flex:0 0 auto">${index + 1}.</span>
+                    <span style="color:#202124;font-size:.75rem;font-weight:500;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(item.name)}</span>
                   </div>
-                `;
-              }
-              return '';
+                  ${serialBadge}
+                </div>
+              `;
             }).join('');
           } else {
             contentsList = '<div style="text-align:center;padding:10px;color:#5f6368;font-size:.75rem">Empty container</div>';
@@ -535,7 +528,7 @@ console.log('📦 load-engine.js loading...');
               </div>
               <div class="placed-box-contents">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-                  <div class="placed-box-contents-label" style="margin:0">📦 Contents (${contents.length})</div>
+                  <div class="placed-box-contents-label" style="margin:0">📦 Contents (${contentsItems.length})</div>
                   <svg id="box-barcode-${box.id}" style="height:24px;max-width:100px"></svg>
                 </div>
                 <div style="max-height:150px;overflow-y:auto">${contentsList}</div>
