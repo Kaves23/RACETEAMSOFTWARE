@@ -1993,9 +1993,16 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
               catch (e) { console.warn('unpackInventoryItem failed:', e.message); }
             }
           } else {
-            if (window.RTS_API?.updateItem) {
-              try { await window.RTS_API.updateItem(item.id, { current_box_id: null, current_location_id: locationId }); }
-              catch (e) { console.warn('updateItem failed:', e.message); }
+            // Use the proper unpack route — clears both items.current_box_id AND box_contents row
+            try {
+              await window.RTS_API.unpackItem(content.boxId, item.id);
+              // Also set location if one was chosen
+              if (locationId && window.RTS_API?.updateItem) {
+                await window.RTS_API.updateItem(item.id, { current_location_id: locationId });
+              }
+            } catch (e) {
+              console.error('unpackItem failed:', e.message);
+              showToast(`Failed to unpack "${item.name}": ${e.message}`, 'error');
             }
           }
           updateCount++;
