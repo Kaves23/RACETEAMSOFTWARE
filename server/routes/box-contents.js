@@ -136,9 +136,9 @@ router.post('/pack', async (req, res, next) => {
 
       // Fix 3: Write to item_history audit log
       await client.query(`
-        INSERT INTO item_history (item_id, action, to_box_id, performed_by_user_id, timestamp)
-        VALUES ($1, 'packed', $2, $3, NOW())
-      `, [item_id, box_id, userId]);
+        INSERT INTO item_history (id, item_id, action, to_box_id, performed_by_user_id, timestamp)
+        VALUES ($1, $2, 'packed', $3, $4, NOW())
+      `, [`hist-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`, item_id, box_id, userId]);
       
       await client.query('COMMIT');
       
@@ -212,9 +212,9 @@ router.post('/unpack', async (req, res, next) => {
 
       // Fix 3: Write to item_history audit log
       await client.query(`
-        INSERT INTO item_history (item_id, action, from_box_id, performed_by_user_id, timestamp)
-        VALUES ($1, 'unpacked', $2, $3, NOW())
-      `, [item_id, box_id, userId]);
+        INSERT INTO item_history (id, item_id, action, from_box_id, performed_by_user_id, timestamp)
+        VALUES ($1, $2, 'unpacked', $3, $4, NOW())
+      `, [`hist-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`, item_id, box_id, userId]);
       
       await client.query('COMMIT');
       

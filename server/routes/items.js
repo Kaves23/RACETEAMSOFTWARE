@@ -356,8 +356,8 @@ router.post('/pack', async (req, res, next) => {
 
       // Fix 3: Write to item_history
       await client.query(
-        "INSERT INTO item_history (item_id, action, to_box_id, performed_by_user_id, timestamp) VALUES ($1, 'packed', $2, $3, NOW())",
-        [itemId, boxId, userId]
+        "INSERT INTO item_history (id, item_id, action, to_box_id, performed_by_user_id, timestamp) VALUES ($1, $2, 'packed', $3, $4, NOW())",
+        [`hist-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`, itemId, boxId, userId]
       );
       
       await client.query('COMMIT');
@@ -430,8 +430,8 @@ router.post('/unpack', async (req, res, next) => {
 
       // Fix 3: Write to item_history
       await client.query(
-        "INSERT INTO item_history (item_id, action, from_box_id, performed_by_user_id, timestamp) VALUES ($1, 'unpacked', $2, $3, NOW())",
-        [itemId, fromBoxId, userId]
+        "INSERT INTO item_history (id, item_id, action, from_box_id, performed_by_user_id, timestamp) VALUES ($1, $2, 'unpacked', $3, $4, NOW())",
+        [`hist-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`, itemId, fromBoxId, userId]
       );
       
       await client.query('COMMIT');
