@@ -22,6 +22,7 @@ console.log('📦 load-engine.js loading...');
   let loadPlans = [];
   let currentLoad = null;
   let events = [];
+  let eventsLoadError = false;
   let selectedBoxId = null;
   let currentView = '2D';
   let scene, camera, renderer, controls;
@@ -37,14 +38,16 @@ console.log('📦 load-engine.js loading...');
   }
 
   async function loadEvents() {
+    eventsLoadError = false;
     try {
       const resp = await window.RTS_API.getCollectionItems('events');
       const rows = resp.items || resp.data || resp || [];
       events = Array.isArray(rows) ? rows : [];
     } catch (err) {
-      console.warn('loadEvents: API failed, falling back to localStorage', err.message);
+      console.warn('loadEvents: DB failed, checking localStorage', err.message);
       const eventsStore = RTS.safeLoadJSON('rts.events.v4', []);
       events = Array.isArray(eventsStore) ? eventsStore : [];
+      if (events.length === 0) eventsLoadError = true;
     }
   }
 
@@ -243,9 +246,15 @@ console.log('📦 load-engine.js loading...');
     
     // Populate dropdowns
     const selectEvent = document.getElementById('selectEvent');
-    selectEvent.innerHTML = '<option value="">Select Event</option>' +
-      events.map(e => `<option value="${e.id}">${esc(e.title || e.name || 'Event')}</option>`).join('');
-    if (currentLoad.eventId) selectEvent.value = currentLoad.eventId;
+    if (eventsLoadError) {
+      selectEvent.innerHTML = '<option value="">⚠ NO LOCAL DATA — DB unavailable</option>';
+      selectEvent.style.color = '#dc3545';
+      selectEvent.disabled = true;
+    } else {
+      selectEvent.innerHTML = '<option value="">Select Event</option>' +
+        events.map(e => `<option value="${e.id}">${esc(e.title || e.name || 'Event')}</option>`).join('');
+      if (currentLoad.eventId) selectEvent.value = currentLoad.eventId;
+    }
 
     const selectTruck = document.getElementById('selectTruck');
     selectTruck.innerHTML = '<option value="">Select Truck/Trailer</option>' +
