@@ -11,15 +11,10 @@ console.log('📦 load-engine.js loading...');
   console.log('📦 load-engine.js IIFE started');
 
   // ========== CONFIGURATION ==========
-  const LS_BOXES = 'rts.load.boxes.v2';
-  const LS_TRUCKS = 'rts.load.trucks.v2';
-  const LS_LOAD_PLANS = 'rts.load.plans.v2';
-  const LS_CURRENT = 'rts.load.current.v2';
 
   // ========== STATE ==========
   let boxes = [];
   let trucks = [];
-  let loadPlans = [];
   let currentLoad = null;
   let events = [];
   let eventsLoadError = false;
@@ -44,7 +39,7 @@ console.log('📦 load-engine.js loading...');
       const rows = resp.items || resp.data || resp || [];
       events = Array.isArray(rows) ? rows : [];
     } catch (err) {
-      console.warn('loadEvents: DB unavailable', err.message);
+      console.error('loadEvents: DB unavailable', err.message);
       events = [];
       eventsLoadError = true;
     }
@@ -105,14 +100,14 @@ console.log('📦 load-engine.js loading...');
       });
       
       if (boxes.length === 0) {
-        boxes = seedBoxes();
+        showError('No boxes found in database. Create boxes in Logistics → Box Packing first.');
       }
     } catch (e) {
-      console.error('Failed to load from API:', e);
-      boxes = seedBoxes();
+      showError('Could not load boxes from database: ' + e.message);
+      return;
     }
 
-    // Load trucks from database (fall back to localStorage seed if unavailable)
+    // Load trucks from database
     try {
       const trucksResp = await window.RTS_API.getTrucks();
       const apiTrucks = trucksResp.trucks || [];
@@ -152,29 +147,27 @@ console.log('📦 load-engine.js loading...');
         });
         console.log(`✅ Loaded ${trucks.length} vehicle(s) from database`);
       } else {
-        console.warn('⚠️ No vehicles in DB yet — using seed. Add vehicles at Logistics → Vehicles.');
-        trucks = seedTrucks();
+        showError('No vehicles found in database. Add a vehicle at Logistics → Vehicles first.');
+        return;
       }
     } catch (e) {
-      console.warn('Could not load trucks from API, using local seed:', e.message);
-      trucks = RTS.safeLoadJSON(LS_TRUCKS, null) || seedTrucks();
+      showError('Could not load vehicles from database: ' + e.message);
+      return;
     }
 
-    loadPlans = RTS.safeLoadJSON(LS_LOAD_PLANS, null) || [];
-
-    // Load current load from DB first, fall back to localStorage
+    // Load current load plan from DB
     try {
       const draftResp = await window.RTS_API.getLoadPlanDraft();
       if (draftResp && draftResp.success && draftResp.plan) {
         const plan = draftResp.plan;
         const placements = draftResp.placements || [];
-        // Validate: keep only placements whose boxId exists in loaded boxes
+        // Keep only placements whose boxId exists in currently loaded boxes
         const validBoxIds = new Set(boxes.map(b => b.id));
         const validPlacements = placements.filter(p => validBoxIds.has(p.boxId));
         currentLoad = {
           id: plan.id,
           eventId: plan.event_id || null,
-          truckId: plan.truck_id || (trucks.length > 0 ? trucks[0].id : null),
+          truckId: plan.truck_id || trucks[0].id,
           placements: validPlacements,
           status: plan.status || 'Draft',
           createdAt: plan.created_at,
@@ -182,46 +175,34 @@ console.log('📦 load-engine.js loading...');
         };
         console.log(`✅ Loaded draft plan from DB: ${validPlacements.length} placements`);
       } else {
-        // No DB draft — try localStorage, then fresh load
-        const lsLoad = RTS.safeLoadJSON(LS_CURRENT, null);
-        if (lsLoad) {
-          currentLoad = lsLoad;
-          // Migrate truckId if it no longer matches any loaded truck
-          if (currentLoad.truckId && trucks.length > 0 && !trucks.find(t => t.id === currentLoad.truckId)) {
-            console.warn('⚠️ Saved truckId no longer valid, migrating to first truck');
-            currentLoad.truckId = trucks[0].id;
-          }
-          console.log(`📦 Loaded draft plan from localStorage: ${currentLoad.placements?.length || 0} placements`);
-        } else {
-          currentLoad = createEmptyLoad();
-          console.log('📦 No saved plan found, starting fresh');
-        }
+        // No saved plan yet — start fresh
+        currentLoad = createEmptyLoad();
+        console.log('📦 No saved plan found, starting fresh');
       }
     } catch (e) {
-      console.warn('Could not load draft plan from API:', e.message);
-      const lsLoad = RTS.safeLoadJSON(LS_CURRENT, null);
-      currentLoad = lsLoad || createEmptyLoad();
-      // Migrate truckId if needed
-      if (currentLoad.truckId && trucks.length > 0 && !trucks.find(t => t.id === currentLoad.truckId)) {
-        currentLoad.truckId = trucks[0].id;
-      }
+      showError('Could not load load plan from database: ' + e.message);
+      return;
     }
-
-    saveData();
   }
 
   function saveData() {
-    RTS.safeSaveJSON(LS_BOXES, boxes);
-    RTS.safeSaveJSON(LS_TRUCKS, trucks);
-    RTS.safeSaveJSON(LS_LOAD_PLANS, loadPlans);
-    RTS.safeSaveJSON(LS_CURRENT, currentLoad);
-    // Persist to DB asynchronously (fire and forget — localStorage is backup)
+    // DB is the single source of truth — no localStorage
     if (window.RTS_API && currentLoad) {
       window.RTS_API.saveLoadPlanDraft({
         truck_id: currentLoad.truckId || null,
         event_id: currentLoad.eventId || null,
         placements: currentLoad.placements || []
-      }).catch(e => console.warn('Could not save draft plan to DB:', e.message));
+      }).catch(e => console.error('Could not save load plan to DB:', e.message));
+    }
+  }
+
+  function showError(message) {
+    console.error(message);
+    const view = document.getElementById('view2D');
+    if (view) {
+      view.innerHTML = `<div style="padding:40px;text-align:center;color:#dc3545;font-size:1rem;">
+        <div style="font-size:2rem;margin-bottom:12px;">⚠️</div>
+        <strong>Error loading data</strong><br><span style="color:#6c757d;font-size:.9rem">${message}</span></div>`;
     }
   }
 
@@ -860,13 +841,6 @@ console.log('📦 load-engine.js loading...');
     if (currentLoad.placements.length === 0) {
       alert('Please add boxes to the truck first.');
       return;
-    }
-
-    const existingIndex = loadPlans.findIndex(p => p.id === currentLoad.id);
-    if (existingIndex !== -1) {
-      loadPlans[existingIndex] = { ...currentLoad };
-    } else {
-      loadPlans.push({ ...currentLoad });
     }
 
     saveData();
