@@ -44,10 +44,9 @@ console.log('📦 load-engine.js loading...');
       const rows = resp.items || resp.data || resp || [];
       events = Array.isArray(rows) ? rows : [];
     } catch (err) {
-      console.warn('loadEvents: DB failed, checking localStorage', err.message);
-      const eventsStore = RTS.safeLoadJSON('rts.events.v4', []);
-      events = Array.isArray(eventsStore) ? eventsStore : [];
-      if (events.length === 0) eventsLoadError = true;
+      console.warn('loadEvents: DB unavailable', err.message);
+      events = [];
+      eventsLoadError = true;
     }
   }
 
