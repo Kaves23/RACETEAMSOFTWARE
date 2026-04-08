@@ -1093,7 +1093,13 @@
           
           throw new Error('Authentication failed');
         }
-        throw new Error(`API error: ${response.status}`);
+        // Read error body to get server's specific error message
+        let serverMessage = `API error: ${response.status}`;
+        try {
+          const errorBody = await response.json();
+          if (errorBody && errorBody.error) serverMessage = errorBody.error;
+        } catch {}
+        throw new Error(serverMessage);
       }
       
       return await response.json();

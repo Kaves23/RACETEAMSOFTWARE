@@ -174,7 +174,16 @@ router.post('/', async (req, res, next) => {
     res.status(201).json({ success: true, item: result.rows[0] });
   } catch (error) {
     if (error.code === '23505') { // Unique violation
-      return res.status(409).json({ success: false, error: 'Item with this barcode already exists' });
+      const detail = (error.detail || '').toLowerCase();
+      const constraint = (error.constraint || '').toLowerCase();
+      console.error('409 unique violation — constraint:', error.constraint, 'detail:', error.detail);
+      if (detail.includes('serial_number') || constraint.includes('serial')) {
+        return res.status(409).json({ success: false, error: 'An item with this serial number already exists. Use a different serial number.' });
+      }
+      if (detail.includes('(id)') && !detail.includes('barcode')) {
+        return res.status(409).json({ success: false, error: 'ID conflict — please leave the barcode field blank to auto-generate a unique ID.' });
+      }
+      return res.status(409).json({ success: false, error: 'An item with this barcode already exists. Use a different barcode.' });
     }
     next(error);
   }
