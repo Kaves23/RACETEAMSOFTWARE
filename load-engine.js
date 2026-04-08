@@ -71,12 +71,14 @@ console.log('📦 load-engine.js loading...');
             const name    = item ? item.name     : c.item_name;
             const barcode = item ? item.barcode  : c.item_barcode;
             const type    = item ? item.item_type : c.item_type;
+            const serial  = item ? item.serial_number : (c.serial_number || null);
             if (!name) return null;
             contentsItems.push({
               id:      item ? item.id : c.item_id,
               barcode: barcode,
               name:    name,
-              type:    type
+              type:    type,
+              serial:  serial
             });
             return `${barcode}: ${name}`;
           }).filter(Boolean);
@@ -1676,15 +1678,15 @@ console.log('📦 load-engine.js loading...');
     lines.push('');
 
     // Column headers
-    lines.push('Box Name,Box Barcode,Zone,Item Barcode,Item Name,Item Type');
+    lines.push('Box Name,Box Barcode,Zone,#,Item Barcode,Serial Number,Item Name,Item Type');
 
     data.forEach(({ box, zoneLabel, items }) => {
       if (items.length === 0) {
         // Box is loaded but empty
-        lines.push(`"${box.name}","${box.barcode}","${zoneLabel}","","(empty box)",""`);
+        lines.push(`"${box.name}","${box.barcode}","${zoneLabel}","","","","(empty box)",""`);
       } else {
         items.forEach((item, idx) => {
-          lines.push(`"${idx === 0 ? box.name : ''}","${idx === 0 ? box.barcode : ''}","${idx === 0 ? zoneLabel : ''}","${item.barcode || ''}","${item.name || ''}","${item.type || ''}"`);
+          lines.push(`"${idx === 0 ? box.name : ''}","${idx === 0 ? box.barcode : ''}","${idx === 0 ? zoneLabel : ''}","${idx + 1}","${item.barcode || ''}","${item.serial || ''}","${item.name || ''}","${item.type || ''}"`);
         });
       }
     });
@@ -1706,62 +1708,149 @@ console.log('📦 load-engine.js loading...');
 
     const truck = getTruck();
     const event = events.find(e => e.id === currentLoad.eventId);
-    const dateStr = new Date().toLocaleDateString();
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    const docRef = `PL-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}-${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
+    const totalItems = data.reduce((sum, d) => sum + d.items.length, 0);
 
     let html = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Packing List</title>
+  <title>Trailer Packing List — ${docRef}</title>
   <style>
-    body { font-family: Arial, sans-serif; font-size: 11pt; margin: 20mm; color: #111; }
-    h1 { font-size: 16pt; margin: 0 0 4px; }
-    .meta { font-size: 9pt; color: #555; margin-bottom: 16px; }
-    .box-section { margin-bottom: 18px; page-break-inside: avoid; border: 1px solid #ddd; border-radius: 4px; overflow: hidden; }
-    .box-header { background: #1a73e8; color: #fff; padding: 6px 10px; display: flex; justify-content: space-between; align-items: baseline; }
-    .box-title { font-size: 12pt; font-weight: 700; }
-    .box-meta { font-size: 9pt; opacity: 0.85; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 9.5pt; color: #000; background: #fff; }
+    .page { padding: 14mm 18mm 10mm; }
+
+    /* Document header */
+    .doc-header { display: flex; justify-content: space-between; align-items: flex-end; padding-bottom: 8px; border-bottom: 2.5px solid #000; margin-bottom: 10px; }
+    .doc-title-block .doc-title { font-size: 18pt; font-weight: 700; text-transform: uppercase; letter-spacing: -0.3px; line-height: 1; }
+    .doc-title-block .doc-subtitle { font-size: 7.5pt; text-transform: uppercase; letter-spacing: 1.5px; color: #555; margin-top: 3px; }
+    .doc-ref-block { text-align: right; font-size: 8pt; color: #333; line-height: 1.7; }
+    .doc-ref-block .ref-num { font-family: 'Courier New', monospace; font-size: 9.5pt; font-weight: 700; color: #000; }
+
+    /* Meta strip */
+    .meta-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; border: 1px solid #999; margin-bottom: 14px; }
+    .meta-cell { padding: 5px 8px; border-right: 1px solid #ccc; }
+    .meta-cell:last-child { border-right: none; }
+    .meta-cell .label { font-size: 6.5pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #666; display: block; margin-bottom: 2px; }
+    .meta-cell .value { font-size: 9pt; font-weight: 600; color: #000; }
+
+    /* Box section */
+    .box-section { margin-bottom: 12px; page-break-inside: avoid; border: 1px solid #666; }
+    .box-header { background: #1a1a1a; color: #fff; padding: 5px 8px; display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: center; }
+    .box-header-left .box-seq { font-size: 6.5pt; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: #999; }
+    .box-header-left .box-name { font-size: 10pt; font-weight: 700; margin-top: 1px; }
+    .box-header-right { text-align: right; }
+    .box-header-right .box-barcode { font-family: 'Courier New', monospace; font-size: 8.5pt; color: #ccc; display: block; }
+    .box-header-right .box-zone { font-size: 7.5pt; color: #999; margin-top: 1px; }
+
+    /* Items table */
     table { width: 100%; border-collapse: collapse; }
-    th { background: #f1f3f4; font-size: 9pt; text-align: left; padding: 4px 8px; border-bottom: 1px solid #ddd; color: #444; }
-    td { padding: 4px 8px; font-size: 10pt; border-bottom: 1px solid #f0f0f0; }
+    thead tr { border-bottom: 1.5px solid #333; }
+    th { background: #f2f2f2; font-size: 7pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; padding: 4px 7px; text-align: left; color: #333; border-right: 1px solid #ddd; }
+    th:last-child { border-right: none; }
+    td { padding: 4px 7px; border-bottom: 1px solid #ebebeb; border-right: 1px solid #ebebeb; vertical-align: top; }
+    td:last-child { border-right: none; }
     tr:last-child td { border-bottom: none; }
-    .empty-row { color: #999; font-style: italic; font-size: 9pt; padding: 6px 8px; }
+    tbody tr:nth-child(even) td { background: #fafafa; }
+    .col-num { width: 24px; text-align: center; font-size: 7.5pt; color: #888; }
+    .col-barcode, .col-serial { font-family: 'Courier New', monospace; font-size: 8pt; }
+    .col-type { font-size: 8pt; color: #555; }
+    .no-val { color: #bbb; }
+    .empty-row { color: #888; font-style: italic; font-size: 8.5pt; padding: 7px; border-top: 1px solid #eee; }
+
+    /* Signature block */
+    .sig-section { margin-top: 20px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+    .sig-box { border-top: 1px solid #555; padding-top: 4px; }
+    .sig-box .sig-label { font-size: 6.5pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #555; }
+    .sig-box .sig-line { margin-top: 18px; border-bottom: 1px solid #888; }
+    .sig-box .sig-name { font-size: 7.5pt; color: #666; margin-top: 3px; }
+
+    /* Footer */
+    .doc-footer { margin-top: 14px; border-top: 1px solid #ccc; padding-top: 5px; display: flex; justify-content: space-between; font-size: 7pt; color: #888; }
+
     @media print {
-      body { margin: 12mm; }
-      .no-print { display: none; }
+      .page { padding: 0; }
+      @page { margin: 12mm 15mm; size: A4; }
     }
   </style>
 </head>
 <body>
-  <h1>Trailer Packing List</h1>
-  <div class="meta">
-    <strong>Trailer:</strong> ${esc(truck ? truck.name : 'Unknown')} &nbsp;|&nbsp;
-    <strong>Event:</strong> ${esc(event ? (event.title || event.name) : 'None selected')} &nbsp;|&nbsp;
-    <strong>Date:</strong> ${dateStr} &nbsp;|&nbsp;
-    <strong>Boxes Loaded:</strong> ${data.length}
+<div class="page">
+  <div class="doc-header">
+    <div class="doc-title-block">
+      <div class="doc-title">Trailer Packing List</div>
+      <div class="doc-subtitle">Load Plan — Verified Cargo Manifest</div>
+    </div>
+    <div class="doc-ref-block">
+      <div class="ref-num">${docRef}</div>
+      <div>Generated: ${dateStr} at ${timeStr}</div>
+      <div>Status: ${esc(currentLoad.status || 'Draft')}</div>
+    </div>
+  </div>
+
+  <div class="meta-strip">
+    <div class="meta-cell"><span class="label">Vehicle / Trailer</span><span class="value">${esc(truck ? truck.name : 'Not selected')}</span></div>
+    <div class="meta-cell"><span class="label">Event</span><span class="value">${esc(event ? (event.title || event.name) : 'No event selected')}</span></div>
+    <div class="meta-cell"><span class="label">Boxes Loaded</span><span class="value">${data.length}</span></div>
+    <div class="meta-cell"><span class="label">Total Items</span><span class="value">${totalItems}</span></div>
   </div>`;
 
-    data.forEach(({ box, zoneLabel, items }) => {
+    data.forEach(({ box, zoneLabel, items }, boxIdx) => {
       html += `
   <div class="box-section">
     <div class="box-header">
-      <span class="box-title">${esc(box.name)}</span>
-      <span class="box-meta">${esc(box.barcode)} &bull; ${esc(zoneLabel)}</span>
+      <div class="box-header-left">
+        <div class="box-seq">Container ${String(boxIdx + 1).padStart(2, '0')} of ${String(data.length).padStart(2, '0')}</div>
+        <div class="box-name">${esc(box.name)}</div>
+      </div>
+      <div class="box-header-right">
+        <span class="box-barcode">${esc(box.barcode)}</span>
+        <div class="box-zone">${esc(zoneLabel)} &nbsp;|&nbsp; ${items.length} item${items.length !== 1 ? 's' : ''}</div>
+      </div>
     </div>`;
 
       if (items.length === 0) {
-        html += `<div class="empty-row">No items packed in this box</div>`;
+        html += `<div class="empty-row">No items recorded in this container</div>`;
       } else {
-        html += `<table><thead><tr><th>#</th><th>Barcode</th><th>Item Name</th><th>Type</th></tr></thead><tbody>`;
+        html += `<table><thead><tr>
+          <th class="col-num">#</th>
+          <th>Item Name</th>
+          <th class="col-barcode">Barcode / SKU</th>
+          <th class="col-serial">Serial Number</th>
+          <th class="col-type">Type / Category</th>
+        </tr></thead><tbody>`;
         items.forEach((item, idx) => {
-          html += `<tr><td>${idx + 1}</td><td>${esc(item.barcode || '—')}</td><td>${esc(item.name || '—')}</td><td>${esc(item.type || '—')}</td></tr>`;
+          const serial = item.serial ? esc(item.serial) : '<span class="no-val">—</span>';
+          html += `<tr>
+            <td class="col-num">${idx + 1}</td>
+            <td>${esc(item.name || '—')}</td>
+            <td class="col-barcode">${esc(item.barcode || '—')}</td>
+            <td class="col-serial">${serial}</td>
+            <td class="col-type">${esc(item.type || '—')}</td>
+          </tr>`;
         });
         html += `</tbody></table>`;
       }
       html += `</div>`;
     });
 
-    html += `</body></html>`;
+    html += `
+  <div class="sig-section">
+    <div class="sig-box"><div class="sig-label">Packed By</div><div class="sig-line"></div><div class="sig-name">Name / Date</div></div>
+    <div class="sig-box"><div class="sig-label">Checked By</div><div class="sig-line"></div><div class="sig-name">Name / Date</div></div>
+    <div class="sig-box"><div class="sig-label">Authorised By</div><div class="sig-line"></div><div class="sig-name">Name / Date</div></div>
+  </div>
+  <div class="doc-footer">
+    <span>Document Ref: ${docRef}</span>
+    <span>This document is a controlled record. Verify contents against physical load before departure.</span>
+    <span>Page 1</span>
+  </div>
+</div>
+</body></html>`;
 
     const win = window.open('', '_blank');
     win.document.write(html);

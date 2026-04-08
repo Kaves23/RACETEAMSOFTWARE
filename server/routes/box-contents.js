@@ -12,6 +12,7 @@ router.get('/', async (req, res, next) => {
         COALESCE(i.barcode, inv.sku) as item_barcode,
         COALESCE(bc.item_type, i.item_type, 'inventory') as item_type,
         COALESCE(i.category, inv.category) as category,
+        i.serial_number as serial_number,
         b.name as box_name,
         b.barcode as box_barcode
       FROM box_contents bc
@@ -255,6 +256,7 @@ router.get('/:box_id', async (req, res, next) => {
         COALESCE(i.description, inv.description) as description,
         COALESCE(i.weight_kg, 0) as weight_kg,
         COALESCE(i.status, 'available') as item_status,
+        i.serial_number as serial_number,
         u.username as packed_by_username
       FROM box_contents bc
       LEFT JOIN items i ON bc.item_id = i.id AND (bc.item_type IS NULL OR bc.item_type != 'inventory')
