@@ -65,6 +65,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   let allLocations = []; // Locations from database
   let selectedBoxes = new Set(); // Track selected box IDs for bulk operations
   let selectedItems = new Set(); // Track selected item IDs for multi-drag
+  let boxLoadFilter = 'all'; // 'all' | 'available' | 'loaded'
   let itemsPage = 1; // Fix 14: pagination state
   const ITEMS_PER_PAGE = 50;
 
@@ -143,6 +144,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       location: b.current_location_id, zone: b.current_zone,
       assignedDriverId: b.assigned_driver_id, assignedDriverName: b.assigned_driver_name,
       status: b.status || 'available', itemCount: b.item_count || 0,
+      truckId: b.current_truck_id || null,
       createdAt: b.created_at, updatedAt: b.updated_at
     }));
     // ── Items ─────────────────────────────────────────────────────────────────
@@ -1054,25 +1056,32 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   function renderBoxes() {
     const search = document.getElementById('searchBoxes').value.toLowerCase();
     const sortBy = document.getElementById('sortBoxes')?.value || 'name';
-    
-    // Debug: log driver assignment state
-    const assignedBoxes = boxes.filter(b => b.assignedDriverId || b.assigned_driver_id);
-    console.log(`🎨 renderBoxes: ${boxes.length} boxes, ${assignedBoxes.length} with driver assigned`);
-    if (assignedBoxes.length > 0) {
-      assignedBoxes.forEach(b => {
-        const dId = b.assignedDriverId || b.assigned_driver_id;
-        const drv = allDrivers.find(d => d.id === dId);
-        console.log(`   Box "${b.name}" → driver ${dId}, color: ${drv?.color || '(no color field)'}`);
-      });
-    } else {
-      console.log(`   Sample box keys:`, boxes[0] ? Object.keys(boxes[0]) : 'no boxes');
-    }
-    
-    let filtered = boxes.filter(b =>
+
+    // Count loaded vs available for filter badges
+    const searchFiltered = boxes.filter(b =>
       (b.barcode || '').toLowerCase().includes(search) ||
       (b.name || '').toLowerCase().includes(search) ||
       (b.location || '').toLowerCase().includes(search)
     );
+    const countLoaded    = searchFiltered.filter(b => !!b.truckId).length;
+    const countAvailable = searchFiltered.filter(b => !b.truckId).length;
+    const el_all  = document.getElementById('boxFilterCountAll');
+    const el_avail= document.getElementById('boxFilterCountAvailable');
+    const el_load = document.getElementById('boxFilterCountLoaded');
+    if (el_all)   el_all.textContent   = searchFiltered.length;
+    if (el_avail) el_avail.textContent = countAvailable;
+    if (el_load)  el_load.textContent  = countLoaded;
+    // Update active button
+    document.querySelectorAll('.box-filter-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.filter === boxLoadFilter);
+    });
+
+    // Apply load filter
+    let filtered = searchFiltered.filter(b => {
+      if (boxLoadFilter === 'available') return !b.truckId;
+      if (boxLoadFilter === 'loaded')    return !!b.truckId;
+      return true;
+    });
 
     // Sort boxes
     filtered.sort((a, b) => {
@@ -1095,6 +1104,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     const html = filtered.map(box => {
       const contentsCount = boxContents.filter(c => c.boxId === box.id).length;
       const isActive = currentBoxId === box.id ? ' active' : '';
+      const isLoaded = !!box.truckId;
       const assignedDriverId = box.assignedDriverId || box.assigned_driver_id;
       const isDriverBox = !!(assignedDriverId) || box.boxType === 'driver' || box.box_type === 'driver';
       
@@ -1104,12 +1114,15 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       
       // Use driver color for styling
       const driverBoxClass = isDriverBox ? ` driver-box driver-box-${assignedDriverId || 'unassigned'}` : '';
+      const loadedClass = isLoaded ? ' in-truck' : '';
       const contentsBadge = contentsCount > 0 ? `<div class="box-contents-badge">${contentsCount}</div>` : '';
-      
-      // Fix 16: Empty box indicator
-      const emptyBadge = contentsCount === 0
-        ? `<div style="position:absolute;top:6px;right:6px;background:#e0e0e0;color:#666;font-size:.6rem;font-weight:700;padding:2px 6px;border-radius:3px;letter-spacing:.5px">EMPTY</div>`
-        : '';
+
+      // Loaded-on-truck badge (replaces EMPTY badge for loaded boxes)
+      const loadedBadge = isLoaded
+        ? `<div class="box-loaded-badge">🚛 On Truck</div>`
+        : (contentsCount === 0
+          ? `<div style="position:absolute;top:6px;right:6px;background:#e0e0e0;color:#666;font-size:.6rem;font-weight:700;padding:2px 6px;border-radius:3px;letter-spacing:.5px">EMPTY</div>`
+          : '');
       
       // Driver badge with assignment info
       let driverBadge = '';
@@ -1130,7 +1143,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       }
       
       return `
-        <div class="box-container${isActive}${driverBoxClass}" 
+        <div class="box-container${isActive}${driverBoxClass}${loadedClass}" 
              onclick="handleBoxClick(event, '${box.id}')"
              ondragover="event.preventDefault(); this.style.background='${isDriverBox ? hexToRgba(driverColor, 0.15) : '#e8f0fe'}'"
              ondragleave="this.style.background=''"
@@ -1138,7 +1151,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
              style="${isDriverBox && assignedDriverId ? `--driver-color:${driverColor};` : ''}">  
           <input type="checkbox" class="box-checkbox" data-box-id="${box.id}" onclick="event.stopPropagation(); toggleBoxSelection('${box.id}')">
           ${contentsBadge}
-          ${emptyBadge}
+          ${loadedBadge}
           ${driverBadge}
           <div class="box-barcode">${esc(box.barcode)}</div>
           <div class="box-name">${esc(box.name)}</div>
@@ -2905,6 +2918,12 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     nextPage() { itemsPage++; renderItems(); }
   };
   
+  // Expose box load-filter setter for onclick handlers in HTML
+  window.setBoxLoadFilter = function(val) {
+    boxLoadFilter = val;
+    renderBoxes();
+  };
+
   // Expose box selection functions globally for onclick handlers
   window.handleBoxClick = handleBoxClick;
   window.toggleBoxSelection = toggleBoxSelection;
