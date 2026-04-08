@@ -1085,15 +1085,15 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
         return volB - volA;
       }
       if (sortBy === 'contents') {
-        const countA = a.itemCount ?? boxContents.filter(c => c.boxId === a.id).length;
-        const countB = b.itemCount ?? boxContents.filter(c => c.boxId === b.id).length;
+        const countA = boxContents.filter(c => c.boxId === a.id).length;
+        const countB = boxContents.filter(c => c.boxId === b.id).length;
         return countB - countA;
       }
       return 0;
     });
 
     const html = filtered.map(box => {
-      const contentsCount = box.itemCount ?? boxContents.filter(c => c.boxId === box.id).length;
+      const contentsCount = boxContents.filter(c => c.boxId === box.id).length;
       const isActive = currentBoxId === box.id ? ' active' : '';
       const assignedDriverId = box.assignedDriverId || box.assigned_driver_id;
       const isDriverBox = !!(assignedDriverId) || box.boxType === 'driver' || box.box_type === 'driver';

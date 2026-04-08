@@ -347,7 +347,7 @@ router.post('/pack', async (req, res, next) => {
         );
       }
       
-      // Fix 9: Recalculate box weight
+      // Fix 9: Recalculate box weight and item count
       await client.query(`
         UPDATE boxes
         SET current_weight_kg = (
@@ -355,6 +355,9 @@ router.post('/pack', async (req, res, next) => {
           FROM box_contents bc
           JOIN items i ON i.id = bc.item_id
           WHERE bc.box_id = $1 AND i.weight_kg IS NOT NULL AND bc.item_type != 'inventory'
+        ),
+        item_count = (
+          SELECT COUNT(*) FROM box_contents bc WHERE bc.box_id = $1
         ),
         updated_at = NOW()
         WHERE id = $1
@@ -419,7 +422,7 @@ router.post('/unpack', async (req, res, next) => {
         [itemId]
       );
 
-      // Fix 9: Recalculate box weight if we know which box it came from
+      // Fix 9: Recalculate box weight and item count if we know which box it came from
       if (fromBoxId) {
         await client.query(`
           UPDATE boxes
@@ -428,6 +431,9 @@ router.post('/unpack', async (req, res, next) => {
             FROM box_contents bc
             JOIN items i ON i.id = bc.item_id
             WHERE bc.box_id = $1 AND i.weight_kg IS NOT NULL AND bc.item_type != 'inventory'
+          ),
+          item_count = (
+            SELECT COUNT(*) FROM box_contents bc WHERE bc.box_id = $1
           ),
           updated_at = NOW()
           WHERE id = $1
