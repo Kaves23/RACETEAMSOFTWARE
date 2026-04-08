@@ -2408,8 +2408,15 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
             continue;
           }
           console.log(`  📋 Item found: "${item.name}", currentBoxId: ${item.currentBoxId}`);
-          if (item.currentBoxId) {
-            console.warn(`⚠️ Item ${id} "${item.name}" (type: ${type}) already packed in box ${item.currentBoxId}`);
+          if (item.currentBoxId && item.currentBoxId !== boxId) {
+            const otherBox = boxes.find(b => b.id === item.currentBoxId);
+            const otherName = otherBox ? otherBox.name : item.currentBoxId;
+            showToast(`⚠️ "${item.name}" is already in ${otherName} — unpack it first`, 'warning');
+            console.warn(`⚠️ Item ${id} "${item.name}" already packed in box ${item.currentBoxId}`);
+            continue;
+          }
+          if (item.currentBoxId === boxId) {
+            console.warn(`⚠️ Item ${id} "${item.name}" already in this box`);
             continue;
           }
           
@@ -2418,11 +2425,15 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
           // Update in database via items API for equipment/assets
           try {
             await RTS_API.packItem(boxId, id);
+            packedCount++;
           } catch (error) {
             console.error('Error packing item via API:', error);
+            // Parse the server message if available
+            const msg = error.message?.includes('already packed')
+              ? `⚠️ "${item.name}" is already packed in another box`
+              : `Failed to pack "${item.name}": ${error.message || 'server error'}`;
+            showToast(msg, 'error');
           }
-          
-          packedCount++;
         }
         
         // Clear selection after packing
@@ -2434,6 +2445,10 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
           showToast(`✅ Packed ${packedCount} item(s) into ${box.name}`, 'success');
           
           // Reload data to get updated state
+          await loadData();
+          renderAll();
+        } else if (nonInventoryItems.length > 0) {
+          // All failed — reload anyway so UI reflects real DB state
           await loadData();
           renderAll();
         } else {
