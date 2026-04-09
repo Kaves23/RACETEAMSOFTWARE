@@ -96,7 +96,7 @@ router.post('/confirm', async (req, res, next) => {
       if (mode === 'load') {
         // Check the load plan entry for this box+truck
         const planCheck = await pool.query(
-          `SELECT lpb.id, lpb.truck_zone, lpb.scanned_at
+          `SELECT lpb.load_plan_id, lpb.truck_zone, lpb.scanned_at
            FROM load_plan_boxes lpb
            JOIN load_plans lp ON lp.id = lpb.load_plan_id
            WHERE lpb.box_id = $1 AND lp.truck_id = $2 AND lp.status = 'Draft'
@@ -116,8 +116,8 @@ router.post('/confirm', async (req, res, next) => {
           }
           // Mark as physically scanned
           await pool.query(
-            `UPDATE load_plan_boxes SET scanned_at = NOW() WHERE id = $1`,
-            [planCheck.rows[0].id]
+            `UPDATE load_plan_boxes SET scanned_at = NOW() WHERE load_plan_id = $1 AND box_id = $2`,
+            [planCheck.rows[0].load_plan_id, box.id]
           );
         } else {
           // Box not in any load plan — fall back to current_truck_id check
