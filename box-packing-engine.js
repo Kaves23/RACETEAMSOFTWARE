@@ -1112,7 +1112,12 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       return 0;
     });
 
-    const html = filtered.map(box => {
+    // Partition: garage boxes always go to the bottom, grouped by location
+    const normalBoxes = filtered.filter(b => (b.boxType || b.box_type) !== 'garage');
+    const garageBoxes = filtered.filter(b => (b.boxType || b.box_type) === 'garage')
+      .sort((a, b) => (a.location || '').localeCompare(b.location || '') || (a.name || '').localeCompare(b.name || ''));
+
+    function renderBoxCard(box) {
       const contentsCount = boxContents.filter(c => c.boxId === box.id).length;
       const isActive = currentBoxId === box.id ? ' active' : '';
       const isLoaded = !!box.truckId;
@@ -1178,10 +1183,31 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
           <div class="box-location">📍 ${esc(box.location || 'No location')}</div>
         </div>
       `;
-    }).join('');
+    }
+
+    // Build normal boxes HTML
+    let html = normalBoxes.map(renderBoxCard).join('');
+
+    // Append garage section if any garage boxes exist
+    if (garageBoxes.length > 0) {
+      html += `<div style="margin:10px 0 6px;padding:4px 8px;background:#ede0d4;border-radius:4px;font-size:0.68rem;font-weight:700;color:#5d4037;letter-spacing:.5px;text-transform:uppercase;">🏚️ Garage Storage</div>`;
+      // Group by location
+      const byLocation = {};
+      garageBoxes.forEach(b => {
+        const loc = b.location || 'No location';
+        if (!byLocation[loc]) byLocation[loc] = [];
+        byLocation[loc].push(b);
+      });
+      Object.entries(byLocation).forEach(([loc, locBoxes]) => {
+        if (Object.keys(byLocation).length > 1) {
+          html += `<div style="margin:4px 0 3px 4px;font-size:0.65rem;font-weight:600;color:#8d6e63;display:flex;align-items:center;gap:4px;"><span style="flex:1;height:1px;background:rgba(141,110,99,0.25);"></span>📍 ${esc(loc)}<span style="flex:1;height:1px;background:rgba(141,110,99,0.25);"></span></div>`;
+        }
+        html += locBoxes.map(renderBoxCard).join('');
+      });
+    }
 
     document.getElementById('boxesList').innerHTML = html || '<div style="text-align:center;padding:20px;color:#5f6368;font-size:.85rem">No boxes found</div>';
-    document.getElementById('boxCount').textContent = filtered.length;
+    document.getElementById('boxCount').textContent = normalBoxes.length + garageBoxes.length;
     
     // Update checkbox states and toolbar after rendering
     updateBoxCheckboxStates();
