@@ -1751,6 +1751,7 @@
     let allAssets = [];
     let allBoxes = [];
     let allLocations = [];
+    let allStaff = [];
     let allAssetTypes = [];
     let currentAsset = null;
     let currentView = 'cards';
@@ -1965,11 +1966,15 @@
           console.warn('⚠️ Failed to load locations from API:', err);
           return { success: false, items: [] };
         });
+        const staffP = window.RTS_API.getCollectionItems('staff').catch(err => {
+          console.warn('⚠️ Failed to load staff from API:', err);
+          return { success: false, items: [] };
+        });
 
         // Await items first to show live count, then wait for references
         const allItems = await itemsP;
         setStep(`${allItems?.length || 0} assets loaded — loading references…`);
-        const [allBoxesData, assetTypesResponse, locationsResponse] = await Promise.all([boxesP, typesP, locsP]);
+        const [allBoxesData, assetTypesResponse, locationsResponse, staffResponse] = await Promise.all([boxesP, typesP, locsP, staffP]);
         setStep('Rendering…');
 
         console.log(`📦 Loaded ${allItems?.length || 0} items, ${allBoxesData?.length || 0} boxes`);
@@ -1985,6 +1990,9 @@
           allLocations = [];
           console.warn('⚠️ No locations in database');
         }
+
+        allStaff = (staffResponse && staffResponse.items) ? staffResponse.items.filter(s => s.active !== false && s.status !== 'inactive') : [];
+        console.log(`✅ Loaded ${allStaff.length} staff members`);
         
         // Load asset types from database only — no fallback
         if (assetTypesResponse && assetTypesResponse.success && assetTypesResponse.assetTypes?.length > 0) {
@@ -2539,6 +2547,38 @@
                   </button>
                   <button type="button" class="btn btn-sm btn-outline-secondary" onclick="unpackAssetFromPanel()">
                     Unpack from Box
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Staff / Mechanic Assignment -->
+            <div class="section-card mt-2" style="border-left: 3px solid #6366f1;">
+              <div class="section-header">
+                <div class="section-icon"></div>
+                <span>Staff Assignment</span>
+              </div>
+              ${asset.assigned_staff_id
+                ? `<div class="alert alert-success mb-2 py-2" style="font-size:0.85rem;">
+                     <strong>Currently with:</strong> ${asset.assigned_staff_name || asset.assigned_staff_id}
+                     <button type="button" class="btn btn-sm btn-outline-danger float-end py-0 px-2" onclick="unassignAssetFromStaff()">Return</button>
+                   </div>`
+                : `<div class="text-muted mb-2" style="font-size:0.85rem;">Not assigned to any staff member</div>`
+              }
+              <div class="row g-2">
+                <div class="col-12">
+                  <label class="form-label">Assign to Staff Member</label>
+                  <select class="form-select form-select-sm" id="panelAssignStaff">
+                    <option value="">Select staff member...</option>
+                    ${allStaff.map(m => `<option value="${m.id}" ${asset.assigned_staff_id == m.id ? 'selected' : ''}>${m.name}${m.role ? ' — ' + m.role : ''}</option>`).join('')}
+                  </select>
+                </div>
+                <div class="col-12">
+                  <input type="text" class="form-control form-control-sm" id="panelAssignNote" placeholder="Optional note (e.g. Race weekend kit)">
+                </div>
+                <div class="col-12">
+                  <button type="button" class="btn btn-sm btn-primary" onclick="assignAssetToStaff()">
+                    Assign to Staff
                   </button>
                 </div>
               </div>
@@ -3216,8 +3256,54 @@ if (!newLocationId && !newBoxId) {
       }
     }
 
+    async function assignAssetToStaff() {
+      const assetId = document.getElementById('panelAssetId').value;
+      const staffId = document.getElementById('panelAssignStaff').value;
+      const notes = document.getElementById('panelAssignNote').value.trim();
+      if (!staffId) { showToast('Select a staff member first', 'warning'); return; }
+      try {
+        const token = window.RTS_API?.getToken?.() || localStorage.getItem('rts_token') || '';
+        const res = await fetch('/api/staff-assignments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ staffId, assetId, assetType: 'item', notes })
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'Assignment failed');
+        showToast('Asset assigned to staff member', 'success');
+        await loadData();
+        const updated = allAssets.find(a => a.id === assetId);
+        if (updated) openAssetPanel(updated);
+      } catch (err) {
+        console.error('Error assigning asset to staff:', err);
+        showToast('Failed to assign: ' + err.message, 'error');
+      }
+    }
+
+    async function unassignAssetFromStaff() {
+      const assetId = document.getElementById('panelAssetId').value;
+      if (!assetId) return;
+      const confirmed = await showConfirm('Return this asset from the staff member?', 'Return Asset');
+      if (!confirmed) return;
+      try {
+        const token = window.RTS_API?.getToken?.() || localStorage.getItem('rts_token') || '';
+        const res = await fetch(`/api/staff-assignments/item/${assetId}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'Failed to return');
+        showToast('Asset returned successfully', 'success');
+        await loadData();
+        const updated = allAssets.find(a => a.id === assetId);
+        if (updated) openAssetPanel(updated);
+      } catch (err) {
+        console.error('Error returning asset:', err);
+        showToast('Failed to return: ' + err.message, 'error');
+      }
+    }
+
     function generatePanelQR() {
-      console.log('🔄 generatePanelQR called');
       
       const barcodeInput = document.getElementById('panelAssetBarcode');
       const preview = document.getElementById('panelQrPreview');

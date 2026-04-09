@@ -232,7 +232,17 @@
                   </div>
                   <div class="col-12">
                     <label class="form-label">Notes</label>
-                    <textarea id="f_stf_notes" class="form-control form-control-sm" rows="4"></textarea>
+                    <textarea id="f_stf_notes" class="form-control form-control-sm" rows="2"></textarea>
+                  </div>
+                  <!-- Assigned Assets for this staff member -->
+                  <div class="col-12 mt-3">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                      <label class="form-label mb-0" style="font-weight:600;">Assigned Assets</label>
+                      <small class="text-muted" id="stfAssignedCount"></small>
+                    </div>
+                    <div id="stfAssignedList" style="max-height:160px;overflow-y:auto;">
+                      <div class="text-muted" style="font-size:0.8rem;">Select a staff member to view their assets</div>
+                    </div>
                   </div>
                 </div>
 
@@ -675,6 +685,54 @@
       return [];
     }
 
+    async function loadStaffAssignedAssets(staffId) {
+      const container = document.getElementById('stfAssignedList');
+      const counter = document.getElementById('stfAssignedCount');
+      if (!container) return;
+      container.innerHTML = '<span class="text-muted" style="font-size:0.8rem;">Loading...</span>';
+      try {
+        const token = (RTS_API.getToken ? RTS_API.getToken() : null) || localStorage.getItem('rts_token') || '';
+        const res = await fetch(`/api/staff-assignments/${staffId}`, {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await res.json();
+        if (!data.success || !data.active || !data.active.length) {
+          container.innerHTML = '<span class="text-muted" style="font-size:0.8rem;">No assets currently assigned.</span>';
+          if (counter) counter.textContent = '';
+          return;
+        }
+        if (counter) counter.textContent = `${data.active.length} item${data.active.length !== 1 ? 's' : ''}`;
+        container.innerHTML = data.active.map(a => `
+          <div class="d-flex justify-content-between align-items-center py-1 border-bottom" style="font-size:0.8rem;">
+            <div>
+              <span class="badge bg-secondary me-1" style="font-size:0.65rem;">${a.asset_type}</span>
+              <strong>${a.asset ? (a.asset.name || a.asset_id) : a.asset_id}</strong>
+              ${a.asset && a.asset.barcode ? `<small class="text-muted ms-1">${a.asset.barcode}</small>` : ''}
+            </div>
+            <button class="btn btn-outline-warning py-0 px-1" style="font-size:0.7rem;"
+              onclick="returnStaffAsset('${a.asset_type}','${a.asset_id}','${staffId}')">Return</button>
+          </div>`).join('');
+      } catch (err) {
+        container.innerHTML = '<span class="text-danger" style="font-size:0.8rem;">Failed to load assignments.</span>';
+      }
+    }
+
+    async function returnStaffAsset(assetType, assetId, staffId) {
+      try {
+        const token = (RTS_API.getToken ? RTS_API.getToken() : null) || localStorage.getItem('rts_token') || '';
+        const res = await fetch(`/api/staff-assignments/${assetType}/${assetId}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'Failed to return asset');
+        if (RTS.showToast) RTS.showToast('Asset returned', 'success');
+        loadStaffAssignedAssets(staffId);
+      } catch (err) {
+        if (RTS.showToast) RTS.showToast('Failed to return asset: ' + err.message, 'error');
+      }
+    }
+
     function showPane(section){
       // Map sections to tab button IDs
       const tabMap = {
@@ -870,6 +928,13 @@
         els.f_stf_email.value = s.email||'';
         els.f_stf_phone.value = s.phone||'';
         els.f_stf_notes.value = s.notes||'';
+        // Load assigned assets for this staff member
+        if (s.id) {
+          loadStaffAssignedAssets(s.id);
+        } else {
+          const container = document.getElementById('stfAssignedList');
+          if (container) container.innerHTML = '<span class="text-muted" style="font-size:0.8rem;">Select a staff member to view their assets</span>';
+        }
       }
       if(ui.section==='roles') {
         els.f_role_name.value = sel ? (sel.name||'') : '';
@@ -1003,13 +1068,32 @@
         return; // Don't save to localStorage
       }
       if(ui.section==='staff') {
-        cur.name = els.f_stf_name.value.trim();
-        cur.role = String(els.f_stf_role.value || '').trim();
-        cur.position = els.f_stf_position.value.trim();
-        cur.email = els.f_stf_email.value.trim();
-        cur.phone = els.f_stf_phone.value.trim();
-        cur.notes = els.f_stf_notes.value.trim();
-        cur.active = true;
+        const stfData = {
+          name: els.f_stf_name.value.trim(),
+          role: String(els.f_stf_role.value || '').trim(),
+          position: els.f_stf_position.value.trim(),
+          email: els.f_stf_email.value.trim(),
+          phone: els.f_stf_phone.value.trim(),
+          notes: els.f_stf_notes.value.trim(),
+          active: true
+        };
+        (async () => {
+          try {
+            const isNew = !cur.created_at;
+            if (isNew) {
+              await RTS_API.createCollectionItem('staff', { id: cur.id, ...stfData });
+            } else {
+              await RTS_API.updateCollectionItem('staff', cur.id, stfData);
+            }
+            await loadStaffFromDB();
+            await renderList();
+            if (RTS.showToast) RTS.showToast('✅ Staff saved', 'success');
+          } catch (error) {
+            console.error('Error saving staff:', error);
+            if (RTS.showToast) RTS.showToast('Failed to save staff: ' + error.message, 'error');
+          }
+        })();
+        return;
       }
       if(ui.section==='roles') {
         els.f_role_name.value = sel ? (sel.name||'') : '';
@@ -1181,7 +1265,23 @@
         }
         return; // Don't add to localStorage
       }
-      if(ui.section==='staff') item = { id: RTS.uid('stf'), name:'New Staff', role:'', position:'', email:'', phone:'', active:true, notes:'' };
+      if(ui.section==='staff') {
+        const newStaff = { id: RTS.uid('stf'), name: 'New Staff', role: '', position: '', email: '', phone: '', active: true, notes: '' };
+        (async () => {
+          try {
+            await RTS_API.createCollectionItem('staff', newStaff);
+            await loadStaffFromDB();
+            ui.selectedId = newStaff.id;
+            saveUI();
+            await renderList();
+            if (RTS.showToast) RTS.showToast('✅ Staff member added', 'success');
+          } catch (error) {
+            console.error('Error creating staff:', error);
+            if (RTS.showToast) RTS.showToast('Failed to create staff: ' + error.message, 'error');
+          }
+        })();
+        return;
+      }
       if(ui.section==='roles') item = { id: RTS.uid('role'), name:'New Role' };
       if(ui.section==='suppliers') {
         const newSup = { id: RTS.uid('sup'), name: 'New Supplier', email: '', phone: '', lead_time_days: 0, vat_number: '', account_number: '', notes: '' };

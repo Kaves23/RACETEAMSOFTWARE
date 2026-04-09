@@ -102,6 +102,7 @@ const dashboardRouter = require('./routes/dashboard');
 const packingRouter = require('./routes/packing');
 const scanRouter = require('./routes/scan');
 const whatsappRouter = require('./routes/whatsapp');
+const staffAssignmentsRouter = require('./routes/staff-assignments');
 
 app.use('/api/boxes', requireAuth, boxesRouter);
 app.use('/api/box-assignments', requireAuth, boxAssignmentsRouter);
@@ -119,7 +120,8 @@ app.use('/api/inventory', requireAuth, inventoryRouter);
 app.use('/api/dashboard', requireAuth, dashboardRouter);
 app.use('/api/packing-lists', requireAuth, packingRouter);
 app.use('/api/scan', requireAuth, scanRouter);
-app.use('/api/whatsapp', whatsappRouter); // Webhook must be public, individual routes handle auth
+app.use('/api/whatsapp', whatsappRouter);
+app.use('/api/staff-assignments', requireAuth, staffAssignmentsRouter); // Webhook must be public, individual routes handle auth
 
 // Get settings (read-only endpoint) - PROTECTED
 app.get('/api/settings', requireAuth, async (req, res) => {

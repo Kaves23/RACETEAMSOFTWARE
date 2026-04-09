@@ -48,7 +48,8 @@ async function runMigrations() {
     '039_performance_indexes.sql',
     '040_fk_and_index_audit.sql',
     '041_orphan_cleanup_triggers.sql',
-    '042_description_trgm_index.sql'
+    '042_description_trgm_index.sql',
+    '043_staff_asset_assignments.sql'
   ];
   
   for (const filename of migrationFiles) {

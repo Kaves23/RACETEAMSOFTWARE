@@ -12,7 +12,7 @@ router.get('/', async (req, res, next) => {
     const SAFE_FIELDS = new Set([
       'id','barcode','name','box_type','status','item_count',
       'current_weight_kg','max_weight_kg','current_location_id','current_truck_id',
-      'current_zone','rfid_tag','assigned_driver_id','dimensions_length_cm',
+      'current_zone','rfid_tag','assigned_driver_id','assigned_staff_id','dimensions_length_cm',
       'dimensions_width_cm','dimensions_height_cm','created_at','updated_at'
     ]);
     let selectedFields;
@@ -24,8 +24,8 @@ router.get('/', async (req, res, next) => {
       if (selectedFields.length === 0) selectedFields = null;
     }
     const selectClause = selectedFields
-      ? `${selectedFields.join(', ')}, d.name as assigned_driver_name`
-      : 'b.*, d.name as assigned_driver_name';
+      ? `${selectedFields.join(', ')}, d.name as assigned_driver_name, st.name as assigned_staff_name`
+      : 'b.*, d.name as assigned_driver_name, st.name as assigned_staff_name';
 
     // Use LATERAL JOIN instead of a correlated subquery — executes once per query,
     // not once per row, and uses idx_lpb_box_added (box_id, added_at DESC).
@@ -33,6 +33,7 @@ router.get('/', async (req, res, next) => {
       SELECT ${selectClause}, latest_lp.truck_id AS load_plan_truck_id
       FROM boxes b
       LEFT JOIN drivers d ON b.assigned_driver_id = d.id
+      LEFT JOIN staff st ON b.assigned_staff_id = st.id
       LEFT JOIN LATERAL (
         SELECT lp.truck_id
         FROM load_plan_boxes lpb

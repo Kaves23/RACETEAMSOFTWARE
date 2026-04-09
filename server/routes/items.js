@@ -9,40 +9,44 @@ router.get('/', async (req, res, next) => {
     
     // Only select columns needed by frontend for better performance
     let query = `SELECT 
-      id, barcode, name, serial_number, category, item_type, 
-      status, current_box_id, current_location_id, weight_kg, 
-      value_usd, description, created_at, updated_at
-    FROM items WHERE 1=1`;
+      i.id, i.barcode, i.name, i.serial_number, i.category, i.item_type, 
+      i.status, i.current_box_id, i.current_location_id, i.weight_kg, 
+      i.value_usd, i.description, i.assigned_staff_id,
+      s.name AS assigned_staff_name,
+      i.created_at, i.updated_at
+    FROM items i
+    LEFT JOIN staff s ON i.assigned_staff_id = s.id
+    WHERE 1=1`;
     const params = [];
     let paramCount = 1;
     
     if (item_type) {
-      query += ` AND item_type = $${paramCount++}`;
+      query += ` AND i.item_type = $${paramCount++}`;
       params.push(item_type);
     }
     
     if (category) {
-      query += ` AND category = $${paramCount++}`;
+      query += ` AND i.category = $${paramCount++}`;
       params.push(category);
     }
     
     if (status) {
-      query += ` AND status = $${paramCount++}`;
+      query += ` AND i.status = $${paramCount++}`;
       params.push(status);
     }
     
     if (current_box_id) {
-      query += ` AND current_box_id = $${paramCount++}`;
+      query += ` AND i.current_box_id = $${paramCount++}`;
       params.push(current_box_id);
     }
     
     if (search) {
-      query += ` AND (name ILIKE $${paramCount} OR barcode ILIKE $${paramCount} OR description ILIKE $${paramCount})`;
+      query += ` AND (i.name ILIKE $${paramCount} OR i.barcode ILIKE $${paramCount} OR i.description ILIKE $${paramCount})`;
       params.push(`%${search}%`);
       paramCount++;
     }
     
-    query += ' ORDER BY created_at DESC';
+    query += ' ORDER BY i.created_at DESC';
     
     const result = await pool.query(query, params);
     res.json({ success: true, count: result.rows.length, items: result.rows });
