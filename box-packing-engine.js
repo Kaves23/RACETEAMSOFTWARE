@@ -146,6 +146,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       assignedDriverId: b.assigned_driver_id, assignedDriverName: b.assigned_driver_name,
       status: b.status || 'available', itemCount: b.item_count || 0,
       truckId: b.load_plan_truck_id || b.current_truck_id || null,
+      scannedAt: b.load_plan_scanned_at || null,
       createdAt: b.created_at, updatedAt: b.updated_at
     }));
     // ── Items ─────────────────────────────────────────────────────────────────
@@ -1121,6 +1122,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       const contentsCount = boxContents.filter(c => c.boxId === box.id).length;
       const isActive = currentBoxId === box.id ? ' active' : '';
       const isLoaded = !!box.truckId;
+      const isScanned = !!box.scannedAt;
       const assignedDriverId = box.assignedDriverId || box.assigned_driver_id;
       const isDriverBox = !!(assignedDriverId) || box.boxType === 'driver' || box.box_type === 'driver';
       const isGarageBox = (box.boxType === 'garage' || box.box_type === 'garage') && !isDriverBox;
@@ -1184,7 +1186,8 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
              ondragover="event.preventDefault(); this.style.background='${isDriverBox ? hexToRgba(driverColor, 0.15) : '#e8f0fe'}'"
              ondragleave="this.style.background=''"
              ondrop="handleBoxDrop(event, '${box.id}')"
-             style="${isDriverBox && assignedDriverId ? `--driver-color:${driverColor};` : ''}">  
+             style="${isDriverBox && assignedDriverId ? `--driver-color:${driverColor};` : ''}">
+          ${isScanned ? '<div class="scan-confirmed-dot" title="Physically scanned onto truck"></div>' : ''}  
           <input type="checkbox" class="box-checkbox" data-box-id="${box.id}" onclick="event.stopPropagation(); toggleBoxSelection('${box.id}')">
           ${contentsBadge}
           ${loadedBadge}

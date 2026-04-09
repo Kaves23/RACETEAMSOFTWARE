@@ -30,12 +30,12 @@ router.get('/', async (req, res, next) => {
     // Use LATERAL JOIN instead of a correlated subquery — executes once per query,
     // not once per row, and uses idx_lpb_box_added (box_id, added_at DESC).
     let query = `
-      SELECT ${selectClause}, latest_lp.truck_id AS load_plan_truck_id
+      SELECT ${selectClause}, latest_lp.truck_id AS load_plan_truck_id, latest_lp.scanned_at AS load_plan_scanned_at
       FROM boxes b
       LEFT JOIN drivers d ON b.assigned_driver_id = d.id
       LEFT JOIN staff st ON b.assigned_staff_id = st.id
       LEFT JOIN LATERAL (
-        SELECT lp.truck_id
+        SELECT lp.truck_id, lpb.scanned_at
         FROM load_plan_boxes lpb
         JOIN load_plans lp ON lp.id = lpb.load_plan_id
         WHERE lpb.box_id = b.id

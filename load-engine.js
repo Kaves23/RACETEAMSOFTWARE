@@ -521,7 +521,9 @@ console.log('📦 load-engine.js loading...');
     const garageBoxes  = filtered.filter(b => b.boxType === 'garage');
 
     const renderBoxItem = (box) => {
-      const isLoaded = currentLoad.placements.some(p => p.boxId === box.id);
+      const placement = currentLoad.placements.find(p => p.boxId === box.id);
+      const isLoaded = !!placement;
+      const isScanned = !!(placement?.scannedAt);
       const isGarage = box.boxType === 'garage';
 
       // Check if this box is in a DIFFERENT truck's plan
@@ -559,6 +561,7 @@ console.log('📦 load-engine.js loading...');
              draggable="${draggable}"
              data-box-id="${box.id}"
              style="cursor:${draggable ? 'grab' : 'not-allowed'};">
+          ${isScanned ? '<div class="scan-confirmed-dot" title="Physically scanned onto truck"></div>' : ''}
           <div class="box-barcode">${esc(box.barcode)}${garageBadge}</div>
           <div class="box-name">${esc(box.name)}</div>
           <div class="box-dims">${bl} × ${bwid} × ${bh} cm | ${volume.toFixed(2)} m³</div>
@@ -666,6 +669,7 @@ console.log('📦 load-engine.js loading...');
           return `
             <div class="placed-box" data-box-id="${box.id}" onclick="LoadEngine.toggleBoxExpand('${box.id}')">
               <div class="placed-box-header">
+                ${p.scannedAt ? '<div class="scan-confirmed-dot" title="Physically scanned onto truck"></div>' : ''}
                 <div class="placed-box-info">
                   <div class="placed-box-barcode">${esc(box.barcode)}</div>
                   <div class="placed-box-name">${esc(box.name)}</div>

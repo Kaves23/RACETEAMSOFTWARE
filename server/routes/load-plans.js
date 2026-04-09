@@ -24,7 +24,7 @@ router.get('/draft', async (req, res, next) => {
     const plan = planResult.rows[0];
 
     const boxesResult = await pool.query(
-      `SELECT box_id, truck_zone, position_x, position_y, position_z, load_order, added_at
+      `SELECT box_id, truck_zone, position_x, position_y, position_z, load_order, added_at, scanned_at
        FROM load_plan_boxes WHERE load_plan_id = $1 ORDER BY load_order`,
       [plan.id]
     );
@@ -33,7 +33,8 @@ router.get('/draft', async (req, res, next) => {
       boxId: r.box_id,
       zone: r.truck_zone,
       position: { x: r.position_x || 0, y: r.position_y || 0, z: r.position_z || 0 },
-      timestamp: r.added_at
+      timestamp: r.added_at,
+      scannedAt: r.scanned_at || null
     }));
 
     res.json({ success: true, plan, placements });
