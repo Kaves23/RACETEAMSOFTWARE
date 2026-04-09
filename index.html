@@ -6,177 +6,547 @@
   <title>Race Team OS – Dashboard</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="style.css" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Dashboard: New York Studio ────────────────────────────────── */
+    body.light-mode { background:#fafafa; }
+
+    .dash-wrap {
+      max-width:1280px;
+      margin:0 auto;
+      padding:0 28px 60px;
+      font-family:'Syne',system-ui,sans-serif;
+    }
+
+    /* Hero masthead */
+    .dash-masthead {
+      display:flex;
+      align-items:flex-end;
+      justify-content:space-between;
+      padding:36px 0 20px;
+      border-bottom:2.5px solid #0d0d0d;
+    }
+    .dash-masthead-left .dash-eyebrow {
+      font-size:0.65rem;
+      font-weight:700;
+      letter-spacing:0.22em;
+      text-transform:uppercase;
+      color:#5b4fcf;
+      margin-bottom:6px;
+    }
+    .dash-masthead-left .dash-title {
+      font-family:'DM Serif Display',serif;
+      font-size:clamp(2rem,4vw,3.2rem);
+      font-weight:400;
+      color:#0d0d0d;
+      line-height:1;
+      letter-spacing:-0.02em;
+    }
+    .dash-masthead-right {
+      text-align:right;
+    }
+    .dash-masthead-right .dash-date {
+      font-size:0.7rem;
+      font-weight:700;
+      letter-spacing:0.18em;
+      text-transform:uppercase;
+      color:#0d0d0d;
+    }
+    .dash-masthead-right .dash-nav-links {
+      display:flex;
+      gap:20px;
+      margin-top:8px;
+      justify-content:flex-end;
+    }
+    .dash-masthead-right .dash-nav-links a {
+      font-size:0.7rem;
+      font-weight:700;
+      letter-spacing:0.15em;
+      text-transform:uppercase;
+      color:#5b4fcf;
+      text-decoration:none;
+      border-bottom:1px solid transparent;
+      transition:border-color 0.15s;
+    }
+    .dash-masthead-right .dash-nav-links a:hover { border-bottom-color:#5b4fcf; }
+
+    /* KPI strip */
+    .dash-kpi-strip {
+      display:grid;
+      grid-template-columns:repeat(5,1fr);
+      gap:0;
+      border-bottom:1px solid #e0e0e0;
+      margin-bottom:0;
+    }
+    .dash-kpi {
+      padding:28px 24px 22px;
+      border-right:1px solid #e0e0e0;
+      position:relative;
+    }
+    .dash-kpi:last-child { border-right:none; }
+    .dash-kpi-label {
+      font-size:0.6rem;
+      font-weight:700;
+      letter-spacing:0.2em;
+      text-transform:uppercase;
+      color:#999;
+      margin-bottom:8px;
+    }
+    .dash-kpi-number {
+      font-family:'DM Serif Display',serif;
+      font-size:3rem;
+      line-height:1;
+      color:#0d0d0d;
+      transition:color 0.3s;
+    }
+    .dash-kpi-number.kpi-alert { color:#d63031; }
+    .dash-kpi-number.kpi-warn  { color:#e8a100; }
+    .dash-kpi-accent {
+      position:absolute;
+      bottom:0; left:24px;
+      width:24px; height:2px;
+      background:#5b4fcf;
+    }
+
+    /* Main two-col grid */
+    .dash-main-grid {
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:0;
+      border-bottom:1px solid #e0e0e0;
+    }
+    .dash-panel {
+      padding:32px 28px;
+      border-right:1px solid #e0e0e0;
+    }
+    .dash-panel:last-child, .dash-panel-full { border-right:none; }
+    .dash-panel-label {
+      font-size:0.6rem;
+      font-weight:700;
+      letter-spacing:0.22em;
+      text-transform:uppercase;
+      color:#5b4fcf;
+      margin-bottom:16px;
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+    .dash-panel-label::after {
+      content:'';
+      flex:1;
+      height:1px;
+      background:#e0e0e0;
+    }
+    .dash-event-title {
+      font-family:'DM Serif Display',serif;
+      font-size:1.9rem;
+      color:#0d0d0d;
+      line-height:1.15;
+      margin-bottom:10px;
+    }
+    .dash-event-meta {
+      font-size:0.78rem;
+      color:#666;
+      letter-spacing:0.04em;
+      margin-bottom:16px;
+    }
+    .dash-event-type {
+      display:inline-block;
+      font-size:0.6rem;
+      font-weight:700;
+      letter-spacing:0.2em;
+      text-transform:uppercase;
+      background:#ede8ff;
+      color:#5b4fcf;
+      padding:4px 10px;
+      border-radius:2px;
+    }
+    .dash-panel-links {
+      display:flex;
+      gap:20px;
+      margin-top:20px;
+    }
+    .dash-panel-links a {
+      font-size:0.68rem;
+      font-weight:700;
+      letter-spacing:0.15em;
+      text-transform:uppercase;
+      color:#0d0d0d;
+      text-decoration:none;
+      display:flex;
+      align-items:center;
+      gap:4px;
+      border-bottom:1px solid #0d0d0d;
+      padding-bottom:1px;
+      transition:color 0.15s, border-color 0.15s;
+    }
+    .dash-panel-links a:hover { color:#5b4fcf; border-color:#5b4fcf; }
+
+    /* Readiness */
+    .dash-readiness-score {
+      font-family:'DM Serif Display',serif;
+      font-size:4rem;
+      line-height:1;
+      color:#0d0d0d;
+      margin-bottom:12px;
+    }
+    .dash-readiness-score span { font-size:1.4rem; color:#999; }
+    .dash-progress-track {
+      height:3px;
+      background:#e8e8e8;
+      border-radius:0;
+      overflow:hidden;
+      margin-bottom:16px;
+    }
+    .dash-progress-fill {
+      height:100%;
+      background:#5b4fcf;
+      transition:width 0.6s cubic-bezier(0.4,0,0.2,1);
+    }
+    .dash-readiness-notes {
+      list-style:none;
+      padding:0;
+      margin:0;
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+    }
+    .dash-readiness-notes li {
+      font-size:0.72rem;
+      color:#666;
+      letter-spacing:0.02em;
+      padding-left:14px;
+      position:relative;
+    }
+    .dash-readiness-notes li::before {
+      content:'';
+      position:absolute;
+      left:0; top:50%;
+      transform:translateY(-50%);
+      width:4px; height:4px;
+      border-radius:50%;
+      background:#d0caf0;
+    }
+
+    /* Secondary 3-col row */
+    .dash-secondary-grid {
+      display:grid;
+      grid-template-columns:1fr 1fr 1fr;
+      gap:0;
+      border-bottom:1px solid #e0e0e0;
+    }
+
+    /* Stat list (finance / compliance / directory) */
+    .dash-stat-list {
+      list-style:none;
+      padding:0;
+      margin:0;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+    .dash-stat-list li {
+      display:flex;
+      justify-content:space-between;
+      align-items:baseline;
+      font-size:0.75rem;
+    }
+    .dash-stat-list li .stat-key {
+      font-weight:400;
+      color:#666;
+      letter-spacing:0.04em;
+      text-transform:uppercase;
+      font-size:0.65rem;
+    }
+    .dash-stat-list li .stat-val {
+      font-family:'DM Serif Display',serif;
+      font-size:1.5rem;
+      color:#0d0d0d;
+      line-height:1;
+    }
+    .dash-stat-list li .stat-val.val-warn { color:#e8a100; }
+    .dash-stat-list li .stat-val.val-danger { color:#d63031; }
+
+    /* Finance big number */
+    .dash-finance-big {
+      font-family:'DM Serif Display',serif;
+      font-size:2rem;
+      color:#0d0d0d;
+      line-height:1;
+      margin-bottom:4px;
+    }
+    .dash-finance-sub {
+      font-size:0.65rem;
+      letter-spacing:0.1em;
+      text-transform:uppercase;
+      color:#999;
+      margin-bottom:16px;
+    }
+
+    /* Quick links panel */
+    .dash-quick-links {
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+    .dash-quick-links a {
+      font-size:0.73rem;
+      font-weight:700;
+      letter-spacing:0.1em;
+      text-transform:uppercase;
+      color:#0d0d0d;
+      text-decoration:none;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      padding-bottom:10px;
+      border-bottom:1px solid #e8e8e8;
+      transition:color 0.15s;
+    }
+    .dash-quick-links a:last-child { border-bottom:none; }
+    .dash-quick-links a:hover { color:#5b4fcf; }
+    .dash-quick-links a::after { content:'→'; font-size:0.9rem; opacity:0.4; }
+
+    /* Data tables section */
+    .dash-tables-grid {
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:0;
+    }
+    .dash-table-panel {
+      padding:28px 28px 0;
+      border-right:1px solid #e0e0e0;
+    }
+    .dash-table-panel:last-child { border-right:none; }
+    .dash-table-panel .dash-panel-label { margin-bottom:12px; }
+    .dash-table-inner {
+      max-height:220px;
+      overflow-y:auto;
+      scrollbar-width:thin;
+      scrollbar-color:#d0caf0 transparent;
+    }
+    .dash-table-inner table {
+      width:100%;
+      font-size:0.73rem;
+      border-collapse:collapse;
+    }
+    .dash-table-inner th {
+      font-size:0.58rem;
+      font-weight:700;
+      letter-spacing:0.18em;
+      text-transform:uppercase;
+      color:#999;
+      padding:6px 8px 8px;
+      border-bottom:1px solid #e0e0e0;
+      background:#fafafa;
+    }
+    .dash-table-inner td {
+      padding:8px 8px;
+      border-bottom:1px solid #f0f0f0;
+      color:#0d0d0d;
+      vertical-align:middle;
+    }
+    .dash-table-inner tr:last-child td { border-bottom:none; }
+    .dash-table-inner tr.row-danger td { background:#fff5f5; }
+    .dash-table-inner tr.row-warn td { background:#fffbf0; }
+    .dash-table-footer {
+      padding:10px 0 28px;
+    }
+    .dash-table-footer a {
+      font-size:0.62rem;
+      font-weight:700;
+      letter-spacing:0.18em;
+      text-transform:uppercase;
+      color:#5b4fcf;
+      text-decoration:none;
+      border-bottom:1px solid #d0caf0;
+    }
+    .dash-table-footer a:hover { border-bottom-color:#5b4fcf; }
+    .dash-table-empty {
+      font-size:0.72rem;
+      color:#aaa;
+      padding:20px 0;
+      letter-spacing:0.06em;
+    }
+
+    /* Readiness chips (hidden for studio look, only notes used) */
+    #dashReadinessChips { display:none; }
+
+    /* Overrides for bootstrap tables rendered inside dash-table-inner */
+    .dash-table-inner .table { margin-bottom:0; }
+    .dash-table-inner .table th { background:#fafafa!important; color:#999!important; font-family:'Syne',sans-serif; font-size:0.58rem!important; letter-spacing:0.18em!important; text-transform:uppercase!important; border-color:#e0e0e0!important; }
+    .dash-table-inner .table td { font-size:0.73rem!important; border-color:#f0f0f0!important; }
+    .dash-table-inner .table-danger { background:#fff5f5!important; }
+    .dash-table-inner .table-warning { background:#fffbf0!important; }
+    .dash-table-inner .table-light { background:#fafafa!important; }
+
+    @media(max-width:900px) {
+      .dash-kpi-strip  { grid-template-columns:repeat(3,1fr); }
+      .dash-main-grid  { grid-template-columns:1fr; }
+      .dash-secondary-grid { grid-template-columns:1fr 1fr; }
+      .dash-tables-grid { grid-template-columns:1fr; }
+      .dash-panel { border-right:none; border-bottom:1px solid #e0e0e0; }
+      .dash-table-panel { border-right:none; border-bottom:1px solid #e0e0e0; }
+    }
+    @media(max-width:600px) {
+      .dash-kpi-strip { grid-template-columns:repeat(2,1fr); }
+      .dash-secondary-grid { grid-template-columns:1fr; }
+    }
+  </style>
 </head>
 <body class="light-mode">
   <div id="rtsTopNav"></div>
-  <div class="rts-main container-fluid">
-      
+  <div class="rts-main">
+  <div class="dash-wrap">
 
-      
-        <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
-          <div>
-            <h1 class="h4 mb-1">Dashboard</h1>
-            <div class="text-secondary" style="font-size:0.85rem;">
-              Operational snapshot across events, readiness, finance, and service.
-            </div>
-          </div>
-          <div class="d-flex gap-2">
-            <a class="btn btn-sm btn-outline-light mlo-btn" href="events.html">Events</a>
-            <a class="btn btn-sm btn-outline-light mlo-btn" href="tasks.html">Tasks</a>
-            <a class="btn btn-sm btn-outline-light mlo-btn" href="expenses.html">Finance</a>
-          </div>
-        </div>
-
-        <div class="row g-3 mb-2">
-          <div class="col-lg-6">
-            <div class="card">
-              <div class="card-header">Next Event</div>
-              <div class="card-body">
-                <div class="d-flex align-items-center justify-content-between">
-                  <div>
-                    <h5 class="card-title mb-1" id="dashNextTitle">—</h5>
-                    <div class="text-secondary" style="font-size:0.9rem;">
-                      <div><span style="opacity:0.75;">Date:</span> <span id="dashNextDate">—</span></div>
-                      <div><span style="opacity:0.75;">Venue:</span> <span id="dashNextVenue">—</span></div>
-                    </div>
-                  </div>
-                  <span class="badge text-bg-secondary" id="dashNextType">—</span>
-                </div>
-                <div class="mt-2 d-flex gap-2">
-                  <a class="btn btn-sm btn-outline-light mlo-btn" href="events.html">Open Events</a>
-                  <a class="btn btn-sm btn-outline-light mlo-btn" href="strategy.html">Strategy</a>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="col-lg-6">
-            <div class="card">
-              <div class="card-header">Readiness</div>
-              <div class="card-body">
-                <div class="progress" role="progressbar" aria-label="Readiness score">
-                  <div class="progress-bar" id="dashReadinessBar" style="width:0%;">0%</div>
-                </div>
-                <div class="d-flex flex-wrap gap-2 mt-2" id="dashReadinessChips"></div>
-                <ul class="mt-2 mb-0" style="font-size:0.85rem;" id="dashReadinessNotes"></ul>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="row g-3 mb-2">
-          <div class="col-lg-4">
-            <div class="card">
-              <div class="card-header">Finance</div>
-              <div class="card-body">
-                <h5 class="card-title mb-1" id="dashSpend">R 0.00</h5>
-                <div class="text-secondary" style="font-size:0.85rem;">
-                  <div><span style="opacity:0.75;">Transactions:</span> <span id="dashSpendCount">0</span></div>
-                  <div class="mt-2">
-                    <a class="btn btn-sm btn-outline-light mlo-btn" href="expenses.html">Open Finance</a>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="col-lg-4">
-            <div class="card">
-              <div class="card-header">Compliance / Service</div>
-              <div class="card-body">
-                <div class="d-flex flex-wrap gap-2">
-                  <span class="badge text-bg-secondary">Expiring: <span id="dashExpiring">0</span></span>
-                  <span class="badge text-bg-secondary">Expired: <span id="dashExpired">0</span></span>
-                  <span class="badge text-bg-secondary">Service Open: <span id="dashSvcOpen">0</span></span>
-                </div>
-                <div class="mt-2 d-flex gap-2">
-                  <a class="btn btn-sm btn-outline-light mlo-btn" href="compliance.html">Compliance</a>
-                  <a class="btn btn-sm btn-outline-light mlo-btn" href="service.html">Service</a>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="col-lg-4">
-            <div class="card">
-              <div class="card-header">Directory</div>
-              <div class="card-body">
-                <div class="d-flex flex-wrap gap-2">
-                  <span class="badge text-bg-secondary">Drivers: <span id="dashDrivers">0</span></span>
-                  <span class="badge text-bg-secondary">Staff: <span id="dashStaff">0</span></span>
-                  <span class="badge text-bg-secondary">Suppliers: <span id="dashSuppliers">0</span></span>
-                  <span class="badge text-bg-secondary">Locations: <span id="dashLocations">0</span></span>
-                </div>
-                <div class="mt-2">
-                  <a class="btn btn-sm btn-outline-light mlo-btn" href="settings.html">Open Settings</a>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="row g-3">
-          <div class="col-lg-6">
-            <div class="card">
-              <div class="card-header d-flex justify-content-between align-items-center">
-                Operational Alerts
-                <span id="dashAlertsSpinner" class="spinner-border spinner-border-sm text-secondary" role="status" style="display:none!important"></span>
-              </div>
-              <div class="card-body">
-                <div class="d-flex flex-wrap gap-2">
-                  <span class="badge text-bg-secondary">Open Tasks: <span id="dashOpenTasks">0</span></span>
-                  <span class="badge text-bg-secondary" id="dashLowStockBadge">Low Stock: <span id="dashLowStock">0</span></span>
-                  <span class="badge text-bg-secondary">Checked-out Assets: <span id="dashCheckedOut">0</span></span>
-                  <span class="badge text-bg-secondary">Open Incidents: <span id="dashOpenIncidents">0</span></span>
-                  <span class="badge text-bg-secondary" id="dashMaintBadge">Maintenance Due: <span id="dashMaintDue">0</span></span>
-                </div>
-                <div class="text-secondary mt-2" style="font-size:0.85rem;">Resolve these to improve readiness.</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="col-lg-6">
-            <div class="card">
-              <div class="card-header">Quick Links</div>
-              <div class="card-body">
-                <div class="d-flex flex-wrap gap-2">
-                  <a class="btn btn-sm btn-outline-light mlo-btn" href="inventory.html">Inventory</a>
-                  <a class="btn btn-sm btn-outline-light mlo-btn" href="load.html">Load Plan</a>
-                  <a class="btn btn-sm btn-outline-light mlo-btn" href="forecast.html">Forecast</a>
-                  <a class="btn btn-sm btn-outline-light mlo-btn" href="invoice.html">Invoicing</a>
-                  <a class="btn btn-sm btn-outline-light mlo-btn" href="strategy.html">Strategy</a>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="row g-3 mt-1">
-          <div class="col-lg-6">
-            <div class="card border-warning">
-              <div class="card-header" style="background:#fff8e1;color:#e65100;font-weight:700">⚠️ Low Stock Items</div>
-              <div class="card-body p-0">
-                <div id="dashLowStockList" style="max-height:220px;overflow-y:auto">
-                  <div class="text-muted p-3" style="font-size:.85rem">Loading…</div>
-                </div>
-                <div class="p-2 border-top"><a class="btn btn-sm btn-outline-warning" href="inventory.html">Open Inventory →</a></div>
-              </div>
-            </div>
-          </div>
-          <div class="col-lg-6">
-            <div class="card border-danger">
-              <div class="card-header" style="background:#fce4ec;color:#c62828;font-weight:700">🔧 Asset Maintenance Due</div>
-              <div class="card-body p-0">
-                <div id="dashMaintList" style="max-height:220px;overflow-y:auto">
-                  <div class="text-muted p-3" style="font-size:.85rem">Loading…</div>
-                </div>
-                <div class="p-2 border-top"><a class="btn btn-sm btn-outline-danger" href="assets.html">Open Assets →</a></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
+    <!-- Masthead -->
+    <div class="dash-masthead">
+      <div class="dash-masthead-left">
+        <div class="dash-eyebrow">Operational Overview</div>
+        <div class="dash-title">Race Team OS</div>
       </div>
+      <div class="dash-masthead-right">
+        <div class="dash-date" id="dashHeroDate"></div>
+        <div class="dash-nav-links">
+          <a href="events.html">Events</a>
+          <a href="tasks.html">Tasks</a>
+          <a href="expenses.html">Finance</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- KPI Strip -->
+    <div class="dash-kpi-strip">
+      <div class="dash-kpi">
+        <div class="dash-kpi-label">Open Tasks</div>
+        <div class="dash-kpi-number" id="dashOpenTasks">—</div>
+        <div class="dash-kpi-accent"></div>
+      </div>
+      <div class="dash-kpi">
+        <div class="dash-kpi-label">Low Stock</div>
+        <div class="dash-kpi-number" id="dashLowStock">—</div>
+        <div class="dash-kpi-accent"></div>
+      </div>
+      <div class="dash-kpi">
+        <div class="dash-kpi-label">Assets Out</div>
+        <div class="dash-kpi-number" id="dashCheckedOut">—</div>
+        <div class="dash-kpi-accent"></div>
+      </div>
+      <div class="dash-kpi">
+        <div class="dash-kpi-label">Open Incidents</div>
+        <div class="dash-kpi-number" id="dashOpenIncidents">—</div>
+        <div class="dash-kpi-accent"></div>
+      </div>
+      <div class="dash-kpi">
+        <div class="dash-kpi-label">Maintenance Due</div>
+        <div class="dash-kpi-number" id="dashMaintDue">—</div>
+        <div class="dash-kpi-accent"></div>
+      </div>
+    </div>
+
+    <!-- Next Event + Readiness -->
+    <div class="dash-main-grid">
+      <div class="dash-panel">
+        <div class="dash-panel-label">Next Event</div>
+        <div class="dash-event-title" id="dashNextTitle">No upcoming events</div>
+        <div class="dash-event-meta">
+          <span id="dashNextDate">—</span>&nbsp;&nbsp;·&nbsp;&nbsp;<span id="dashNextVenue">—</span>
+        </div>
+        <span class="dash-event-type" id="dashNextType">—</span>
+        <div class="dash-panel-links">
+          <a href="events.html">Open Events</a>
+          <a href="strategy.html">Strategy</a>
+        </div>
+      </div>
+      <div class="dash-panel">
+        <div class="dash-panel-label">Readiness Score</div>
+        <div class="dash-readiness-score"><span id="dashReadinessVal">0</span><span>%</span></div>
+        <div class="dash-progress-track">
+          <div class="dash-progress-fill" id="dashReadinessBar" style="width:0%"></div>
+        </div>
+        <ul class="dash-readiness-notes" id="dashReadinessNotes"></ul>
+        <div id="dashReadinessChips"></div>
+      </div>
+    </div>
+
+    <!-- Finance · Compliance · Directory · Quick Links -->
+    <div class="dash-secondary-grid">
+      <div class="dash-panel">
+        <div class="dash-panel-label">Finance — This Month</div>
+        <div class="dash-finance-big" id="dashSpend">R 0.00</div>
+        <div class="dash-finance-sub"><span id="dashSpendCount">0</span> transactions</div>
+        <div class="dash-panel-links"><a href="expenses.html">Open Finance</a></div>
+      </div>
+      <div class="dash-panel">
+        <div class="dash-panel-label">Compliance &amp; Service</div>
+        <ul class="dash-stat-list">
+          <li><span class="stat-key">Expiring</span><span class="stat-val" id="dashExpiring">0</span></li>
+          <li><span class="stat-key">Expired</span><span class="stat-val" id="dashExpired">0</span></li>
+          <li><span class="stat-key">Service Open</span><span class="stat-val" id="dashSvcOpen">0</span></li>
+        </ul>
+        <div class="dash-panel-links" style="margin-top:20px">
+          <a href="compliance.html">Compliance</a>
+          <a href="service.html">Service</a>
+        </div>
+      </div>
+      <div class="dash-panel">
+        <div class="dash-panel-label">Directory</div>
+        <ul class="dash-stat-list">
+          <li><span class="stat-key">Drivers</span><span class="stat-val" id="dashDrivers">0</span></li>
+          <li><span class="stat-key">Staff</span><span class="stat-val" id="dashStaff">0</span></li>
+          <li><span class="stat-key">Suppliers</span><span class="stat-val" id="dashSuppliers">0</span></li>
+          <li><span class="stat-key">Locations</span><span class="stat-val" id="dashLocations">0</span></li>
+        </ul>
+        <div class="dash-panel-links" style="margin-top:20px"><a href="settings.html">Open Settings</a></div>
+      </div>
+    </div>
+
+    <!-- Alerts row (hidden badges, data flows to KPI strip) + Quick Links -->
+    <div class="dash-main-grid">
+      <!-- hidden alert badge holders — JS writes to these, KPI strip displays them -->
+      <span id="dashLowStockBadge" style="display:none"></span>
+      <span id="dashMaintBadge" style="display:none"></span>
+      <span id="dashAlertsSpinner" style="display:none"></span>
+
+      <div class="dash-panel">
+        <div class="dash-panel-label">Navigation</div>
+        <div class="dash-quick-links">
+          <a href="inventory.html">Inventory</a>
+          <a href="load.html">Load Plan</a>
+          <a href="forecast.html">Forecast</a>
+          <a href="invoice.html">Invoicing</a>
+          <a href="strategy.html">Strategy</a>
+          <a href="scan-load.html">Scan to Load</a>
+        </div>
+      </div>
+      <div class="dash-panel" style="display:flex;flex-direction:column;justify-content:flex-end;padding-bottom:28px;">
+        <div class="dash-panel-label">System</div>
+        <p style="font-size:0.72rem;color:#aaa;line-height:1.7;max-width:280px;margin:0;">
+          Operational snapshot across events, readiness, finance, and service. All data is live from the server.
+        </p>
+      </div>
+    </div>
+
+    <!-- Data tables -->
+    <div class="dash-tables-grid">
+      <div class="dash-table-panel">
+        <div class="dash-panel-label">Low Stock Items</div>
+        <div class="dash-table-inner" id="dashLowStockList">
+          <div class="dash-table-empty">Loading…</div>
+        </div>
+        <div class="dash-table-footer"><a href="inventory.html">Open Inventory →</a></div>
+      </div>
+      <div class="dash-table-panel">
+        <div class="dash-panel-label">Asset Maintenance Due</div>
+        <div class="dash-table-inner" id="dashMaintList">
+          <div class="dash-table-empty">Loading…</div>
+        </div>
+        <div class="dash-table-footer"><a href="assets.html">Open Assets →</a></div>
+      </div>
+    </div>
+
+  </div><!-- /dash-wrap -->
+  </div><!-- /rts-main -->
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="auth-check.js"></script>
@@ -191,6 +561,12 @@
     const m = String(today.getMonth()+1).padStart(2,'0');
     const d = String(today.getDate()).padStart(2,'0');
     const todayISO = `${y}-${m}-${d}`;
+
+    // Hero date
+    const heroDate = document.getElementById('dashHeroDate');
+    if (heroDate) {
+      heroDate.textContent = today.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}).toUpperCase();
+    }
 
     const settings = RTS.getSettings();
     const events = (RTS.safeLoadJSON('rts.events.v4', [])||[]).slice();
@@ -252,14 +628,14 @@
         // Low stock list
         const lsEl = el('dashLowStockList');
         if (lsCount === 0) {
-          lsEl.innerHTML = '<div class="text-muted p-3" style="font-size:.85rem">✅ All items above minimum stock level.</div>';
+          lsEl.innerHTML = '<div class="dash-table-empty">All items above minimum stock level.</div>';
         } else {
-          lsEl.innerHTML = '<table class="table table-sm mb-0" style="font-size:.8rem">' +
-            '<thead class="table-light"><tr><th>Item</th><th>SKU</th><th class="text-center">Qty</th><th class="text-center">Min</th></tr></thead><tbody>' +
+          lsEl.innerHTML = '<table class="table table-sm mb-0">' +
+            '<thead><tr><th>Item</th><th>SKU</th><th class="text-center">Qty</th><th class="text-center">Min</th></tr></thead><tbody>' +
             data.lowStock.items.map(i => {
               const critical = i.quantity === 0;
-              return `<tr class="${critical ? 'table-danger' : 'table-warning'}">
-                <td>${i.name}</td><td style="font-family:monospace">${i.sku || '—'}</td>
+              return `<tr class="${critical ? 'row-danger' : 'row-warn'}">
+                <td>${i.name}</td><td style="font-family:monospace;font-size:0.68rem">${i.sku || '—'}</td>
                 <td class="text-center fw-bold">${i.quantity}</td>
                 <td class="text-center">${i.min_quantity}</td>
               </tr>`;
@@ -269,17 +645,17 @@
         // Maintenance due list
         const mEl = el('dashMaintList');
         if (mCount === 0) {
-          mEl.innerHTML = '<div class="text-muted p-3" style="font-size:.85rem">✅ No assets due for maintenance in the next 30 days.</div>';
+          mEl.innerHTML = '<div class="dash-table-empty">No assets due for maintenance in the next 30 days.</div>';
         } else {
-          mEl.innerHTML = '<table class="table table-sm mb-0" style="font-size:.8rem">' +
-            '<thead class="table-light"><tr><th>Asset</th><th>Barcode</th><th>Due Date</th><th class="text-center">Days</th></tr></thead><tbody>' +
+          mEl.innerHTML = '<table class="table table-sm mb-0">' +
+            '<thead><tr><th>Asset</th><th>Barcode</th><th>Due Date</th><th class="text-center">Days</th></tr></thead><tbody>' +
             data.maintenanceDue.items.map(i => {
               const overdue = i.days_until_due < 0;
-              const today = i.days_until_due === 0;
-              const rowClass = overdue ? 'table-danger' : today ? 'table-warning' : '';
-              const daysLabel = overdue ? `${Math.abs(i.days_until_due)}d overdue` : today ? 'TODAY' : `in ${i.days_until_due}d`;
+              const sameDay = i.days_until_due === 0;
+              const rowClass = overdue ? 'row-danger' : sameDay ? 'row-warn' : '';
+              const daysLabel = overdue ? `${Math.abs(i.days_until_due)}d overdue` : sameDay ? 'TODAY' : `in ${i.days_until_due}d`;
               return `<tr class="${rowClass}">
-                <td>${i.name}</td><td style="font-family:monospace">${i.barcode || '—'}</td>
+                <td>${i.name}</td><td style="font-family:monospace;font-size:0.68rem">${i.barcode || '—'}</td>
                 <td>${new Date(i.next_maintenance_date).toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'numeric'})}</td>
                 <td class="text-center fw-bold">${daysLabel}</td>
               </tr>`;
@@ -288,8 +664,8 @@
 
       }).catch(() => {
         el('dashLowStock').textContent = '—';
-        el('dashLowStockList').innerHTML = '<div class="text-muted p-3" style="font-size:.85rem">Could not load data.</div>';
-        el('dashMaintList').innerHTML = '<div class="text-muted p-3" style="font-size:.85rem">Could not load data.</div>';
+        el('dashLowStockList').innerHTML = '<div class="dash-table-empty">Could not load data.</div>';
+        el('dashMaintList').innerHTML = '<div class="dash-table-empty">Could not load data.</div>';
       });
     }
 
@@ -328,8 +704,8 @@
 
       const bar = el('dashReadinessBar');
       bar.style.width = score + '%';
-      bar.textContent = score + '%';
-      bar.setAttribute('aria-valuenow', String(score));
+      const valEl = el('dashReadinessVal');
+      if (valEl) valEl.textContent = score;
 
       const notes = el('dashReadinessNotes');
       notes.innerHTML = '';
@@ -339,22 +715,24 @@
       if(checkedOut.length) addNote(`${checkedOut.length} checked-out assets`);
       if(openInc.length) addNote(`${openInc.length} open incidents`);
       if(_maintCountForReadiness) addNote(`${_maintCountForReadiness} assets due for maintenance`);
-      if(!notes.children.length) addNote('No active alerts detected');
+      if(!notes.children.length) addNote('No active alerts — all systems nominal');
+
+      // KPI colour alerts
+      const kpiAlert = (id, count, warnAt, alertAt) => {
+        const n = document.getElementById(id);
+        if (!n) return;
+        n.classList.remove('kpi-alert','kpi-warn');
+        if (count >= alertAt) n.classList.add('kpi-alert');
+        else if (count >= warnAt) n.classList.add('kpi-warn');
+      };
+      kpiAlert('dashOpenTasks',     openTasks.length,          3, 8);
+      kpiAlert('dashLowStock',      _lsCountForReadiness,      1, 5);
+      kpiAlert('dashCheckedOut',    checkedOut.length,          2, 6);
+      kpiAlert('dashOpenIncidents', openInc.length,             1, 3);
+      kpiAlert('dashMaintDue',      _maintCountForReadiness,   1, 5);
     }
     updateReadiness(); // initial render with sync data
 
-    const chips = document.getElementById('dashReadinessChips');
-    chips.innerHTML = '';
-    const addChip = (label, val)=> {
-      const span = document.createElement('span');
-      span.className = 'badge text-bg-secondary';
-      span.textContent = `${label}: ${val}`;
-      chips.appendChild(span);
-    };
-    addChip('Tasks', openTasks.length);
-    addChip('Assets out', checkedOut.length);
-    addChip('Incidents', openInc.length);
-    addChip('Svc open', svcOpen);
   })();
   </script>
 </body>
