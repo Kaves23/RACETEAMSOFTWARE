@@ -36,8 +36,8 @@ router.get('/manifest/:truck_id', async (req, res, next) => {
     const plan = planResult.rows[0];
 
     const result = await pool.query(
-      `SELECT b.id, b.name, b.barcode, b.current_truck_id,
-              lpb.truck_zone, lpb.load_order
+      `SELECT b.id, b.name, b.barcode,
+              lpb.truck_zone, lpb.load_order, lpb.scanned_at
        FROM load_plan_boxes lpb
        JOIN boxes b ON b.id = lpb.box_id
        WHERE lpb.load_plan_id = $1
@@ -51,7 +51,7 @@ router.get('/manifest/:truck_id', async (req, res, next) => {
       barcode: r.barcode || null,
       zone: r.truck_zone || null,
       loadOrder: r.load_order,
-      loaded: r.current_truck_id === truck_id
+      loaded: r.scanned_at !== null
     }));
 
     res.json({
@@ -94,12 +94,40 @@ router.post('/confirm', async (req, res, next) => {
       const box = boxResult.rows[0];
 
       if (mode === 'load') {
-        if (box.current_truck_id === truck_id) {
-          return res.json({
-            success: true, type: 'box', status: 'already_loaded',
-            name: box.name, barcode: box.barcode,
-            message: `Already on truck: ${box.name}`
-          });
+        // Check the load plan entry for this box+truck
+        const planCheck = await pool.query(
+          `SELECT lpb.id, lpb.truck_zone, lpb.scanned_at
+           FROM load_plan_boxes lpb
+           JOIN load_plans lp ON lp.id = lpb.load_plan_id
+           WHERE lpb.box_id = $1 AND lp.truck_id = $2 AND lp.status = 'Draft'
+           ORDER BY lp.updated_at DESC LIMIT 1`,
+          [box.id, truck_id]
+        );
+
+        if (planCheck.rows.length > 0) {
+          // Box is in the load plan
+          if (planCheck.rows[0].scanned_at) {
+            // Already physically scanned onto this truck
+            return res.json({
+              success: true, type: 'box', status: 'already_loaded',
+              name: box.name, barcode: box.barcode,
+              message: `Already scanned: ${box.name}`
+            });
+          }
+          // Mark as physically scanned
+          await pool.query(
+            `UPDATE load_plan_boxes SET scanned_at = NOW() WHERE id = $1`,
+            [planCheck.rows[0].id]
+          );
+        } else {
+          // Box not in any load plan — fall back to current_truck_id check
+          if (box.current_truck_id === truck_id) {
+            return res.json({
+              success: true, type: 'box', status: 'already_loaded',
+              name: box.name, barcode: box.barcode,
+              message: `Already on truck: ${box.name}`
+            });
+          }
         }
 
         await pool.query(
@@ -107,15 +135,7 @@ router.post('/confirm', async (req, res, next) => {
           [truck_id, box.id]
         );
 
-        // Look up zone from current draft plan
-        const zoneResult = await pool.query(
-          `SELECT lpb.truck_zone FROM load_plan_boxes lpb
-           JOIN load_plans lp ON lp.id = lpb.load_plan_id
-           WHERE lpb.box_id = $1 AND lp.truck_id = $2 AND lp.status = 'Draft'
-           ORDER BY lp.updated_at DESC LIMIT 1`,
-          [box.id, truck_id]
-        );
-        const zone = zoneResult.rows.length > 0 ? zoneResult.rows[0].truck_zone : null;
+        const zone = planCheck.rows.length > 0 ? planCheck.rows[0].truck_zone : null;
 
         return res.json({
           success: true, type: 'box', status: 'loaded',
