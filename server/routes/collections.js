@@ -10,6 +10,21 @@ const VALID_TABLES = [
   'expenses', 'purchase_orders', 'inventory', 'events', 'locations'
 ];
 
+// Module-level cache for column lists — populated on first write per table,
+// valid for the process lifetime. Avoids a system-catalog query on every POST/PUT.
+const _schemaCache = new Map();
+
+async function getValidColumns(tableName) {
+  if (_schemaCache.has(tableName)) return _schemaCache.get(tableName);
+  const colResult = await db.query(
+    `SELECT column_name FROM information_schema.columns WHERE table_name = $1 AND table_schema = 'public'`,
+    [tableName]
+  );
+  const cols = new Set(colResult.rows.map(r => r.column_name));
+  _schemaCache.set(tableName, cols);
+  return cols;
+}
+
 // Validate table name
 function validateTable(tableName) {
   if (!VALID_TABLES.includes(tableName)) {
@@ -88,11 +103,7 @@ router.post('/:table', async (req, res) => {
     }
     
     // Strip keys that don't correspond to real columns (prevents 500 on schema changes)
-    const colResult = await db.query(
-      `SELECT column_name FROM information_schema.columns WHERE table_name = $1 AND table_schema = 'public'`,
-      [table]
-    );
-    const validColumns = new Set(colResult.rows.map(r => r.column_name));
+    const validColumns = await getValidColumns(table);
     Object.keys(data).forEach(k => { if (!validColumns.has(k)) delete data[k]; });
 
     // Build insert SQL dynamically
@@ -145,11 +156,7 @@ router.put('/:table/:id', async (req, res) => {
     delete data.id;
     
     // Strip keys that don't correspond to real columns
-    const colResult2 = await db.query(
-      `SELECT column_name FROM information_schema.columns WHERE table_name = $1 AND table_schema = 'public'`,
-      [table]
-    );
-    const validCols = new Set(colResult2.rows.map(r => r.column_name));
+    const validCols = await getValidColumns(table);
     Object.keys(data).forEach(k => { if (!validCols.has(k)) delete data[k]; });
 
     // Add updated_at timestamp
@@ -186,12 +193,39 @@ router.put('/:table/:id', async (req, res) => {
   }
 });
 
+// Map collection table names to their entity_tags entity_type value
+const ENTITY_TAG_TYPE = {
+  tasks: 'task',
+  notes: 'note',
+  runbooks: 'runbook',
+  drivers: 'driver',
+  events: 'event'
+};
+
 // DELETE /api/collections/:table/:id - Delete record
 router.delete('/:table/:id', async (req, res) => {
   try {
     const table = validateTable(req.params.table);
     const { id } = req.params;
-    
+
+    // Defence-in-depth: clean up orphans that DB triggers also handle.
+    // Triggers in migration 041 are the primary guarantee; these run first
+    // so that if this code path somehow precedes the trigger, rows are gone.
+    const entityType = ENTITY_TAG_TYPE[table];
+    if (entityType) {
+      await db.query(
+        'DELETE FROM entity_tags WHERE entity_type = $1 AND entity_id = $2',
+        [entityType, id]
+      );
+    }
+    // When deleting an inventory item, remove it from any boxes it's packed in
+    if (table === 'inventory') {
+      await db.query(
+        "DELETE FROM box_contents WHERE item_id = $1 AND item_type = 'inventory'",
+        [id]
+      );
+    }
+
     const sql = `DELETE FROM ${table} WHERE id = $1 RETURNING *`;
     const result = await db.query(sql, [id]);
     

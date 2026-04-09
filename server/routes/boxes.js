@@ -26,13 +26,21 @@ router.get('/', async (req, res, next) => {
     const selectClause = selectedFields
       ? `${selectedFields.join(', ')}, d.name as assigned_driver_name`
       : 'b.*, d.name as assigned_driver_name';
-    
-    const truckSubquery = `(SELECT lp.truck_id FROM load_plan_boxes lpb JOIN load_plans lp ON lp.id = lpb.load_plan_id WHERE lpb.box_id = b.id ORDER BY lpb.added_at DESC LIMIT 1) AS load_plan_truck_id`;
 
+    // Use LATERAL JOIN instead of a correlated subquery — executes once per query,
+    // not once per row, and uses idx_lpb_box_added (box_id, added_at DESC).
     let query = `
-      SELECT ${selectClause}, ${truckSubquery}
+      SELECT ${selectClause}, latest_lp.truck_id AS load_plan_truck_id
       FROM boxes b
       LEFT JOIN drivers d ON b.assigned_driver_id = d.id
+      LEFT JOIN LATERAL (
+        SELECT lp.truck_id
+        FROM load_plan_boxes lpb
+        JOIN load_plans lp ON lp.id = lpb.load_plan_id
+        WHERE lpb.box_id = b.id
+        ORDER BY lpb.added_at DESC
+        LIMIT 1
+      ) latest_lp ON true
       WHERE 1=1
     `;
     const params = [];
@@ -73,13 +81,23 @@ router.get('/:id', async (req, res, next) => {
       return res.status(404).json({ success: false, error: 'Box not found' });
     }
     
-    // Also get contents
+    // Get contents — UNION ALL handles both physical items (item_type='item')
+    // and consumable inventory (item_type='inventory') with a single round-trip.
     const contents = await pool.query(`
-      SELECT bc.*, i.name, i.barcode as item_barcode, i.category
+      SELECT bc.box_id, bc.item_id, bc.item_type, bc.quantity_packed,
+             bc.position_in_box, bc.packed_at,
+             i.name, i.barcode AS item_barcode, i.category, NULL AS sku
       FROM box_contents bc
       JOIN items i ON bc.item_id = i.id
-      WHERE bc.box_id = $1
-      ORDER BY bc.packed_at DESC
+      WHERE bc.box_id = $1 AND bc.item_type = 'item'
+      UNION ALL
+      SELECT bc.box_id, bc.item_id, bc.item_type, bc.quantity_packed,
+             bc.position_in_box, bc.packed_at,
+             inv.name, inv.sku AS item_barcode, inv.category, inv.sku
+      FROM box_contents bc
+      JOIN inventory inv ON bc.item_id = inv.id
+      WHERE bc.box_id = $1 AND bc.item_type = 'inventory'
+      ORDER BY packed_at DESC
     `, [id]);
     
     res.json({ 
@@ -253,8 +271,10 @@ router.delete('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
     
-    // Cascade delete box_contents first, then the box
+    // Cascade delete box_contents first (FK CASCADE also handles this, defence-in-depth)
     await pool.query('DELETE FROM box_contents WHERE box_id = $1', [id]);
+    // Remove orphaned entity_tags (DB trigger in migration 041 also handles this)
+    await pool.query("DELETE FROM entity_tags WHERE entity_type = 'box' AND entity_id = $1", [id]);
     
     const result = await pool.query('DELETE FROM boxes WHERE id = $1 RETURNING *', [id]);
     

@@ -566,3 +566,24 @@ window.RTS_DATA = {
 };
 
 console.log('✅ RTS Config loaded - Data mode:', window.RTS_CONFIG.dataMode);
+
+// ============================================
+// Keep-alive ping - prevents Render free tier cold starts
+// Pings /api/health every 14 minutes (Render sleeps after 15m inactivity)
+// Only runs when the API is in use (dataMode = 'api') and not on localhost
+// ============================================
+(function startKeepAlive() {
+  const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  if (window.RTS_CONFIG.dataMode !== 'api' || isLocal) return;
+
+  const INTERVAL_MS = 14 * 60 * 1000; // 14 minutes
+
+  function ping() {
+    fetch('/api/health', { method: 'GET', cache: 'no-store' }).catch(() => {
+      // Silence errors — this is a best-effort background ping
+    });
+  }
+
+  // Initial ping after 14 minutes of first page load
+  setInterval(ping, INTERVAL_MS);
+})();

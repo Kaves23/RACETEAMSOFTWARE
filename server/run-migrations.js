@@ -44,7 +44,11 @@ async function runMigrations() {
     '036_performance_and_integrity.sql',
     '037_trucks_notes_column.sql',
     '038_inventory_categories.sql',
-    '039_suppliers_table.sql'
+    '039_suppliers_table.sql',
+    '039_performance_indexes.sql',
+    '040_fk_and_index_audit.sql',
+    '041_orphan_cleanup_triggers.sql',
+    '042_description_trgm_index.sql'
   ];
   
   for (const filename of migrationFiles) {

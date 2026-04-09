@@ -76,21 +76,27 @@ router.put('/draft', async (req, res, next) => {
     // Replace all box placements
     await client.query('DELETE FROM load_plan_boxes WHERE load_plan_id = $1', [planId]);
 
-    for (let i = 0; i < placements.length; i++) {
-      const p = placements[i];
+    // Bulk INSERT using unnest — one round-trip regardless of placement count
+    // (replaces N individual INSERTs which caused N network round-trips)
+    if (placements.length > 0) {
+      const planIds   = placements.map(() => planId);
+      const boxIds    = placements.map(p => p.boxId);
+      const zones     = placements.map(p => p.zone || null);
+      const xs        = placements.map(p => p.position?.x || 0);
+      const ys        = placements.map(p => p.position?.y || 0);
+      const zs        = placements.map(p => p.position?.z || 0);
+      const orders    = placements.map((_, i) => i + 1);
+      const addedAts  = placements.map(p => p.timestamp || new Date().toISOString());
+
       await client.query(
-        `INSERT INTO load_plan_boxes (load_plan_id, box_id, truck_zone, position_x, position_y, position_z, load_order, added_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-        [
-          planId,
-          p.boxId,
-          p.zone || null,
-          p.position?.x || 0,
-          p.position?.y || 0,
-          p.position?.z || 0,
-          i + 1,
-          p.timestamp || new Date().toISOString()
-        ]
+        `INSERT INTO load_plan_boxes
+           (load_plan_id, box_id, truck_zone, position_x, position_y, position_z, load_order, added_at)
+         SELECT * FROM unnest(
+           $1::text[], $2::text[], $3::text[],
+           $4::float[], $5::float[], $6::float[],
+           $7::int[], $8::timestamptz[]
+         )`,
+        [planIds, boxIds, zones, xs, ys, zs, orders, addedAts]
       );
     }
 

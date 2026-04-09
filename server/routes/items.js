@@ -251,8 +251,10 @@ router.delete('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
     
-    // Remove from any boxes first
+    // Remove from any boxes first (FK CASCADE also handles this, defence-in-depth)
     await pool.query('DELETE FROM box_contents WHERE item_id = $1', [id]);
+    // Remove orphaned entity_tags (DB trigger in migration 041 also handles this)
+    await pool.query("DELETE FROM entity_tags WHERE entity_type = 'item' AND entity_id = $1", [id]);
     
     const result = await pool.query('DELETE FROM items WHERE id = $1 RETURNING *', [id]);
     
