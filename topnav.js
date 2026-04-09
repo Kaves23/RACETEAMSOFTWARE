@@ -20,6 +20,7 @@
     ]},
     { label: 'Logistics', items: [
       { href: 'load.html', label: 'Load Plan', key: 'L' },
+      { href: 'scan-load.html', label: 'Scan to Load', key: 'S' },
       { href: 'box-packing.html', label: 'Box Packing', key: 'B' },
       { href: 'vehicles.html', label: 'Vehicles', key: 'V' },
       { href: 'event-notes.html', label: 'Event Notes', key: 'N' },

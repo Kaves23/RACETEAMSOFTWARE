@@ -100,6 +100,7 @@ const shopifyRouter = require('./routes/shopify');
 const inventoryRouter = require('./routes/inventory');
 const dashboardRouter = require('./routes/dashboard');
 const packingRouter = require('./routes/packing');
+const scanRouter = require('./routes/scan');
 const whatsappRouter = require('./routes/whatsapp');
 
 app.use('/api/boxes', requireAuth, boxesRouter);
@@ -117,6 +118,7 @@ app.use('/api/shopify', requireAuth, shopifyRouter);
 app.use('/api/inventory', requireAuth, inventoryRouter);
 app.use('/api/dashboard', requireAuth, dashboardRouter);
 app.use('/api/packing-lists', requireAuth, packingRouter);
+app.use('/api/scan', requireAuth, scanRouter);
 app.use('/api/whatsapp', whatsappRouter); // Webhook must be public, individual routes handle auth
 
 // Get settings (read-only endpoint) - PROTECTED

@@ -1421,6 +1421,17 @@
       return await apiRequest('/dashboard/alerts');
     },
 
+    async getScanManifest(truckId) {
+      return await apiRequest(`/scan/manifest/${truckId}`);
+    },
+
+    async confirmScan(barcode, truckId, mode, returnLocationId) {
+      return await apiRequest('/scan/confirm', {
+        method: 'POST',
+        body: JSON.stringify({ barcode, truck_id: truckId, mode, return_location_id: returnLocationId })
+      });
+    },
+
     async saveLoadPlanDraft(data) {
       return await apiRequest('/load-plans/draft', {
         method: 'PUT',

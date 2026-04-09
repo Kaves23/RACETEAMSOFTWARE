@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Race Team OS – Scan to Load</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="style.css" rel="stylesheet" />
+  <style>
+    body { background: #0d0d0d; color: #f0f0f0; font-family: 'Inter', sans-serif; }
+
+    /* Dark-themed page */
+    .card { background: #1a1a1a; border: 1px solid #2e2e2e; color: #f0f0f0; }
+    .card-header { background: #222; border-bottom: 1px solid #333; font-weight: 700; font-size: .85rem; letter-spacing: .5px; text-transform: uppercase; }
+    .form-select, .form-control { background: #111; border-color: #333; color: #f0f0f0; }
+    .form-select:focus, .form-control:focus { background: #111; border-color: #0099cc; color: #f0f0f0; box-shadow: 0 0 0 .2rem rgba(0,153,204,.25); }
+    .form-select option { background: #111; }
+    .form-label { font-size: .8rem; color: #aaa; text-transform: uppercase; letter-spacing: .3px; }
+
+    /* Mode buttons */
+    .mode-btn { flex: 1; padding: 14px; font-size: 1rem; font-weight: 700; border-radius: 8px; border: 2px solid #333;
+      background: #111; color: #888; transition: all .2s; }
+    .mode-btn.active-load  { background: #0d4f26; border-color: #1a9e50; color: #1adb68; }
+    .mode-btn.active-unload{ background: #4f1a0d; border-color: #9e3a1a; color: #db6b1a; }
+
+    /* Scanner area */
+    #scannerWrapper { position: relative; background: #000; border-radius: 10px; overflow: hidden; min-height: 220px; }
+    #reader { width: 100%; }
+    #scanOverlay { position: absolute; inset: 0; pointer-events: none; display: flex; align-items: center; justify-content: center; }
+    .scan-frame { width: 240px; height: 100px; border: 2px solid #0099cc; border-radius: 6px; box-shadow: 0 0 0 9999px rgba(0,0,0,.55); animation: pulse 1.8s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{border-color:#0099cc;} 50%{border-color:#00e5ff;} }
+    .scan-line { position: absolute; width: 220px; height: 2px; background: #00e5ff; opacity:.7; animation: scanline 1.4s linear infinite; }
+    @keyframes scanline { 0%{top:calc(50% - 48px)} 100%{top:calc(50% + 48px)} }
+
+    /* Barcode input */
+    #barcodeInput { font-size: 1.2rem; font-family: monospace; letter-spacing: 1px; text-align: center;
+      background: #111; border: 2px solid #333; color: #0f9; border-radius: 8px; padding: 12px; }
+    #barcodeInput:focus { border-color: #0f9; box-shadow: 0 0 0 .2rem rgba(0,255,153,.2); }
+
+    /* Scan result flash */
+    #scanResult { min-height: 56px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+      font-size: 1.05rem; font-weight: 700; padding: 12px; transition: all .3s; }
+    .result-ok      { background: #0d3d1f; border: 1.5px solid #1a9e50; color: #1adb68; }
+    .result-warning { background: #3d2c00; border: 1.5px solid #c89c00; color: #ffd54f; }
+    .result-error   { background: #3d0d0d; border: 1.5px solid #9e1a1a; color: #e57373; }
+    .result-idle    { background: #161616; border: 1.5px solid #2a2a2a; color: #555; }
+
+    /* Progress bar */
+    .progress { height: 12px; background: #111; border-radius: 6px; }
+    .progress-bar { border-radius: 6px; transition: width .4s ease; }
+
+    /* Manifest list */
+    .manifest-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid #222; font-size: .83rem; }
+    .manifest-item:last-child { border-bottom: none; }
+    .manifest-check { font-size: 1.2rem; width: 24px; text-align: center; flex-shrink: 0; }
+    .manifest-zone  { font-size: .7rem; background: #222; color: #aaa; border-radius: 3px; padding: 1px 6px; font-family: monospace; flex-shrink: 0; }
+    .manifest-barcode { font-family: monospace; font-size: .72rem; color: #666; flex-shrink: 0; }
+    .manifest-item.scanned { background: #0a2a12; }
+    .manifest-item.scanned .manifest-check { color: #1adb68; }
+
+    /* Scan log */
+    #scanLog { max-height: 280px; overflow-y: auto; }
+    .log-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid #1e1e1e; font-size: .82rem; }
+    .log-row:first-child { border-top: none; }
+    .log-icon { font-size: 1rem; flex-shrink: 0; }
+    .log-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .log-time { font-size: .7rem; color: #555; flex-shrink: 0; }
+    .log-badge { font-size: .65rem; padding: 2px 7px; border-radius: 10px; flex-shrink: 0; }
+
+    /* Camera toggle */
+    #toggleCameraBtn { border: 1px solid #333; background: #111; color: #aaa; border-radius: 8px; padding: 8px 16px; font-size: .85rem; cursor: pointer; transition: all .2s; }
+    #toggleCameraBtn.active { border-color: #0099cc; color: #0099cc; background: rgba(0,153,204,.1); }
+
+    /* Responsive: on small screens go full width */
+    @media (max-width: 767px) {
+      .container-fluid { padding: 8px; }
+      .col-lg-6 { margin-bottom: 12px; }
+    }
+  </style>
+</head>
+<body>
+<div id="rtsTopNav"></div>
+<div class="container-fluid py-3" style="max-width:960px">
+
+  <!-- Header row -->
+  <div class="d-flex align-items-center gap-3 mb-3">
+    <div>
+      <h4 class="mb-0 fw-800" style="color:#fff;letter-spacing:.5px">SCAN TO LOAD</h4>
+      <div style="font-size:.78rem;color:#666">Scan box or asset barcodes to confirm loading / unloading</div>
+    </div>
+    <div class="ms-auto" style="font-size:.72rem;color:#555">v20260409</div>
+  </div>
+
+  <!-- Mode + Truck row -->
+  <div class="row g-2 mb-3">
+    <div class="col-12 col-md-6">
+      <label class="form-label">Mode</label>
+      <div class="d-flex gap-2">
+        <button class="mode-btn active-load" id="btnModeLoad" onclick="setMode('load')">📦 LOAD onto Truck</button>
+        <button class="mode-btn" id="btnModeUnload" onclick="setMode('unload')">🔁 UNLOAD from Truck</button>
+      </div>
+    </div>
+    <div class="col-12 col-md-4">
+      <label class="form-label" for="truckSelect">Truck / Vehicle</label>
+      <select class="form-select" id="truckSelect" onchange="onTruckChange()">
+        <option value="">— select truck —</option>
+      </select>
+    </div>
+    <div class="col-12 col-md-2" id="returnLocCol" style="display:none">
+      <label class="form-label" for="returnLocSelect">Return to Location</label>
+      <select class="form-select" id="returnLocSelect">
+        <option value="">— no change —</option>
+        <option value="loc_jhb_garage">JHB Garage</option>
+        <option value="loc_jhb_store">JHB Store</option>
+        <option value="loc_ct_garage">CT Garage</option>
+        <option value="loc_ct_store">CT Store</option>
+        <option value="loc_ct_engine_room">CT Engine Room</option>
+        <option value="loc_dir">Director / Office</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <!-- LEFT: Scanner -->
+    <div class="col-lg-6">
+
+      <!-- Scanner card -->
+      <div class="card mb-3">
+        <div class="card-header d-flex align-items-center justify-content-between">
+          <span>🔍 Scanner</span>
+          <button id="toggleCameraBtn" onclick="toggleCamera()">📷 Camera Off</button>
+        </div>
+        <div class="card-body">
+          <!-- Camera -->
+          <div id="scannerWrapper" class="mb-3" style="display:none">
+            <div id="reader"></div>
+            <div id="scanOverlay">
+              <div class="scan-frame">
+                <div class="scan-line"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Manual / scanner-gun input -->
+          <div class="mb-3">
+            <label class="form-label" for="barcodeInput">Barcode (type or scan gun)</label>
+            <input type="text" id="barcodeInput" class="form-control" placeholder="e.g. RSA0028" autocomplete="off"
+              autocorrect="off" autocapitalize="characters" spellcheck="false" />
+          </div>
+          <button class="btn btn-success w-100 py-2 fw-bold mb-3" onclick="manualConfirm()" id="confirmBtn" disabled>
+            ✓ CONFIRM
+          </button>
+
+          <!-- Result flash -->
+          <div id="scanResult" class="result-idle">Waiting for scan…</div>
+        </div>
+      </div>
+
+      <!-- Scan log -->
+      <div class="card">
+        <div class="card-header d-flex align-items-center justify-content-between">
+          <span>📋 Scan Log</span>
+          <button class="btn btn-sm btn-outline-secondary" onclick="clearLog()">Clear</button>
+        </div>
+        <div id="scanLog">
+          <div class="text-muted p-3" style="font-size:.82rem">No scans yet.</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT: Manifest / Progress -->
+    <div class="col-lg-6">
+
+      <!-- Progress (load mode) -->
+      <div class="card mb-3" id="progressCard">
+        <div class="card-header">📊 Load Plan Progress</div>
+        <div class="card-body">
+          <div class="d-flex justify-content-between mb-1" style="font-size:.8rem">
+            <span id="progressLabel" style="color:#aaa">No plan loaded</span>
+            <span id="progressCount" style="color:#fff;font-weight:700">0 / 0</span>
+          </div>
+          <div class="progress mb-2">
+            <div class="progress-bar bg-success" id="progressBar" style="width:0%"></div>
+          </div>
+          <div style="font-size:.75rem;color:#555">Boxes confirmed on truck vs. plan total</div>
+        </div>
+      </div>
+
+      <!-- Manifest list -->
+      <div class="card" id="manifestCard">
+        <div class="card-header d-flex align-items-center justify-content-between">
+          <span>📦 Expected Boxes</span>
+          <span class="badge text-bg-secondary" id="manifestBadge">—</span>
+        </div>
+        <div id="manifestList" style="max-height:calc(100vh - 420px);min-height:120px;overflow-y:auto">
+          <div class="text-muted p-3" style="font-size:.82rem">Select a truck to see its load plan.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="config.js?v=20260409"></script>
+<script src="core.js?v=20260409"></script>
+<script src="topnav.js?v=20260409"></script>
+<script>
+(async function () {
+  RTS.setActiveNav();
+
+  // ── State ──────────────────────────────────────────────────────────────────
+  let currentMode     = 'load';
+  let currentTruckId  = null;
+  let manifest        = [];       // array of box objects from load plan
+  let scanLog         = [];       // [{barcode, name, status, time, type}]
+  let cameraActive    = false;
+  let html5QrCode     = null;
+  let debounceTimer   = null;
+
+  // ── Bootstrap ──────────────────────────────────────────────────────────────
+  await loadTrucks();
+  setupInputListener();
+
+  // ── Truck loader ──────────────────────────────────────────────────────────
+  async function loadTrucks() {
+    try {
+      const resp = await window.RTS_API.getTrucks();
+      const sel = document.getElementById('truckSelect');
+      (resp.trucks || []).forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t.id;
+        opt.textContent = `${t.name}${t.registration ? ' (' + t.registration + ')' : ''}`;
+        sel.appendChild(opt);
+      });
+    } catch (e) {
+      console.warn('Could not load trucks', e);
+    }
+  }
+
+  // ── Mode switching ─────────────────────────────────────────────────────────
+  window.setMode = function(mode) {
+    currentMode = mode;
+    document.getElementById('btnModeLoad').className   = 'mode-btn' + (mode === 'load'   ? ' active-load'   : '');
+    document.getElementById('btnModeUnload').className = 'mode-btn' + (mode === 'unload' ? ' active-unload' : '');
+    document.getElementById('returnLocCol').style.display   = mode === 'unload' ? '' : 'none';
+    document.getElementById('progressCard').style.display   = mode === 'load'   ? '' : 'none';
+    document.getElementById('manifestCard').style.display   = mode === 'load'   ? '' : 'none';
+    if (currentTruckId) onTruckChange();
+  };
+
+  // ── Truck change ──────────────────────────────────────────────────────────
+  window.onTruckChange = async function() {
+    const sel = document.getElementById('truckSelect');
+    currentTruckId = sel.value || null;
+    document.getElementById('confirmBtn').disabled = !currentTruckId;
+    if (!currentTruckId || currentMode === 'unload') {
+      renderManifest([]);
+      return;
+    }
+    await loadManifest();
+  };
+
+  async function loadManifest() {
+    if (!currentTruckId) return;
+    try {
+      const data = await window.RTS_API.getScanManifest(currentTruckId);
+      manifest = data.boxes || [];
+      renderManifest(manifest);
+      updateProgress();
+    } catch (e) {
+      document.getElementById('manifestList').innerHTML =
+        '<div class="text-danger p-3" style="font-size:.82rem">Failed to load manifest.</div>';
+    }
+  }
+
+  function renderManifest(boxes) {
+    const el = document.getElementById('manifestList');
+    const badge = document.getElementById('manifestBadge');
+    if (!boxes.length) {
+      el.innerHTML = '<div class="text-muted p-3" style="font-size:.82rem">No load plan found for this truck.</div>';
+      badge.textContent = '—';
+      return;
+    }
+    badge.textContent = `${boxes.filter(b => b.loaded).length} / ${boxes.length}`;
+    el.innerHTML = boxes.map(b => `
+      <div class="manifest-item ${b.loaded ? 'scanned' : ''}" id="mbox_${b.id}">
+        <span class="manifest-check">${b.loaded ? '✅' : '⬜'}</span>
+        <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(b.name)}">${esc(b.name)}</span>
+        ${b.zone ? `<span class="manifest-zone">${esc(b.zone)}</span>` : ''}
+        ${b.barcode ? `<span class="manifest-barcode">${esc(b.barcode)}</span>` : '<span class="manifest-barcode" style="color:#333">—</span>'}
+      </div>`).join('');
+  }
+
+  function updateProgress() {
+    const loaded = manifest.filter(b => b.loaded).length;
+    const total  = manifest.length;
+    const pct    = total > 0 ? Math.round(loaded / total * 100) : 0;
+    document.getElementById('progressBar').style.width = pct + '%';
+    document.getElementById('progressCount').textContent = `${loaded} / ${total}`;
+    document.getElementById('progressLabel').textContent = total > 0
+      ? (loaded === total ? '🎉 All boxes confirmed!' : `${total - loaded} box${total - loaded > 1 ? 'es' : ''} remaining`)
+      : 'No load plan found';
+    document.getElementById('manifestBadge').textContent = total > 0 ? `${loaded} / ${total}` : '—';
+  }
+
+  // ── Camera ────────────────────────────────────────────────────────────────
+  window.toggleCamera = async function() {
+    if (cameraActive) {
+      await stopCamera();
+    } else {
+      await startCamera();
+    }
+  };
+
+  async function startCamera() {
+    document.getElementById('scannerWrapper').style.display = '';
+    const btn = document.getElementById('toggleCameraBtn');
+    btn.textContent = '📷 Camera On';
+    btn.classList.add('active');
+    html5QrCode = new Html5Qrcode('reader');
+    try {
+      await html5QrCode.start(
+        { facingMode: 'environment' },
+        { fps: 10, qrbox: { width: 260, height: 100 }, aspectRatio: 2.0 },
+        (decoded) => {
+          processBarcode(decoded.trim());
+        },
+        () => {}   // suppress qr errors
+      );
+      cameraActive = true;
+    } catch (e) {
+      document.getElementById('scannerWrapper').style.display = 'none';
+      btn.textContent = '📷 Camera Off';
+      btn.classList.remove('active');
+      showResult('error', `Camera unavailable: ${e?.message || e}`);
+    }
+  }
+
+  async function stopCamera() {
+    if (html5QrCode) {
+      try { await html5QrCode.stop(); } catch (_) {}
+      html5QrCode = null;
+    }
+    cameraActive = false;
+    document.getElementById('scannerWrapper').style.display = 'none';
+    const btn = document.getElementById('toggleCameraBtn');
+    btn.textContent = '📷 Camera Off';
+    btn.classList.remove('active');
+  }
+
+  // ── Keyboard / scanner-gun input ──────────────────────────────────────────
+  function setupInputListener() {
+    const inp = document.getElementById('barcodeInput');
+    inp.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const v = inp.value.trim();
+        if (v) processBarcode(v);
+      }
+    });
+    // Auto-submit after 300 ms pause (for scanner guns that don't send Enter)
+    inp.addEventListener('input', () => {
+      clearTimeout(debounceTimer);
+      const v = inp.value.trim();
+      if (v.length >= 3) {
+        debounceTimer = setTimeout(() => processBarcode(v), 400);
+      }
+    });
+  }
+
+  window.manualConfirm = function() {
+    const inp = document.getElementById('barcodeInput');
+    const v = inp.value.trim();
+    if (v) processBarcode(v);
+  };
+
+  // ── Process a barcode scan ─────────────────────────────────────────────────
+  let processing = false;
+  async function processBarcode(barcode) {
+    if (processing) return;
+    if (!currentTruckId) {
+      showResult('error', 'Select a truck first');
+      return;
+    }
+    processing = true;
+
+    const returnLoc = document.getElementById('returnLocSelect').value || null;
+
+    try {
+      const data = await window.RTS_API.confirmScan(barcode, currentTruckId, currentMode, returnLoc);
+
+      if (!data.success) {
+        showResult('error', data.error || `Not found: ${barcode}`);
+        addLog({ barcode, name: '—', status: 'not_found', type: '' });
+      } else if (data.status === 'already_loaded') {
+        showResult('warning', data.message);
+        addLog({ barcode, name: data.name, status: 'already_loaded', type: data.type });
+      } else {
+        showResult('ok', data.message);
+        addLog({ barcode, name: data.name, status: data.status, type: data.type, zone: data.zone });
+        // Update manifest in-place
+        if (data.type === 'box' && currentMode === 'load') {
+          const box = manifest.find(b => b.barcode && b.barcode.toUpperCase() === barcode.toUpperCase());
+          if (box) { box.loaded = true; }
+          renderManifest(manifest);
+          updateProgress();
+        }
+        if (data.type === 'box' && currentMode === 'unload') {
+          const box = manifest.find(b => b.barcode && b.barcode.toUpperCase() === barcode.toUpperCase());
+          if (box) { box.loaded = false; }
+          renderManifest(manifest);
+        }
+      }
+    } catch (e) {
+      showResult('error', `Error: ${e?.message || 'Request failed'}`);
+      addLog({ barcode, name: '—', status: 'error', type: '' });
+    } finally {
+      processing = false;
+      // Clear input and refocus
+      const inp = document.getElementById('barcodeInput');
+      inp.value = '';
+      if (!cameraActive) inp.focus();
+    }
+  }
+
+  // ── UI helpers ────────────────────────────────────────────────────────────
+  let resultTimer = null;
+  function showResult(type, msg) {
+    const el = document.getElementById('scanResult');
+    el.className = `scan-result-box result-${type === 'ok' ? 'ok' : type === 'warning' ? 'warning' : 'error'}`;
+    el.textContent = msg;
+    clearTimeout(resultTimer);
+    resultTimer = setTimeout(() => {
+      el.className = 'result-idle';
+      el.textContent = 'Waiting for scan…';
+    }, 4000);
+  }
+
+  function addLog(entry) {
+    const now = new Date();
+    const time = now.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    scanLog.unshift({ ...entry, time });
+    if (scanLog.length > 100) scanLog.pop();
+    renderLog();
+  }
+
+  function renderLog() {
+    const el = document.getElementById('scanLog');
+    if (!scanLog.length) {
+      el.innerHTML = '<div class="text-muted p-3" style="font-size:.82rem">No scans yet.</div>';
+      return;
+    }
+    el.innerHTML = scanLog.map(e => {
+      const icon = e.status === 'loaded'   ? '✅' :
+                   e.status === 'unloaded' ? '🔁' :
+                   e.status === 'already_loaded' ? '⚠️' : '❌';
+      const badgeCls = e.status === 'loaded'   ? 'bg-success' :
+                       e.status === 'unloaded' ? 'bg-warning text-dark' :
+                       e.status === 'already_loaded' ? 'bg-warning text-dark' : 'bg-danger';
+      const badgeTxt = e.status === 'loaded'         ? 'LOADED' :
+                       e.status === 'unloaded'       ? 'UNLOADED' :
+                       e.status === 'already_loaded' ? 'DUPE' :
+                       e.status === 'not_found'      ? 'NOT FOUND' : 'ERROR';
+      const zoneTag = e.zone ? `<span style="font-size:.68rem;color:#0099cc;margin-left:4px">${esc(e.zone)}</span>` : '';
+      return `<div class="log-row">
+        <span class="log-icon">${icon}</span>
+        <span class="log-name">${esc(e.name)}${zoneTag}</span>
+        <span style="font-family:monospace;font-size:.7rem;color:#555">${esc(e.barcode)}</span>
+        <span class="log-badge badge ${badgeCls}">${badgeTxt}</span>
+        <span class="log-time">${e.time}</span>
+      </div>`;
+    }).join('');
+  }
+
+  window.clearLog = function() {
+    scanLog = [];
+    renderLog();
+  };
+
+  function esc(s) {
+    return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+})();
+</script>
+</body>
+</html>
