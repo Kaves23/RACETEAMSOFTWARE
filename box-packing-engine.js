@@ -1118,13 +1118,14 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       const isLoaded = !!box.truckId;
       const assignedDriverId = box.assignedDriverId || box.assigned_driver_id;
       const isDriverBox = !!(assignedDriverId) || box.boxType === 'driver' || box.box_type === 'driver';
+      const isGarageBox = (box.boxType === 'garage' || box.box_type === 'garage') && !isDriverBox;
       
       // Get driver color if box is assigned to a driver
       const driver = assignedDriverId ? allDrivers.find(d => d.id === assignedDriverId) : null;
       const driverColor = driver?.color || '#ea4335'; // Default red if no color
       
       // Use driver color for styling
-      const driverBoxClass = isDriverBox ? ` driver-box driver-box-${assignedDriverId || 'unassigned'}` : '';
+      const driverBoxClass = isDriverBox ? ` driver-box driver-box-${assignedDriverId || 'unassigned'}` : (isGarageBox ? ' garage-box' : '');
       const loadedClass = isLoaded ? ' in-truck' : '';
       const contentsBadge = contentsCount > 0 ? `<div class="box-contents-badge">${contentsCount}</div>` : '';
 
@@ -1135,6 +1136,12 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
           ? `<div style="position:absolute;top:6px;right:6px;background:#e0e0e0;color:#666;font-size:.6rem;font-weight:700;padding:2px 6px;border-radius:3px;letter-spacing:.5px">EMPTY</div>`
           : '');
       
+      // Garage storage badge
+      let garageBadge = '';
+      if (isGarageBox) {
+        garageBadge = `<div class="garage-box-badge">🏚️ Garage</div>`;
+      }
+
       // Driver badge with assignment info
       let driverBadge = '';
       if (isDriverBox) {
@@ -1164,6 +1171,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
           ${contentsBadge}
           ${loadedBadge}
           ${driverBadge}
+          ${garageBadge}
           <div class="box-barcode">${esc(box.barcode)}</div>
           <div class="box-name">${esc(box.name)}</div>
           <div class="box-dims">${box.length || 0}×${box.width || 0}×${box.height || 0}cm | ${box.weightCapacity || 0}kg</div>
@@ -1844,7 +1852,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
         };
         
         boxes.push(newBox);
-        addHistory(newBox.id, 'created', `${boxType === 'driver' ? '🚗 Driver box' : 'Box'} created at ${locationName}`);
+        addHistory(newBox.id, 'created', `${boxType === 'driver' ? '🚗 Driver box' : boxType === 'garage' ? '🏚️ Garage storage box' : 'Box'} created at ${locationName}`);
         
         console.log(`✅ Created ${boxType} box in database:`, newBox.name);
         boxModal.hide();
