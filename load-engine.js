@@ -531,7 +531,11 @@ console.log('📦 load-engine.js loading...');
       const otherTruck = otherTruckId ? trucks.find(t => t.id === otherTruckId) : null;
       const inOtherTruck = !!otherTruck;
 
-      const volume = (box.length * box.width * box.height) / 1000000;
+      const bl = parseFloat(box.length) || 0;
+      const bwid = parseFloat(box.width) || 0;
+      const bh = parseFloat(box.height) || 0;
+      const bw = parseFloat(box.weight) || 0;
+      const volume = (bl * bwid * bh) / 1000000;
       const selected = selectedBoxId === box.id ? ' selected' : '';
       const draggable = !isLoaded && !inOtherTruck;
 
@@ -557,8 +561,8 @@ console.log('📦 load-engine.js loading...');
              style="cursor:${draggable ? 'grab' : 'not-allowed'};">
           <div class="box-barcode">${esc(box.barcode)}${garageBadge}</div>
           <div class="box-name">${esc(box.name)}</div>
-          <div class="box-dims">${box.length} × ${box.width} × ${box.height} cm | ${volume.toFixed(2)} m³</div>
-          <div class="box-weight">${box.weight} kg max</div>
+          <div class="box-dims">${bl} × ${bwid} × ${bh} cm | ${volume.toFixed(2)} m³</div>
+          <div class="box-weight">${bw} kg max</div>
           ${statusBadge}
         </div>
       `;
@@ -627,9 +631,13 @@ console.log('📦 load-engine.js loading...');
           `;
         }
         if (box) {
-          totalWeight += box.weight;
-          totalVolume += (box.length * box.width * box.height) / 1000000;
-          const boxVolume = ((box.length * box.width * box.height) / 1000000).toFixed(2);
+          const bw = parseFloat(box.weight) || 0;
+          const bl = parseFloat(box.length) || 0;
+          const bwid = parseFloat(box.width) || 0;
+          const bh = parseFloat(box.height) || 0;
+          totalWeight += bw;
+          totalVolume += (bl * bwid * bh) / 1000000;
+          const boxVolume = ((bl * bwid * bh) / 1000000).toFixed(2);
           
           // Use contentsItems already loaded from DB during loadData()
           const contentsItems = box.contentsItems || [];
@@ -661,7 +669,7 @@ console.log('📦 load-engine.js loading...');
                 <div class="placed-box-info">
                   <div class="placed-box-barcode">${esc(box.barcode)}</div>
                   <div class="placed-box-name">${esc(box.name)}</div>
-                  <div style="font-size:.7rem;color:#5f6368;margin-top:3px;">${box.length}×${box.width}×${box.height}cm | ${boxVolume}m³ | ${box.weight}kg</div>
+                  <div style="font-size:.7rem;color:#5f6368;margin-top:3px;">${bl}×${bwid}×${bh}cm | ${boxVolume}m³ | ${bw}kg</div>
                 </div>
                 <div style="display:flex;align-items:center;gap:4px;">
                   <span class="placed-box-expand-icon">▼</span>
