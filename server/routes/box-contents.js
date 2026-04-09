@@ -86,6 +86,15 @@ router.post('/pack', async (req, res, next) => {
       }
       const item = itemClaim.rows[0];
 
+      // Sync item location to match the box's current location
+      const boxLoc = await client.query('SELECT current_location_id FROM boxes WHERE id = $1', [box_id]);
+      if (boxLoc.rows[0]?.current_location_id) {
+        await client.query(
+          'UPDATE items SET current_location_id = $1, updated_at = NOW() WHERE id = $2',
+          [boxLoc.rows[0].current_location_id, item_id]
+        );
+      }
+
       // Fix 17: Weight limit check (inside transaction so rollback undoes the claim)
       if (box.max_weight_kg && item.weight_kg) {
         const currentWeight = parseFloat(box.current_weight_kg) || 0;
@@ -195,9 +204,9 @@ router.post('/unpack', async (req, res, next) => {
         });
       }
       
-      // Clear item's current_box_id
+      // Clear item's current_box_id and location (back to null until re-assigned)
       await client.query(
-        'UPDATE items SET current_box_id = NULL, updated_at = NOW() WHERE id = $1',
+        'UPDATE items SET current_box_id = NULL, current_location_id = NULL, updated_at = NOW() WHERE id = $1',
         [item_id]
       );
       

@@ -1406,6 +1406,17 @@
       return await apiRequest(`/load-plans/draft${qs}`);
     },
 
+    async finaliseLoadPlan(truckId) {
+      return await apiRequest('/load-plans/finalise', {
+        method: 'POST',
+        body: JSON.stringify({ truck_id: truckId || null })
+      });
+    },
+
+    async getLoadPlanHistory() {
+      return await apiRequest('/load-plans/history');
+    },
+
     async saveLoadPlanDraft(data) {
       return await apiRequest('/load-plans/draft', {
         method: 'PUT',

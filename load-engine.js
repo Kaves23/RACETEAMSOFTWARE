@@ -335,6 +335,8 @@ console.log('📦 load-engine.js loading...');
     document.getElementById('btnAddBox').addEventListener('click', () => showBoxModal());
     document.getElementById('btnSaveBox').addEventListener('click', saveBox);
     document.getElementById('btnSaveLoad').addEventListener('click', saveLoadPlan);
+    document.getElementById('btnFinaliseLoad').addEventListener('click', finaliseLoadPlan);
+    document.getElementById('btnViewHistory').addEventListener('click', showHistory);
     document.getElementById('btnClearLoad').addEventListener('click', clearLoad);
     document.getElementById('btnPrintBarcodes').addEventListener('click', printBarcodes);
     document.getElementById('btnExportPackingList').addEventListener('click', () => {
@@ -875,21 +877,77 @@ console.log('📦 load-engine.js loading...');
 
   // ========== LOAD PLAN OPERATIONS ==========
   function saveLoadPlan() {
-    if (!currentLoad.eventId) {
-      alert('Please select an event first.');
-      return;
-    }
-    if (!currentLoad.truckId) {
-      alert('Please select a truck first.');
-      return;
-    }
-    if (currentLoad.placements.length === 0) {
-      alert('Please add boxes to the truck first.');
-      return;
-    }
-
+    if (!currentLoad.eventId) { alert('Please select an event first.'); return; }
+    if (!currentLoad.truckId) { alert('Please select a truck first.'); return; }
+    if (currentLoad.placements.length === 0) { alert('Please add boxes to the truck first.'); return; }
     saveData();
     alert('Load plan saved successfully!');
+  }
+
+  async function finaliseLoadPlan() {
+    if (!currentLoad.truckId) { alert('Please select a truck first.'); return; }
+    if (currentLoad.placements.length === 0) { alert('No boxes loaded — nothing to finalise.'); return; }
+    if (!confirm(`Finalise this load plan? It will be saved to history as Completed and boxes will be marked as unloaded from the truck.`)) return;
+    try {
+      // Save the current state first so history has the latest placements
+      await window.RTS_API.saveLoadPlanDraft({
+        truck_id: currentLoad.truckId,
+        event_id: currentLoad.eventId || null,
+        placements: currentLoad.placements
+      });
+      const resp = await window.RTS_API.finaliseLoadPlan(currentLoad.truckId);
+      if (resp.success) {
+        alert('✅ Load plan finalised and saved to history!');
+        // Reset to empty state for this truck
+        currentLoad = { ...createEmptyLoad(), truckId: currentLoad.truckId, eventId: currentLoad.eventId };
+        renderAll();
+      } else {
+        alert('Error finalising: ' + (resp.error || 'Unknown error'));
+      }
+    } catch (e) {
+      alert('Error: ' + e.message);
+    }
+  }
+
+  async function showHistory() {
+    try {
+      const resp = await window.RTS_API.getLoadPlanHistory();
+      const plans = resp.plans || [];
+      let html = plans.length === 0
+        ? '<p class="text-muted">No completed load plans yet.</p>'
+        : `<table class="table table-sm table-bordered" style="font-size:.82rem">
+            <thead class="table-light"><tr><th>Date</th><th>Truck</th><th>Event</th><th>Boxes</th></tr></thead>
+            <tbody>` +
+          plans.map(p => `<tr>
+            <td>${new Date(p.updated_at).toLocaleDateString('en-ZA', {day:'2-digit',month:'short',year:'numeric'})}</td>
+            <td>${esc(p.truck_name || p.truck_id || '—')}</td>
+            <td>${esc(p.event_name || p.event_id || '—')}</td>
+            <td>${p.box_count}</td>
+          </tr>`).join('') +
+          `</tbody></table>`;
+
+      // Reuse or create a simple modal
+      let modalEl = document.getElementById('loadHistoryModal');
+      if (!modalEl) {
+        const div = document.createElement('div');
+        div.innerHTML = `
+          <div class="modal fade" id="loadHistoryModal" tabindex="-1">
+            <div class="modal-dialog modal-lg modal-dialog-scrollable">
+              <div class="modal-content">
+                <div class="modal-header"><h5 class="modal-title">📋 Load Plan History</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body" id="loadHistoryBody"></div>
+              </div>
+            </div>
+          </div>`;
+        document.body.appendChild(div.firstElementChild);
+        modalEl = document.getElementById('loadHistoryModal');
+      }
+      document.getElementById('loadHistoryBody').innerHTML = html;
+      new bootstrap.Modal(modalEl).show();
+    } catch(e) {
+      alert('Could not load history: ' + e.message);
+    }
   }
 
   function clearLoad() {

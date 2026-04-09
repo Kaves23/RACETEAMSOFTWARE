@@ -94,6 +94,22 @@ router.put('/draft', async (req, res, next) => {
       );
     }
 
+    // Sync boxes.current_truck_id — set for placed boxes, clear for removed ones
+    const placedBoxIds = placements.map(p => p.boxId).filter(Boolean);
+    if (placedBoxIds.length > 0) {
+      await client.query(
+        `UPDATE boxes SET current_truck_id = $1, updated_at = NOW() WHERE id = ANY($2::text[])`,
+        [truck_id || null, placedBoxIds]
+      );
+    }
+    // Clear truck assignment for any box that was in a previous draft for this truck but is no longer placed
+    await client.query(
+      `UPDATE boxes SET current_truck_id = NULL, updated_at = NOW()
+       WHERE current_truck_id = $1
+       AND ($2::text[] IS NULL OR id != ALL($2::text[]))`,
+      [truck_id || null, placedBoxIds.length > 0 ? placedBoxIds : null]
+    );
+
     await client.query('COMMIT');
 
     res.json({ success: true, planId, placementCount: placements.length });
@@ -102,6 +118,73 @@ router.put('/draft', async (req, res, next) => {
     next(error);
   } finally {
     client.release();
+  }
+});
+
+// POST /api/load-plans/finalise
+// Stamps the current draft as Completed (preserving it as history) then clears placements
+// so a fresh draft can be started. Body: { truck_id } (used to find the right draft)
+router.post('/finalise', async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    const { truck_id } = req.body;
+    await client.query('BEGIN');
+
+    const draftQ = truck_id
+      ? await client.query(`SELECT id FROM load_plans WHERE status = 'Draft' AND truck_id = $1 ORDER BY updated_at DESC LIMIT 1`, [truck_id])
+      : await client.query(`SELECT id FROM load_plans WHERE status = 'Draft' ORDER BY updated_at DESC LIMIT 1`);
+
+    if (draftQ.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ success: false, error: 'No draft plan found to finalise' });
+    }
+
+    const planId = draftQ.rows[0].id;
+
+    // Mark as Completed
+    await client.query(
+      `UPDATE load_plans SET status = 'Completed', updated_at = NOW() WHERE id = $1`,
+      [planId]
+    );
+
+    // Clear current_truck_id on all boxes that were in this plan
+    await client.query(
+      `UPDATE boxes SET current_truck_id = NULL, updated_at = NOW()
+       WHERE id IN (SELECT box_id FROM load_plan_boxes WHERE load_plan_id = $1)`,
+      [planId]
+    );
+
+    await client.query('COMMIT');
+    res.json({ success: true, planId, message: 'Load plan finalised and saved to history' });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    next(error);
+  } finally {
+    client.release();
+  }
+});
+
+// GET /api/load-plans/history
+// Returns all Completed load plans with their box counts
+router.get('/history', async (req, res, next) => {
+  try {
+    const result = await pool.query(`
+      SELECT lp.id, lp.name, lp.truck_id, lp.event_id, lp.status,
+             lp.created_at, lp.updated_at,
+             t.name AS truck_name,
+             e.name AS event_name,
+             COUNT(lpb.box_id) AS box_count
+      FROM load_plans lp
+      LEFT JOIN trucks t ON t.id = lp.truck_id
+      LEFT JOIN events e ON e.id = lp.event_id
+      LEFT JOIN load_plan_boxes lpb ON lpb.load_plan_id = lp.id
+      WHERE lp.status = 'Completed'
+      GROUP BY lp.id, t.name, e.name
+      ORDER BY lp.updated_at DESC
+    `);
+    res.json({ success: true, plans: result.rows });
+  } catch (error) {
+    next(error);
   }
 });
 
