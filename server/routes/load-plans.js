@@ -52,17 +52,22 @@ router.put('/draft', async (req, res, next) => {
 
     await client.query('BEGIN');
 
-    // Find existing draft or create a new one
+    // Find existing draft for THIS specific truck (each truck has its own Draft plan)
     let planId;
-    const existing = await client.query(
-      `SELECT id FROM load_plans WHERE status = 'Draft' ORDER BY updated_at DESC LIMIT 1`
-    );
+    const existing = truck_id
+      ? await client.query(
+          `SELECT id FROM load_plans WHERE status = 'Draft' AND truck_id = $1 ORDER BY updated_at DESC LIMIT 1`,
+          [truck_id]
+        )
+      : await client.query(
+          `SELECT id FROM load_plans WHERE status = 'Draft' AND truck_id IS NULL ORDER BY updated_at DESC LIMIT 1`
+        );
 
     if (existing.rows.length > 0) {
       planId = existing.rows[0].id;
       await client.query(
-        `UPDATE load_plans SET truck_id = $1, event_id = $2, updated_at = NOW() WHERE id = $3`,
-        [truck_id || null, event_id || null, planId]
+        `UPDATE load_plans SET event_id = $1, updated_at = NOW() WHERE id = $2`,
+        [event_id || null, planId]
       );
     } else {
       planId = `lp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
