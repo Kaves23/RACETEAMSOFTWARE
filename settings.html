@@ -724,6 +724,12 @@
           method: 'DELETE',
           headers: { 'Authorization': 'Bearer ' + token }
         });
+        if (!res.ok && res.status !== 200) {
+          const errText = await res.text();
+          let errMsg = `Server error ${res.status}`;
+          try { errMsg = JSON.parse(errText).error || errMsg; } catch(_) {}
+          throw new Error(errMsg);
+        }
         const data = await res.json();
         if (!data.success) throw new Error(data.error || 'Failed to return asset');
         if (RTS.showToast) RTS.showToast('Asset returned', 'success');

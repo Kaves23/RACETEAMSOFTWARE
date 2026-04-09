@@ -3268,6 +3268,12 @@ if (!newLocationId && !newBoxId) {
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
           body: JSON.stringify({ staffId, assetId, assetType: 'item', notes })
         });
+        if (!res.ok && res.status !== 200) {
+          const errText = await res.text();
+          let errMsg = `Server error ${res.status}`;
+          try { errMsg = JSON.parse(errText).error || errMsg; } catch(_) {}
+          throw new Error(errMsg);
+        }
         const data = await res.json();
         if (!data.success) throw new Error(data.error || 'Assignment failed');
         showToast('Asset assigned to staff member', 'success');
@@ -3291,6 +3297,12 @@ if (!newLocationId && !newBoxId) {
           method: 'DELETE',
           headers: { 'Authorization': 'Bearer ' + token }
         });
+        if (!res.ok && res.status !== 200) {
+          const errText = await res.text();
+          let errMsg = `Server error ${res.status}`;
+          try { errMsg = JSON.parse(errText).error || errMsg; } catch(_) {}
+          throw new Error(errMsg);
+        }
         const data = await res.json();
         if (!data.success) throw new Error(data.error || 'Failed to return');
         showToast('Asset returned successfully', 'success');
