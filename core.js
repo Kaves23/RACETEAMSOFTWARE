@@ -1417,6 +1417,10 @@
       return await apiRequest('/load-plans/history');
     },
 
+    async getDashboardAlerts() {
+      return await apiRequest('/dashboard/alerts');
+    },
+
     async saveLoadPlanDraft(data) {
       return await apiRequest('/load-plans/draft', {
         method: 'PUT',

@@ -118,17 +118,19 @@
         <div class="row g-3">
           <div class="col-lg-6">
             <div class="card">
-              <div class="card-header">Operational Alerts</div>
+              <div class="card-header d-flex justify-content-between align-items-center">
+                Operational Alerts
+                <span id="dashAlertsSpinner" class="spinner-border spinner-border-sm text-secondary" role="status" style="display:none!important"></span>
+              </div>
               <div class="card-body">
                 <div class="d-flex flex-wrap gap-2">
                   <span class="badge text-bg-secondary">Open Tasks: <span id="dashOpenTasks">0</span></span>
-                  <span class="badge text-bg-secondary">Low Stock: <span id="dashLowStock">0</span></span>
+                  <span class="badge text-bg-secondary" id="dashLowStockBadge">Low Stock: <span id="dashLowStock">0</span></span>
                   <span class="badge text-bg-secondary">Checked-out Assets: <span id="dashCheckedOut">0</span></span>
                   <span class="badge text-bg-secondary">Open Incidents: <span id="dashOpenIncidents">0</span></span>
+                  <span class="badge text-bg-secondary" id="dashMaintBadge">Maintenance Due: <span id="dashMaintDue">0</span></span>
                 </div>
-                <div class="text-secondary mt-2" style="font-size:0.85rem;">
-                  Resolve these to improve readiness.
-                </div>
+                <div class="text-secondary mt-2" style="font-size:0.85rem;">Resolve these to improve readiness.</div>
               </div>
             </div>
           </div>
@@ -144,6 +146,31 @@
                   <a class="btn btn-sm btn-outline-light mlo-btn" href="invoice.html">Invoicing</a>
                   <a class="btn btn-sm btn-outline-light mlo-btn" href="strategy.html">Strategy</a>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-3 mt-1">
+          <div class="col-lg-6">
+            <div class="card border-warning">
+              <div class="card-header" style="background:#fff8e1;color:#e65100;font-weight:700">⚠️ Low Stock Items</div>
+              <div class="card-body p-0">
+                <div id="dashLowStockList" style="max-height:220px;overflow-y:auto">
+                  <div class="text-muted p-3" style="font-size:.85rem">Loading…</div>
+                </div>
+                <div class="p-2 border-top"><a class="btn btn-sm btn-outline-warning" href="inventory.html">Open Inventory →</a></div>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-6">
+            <div class="card border-danger">
+              <div class="card-header" style="background:#fce4ec;color:#c62828;font-weight:700">🔧 Asset Maintenance Due</div>
+              <div class="card-body p-0">
+                <div id="dashMaintList" style="max-height:220px;overflow-y:auto">
+                  <div class="text-muted p-3" style="font-size:.85rem">Loading…</div>
+                </div>
+                <div class="p-2 border-top"><a class="btn btn-sm btn-outline-danger" href="assets.html">Open Assets →</a></div>
               </div>
             </div>
           </div>
@@ -192,17 +219,79 @@
     // Alerts
     const openTasks = tasks.filter(t => !['Done','Closed','Complete'].includes(String(t.status||'').trim()));
     const checkedOut = assets.filter(a => String(a.status||'').toLowerCase().includes('checked'));
-    const lowStock = inventory.filter(i => {
-      const q = Number(i.qtyOnHand ?? i.qty ?? 0);
-      const r = Number(i.reorderLevel ?? i.reorder ?? 0);
-      return r>0 && q<=r;
-    });
     const openInc = incidents.filter(x => !['Closed','Resolved'].includes(String(x.status||'').trim()));
 
     el('dashOpenTasks').textContent = openTasks.length;
     el('dashCheckedOut').textContent = checkedOut.length;
-    el('dashLowStock').textContent = lowStock.length;
+    el('dashLowStock').textContent = '…';
     el('dashOpenIncidents').textContent = openInc.length;
+
+    // Pull live low-stock + maintenance data from API
+    if (window.RTS_API) {
+      window.RTS_API.getDashboardAlerts().then(data => {
+        if (!data || !data.success) return;
+
+        // Low stock badge
+        const lsCount = data.lowStock.count;
+        el('dashLowStock').textContent = lsCount;
+        const lsBadge = el('dashLowStockBadge');
+        lsBadge.className = lsCount > 0 ? 'badge text-bg-warning' : 'badge text-bg-secondary';
+
+        // Maintenance due badge
+        const mCount = data.maintenanceDue.count;
+        const mOverdue = data.maintenanceDue.overdueCount;
+        el('dashMaintDue').textContent = mCount;
+        const mBadge = el('dashMaintBadge');
+        mBadge.className = mOverdue > 0 ? 'badge text-bg-danger' : mCount > 0 ? 'badge text-bg-warning' : 'badge text-bg-secondary';
+
+        // Re-run readiness with live data
+        _lsCountForReadiness = lsCount;
+        _maintCountForReadiness = mCount;
+        updateReadiness();
+
+        // Low stock list
+        const lsEl = el('dashLowStockList');
+        if (lsCount === 0) {
+          lsEl.innerHTML = '<div class="text-muted p-3" style="font-size:.85rem">✅ All items above minimum stock level.</div>';
+        } else {
+          lsEl.innerHTML = '<table class="table table-sm mb-0" style="font-size:.8rem">' +
+            '<thead class="table-light"><tr><th>Item</th><th>SKU</th><th class="text-center">Qty</th><th class="text-center">Min</th></tr></thead><tbody>' +
+            data.lowStock.items.map(i => {
+              const critical = i.quantity === 0;
+              return `<tr class="${critical ? 'table-danger' : 'table-warning'}">
+                <td>${i.name}</td><td style="font-family:monospace">${i.sku || '—'}</td>
+                <td class="text-center fw-bold">${i.quantity}</td>
+                <td class="text-center">${i.min_quantity}</td>
+              </tr>`;
+            }).join('') + '</tbody></table>';
+        }
+
+        // Maintenance due list
+        const mEl = el('dashMaintList');
+        if (mCount === 0) {
+          mEl.innerHTML = '<div class="text-muted p-3" style="font-size:.85rem">✅ No assets due for maintenance in the next 30 days.</div>';
+        } else {
+          mEl.innerHTML = '<table class="table table-sm mb-0" style="font-size:.8rem">' +
+            '<thead class="table-light"><tr><th>Asset</th><th>Barcode</th><th>Due Date</th><th class="text-center">Days</th></tr></thead><tbody>' +
+            data.maintenanceDue.items.map(i => {
+              const overdue = i.days_until_due < 0;
+              const today = i.days_until_due === 0;
+              const rowClass = overdue ? 'table-danger' : today ? 'table-warning' : '';
+              const daysLabel = overdue ? `${Math.abs(i.days_until_due)}d overdue` : today ? 'TODAY' : `in ${i.days_until_due}d`;
+              return `<tr class="${rowClass}">
+                <td>${i.name}</td><td style="font-family:monospace">${i.barcode || '—'}</td>
+                <td>${new Date(i.next_maintenance_date).toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'numeric'})}</td>
+                <td class="text-center fw-bold">${daysLabel}</td>
+              </tr>`;
+            }).join('') + '</tbody></table>';
+        }
+
+      }).catch(() => {
+        el('dashLowStock').textContent = '—';
+        el('dashLowStockList').innerHTML = '<div class="text-muted p-3" style="font-size:.85rem">Could not load data.</div>';
+        el('dashMaintList').innerHTML = '<div class="text-muted p-3" style="font-size:.85rem">Could not load data.</div>';
+      });
+    }
 
     // Compliance / service
     const expiring = compliance.filter(c => c.status==='Expiring').length;
@@ -225,27 +314,34 @@
     el('dashSuppliers').textContent = (settings.suppliers||[]).length;
     el('dashLocations').textContent = (settings.locations||[]).length;
 
-    // Readiness score: simple points-based model
-    let score = 100;
-    score -= Math.min(50, openTasks.length * 3);
-    score -= Math.min(25, lowStock.length * 5);
-    score -= Math.min(20, checkedOut.length * 4);
-    score -= Math.min(20, openInc.length * 6);
-    score = Math.max(0, Math.min(100, score));
+    // Readiness score: recalculated once both sync + async data available
+    let _lsCountForReadiness = 0; // updated once API resolves
+    let _maintCountForReadiness = 0;
+    function updateReadiness() {
+      let score = 100;
+      score -= Math.min(50, openTasks.length * 3);
+      score -= Math.min(25, _lsCountForReadiness * 5);
+      score -= Math.min(20, checkedOut.length * 4);
+      score -= Math.min(20, openInc.length * 6);
+      score -= Math.min(15, _maintCountForReadiness * 3);
+      score = Math.max(0, Math.min(100, score));
 
-    const bar = el('dashReadinessBar');
-    bar.style.width = score + '%';
-    bar.textContent = score + '%';
-    bar.setAttribute('aria-valuenow', String(score));
+      const bar = el('dashReadinessBar');
+      bar.style.width = score + '%';
+      bar.textContent = score + '%';
+      bar.setAttribute('aria-valuenow', String(score));
 
-    const notes = el('dashReadinessNotes');
-    notes.innerHTML = '';
-    const addNote = (s)=>{ const li=document.createElement('li'); li.textContent=s; notes.appendChild(li); };
-    if(openTasks.length) addNote(`${openTasks.length} open tasks`);
-    if(lowStock.length) addNote(`${lowStock.length} low-stock items`);
-    if(checkedOut.length) addNote(`${checkedOut.length} checked-out assets`);
-    if(openInc.length) addNote(`${openInc.length} open incidents`);
-    if(!notes.children.length) addNote('No active alerts detected');
+      const notes = el('dashReadinessNotes');
+      notes.innerHTML = '';
+      const addNote = (s)=>{ const li=document.createElement('li'); li.textContent=s; notes.appendChild(li); };
+      if(openTasks.length) addNote(`${openTasks.length} open tasks`);
+      if(_lsCountForReadiness) addNote(`${_lsCountForReadiness} low-stock items`);
+      if(checkedOut.length) addNote(`${checkedOut.length} checked-out assets`);
+      if(openInc.length) addNote(`${openInc.length} open incidents`);
+      if(_maintCountForReadiness) addNote(`${_maintCountForReadiness} assets due for maintenance`);
+      if(!notes.children.length) addNote('No active alerts detected');
+    }
+    updateReadiness(); // initial render with sync data
 
     const chips = document.getElementById('dashReadinessChips');
     chips.innerHTML = '';
@@ -256,7 +352,6 @@
       chips.appendChild(span);
     };
     addChip('Tasks', openTasks.length);
-    addChip('Stock', lowStock.length);
     addChip('Assets out', checkedOut.length);
     addChip('Incidents', openInc.length);
     addChip('Svc open', svcOpen);
