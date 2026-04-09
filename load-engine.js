@@ -775,6 +775,16 @@ console.log('📦 load-engine.js loading...');
     const box = getBox(boxId);
     if (!box) return;
 
+    // Warn if adding a garage storage box to a truck load plan
+    if ((box.box_type || box.boxType) === 'garage') {
+      const proceed = confirm(
+        `⚠️ "${box.name}" is a Garage Storage box\n\n` +
+        `Garage boxes are meant to stay at base and are not normally packed into trucks.\n\n` +
+        `Are you sure you want to add this to the load plan?`
+      );
+      if (!proceed) return;
+    }
+
     currentLoad.placements.push({
       boxId: boxId,
       zone: zone,

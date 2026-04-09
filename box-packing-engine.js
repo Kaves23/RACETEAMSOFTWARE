@@ -1164,6 +1164,19 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
           </div>
         `;
       }
+
+      // Mechanic (staff) badge
+      const assignedStaffId = box.assignedStaffId || box.assigned_staff_id;
+      let mechanicBadge = '';
+      if (assignedStaffId) {
+        const staffName = box.assignedStaffName || box.assigned_staff_name || 'Mechanic';
+        mechanicBadge = `
+          <div class="mechanic-box-badge" onclick="event.stopPropagation(); showStaffAssignmentModal('${box.id}')"
+               title="Click to change mechanic" style="cursor:pointer;user-select:none;">
+            🔧 ${esc(staffName)}
+          </div>
+        `;
+      }
       
       return `
         <div class="box-container${isActive}${driverBoxClass}${loadedClass}" 
@@ -1176,6 +1189,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
           ${contentsBadge}
           ${loadedBadge}
           ${driverBadge}
+          ${mechanicBadge}
           ${garageBadge}
           <div class="box-barcode">${esc(box.barcode)}</div>
           <div class="box-name">${esc(box.name)}</div>
@@ -1418,6 +1432,37 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     `;
     document.getElementById('boxDetailsSummary').innerHTML = summary;
     document.getElementById('contentsCount').textContent = contents.length;
+
+    // Garage notes panel — shown only for garage-type boxes
+    const isGarageBox = (box.boxType || box.box_type) === 'garage';
+    let garageNotesEl = document.getElementById('garageNotesPanel');
+    if (isGarageBox) {
+      if (!garageNotesEl) {
+        // Insert notes panel before the contents list
+        const contentsListEl = document.getElementById('contentsList');
+        const panel = document.createElement('div');
+        panel.id = 'garageNotesPanel';
+        panel.style.cssText = 'margin:0 0 10px;padding:10px 12px;background:#fdf6f0;border:1px solid #d4a88a;border-radius:6px;';
+        panel.innerHTML = `
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+            <span style="font-size:.75rem;font-weight:700;color:#5d4037;">🏚️ Garage Notes / Contents List</span>
+            <button onclick="saveGarageNotes('${box.id}')"
+                    style="font-size:.7rem;padding:2px 8px;background:#8d6e63;color:#fff;border:none;border-radius:3px;cursor:pointer;">Save</button>
+          </div>
+          <textarea id="garageNotesText"
+                    placeholder="List spares, tools, or anything stored here…&#10;e.g. - 2x spare wheel nuts&#10;- Jack stand&#10;- Tyre pressure gauge"
+                    style="width:100%;min-height:80px;font-size:.78rem;border:1px solid #d4a88a;border-radius:4px;padding:6px;resize:vertical;background:#fffaf6;color:#3e2723;font-family:inherit;">${esc(box.notes || '')}</textarea>
+        `;
+        contentsListEl.parentNode.insertBefore(panel, contentsListEl);
+      } else {
+        // Update existing panel's textarea and button boxId
+        garageNotesEl.querySelector('textarea').value = box.notes || '';
+        garageNotesEl.querySelector('button').setAttribute('onclick', `saveGarageNotes('${box.id}')`);
+        garageNotesEl.style.display = '';
+      }
+    } else if (garageNotesEl) {
+      garageNotesEl.style.display = 'none';
+    }
 
     if (contents.length === 0) {
       document.getElementById('contentsList').innerHTML = `
@@ -1818,6 +1863,150 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   window.selectDriver = selectDriver;
   window.filterDriverOptions = filterDriverOptions;
   window.assignDriverToBox = assignDriverToBox;
+
+  // ──────────────────────────────────────────────────────────────────
+  // MECHANIC / STAFF ASSIGNMENT FOR BOXES
+  // ──────────────────────────────────────────────────────────────────
+  async function showStaffAssignmentModal(boxId) {
+    const box = boxes.find(b => b.id === boxId);
+    if (!box) return;
+
+    let staffList = [];
+    try {
+      const resp = await fetch(`${API_BASE_URL}/staff-assignments`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` }
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        staffList = data.staff || [];
+      }
+    } catch (e) { console.warn('Could not load staff:', e); }
+
+    const staffOptions = staffList.map(s => `
+      <div class="staff-option" data-staff-id="${s.id}" onclick="selectStaffForBox('${s.id}')"
+           style="padding:10px 12px;cursor:pointer;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;gap:10px;transition:background .15s"
+           onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background=''">
+        <div style="width:32px;height:32px;background:#0072a3;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:.75rem;flex-shrink:0">
+          ${esc((s.name||'?')[0].toUpperCase())}
+        </div>
+        <div>
+          <div style="font-weight:600;font-size:.85rem">${esc(s.name)}</div>
+          ${s.role ? `<div style="font-size:.75rem;color:#5f6368">${esc(s.role)}</div>` : ''}
+        </div>
+      </div>
+    `).join('');
+
+    const currentStaffId = box.assignedStaffId || box.assigned_staff_id;
+    const unassignBtn = currentStaffId
+      ? `<button class="btn btn-outline-secondary btn-sm" onclick="assignStaffToBox('${boxId}', null)">🚫 Unassign Mechanic</button>`
+      : '';
+
+    const modalHtml = `
+      <div class="modal fade show" id="staffAssignModal" style="display:block;background:rgba(0,0,0,0.5)">
+        <div class="modal-dialog">
+          <div class="modal-content" style="background:#ffffff;color:#202124">
+            <div class="modal-header" style="background:#e8f4fb;border-color:#a8d8ee">
+              <h5 class="modal-title" style="font-weight:700">🔧 Assign Mechanic to Box</h5>
+              <button type="button" class="btn-close" onclick="closeStaffAssignModal()"></button>
+            </div>
+            <div class="modal-body" style="padding:0">
+              <div style="padding:12px 16px;background:#f8f9fa;border-bottom:1px solid #e0e0e0">
+                <div style="font-weight:600">${esc(box.name)}</div>
+                <div style="font-size:.8rem;color:#5f6368">Barcode: ${esc(box.barcode)}</div>
+              </div>
+              <div style="padding:10px 16px 6px">
+                <input type="text" id="staffBoxSearch" class="form-control form-control-sm"
+                       placeholder="Search mechanics..." oninput="filterStaffOptions()"
+                       style="margin-bottom:6px">
+              </div>
+              <div id="staffOptionsList" style="max-height:300px;overflow-y:auto">
+                ${staffOptions || '<div style="text-align:center;padding:20px;color:#5f6368;font-size:.85rem">No staff found</div>'}
+              </div>
+            </div>
+            <div class="modal-footer" style="border-color:#e0e0e0">
+              ${unassignBtn}
+              <button class="btn btn-secondary btn-sm" onclick="closeStaffAssignModal()">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    window.currentAssignStaffBoxId = boxId;
+  }
+
+  function closeStaffAssignModal() {
+    const m = document.getElementById('staffAssignModal');
+    if (m) m.remove();
+    window.currentAssignStaffBoxId = null;
+  }
+
+  function selectStaffForBox(staffId) {
+    if (!window.currentAssignStaffBoxId) return;
+    assignStaffToBox(window.currentAssignStaffBoxId, staffId);
+  }
+
+  function filterStaffOptions() {
+    const search = document.getElementById('staffBoxSearch').value.toLowerCase();
+    document.querySelectorAll('.staff-option').forEach(opt => {
+      opt.style.display = opt.textContent.toLowerCase().includes(search) ? '' : 'none';
+    });
+  }
+
+  async function assignStaffToBox(boxId, staffId) {
+    try {
+      const box = boxes.find(b => b.id === boxId);
+      if (!box) throw new Error('Box not found');
+
+      const resp = await RTS_API.updateBox(boxId, { assigned_staff_id: staffId });
+      if (resp && resp.success) {
+        box.assignedStaffId = staffId;
+        box.assigned_staff_id = staffId;
+        if (staffId) {
+          // Find name from the DOM options list (already loaded)
+          const opt = document.querySelector(`.staff-option[data-staff-id="${staffId}"]`);
+          const name = opt ? opt.querySelector('[style*="font-weight:600"]')?.textContent?.trim() : null;
+          box.assignedStaffName = name;
+          box.assigned_staff_name = name;
+          showToast(`✅ Box assigned to ${name || 'mechanic'}`, 'success');
+        } else {
+          box.assignedStaffName = null;
+          box.assigned_staff_name = null;
+          showToast('✅ Mechanic unassigned from box', 'success');
+        }
+        renderBoxes();
+        closeStaffAssignModal();
+      }
+    } catch (error) {
+      console.error('❌ Error assigning mechanic:', error);
+      showToast('❌ Failed to assign mechanic', 'error');
+    }
+  }
+
+  window.showStaffAssignmentModal = showStaffAssignmentModal;
+  window.closeStaffAssignModal = closeStaffAssignModal;
+  window.selectStaffForBox = selectStaffForBox;
+  window.filterStaffOptions = filterStaffOptions;
+  window.assignStaffToBox = assignStaffToBox;
+
+  async function saveGarageNotes(boxId) {
+    const textarea = document.getElementById('garageNotesText');
+    if (!textarea) return;
+    const notes = textarea.value;
+    try {
+      const resp = await RTS_API.updateBox(boxId, { notes });
+      if (resp && resp.success) {
+        const box = boxes.find(b => String(b.id) === String(boxId));
+        if (box) box.notes = notes;
+        showToast('Notes saved', 'success');
+      } else {
+        showToast('Failed to save notes', 'error');
+      }
+    } catch (e) {
+      showToast('Failed to save notes', 'error');
+    }
+  }
+  window.saveGarageNotes = saveGarageNotes;
 
   async function saveBox() {
     const name = document.getElementById('boxName').value.trim();

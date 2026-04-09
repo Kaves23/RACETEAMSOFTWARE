@@ -226,7 +226,9 @@ router.put('/:id', async (req, res, next) => {
       current_zone,
       rfid_tag,
       status,
-      assigned_driver_id
+      assigned_driver_id,
+      assigned_staff_id,
+      notes
     } = req.body;
     
     const query = `
@@ -243,8 +245,10 @@ router.put('/:id', async (req, res, next) => {
           rfid_tag = COALESCE($10, rfid_tag),
           status = COALESCE($11, status),
           assigned_driver_id = $12,
+          assigned_staff_id = $13,
+          notes = COALESCE($14, notes),
           updated_at = NOW()
-      WHERE id = $13
+      WHERE id = $15
       RETURNING *
     `;
     
@@ -252,6 +256,8 @@ router.put('/:id', async (req, res, next) => {
       name, length, width, height, max_weight, current_weight,
       location_id, current_truck_id, current_zone, rfid_tag, status,
       assigned_driver_id !== undefined ? assigned_driver_id : null,
+      assigned_staff_id !== undefined ? assigned_staff_id : null,
+      notes !== undefined ? notes : null,
       id
     ];
     
