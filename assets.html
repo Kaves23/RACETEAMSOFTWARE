@@ -168,6 +168,44 @@
       background: rgba(0,153,204,0.08);
       box-shadow: 0 0 0 2px rgba(0,153,204,0.2);
     }
+    /* Mechanic-assigned single-line compact variant */
+    .asset-card.assigned-to-mechanic {
+      background: #e8f6fd;
+      border-color: #a8d8ee;
+      gap: 0;
+      padding: 5px 10px 5px 14px;
+    }
+    .asset-card.assigned-to-mechanic:hover {
+      background: #d4eef9;
+      border-color: #5bb8e8;
+    }
+    .asset-card.assigned-to-mechanic.selected {
+      background: #c2e4f5;
+      border-color: #0099cc;
+    }
+    .asset-card-mechanic-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+    .mechanic-badge {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+      flex-shrink: 0;
+      font-size: 0.68rem;
+      font-weight: 600;
+      color: #0072a3;
+      background: rgba(0,153,204,0.12);
+      border: 1px solid rgba(0,153,204,0.25);
+      border-radius: 3px;
+      padding: 1px 6px;
+    }
+    .mechanic-badge svg {
+      flex-shrink: 0;
+    }
     .asset-barcode {
       font-family: 'Courier New', monospace;
       font-size: 0.75rem;
@@ -2297,6 +2335,27 @@
       const metaItems = [];
       if (asset.weight_kg) metaItems.push(`<div class="asset-meta-item">⚖️ ${asset.weight_kg}kg</div>`);
       if (asset.value_usd) metaItems.push(`<div class="asset-meta-item">💰 $${parseFloat(asset.value_usd).toFixed(0)}</div>`);
+
+      // Compact single-line layout for mechanic-assigned assets
+      if (asset.assigned_staff_id) {
+        const mechanicName = asset.assigned_staff_name || asset.assigned_staff_id;
+        return `<div class="asset-card assigned-to-mechanic" data-id="${asset.id}">
+          <div class="status-indicator ${statusClass}"></div>
+          <div class="card-checkbox-container">
+            <input type="checkbox" class="asset-checkbox" data-id="${asset.id}" onclick="event.stopPropagation(); toggleAssetSelection('${asset.id}', event)">
+          </div>
+          <div class="asset-card-mechanic-row">
+            <div class="asset-barcode" style="font-size:0.7rem;">${asset.barcode || asset.id}</div>
+            <div class="asset-name" title="${asset.name}" style="font-size:0.8rem;">${asset.name}</div>
+            ${locationHtml ? locationHtml : ''}
+            <div style="flex:1;min-width:0;"></div>
+            <div class="mechanic-badge">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="8" r="4"/><path d="M6 20v-2a6 6 0 0 1 12 0v2"/></svg>
+              ${mechanicName}
+            </div>
+          </div>
+        </div>`;
+      }
 
       return `<div class="asset-card" data-id="${asset.id}">
         <div class="status-indicator ${statusClass}"></div>
