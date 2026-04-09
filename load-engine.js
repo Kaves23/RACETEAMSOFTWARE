@@ -164,25 +164,25 @@ console.log('📦 load-engine.js loading...');
       return;
     }
 
-    // Load current load plan from DB
+    // Load current load plan from DB — use the first truck's plan by default
+    const defaultTruckId = trucks[0]?.id || null;
     try {
-      const draftResp = await window.RTS_API.getLoadPlanDraft();
+      const draftResp = await window.RTS_API.getLoadPlanDraft(defaultTruckId);
       if (draftResp && draftResp.success && draftResp.plan) {
         const plan = draftResp.plan;
         const placements = draftResp.placements || [];
-        // Keep only placements whose boxId exists in currently loaded boxes
-        const validBoxIds = new Set(boxes.map(b => b.id));
-        const validPlacements = placements.filter(p => validBoxIds.has(p.boxId));
+        // All placements are kept — if a box is missing from the list it will
+        // show a "box data missing" card rather than silently disappearing.
         currentLoad = {
           id: plan.id,
           eventId: plan.event_id || null,
-          truckId: plan.truck_id || trucks[0].id,
-          placements: validPlacements,
+          truckId: plan.truck_id || defaultTruckId,
+          placements: placements,
           status: plan.status || 'Draft',
           createdAt: plan.created_at,
           updatedAt: plan.updated_at
         };
-        console.log(`✅ Loaded draft plan from DB: ${validPlacements.length} placements`);
+        console.log(`✅ Loaded draft plan from DB: ${placements.length} placements (truck: ${plan.truck_id})`);
       } else {
         // No saved plan yet — start fresh
         currentLoad = createEmptyLoad();
@@ -315,12 +315,11 @@ console.log('📦 load-engine.js loading...');
         try {
           const resp = await window.RTS_API.getLoadPlanDraft(newTruckId);
           if (resp && resp.success && resp.plan) {
-            const validBoxIds = new Set(boxes.map(b => b.id));
             currentLoad = {
               id: resp.plan.id,
               eventId: resp.plan.event_id || null,
               truckId: resp.plan.truck_id,
-              placements: (resp.placements || []).filter(p => validBoxIds.has(p.boxId)),
+              placements: resp.placements || [],
               status: resp.plan.status || 'Draft',
               createdAt: resp.plan.created_at,
               updatedAt: resp.plan.updated_at
@@ -617,6 +616,16 @@ console.log('📦 load-engine.js loading...');
       
       const boxesHtml = placements.map(p => {
         const box = getBox(p.boxId);
+        if (!box) {
+          // Box is in the plan but not in the loaded box list — show a stub card
+          return `
+            <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:6px 8px;margin-bottom:4px;">
+              <div style="font-size:.7rem;font-weight:700;color:#856404;">⚠ Box not found</div>
+              <div style="font-size:.65rem;color:#856404;">ID: ${esc(p.boxId)}</div>
+              <button style="font-size:.65rem;margin-top:4px;padding:1px 6px;background:#dc3545;color:#fff;border:none;border-radius:3px;cursor:pointer;" onclick="LoadEngine.removeBox('${p.boxId}')">Remove from plan</button>
+            </div>
+          `;
+        }
         if (box) {
           totalWeight += box.weight;
           totalVolume += (box.length * box.width * box.height) / 1000000;
@@ -765,7 +774,7 @@ console.log('📦 load-engine.js loading...');
     // Setup box item drag events (only once)
     document.addEventListener('dragstart', e => {
       console.log('DRAGSTART event fired on:', e.target.className);
-      if (e.target.classList.contains('box-item') && !e.target.classList.contains('loaded')) {
+      if (e.target.classList.contains('box-item') && !e.target.classList.contains('loaded') && !e.target.classList.contains('in-other-truck')) {
         draggedBoxId = e.target.dataset.boxId;
         e.target.style.opacity = '0.5';
         e.dataTransfer.effectAllowed = 'move';
