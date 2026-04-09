@@ -230,29 +230,20 @@ router.post('/sync-inventory', async (req, res, next) => {
  */
 router.get('/settings', async (req, res, next) => {
   try {
-    // Try to get from database settings table (if it exists)
-    const query = `
-      SELECT value FROM settings WHERE key = 'shopify_config' LIMIT 1
-    `;
-    
-    try {
-      const result = await pool.query(query);
-      if (result.rows.length > 0) {
-        const config = JSON.parse(result.rows[0].value);
-        // Don't send the access token in the response for security
-        res.json({
-          success: true,
-          config: {
-            shop: config.shop || '',
-            hasAccessToken: !!config.accessToken,
-            lastSync: config.lastSync || null
-          }
-        });
-      } else {
-        res.json({ success: true, config: null });
-      }
-    } catch (dbError) {
-      // Settings table doesn't exist, return empty
+    const result = await pool.query(
+      `SELECT data FROM settings WHERE id = 'shopify_config' LIMIT 1`
+    );
+    if (result.rows.length > 0 && result.rows[0].data) {
+      const config = result.rows[0].data;
+      res.json({
+        success: true,
+        config: {
+          shop: config.shop || '',
+          hasAccessToken: !!config.accessToken,
+          lastSync: config.lastSync || null
+        }
+      });
+    } else {
       res.json({ success: true, config: null });
     }
   } catch (error) {
@@ -268,35 +259,156 @@ router.get('/settings', async (req, res, next) => {
 router.post('/settings', async (req, res, next) => {
   try {
     const { shop, accessToken } = req.body;
-    
-    const config = {
-      shop,
-      accessToken,
-      lastSync: null
-    };
-    
-    // Try to save to database settings table (create if doesn't exist)
-    const query = `
-      INSERT INTO settings (key, value, created_at, updated_at)
-      VALUES ('shopify_config', $1, NOW(), NOW())
-      ON CONFLICT (key)
-      DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
-    `;
-    
-    try {
-      await pool.query(query, [JSON.stringify(config)]);
-      res.json({ success: true, message: 'Shopify settings saved' });
-    } catch (dbError) {
-      // Settings table doesn't exist, return success anyway (will use session storage)
-      console.warn('Settings table not available:', dbError.message);
-      res.json({ 
-        success: true, 
-        message: 'Settings saved to session (database table not available)',
-        warning: 'Settings will not persist across sessions'
-      });
+    if (!shop || !accessToken) {
+      return res.status(400).json({ success: false, error: 'shop and accessToken are required' });
     }
+
+    const config = { shop, accessToken, lastSync: null };
+
+    await pool.query(
+      `INSERT INTO settings (id, data) VALUES ('shopify_config', $1::jsonb)
+       ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data`,
+      [JSON.stringify(config)]
+    );
+    res.json({ success: true, message: 'Shopify settings saved' });
   } catch (error) {
     console.error('Error saving Shopify settings:', error);
+    next(error);
+  }
+});
+
+// ──────────────────────────────────────────────────────────────────────────────
+// HELPER: load stored Shopify credentials
+// ──────────────────────────────────────────────────────────────────────────────
+async function loadShopifyCredentials() {
+  const result = await pool.query(
+    `SELECT data FROM settings WHERE id = 'shopify_config' LIMIT 1`
+  );
+  if (!result.rows.length || !result.rows[0].data) return null;
+  const cfg = result.rows[0].data;
+  if (!cfg.shop || !cfg.accessToken) return null;
+  return cfg;
+}
+
+/**
+ * GET /api/shopify/search?q=bearing
+ * Live search Shopify products by title — uses stored credentials.
+ * Returns a flat list of variants ready to display in the packing UI.
+ */
+router.get('/search', async (req, res, next) => {
+  try {
+    const q = (req.query.q || '').trim();
+    if (q.length < 2) return res.json({ success: true, products: [] });
+
+    const cfg = await loadShopifyCredentials();
+    if (!cfg) {
+      return res.status(400).json({
+        success: false,
+        error: 'Shopify not configured. Save credentials in Inventory → Shopify first.'
+      });
+    }
+
+    const url = `https://${cfg.shop}/admin/api/2026-01/products.json` +
+      `?title=${encodeURIComponent(q)}&limit=20&status=active`;
+
+    const response = await fetch(url, {
+      headers: { 'X-Shopify-Access-Token': cfg.accessToken, 'Content-Type': 'application/json' }
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      return res.status(response.status).json({ success: false, error: `Shopify API error: ${errText}` });
+    }
+
+    const data = await response.json();
+    const results = [];
+    for (const product of (data.products || [])) {
+      for (const variant of (product.variants || [])) {
+        results.push({
+          shopify_product_id: String(product.id),
+          shopify_variant_id: String(variant.id),
+          shopify_inventory_item_id: String(variant.inventory_item_id || ''),
+          name: product.title + (variant.title !== 'Default Title' ? ` – ${variant.title}` : ''),
+          sku: variant.sku || '',
+          price: variant.price || '0.00',
+          category: product.product_type || 'Uncategorized',
+          vendor: product.vendor || '',
+          image_url: (product.images && product.images[0]) ? product.images[0].src : null,
+          shopify_quantity: variant.inventory_quantity || 0
+        });
+      }
+    }
+
+    res.json({ success: true, products: results });
+  } catch (error) {
+    console.error('Shopify search error:', error);
+    next(error);
+  }
+});
+
+/**
+ * POST /api/shopify/lazy-import
+ * Given a Shopify variant, find the matching local inventory row or create one.
+ * Returns the local inventory item so the packing UI can immediately pack it.
+ */
+router.post('/lazy-import', async (req, res, next) => {
+  try {
+    const { shopify_variant_id, shopify_product_id, name, sku, price, category, vendor } = req.body;
+
+    if (!shopify_variant_id) {
+      return res.status(400).json({ success: false, error: 'shopify_variant_id is required' });
+    }
+
+    // Check if this variant is already in local inventory
+    const existing = await pool.query(
+      `SELECT * FROM inventory WHERE shopify_variant_id = $1 LIMIT 1`,
+      [String(shopify_variant_id)]
+    );
+    if (existing.rows.length > 0) {
+      return res.json({ success: true, item: existing.rows[0], created: false });
+    }
+
+    // Resolve or create the category in inventory_categories
+    let categoryId = null;
+    if (category && category !== 'Uncategorized') {
+      const catResult = await pool.query(
+        `SELECT id FROM inventory_categories WHERE LOWER(name) = LOWER($1) LIMIT 1`,
+        [category]
+      );
+      if (catResult.rows.length > 0) {
+        categoryId = catResult.rows[0].id;
+      } else {
+        const { randomUUID } = require('crypto');
+        const newCatId = randomUUID();
+        await pool.query(
+          `INSERT INTO inventory_categories (id, name, sort_order, created_at) VALUES ($1, $2, 0, NOW())`,
+          [newCatId, category]
+        );
+        categoryId = newCatId;
+      }
+    }
+
+    // Create the local inventory row — quantity starts at 0 (Shopify is the stock source of truth)
+    const { randomUUID } = require('crypto');
+    const newId = randomUUID();
+    const insertResult = await pool.query(
+      `INSERT INTO inventory (
+         id, name, sku, category, quantity, min_quantity, unit_of_measure,
+         status, auto_reorder, lead_time_days,
+         shopify_product_id, shopify_variant_id, shopify_sync_at,
+         created_at, updated_at
+       ) VALUES (
+         $1, $2, $3, $4, 0, 0, 'ea',
+         'active', false, 0,
+         $5, $6, NOW(),
+         NOW(), NOW()
+       ) RETURNING *`,
+      [newId, name, sku || null, categoryId, String(shopify_product_id), String(shopify_variant_id)]
+    );
+
+    res.json({ success: true, item: insertResult.rows[0], created: true });
+  } catch (error) {
+    console.error('Shopify lazy-import error:', error);
     next(error);
   }
 });

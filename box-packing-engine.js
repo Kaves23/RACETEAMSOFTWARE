@@ -831,29 +831,192 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
 
     setupDragAndDrop();
     setupResizablePanels();
+    initShopifySearch();
   }
 
   // ========== ITEMS TAB SWITCHING ==========
   function switchItemsTab(tab) {
-    currentFilter = tab === 'inventory' ? 'inventory' : 'all';
+    currentFilter = tab === 'inventory' ? 'inventory' : (tab === 'shopify' ? 'shopify' : 'all');
     itemsPage = 1;
 
     // Tab button active states
     document.getElementById('tabBtnAssets')?.classList.toggle('active', tab === 'assets');
     document.getElementById('tabBtnInventory')?.classList.toggle('active', tab === 'inventory');
+    document.getElementById('tabBtnShopify')?.classList.toggle('active', tab === 'shopify');
 
     // Tab pane visibility
     document.getElementById('paneAssets')?.classList.toggle('active', tab === 'assets');
     document.getElementById('paneInventory')?.classList.toggle('active', tab === 'inventory');
+    document.getElementById('paneShopify')?.classList.toggle('active', tab === 'shopify');
 
     if (tab === 'inventory') {
       loadInventoryItems().then(() => renderItems());
+    } else if (tab === 'shopify') {
+      // Show empty state until user types; focus the search input
+      renderShopifyResults([]);
+      setTimeout(() => document.getElementById('searchShopify')?.focus(), 50);
     } else {
       renderItems();
     }
   }
   // Expose so onclick in HTML works within the IIFE
   window.switchItemsTab = switchItemsTab;
+
+  // ========== SHOPIFY LIVE SEARCH ==========
+
+  let _shopifyDebounceTimer = null;
+
+  function initShopifySearch() {
+    const el = document.getElementById('searchShopify');
+    if (!el) return;
+    el.addEventListener('input', () => {
+      clearTimeout(_shopifyDebounceTimer);
+      const q = el.value.trim();
+      if (q.length < 2) {
+        renderShopifyResults([]);
+        return;
+      }
+      _shopifyDebounceTimer = setTimeout(() => searchShopify(q), 350);
+    });
+  }
+
+  async function searchShopify(q) {
+    const spinner = document.getElementById('shopifySearchSpinner');
+    const status  = document.getElementById('shopifySearchStatus');
+    if (spinner) spinner.style.display = 'inline';
+    if (status)  { status.textContent = `Searching Shopify for "${q}"…`; status.style.display = 'block'; }
+
+    try {
+      const resp = await fetch(`/api/shopify/search?q=${encodeURIComponent(q)}`, {
+        headers: { 'Authorization': `Bearer ${RTS?.getToken ? RTS.getToken() : (localStorage.getItem('rts_token') || '')}` }
+      });
+      const data = await resp.json();
+
+      if (!resp.ok || !data.success) {
+        const msg = data.error || 'Shopify search failed';
+        if (status) { status.textContent = `⚠️ ${msg}`; status.style.display = 'block'; }
+        renderShopifyResults([]);
+        return;
+      }
+
+      if (status) {
+        status.textContent = data.products.length
+          ? `${data.products.length} result${data.products.length !== 1 ? 's' : ''} from Shopify`
+          : `No products found for "${q}"`;
+        status.style.display = 'block';
+      }
+      renderShopifyResults(data.products);
+    } catch (err) {
+      console.error('Shopify search error:', err);
+      if (status) { status.textContent = '⚠️ Could not reach Shopify'; status.style.display = 'block'; }
+      renderShopifyResults([]);
+    } finally {
+      if (spinner) spinner.style.display = 'none';
+    }
+  }
+
+  function renderShopifyResults(products) {
+    const list = document.getElementById('itemsList');
+    if (!list) return;
+
+    // Only render in Shopify tab
+    if (currentFilter !== 'shopify') return;
+
+    if (!products || products.length === 0) {
+      const isEmpty = !document.getElementById('searchShopify')?.value?.trim();
+      list.innerHTML = `<div style="text-align:center;padding:24px 12px;color:#5f6368;font-size:.82rem">
+        ${isEmpty
+          ? '🛍️ Type to search your Shopify store'
+          : '🔍 No matching products found'}
+      </div>`;
+      return;
+    }
+
+    list.innerHTML = products.map(p => {
+      const img = p.image_url
+        ? `<img src="${esc(p.image_url)}" style="width:36px;height:36px;object-fit:cover;border-radius:3px;flex-shrink:0;border:1px solid #e0e0e0">`
+        : `<div style="width:36px;height:36px;background:#f0f0f0;border-radius:3px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.1rem">📦</div>`;
+      const qty = p.shopify_quantity;
+      const qtyColour = qty > 0 ? '#34a853' : '#ea4335';
+      return `
+        <div class="item-card shopify-result-card"
+             data-shopify-variant-id="${esc(p.shopify_variant_id)}"
+             data-shopify-product-id="${esc(p.shopify_product_id)}"
+             data-shopify-name="${esc(p.name)}"
+             data-shopify-sku="${esc(p.sku)}"
+             data-shopify-price="${esc(p.price)}"
+             data-shopify-category="${esc(p.category)}"
+             data-shopify-vendor="${esc(p.vendor)}"
+             style="cursor:pointer;padding:8px!important;padding-left:10px!important"
+             onclick="shopifyPackCard(this)">
+          <div style="display:flex;gap:8px;align-items:center">
+            ${img}
+            <div style="flex:1;min-width:0">
+              <div style="font-size:.78rem;font-weight:600;color:#202124;line-height:1.3;margin-bottom:2px">${esc(p.name)}</div>
+              <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+                ${p.sku ? `<span style="font-family:monospace;font-size:.68rem;color:#1a73e8">${esc(p.sku)}</span>` : ''}
+                <span style="font-size:.68rem;color:#5f6368;background:#f0f0f0;padding:1px 5px;border-radius:3px">${esc(p.category)}</span>
+                <span style="font-size:.68rem;font-weight:700;color:${qtyColour}">${qty} in stock</span>
+              </div>
+              <div style="font-size:.73rem;color:#34a853;font-weight:600;margin-top:2px">£${esc(p.price)} — click to pack ↓</div>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  // Called when user clicks a Shopify result card
+  window.shopifyPackCard = async function(cardEl) {
+    if (!currentBoxId) {
+      showToast('⚠️ Select a box first', 'warning');
+      return;
+    }
+
+    const variantId  = cardEl.dataset.shopifyVariantId;
+    const productId  = cardEl.dataset.shopifyProductId;
+    const name       = cardEl.dataset.shopifyName;
+    const sku        = cardEl.dataset.shopifySku;
+    const price      = cardEl.dataset.shopifyPrice;
+    const category   = cardEl.dataset.shopifyCategory;
+    const vendor     = cardEl.dataset.shopifyVendor;
+
+    showLoading('Shopify', `Importing ${name}…`);
+
+    try {
+      // Step 1: lazy-import (find or create local inventory row)
+      const importResp = await fetch('/api/shopify/lazy-import', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${RTS?.getToken ? RTS.getToken() : (localStorage.getItem('rts_token') || '')}`
+        },
+        body: JSON.stringify({ shopify_variant_id: variantId, shopify_product_id: productId, name, sku, price, category, vendor })
+      });
+
+      const importData = await importResp.json();
+      if (!importResp.ok || !importData.success) {
+        hideLoading();
+        showToast(`Import failed: ${importData.error || 'unknown error'}`, 'error');
+        return;
+      }
+
+      const localId = String(importData.item.id);
+      if (importData.created) {
+        // Refresh local inventory list so the new item is available
+        await loadInventoryItems();
+      }
+
+      hideLoading();
+
+      // Step 2: hand off to the regular inventory pack flow (asks for quantity, calls API)
+      await packMultipleItems(currentBoxId, [{ id: localId, type: 'inventory' }]);
+
+    } catch (err) {
+      hideLoading();
+      console.error('Shopify pack error:', err);
+      showToast(`Error: ${err.message}`, 'error');
+    }
+  };
 
   // ========== CUSTOM MODAL HELPERS ==========
   function setupCustomModals() {
@@ -1232,6 +1395,9 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   }
 
   function renderItems() {
+    // Shopify tab has its own renderer — don't overwrite it
+    if (currentFilter === 'shopify') return;
+
     console.log(`🔄 renderItems called - filter: ${currentFilter}, equipment: ${equipment.length}, assets: ${assets.length}, inventory: ${inventoryItems.length}`);
     
     // Read from the active tab's search input
