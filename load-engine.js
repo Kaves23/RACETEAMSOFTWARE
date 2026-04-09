@@ -94,14 +94,17 @@ console.log('📦 load-engine.js loading...');
           id: b.id,
           barcode: b.barcode,
           name: b.name,
-          length: b.length || 100,
-          width: b.width || 60,
-          height: b.height || 50,
-          weight: b.weight_capacity || 25,
+          length: b.dimensions_length_cm || b.length || 100,
+          width:  b.dimensions_width_cm  || b.width  || 60,
+          height: b.dimensions_height_cm || b.height || 50,
+          weight: b.max_weight_kg || b.weight_capacity || 25,
           contents: contentsText,
-          contentsItems: contentsItems, // Store items for search
+          contentsItems: contentsItems,
           category: 'container',
-          status: 'warehouse'
+          status: b.status || 'warehouse',
+          boxType: b.box_type || 'regular',
+          currentTruckId: b.current_truck_id || null,
+          location: b.location_name || null
         };
       });
       
@@ -290,7 +293,9 @@ console.log('📦 load-engine.js loading...');
       selectEvent.style.color = '#dc3545';
       selectEvent.disabled = true;
     } else {
-      selectEvent.innerHTML = '<option value="">Select Event</option>' +
+      selectEvent.innerHTML =
+        '<option value="">— Current (Live / No Event) —</option>' +
+        '<option disabled style="color:#bbb;font-size:.7rem">──────── Events ────────</option>' +
         events.map(e => `<option value="${e.id}">${esc(e.title || e.name || 'Event')}</option>`).join('');
       if (currentLoad.eventId) selectEvent.value = currentLoad.eventId;
     }
@@ -329,6 +334,18 @@ console.log('📦 load-engine.js loading...');
           currentLoad = { ...createEmptyLoad(), truckId: newTruckId };
         }
       }
+      // Refresh box current_truck_id so cross-truck "In Truck X" badges are up to date
+      try {
+        const boxesResp = await window.RTS_API.getBoxes();
+        const fresh = boxesResp.boxes || [];
+        boxes.forEach(b => {
+          const fb = fresh.find(x => x.id === b.id);
+          if (fb) {
+            b.currentTruckId = fb.current_truck_id || null;
+            b.status = fb.status || b.status;
+          }
+        });
+      } catch (_) { /* non-fatal — stale data is fine for display */ }
       renderAll();
     });
     
@@ -500,25 +517,60 @@ console.log('📦 load-engine.js loading...');
       (b.contents || '').toLowerCase().includes(search)
     );
 
-    const html = filtered.map(box => {
+    // Separate garage boxes to bottom
+    const normalBoxes  = filtered.filter(b => b.boxType !== 'garage');
+    const garageBoxes  = filtered.filter(b => b.boxType === 'garage');
+
+    const renderBoxItem = (box) => {
       const isLoaded = currentLoad.placements.some(p => p.boxId === box.id);
+      const isGarage = box.boxType === 'garage';
+
+      // Check if this box is in a DIFFERENT truck's plan
+      const otherTruckId = !isLoaded && box.currentTruckId && box.currentTruckId !== currentLoad.truckId
+        ? box.currentTruckId
+        : null;
+      const otherTruck = otherTruckId ? trucks.find(t => t.id === otherTruckId) : null;
+      const inOtherTruck = !!otherTruck;
+
       const volume = (box.length * box.width * box.height) / 1000000;
       const selected = selectedBoxId === box.id ? ' selected' : '';
-      const draggable = !isLoaded;
-      
+      const draggable = !isLoaded && !inOtherTruck;
+
+      let statusBadge;
+      if (isLoaded) {
+        statusBadge = `<div class="box-status loaded">✓ In This Truck</div>`;
+      } else if (inOtherTruck) {
+        statusBadge = `<div class="box-status in-other-truck">🚛 In ${esc(otherTruck.name)}</div>`;
+      } else if (isGarage) {
+        statusBadge = `<div class="box-status garage-stay">🏚️ Garage (stays at base)</div>`;
+      } else {
+        statusBadge = `<div class="box-status warehouse">📦 Available</div>`;
+      }
+
+      const garageBadge = isGarage
+        ? `<span style="float:right;font-size:.6rem;font-weight:700;color:#8d6e63;background:#efebe9;border:1px solid #bcaaa4;padding:1px 5px;border-radius:3px;line-height:1.4">🏚️ GARAGE</span>`
+        : '';
+
       return `
-        <div class="box-item${isLoaded ? ' loaded' : ''}${selected}" 
-             draggable="${draggable}" 
+        <div class="box-item${isLoaded ? ' loaded' : ''}${inOtherTruck ? ' in-other-truck' : ''}${isGarage ? ' garage-box-item' : ''}${selected}"
+             draggable="${draggable}"
              data-box-id="${box.id}"
-             style="cursor: ${draggable ? 'grab' : 'not-allowed'};">
-          <div class="box-barcode">${esc(box.barcode)}</div>
+             style="cursor:${draggable ? 'grab' : 'not-allowed'};">
+          <div class="box-barcode">${esc(box.barcode)}${garageBadge}</div>
           <div class="box-name">${esc(box.name)}</div>
           <div class="box-dims">${box.length} × ${box.width} × ${box.height} cm | ${volume.toFixed(2)} m³</div>
-          <div class="box-weight">${box.weight} kg</div>
-          <div class="box-status ${isLoaded ? 'loaded' : box.status}">${isLoaded ? '✓ Loaded' : '📦 Warehouse'}</div>
+          <div class="box-weight">${box.weight} kg max</div>
+          ${statusBadge}
         </div>
       `;
-    }).join('');
+    };
+
+    let html = normalBoxes.map(renderBoxItem).join('');
+
+    if (garageBoxes.length > 0) {
+      html += `<div style="margin:8px 0 4px;padding:3px 8px;font-size:.65rem;font-weight:700;color:#8d6e63;background:#efebe9;border-radius:10px;text-align:center;letter-spacing:.04em;">🏚️ GARAGE STORAGE</div>`;
+      html += garageBoxes.map(renderBoxItem).join('');
+    }
 
     const boxesListEl = document.getElementById('boxesList');
     if (boxesListEl) {
