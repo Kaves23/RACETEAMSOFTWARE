@@ -2942,13 +2942,14 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}` },
             body: JSON.stringify({
               customerId: ca.customer.id,
-              locationId: null,
+              locationId: unpackState.shopifyLocationId || null,
               lineItems: ca.lineItems
             })
           });
           const data = await resp.json();
           if (data.success) {
-            orderResults.push({ customer: ca.customer.name, orderNumber: data.order.order_number });
+            const fulfillNote = data.fulfilled ? ' ✓ fulfilled' : (data.fulfillmentError ? ` (fulfillment failed: ${data.fulfillmentError})` : '');
+            orderResults.push({ customer: ca.customer.name, orderNumber: data.order.order_number, fulfillNote });
           } else {
             console.warn('Order creation failed for', ca.customer.name, data.error);
             orderResults.push({ customer: ca.customer.name, error: data.error });
@@ -3025,7 +3026,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
 
       // Show results summary
       const orderSummary = orderResults.length > 0
-        ? '\n' + orderResults.map(r => r.error ? `  ✗ ${r.customer}: ${r.error}` : `  ✅ Order #${r.orderNumber} → ${r.customer}`).join('\n')
+        ? '\n' + orderResults.map(r => r.error ? `  ✗ ${r.customer}: ${r.error}` : `  ✅ Order #${r.orderNumber} → ${r.customer}${r.fulfillNote || ''}`).join('\n')
         : '';
       showToast(`✅ Box emptied! ${contents.length} items moved to ${locationName}${orderSummary ? '\n' + orderSummary : ''}`, 'success');
 

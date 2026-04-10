@@ -714,39 +714,57 @@ router.post('/create-order', async (req, res, next) => {
     }
     const order = orderData.order;
 
-    // Step B: Fulfill the order immediately
+    // Step B: Fulfill the order immediately via Fulfillment Orders API
+    let fulfilled = false;
+    let fulfillmentError = null;
     try {
-      const fulfillPayload = {
-        fulfillment: {
-          notify_customer: false,
-          line_items_by_fulfillment_order: []
-        }
-      };
-      // Use fulfillment orders API (2026-01)
+      // Get fulfillment orders for this order
       const foResp = await fetch(`https://${cfg.shop}/admin/api/2026-01/orders/${order.id}/fulfillment_orders.json`, {
         headers: { 'X-Shopify-Access-Token': cfg.accessToken }
       });
-      if (foResp.ok) {
+      if (!foResp.ok) {
+        fulfillmentError = `Could not fetch fulfillment orders (${foResp.status})`;
+        console.warn('Fulfillment orders fetch failed:', await foResp.text());
+      } else {
         const foData = await foResp.json();
         const openFOs = (foData.fulfillment_orders || []).filter(fo => fo.status === 'open');
-        if (openFOs.length > 0) {
-          fulfillPayload.fulfillment.line_items_by_fulfillment_order = openFOs.map(fo => ({
-            fulfillment_order_id: fo.id,
-            fulfillment_order_line_items: fo.line_items.map(li => ({ id: li.id, quantity: li.quantity }))
-          }));
-          await fetch(`https://${cfg.shop}/admin/api/2026-01/fulfillments.json`, {
+        console.log(`Fulfillment orders for order ${order.id}:`, openFOs.map(fo => ({ id: fo.id, status: fo.status, location: fo.assigned_location_id })));
+        if (openFOs.length === 0) {
+          fulfillmentError = 'No open fulfillment orders found';
+        } else {
+          const fulfillPayload = {
+            fulfillment: {
+              notify_customer: false,
+              line_items_by_fulfillment_order: openFOs.map(fo => ({
+                fulfillment_order_id: fo.id,
+                fulfillment_order_line_items: fo.line_items.map(li => ({ id: li.id, quantity: li.quantity }))
+              }))
+            }
+          };
+          const fulfillResp = await fetch(`https://${cfg.shop}/admin/api/2026-01/fulfillments.json`, {
             method: 'POST',
             headers: { 'X-Shopify-Access-Token': cfg.accessToken, 'Content-Type': 'application/json' },
             body: JSON.stringify(fulfillPayload)
           });
+          const fulfillData = await fulfillResp.json();
+          if (!fulfillResp.ok) {
+            fulfillmentError = fulfillData.errors ? JSON.stringify(fulfillData.errors) : `Fulfillment failed (${fulfillResp.status})`;
+            console.error('Shopify fulfillment error:', JSON.stringify(fulfillData).substring(0, 1000));
+          } else {
+            fulfilled = true;
+            console.log(`Order ${order.order_number} fulfilled successfully`);
+          }
         }
       }
     } catch (fulfillErr) {
-      console.warn('Fulfillment step failed (non-fatal):', fulfillErr.message);
+      fulfillmentError = fulfillErr.message;
+      console.warn('Fulfillment step exception:', fulfillErr.message);
     }
 
     res.json({
       success: true,
+      fulfilled,
+      fulfillmentError,
       order: {
         id: String(order.id),
         order_number: order.order_number,
