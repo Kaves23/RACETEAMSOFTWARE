@@ -843,7 +843,7 @@
 
     // Tree visual connector for child items
     const treePrefix = depth > 0
-      ? `<span class="tree-connector">${'│&nbsp;'.repeat(depth - 1)}└─&nbsp;</span>`
+      ? `<span class="tree-connector">${'&nbsp;&nbsp;&nbsp;'.repeat(depth - 1)}&#x2514;&#x2500;&nbsp;</span>`
       : '';
 
     return `
@@ -905,31 +905,26 @@
     const note = noteList.find(n => n.id === noteId);
     if (!note) return;
     
+    // Update local state immediately and re-render (instant UI)
+    const newExpanded = !(note.is_expanded !== false);
+    const idx = noteList.findIndex(n => n.id === noteId);
+    if (idx >= 0) noteList[idx].is_expanded = newExpanded;
+    renderNotes();
+    
+    // Persist to API in background
     try {
       const listId = await getListIdForNote(isFromGeneral);
-      if (!listId) throw new Error('List not found');
-      
-      const resp = await fetch(
-        `${API_BASE}/packing-lists/${listId}/items/${noteId}`,
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-          },
-          body: JSON.stringify({ is_expanded: !(note.is_expanded !== false) })
-        }
-      ).then(r => r.json());
-      
-      if (!resp.success) throw new Error('Failed to toggle expand');
-      
-      // Update local data
-      const idx = noteList.findIndex(n => n.id === noteId);
-      if (idx >= 0) noteList[idx] = resp.item;
-      
-      renderNotes();
+      if (!listId) return;
+      await fetch(`${API_BASE}/packing-lists/${listId}/items/${noteId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+        },
+        body: JSON.stringify({ is_expanded: newExpanded })
+      });
     } catch (error) {
-      console.error('Error toggling expand:', error);
+      console.warn('Could not persist expand state:', error);
     }
   };
   
@@ -1492,6 +1487,16 @@
           </div>
         </div>
         <div class="detail-field">
+          <div class="detail-label">Parent Task</div>
+          <select class="detail-input" id="editTaskParent">
+            <option value="">— No parent (top-level) —</option>
+            ${(isFromGeneral ? generalNotes : notes)
+              .filter(n => n.id !== note.id && !n.parent_item_id)
+              .map(n => `<option value="${n.id}" ${note.parent_item_id === n.id ? 'selected' : ''}>${escapeHtml(n.item_name)}</option>`)
+              .join('')}
+          </select>
+        </div>
+        <div class="detail-field">
           <div class="detail-label">Link to Event</div>
           <select class="detail-input" id="editTaskLinkedEvent">
             <option value="">No event linked</option>
@@ -1666,6 +1671,7 @@
       const fontFamily = document.getElementById('editTaskFontFamily')?.value;
       const fontSize = document.getElementById('editTaskFontSize')?.value;
       const linkedEvent = document.getElementById('editTaskLinkedEvent')?.value;
+      const parentTaskId = document.getElementById('editTaskParent')?.value || null;
       
       if (!itemName) {
         alert('Task name is required');
@@ -1706,6 +1712,8 @@
       if (fontFamily) updates.font_family = fontFamily;
       if (fontSize) updates.font_size = fontSize;
       if (linkedEvent) updates.linked_event_id = linkedEvent;
+      // Always include parent_item_id (null clears it, a value sets it)
+      updates.parent_item_id = parentTaskId || null;
       
       // Set completed_at if status is completed
       if (status === 'completed' || status === 'packed' || status === 'loaded') {
@@ -1907,6 +1915,21 @@
 
       const noteList = isFromGeneral ? generalNotes : notes;
       noteList.push(resp.item);
+
+      // Ensure the parent is expanded so the new subtask is visible
+      const parentIdx = noteList.findIndex(n => n.id === parentId);
+      if (parentIdx >= 0 && noteList[parentIdx].is_expanded === false) {
+        noteList[parentIdx].is_expanded = true;
+        // Persist in background
+        getListIdForNote(isFromGeneral).then(listId => {
+          if (!listId) return;
+          fetch(`${API_BASE}/packing-lists/${listId}/items/${parentId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` },
+            body: JSON.stringify({ is_expanded: true })
+          }).catch(() => {});
+        });
+      }
 
       if (input) input.value = '';
       renderNotes();

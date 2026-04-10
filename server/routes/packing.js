@@ -296,7 +296,8 @@ router.post('/:listId/items', async (req, res) => {
       priority,
       required,
       source_location,
-      source_notes
+      source_notes,
+      parent_item_id
     } = req.body;
     
     if (!item_name) {
@@ -309,14 +310,15 @@ router.post('/:listId/items', async (req, res) => {
       INSERT INTO event_packing_items (
         id, packing_list_id, item_name, item_id, inventory_id,
         quantity, category, priority, required,
-        source_location, source_notes, status
+        source_location, source_notes, status, parent_item_id
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'pending')
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'pending', $12)
       RETURNING *
     `, [
       id, listId, item_name, item_id || null, inventory_id || null,
       quantity || 1, category || 'general', priority || 'normal',
-      required !== false, source_location || null, source_notes || null
+      required !== false, source_location || null, source_notes || null,
+      parent_item_id || null
     ]);
     
     // Log activity
