@@ -2364,9 +2364,10 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     // Reload box contents from DB for this box to ensure fresh data
     try {
       const contentsResp = await RTS_API.getBoxContents(currentBoxId);
-      if (contentsResp && contentsResp.success && contentsResp.contents) {
-        boxContents = contentsResp.contents.map(c => ({
-          id: c.id,
+      // API returns `boxContents` not `contents`
+      if (contentsResp && contentsResp.success && contentsResp.boxContents) {
+        boxContents = contentsResp.boxContents.map(c => ({
+          id: String(c.id),
           boxId: c.box_id,
           itemId: c.item_id,
           itemType: c.item_type || 'equipment',
@@ -2385,7 +2386,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   window.selectBox = selectBox;
   
   // ========== UNPACK BOX ==========
-  function showUnpackModal(singleContentId = null) {
+  async function showUnpackModal(singleContentId = null) {
     // Determine if single-item or whole-box mode
     const isSingleItem = !!singleContentId;
     const targetBoxId = isSingleItem
@@ -2407,10 +2408,12 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       return;
     }
 
-    // For whole-box mode: check if any contents are Shopify inventory items
+    // For whole-box mode: ensure inventory items are fresh then check for Shopify items
     if (!isSingleItem) {
+      await loadInventoryItems();
       const shopifyContents = contents.filter(c => {
         const item = getItem(c.itemId, c.itemType);
+        console.log(`🔍 Unpack gate check — itemId:${c.itemId} type:${c.itemType} found:${!!item} shopify_variant_id:${item?.shopify_variant_id || 'null'}`);
         return item && c.itemType === 'inventory' && item.shopify_variant_id;
       });
       if (shopifyContents.length > 0) {
