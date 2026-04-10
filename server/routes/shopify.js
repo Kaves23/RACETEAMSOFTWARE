@@ -534,11 +534,42 @@ router.post('/lazy-import', async (req, res, next) => {
       // Always update at minimum the sync timestamp
       if (updates.length === 0) updates.push(`shopify_sync_at = NOW()`);
       vals.push(existing.rows[0].id);
-      const updated = await pool.query(
-        `UPDATE inventory SET ${updates.join(', ')}, shopify_sync_at = NOW(), updated_at = NOW()
-         WHERE id = $${vals.length} RETURNING *`,
-        vals
-      );
+
+      let updated;
+      try {
+        updated = await pool.query(
+          `UPDATE inventory SET ${updates.join(', ')}, shopify_sync_at = NOW(), updated_at = NOW()
+           WHERE id = $${vals.length} RETURNING *`,
+          vals
+        );
+      } catch (updateErr) {
+        // Column shopify_inventory_item_id doesn't exist yet — remove it and retry
+        if (updateErr.code === '42703') {
+          const safeUpdates = updates.filter(u => !u.includes('shopify_inventory_item_id'));
+          const safeVals = vals.filter((_, i) => {
+            const u = updates[i];
+            return !u || !u.includes('shopify_inventory_item_id');
+          });
+          // Rebuild vals without the shopify_inventory_item_id entry
+          const filteredUpdates = [];
+          const filteredVals = [];
+          for (let i = 0; i < updates.length; i++) {
+            if (!updates[i].includes('shopify_inventory_item_id')) {
+              filteredUpdates.push(updates[i]);
+              filteredVals.push(vals[i]);
+            }
+          }
+          if (filteredUpdates.length === 0) filteredUpdates.push(`shopify_sync_at = NOW()`);
+          filteredVals.push(existing.rows[0].id);
+          updated = await pool.query(
+            `UPDATE inventory SET ${filteredUpdates.join(', ')}, shopify_sync_at = NOW(), updated_at = NOW()
+             WHERE id = $${filteredVals.length} RETURNING *`,
+            filteredVals
+          );
+        } else {
+          throw updateErr;
+        }
+      }
       return res.json({ success: true, item: updated.rows[0] || existing.rows[0], created: false });
     }
 
@@ -546,24 +577,52 @@ router.post('/lazy-import', async (req, res, next) => {
     const { randomUUID } = require('crypto');
     const newId = randomUUID();
     const categoryName = (category && category !== 'Uncategorized') ? category : null;
-    const insertResult = await pool.query(
-      `INSERT INTO inventory (
-         id, name, sku, category, quantity, min_quantity, unit,
-         unit_cost, supplier,
-         shopify_product_id, shopify_variant_id, shopify_inventory_item_id, shopify_sync_at,
-         created_at, updated_at
-       ) VALUES (
-         $1, $2, $3, $4, $9, 0, 'ea',
-         $5, $6,
-         $7, $8, $10, NOW(),
-         NOW(), NOW()
-       ) RETURNING *`,
-      [newId, name, sku || null, categoryName,
-       parseFloat(price) || null, vendor || null,
-       String(shopify_product_id), String(shopify_variant_id),
-       Math.max(1, parseInt(shopify_quantity) || 1),
-       shopify_inventory_item_id ? String(shopify_inventory_item_id) : null]
-    );
+
+    let insertResult;
+    try {
+      // Try with shopify_inventory_item_id column (migration 047+)
+      insertResult = await pool.query(
+        `INSERT INTO inventory (
+           id, name, sku, category, quantity, min_quantity, unit,
+           unit_cost, supplier,
+           shopify_product_id, shopify_variant_id, shopify_inventory_item_id, shopify_sync_at,
+           created_at, updated_at
+         ) VALUES (
+           $1, $2, $3, $4, $9, 0, 'ea',
+           $5, $6,
+           $7, $8, $10, NOW(),
+           NOW(), NOW()
+         ) RETURNING *`,
+        [newId, name, sku || null, categoryName,
+         parseFloat(price) || null, vendor || null,
+         String(shopify_product_id), String(shopify_variant_id),
+         Math.max(1, parseInt(shopify_quantity) || 1),
+         shopify_inventory_item_id ? String(shopify_inventory_item_id) : null]
+      );
+    } catch (insertErr) {
+      // Column shopify_inventory_item_id doesn't exist yet (pre-migration 047) — retry without it
+      if (insertErr.code === '42703') {
+        insertResult = await pool.query(
+          `INSERT INTO inventory (
+             id, name, sku, category, quantity, min_quantity, unit,
+             unit_cost, supplier,
+             shopify_product_id, shopify_variant_id, shopify_sync_at,
+             created_at, updated_at
+           ) VALUES (
+             $1, $2, $3, $4, $9, 0, 'ea',
+             $5, $6,
+             $7, $8, NOW(),
+             NOW(), NOW()
+           ) RETURNING *`,
+          [newId, name, sku || null, categoryName,
+           parseFloat(price) || null, vendor || null,
+           String(shopify_product_id), String(shopify_variant_id),
+           Math.max(1, parseInt(shopify_quantity) || 1)]
+        );
+      } else {
+        throw insertErr;
+      }
+    }
 
     res.json({ success: true, item: insertResult.rows[0], created: true });
   } catch (error) {
