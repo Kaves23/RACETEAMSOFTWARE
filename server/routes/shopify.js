@@ -498,6 +498,18 @@ router.post('/lazy-import', async (req, res, next) => {
       [String(shopify_variant_id)]
     );
     if (existing.rows.length > 0) {
+      // If we have fresher stock data, update the quantity
+      if (shopify_quantity != null) {
+        const newQty = Math.max(1, parseInt(shopify_quantity) || 1);
+        const updated = await pool.query(
+          `UPDATE inventory SET quantity = $1, shopify_sync_at = NOW(), updated_at = NOW()
+           WHERE id = $2 AND quantity < $1 RETURNING *`,
+          [newQty, existing.rows[0].id]
+        );
+        if (updated.rows.length > 0) {
+          return res.json({ success: true, item: updated.rows[0], created: false });
+        }
+      }
       return res.json({ success: true, item: existing.rows[0], created: false });
     }
 
