@@ -2582,7 +2582,8 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
           variantId: item.shopify_variant_id,
           inventoryItemId: item.shopify_inventory_item_id || null,
           name: item.name,
-          packedQty: c.quantityPacked || 1
+          packedQty: c.quantityPacked || 1,
+          unitCost: item.unit_cost || null
         };
       });
 
@@ -2842,7 +2843,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
           .map((si, i) => ({
             variantId: si.variantId,
             quantity: parseInt(document.getElementById(`${row.rowId}_item_${i}`)?.value) || 0,
-            price: null, // let Shopify use variant price
+            price: si.unitCost != null ? si.unitCost : null,
             name: si.name
           }))
           .filter(li => li.quantity > 0)
@@ -3203,7 +3204,10 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
           serialNumber: String(invItem.sku || 'N/A'),
           totalQuantity: invItem.quantity || 0,
           quantity: invItem.quantity || 0,
-          currentBoxId: packedBoxId || null
+          currentBoxId: packedBoxId || null,
+          shopify_variant_id: invItem.shopify_variant_id || null,
+          shopify_inventory_item_id: invItem.shopify_inventory_item_id || null,
+          unit_cost: invItem.unit_cost || null
         };
       }
     }
