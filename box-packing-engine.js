@@ -1005,7 +1005,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       } else {
         // No box selected — switch to Inventory tab so user can drag it to a box
         showToast(`✅ "${name}" imported — drag it from the Inventory tab to a box`, 'success');
-        switchTab('inventory');
+        switchItemsTab('inventory');
       }
 
     } catch (err) {
