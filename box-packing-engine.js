@@ -854,6 +854,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     } else if (tab === 'shopify') {
       // Show empty state until user types; focus the search input
       renderShopifyResults([]);
+      ensureShopifyLocations();
       setTimeout(() => document.getElementById('searchShopify')?.focus(), 50);
     } else {
       renderItems();
