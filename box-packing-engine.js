@@ -988,7 +988,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${RTS?.getToken ? RTS.getToken() : (localStorage.getItem('rts_token') || '')}`
+          'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
         },
         body: JSON.stringify({ shopify_variant_id: variantId, shopify_product_id: productId, name, sku, price, category, vendor })
       });
