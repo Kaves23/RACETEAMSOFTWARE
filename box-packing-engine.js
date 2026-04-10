@@ -2923,7 +2923,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     unpackStepConfirmModal.show();
   }
 
-  window.handleConfirmStepBack = function() {
+  window.handleConfirmStepBack = async function() {
     unpackStepConfirmModal.hide();
     if ((unpackState?.consumedItems || []).length > 0) {
       // Re-show bill step, restore customer rows that were already built
