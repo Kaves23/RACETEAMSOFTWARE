@@ -1518,7 +1518,8 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
           totalQuantity: totalQty,
           packedQuantity: packedQty,
           availableQuantity: availableQty,
-          currentBoxId: null // Inventory items can be in multiple boxes
+          currentBoxId: null, // Inventory items can be in multiple boxes
+          shopify_variant_id: inv.shopify_variant_id || null
         };
       });
     } else {
@@ -1599,6 +1600,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
           <div class="item-name" style="font-size:.8rem;color:#202124;font-weight:600;margin-bottom:4px;line-height:1.3">${esc(item.name)}</div>
           <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:3px">
             <span style="background:${typeColor};color:white;font-weight:500;padding:3px 8px;border-radius:4px;font-size:.65rem;white-space:nowrap">${esc(typeName)}</span>
+            ${item.shopify_variant_id ? '<span style="background:#96bf48;color:#fff;font-weight:600;padding:2px 6px;border-radius:4px;font-size:.6rem">SHOPIFY</span>' : ''}
             <div style="font-size:.65rem;color:#5f6368;display:flex;gap:4px"><span style="font-weight:600">S/N:</span><span style="font-family:monospace">${esc(serialNum)}</span></div>
           </div>
           ${quantityInfo}
