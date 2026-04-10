@@ -470,23 +470,25 @@ router.post('/lazy-import', async (req, res, next) => {
       return res.json({ success: true, item: existing.rows[0], created: false });
     }
 
-    // Create the local inventory row — quantity starts at 0 (Shopify is the stock source of truth)
+    // Create the local inventory row — use only columns that exist in the schema
     const { randomUUID } = require('crypto');
     const newId = randomUUID();
     const categoryName = (category && category !== 'Uncategorized') ? category : null;
     const insertResult = await pool.query(
       `INSERT INTO inventory (
-         id, name, sku, category, quantity, min_quantity, unit_of_measure,
-         status, auto_reorder, lead_time_days,
+         id, name, sku, category, quantity, min_quantity, unit,
+         unit_cost, supplier,
          shopify_product_id, shopify_variant_id, shopify_sync_at,
          created_at, updated_at
        ) VALUES (
          $1, $2, $3, $4, 0, 0, 'ea',
-         'active', false, 0,
-         $5, $6, NOW(),
+         $5, $6,
+         $7, $8, NOW(),
          NOW(), NOW()
        ) RETURNING *`,
-      [newId, name, sku || null, categoryName, String(shopify_product_id), String(shopify_variant_id)]
+      [newId, name, sku || null, categoryName,
+       parseFloat(price) || null, vendor || null,
+       String(shopify_product_id), String(shopify_variant_id)]
     );
 
     res.json({ success: true, item: insertResult.rows[0], created: true });

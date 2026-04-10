@@ -967,11 +967,6 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
 
   // Called when user clicks a Shopify result card
   window.shopifyPackCard = async function(cardEl) {
-    if (!currentBoxId) {
-      showToast('⚠️ Select a box first', 'warning');
-      return;
-    }
-
     const variantId  = cardEl.dataset.shopifyVariantId;
     const productId  = cardEl.dataset.shopifyProductId;
     const name       = cardEl.dataset.shopifyName;
@@ -983,7 +978,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     showLoading('Shopify', `Importing ${name}…`);
 
     try {
-      // Step 1: lazy-import (find or create local inventory row)
+      // Lazy-import: find or create local inventory row
       const importResp = await fetch('/api/shopify/lazy-import', {
         method: 'POST',
         headers: {
@@ -1000,16 +995,18 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
         return;
       }
 
-      const localId = String(importData.item.id);
-      if (importData.created) {
-        // Refresh local inventory list so the new item is available
-        await loadInventoryItems();
-      }
-
+      // Refresh inventory list so the imported item appears in the Inventory tab
+      await loadInventoryItems();
       hideLoading();
 
-      // Step 2: hand off to the regular inventory pack flow (asks for quantity, calls API)
-      await packMultipleItems(currentBoxId, [{ id: localId, type: 'inventory' }]);
+      if (currentBoxId) {
+        // Box already selected — pack it straight away
+        await packMultipleItems(currentBoxId, [{ id: String(importData.item.id), type: 'inventory' }]);
+      } else {
+        // No box selected — switch to Inventory tab so user can drag it to a box
+        showToast(`✅ "${name}" imported — drag it from the Inventory tab to a box`, 'success');
+        switchTab('inventory');
+      }
 
     } catch (err) {
       hideLoading();
