@@ -158,40 +158,54 @@
       // GENERAL LIST
       if (generalList) {
         const isActive = currentList && currentList.id === generalList.id;
-        const progressBadge = isActive
-          ? `<span class="list-progress">${notes.filter(n => n.status === 'packed' || n.status === 'completed' || n.status === 'loaded').length}/${notes.length}</span>`
-          : '';
-        html += `<div class="sidebar-item ${isActive ? 'active' : ''}" data-list-id="${generalList.id}" onclick="window.selectList('${generalList.id}', 'GENERAL')">
-          <span>📌 General</span>${progressBadge}
+        const done = isActive ? notes.filter(n => n.status==='packed'||n.status==='completed'||n.status==='loaded').length : '';
+        const total = isActive ? notes.length : '';
+        const prog = isActive ? `<span class="sli-progress">${done}/${total}</span>` : '';
+        html += `<div class="sidebar-list-item ${isActive ? 'active' : ''}" data-list-id="${generalList.id}" onclick="window.selectList('${generalList.id}', 'GENERAL')">
+          <span class="sli-icon">📌</span>
+          <span class="sli-name">General</span>
+          ${prog}
         </div>`;
       }
-      
+
       // Custom lists
-      customLists.forEach(list => {
-        const isActive = currentList && currentList.id === list.id;
-        const progressBadge = isActive
-          ? `<span class="list-progress">${notes.filter(n => n.status === 'packed' || n.status === 'completed' || n.status === 'loaded').length}/${notes.length}</span>`
-          : '';
-        html += `<div class="sidebar-item ${isActive ? 'active' : ''}" data-list-id="${list.id}" onclick="window.selectList('${list.id}', 'CUSTOM')" style="position: relative;">
-          <span>📋 ${list.name}</span>${progressBadge}
-          <span style="display:flex;gap:3px;align-items:center;margin-left:auto;">
-            <button class="sidebar-delete-btn" style="position:static;display:inline-flex;align-items:center;justify-content:center;background:#6c757d;font-size:10px;width:16px;height:16px;" onclick="window.cloneList('${list.id}', '${list.name.replace(/'/g,"\\'")}'); event.stopPropagation();" title="Clone list">⎘</button>
-            <button class="sidebar-delete-btn" style="position:static;display:inline-flex;align-items:center;justify-content:center;" onclick="window.deleteList('${list.id}', '${list.name.replace(/'/g,"\\'")}'); event.stopPropagation();" title="Delete list">×</button>
-          </span>
-        </div>`;
-      });
-      
+      if (customLists.length > 0) {
+        customLists.forEach(list => {
+          const isActive = currentList && currentList.id === list.id;
+          const done = isActive ? notes.filter(n => n.status==='packed'||n.status==='completed'||n.status==='loaded').length : '';
+          const total = isActive ? notes.length : '';
+          const prog = isActive ? `<span class="sli-progress">${done}/${total}</span>` : '';
+          const safeName = list.name.replace(/'/g, "\\'");
+          html += `<div class="sidebar-list-item ${isActive ? 'active' : ''}" data-list-id="${list.id}" onclick="window.selectList('${list.id}', 'CUSTOM')">
+            <span class="sli-icon">📋</span>
+            <span class="sli-name" title="${list.name}">${list.name}</span>
+            ${prog}
+            <span class="sli-actions" onclick="event.stopPropagation()">
+              <button class="sli-btn sli-btn-clone" onclick="window.cloneList('${list.id}','${safeName}')" title="Clone">⎘</button>
+              <button class="sli-btn sli-btn-delete" onclick="window.deleteList('${list.id}','${safeName}')" title="Delete">×</button>
+            </span>
+          </div>`;
+        });
+      }
+
       // Event lists
-      eventLists.forEach(list => {
-        const isActive = currentList && currentList.id === list.id;
-        const progressBadge = isActive
-          ? `<span class="list-progress">${notes.filter(n => n.status === 'packed' || n.status === 'completed' || n.status === 'loaded').length}/${notes.length}</span>`
-          : '';
-        html += `<div class="sidebar-item ${isActive ? 'active' : ''}" data-list-id="${list.id}" onclick="window.selectList('${list.id}', 'EVENT')" style="position: relative;">
-          <span>📅 ${list.event_name || list.name}</span>${progressBadge}
-          <button class="sidebar-delete-btn" onclick="window.deleteList('${list.id}', '${list.name.replace(/'/g,"\\'")}'); event.stopPropagation();" title="Delete list">×</button>
-        </div>`;
-      });
+      if (eventLists.length > 0) {
+        eventLists.forEach(list => {
+          const isActive = currentList && currentList.id === list.id;
+          const done = isActive ? notes.filter(n => n.status==='packed'||n.status==='completed'||n.status==='loaded').length : '';
+          const total = isActive ? notes.length : '';
+          const prog = isActive ? `<span class="sli-progress">${done}/${total}</span>` : '';
+          const safeName = (list.event_name || list.name).replace(/'/g, "\\'");
+          html += `<div class="sidebar-list-item ${isActive ? 'active' : ''}" data-list-id="${list.id}" onclick="window.selectList('${list.id}', 'EVENT')">
+            <span class="sli-icon">📅</span>
+            <span class="sli-name" title="${list.event_name || list.name}">${list.event_name || list.name}</span>
+            ${prog}
+            <span class="sli-actions" onclick="event.stopPropagation()">
+              <button class="sli-btn sli-btn-delete" onclick="window.deleteList('${list.id}','${safeName}')" title="Delete">×</button>
+            </span>
+          </div>`;
+        });
+      }
       
       const dynamicListsEl = document.getElementById('dynamicLists');
       if (dynamicListsEl) {
@@ -204,7 +218,7 @@
   
   // Update which list is active in sidebar
   function updateSidebarActiveState(listId) {
-    document.querySelectorAll('#dynamicLists .sidebar-item').forEach(item => {
+    document.querySelectorAll('#dynamicLists .sidebar-list-item').forEach(item => {
       item.classList.remove('active');
       if (item.dataset.listId === listId) {
         item.classList.add('active');
@@ -220,7 +234,7 @@
   window.showAllLists = async function() {
     try {
       // Clear active states
-      document.querySelectorAll('.sidebar-item').forEach(item => item.classList.remove('active'));
+      document.querySelectorAll('.sidebar-item, .sidebar-list-item').forEach(item => item.classList.remove('active'));
       document.querySelector('.sidebar-item[data-view="all-lists"]')?.classList.add('active');
       
       const listsResp = await fetch(`${API_BASE}/packing-lists`, {
@@ -1345,7 +1359,7 @@
   // Export functions for onclick handlers in HTML
   window.switchView = function(view) {
     currentFilter = view;
-    document.querySelectorAll('.sidebar-item').forEach(item => {
+    document.querySelectorAll('.sidebar-item, .sidebar-list-item').forEach(item => {
       item.classList.remove('active');
       if (item.dataset.view === view) item.classList.add('active');
     });
