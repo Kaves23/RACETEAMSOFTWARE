@@ -326,34 +326,59 @@ router.get('/search', async (req, res, next) => {
       });
     }
 
-    const url = `https://${cfg.shop}/admin/api/2026-01/products.json` +
-      `?title=${encodeURIComponent(q)}&limit=20&status=active`;
+    const headers = { 'X-Shopify-Access-Token': cfg.accessToken, 'Content-Type': 'application/json' };
+    const apiBase = `https://${cfg.shop}/admin/api/2026-01`;
 
-    const response = await fetch(url, {
-      headers: { 'X-Shopify-Access-Token': cfg.accessToken, 'Content-Type': 'application/json' }
-    });
+    // Search by title AND by SKU in parallel
+    const [titleResp, skuResp] = await Promise.all([
+      fetch(`${apiBase}/products.json?title=${encodeURIComponent(q)}&limit=20&status=active`, { headers }),
+      fetch(`${apiBase}/variants.json?sku=${encodeURIComponent(q)}&limit=20`, { headers })
+    ]);
 
-    if (!response.ok) {
-      const errText = await response.text();
-      return res.status(response.status).json({ success: false, error: `Shopify API error: ${errText}` });
+    const seenVariantIds = new Set();
+    const results = [];
+
+    const addVariant = (product, variant) => {
+      if (seenVariantIds.has(String(variant.id))) return;
+      seenVariantIds.add(String(variant.id));
+      results.push({
+        shopify_product_id: String(product.id),
+        shopify_variant_id: String(variant.id),
+        shopify_inventory_item_id: String(variant.inventory_item_id || ''),
+        name: product.title + (variant.title !== 'Default Title' ? ` – ${variant.title}` : ''),
+        sku: variant.sku || '',
+        price: variant.price || '0.00',
+        category: product.product_type || 'Uncategorized',
+        vendor: product.vendor || '',
+        image_url: (product.images && product.images[0]) ? product.images[0].src : null,
+        shopify_quantity: variant.inventory_quantity || 0
+      });
+    };
+
+    // Title search results
+    if (titleResp.ok) {
+      const titleData = await titleResp.json();
+      for (const product of (titleData.products || [])) {
+        for (const variant of (product.variants || [])) addVariant(product, variant);
+      }
     }
 
-    const data = await response.json();
-    const results = [];
-    for (const product of (data.products || [])) {
-      for (const variant of (product.variants || [])) {
-        results.push({
-          shopify_product_id: String(product.id),
-          shopify_variant_id: String(variant.id),
-          shopify_inventory_item_id: String(variant.inventory_item_id || ''),
-          name: product.title + (variant.title !== 'Default Title' ? ` – ${variant.title}` : ''),
-          sku: variant.sku || '',
-          price: variant.price || '0.00',
-          category: product.product_type || 'Uncategorized',
-          vendor: product.vendor || '',
-          image_url: (product.images && product.images[0]) ? product.images[0].src : null,
-          shopify_quantity: variant.inventory_quantity || 0
-        });
+    // SKU search results — variants don't include product info, fetch products by id
+    if (skuResp.ok) {
+      const skuData = await skuResp.json();
+      const variants = skuData.variants || [];
+      if (variants.length > 0) {
+        const productIds = [...new Set(variants.map(v => v.product_id))].join(',');
+        const prodResp = await fetch(`${apiBase}/products.json?ids=${productIds}&limit=20`, { headers });
+        if (prodResp.ok) {
+          const prodData = await prodResp.json();
+          const productMap = {};
+          for (const p of (prodData.products || [])) productMap[p.id] = p;
+          for (const variant of variants) {
+            const product = productMap[variant.product_id];
+            if (product) addVariant(product, variant);
+          }
+        }
       }
     }
 
