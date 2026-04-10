@@ -30,7 +30,7 @@ router.get('/auth', async (req, res) => {
     }
 
     const shopDomain = shop.includes('.myshopify.com') ? shop : `${shop}.myshopify.com`;
-    const scopes = 'read_products,read_inventory,write_inventory,read_locations,read_customers,write_orders,write_fulfillments,read_merchant_managed_fulfillment_orders,write_merchant_managed_fulfillment_orders';
+    const scopes = 'read_products,write_products,read_inventory,write_inventory,read_locations,read_customers,read_orders,write_orders,read_fulfillments,write_fulfillments,read_draft_orders,write_draft_orders,read_merchant_managed_fulfillment_orders,write_merchant_managed_fulfillment_orders';
     const redirectUri = process.env.SHOPIFY_REDIRECT_URI ||
       `${req.protocol}://${req.get('host')}/api/shopify/callback`;
 
