@@ -51,7 +51,8 @@ async function runMigrations() {
     '042_description_trgm_index.sql',
     '043_staff_asset_assignments.sql',
     '044_boxes_notes_column.sql',
-    '045_load_plan_boxes_scanned_at.sql'
+    '045_load_plan_boxes_scanned_at.sql',
+    '046_add_text_color_to_packing_items.sql'
   ];
   
   for (const filename of migrationFiles) {
