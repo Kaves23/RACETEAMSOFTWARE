@@ -486,7 +486,7 @@ router.post('/adjust-stock', async (req, res, next) => {
  */
 router.post('/lazy-import', async (req, res, next) => {
   try {
-    const { shopify_variant_id, shopify_product_id, name, sku, price, category, vendor } = req.body;
+    const { shopify_variant_id, shopify_product_id, name, sku, price, category, vendor, shopify_quantity } = req.body;
 
     if (!shopify_variant_id) {
       return res.status(400).json({ success: false, error: 'shopify_variant_id is required' });
@@ -512,14 +512,15 @@ router.post('/lazy-import', async (req, res, next) => {
          shopify_product_id, shopify_variant_id, shopify_sync_at,
          created_at, updated_at
        ) VALUES (
-         $1, $2, $3, $4, 1, 0, 'ea',
+         $1, $2, $3, $4, $9, 0, 'ea',
          $5, $6,
          $7, $8, NOW(),
          NOW(), NOW()
        ) RETURNING *`,
       [newId, name, sku || null, categoryName,
        parseFloat(price) || null, vendor || null,
-       String(shopify_product_id), String(shopify_variant_id)]
+       String(shopify_product_id), String(shopify_variant_id),
+       Math.max(1, parseInt(shopify_quantity) || 1)]
     );
 
     res.json({ success: true, item: insertResult.rows[0], created: true });

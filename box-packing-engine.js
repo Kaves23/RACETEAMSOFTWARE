@@ -1050,7 +1050,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
         const importResp = await fetch('/api/shopify/lazy-import', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}` },
-          body: JSON.stringify({ shopify_variant_id: variantId, shopify_product_id: productId, name, sku, price, category, vendor })
+          body: JSON.stringify({ shopify_variant_id: variantId, shopify_product_id: productId, name, sku, price, category, vendor, shopify_quantity: shopifyQty })
         });
         const importData = await importResp.json();
         if (!importResp.ok || !importData.success) {
@@ -1082,7 +1082,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
         const importResp = await fetch('/api/shopify/lazy-import', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}` },
-          body: JSON.stringify({ shopify_variant_id: variantId, shopify_product_id: productId, name, sku, price, category, vendor })
+          body: JSON.stringify({ shopify_variant_id: variantId, shopify_product_id: productId, name, sku, price, category, vendor, shopify_quantity: shopifyQty })
         });
         const importData = await importResp.json();
         if (!importResp.ok || !importData.success) {
