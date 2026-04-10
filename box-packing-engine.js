@@ -888,7 +888,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
 
     try {
       const resp = await fetch(`/api/shopify/search?q=${encodeURIComponent(q)}`, {
-        headers: { 'Authorization': `Bearer ${RTS?.getToken ? RTS.getToken() : (localStorage.getItem('rts_token') || '')}` }
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}` }
       });
       const data = await resp.json();
 
