@@ -873,32 +873,44 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   let _shopifyDebounceTimer = null;
   let _shopifyLocations = null; // cached after first load
 
-  async function ensureShopifyLocations() {
+  // Fetches Shopify locations and caches in _shopifyLocations.
+  // Safe to call multiple times — returns immediately if already loaded.
+  async function loadShopifyLocationsCache() {
     if (_shopifyLocations) return;
-    const sel = document.getElementById('shopifyLocationSelect');
-    if (!sel) return;
-    sel.disabled = true;
-    sel.innerHTML = '<option value="">⏳ Loading locations…</option>';
     try {
       const resp = await fetch('/api/shopify/locations', {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}` }
       });
       const data = await resp.json();
-      console.log('Shopify locations response:', resp.status, data);
       if (resp.ok && data.success && data.locations && data.locations.length) {
         _shopifyLocations = data.locations;
+        console.log('Shopify locations loaded:', _shopifyLocations.map(l => l.name));
+      } else {
+        console.warn('Shopify locations load failed:', data.error || data);
+      }
+    } catch (e) {
+      console.error('Could not load Shopify locations:', e);
+    }
+  }
+
+  async function ensureShopifyLocations() {
+    await loadShopifyLocationsCache();
+    const sel = document.getElementById('shopifyLocationSelect');
+    if (!sel) return;
+    sel.disabled = true;
+    sel.innerHTML = '<option value="">⏳ Loading locations…</option>';
+    try {
+      if (_shopifyLocations && _shopifyLocations.length) {
         sel.innerHTML = '<option value="">All locations (combined)</option>' +
-          data.locations.map(l => `<option value="${l.legacyId}">${l.name}</option>`).join('');
+          _shopifyLocations.map(l => `<option value="${l.legacyId}">${l.name}</option>`).join('');
         // Re-run search if there is already a query
         const q = document.getElementById('searchShopify')?.value?.trim();
         if (q && q.length >= 2) searchShopify(q);
       } else {
-        const msg = data.error || (data.locations && data.locations.length === 0 ? 'No locations found' : 'Unknown error');
-        console.warn('Shopify locations error:', msg, data);
-        sel.innerHTML = `<option value="">⚠️ ${msg}</option>`;
+        sel.innerHTML = '<option value="">⚠️ No Shopify locations found</option>';
       }
     } catch (e) {
-      console.error('Could not load Shopify locations:', e);
+      console.error('Could not populate Shopify locations select:', e);
       sel.innerHTML = '<option value="">⚠️ Could not load locations</option>';
     } finally {
       sel.disabled = false;
@@ -2417,7 +2429,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
         return item && c.itemType === 'inventory' && item.shopify_variant_id;
       });
       if (shopifyContents.length > 0) {
-        showUnpackReturnStep(targetBoxId, contents);
+        await showUnpackReturnStep(targetBoxId, contents);
         return;
       }
     }
@@ -2572,7 +2584,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
 
   // ========== SHOPIFY MULTI-STEP UNPACK ==========
 
-  function showUnpackReturnStep(boxId, contents) {
+  async function showUnpackReturnStep(boxId, contents) {
     // Build initial state
     const shopifyItems = contents
       .filter(c => {
@@ -2608,16 +2620,17 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       customerAssignments: []
     };
 
-    // Populate location dropdown with Shopify locations (pre-select the one used when packing)
+    // Populate location dropdown with Shopify locations (always — fetch if not yet loaded)
     const locSel = document.getElementById('returnStepLocation');
     const preselect = unpackState.shopifyLocationId;
+    locSel.innerHTML = '<option value="">⏳ Loading Shopify locations…</option>';
+    await loadShopifyLocationsCache();
     if (_shopifyLocations && _shopifyLocations.length > 0) {
-      locSel.innerHTML = '<option value="">Select Shopify location</option>' +
+      locSel.innerHTML = '<option value="">Select Shopify location…</option>' +
         _shopifyLocations.map(l => `<option value="${esc(l.legacyId)}"${l.legacyId === preselect ? ' selected' : ''}>${esc(l.name)}</option>`).join('');
     } else {
-      // Shopify locations not loaded yet — fall back to local locations
-      locSel.innerHTML = '<option value="">Select Location</option>' +
-        allLocations.map(l => `<option value="${esc(l.id)}">${esc(l.name)}</option>`).join('');
+      // Shopify not connected or no locations returned — warn the user
+      locSel.innerHTML = '<option value="">⚠️ No Shopify locations found — reconnect Shopify</option>';
     }
 
     // Render Shopify item rows
@@ -2810,11 +2823,11 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     }
   };
 
-  window.handleBillStepBack = function() {
+  window.handleBillStepBack = async function() {
     unpackStepBillModal.hide();
     // Re-show step 1 but restore the return quantities the user already set
     const savedReturnQtys = { ...unpackState.returnQtys };
-    showUnpackReturnStep(unpackState.boxId, unpackState.allContents);
+    await showUnpackReturnStep(unpackState.boxId, unpackState.allContents);
     // Restore input values
     Object.entries(savedReturnQtys).forEach(([idx, qty]) => {
       const el = document.getElementById('returnQty_' + idx);
@@ -2919,7 +2932,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       showUnpackBillStep();
     } else {
       const savedReturnQtys = { ...unpackState.returnQtys };
-      showUnpackReturnStep(unpackState.boxId, unpackState.allContents);
+      await showUnpackReturnStep(unpackState.boxId, unpackState.allContents);
       Object.entries(savedReturnQtys).forEach(([idx, qty]) => {
         const el = document.getElementById('returnQty_' + idx);
         if (el) { el.value = qty; updateReturnStepConsumed(parseInt(idx)); }
