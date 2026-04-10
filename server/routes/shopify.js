@@ -470,29 +470,10 @@ router.post('/lazy-import', async (req, res, next) => {
       return res.json({ success: true, item: existing.rows[0], created: false });
     }
 
-    // Resolve or create the category in inventory_categories
-    let categoryId = null;
-    if (category && category !== 'Uncategorized') {
-      const catResult = await pool.query(
-        `SELECT id FROM inventory_categories WHERE LOWER(name) = LOWER($1) LIMIT 1`,
-        [category]
-      );
-      if (catResult.rows.length > 0) {
-        categoryId = catResult.rows[0].id;
-      } else {
-        const { randomUUID } = require('crypto');
-        const newCatId = randomUUID();
-        await pool.query(
-          `INSERT INTO inventory_categories (id, name, sort_order, created_at) VALUES ($1, $2, 0, NOW())`,
-          [newCatId, category]
-        );
-        categoryId = newCatId;
-      }
-    }
-
     // Create the local inventory row — quantity starts at 0 (Shopify is the stock source of truth)
     const { randomUUID } = require('crypto');
     const newId = randomUUID();
+    const categoryName = (category && category !== 'Uncategorized') ? category : null;
     const insertResult = await pool.query(
       `INSERT INTO inventory (
          id, name, sku, category, quantity, min_quantity, unit_of_measure,
@@ -505,7 +486,7 @@ router.post('/lazy-import', async (req, res, next) => {
          $5, $6, NOW(),
          NOW(), NOW()
        ) RETURNING *`,
-      [newId, name, sku || null, categoryId, String(shopify_product_id), String(shopify_variant_id)]
+      [newId, name, sku || null, categoryName, String(shopify_product_id), String(shopify_variant_id)]
     );
 
     res.json({ success: true, item: insertResult.rows[0], created: true });
