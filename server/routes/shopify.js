@@ -331,6 +331,7 @@ router.get('/locations', async (req, res, next) => {
     });
 
     const data = await resp.json();
+    console.log('Shopify locations raw response:', JSON.stringify(data).substring(0, 500));
     const locations = (data?.data?.locations?.edges || [])
       .map(({ node }) => ({ gid: node.id, legacyId: node.legacyResourceId, name: node.name }))
       .filter(l => l.legacyId);

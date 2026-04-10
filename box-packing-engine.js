@@ -872,21 +872,28 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     const sel = document.getElementById('shopifyLocationSelect');
     if (!sel) return;
     sel.disabled = true;
+    sel.innerHTML = '<option value="">⏳ Loading locations…</option>';
     try {
       const resp = await fetch('/api/shopify/locations', {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}` }
       });
       const data = await resp.json();
-      if (resp.ok && data.success && data.locations.length) {
+      console.log('Shopify locations response:', resp.status, data);
+      if (resp.ok && data.success && data.locations && data.locations.length) {
         _shopifyLocations = data.locations;
         sel.innerHTML = '<option value="">All locations (combined)</option>' +
           data.locations.map(l => `<option value="${l.legacyId}">${l.name}</option>`).join('');
         // Re-run search if there is already a query
         const q = document.getElementById('searchShopify')?.value?.trim();
         if (q && q.length >= 2) searchShopify(q);
+      } else {
+        const msg = data.error || (data.locations && data.locations.length === 0 ? 'No locations found' : 'Unknown error');
+        console.warn('Shopify locations error:', msg, data);
+        sel.innerHTML = `<option value="">⚠️ ${msg}</option>`;
       }
     } catch (e) {
-      console.warn('Could not load Shopify locations:', e);
+      console.error('Could not load Shopify locations:', e);
+      sel.innerHTML = '<option value="">⚠️ Could not load locations</option>';
     } finally {
       sel.disabled = false;
     }
