@@ -604,37 +604,36 @@
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
-          <div class="alert alert-info mb-3">
-            <strong>Connect to Shopify</strong><br>
-            Sync your Shopify inventory with this system. You'll need your Shopify store name and an API access token.
-            <a href="https://help.shopify.com/en/manual/apps/custom-apps" target="_blank" class="alert-link">Learn how to create an API token →</a>
-          </div>
-          
-          <form id="shopifyForm">
+
+          <!-- Not connected state -->
+          <div id="shopifyNotConnected">
+            <div class="alert alert-warning mb-3">
+              <strong><i class="bi bi-plug"></i> Not Connected</strong><br>
+              Connect your Shopify store to sync inventory. You will be redirected to Shopify to authorise access, then returned here automatically.
+            </div>
             <div class="mb-3">
               <label class="form-label">Shop Name *</label>
               <div class="input-group">
-                <input type="text" class="form-control" id="shopifyShopName" placeholder="mystore" required>
+                <input type="text" class="form-control" id="shopifyShopName" placeholder="ftwmotorsport">
                 <span class="input-group-text">.myshopify.com</span>
               </div>
-              <small class="text-muted">Enter your Shopify store name (e.g., "mystore" for mystore.myshopify.com)</small>
+              <small class="text-muted">Enter your Shopify store name (without .myshopify.com)</small>
             </div>
-            
-            <div class="mb-3">
-              <label class="form-label">Admin API Access Token *</label>
-              <input type="password" class="form-control" id="shopifyAccessToken" placeholder="shpat_..." required>
-              <small class="text-muted">Your Shopify Admin API access token (starts with "shpat_")</small>
-            </div>
-            
-            <div class="mb-3">
-              <button type="button" class="btn btn-outline-secondary btn-sm" id="btnTestConnection">
-                <i class="bi bi-plugin"></i> Test Connection
+            <button type="button" class="btn btn-success" id="btnConnectShopify">
+              <i class="bi bi-box-arrow-up-right"></i> Connect with Shopify
+            </button>
+          </div>
+
+          <!-- Connected state -->
+          <div id="shopifyConnected" style="display:none">
+            <div class="alert alert-success mb-3" id="shopifyConnectedAlert">
+              <strong><i class="bi bi-check-circle-fill"></i> Connected</strong>
+              <span id="shopifyConnectedShop" class="ms-1"></span>
+              <button type="button" class="btn btn-sm btn-outline-danger float-end" id="btnDisconnectShopify">
+                Disconnect
               </button>
-              <span id="connectionStatus" class="ms-2"></span>
             </div>
-            
-            <hr>
-            
+
             <div class="mb-3">
               <label class="form-label">Sync Options</label>
               <div class="form-check">
@@ -650,20 +649,21 @@
                 </label>
               </div>
             </div>
-            
+
             <div id="syncProgress" style="display:none" class="mb-3">
               <div class="progress">
                 <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%"></div>
               </div>
               <small class="text-muted mt-1 d-block" id="syncProgressText">Syncing...</small>
             </div>
-            
+
             <div id="syncResults" style="display:none" class="alert"></div>
-          </form>
+          </div>
+
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-          <button type="button" class="btn btn-success" id="btnStartSync">
+          <button type="button" class="btn btn-success" id="btnStartSync" style="display:none">
             <i class="bi bi-arrow-repeat"></i> Start Sync
           </button>
         </div>
@@ -1707,150 +1707,89 @@
       // SHOPIFY INTEGRATION
       // ==============================================
       
-      let shopifyModal, shopifySettings = {};
-      
+      let shopifyModal;
+
       function openShopifyModal() {
         if (!shopifyModal) {
           shopifyModal = new bootstrap.Modal(document.getElementById('shopifyModal'));
-          
-          // Setup modal event handlers
-          document.getElementById('btnTestConnection').addEventListener('click', testShopifyConnection);
+
+          document.getElementById('btnConnectShopify').addEventListener('click', connectShopify);
+          document.getElementById('btnDisconnectShopify').addEventListener('click', disconnectShopify);
           document.getElementById('btnStartSync').addEventListener('click', startShopifySync);
         }
-        
-        // Load saved settings
-        loadShopifySettings();
-        
+
+        // Check for OAuth result in URL
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('shopify') === 'connected') {
+          // Clean up the URL param without reloading
+          history.replaceState({}, '', window.location.pathname);
+          showToast('Shopify connected successfully!', 'success');
+        } else if (urlParams.get('shopify') === 'error') {
+          history.replaceState({}, '', window.location.pathname);
+          showToast('Shopify connection failed. Please try again.', 'error');
+        }
+
+        loadShopifyStatus();
         shopifyModal.show();
       }
-      
-      async function loadShopifySettings() {
+
+      async function loadShopifyStatus() {
         try {
-          const response = await fetch(`${RTS_API.baseURL}/shopify/settings`, {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-            }
+          const response = await fetch(`${RTS_API.baseURL}/shopify/status`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
           });
-          
-          if (response.ok) {
-            const data = await response.json();
-            if (data.success && data.config) {
-              document.getElementById('shopifyShopName').value = data.config.shop || '';
-              shopifySettings = data.config;
-              
-              if (data.config.hasAccessToken) {
-                document.getElementById('shopifyAccessToken').placeholder = '••••••••••••';
-              }
-            }
-          }
-        } catch (error) {
-          console.error('Error loading Shopify settings:', error);
-        }
-      }
-      
-      async function testShopifyConnection() {
-        const shop = document.getElementById('shopifyShopName').value.trim();
-        let accessToken = document.getElementById('shopifyAccessToken').value.trim();
-        
-        // Use saved token if input is placeholder
-        if (!accessToken || accessToken.length < 10) {
-          if (shopifySettings.accessToken) {
-            accessToken = shopifySettings.accessToken;
-          } else {
-            showToast('Please enter an access token', 'error');
-            return;
-          }
-        }
-        
-        if (!shop) {
-          showToast('Please enter your shop name', 'error');
-          return;
-        }
-        
-        const fullShop = shop.includes('.myshopify.com') ? shop : `${shop}.myshopify.com`;
-        
-        showLoading('Testing Connection', 'Connecting to Shopify...');
-        
-        try {
-          const response = await fetch(`${RTS_API.baseURL}/shopify/test-connection`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ shop: fullShop, accessToken })
-          });
-          
           const data = await response.json();
-          
-          hideLoading();
-          
-          if (data.success) {
-            document.getElementById('connectionStatus').innerHTML = 
-              '<span class="text-success"><i class="bi bi-check-circle-fill"></i> Connected!</span>';
-            showToast('Successfully connected to Shopify', 'success');
-            
-            // Save settings
-            await saveShopifySettings(fullShop, accessToken);
+
+          if (data.connected) {
+            document.getElementById('shopifyNotConnected').style.display = 'none';
+            document.getElementById('shopifyConnected').style.display = 'block';
+            document.getElementById('btnStartSync').style.display = 'inline-block';
+            document.getElementById('shopifyConnectedShop').textContent = `— ${data.shop}`;
+            if (data.lastSync) {
+              document.getElementById('shopifyConnectedShop').textContent +=
+                ` (last sync: ${new Date(data.lastSync).toLocaleString()})`;
+            }
           } else {
-            document.getElementById('connectionStatus').innerHTML = 
-              '<span class="text-danger"><i class="bi bi-x-circle-fill"></i> Failed</span>';
-            showToast(data.error || 'Connection failed', 'error');
+            document.getElementById('shopifyNotConnected').style.display = 'block';
+            document.getElementById('shopifyConnected').style.display = 'none';
+            document.getElementById('btnStartSync').style.display = 'none';
           }
-        } catch (error) {
-          hideLoading();
-          document.getElementById('connectionStatus').innerHTML = 
-            '<span class="text-danger"><i class="bi bi-x-circle-fill"></i> Error</span>';
-          showToast('Error testing connection: ' + error.message, 'error');
+        } catch (err) {
+          console.error('Error loading Shopify status:', err);
         }
       }
-      
-      async function saveShopifySettings(shop, accessToken) {
-        try {
-          const response = await fetch(`${RTS_API.baseURL}/shopify/settings`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ shop, accessToken })
-          });
-          
-          if (response.ok) {
-            shopifySettings = { shop, accessToken };
-          }
-        } catch (error) {
-          console.error('Error saving Shopify settings:', error);
-        }
-      }
-      
-      async function startShopifySync() {
+
+      function connectShopify() {
         const shop = document.getElementById('shopifyShopName').value.trim();
-        let accessToken = document.getElementById('shopifyAccessToken').value.trim();
-        
-        // Use saved token if input is placeholder
-        if (!accessToken || accessToken.length < 10) {
-          if (shopifySettings.accessToken) {
-            accessToken = shopifySettings.accessToken;
-          } else {
-            showToast('Please enter an access token', 'error');
-            return;
-          }
-        }
-        
         if (!shop) {
-          showToast('Please enter your shop name', 'error');
+          showToast('Please enter your shop name first', 'error');
           return;
         }
-        
-        const fullShop = shop.includes('.myshopify.com') ? shop : `${shop}.myshopify.com`;
-        
+        // Redirect to OAuth flow — server will handle Shopify redirect
+        window.location.href = `${RTS_API.baseURL}/shopify/auth?shop=${encodeURIComponent(shop)}`;
+      }
+
+      async function disconnectShopify() {
+        if (!confirm('Disconnect Shopify? This will remove the stored access token.')) return;
+        try {
+          await fetch(`${RTS_API.baseURL}/shopify/disconnect`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+          });
+          loadShopifyStatus();
+          showToast('Shopify disconnected', 'success');
+        } catch (err) {
+          showToast('Error disconnecting: ' + err.message, 'error');
+        }
+      }
+
+      async function startShopifySync() {
         // Show progress
         document.getElementById('syncProgress').style.display = 'block';
         document.getElementById('syncResults').style.display = 'none';
         document.getElementById('btnStartSync').disabled = true;
         document.getElementById('syncProgressText').textContent = 'Fetching products from Shopify...';
-        
+
         try {
           const response = await fetch(`${RTS_API.baseURL}/shopify/sync-inventory`, {
             method: 'POST',
@@ -1858,18 +1797,14 @@
               'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
               'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ 
-              shop: fullShop, 
-              accessToken,
-              locationMapping: {} // TODO: Add location mapping UI if needed
-            })
+            body: JSON.stringify({ locationMapping: {} })
           });
-          
+
           const data = await response.json();
-          
+
           document.getElementById('syncProgress').style.display = 'none';
           document.getElementById('btnStartSync').disabled = false;
-          
+
           if (data.success) {
             const resultsDiv = document.getElementById('syncResults');
             resultsDiv.className = 'alert alert-success';
@@ -1879,37 +1814,22 @@
               ${data.errors && data.errors.length > 0 ? `<br><small>${data.errors.length} items had errors.</small>` : ''}
             `;
             resultsDiv.style.display = 'block';
-            
             showToast(`Synced ${data.synced} items from Shopify`, 'success');
-            
-            // Reload inventory data
-            setTimeout(() => {
-              shopifyModal.hide();
-              loadData();
-            }, 2000);
+            setTimeout(() => { shopifyModal.hide(); loadData(); }, 2000);
           } else {
             const resultsDiv = document.getElementById('syncResults');
             resultsDiv.className = 'alert alert-danger';
-            resultsDiv.innerHTML = `
-              <strong><i class="bi bi-x-circle"></i> Sync Failed</strong><br>
-              ${data.error || 'Unknown error occurred'}
-            `;
+            resultsDiv.innerHTML = `<strong><i class="bi bi-x-circle"></i> Sync Failed</strong><br>${data.error || 'Unknown error'}`;
             resultsDiv.style.display = 'block';
-            
             showToast('Sync failed: ' + (data.error || 'Unknown error'), 'error');
           }
         } catch (error) {
           document.getElementById('syncProgress').style.display = 'none';
           document.getElementById('btnStartSync').disabled = false;
-          
           const resultsDiv = document.getElementById('syncResults');
           resultsDiv.className = 'alert alert-danger';
-          resultsDiv.innerHTML = `
-            <strong><i class="bi bi-x-circle"></i> Error</strong><br>
-            ${error.message}
-          `;
+          resultsDiv.innerHTML = `<strong><i class="bi bi-x-circle"></i> Error</strong><br>${error.message}`;
           resultsDiv.style.display = 'block';
-          
           showToast('Sync error: ' + error.message, 'error');
         }
       }

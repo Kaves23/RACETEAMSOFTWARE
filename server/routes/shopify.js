@@ -11,14 +11,15 @@ const { pool } = require('../db');
  */
 router.post('/test-connection', async (req, res, next) => {
   try {
-    const { shop, accessToken } = req.body;
-    
-    if (!shop || !accessToken) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Missing required fields: shop, accessToken' 
+    // Credentials come from the database (set via OAuth), not from the request body
+    const cfg = await loadShopifyCredentials();
+    if (!cfg) {
+      return res.status(400).json({
+        success: false,
+        error: 'Shopify is not connected. Please authorise via the Connect button first.'
       });
     }
+    const { shop, accessToken } = cfg;
     
     // Test connection by fetching shop info
     const shopUrl = `https://${shop}/admin/api/2024-01/shop.json`;
@@ -56,14 +57,17 @@ router.post('/test-connection', async (req, res, next) => {
  */
 router.post('/sync-inventory', async (req, res, next) => {
   try {
-    const { shop, accessToken, locationMapping } = req.body;
-    
-    if (!shop || !accessToken) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Missing required fields: shop, accessToken' 
+    const { locationMapping } = req.body;
+
+    // Credentials come from the database (set via OAuth)
+    const cfg = await loadShopifyCredentials();
+    if (!cfg) {
+      return res.status(400).json({
+        success: false,
+        error: 'Shopify is not connected. Please authorise via the Connect button first.'
       });
     }
+    const { shop, accessToken } = cfg;
     
     // Fetch all products from Shopify
     let allProducts = [];
@@ -273,6 +277,20 @@ router.post('/settings', async (req, res, next) => {
     res.json({ success: true, message: 'Shopify settings saved' });
   } catch (error) {
     console.error('Error saving Shopify settings:', error);
+    next(error);
+  }
+});
+
+/**
+ * POST /api/shopify/disconnect
+ * Remove stored Shopify credentials.
+ */
+router.post('/disconnect', async (req, res, next) => {
+  try {
+    await pool.query(`DELETE FROM settings WHERE id = 'shopify_config'`);
+    res.json({ success: true, message: 'Shopify disconnected' });
+  } catch (error) {
+    console.error('Error disconnecting Shopify:', error);
     next(error);
   }
 });

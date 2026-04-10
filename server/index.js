@@ -97,6 +97,7 @@ const suppliersRouter = require('./routes/suppliers');
 const importLocalStorageRouter = require('./routes/import-localStorage');
 const collectionsRouter = require('./routes/collections');
 const shopifyRouter = require('./routes/shopify');
+const shopifyOAuthRouter = require('./routes/shopify-oauth');
 const inventoryRouter = require('./routes/inventory');
 const dashboardRouter = require('./routes/dashboard');
 const packingRouter = require('./routes/packing');
@@ -115,6 +116,9 @@ app.use('/api/inventory-categories', requireAuth, inventoryCategoriesRouter);
 app.use('/api/suppliers', requireAuth, suppliersRouter);
 app.use('/api/import-localStorage', requireAuth, importLocalStorageRouter);
 app.use('/api/collections', requireAuth, collectionsRouter);
+// Shopify OAuth endpoints — public (Shopify redirects here during the OAuth handshake)
+app.use('/api/shopify', shopifyOAuthRouter);
+// Shopify protected endpoints — require JWT
 app.use('/api/shopify', requireAuth, shopifyRouter);
 app.use('/api/inventory', requireAuth, inventoryRouter);
 app.use('/api/dashboard', requireAuth, dashboardRouter);
