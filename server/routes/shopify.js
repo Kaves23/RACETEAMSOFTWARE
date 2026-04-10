@@ -309,14 +309,51 @@ async function loadShopifyCredentials() {
 }
 
 /**
- * GET /api/shopify/search?q=bearing
- * Live search Shopify products by title — uses stored credentials.
- * Returns a flat list of variants ready to display in the packing UI.
+ * GET /api/shopify/locations
+ * Returns all active Shopify fulfillment locations.
+ */
+router.get('/locations', async (req, res, next) => {
+  try {
+    const cfg = await loadShopifyCredentials();
+    if (!cfg) return res.status(400).json({ success: false, error: 'Shopify not configured' });
+
+    const graphqlUrl = `https://${cfg.shop}/admin/api/2026-01/graphql.json`;
+    const headers = { 'X-Shopify-Access-Token': cfg.accessToken, 'Content-Type': 'application/json' };
+
+    const resp = await fetch(graphqlUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ query: `{
+        locations(first: 50, includeInactive: false) {
+          edges { node { id legacyResourceId name isActive } }
+        }
+      }` })
+    });
+
+    const data = await resp.json();
+    const locations = (data?.data?.locations?.edges || [])
+      .map(({ node }) => ({ gid: node.id, legacyId: node.legacyResourceId, name: node.name }))
+      .filter(l => l.legacyId);
+
+    res.json({ success: true, locations });
+  } catch (error) {
+    console.error('Shopify locations error:', error);
+    next(error);
+  }
+});
+
+/**
+ * GET /api/shopify/search?q=bearing[&locationId=12345]
+ * Live search Shopify products. When locationId is supplied (Shopify legacy numeric ID)
+ * the returned shopify_quantity reflects that location's available stock only.
  */
 router.get('/search', async (req, res, next) => {
   try {
     const q = (req.query.q || '').trim();
     if (q.length < 2) return res.json({ success: true, products: [] });
+
+    const locationId = (req.query.locationId || '').trim();
+    const locationGid = locationId ? `gid://shopify/Location/${locationId}` : null;
 
     const cfg = await loadShopifyCredentials();
     if (!cfg) {
@@ -329,114 +366,70 @@ router.get('/search', async (req, res, next) => {
     const headers = { 'X-Shopify-Access-Token': cfg.accessToken, 'Content-Type': 'application/json' };
     const graphqlUrl = `https://${cfg.shop}/admin/api/2026-01/graphql.json`;
     const results = [];
+    const parseGid = (gid) => String(gid).split('/').pop();
 
-    // Use GraphQL to search by SKU (exact) first, then fall back to title search
-    const skuQuery = `{
-      products(first: 10, query: "sku:${q.replace(/"/g, '')}") {
-        edges {
-          node {
-            id
-            title
-            productType
-            vendor
-            images(first: 1) { edges { node { url } } }
-            variants(first: 20) {
+    // Build the variants fragment — include per-location inventoryLevel if locationGid given
+    const variantsFragment = `variants(first: 20) {
               edges {
                 node {
-                  id
-                  sku
-                  title
-                  price
-                  inventoryQuantity
-                  inventoryItem { id }
+                  id sku title price inventoryQuantity
+                  inventoryItem {
+                    id legacyResourceId
+                    ${locationGid ? `inventoryLevel(locationId: "${locationGid}") {
+                      quantities(names: ["available"]) { name quantity }
+                    }` : ''}
+                  }
                 }
               }
-            }
+            }`;
+
+    const buildQuery = (searchType, term) => `{
+      products(first: 10, query: "${searchType}:${term.replace(/"/g, '')}") {
+        edges {
+          node {
+            id title productType vendor
+            images(first: 1) { edges { node { url } } }
+            ${variantsFragment}
           }
         }
       }
     }`;
 
-    const gqlResp = await fetch(graphqlUrl, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ query: skuQuery })
-    });
+    const pushResult = (product, variant) => {
+      const invItem = variant.inventoryItem || {};
+      const locationQty = locationGid
+        ? (invItem.inventoryLevel?.quantities?.[0]?.quantity ?? 0)
+        : (variant.inventoryQuantity ?? 0);
+      results.push({
+        shopify_product_id: parseGid(product.id),
+        shopify_variant_id: parseGid(variant.id),
+        shopify_inventory_item_id: invItem.legacyResourceId || parseGid(invItem.id || ''),
+        name: product.title + (variant.title !== 'Default Title' ? ` – ${variant.title}` : ''),
+        sku: variant.sku || '',
+        price: variant.price || '0.00',
+        category: product.productType || 'Uncategorized',
+        vendor: product.vendor || '',
+        image_url: product.images?.edges?.[0]?.node?.url || null,
+        shopify_quantity: locationQty
+      });
+    };
 
-    const gqlData = await gqlResp.json();
-    const gqlProducts = gqlData?.data?.products?.edges || [];
-
-    const parseGid = (gid) => String(gid).split('/').pop();
-
-    for (const { node: product } of gqlProducts) {
+    // Try exact SKU match first
+    const skuResp = await fetch(graphqlUrl, { method: 'POST', headers, body: JSON.stringify({ query: buildQuery('sku', q) }) });
+    const skuData = await skuResp.json();
+    for (const { node: product } of (skuData?.data?.products?.edges || [])) {
       for (const { node: variant } of (product.variants?.edges || [])) {
-        // For SKU search, only include exact SKU matches
-        if (!variant.sku || variant.sku !== q) continue;
-        results.push({
-          shopify_product_id: parseGid(product.id),
-          shopify_variant_id: parseGid(variant.id),
-          shopify_inventory_item_id: parseGid(variant.inventoryItem?.id || ''),
-          name: product.title + (variant.title !== 'Default Title' ? ` – ${variant.title}` : ''),
-          sku: variant.sku || '',
-          price: variant.price || '0.00',
-          category: product.productType || 'Uncategorized',
-          vendor: product.vendor || '',
-          image_url: product.images?.edges?.[0]?.node?.url || null,
-          shopify_quantity: variant.inventoryQuantity || 0
-        });
+        if (variant.sku === q) pushResult(product, variant);
       }
     }
 
     // Fall back to title search if no SKU match
     if (results.length === 0) {
-      const titleQuery = `{
-        products(first: 10, query: "title:${q.replace(/"/g, '')}") {
-          edges {
-            node {
-              id
-              title
-              productType
-              vendor
-              images(first: 1) { edges { node { url } } }
-              variants(first: 20) {
-                edges {
-                  node {
-                    id
-                    sku
-                    title
-                    price
-                    inventoryQuantity
-                    inventoryItem { id }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }`;
-
-      const titleResp = await fetch(graphqlUrl, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ query: titleQuery })
-      });
+      const titleResp = await fetch(graphqlUrl, { method: 'POST', headers, body: JSON.stringify({ query: buildQuery('title', q) }) });
       const titleData = await titleResp.json();
-      const titleProducts = titleData?.data?.products?.edges || [];
-
-      for (const { node: product } of titleProducts) {
+      for (const { node: product } of (titleData?.data?.products?.edges || [])) {
         for (const { node: variant } of (product.variants?.edges || [])) {
-          results.push({
-            shopify_product_id: parseGid(product.id),
-            shopify_variant_id: parseGid(variant.id),
-            shopify_inventory_item_id: parseGid(variant.inventoryItem?.id || ''),
-            name: product.title + (variant.title !== 'Default Title' ? ` – ${variant.title}` : ''),
-            sku: variant.sku || '',
-            price: variant.price || '0.00',
-            category: product.productType || 'Uncategorized',
-            vendor: product.vendor || '',
-            image_url: product.images?.edges?.[0]?.node?.url || null,
-            shopify_quantity: variant.inventoryQuantity || 0
-          });
+          pushResult(product, variant);
         }
       }
     }
@@ -444,6 +437,43 @@ router.get('/search', async (req, res, next) => {
     res.json({ success: true, products: results });
   } catch (error) {
     console.error('Shopify search error:', error);
+    next(error);
+  }
+});
+
+/**
+ * POST /api/shopify/adjust-stock
+ * Adjust inventory quantity at a specific Shopify location.
+ * Body: { inventory_item_id, location_id, adjustment }  (adjustment is negative to decrement)
+ */
+router.post('/adjust-stock', async (req, res, next) => {
+  try {
+    const { inventory_item_id, location_id, adjustment } = req.body;
+    if (!inventory_item_id || !location_id || adjustment == null) {
+      return res.status(400).json({ success: false, error: 'inventory_item_id, location_id, and adjustment are required' });
+    }
+
+    const cfg = await loadShopifyCredentials();
+    if (!cfg) return res.status(400).json({ success: false, error: 'Shopify not configured' });
+
+    const url = `https://${cfg.shop}/admin/api/2026-01/inventory_levels/adjust.json`;
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'X-Shopify-Access-Token': cfg.accessToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        location_id: parseInt(location_id),
+        inventory_item_id: parseInt(inventory_item_id),
+        available_adjustment: parseInt(adjustment)
+      })
+    });
+
+    const data = await resp.json();
+    if (!resp.ok) {
+      return res.status(resp.status).json({ success: false, error: data.errors ? JSON.stringify(data.errors) : 'Shopify API error' });
+    }
+    res.json({ success: true, inventory_level: data.inventory_level });
+  } catch (error) {
+    console.error('Shopify adjust-stock error:', error);
     next(error);
   }
 });
@@ -481,7 +511,7 @@ router.post('/lazy-import', async (req, res, next) => {
          shopify_product_id, shopify_variant_id, shopify_sync_at,
          created_at, updated_at
        ) VALUES (
-         $1, $2, $3, $4, 0, 0, 'ea',
+         $1, $2, $3, $4, 1, 0, 'ea',
          $5, $6,
          $7, $8, NOW(),
          NOW(), NOW()

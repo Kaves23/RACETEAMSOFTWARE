@@ -865,6 +865,37 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   // ========== SHOPIFY LIVE SEARCH ==========
 
   let _shopifyDebounceTimer = null;
+  let _shopifyLocations = null; // cached after first load
+
+  async function ensureShopifyLocations() {
+    if (_shopifyLocations) return;
+    const sel = document.getElementById('shopifyLocationSelect');
+    if (!sel) return;
+    sel.disabled = true;
+    try {
+      const resp = await fetch('/api/shopify/locations', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}` }
+      });
+      const data = await resp.json();
+      if (resp.ok && data.success && data.locations.length) {
+        _shopifyLocations = data.locations;
+        sel.innerHTML = '<option value="">All locations (combined)</option>' +
+          data.locations.map(l => `<option value="${l.legacyId}">${l.name}</option>`).join('');
+        // Re-run search if there is already a query
+        const q = document.getElementById('searchShopify')?.value?.trim();
+        if (q && q.length >= 2) searchShopify(q);
+      }
+    } catch (e) {
+      console.warn('Could not load Shopify locations:', e);
+    } finally {
+      sel.disabled = false;
+    }
+  }
+
+  function getShopifyLocationName(legacyId) {
+    if (!_shopifyLocations || !legacyId) return legacyId || '';
+    return (_shopifyLocations.find(l => l.legacyId === String(legacyId)) || {}).name || legacyId;
+  }
 
   function initShopifySearch() {
     const el = document.getElementById('searchShopify');
@@ -878,6 +909,11 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       }
       _shopifyDebounceTimer = setTimeout(() => searchShopify(q), 350);
     });
+    // Re-search when location changes
+    document.getElementById('shopifyLocationSelect')?.addEventListener('change', () => {
+      const q = el.value.trim();
+      if (q.length >= 2) searchShopify(q);
+    });
   }
 
   async function searchShopify(q) {
@@ -887,7 +923,9 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     if (status)  { status.textContent = `Searching Shopify for "${q}"…`; status.style.display = 'block'; }
 
     try {
-      const resp = await fetch(`/api/shopify/search?q=${encodeURIComponent(q)}`, {
+      const locationId = document.getElementById('shopifyLocationSelect')?.value || '';
+      const url = `/api/shopify/search?q=${encodeURIComponent(q)}${locationId ? `&locationId=${encodeURIComponent(locationId)}` : ''}`;
+      const resp = await fetch(url, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}` }
       });
       const data = await resp.json();
@@ -900,9 +938,11 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       }
 
       if (status) {
+        const locName = getShopifyLocationName(document.getElementById('shopifyLocationSelect')?.value || '');
+        const locLabel = locName ? ` at ${locName}` : '';
         status.textContent = data.products.length
-          ? `${data.products.length} result${data.products.length !== 1 ? 's' : ''} from Shopify`
-          : `No products found for "${q}"`;
+          ? `${data.products.length} result${data.products.length !== 1 ? 's' : ''} from Shopify${locLabel}`
+          : `No products found for "${q}"${locLabel}`;
         status.style.display = 'block';
       }
       renderShopifyResults(data.products);
@@ -942,11 +982,13 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
         <div class="item-card shopify-result-card"
              data-shopify-variant-id="${esc(p.shopify_variant_id)}"
              data-shopify-product-id="${esc(p.shopify_product_id)}"
+             data-shopify-inventory-item-id="${esc(p.shopify_inventory_item_id)}"
              data-shopify-name="${esc(p.name)}"
              data-shopify-sku="${esc(p.sku)}"
              data-shopify-price="${esc(p.price)}"
              data-shopify-category="${esc(p.category)}"
              data-shopify-vendor="${esc(p.vendor)}"
+             data-shopify-qty="${p.shopify_quantity}"
              style="cursor:pointer;padding:8px!important;padding-left:10px!important"
              onclick="shopifyPackCard(this)">
           <div style="display:flex;gap:8px;align-items:center">
@@ -969,41 +1011,79 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   window.shopifyPackCard = async function(cardEl) {
     const variantId  = cardEl.dataset.shopifyVariantId;
     const productId  = cardEl.dataset.shopifyProductId;
+    const invItemId  = cardEl.dataset.shopifyInventoryItemId;
     const name       = cardEl.dataset.shopifyName;
     const sku        = cardEl.dataset.shopifySku;
     const price      = cardEl.dataset.shopifyPrice;
     const category   = cardEl.dataset.shopifyCategory;
     const vendor     = cardEl.dataset.shopifyVendor;
+    const shopifyQty = parseInt(cardEl.dataset.shopifyQty) || 0;
 
-    showLoading('Shopify', `Importing ${name}…`);
+    const locationId   = document.getElementById('shopifyLocationSelect')?.value || '';
+    const locationName = getShopifyLocationName(locationId);
 
     try {
-      // Lazy-import: find or create local inventory row
-      const importResp = await fetch('/api/shopify/lazy-import', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
-        },
-        body: JSON.stringify({ shopify_variant_id: variantId, shopify_product_id: productId, name, sku, price, category, vendor })
-      });
-
-      const importData = await importResp.json();
-      if (!importResp.ok || !importData.success) {
-        hideLoading();
-        showToast(`Import failed: ${importData.error || 'unknown error'}`, 'error');
-        return;
-      }
-
-      // Refresh inventory list so the imported item appears in the Inventory tab
-      await loadInventoryItems();
-      hideLoading();
-
       if (currentBoxId) {
-        // Box already selected — pack it straight away
-        await packMultipleItems(currentBoxId, [{ id: String(importData.item.id), type: 'inventory' }]);
+        // ── Box selected: ask qty, decrement Shopify stock, then pack ──
+        const box = boxes.find(b => b.id === currentBoxId);
+        const locLabel = locationName ? ` at ${locationName}` : '';
+        const quantityStr = await customPrompt(
+          `📦 Pack "${name}"`,
+          `Packing into: ${box ? box.name : currentBoxId}\n\nShopify stock${locLabel}: ${shopifyQty} units\n\nHow many to pack?`,
+          `1`
+        );
+        if (!quantityStr || !quantityStr.trim()) return;
+        const quantity = parseInt(quantityStr);
+        if (isNaN(quantity) || quantity <= 0) { showToast('Invalid quantity', 'error'); return; }
+
+        showLoading('Shopify', `Importing & packing ${name}…`);
+
+        // Lazy-import
+        const importResp = await fetch('/api/shopify/lazy-import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}` },
+          body: JSON.stringify({ shopify_variant_id: variantId, shopify_product_id: productId, name, sku, price, category, vendor })
+        });
+        const importData = await importResp.json();
+        if (!importResp.ok || !importData.success) {
+          hideLoading();
+          showToast(`Import failed: ${importData.error || 'unknown error'}`, 'error');
+          return;
+        }
+
+        // Decrement Shopify stock at selected location
+        if (locationId && invItemId) {
+          try {
+            await fetch('/api/shopify/adjust-stock', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}` },
+              body: JSON.stringify({ inventory_item_id: invItemId, location_id: locationId, adjustment: -quantity })
+            });
+          } catch (e) {
+            console.warn('Shopify stock adjustment failed (non-fatal):', e);
+          }
+        }
+
+        await loadInventoryItems();
+        hideLoading();
+        await packMultipleItems(currentBoxId, [{ id: String(importData.item.id), type: 'inventory' }], quantity);
+
       } else {
-        // No box selected — switch to Inventory tab so user can drag it to a box
+        // ── No box selected: import only, switch to Inventory tab ──
+        showLoading('Shopify', `Importing ${name}…`);
+        const importResp = await fetch('/api/shopify/lazy-import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}` },
+          body: JSON.stringify({ shopify_variant_id: variantId, shopify_product_id: productId, name, sku, price, category, vendor })
+        });
+        const importData = await importResp.json();
+        if (!importResp.ok || !importData.success) {
+          hideLoading();
+          showToast(`Import failed: ${importData.error || 'unknown error'}`, 'error');
+          return;
+        }
+        await loadInventoryItems();
+        hideLoading();
         showToast(`✅ "${name}" imported — drag it from the Inventory tab to a box`, 'success');
         switchItemsTab('inventory');
       }
@@ -2741,7 +2821,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     return null;
   }
   
-  async function packMultipleItems(boxId, items) {
+  async function packMultipleItems(boxId, items, presetQuantity = null) {
     if (!items || items.length === 0) return;
     
     const box = boxes.find(b => b.id === boxId);
@@ -2766,29 +2846,35 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
         const totalQty = item.totalQuantity || item.quantity || 0;
         const availableQty = totalQty - packedQty;
         
-        if (availableQty <= 0) {
+        if (availableQty <= 0 && presetQuantity == null) {
           showToast(`No units available for ${item.name}`, 'warning');
           continue;
         }
-        
-        // Styled quantity prompt
-        const quantityStr = await customPrompt(
-          `📦 Pack "${item.name}"`,
-          `Packing into: ${box.name}\n\nAvailable: ${availableQty} of ${totalQty} units (${packedQty} already packed).\n\nHow many units to pack?`,
-          `1 – ${availableQty}`
-        );
-        
-        if (!quantityStr || quantityStr.trim() === '') {
-          continue; // User cancelled
+
+        // Use preset quantity (from Shopify flow) or prompt the user
+        let quantity;
+        if (presetQuantity != null) {
+          quantity = presetQuantity;
+        } else {
+          // Styled quantity prompt
+          const quantityStr = await customPrompt(
+            `📦 Pack "${item.name}"`,
+            `Packing into: ${box.name}\n\nAvailable: ${availableQty} of ${totalQty} units (${packedQty} already packed).\n\nHow many units to pack?`,
+            `1 – ${availableQty}`
+          );
+
+          if (!quantityStr || quantityStr.trim() === '') {
+            continue; // User cancelled
+          }
+
+          quantity = parseInt(quantityStr);
+          if (isNaN(quantity) || quantity <= 0) {
+            showToast('Invalid quantity', 'error');
+            continue;
+          }
         }
         
-        const quantity = parseInt(quantityStr);
-        if (isNaN(quantity) || quantity <= 0) {
-          showToast('Invalid quantity', 'error');
-          continue;
-        }
-        
-        if (quantity > availableQty) {
+        if (quantity > availableQty && presetQuantity == null) {
           showToast(`Only ${availableQty} units available`, 'error');
           continue;
         }
