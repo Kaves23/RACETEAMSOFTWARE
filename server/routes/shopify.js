@@ -469,6 +469,7 @@ router.post('/adjust-stock', async (req, res, next) => {
     });
 
     const data = await resp.json();
+    console.log('Shopify adjust-stock response:', resp.status, JSON.stringify(data).substring(0, 500));
     if (!resp.ok) {
       return res.status(resp.status).json({ success: false, error: data.errors ? JSON.stringify(data.errors) : 'Shopify API error' });
     }
@@ -486,7 +487,7 @@ router.post('/adjust-stock', async (req, res, next) => {
  */
 router.post('/lazy-import', async (req, res, next) => {
   try {
-    const { shopify_variant_id, shopify_product_id, name, sku, price, category, vendor, shopify_quantity } = req.body;
+    const { shopify_variant_id, shopify_product_id, shopify_inventory_item_id, name, sku, price, category, vendor, shopify_quantity } = req.body;
 
     if (!shopify_variant_id) {
       return res.status(400).json({ success: false, error: 'shopify_variant_id is required' });
@@ -498,13 +499,26 @@ router.post('/lazy-import', async (req, res, next) => {
       [String(shopify_variant_id)]
     );
     if (existing.rows.length > 0) {
-      // If we have fresher stock data, update the quantity
+      // Update quantity if fresher, and also store inventory item id if not yet set
+      const updates = [];
+      const vals = [];
       if (shopify_quantity != null) {
         const newQty = Math.max(1, parseInt(shopify_quantity) || 1);
+        if (newQty > (existing.rows[0].quantity || 0)) {
+          updates.push(`quantity = $${vals.length + 1}`);
+          vals.push(newQty);
+        }
+      }
+      if (shopify_inventory_item_id && !existing.rows[0].shopify_inventory_item_id) {
+        updates.push(`shopify_inventory_item_id = $${vals.length + 1}`);
+        vals.push(String(shopify_inventory_item_id));
+      }
+      if (updates.length > 0) {
+        vals.push(existing.rows[0].id);
         const updated = await pool.query(
-          `UPDATE inventory SET quantity = $1, shopify_sync_at = NOW(), updated_at = NOW()
-           WHERE id = $2 AND quantity < $1 RETURNING *`,
-          [newQty, existing.rows[0].id]
+          `UPDATE inventory SET ${updates.join(', ')}, shopify_sync_at = NOW(), updated_at = NOW()
+           WHERE id = $${vals.length} RETURNING *`,
+          vals
         );
         if (updated.rows.length > 0) {
           return res.json({ success: true, item: updated.rows[0], created: false });
@@ -521,23 +535,195 @@ router.post('/lazy-import', async (req, res, next) => {
       `INSERT INTO inventory (
          id, name, sku, category, quantity, min_quantity, unit,
          unit_cost, supplier,
-         shopify_product_id, shopify_variant_id, shopify_sync_at,
+         shopify_product_id, shopify_variant_id, shopify_inventory_item_id, shopify_sync_at,
          created_at, updated_at
        ) VALUES (
          $1, $2, $3, $4, $9, 0, 'ea',
          $5, $6,
-         $7, $8, NOW(),
+         $7, $8, $10, NOW(),
          NOW(), NOW()
        ) RETURNING *`,
       [newId, name, sku || null, categoryName,
        parseFloat(price) || null, vendor || null,
        String(shopify_product_id), String(shopify_variant_id),
-       Math.max(1, parseInt(shopify_quantity) || 1)]
+       Math.max(1, parseInt(shopify_quantity) || 1),
+       shopify_inventory_item_id ? String(shopify_inventory_item_id) : null]
     );
 
     res.json({ success: true, item: insertResult.rows[0], created: true });
   } catch (error) {
     console.error('Shopify lazy-import error:', error);
+    next(error);
+  }
+});
+
+/**
+ * GET /api/shopify/customers?q=NAME
+ * Search Shopify customers by name or email.
+ */
+router.get('/customers', async (req, res, next) => {
+  try {
+    const { q = '' } = req.query;
+    const cfg = await loadShopifyCredentials();
+    if (!cfg) return res.status(400).json({ success: false, error: 'Shopify not configured' });
+
+    const url = `https://${cfg.shop}/admin/api/2026-01/customers/search.json?query=${encodeURIComponent(q)}&limit=10&fields=id,email,first_name,last_name`;
+    const resp = await fetch(url, {
+      headers: { 'X-Shopify-Access-Token': cfg.accessToken }
+    });
+    const data = await resp.json();
+    if (!resp.ok) {
+      return res.status(resp.status).json({ success: false, error: data.errors ? JSON.stringify(data.errors) : 'Shopify API error' });
+    }
+    const customers = (data.customers || []).map(c => ({
+      id: String(c.id),
+      email: c.email || '',
+      first_name: c.first_name || '',
+      last_name: c.last_name || '',
+      display_name: [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email || String(c.id)
+    }));
+    res.json({ success: true, customers });
+  } catch (error) {
+    console.error('Shopify customers error:', error);
+    next(error);
+  }
+});
+
+/**
+ * POST /api/shopify/create-order
+ * Create an unpaid Shopify order for a customer, then immediately fulfill it.
+ * Body: { customerId, locationId, lineItems: [{ variantId, quantity, price, name }] }
+ */
+router.post('/create-order', async (req, res, next) => {
+  try {
+    const { customerId, locationId, lineItems } = req.body;
+    if (!customerId || !lineItems || !lineItems.length) {
+      return res.status(400).json({ success: false, error: 'customerId and lineItems are required' });
+    }
+
+    const cfg = await loadShopifyCredentials();
+    if (!cfg) return res.status(400).json({ success: false, error: 'Shopify not configured' });
+
+    // Step A: Create order (financial_status=pending)
+    const orderPayload = {
+      order: {
+        financial_status: 'pending',
+        send_receipt: false,
+        send_fulfillment_receipt: false,
+        customer: { id: parseInt(customerId) },
+        line_items: lineItems.map(li => ({
+          variant_id: parseInt(li.variantId),
+          quantity: parseInt(li.quantity),
+          price: li.price != null ? String(parseFloat(li.price).toFixed(2)) : '0.00',
+          title: li.name || 'Item'
+        }))
+      }
+    };
+    if (locationId) orderPayload.order.location_id = parseInt(locationId);
+
+    const orderResp = await fetch(`https://${cfg.shop}/admin/api/2026-01/orders.json`, {
+      method: 'POST',
+      headers: { 'X-Shopify-Access-Token': cfg.accessToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify(orderPayload)
+    });
+    const orderData = await orderResp.json();
+    if (!orderResp.ok) {
+      console.error('Shopify create-order error:', JSON.stringify(orderData).substring(0, 1000));
+      return res.status(orderResp.status).json({ success: false, error: orderData.errors ? JSON.stringify(orderData.errors) : 'Order creation failed' });
+    }
+    const order = orderData.order;
+
+    // Step B: Fulfill the order immediately
+    try {
+      const fulfillPayload = {
+        fulfillment: {
+          notify_customer: false,
+          line_items_by_fulfillment_order: []
+        }
+      };
+      // Use fulfillment orders API (2026-01)
+      const foResp = await fetch(`https://${cfg.shop}/admin/api/2026-01/orders/${order.id}/fulfillment_orders.json`, {
+        headers: { 'X-Shopify-Access-Token': cfg.accessToken }
+      });
+      if (foResp.ok) {
+        const foData = await foResp.json();
+        const openFOs = (foData.fulfillment_orders || []).filter(fo => fo.status === 'open');
+        if (openFOs.length > 0) {
+          fulfillPayload.fulfillment.line_items_by_fulfillment_order = openFOs.map(fo => ({
+            fulfillment_order_id: fo.id,
+            fulfillment_order_line_items: fo.line_items.map(li => ({ id: li.id, quantity: li.quantity }))
+          }));
+          await fetch(`https://${cfg.shop}/admin/api/2026-01/fulfillments.json`, {
+            method: 'POST',
+            headers: { 'X-Shopify-Access-Token': cfg.accessToken, 'Content-Type': 'application/json' },
+            body: JSON.stringify(fulfillPayload)
+          });
+        }
+      }
+    } catch (fulfillErr) {
+      console.warn('Fulfillment step failed (non-fatal):', fulfillErr.message);
+    }
+
+    res.json({
+      success: true,
+      order: {
+        id: String(order.id),
+        order_number: order.order_number,
+        customer: order.customer ? `${order.customer.first_name || ''} ${order.customer.last_name || ''}`.trim() : customerId,
+        total_price: order.total_price
+      }
+    });
+  } catch (error) {
+    console.error('Shopify create-order error:', error);
+    next(error);
+  }
+});
+
+/**
+ * POST /api/shopify/return-stock
+ * Batch return items to Shopify inventory.
+ * Body: { items: [{ inventory_item_id, location_id, adjustment }] }  (adjustment should be positive)
+ */
+router.post('/return-stock', async (req, res, next) => {
+  try {
+    const { items } = req.body;
+    if (!items || !items.length) {
+      return res.status(400).json({ success: false, error: 'items array is required' });
+    }
+
+    const cfg = await loadShopifyCredentials();
+    if (!cfg) return res.status(400).json({ success: false, error: 'Shopify not configured' });
+
+    const url = `https://${cfg.shop}/admin/api/2026-01/inventory_levels/adjust.json`;
+    let adjusted = 0;
+    const errors = [];
+
+    for (const item of items) {
+      if (!item.inventory_item_id || !item.location_id || !item.adjustment) continue;
+      try {
+        const resp = await fetch(url, {
+          method: 'POST',
+          headers: { 'X-Shopify-Access-Token': cfg.accessToken, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            location_id: parseInt(item.location_id),
+            inventory_item_id: parseInt(item.inventory_item_id),
+            available_adjustment: parseInt(item.adjustment)
+          })
+        });
+        if (resp.ok) {
+          adjusted++;
+        } else {
+          const d = await resp.json();
+          errors.push(`Item ${item.inventory_item_id}: ${d.errors ? JSON.stringify(d.errors) : resp.status}`);
+        }
+      } catch (e) {
+        errors.push(`Item ${item.inventory_item_id}: ${e.message}`);
+      }
+    }
+
+    res.json({ success: true, adjusted, errors: errors.length ? errors : undefined });
+  } catch (error) {
+    console.error('Shopify return-stock error:', error);
     next(error);
   }
 });

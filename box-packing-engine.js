@@ -61,6 +61,8 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   let currentBoxId = null;
   let currentFilter = 'all';
   let boxModal, historyModal, unpackModal;
+  let unpackStepReturnModal, unpackStepBillModal, unpackStepConfirmModal;
+  let unpackState = null; // State for multi-step Shopify unpack flow
   let allAssetTypes = []; // Asset types from settings with colors
   let allLocations = []; // Locations from database
   let selectedBoxes = new Set(); // Track selected box IDs for bulk operations
@@ -799,6 +801,9 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     boxModal = new bootstrap.Modal(document.getElementById('boxModal'));
     historyModal = new bootstrap.Modal(document.getElementById('historyModal'));
     unpackModal = new bootstrap.Modal(document.getElementById('unpackModal'));
+    unpackStepReturnModal = new bootstrap.Modal(document.getElementById('unpackStepReturnModal'));
+    unpackStepBillModal   = new bootstrap.Modal(document.getElementById('unpackStepBillModal'));
+    unpackStepConfirmModal = new bootstrap.Modal(document.getElementById('unpackStepConfirmModal'));
 
     document.getElementById('btnNewBox').addEventListener('click', () => showBoxModal());
     document.getElementById('btnSaveBox').addEventListener('click', saveBox);
@@ -1050,7 +1055,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
         const importResp = await fetch('/api/shopify/lazy-import', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}` },
-          body: JSON.stringify({ shopify_variant_id: variantId, shopify_product_id: productId, name, sku, price, category, vendor, shopify_quantity: shopifyQty })
+          body: JSON.stringify({ shopify_variant_id: variantId, shopify_product_id: productId, shopify_inventory_item_id: invItemId, name, sku, price, category, vendor, shopify_quantity: shopifyQty })
         });
         const importData = await importResp.json();
         if (!importResp.ok || !importData.success) {
@@ -1082,7 +1087,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
         const importResp = await fetch('/api/shopify/lazy-import', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}` },
-          body: JSON.stringify({ shopify_variant_id: variantId, shopify_product_id: productId, name, sku, price, category, vendor, shopify_quantity: shopifyQty })
+          body: JSON.stringify({ shopify_variant_id: variantId, shopify_product_id: productId, shopify_inventory_item_id: invItemId, name, sku, price, category, vendor, shopify_quantity: shopifyQty })
         });
         const importData = await importResp.json();
         if (!importResp.ok || !importData.success) {
@@ -2399,6 +2404,18 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       showToast('This box is already empty', 'info');
       return;
     }
+
+    // For whole-box mode: check if any contents are Shopify inventory items
+    if (!isSingleItem) {
+      const shopifyContents = contents.filter(c => {
+        const item = getItem(c.itemId, c.itemType);
+        return item && c.itemType === 'inventory' && item.shopify_variant_id;
+      });
+      if (shopifyContents.length > 0) {
+        showUnpackReturnStep(targetBoxId, contents);
+        return;
+      }
+    }
     
     // Populate location dropdown from DB locations
     const locationSelect = document.getElementById('unpackLocation');
@@ -2547,6 +2564,448 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   
   // Make globally accessible
   window.showUnpackModal = showUnpackModal;
+
+  // ========== SHOPIFY MULTI-STEP UNPACK ==========
+
+  function showUnpackReturnStep(boxId, contents) {
+    // Build initial state
+    const shopifyItems = contents
+      .filter(c => {
+        const item = getItem(c.itemId, c.itemType);
+        return item && c.itemType === 'inventory' && item.shopify_variant_id;
+      })
+      .map(c => {
+        const item = getItem(c.itemId, c.itemType);
+        return {
+          contentId: c.id,
+          itemId: c.itemId,
+          variantId: item.shopify_variant_id,
+          inventoryItemId: item.shopify_inventory_item_id || null,
+          name: item.name,
+          packedQty: c.quantityPacked || 1
+        };
+      });
+
+    const otherContents = contents.filter(c => {
+      const item = getItem(c.itemId, c.itemType);
+      return !(item && c.itemType === 'inventory' && item.shopify_variant_id);
+    });
+
+    unpackState = {
+      boxId,
+      allContents: contents,
+      shopifyItems,
+      otherContents,
+      returnQtys: {},
+      locationId: '',
+      shopifyLocationId: document.getElementById('shopifyLocationSelect')?.value || null,
+      customerAssignments: []
+    };
+
+    // Populate location dropdown
+    const locSel = document.getElementById('returnStepLocation');
+    locSel.innerHTML = '<option value="">Select Location</option>' +
+      allLocations.map(l => `<option value="${esc(l.id)}">${esc(l.name)}</option>`).join('');
+
+    // Render Shopify item rows
+    const shopifyHtml = shopifyItems.map((si, idx) => `
+      <div style="padding:10px;border:1px solid #e0e0e0;border-radius:6px;margin-bottom:8px;display:flex;align-items:center;gap:12px">
+        <div style="flex:1">
+          <div style="font-weight:600;font-size:.88rem;color:#202124">${esc(si.name)}</div>
+          <div style="font-size:.78rem;color:#5f6368">Packed: ${si.packedQty} unit${si.packedQty !== 1 ? 's' : ''}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <label style="font-size:.82rem;color:#5f6368;white-space:nowrap">Return to stock:</label>
+          <input type="number" min="0" max="${si.packedQty}" value="${si.packedQty}"
+                 id="returnQty_${idx}" data-idx="${idx}"
+                 style="width:70px;text-align:center;border:1px solid #1a73e8;border-radius:4px;padding:4px;font-weight:700"
+                 oninput="updateReturnStepConsumed(${idx})">
+          <span style="font-size:.78rem;color:#e53935">consumed: <span id="consumed_${idx}">${0}</span></span>
+        </div>
+      </div>
+    `).join('');
+    document.getElementById('returnStepShopifyItems').innerHTML =
+      `<div style="font-size:.8rem;font-weight:600;color:#5f6368;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Shopify Items</div>
+      ${shopifyHtml}`;
+
+    // Initialize consumed labels
+    shopifyItems.forEach((_, idx) => updateReturnStepConsumed(idx));
+
+    // Render other items
+    if (otherContents.length > 0) {
+      const otherHtml = otherContents.map(c => {
+        const item = getItem(c.itemId, c.itemType);
+        return `<div style="padding:4px 0;border-bottom:1px solid #e0e0e0">${esc(item?.name || 'Unknown')} <span style="color:#5f6368">(${c.quantityPacked || 1})</span></div>`;
+      }).join('');
+      document.getElementById('returnStepOtherList').innerHTML = otherHtml;
+      document.getElementById('returnStepOtherItems').style.display = 'block';
+    } else {
+      document.getElementById('returnStepOtherItems').style.display = 'none';
+    }
+
+    unpackStepReturnModal.show();
+  }
+
+  window.updateReturnStepConsumed = function(idx) {
+    const si = unpackState?.shopifyItems[idx];
+    if (!si) return;
+    const returnVal = parseInt(document.getElementById('returnQty_' + idx)?.value) || 0;
+    const consumed = Math.max(0, si.packedQty - returnVal);
+    const el = document.getElementById('consumed_' + idx);
+    if (el) el.textContent = consumed;
+  };
+
+  window.handleReturnStepNext = function() {
+    if (!unpackState) return;
+
+    const locationId = document.getElementById('returnStepLocation').value;
+    if (!locationId) { showToast('Please select an unpack location', 'warning'); return; }
+    unpackState.locationId = locationId;
+
+    // Read return quantities
+    let totalConsumed = 0;
+    unpackState.shopifyItems.forEach((si, idx) => {
+      const returnVal = Math.min(si.packedQty, Math.max(0, parseInt(document.getElementById('returnQty_' + idx)?.value) || 0));
+      unpackState.returnQtys[idx] = returnVal;
+      totalConsumed += (si.packedQty - returnVal);
+    });
+
+    unpackStepReturnModal.hide();
+
+    if (totalConsumed === 0) {
+      // Nothing consumed: skip billing, go straight to confirm
+      unpackState.customerAssignments = [];
+      showUnpackConfirmStep();
+    } else {
+      showUnpackBillStep();
+    }
+  };
+
+  function showUnpackBillStep() {
+    if (!unpackState) return;
+
+    // Build consumed items array
+    const consumed = unpackState.shopifyItems
+      .map((si, idx) => ({
+        ...si,
+        consumedQty: si.packedQty - (unpackState.returnQtys[idx] || 0)
+      }))
+      .filter(si => si.consumedQty > 0);
+    unpackState.consumedItems = consumed;
+
+    // Render consumed list
+    document.getElementById('billStepConsumedList').innerHTML = consumed.map(si =>
+      `<div style="padding:4px 0;border-bottom:1px solid #ffc107">
+        <div style="font-weight:600">${esc(si.name)}</div>
+        <div style="font-size:.78rem">Qty to bill: <strong>${si.consumedQty}</strong></div>
+       </div>`
+    ).join('');
+
+    // Reset customer rows
+    unpackState.customerRows = [];
+    document.getElementById('billStepCustomerRows').innerHTML = '';
+    document.getElementById('billStepValidation').style.display = 'none';
+
+    // Add one row to start
+    addBillCustomerRow();
+
+    unpackStepBillModal.show();
+  }
+
+  window.addBillCustomerRow = function() {
+    if (!unpackState) return;
+    const rowId = 'custRow_' + Date.now();
+    unpackState.customerRows = unpackState.customerRows || [];
+    unpackState.customerRows.push({ rowId, customer: null });
+
+    const qtyInputs = (unpackState.consumedItems || []).map((si, i) =>
+      `<div style="display:flex;align-items:center;gap:4px;margin-bottom:4px">
+        <span style="font-size:.76rem;color:#5f6368;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(si.name)}</span>
+        <input type="number" min="0" max="${si.consumedQty}" value="0"
+               id="${rowId}_item_${i}" style="width:60px;text-align:center;border:1px solid #ccc;border-radius:4px;padding:2px;font-size:.82rem">
+       </div>`
+    ).join('');
+
+    const html = `
+      <div id="${rowId}" style="border:1px solid #e0e0e0;border-radius:6px;padding:10px;margin-bottom:8px;background:#f8f9fa">
+        <div style="display:flex;align-items:flex-start;gap:8px">
+          <div style="flex:1">
+            <div style="position:relative">
+              <input type="text" placeholder="Search customer..." autocomplete="off"
+                     id="${rowId}_search"
+                     style="width:100%;border:1px solid #ccc;border-radius:4px;padding:4px 8px;font-size:.84rem;margin-bottom:4px"
+                     oninput="searchBillCustomer('${rowId}')">
+              <div id="${rowId}_results" style="position:absolute;left:0;right:0;top:100%;background:#fff;border:1px solid #ccc;border-radius:4px;z-index:9999;max-height:140px;overflow-y:auto;display:none"></div>
+            </div>
+            <div id="${rowId}_name" style="font-size:.82rem;font-weight:600;color:#1a73e8;min-height:18px"></div>
+          </div>
+          <div style="min-width:140px">${qtyInputs}</div>
+          <button class="btn btn-sm btn-outline-danger" style="padding:2px 6px;font-size:.78rem" onclick="removeBillCustomerRow('${rowId}')">✕</button>
+        </div>
+      </div>`;
+    document.getElementById('billStepCustomerRows').insertAdjacentHTML('beforeend', html);
+  };
+
+  let _billSearchTimers = {};
+  window.searchBillCustomer = function(rowId) {
+    clearTimeout(_billSearchTimers[rowId]);
+    _billSearchTimers[rowId] = setTimeout(async () => {
+      const q = document.getElementById(rowId + '_search')?.value?.trim();
+      const resultsEl = document.getElementById(rowId + '_results');
+      if (!resultsEl) return;
+      if (!q || q.length < 2) { resultsEl.style.display = 'none'; return; }
+      try {
+        const resp = await fetch(`/api/shopify/customers?q=${encodeURIComponent(q)}`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}` }
+        });
+        const data = await resp.json();
+        if (!data.success || !data.customers.length) {
+          resultsEl.innerHTML = '<div style="padding:6px 10px;font-size:.82rem;color:#5f6368">No customers found</div>';
+          resultsEl.style.display = 'block';
+          return;
+        }
+        resultsEl.innerHTML = data.customers.map(c =>
+          `<div style="padding:6px 10px;cursor:pointer;font-size:.84rem;border-bottom:1px solid #f0f0f0"
+                onmousedown="selectBillCustomer('${rowId}', '${c.id}', '${esc(c.display_name)}', '${esc(c.email)}')"
+                onmouseover="this.style.background='#f0f4ff'" onmouseout="this.style.background=''">
+            <strong>${esc(c.display_name)}</strong> <span style="color:#5f6368;font-size:.78rem">${esc(c.email)}</span>
+           </div>`
+        ).join('');
+        resultsEl.style.display = 'block';
+      } catch(e) { console.warn('Customer search failed:', e); }
+    }, 300);
+  };
+
+  window.selectBillCustomer = function(rowId, customerId, name, email) {
+    const row = (unpackState?.customerRows || []).find(r => r.rowId === rowId);
+    if (row) row.customer = { id: customerId, name, email };
+    const searchEl = document.getElementById(rowId + '_search');
+    const nameEl = document.getElementById(rowId + '_name');
+    const resultsEl = document.getElementById(rowId + '_results');
+    if (searchEl) searchEl.value = name + (email ? ` <${email}>` : '');
+    if (nameEl) nameEl.textContent = name;
+    if (resultsEl) resultsEl.style.display = 'none';
+  };
+
+  window.removeBillCustomerRow = function(rowId) {
+    document.getElementById(rowId)?.remove();
+    if (unpackState?.customerRows) {
+      unpackState.customerRows = unpackState.customerRows.filter(r => r.rowId !== rowId);
+    }
+  };
+
+  window.handleBillStepBack = function() {
+    unpackStepBillModal.hide();
+    showUnpackReturnStep(unpackState.boxId, unpackState.allContents);
+  };
+
+  window.handleBillStepNext = function() {
+    if (!unpackState) return;
+    const consumed = unpackState.consumedItems || [];
+
+    // Validate: every customer row must have a selected customer
+    const activeRows = (unpackState.customerRows || []).filter(r => document.getElementById(r.rowId));
+    const validationEl = document.getElementById('billStepValidation');
+
+    for (const row of activeRows) {
+      if (!row.customer) {
+        validationEl.textContent = 'Please select a customer from the dropdown for each row.';
+        validationEl.style.display = 'block';
+        return;
+      }
+    }
+
+    // Build per-consumed-item totals assigned
+    const assignedTotals = consumed.map(() => 0);
+    for (const row of activeRows) {
+      consumed.forEach((si, i) => {
+        const val = parseInt(document.getElementById(`${row.rowId}_item_${i}`)?.value) || 0;
+        assignedTotals[i] += val;
+      });
+    }
+
+    // Validate totals match consumed
+    for (let i = 0; i < consumed.length; i++) {
+      if (assignedTotals[i] !== consumed[i].consumedQty) {
+        validationEl.textContent = `"${consumed[i].name}": assigned ${assignedTotals[i]} but consumed ${consumed[i].consumedQty}. Please assign all consumed quantities.`;
+        validationEl.style.display = 'block';
+        return;
+      }
+    }
+    validationEl.style.display = 'none';
+
+    // Build customerAssignments
+    unpackState.customerAssignments = activeRows
+      .map(row => ({
+        customer: row.customer,
+        lineItems: consumed
+          .map((si, i) => ({
+            variantId: si.variantId,
+            quantity: parseInt(document.getElementById(`${row.rowId}_item_${i}`)?.value) || 0,
+            price: null, // let Shopify use variant price
+            name: si.name
+          }))
+          .filter(li => li.quantity > 0)
+      }))
+      .filter(ca => ca.lineItems.length > 0);
+
+    unpackStepBillModal.hide();
+    showUnpackConfirmStep();
+  };
+
+  function showUnpackConfirmStep() {
+    if (!unpackState) return;
+
+    // Order previews
+    const assignmentsHtml = unpackState.customerAssignments.length > 0
+      ? unpackState.customerAssignments.map(ca => {
+          const linesHtml = ca.lineItems.map(li =>
+            `<div style="display:flex;justify-content:space-between;font-size:.82rem;padding:2px 0">
+              <span>${esc(li.name)}</span>
+              <span style="font-weight:600">×${li.quantity}</span>
+             </div>`
+          ).join('');
+          return `
+            <div style="border:1px solid #e0e0e0;border-radius:6px;padding:12px;margin-bottom:10px">
+              <div style="font-weight:700;font-size:.9rem;margin-bottom:8px;color:#1a73e8">📋 Order for ${esc(ca.customer.name)}</div>
+              ${linesHtml}
+            </div>`;
+        }).join('')
+      : '<div style="color:#5f6368;font-size:.85rem">No orders to create — all items being returned to stock.</div>';
+
+    document.getElementById('confirmStepOrderPreviews').innerHTML = assignmentsHtml;
+
+    // Return summary
+    const returnedItems = unpackState.shopifyItems
+      .map((si, idx) => ({ name: si.name, returnQty: unpackState.returnQtys[idx] || 0 }))
+      .filter(x => x.returnQty > 0);
+    const returnHtml = returnedItems.length > 0
+      ? '📦 Returning to Shopify stock: ' + returnedItems.map(x => `${x.returnQty}× ${esc(x.name)}`).join(', ')
+      : 'No items to return to stock.';
+    document.getElementById('confirmStepReturnSummary').textContent = returnHtml;
+
+    unpackStepConfirmModal.show();
+  }
+
+  window.handleConfirmStepBack = function() {
+    unpackStepConfirmModal.hide();
+    if ((unpackState?.consumedItems || []).length > 0) {
+      showUnpackBillStep();
+    } else {
+      showUnpackReturnStep(unpackState.boxId, unpackState.allContents);
+    }
+  };
+
+  window.handleConfirmAndCreate = async function() {
+    if (!unpackState) return;
+    const btn = document.getElementById('btnConfirmAndCreate');
+    if (btn) { btn.disabled = true; btn.textContent = 'Creating orders…'; }
+
+    try {
+      // 1. Create Shopify orders
+      const orderResults = [];
+      for (const ca of unpackState.customerAssignments) {
+        try {
+          const resp = await fetch('/api/shopify/create-order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}` },
+            body: JSON.stringify({
+              customerId: ca.customer.id,
+              locationId: null,
+              lineItems: ca.lineItems
+            })
+          });
+          const data = await resp.json();
+          if (data.success) {
+            orderResults.push({ customer: ca.customer.name, orderNumber: data.order.order_number });
+          } else {
+            console.warn('Order creation failed for', ca.customer.name, data.error);
+            orderResults.push({ customer: ca.customer.name, error: data.error });
+          }
+        } catch(e) {
+          console.warn('Order error:', e);
+          orderResults.push({ customer: ca.customer.name, error: e.message });
+        }
+      }
+
+      // 2. Return stock to Shopify
+      const returnItems = unpackState.shopifyItems
+        .map((si, idx) => ({
+          inventory_item_id: si.inventoryItemId,
+          location_id: unpackState.shopifyLocationId,
+          adjustment: unpackState.returnQtys[idx] || 0
+        }))
+        .filter(x => x.inventory_item_id && x.location_id && x.adjustment > 0);
+
+      if (returnItems.length > 0) {
+        // Find Shopify location from selected location (try to use stored shopify location)
+        // We'll skip Shopify return-stock if we can't determine the Shopify location ID
+        // (The user may not have a mapping; this is soft fail)
+        try {
+          await fetch('/api/shopify/return-stock', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}` },
+            body: JSON.stringify({ items: returnItems })
+          });
+        } catch(e) { console.warn('Return stock failed (non-fatal):', e); }
+      }
+
+      // 3. Run existing unpack logic (uses unpackState.locationId for all contents)
+      unpackStepConfirmModal.hide();
+
+      const locationId = unpackState.locationId;
+      const locationName = allLocations.find(l => l.id === locationId)?.name || locationId;
+      const contents = unpackState.allContents;
+      const box = boxes.find(b => b.id === unpackState.boxId);
+
+      showLoading(`Emptying Box: ${box?.name || ''}`, `Moving ${contents.length} items to ${locationName}...`);
+      await new Promise(r => setTimeout(r, 300));
+
+      let updateCount = 0;
+      for (const content of contents) {
+        const item = getItem(content.itemId, content.itemType);
+        if (item) {
+          item.currentBoxId = null;
+          item.currentLocationId = locationId;
+          if (content.itemType === 'inventory') {
+            inventoryBoxTracking.delete(content.itemId);
+            if (window.RTS_API?.unpackInventoryItem) {
+              try { await window.RTS_API.unpackInventoryItem(item.id); } catch(e) {}
+            }
+          } else {
+            try {
+              await window.RTS_API.unpackItem(content.boxId, item.id);
+              if (locationId && window.RTS_API?.updateItem) {
+                await window.RTS_API.updateItem(item.id, { current_location_id: locationId });
+              }
+            } catch(e) { console.error('unpackItem failed:', e.message); }
+          }
+          updateCount++;
+        }
+      }
+
+      const contentIds = new Set(contents.map(c => c.id));
+      boxContents = boxContents.filter(c => !contentIds.has(c.id));
+
+      addHistory(unpackState.boxId, 'box_emptied', `Emptied ${contents.length} items to ${locationName}`);
+      saveData();
+      renderAll();
+      hideLoading();
+
+      // Show results summary
+      const orderSummary = orderResults.length > 0
+        ? '\n' + orderResults.map(r => r.error ? `  ✗ ${r.customer}: ${r.error}` : `  ✅ Order #${r.orderNumber} → ${r.customer}`).join('\n')
+        : '';
+      showToast(`✅ Box emptied! ${contents.length} items moved to ${locationName}${orderSummary ? '\n' + orderSummary : ''}`, 'success');
+
+      unpackState = null;
+    } catch(e) {
+      console.error('handleConfirmAndCreate error:', e);
+      hideLoading();
+      showToast('Error: ' + e.message, 'error');
+      if (btn) { btn.disabled = false; btn.textContent = '✅ Create Orders & Empty Box'; }
+    }
+  };
   
   // ========== TOAST NOTIFICATIONS ==========
   function showToast(message, type = 'info') {
