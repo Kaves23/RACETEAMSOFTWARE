@@ -493,15 +493,37 @@ router.post('/lazy-import', async (req, res, next) => {
       return res.status(400).json({ success: false, error: 'shopify_variant_id is required' });
     }
 
-    // Check if this variant is already in local inventory
-    const existing = await pool.query(
+    // Check if this variant is already in local inventory (by Shopify variant ID)
+    let existing = await pool.query(
       `SELECT * FROM inventory WHERE shopify_variant_id = $1 LIMIT 1`,
       [String(shopify_variant_id)]
     );
+
+    // Fallback: match by SKU if no variant ID match (links pre-existing local items)
+    if (existing.rows.length === 0 && sku) {
+      existing = await pool.query(
+        `SELECT * FROM inventory WHERE sku = $1 AND shopify_variant_id IS NULL LIMIT 1`,
+        [String(sku)]
+      );
+    }
+
     if (existing.rows.length > 0) {
       // Update quantity if fresher, and also store inventory item id if not yet set
       const updates = [];
       const vals = [];
+      // Always stamp Shopify IDs if missing (covers SKU-matched items)
+      if (!existing.rows[0].shopify_variant_id) {
+        updates.push(`shopify_variant_id = $${vals.length + 1}`);
+        vals.push(String(shopify_variant_id));
+      }
+      if (shopify_product_id && !existing.rows[0].shopify_product_id) {
+        updates.push(`shopify_product_id = $${vals.length + 1}`);
+        vals.push(String(shopify_product_id));
+      }
+      if (shopify_inventory_item_id && !existing.rows[0].shopify_inventory_item_id) {
+        updates.push(`shopify_inventory_item_id = $${vals.length + 1}`);
+        vals.push(String(shopify_inventory_item_id));
+      }
       if (shopify_quantity != null) {
         const newQty = Math.max(1, parseInt(shopify_quantity) || 1);
         if (newQty > (existing.rows[0].quantity || 0)) {
@@ -509,22 +531,15 @@ router.post('/lazy-import', async (req, res, next) => {
           vals.push(newQty);
         }
       }
-      if (shopify_inventory_item_id && !existing.rows[0].shopify_inventory_item_id) {
-        updates.push(`shopify_inventory_item_id = $${vals.length + 1}`);
-        vals.push(String(shopify_inventory_item_id));
-      }
-      if (updates.length > 0) {
-        vals.push(existing.rows[0].id);
-        const updated = await pool.query(
-          `UPDATE inventory SET ${updates.join(', ')}, shopify_sync_at = NOW(), updated_at = NOW()
-           WHERE id = $${vals.length} RETURNING *`,
-          vals
-        );
-        if (updated.rows.length > 0) {
-          return res.json({ success: true, item: updated.rows[0], created: false });
-        }
-      }
-      return res.json({ success: true, item: existing.rows[0], created: false });
+      // Always update at minimum the sync timestamp
+      if (updates.length === 0) updates.push(`shopify_sync_at = NOW()`);
+      vals.push(existing.rows[0].id);
+      const updated = await pool.query(
+        `UPDATE inventory SET ${updates.join(', ')}, shopify_sync_at = NOW(), updated_at = NOW()
+         WHERE id = $${vals.length} RETURNING *`,
+        vals
+      );
+      return res.json({ success: true, item: updated.rows[0] || existing.rows[0], created: false });
     }
 
     // Create the local inventory row — use only columns that exist in the schema
