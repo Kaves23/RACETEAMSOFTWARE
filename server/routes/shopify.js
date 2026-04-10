@@ -235,10 +235,10 @@ router.post('/sync-inventory', async (req, res, next) => {
 router.get('/settings', async (req, res, next) => {
   try {
     const result = await pool.query(
-      `SELECT data FROM settings WHERE id = 'shopify_config' LIMIT 1`
+      `SELECT value FROM settings WHERE key = 'shopify_config' LIMIT 1`
     );
-    if (result.rows.length > 0 && result.rows[0].data) {
-      const config = result.rows[0].data;
+    if (result.rows.length > 0 && result.rows[0].value) {
+      const config = JSON.parse(result.rows[0].value);
       res.json({
         success: true,
         config: {
@@ -270,8 +270,8 @@ router.post('/settings', async (req, res, next) => {
     const config = { shop, accessToken, lastSync: null };
 
     await pool.query(
-      `INSERT INTO settings (id, data) VALUES ('shopify_config', $1::jsonb)
-       ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data`,
+      `INSERT INTO settings (key, value) VALUES ('shopify_config', $1)
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
       [JSON.stringify(config)]
     );
     res.json({ success: true, message: 'Shopify settings saved' });
@@ -287,7 +287,7 @@ router.post('/settings', async (req, res, next) => {
  */
 router.post('/disconnect', async (req, res, next) => {
   try {
-    await pool.query(`DELETE FROM settings WHERE id = 'shopify_config'`);
+    await pool.query(`DELETE FROM settings WHERE key = 'shopify_config'`);
     res.json({ success: true, message: 'Shopify disconnected' });
   } catch (error) {
     console.error('Error disconnecting Shopify:', error);
@@ -300,10 +300,10 @@ router.post('/disconnect', async (req, res, next) => {
 // ──────────────────────────────────────────────────────────────────────────────
 async function loadShopifyCredentials() {
   const result = await pool.query(
-    `SELECT data FROM settings WHERE id = 'shopify_config' LIMIT 1`
+    `SELECT value FROM settings WHERE key = 'shopify_config' LIMIT 1`
   );
-  if (!result.rows.length || !result.rows[0].data) return null;
-  const cfg = result.rows[0].data;
+  if (!result.rows.length || !result.rows[0].value) return null;
+  const cfg = JSON.parse(result.rows[0].value);
   if (!cfg.shop || !cfg.accessToken) return null;
   return cfg;
 }

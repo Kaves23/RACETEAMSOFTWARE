@@ -39,8 +39,8 @@ router.get('/auth', async (req, res) => {
 
     // Persist state briefly so we can verify it in the callback
     await pool.query(
-      `INSERT INTO settings (id, data) VALUES ('shopify_oauth_state', $1::jsonb)
-       ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data`,
+      `INSERT INTO settings (key, value) VALUES ('shopify_oauth_state', $1)
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
       [JSON.stringify({ state, shop: shopDomain })]
     );
 
@@ -75,9 +75,9 @@ router.get('/callback', async (req, res) => {
 
     // 1. Verify state to prevent CSRF
     const stateResult = await pool.query(
-      `SELECT data FROM settings WHERE id = 'shopify_oauth_state' LIMIT 1`
+      `SELECT value FROM settings WHERE key = 'shopify_oauth_state' LIMIT 1`
     );
-    const storedState = stateResult.rows[0]?.data?.state;
+    const storedState = JSON.parse(stateResult.rows[0]?.value || '{}')?.state;
     if (!storedState || storedState !== state) {
       return res.status(403).send('OAuth state mismatch — possible CSRF attack');
     }
@@ -120,13 +120,13 @@ router.get('/callback', async (req, res) => {
     // 4. Store credentials in settings table
     const config = { shop, accessToken: access_token, lastSync: null };
     await pool.query(
-      `INSERT INTO settings (id, data) VALUES ('shopify_config', $1::jsonb)
-       ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data`,
+      `INSERT INTO settings (key, value) VALUES ('shopify_config', $1)
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
       [JSON.stringify(config)]
     );
 
     // 5. Clean up the temporary state record
-    await pool.query(`DELETE FROM settings WHERE id = 'shopify_oauth_state'`);
+    await pool.query(`DELETE FROM settings WHERE key = 'shopify_oauth_state'`);
 
     // 6. Send user back to the inventory page with a success flag
     res.redirect('/inventory.html?shopify=connected');
@@ -143,11 +143,13 @@ router.get('/callback', async (req, res) => {
 router.get('/status', async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT data FROM settings WHERE id = 'shopify_config' LIMIT 1`
+      `SELECT value FROM settings WHERE key = 'shopify_config' LIMIT 1`
     );
-    if (result.rows.length > 0 && result.rows[0].data?.accessToken) {
-      const cfg = result.rows[0].data;
-      return res.json({ connected: true, shop: cfg.shop, lastSync: cfg.lastSync || null });
+    if (result.rows.length > 0 && result.rows[0].value) {
+      const cfg = JSON.parse(result.rows[0].value);
+      if (cfg.accessToken) {
+        return res.json({ connected: true, shop: cfg.shop, lastSync: cfg.lastSync || null });
+      }
     }
     res.json({ connected: false });
   } catch (err) {
