@@ -678,14 +678,22 @@ router.post('/create-order', async (req, res, next) => {
     if (!cfg) return res.status(400).json({ success: false, error: 'Shopify not configured' });
 
     // Step A: Create order (financial_status=pending)
+    // Parse numeric ID from either a plain number string or a Shopify GID
+    const parseShopifyId = (val) => {
+      const s = String(val || '');
+      // GID format: gid://shopify/ProductVariant/123456
+      const gidMatch = s.match(/\/([0-9]+)$/);
+      return parseInt(gidMatch ? gidMatch[1] : s, 10);
+    };
+
     const orderPayload = {
       order: {
         financial_status: 'pending',
         send_receipt: false,
         send_fulfillment_receipt: false,
-        customer: { id: parseInt(customerId) },
+        customer: { id: parseShopifyId(customerId) },
         line_items: lineItems.map(li => ({
-          variant_id: parseInt(li.variantId),
+          variant_id: parseShopifyId(li.variantId),
           quantity: parseInt(li.quantity),
           price: li.price != null ? String(parseFloat(li.price).toFixed(2)) : '0.00',
           title: li.name || 'Item'

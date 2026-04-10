@@ -2713,13 +2713,14 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
        </div>`
     ).join('');
 
-    // Reset customer rows
-    unpackState.customerRows = [];
-    document.getElementById('billStepCustomerRows').innerHTML = '';
+    // Reset customer rows — unless coming back from confirm step
+    if (!unpackState._skipRowReset) {
+      unpackState.customerRows = [];
+      document.getElementById('billStepCustomerRows').innerHTML = '';
+      addBillCustomerRow();
+    }
+    unpackState._skipRowReset = false;
     document.getElementById('billStepValidation').style.display = 'none';
-
-    // Add one row to start
-    addBillCustomerRow();
 
     unpackStepBillModal.show();
   }
@@ -2808,7 +2809,14 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
 
   window.handleBillStepBack = function() {
     unpackStepBillModal.hide();
+    // Re-show step 1 but restore the return quantities the user already set
+    const savedReturnQtys = { ...unpackState.returnQtys };
     showUnpackReturnStep(unpackState.boxId, unpackState.allContents);
+    // Restore input values
+    Object.entries(savedReturnQtys).forEach(([idx, qty]) => {
+      const el = document.getElementById('returnQty_' + idx);
+      if (el) { el.value = qty; updateReturnStepConsumed(parseInt(idx)); }
+    });
   };
 
   window.handleBillStepNext = function() {
@@ -2902,9 +2910,17 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   window.handleConfirmStepBack = function() {
     unpackStepConfirmModal.hide();
     if ((unpackState?.consumedItems || []).length > 0) {
+      // Re-show bill step, restore customer rows that were already built
+      // by calling showUnpackBillStep with a flag to skip row reset
+      unpackState._skipRowReset = true;
       showUnpackBillStep();
     } else {
+      const savedReturnQtys = { ...unpackState.returnQtys };
       showUnpackReturnStep(unpackState.boxId, unpackState.allContents);
+      Object.entries(savedReturnQtys).forEach(([idx, qty]) => {
+        const el = document.getElementById('returnQty_' + idx);
+        if (el) { el.value = qty; updateReturnStepConsumed(parseInt(idx)); }
+      });
     }
   };
 
@@ -2986,7 +3002,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
             }
           } else {
             try {
-              await window.RTS_API.unpackItem(content.boxId, item.id);
+              await window.RTS_API.unpackItem(unpackState.boxId, item.id);
               if (locationId && window.RTS_API?.updateItem) {
                 await window.RTS_API.updateItem(item.id, { current_location_id: locationId });
               }
