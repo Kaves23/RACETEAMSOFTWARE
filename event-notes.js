@@ -90,59 +90,46 @@
   function initColumnResize() {
     const header = document.getElementById('taskHeader');
     if (!header) return;
-    
-    // Clear old column widths to use new CSS defaults
-    localStorage.removeItem('taskColumnWidths');
-    
-    // Use CSS-defined grid instead of JavaScript overrides
-    // Column resizing will be added back later if needed
-    return;
-    
-    // Load saved column widths or use defaults (8 columns: Task Name, Flag, Relation, Event, Complete, Due Date, Assigned, Tags)
-    const savedWidths = localStorage.getItem('taskColumnWidths');
-    const columnWidths = savedWidths ? JSON.parse(savedWidths) : [250, 60, 120, 120, 80, 110, 120, 120];
-    
-    function applyColumnWidths() {
-      const widthStr = columnWidths.map(w => w === 'auto' ? '1fr' : w + 'px').join(' ');
-      document.documentElement.style.setProperty('--col-widths', widthStr);
+
+    // Default pixel widths for 8 columns: Task Name, Flag, Relation, Event, Complete, Due Date, Assigned, Tags
+    const DEFAULTS = [260, 58, 100, 100, 88, 118, 105, 85];
+    const saved = localStorage.getItem('ckl.colWidths');
+    const widths = saved ? JSON.parse(saved) : [...DEFAULTS];
+
+    function applyWidths() {
+      let el = document.getElementById('_ckColStyle');
+      if (!el) {
+        el = document.createElement('style');
+        el.id = '_ckColStyle';
+        document.head.appendChild(el);
+      }
+      const tpl = widths.map(w => w + 'px').join(' ');
+      el.textContent = `#taskHeader, .task-item { grid-template-columns: ${tpl}; gap: 0; }`;
     }
-    
-    applyColumnWidths();
-    
-    // Add resize event handlers
-    const resizeHandles = header.querySelectorAll('.resize-handle');
-    let isResizing = false;
-    let currentCol = null;
-    let startX = 0;
-    let startWidth = 0;
-    
-    resizeHandles.forEach(handle => {
-      handle.addEventListener('mousedown', (e) => {
-        isResizing = true;
-        currentCol = parseInt(handle.dataset.col);
-        startX = e.pageX;
-        startWidth = columnWidths[currentCol];
+
+    applyWidths();
+
+    header.querySelectorAll('.resize-handle').forEach(handle => {
+      const col = parseInt(handle.dataset.col);
+      handle.addEventListener('mousedown', e => {
+        const startX = e.pageX;
+        const startW = widths[col];
         handle.classList.add('resizing');
         e.preventDefault();
+
+        function onMove(ev) {
+          widths[col] = Math.max(50, startW + (ev.pageX - startX));
+          applyWidths();
+        }
+        function onUp() {
+          handle.classList.remove('resizing');
+          localStorage.setItem('ckl.colWidths', JSON.stringify(widths));
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+        }
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
       });
-    });
-    
-    document.addEventListener('mousemove', (e) => {
-      if (!isResizing) return;
-      
-      const diff = e.pageX - startX;
-      const newWidth = Math.max(50, startWidth + diff); // Min 50px
-      columnWidths[currentCol] = newWidth;
-      applyColumnWidths();
-    });
-    
-    document.addEventListener('mouseup', () => {
-      if (isResizing) {
-        isResizing = false;
-        document.querySelector('.resize-handle.resizing')?.classList.remove('resizing');
-        // Save column widths
-        localStorage.setItem('taskColumnWidths', JSON.stringify(columnWidths));
-      }
     });
   }
   
@@ -665,6 +652,16 @@
     if (countPending) countPending.textContent = pending;
     if (countDone) countDone.textContent = done;
     if (countWhatsApp) countWhatsApp.textContent = whatsapp;
+
+    // Sidebar stat pills
+    const sStatDone = document.getElementById('sStatDone');
+    const sStatTotal = document.getElementById('sStatTotal');
+    const sStatPct = document.getElementById('sStatPct');
+    const sidebarListName = document.getElementById('sidebarListName');
+    if (sStatDone) sStatDone.textContent = done;
+    if (sStatTotal) sStatTotal.textContent = total;
+    if (sStatPct) sStatPct.textContent = percent + '%';
+    if (sidebarListName && currentList) sidebarListName.textContent = currentList.name;
   }
   
   // Render notes
@@ -1382,186 +1379,186 @@
     };
     const priorityColor = priorityColors[note.priority] || priorityColors.normal;
     
-    document.getElementById('detailHeader').textContent = isDone ? 'Task (Completed)' : 'Task';
+    document.getElementById('detailHeader').textContent = isDone ? '✓ Task (Done)' : 'Task Details';
     document.getElementById('detailContent').innerHTML = `
-      <div class="detail-field">
-        <div class="detail-label">Task Name</div>
-        <input type="text" class="detail-input" value="${escapeHtml(note.item_name)}" id="editTaskName">
-      </div>
-      
-      <div class="detail-field">
-        <div class="detail-label">Description</div>
-        <textarea class="detail-textarea" id="editTaskDesc" rows="3">${escapeHtml(note.source_notes || '')}</textarea>
-      </div>
-      
-      <div class="row">
-        <div class="col-6">
-          <div class="detail-field">
-            <div class="detail-label">Status</div>
-            <select class="detail-input" id="editTaskStatus">
-              <option value="pending" ${note.status === 'pending' ? 'selected' : ''}>Pending</option>
-              <option value="in_progress" ${note.status === 'in_progress' ? 'selected' : ''}>In Progress</option>
-              <option value="completed" ${note.status === 'completed' ? 'selected' : ''}>Completed</option>
-              <option value="blocked" ${note.status === 'blocked' ? 'selected' : ''}>Blocked</option>
-              <option value="packed" ${note.status === 'packed' ? 'selected' : ''}>Packed</option>
-              <option value="loaded" ${note.status === 'loaded' ? 'selected' : ''}>Loaded</option>
-            </select>
-          </div>
-        </div>
-        <div class="col-6">
-          <div class="detail-field">
-            <div class="detail-label">Priority</div>
-            <select class="detail-input" id="editTaskPriority" style="border-left: 4px solid ${priorityColor};">
-              <option value="critical">🔴 Critical</option>
-              <option value="high">🟠 High</option>
-              <option value="normal" ${note.priority === 'normal' ? 'selected' : ''}>⚪ Normal</option>
-              <option value="low">🟢 Low</option>
-            </select>
-          </div>
-        </div>
-      </div>
-      
-      <div class="row">
-        <div class="col-6">
-          <div class="detail-field">
-            <div class="detail-label">Start Date</div>
-            <input type="date" class="detail-input" value="${note.start_date || ''}" id="editTaskStartDate">
-          </div>
-        </div>
-        <div class="col-6">
-          <div class="detail-field">
-            <div class="detail-label">Due Date</div>
-            <input type="date" class="detail-input" value="${note.due_date || ''}" id="editTaskDueDate">
-          </div>
-        </div>
-      </div>
-      
-      <div class="detail-field">
-        <div class="detail-label">Assigned To</div>
-        <input type="text" class="detail-input" value="${escapeHtml(note.assigned_to_name || '')}" id="editTaskAssignedTo" placeholder="Name of person assigned">
-      </div>
-      
-      <div class="detail-field">
-        <div class="detail-label">Progress</div>
-        <div class="d-flex align-items-center gap-2">
-          <input type="range" class="form-range" min="0" max="100" step="5" value="${note.progress_percent || 0}" id="editTaskProgress" style="flex: 1;">
-          <span id="progressValue" style="min-width: 40px; font-weight: bold;">${note.progress_percent || 0}%</span>
-        </div>
-        <div class="progress mt-1" style="height: 6px;">
-          <div class="progress-bar" id="progressBar" style="width: ${note.progress_percent || 0}%; background: linear-gradient(90deg, #3b82f6, #8b5cf6);"></div>
-        </div>
-      </div>
-      
-      <div class="row">
-        <div class="col-6">
-          <div class="detail-field">
-            <div class="detail-label">Estimated Hours</div>
-            <input type="number" class="detail-input" value="${note.estimated_hours || ''}" id="editTaskEstimated" placeholder="0.0" step="0.5" min="0">
-          </div>
-        </div>
-        <div class="col-6">
-          <div class="detail-field">
-            <div class="detail-label">Actual Hours</div>
-            <input type="number" class="detail-input" value="${note.actual_hours || ''}" id="editTaskActual" placeholder="0.0" step="0.5" min="0">
-          </div>
-        </div>
-      </div>
-      
-      <div class="detail-field">
-        <div class="detail-label">Category</div>
-        <input type="text" class="detail-input" value="${escapeHtml(note.category || '')}" id="editTaskCategory" placeholder="e.g., Setup, Equipment, Logistics">
-      </div>
-      
-      <div class="detail-field">
-        <div class="detail-label">Tags</div>
-        <input type="text" class="detail-input" value="${escapeHtml(note.tags || '')}" id="editTaskTags" placeholder="Comma-separated tags">
-      </div>
-      
-      <hr style="margin: 1rem 0; border-color: rgba(0,0,0,0.1);">
-      
-      <div class="detail-field">
-        <div class="detail-label">🎨 Row Colours</div>
-        <div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap;">
-          <div>
-            <div style="font-size:10px;color:#666;margin-bottom:4px;">Background</div>
-            <div class="d-flex gap-2 align-items-center">
-              <input type="color" class="form-control" value="${note.color || '#ffffff'}" id="editTaskColor" style="width:44px;height:32px;padding:2px;cursor:pointer;">
-              <button class="detail-button" style="padding:3px 7px;font-size:10px;" onclick="document.getElementById('editTaskColor').value='#ffffff'">Clear</button>
-            </div>
-          </div>
-          <div>
-            <div style="font-size:10px;color:#666;margin-bottom:4px;">Text</div>
-            <div class="d-flex gap-2 align-items-center">
-              <input type="color" class="form-control" value="${note.text_color || '#333333'}" id="editTaskTextColor" style="width:44px;height:32px;padding:2px;cursor:pointer;">
-              <button class="detail-button" style="padding:3px 7px;font-size:10px;" onclick="document.getElementById('editTaskTextColor').value='#333333'">Clear</button>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      <div class="row">
-        <div class="col-6">
-          <div class="detail-field">
-            <div class="detail-label">Font Family</div>
-            <select class="detail-input" id="editTaskFontFamily">
-              <option value="" ${!note.font_family ? 'selected' : ''}>Default</option>
-              <option value="Arial, sans-serif" ${note.font_family === 'Arial, sans-serif' ? 'selected' : ''}>Arial</option>
-              <option value="'Courier New', monospace" ${note.font_family === "'Courier New', monospace" ? 'selected' : ''}>Courier New</option>
-              <option value="Georgia, serif" ${note.font_family === 'Georgia, serif' ? 'selected' : ''}>Georgia</option>
-              <option value="'Times New Roman', serif" ${note.font_family === "'Times New Roman', serif" ? 'selected' : ''}>Times New Roman</option>
-              <option value="Verdana, sans-serif" ${note.font_family === 'Verdana, sans-serif' ? 'selected' : ''}>Verdana</option>
-              <option value="'Trebuchet MS', sans-serif" ${note.font_family === "'Trebuchet MS', sans-serif" ? 'selected' : ''}>Trebuchet MS</option>
-            </select>
-          </div>
-        </div>
-        <div class="col-6">
-          <div class="detail-field">
-            <div class="detail-label">Font Size</div>
-            <select class="detail-input" id="editTaskFontSize">
-              <option value="" ${!note.font_size ? 'selected' : ''}>Default (12px)</option>
-              <option value="10px" ${note.font_size === '10px' ? 'selected' : ''}>10px (Small)</option>
-              <option value="11px" ${note.font_size === '11px' ? 'selected' : ''}>11px</option>
-              <option value="12px" ${note.font_size === '12px' ? 'selected' : ''}>12px (Normal)</option>
-              <option value="13px" ${note.font_size === '13px' ? 'selected' : ''}>13px</option>
-              <option value="14px" ${note.font_size === '14px' ? 'selected' : ''}>14px (Large)</option>
-              <option value="16px" ${note.font_size === '16px' ? 'selected' : ''}>16px</option>
-            </select>
-          </div>
-        </div>
-      </div>
-      
-      <div class="detail-field">
-        <div class="detail-label">🎯 Link to Event</div>
-        <select class="detail-input" id="editTaskLinkedEvent">
-          <option value="">No event linked</option>
-          <!-- Event options will be populated dynamically -->
-        </select>
-      </div>
-      
-      ${note.status === 'blocked' ? `
+      <div class="detail-section ds-task">
+        <div class="detail-section-hdr"><span class="dsh-icon">📋</span> Task</div>
         <div class="detail-field">
-          <div class="detail-label">Blocked Reason</div>
-          <textarea class="detail-textarea" id="editTaskBlocked" rows="2">${escapeHtml(note.blocked_reason || '')}</textarea>
+          <div class="detail-label">Name</div>
+          <input type="text" class="detail-input" value="${escapeHtml(note.item_name)}" id="editTaskName">
         </div>
-      ` : ''}
-      
-      <div class="detail-field">
-        <div class="detail-label" style="display: inline-flex; align-items: center; gap: 8px;">
-          <input type="checkbox" id="editTaskMilestone" ${note.is_milestone ? 'checked' : ''}>
-          <span>Mark as Milestone</span>
+        <div class="detail-field">
+          <div class="detail-label">Description</div>
+          <textarea class="detail-textarea" id="editTaskDesc" rows="2">${escapeHtml(note.source_notes || '')}</textarea>
+        </div>
+        <div class="row g-1">
+          <div class="col-6">
+            <div class="detail-field">
+              <div class="detail-label">Status</div>
+              <select class="detail-input" id="editTaskStatus">
+                <option value="pending" ${note.status === 'pending' ? 'selected' : ''}>Pending</option>
+                <option value="in_progress" ${note.status === 'in_progress' ? 'selected' : ''}>In Progress</option>
+                <option value="completed" ${note.status === 'completed' ? 'selected' : ''}>Completed</option>
+                <option value="blocked" ${note.status === 'blocked' ? 'selected' : ''}>Blocked</option>
+                <option value="packed" ${note.status === 'packed' ? 'selected' : ''}>Packed</option>
+                <option value="loaded" ${note.status === 'loaded' ? 'selected' : ''}>Loaded</option>
+              </select>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="detail-field">
+              <div class="detail-label">Priority</div>
+              <select class="detail-input" id="editTaskPriority" style="border-left: 3px solid ${priorityColor};">
+                <option value="critical" ${note.priority === 'critical' ? 'selected' : ''}>🔴 Critical</option>
+                <option value="high" ${note.priority === 'high' ? 'selected' : ''}>🟠 High</option>
+                <option value="normal" ${note.priority === 'normal' ? 'selected' : ''}>⚪ Normal</option>
+                <option value="low" ${note.priority === 'low' ? 'selected' : ''}>🟢 Low</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        ${note.status === 'blocked' ? `
+          <div class="detail-field">
+            <div class="detail-label">Blocked Reason</div>
+            <textarea class="detail-textarea" id="editTaskBlocked" rows="2">${escapeHtml(note.blocked_reason || '')}</textarea>
+          </div>
+        ` : ''}
+      </div>
+
+      <div class="detail-section ds-schedule">
+        <div class="detail-section-hdr"><span class="dsh-icon">📅</span> Schedule</div>
+        <div class="row g-1">
+          <div class="col-6">
+            <div class="detail-field">
+              <div class="detail-label">Start</div>
+              <input type="date" class="detail-input" value="${note.start_date || ''}" id="editTaskStartDate">
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="detail-field">
+              <div class="detail-label">Due</div>
+              <input type="date" class="detail-input" value="${note.due_date || ''}" id="editTaskDueDate">
+            </div>
+          </div>
+        </div>
+        <div class="detail-field">
+          <div class="detail-label">Progress</div>
+          <div class="d-flex align-items-center gap-2">
+            <input type="range" class="form-range" min="0" max="100" step="5" value="${note.progress_percent || 0}" id="editTaskProgress" style="flex:1;">
+            <span id="progressValue" style="min-width:30px;font-weight:700;font-size:11px;">${note.progress_percent || 0}%</span>
+          </div>
+          <div class="progress mt-1" style="height:4px;">
+            <div class="progress-bar" id="progressBar" style="width:${note.progress_percent || 0}%;background:linear-gradient(90deg,#3b82f6,#8b5cf6);"></div>
+          </div>
         </div>
       </div>
-      
-      <hr style="margin: 1.5rem 0; border-color: rgba(0,0,0,0.1);">
-      
-      <hr style="margin: 1rem 0; border-color: rgba(0,0,0,0.1);">
-      
-      <div class="detail-field">
-        <div class="detail-label" style="display:flex;align-items:center;justify-content:space-between;">
-          <span>📋 Subtasks</span>
-          <span style="font-size:10px;color:#28a745;font-weight:600;">${(isFromGeneral ? generalNotes : notes).filter(n => n.parent_item_id === noteId).filter(n => n.status==='packed'||n.status==='completed'||n.status==='loaded').length}/${(isFromGeneral ? generalNotes : notes).filter(n => n.parent_item_id === noteId).length} done</span>
+
+      <div class="detail-section ds-people">
+        <div class="detail-section-hdr"><span class="dsh-icon">👤</span> People</div>
+        <div class="detail-field">
+          <div class="detail-label">Assigned To</div>
+          <input type="text" class="detail-input" value="${escapeHtml(note.assigned_to_name || '')}" id="editTaskAssignedTo" placeholder="Person's name">
         </div>
-        <div id="subtaskList" style="margin-bottom:8px;">
+        <div class="row g-1">
+          <div class="col-6">
+            <div class="detail-field">
+              <div class="detail-label">Est. Hours</div>
+              <input type="number" class="detail-input" value="${note.estimated_hours || ''}" id="editTaskEstimated" placeholder="0.0" step="0.5" min="0">
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="detail-field">
+              <div class="detail-label">Actual Hrs</div>
+              <input type="number" class="detail-input" value="${note.actual_hours || ''}" id="editTaskActual" placeholder="0.0" step="0.5" min="0">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="detail-section ds-meta">
+        <div class="detail-section-hdr"><span class="dsh-icon">🏷️</span> Tags & Meta</div>
+        <div class="row g-1">
+          <div class="col-6">
+            <div class="detail-field">
+              <div class="detail-label">Category</div>
+              <input type="text" class="detail-input" value="${escapeHtml(note.category || '')}" id="editTaskCategory" placeholder="e.g. Setup">
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="detail-field">
+              <div class="detail-label">Tags</div>
+              <input type="text" class="detail-input" value="${escapeHtml(note.tags || '')}" id="editTaskTags" placeholder="comma-separated">
+            </div>
+          </div>
+        </div>
+        <div class="detail-field">
+          <div class="detail-label">Link to Event</div>
+          <select class="detail-input" id="editTaskLinkedEvent">
+            <option value="">No event linked</option>
+          </select>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;margin-top:2px;">
+          <input type="checkbox" id="editTaskMilestone" ${note.is_milestone ? 'checked' : ''} style="margin:0;cursor:pointer;">
+          <label for="editTaskMilestone" style="font-size:11px;color:#555;margin:0;cursor:pointer;">Milestone 🏁</label>
+        </div>
+      </div>
+
+      <div class="detail-section ds-appearance">
+        <div class="detail-section-hdr"><span class="dsh-icon">🎨</span> Appearance</div>
+        <div class="d-flex gap-3 mb-2">
+          <div style="flex:1;">
+            <div class="detail-label">Background</div>
+            <div class="d-flex gap-1 align-items-center">
+              <input type="color" class="detail-input" value="${note.color || '#ffffff'}" id="editTaskColor" style="width:34px;height:26px;padding:1px;cursor:pointer;border-radius:3px;">
+              <button class="detail-button" style="padding:2px 6px;font-size:10px;" onclick="document.getElementById('editTaskColor').value='#ffffff'">Clear</button>
+            </div>
+          </div>
+          <div style="flex:1;">
+            <div class="detail-label">Text</div>
+            <div class="d-flex gap-1 align-items-center">
+              <input type="color" class="detail-input" value="${note.text_color || '#333333'}" id="editTaskTextColor" style="width:34px;height:26px;padding:1px;cursor:pointer;border-radius:3px;">
+              <button class="detail-button" style="padding:2px 6px;font-size:10px;" onclick="document.getElementById('editTaskTextColor').value='#333333'">Clear</button>
+            </div>
+          </div>
+        </div>
+        <div class="row g-1">
+          <div class="col-7">
+            <div class="detail-field">
+              <div class="detail-label">Font</div>
+              <select class="detail-input" id="editTaskFontFamily">
+                <option value="" ${!note.font_family ? 'selected' : ''}>Default</option>
+                <option value="Arial, sans-serif" ${note.font_family === 'Arial, sans-serif' ? 'selected' : ''}>Arial</option>
+                <option value="'Courier New', monospace" ${note.font_family === "'Courier New', monospace" ? 'selected' : ''}>Courier New</option>
+                <option value="Georgia, serif" ${note.font_family === 'Georgia, serif' ? 'selected' : ''}>Georgia</option>
+                <option value="'Times New Roman', serif" ${note.font_family === "'Times New Roman', serif" ? 'selected' : ''}>Times New Roman</option>
+                <option value="Verdana, sans-serif" ${note.font_family === 'Verdana, sans-serif' ? 'selected' : ''}>Verdana</option>
+                <option value="'Trebuchet MS', sans-serif" ${note.font_family === "'Trebuchet MS', sans-serif" ? 'selected' : ''}>Trebuchet MS</option>
+              </select>
+            </div>
+          </div>
+          <div class="col-5">
+            <div class="detail-field">
+              <div class="detail-label">Size</div>
+              <select class="detail-input" id="editTaskFontSize">
+                <option value="" ${!note.font_size ? 'selected' : ''}>Default</option>
+                <option value="10px" ${note.font_size === '10px' ? 'selected' : ''}>10px</option>
+                <option value="11px" ${note.font_size === '11px' ? 'selected' : ''}>11px</option>
+                <option value="12px" ${note.font_size === '12px' ? 'selected' : ''}>12px</option>
+                <option value="13px" ${note.font_size === '13px' ? 'selected' : ''}>13px</option>
+                <option value="14px" ${note.font_size === '14px' ? 'selected' : ''}>14px</option>
+                <option value="16px" ${note.font_size === '16px' ? 'selected' : ''}>16px</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="detail-section ds-subtasks">
+        <div class="detail-section-hdr" style="justify-content:space-between;">
+          <span style="display:flex;align-items:center;gap:5px;"><span class="dsh-icon">☑</span> Subtasks</span>
+          <span style="font-size:9px;color:#28a745;font-weight:700;text-transform:none;letter-spacing:0;">${(isFromGeneral ? generalNotes : notes).filter(n => n.parent_item_id === noteId).filter(n => n.status==='packed'||n.status==='completed'||n.status==='loaded').length}/${(isFromGeneral ? generalNotes : notes).filter(n => n.parent_item_id === noteId).length} done</span>
+        </div>
+        <div id="subtaskList" style="margin-bottom:6px;">
           ${(() => {
             const children = (isFromGeneral ? generalNotes : notes).filter(n => n.parent_item_id === noteId);
             if (children.length === 0) return '<p style="color:#bbb;font-size:11px;margin:0;">No subtasks yet</p>';
@@ -1570,27 +1567,25 @@
               return `<div class="subtask-item ${stDone ? 'done' : ''}">
                 <input type="checkbox" ${stDone ? 'checked' : ''} onclick="window.toggleNote('${st.id}', ${isFromGeneral}); setTimeout(()=>window.selectTask('${note.id}',${isFromGeneral}),300)" style="margin:0;flex-shrink:0;cursor:pointer;">
                 <span class="subtask-name" style="flex:1;cursor:pointer;" onclick="window.selectTask('${st.id}',${isFromGeneral})">${escapeHtml(st.item_name)}</span>
-                <button onclick="window.deleteNote('${st.id}',${isFromGeneral})" style="background:none;border:none;color:#dc3545;cursor:pointer;padding:0 2px;font-size:16px;line-height:1;" title="Delete subtask">×</button>
+                <button onclick="window.deleteNote('${st.id}',${isFromGeneral})" style="background:none;border:none;color:#dc3545;cursor:pointer;padding:0 2px;font-size:14px;line-height:1;" title="Delete">×</button>
               </div>`;
             }).join('');
           })()}
         </div>
         <div class="d-flex gap-2">
-          <input type="text" id="subtaskInput" placeholder="New subtask name…" class="detail-input" style="flex:1;font-size:12px;" onkeydown="if(event.key==='Enter')window.addSubtask('${note.id}',${isFromGeneral})">
-          <button class="detail-button detail-button-primary" style="white-space:nowrap;" onclick="window.addSubtask('${note.id}',${isFromGeneral})">＋ Add</button>
+          <input type="text" id="subtaskInput" placeholder="New subtask…" class="detail-input" style="flex:1;" onkeydown="if(event.key==='Enter')window.addSubtask('${note.id}',${isFromGeneral})">
+          <button class="detail-button detail-button-primary" onclick="window.addSubtask('${note.id}',${isFromGeneral})">＋</button>
         </div>
       </div>
-      
-      <div class="detail-field" style="font-size: 12px; color: #666;">
-        <div><strong>Source:</strong> ${fromWhatsApp ? '📱 WhatsApp' : '💻 Manual'}</div>
-        <div><strong>Created:</strong> ${note.created_at ? new Date(note.created_at).toLocaleString() : '-'}</div>
-        ${note.created_by_name ? `<div><strong>Created By:</strong> ${note.created_by_name}</div>` : ''}
-        ${note.updated_at ? `<div><strong>Last Updated:</strong> ${new Date(note.updated_at).toLocaleString()}</div>` : ''}
+
+      <div style="font-size:10px;color:#aaa;padding:2px 2px 10px;line-height:1.9;">
+        <span><strong>Source:</strong> ${fromWhatsApp ? '📱 WhatsApp' : '💻 Manual'}</span> &nbsp;
+        <span><strong>Created:</strong> ${note.created_at ? new Date(note.created_at).toLocaleDateString() : '-'}</span>
+        ${note.created_by_name ? `&nbsp;<span><strong>By:</strong> ${note.created_by_name}</span>` : ''}
       </div>
-      
-      <div class="d-flex gap-2 mt-3">
-        <button class="detail-button detail-button-primary" onclick="window.saveTaskDetails('${note.id}', ${isFromGeneral})">💾 Save Changes</button>
-        <button class="detail-button" style="background: #dc3545; color: white;" onclick="window.deleteNote('${note.id}', ${isFromGeneral})">🗑️ Delete</button>
+      <div class="d-flex gap-2">
+        <button class="detail-button detail-button-primary" style="flex:1;" onclick="window.saveTaskDetails('${note.id}', ${isFromGeneral})">💾 Save Changes</button>
+        <button class="detail-button" style="background:#dc3545;color:#fff;border-color:#c82333;" onclick="window.deleteNote('${note.id}', ${isFromGeneral})">🗑️</button>
       </div>
     `;
     
