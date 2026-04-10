@@ -355,18 +355,10 @@ router.get('/search', async (req, res, next) => {
       });
     };
 
-    // Title search results
-    if (titleResp.ok) {
-      const titleData = await titleResp.json();
-      for (const product of (titleData.products || [])) {
-        for (const variant of (product.variants || [])) addVariant(product, variant);
-      }
-    }
-
-    // SKU search results — variants don't include product info, fetch products by id
+    // SKU search first — exact match only
     if (skuResp.ok) {
       const skuData = await skuResp.json();
-      const variants = skuData.variants || [];
+      const variants = (skuData.variants || []).filter(v => v.sku === q);
       if (variants.length > 0) {
         const productIds = [...new Set(variants.map(v => v.product_id))].join(',');
         const prodResp = await fetch(`${apiBase}/products.json?ids=${productIds}&limit=20`, { headers });
@@ -379,6 +371,14 @@ router.get('/search', async (req, res, next) => {
             if (product) addVariant(product, variant);
           }
         }
+      }
+    }
+
+    // Title search — only use if SKU search returned nothing
+    if (results.length === 0 && titleResp.ok) {
+      const titleData = await titleResp.json();
+      for (const product of (titleData.products || [])) {
+        for (const variant of (product.variants || [])) addVariant(product, variant);
       }
     }
 

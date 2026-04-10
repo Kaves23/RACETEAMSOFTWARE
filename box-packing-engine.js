@@ -958,7 +958,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
                 <span style="font-size:.68rem;color:#5f6368;background:#f0f0f0;padding:1px 5px;border-radius:3px">${esc(p.category)}</span>
                 <span style="font-size:.68rem;font-weight:700;color:${qtyColour}">${qty} in stock</span>
               </div>
-              <div style="font-size:.73rem;color:#34a853;font-weight:600;margin-top:2px">£${esc(p.price)} — click to pack ↓</div>
+              <div style="font-size:.73rem;color:#34a853;font-weight:600;margin-top:2px">R${esc(p.price)} — click to pack ↓</div>
             </div>
           </div>
         </div>`;
