@@ -344,7 +344,7 @@ router.put('/:listId/items/:itemId', async (req, res) => {
       'tags', 'created_by_user_id', 'created_by_name',
       'parent_item_id', 'dependencies', 'color',
       'is_milestone', 'blocked_reason', 'sort_order',
-      'font_family', 'font_size', 'linked_event_id', 'is_expanded'
+      'font_family', 'font_size', 'text_color', 'linked_event_id', 'is_expanded'
     ];
     
     const fields = [];

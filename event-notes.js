@@ -19,6 +19,8 @@
   let activityPollInterval = null;
   let isGeneralList = false;
   let selectedTask = null;
+  let _searchQuery = '';
+  let _bulkSelectMode = false;
   
   // Bootstrap modals
   let selectEventModal, noteModal, createListModal;
@@ -45,6 +47,12 @@
     window.showCalendarView = () => alert('Calendar view coming soon!');
     window.saveNote = saveNote;
     window.showAllLists = showAllLists;
+    window.filterTasks = window.filterTasks || function(q) { _searchQuery = (q||'').toLowerCase().trim(); renderNotes(); };
+    window.handleTaskCheckbox = window.handleTaskCheckbox || function(noteId, isFromGeneral, el) { window.toggleNote(noteId, isFromGeneral); };
+    window.toggleBulkMode = window.toggleBulkMode || function() {};
+    window.bulkComplete = window.bulkComplete || function() {};
+    window.cloneList = window.cloneList || function() {};
+    window.addSubtask = window.addSubtask || function() {};
     
     // Load available lists into sidebar
     await loadListsIntoSidebar();
@@ -71,6 +79,9 @@
     
     // Initialize column resizing
     initColumnResize();
+    
+    // Initialize drag-to-reorder
+    initDragReorder();
     
     console.log('✅ Event Notes initialized');
   }
@@ -159,24 +170,39 @@
       
       // GENERAL LIST
       if (generalList) {
-        html += `<div class="sidebar-item" data-list-id="${generalList.id}" onclick="window.selectList('${generalList.id}', 'GENERAL')">
-          <span>📌 General</span>
+        const isActive = currentList && currentList.id === generalList.id;
+        const progressBadge = isActive
+          ? `<span class="list-progress">${notes.filter(n => n.status === 'packed' || n.status === 'completed' || n.status === 'loaded').length}/${notes.length}</span>`
+          : '';
+        html += `<div class="sidebar-item ${isActive ? 'active' : ''}" data-list-id="${generalList.id}" onclick="window.selectList('${generalList.id}', 'GENERAL')">
+          <span>📌 General</span>${progressBadge}
         </div>`;
       }
       
       // Custom lists
       customLists.forEach(list => {
-        html += `<div class="sidebar-item" data-list-id="${list.id}" onclick="window.selectList('${list.id}', 'CUSTOM')" style="position: relative;">
-          <span>📋 ${list.name}</span>
-          <button class="sidebar-delete-btn" onclick="window.deleteList('${list.id}', '${list.name}'); event.stopPropagation();" title="Delete list">×</button>
+        const isActive = currentList && currentList.id === list.id;
+        const progressBadge = isActive
+          ? `<span class="list-progress">${notes.filter(n => n.status === 'packed' || n.status === 'completed' || n.status === 'loaded').length}/${notes.length}</span>`
+          : '';
+        html += `<div class="sidebar-item ${isActive ? 'active' : ''}" data-list-id="${list.id}" onclick="window.selectList('${list.id}', 'CUSTOM')" style="position: relative;">
+          <span>📋 ${list.name}</span>${progressBadge}
+          <span style="display:flex;gap:3px;align-items:center;margin-left:auto;">
+            <button class="sidebar-delete-btn" style="position:static;display:inline-flex;align-items:center;justify-content:center;background:#6c757d;font-size:10px;width:16px;height:16px;" onclick="window.cloneList('${list.id}', '${list.name.replace(/'/g,"\\'")}'); event.stopPropagation();" title="Clone list">⎘</button>
+            <button class="sidebar-delete-btn" style="position:static;display:inline-flex;align-items:center;justify-content:center;" onclick="window.deleteList('${list.id}', '${list.name.replace(/'/g,"\\'")}'); event.stopPropagation();" title="Delete list">×</button>
+          </span>
         </div>`;
       });
       
       // Event lists
       eventLists.forEach(list => {
-        html += `<div class="sidebar-item" data-list-id="${list.id}" onclick="window.selectList('${list.id}', 'EVENT')" style="position: relative;">
-          <span>📅 ${list.event_name || list.name}</span>
-          <button class="sidebar-delete-btn" onclick="window.deleteList('${list.id}', '${list.name}'); event.stopPropagation();" title="Delete list">×</button>
+        const isActive = currentList && currentList.id === list.id;
+        const progressBadge = isActive
+          ? `<span class="list-progress">${notes.filter(n => n.status === 'packed' || n.status === 'completed' || n.status === 'loaded').length}/${notes.length}</span>`
+          : '';
+        html += `<div class="sidebar-item ${isActive ? 'active' : ''}" data-list-id="${list.id}" onclick="window.selectList('${list.id}', 'EVENT')" style="position: relative;">
+          <span>📅 ${list.event_name || list.name}</span>${progressBadge}
+          <button class="sidebar-delete-btn" onclick="window.deleteList('${list.id}', '${list.name.replace(/'/g,"\\'")}'); event.stopPropagation();" title="Delete list">×</button>
         </div>`;
       });
       
@@ -662,6 +688,27 @@
       
       return true;
     });
+
+    // Search filter
+    const searchQuery = (_searchQuery || '').toLowerCase().trim();
+    if (searchQuery) {
+      filtered = filtered.filter(note =>
+        (note.item_name || '').toLowerCase().includes(searchQuery) ||
+        (note.source_notes || '').toLowerCase().includes(searchQuery) ||
+        (note.assigned_to_name || '').toLowerCase().includes(searchQuery) ||
+        (note.tags || '').toLowerCase().includes(searchQuery)
+      );
+    }
+
+    // Sort: overdue non-done tasks first, then by sort_order
+    const now = new Date();
+    filtered.sort((a, b) => {
+      const aOverdue = a.due_date && new Date(a.due_date) < now && a.status === 'pending';
+      const bOverdue = b.due_date && new Date(b.due_date) < now && b.status === 'pending';
+      if (aOverdue && !bOverdue) return -1;
+      if (!aOverdue && bOverdue) return 1;
+      return (a.sort_order || 0) - (b.sort_order || 0);
+    });
     
     // Build HTML
     let html = '';
@@ -737,6 +784,14 @@
     }).join('');
   }
   
+  // Colour a string to a consistent avatar background colour
+  function stringToColor(str) {
+    const palette = ['#e53935','#8e24aa','#1e88e5','#00897b','#f4511e','#6d4c41','#546e7a','#00acc1','#43a047','#fb8c00'];
+    let h = 0;
+    for (let i = 0; i < str.length; i++) h = str.charCodeAt(i) + ((h << 5) - h);
+    return palette[Math.abs(h) % palette.length];
+  }
+
   // Render single note/task
   function renderNoteItem(note, isFromGeneral = false, depth = 0) {
     const isDone = note.status === 'packed' || note.status === 'loaded' || note.status === 'completed';
@@ -744,77 +799,90 @@
       (note.source_notes && note.source_notes.includes('WhatsApp'));
     
     // Custom styling
-    const customColor = note.color || '';
+    const bgColor   = note.color && note.color !== '#ffffff' && note.color !== '#FFFFFF' ? note.color : '';
+    const textColor = note.text_color || '';
     const customFont = note.font_family || '';
-    const customSize = note.font_size || '12px';
-    const customStyle = `${customColor ? 'background-color: ' + customColor + ';' : ''} ${customFont ? 'font-family: ' + customFont + ';' : ''} font-size: ${customSize};`;
-    
-    // Priority badge
-    const priorityIcons = {
-      critical: '🔴',
-      high: '🟠',
-      normal: '⚪',
-      low: '🟢'
-    };
-    const priorityIcon = priorityIcons[note.priority] || priorityIcons.normal;
-    
-    // Relation (list name)
-    const relationName = isFromGeneral ? 'GENERAL' : (currentList?.name || 'Event List');
-    
-    // Event name (if linked)
-    const eventName = note.linked_event_id ? '🎯 [Event]' : '-';
-    
-    // Completion percentage
-    const progress = note.progress_percent || 0;
-    
-    // Due date
-    const dueDate = note.due_date ? new Date(note.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-';
+    const customSize = note.font_size || '';
+    const styleParts = [];
+    if (bgColor)    styleParts.push(`background-color:${bgColor}`);
+    if (textColor)  styleParts.push(`color:${textColor}`);
+    if (customFont) styleParts.push(`font-family:${customFont}`);
+    if (customSize) styleParts.push(`font-size:${customSize}`);
+    const customStyle = styleParts.join(';');
+
+    // Priority
+    const priorityIcons = { critical: '🔴', high: '🟠', normal: '⚪', low: '🟢' };
+    const priorityIcon  = priorityIcons[note.priority] || priorityIcons.normal;
+    const priorityClass = note.priority ? `priority-${note.priority}` : 'priority-normal';
+
+    // Overdue
     const isOverdue = note.due_date && new Date(note.due_date) < new Date() && !isDone;
-    
-    // Assigned to
-    const assignedTo = note.assigned_to_name || '-';
-    
+
+    // Columns
+    const relationName = isFromGeneral ? 'GENERAL' : (currentList?.name || 'Event List');
+    const eventName    = note.linked_event_id ? '🎯 [Event]' : '-';
+    const progress     = note.progress_percent || 0;
+    const dueDate      = note.due_date ? new Date(note.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-';
+
+    // Assigned-to avatar chip
+    const assignedTo = note.assigned_to_name || '';
+    const avatarHtml = assignedTo
+      ? `<span class="avatar-chip" style="background:${stringToColor(assignedTo)}" title="${escapeHtml(assignedTo)}">${escapeHtml(assignedTo.slice(0,2).toUpperCase())}</span>`
+      : '<span style="color:#ccc;font-size:11px;">—</span>';
+
     // Tags
     let tags = [];
-    if (fromWhatsApp) tags.push('<span class="tag tag-whatsapp">📱</span>');
-    if (isFromGeneral) tags.push('<span class="tag tag-general">📌</span>');
+    if (fromWhatsApp)    tags.push('<span class="tag tag-whatsapp">📱</span>');
+    if (isFromGeneral)   tags.push('<span class="tag tag-general">📌</span>');
     if (note.is_milestone) tags.push('<span class="tag tag-milestone">🏁</span>');
     if (note.tags) {
-      const taskTags = note.tags.split(',').map(t => t.trim()).filter(Boolean);
-      taskTags.forEach(tag => tags.push(`<span class="tag">${escapeHtml(tag)}</span>`));
+      note.tags.split(',').map(t => t.trim()).filter(Boolean)
+        .forEach(tag => tags.push(`<span class="tag">${escapeHtml(tag)}</span>`));
     }
-    
-    // Expand/collapse arrow
+
+    // Expand/collapse
     const hasChildren = note.children && note.children.length > 0;
-    const expandIcon = hasChildren ? (note.is_expanded !== false ? '▼' : '▶') : '';
-    const indent = depth * 20;
-    
+    const expandIcon  = hasChildren ? (note.is_expanded !== false ? '▼' : '▶') : '';
+
+    // Tree visual connector for child items
+    const treePrefix = depth > 0
+      ? `<span class="tree-connector">${'│&nbsp;'.repeat(depth - 1)}└─&nbsp;</span>`
+      : '';
+
     return `
-      <div class="task-item ${isDone ? 'done' : ''} ${note.status === 'blocked' ? 'blocked' : ''}" 
-           data-note-id="${note.id}" 
+      <div class="task-item ${isDone ? 'done' : ''} ${note.status === 'blocked' ? 'blocked' : ''} ${priorityClass} ${isOverdue ? 'overdue-row' : ''} ${fromWhatsApp ? 'from-whatsapp' : ''}"
+           data-note-id="${note.id}"
            data-depth="${depth}"
+           data-sort-order="${note.sort_order || 0}"
+           draggable="true"
            style="${customStyle}"
            onclick="window.selectTask('${note.id}', ${isFromGeneral})">
-        <div class="task-col task-name-col" style="padding-left: ${indent}px; display: flex; align-items: center; gap: 4px;">
-          ${hasChildren ? `<span class="expand-icon" onclick="window.toggleExpand('${note.id}', ${isFromGeneral}, event)" style="cursor: pointer; width: 16px; text-align: center; user-select: none;">${expandIcon}</span>` : '<span style="width: 16px;"></span>'}
-          <input type="checkbox" class="task-checkbox" ${isDone ? 'checked' : ''} 
-                 onclick="event.stopPropagation(); window.toggleNote('${note.id}', ${isFromGeneral})" 
-                 style="margin: 0 4px;">
-          <span class="task-name-text" style="${isDone ? 'text-decoration: line-through; color: #999;' : ''}">${escapeHtml(note.item_name)}</span>
+        <div class="task-col task-name-col" style="padding-left:${depth * 16}px; display:flex; align-items:center; gap:3px; overflow:hidden;">
+          <span class="drag-handle" title="Drag to reorder" onclick="event.stopPropagation()">⠿</span>
+          ${treePrefix}
+          ${hasChildren
+            ? `<span class="expand-icon" onclick="window.toggleExpand('${note.id}', ${isFromGeneral}, event)" style="cursor:pointer;width:14px;text-align:center;user-select:none;flex-shrink:0;">${expandIcon}</span>`
+            : '<span style="width:14px;flex-shrink:0;"></span>'}
+          <input type="checkbox" class="task-checkbox task-bulk-cb"
+                 data-note-id="${note.id}" data-from-general="${isFromGeneral}"
+                 ${isDone ? 'checked' : ''}
+                 onclick="event.stopPropagation(); window.handleTaskCheckbox('${note.id}', ${isFromGeneral}, this)"
+                 style="margin:0 4px;flex-shrink:0;">
+          <span class="task-name-text" style="${isDone ? 'text-decoration:line-through;color:#999;' : ''}">${escapeHtml(note.item_name)}</span>
         </div>
         <div class="task-col task-flag-col" title="${note.priority}">${priorityIcon}</div>
         <div class="task-col task-relation-col">${escapeHtml(relationName)}</div>
         <div class="task-col task-event-col">${eventName}</div>
         <div class="task-col task-progress-col">
-          <div style="display: flex; align-items: center; gap: 4px;">
-            <div style="flex: 1; height: 4px; background: #e0e0e0; border-radius: 2px; overflow: hidden;">
-              <div style="height: 100%; width: ${progress}%; background: linear-gradient(90deg, #3b82f6, #8b5cf6);"></div>
+          <div style="display:flex;align-items:center;gap:4px;">
+            <div style="flex:1;height:4px;background:#e0e0e0;border-radius:2px;overflow:hidden;">
+              <div style="height:100%;width:${progress}%;background:linear-gradient(90deg,#3b82f6,#8b5cf6);"></div>
             </div>
-            <span style="font-size: 10px; color: #666; min-width: 30px;">${progress}%</span>
+            <span style="font-size:10px;color:#666;min-width:28px;">${progress}%</span>
           </div>
         </div>
         <div class="task-col task-date-col ${isOverdue ? 'overdue' : ''}">${dueDate}</div>
-        <div class="task-col task-assigned-col" style="font-size: 11px;">${escapeHtml(assignedTo)}</div>
+        <div class="task-col task-assigned-col">${avatarHtml}</div>
         <div class="task-col task-tags-col">${tags.join(' ')}</div>
       </div>
     `;
@@ -1412,10 +1480,22 @@
       <hr style="margin: 1rem 0; border-color: rgba(0,0,0,0.1);">
       
       <div class="detail-field">
-        <div class="detail-label">🎨 Row Background Color</div>
-        <div class="d-flex gap-2 align-items-center">
-          <input type="color" class="form-control" value="${note.color || '#ffffff'}" id="editTaskColor" style="width: 60px; height: 40px;">
-          <button class="detail-button" style="padding: 4px 8px; font-size: 11px;" onclick="document.getElementById('editTaskColor').value='#ffffff'">Clear</button>
+        <div class="detail-label">🎨 Row Colours</div>
+        <div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap;">
+          <div>
+            <div style="font-size:10px;color:#666;margin-bottom:4px;">Background</div>
+            <div class="d-flex gap-2 align-items-center">
+              <input type="color" class="form-control" value="${note.color || '#ffffff'}" id="editTaskColor" style="width:44px;height:32px;padding:2px;cursor:pointer;">
+              <button class="detail-button" style="padding:3px 7px;font-size:10px;" onclick="document.getElementById('editTaskColor').value='#ffffff'">Clear</button>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:10px;color:#666;margin-bottom:4px;">Text</div>
+            <div class="d-flex gap-2 align-items-center">
+              <input type="color" class="form-control" value="${note.text_color || '#333333'}" id="editTaskTextColor" style="width:44px;height:32px;padding:2px;cursor:pointer;">
+              <button class="detail-button" style="padding:3px 7px;font-size:10px;" onclick="document.getElementById('editTaskTextColor').value='#333333'">Clear</button>
+            </div>
+          </div>
         </div>
       </div>
       
@@ -1473,6 +1553,33 @@
       </div>
       
       <hr style="margin: 1.5rem 0; border-color: rgba(0,0,0,0.1);">
+      
+      <hr style="margin: 1rem 0; border-color: rgba(0,0,0,0.1);">
+      
+      <div class="detail-field">
+        <div class="detail-label" style="display:flex;align-items:center;justify-content:space-between;">
+          <span>📋 Subtasks</span>
+          <span style="font-size:10px;color:#28a745;font-weight:600;">${(isFromGeneral ? generalNotes : notes).filter(n => n.parent_item_id === noteId).filter(n => n.status==='packed'||n.status==='completed'||n.status==='loaded').length}/${(isFromGeneral ? generalNotes : notes).filter(n => n.parent_item_id === noteId).length} done</span>
+        </div>
+        <div id="subtaskList" style="margin-bottom:8px;">
+          ${(() => {
+            const children = (isFromGeneral ? generalNotes : notes).filter(n => n.parent_item_id === noteId);
+            if (children.length === 0) return '<p style="color:#bbb;font-size:11px;margin:0;">No subtasks yet</p>';
+            return children.map(st => {
+              const stDone = st.status==='packed'||st.status==='completed'||st.status==='loaded';
+              return `<div class="subtask-item ${stDone ? 'done' : ''}">
+                <input type="checkbox" ${stDone ? 'checked' : ''} onclick="window.toggleNote('${st.id}', ${isFromGeneral}); setTimeout(()=>window.selectTask('${note.id}',${isFromGeneral}),300)" style="margin:0;flex-shrink:0;cursor:pointer;">
+                <span class="subtask-name" style="flex:1;cursor:pointer;" onclick="window.selectTask('${st.id}',${isFromGeneral})">${escapeHtml(st.item_name)}</span>
+                <button onclick="window.deleteNote('${st.id}',${isFromGeneral})" style="background:none;border:none;color:#dc3545;cursor:pointer;padding:0 2px;font-size:16px;line-height:1;" title="Delete subtask">×</button>
+              </div>`;
+            }).join('');
+          })()}
+        </div>
+        <div class="d-flex gap-2">
+          <input type="text" id="subtaskInput" placeholder="New subtask name…" class="detail-input" style="flex:1;font-size:12px;" onkeydown="if(event.key==='Enter')window.addSubtask('${note.id}',${isFromGeneral})">
+          <button class="detail-button detail-button-primary" style="white-space:nowrap;" onclick="window.addSubtask('${note.id}',${isFromGeneral})">＋ Add</button>
+        </div>
+      </div>
       
       <div class="detail-field" style="font-size: 12px; color: #666;">
         <div><strong>Source:</strong> ${fromWhatsApp ? '📱 WhatsApp' : '💻 Manual'}</div>
@@ -1560,6 +1667,7 @@
       const isMilestone = document.getElementById('editTaskMilestone')?.checked;
       const blockedReason = document.getElementById('editTaskBlocked')?.value?.trim();
       const color = document.getElementById('editTaskColor')?.value;
+      const textColor = document.getElementById('editTaskTextColor')?.value;
       const fontFamily = document.getElementById('editTaskFontFamily')?.value;
       const fontSize = document.getElementById('editTaskFontSize')?.value;
       const linkedEvent = document.getElementById('editTaskLinkedEvent')?.value;
@@ -1599,6 +1707,7 @@
       if (tags) updates.tags = tags;
       if (status === 'blocked' && blockedReason) updates.blocked_reason = blockedReason;
       if (color) updates.color = color;
+      if (textColor) updates.text_color = textColor;
       if (fontFamily) updates.font_family = fontFamily;
       if (fontSize) updates.font_size = fontSize;
       if (linkedEvent) updates.linked_event_id = linkedEvent;
@@ -1650,12 +1759,247 @@
   window.showAddTaskModal = showAddNoteModal;
   window.showListSelector = showEventSelector;
   window.showCalendarView = () => alert('Calendar view coming soon!');
-  
+
+  // ─── Search / filter ────────────────────────────────────────────────────────
+  window.filterTasks = function(q) {
+    _searchQuery = (q || '').toLowerCase().trim();
+    renderNotes();
+  };
+
+  // ─── Bulk-select mode ───────────────────────────────────────────────────────
+  window.toggleBulkMode = function() {
+    _bulkSelectMode = !_bulkSelectMode;
+    const btn = document.getElementById('btnBulkMode');
+    const completeBtn = document.getElementById('btnBulkComplete');
+    if (btn) btn.textContent = _bulkSelectMode ? '✕ Cancel Select' : '☑ Select';
+    if (!_bulkSelectMode) {
+      // Clear any existing selections
+      document.querySelectorAll('.task-item.bulk-selected').forEach(r => r.classList.remove('bulk-selected'));
+      if (completeBtn) completeBtn.style.display = 'none';
+    }
+  };
+
+  window.handleTaskCheckbox = function(noteId, isFromGeneral, el) {
+    if (_bulkSelectMode) {
+      el.preventDefault && el.preventDefault();
+      const row = document.querySelector(`.task-item[data-note-id="${noteId}"]`);
+      if (row) row.classList.toggle('bulk-selected');
+      const count = document.querySelectorAll('.task-item.bulk-selected').length;
+      const countSpan = document.getElementById('bulkCount');
+      const completeBtn = document.getElementById('btnBulkComplete');
+      if (countSpan) countSpan.textContent = count;
+      if (completeBtn) completeBtn.style.display = count > 0 ? '' : 'none';
+      // Keep checkbox in sync with selection state
+      if (row) el.checked = row.classList.contains('bulk-selected');
+    } else {
+      window.toggleNote(noteId, isFromGeneral);
+    }
+  };
+
+  window.bulkComplete = async function() {
+    const selectedRows = [...document.querySelectorAll('.task-item.bulk-selected')];
+    if (selectedRows.length === 0) return;
+
+    const name = localStorage.getItem('rts.notes.userName') ||
+      prompt('Enter your name to mark tasks as done:');
+    if (!name) return;
+    localStorage.setItem('rts.notes.userName', name);
+
+    let completed = 0;
+    for (const row of selectedRows) {
+      const noteId = row.dataset.noteId;
+      const fromGeneral = row.querySelector('.task-bulk-cb')?.dataset.fromGeneral === 'true';
+      const noteList = fromGeneral ? generalNotes : notes;
+      const note = noteList.find(n => n.id === noteId);
+      if (!note || note.status === 'packed' || note.status === 'completed' || note.status === 'loaded') continue;
+
+      try {
+        const listId = await getListIdForNote(fromGeneral);
+        const resp = await fetch(`${API_BASE}/packing-lists/${listId}/items/${noteId}/mark-packed`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` },
+          body: JSON.stringify({ packed_by_name: name })
+        }).then(r => r.json());
+        if (resp.success) {
+          const idx = noteList.findIndex(n => n.id === noteId);
+          if (idx >= 0) Object.assign(noteList[idx], resp.item || { status: 'packed' });
+          completed++;
+        }
+      } catch (e) { console.error('Bulk complete error:', e); }
+    }
+
+    renderNotes();
+    updateStats();
+    window.toggleBulkMode(); // reset bulk mode
+    if (RTS.showToast) RTS.showToast(`✅ Completed ${completed} task${completed !== 1 ? 's' : ''}`, 'success');
+  };
+
+  // ─── Clone List ─────────────────────────────────────────────────────────────
+  window.cloneList = async function(listId, listName) {
+    const newName = prompt(`Clone "${listName}" as:`, listName + ' (Copy)');
+    if (!newName || !newName.trim()) return;
+
+    try {
+      // Load source list items
+      const token = localStorage.getItem('auth_token');
+      const srcData = await fetch(`${API_BASE}/packing-lists/${listId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      }).then(r => r.json());
+      if (!srcData.success) throw new Error('Failed to load source list');
+
+      // Create new list
+      const createData = await fetch(`${API_BASE}/packing-lists`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ name: newName.trim(), description: `Cloned from ${listName}` })
+      }).then(r => r.json());
+      if (!createData.success) throw new Error('Failed to create list');
+
+      const newListId = createData.list.id;
+      const sourceItems = srcData.list?.items || [];
+      const idMap = {};
+
+      // Copy root items first, then children
+      const roots = sourceItems.filter(i => !i.parent_item_id);
+      const children = sourceItems.filter(i => i.parent_item_id);
+
+      for (const item of roots) {
+        const r = await fetch(`${API_BASE}/packing-lists/${newListId}/items`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ item_name: item.item_name, category: item.category || 'general', priority: item.priority || 'normal', quantity: item.quantity || 1, required: item.required || false, sort_order: item.sort_order || 0, color: item.color, font_family: item.font_family, font_size: item.font_size })
+        }).then(r => r.json());
+        if (r.success) idMap[item.id] = r.item.id;
+      }
+      for (const item of children) {
+        const newParentId = idMap[item.parent_item_id];
+        if (!newParentId) continue;
+        const r = await fetch(`${API_BASE}/packing-lists/${newListId}/items`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ item_name: item.item_name, category: item.category || 'general', priority: item.priority || 'normal', quantity: item.quantity || 1, required: item.required || false, sort_order: item.sort_order || 0, parent_item_id: newParentId })
+        }).then(r => r.json());
+        if (r.success) idMap[item.id] = r.item.id;
+      }
+
+      await loadListsIntoSidebar();
+      await window.selectList(newListId, 'custom');
+      if (RTS.showToast) RTS.showToast(`📋 Cloned as "${newName.trim()}"`, 'success');
+    } catch (e) {
+      console.error('Clone error:', e);
+      if (RTS.showToast) RTS.showToast('Failed to clone list', 'error');
+    }
+  };
+
+  // ─── Add Subtask ────────────────────────────────────────────────────────────
+  window.addSubtask = async function(parentId, isFromGeneral) {
+    const input = document.getElementById('subtaskInput');
+    const text = (input?.value || '').trim();
+    if (!text) { input?.focus(); return; }
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      const listId = await getListIdForNote(isFromGeneral);
+      if (!listId) throw new Error('List not found');
+
+      const resp = await fetch(`${API_BASE}/packing-lists/${listId}/items`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ item_name: text, category: 'general', priority: 'normal', quantity: 1, required: false, parent_item_id: parentId })
+      }).then(r => r.json());
+
+      if (!resp.success) throw new Error('Failed to add subtask');
+
+      const noteList = isFromGeneral ? generalNotes : notes;
+      noteList.push(resp.item);
+
+      if (input) input.value = '';
+      renderNotes();
+      window.selectTask(parentId, isFromGeneral);
+      if (RTS.showToast) RTS.showToast('Subtask added', 'success');
+    } catch (e) {
+      console.error('Add subtask error:', e);
+      if (RTS.showToast) RTS.showToast('Failed to add subtask', 'error');
+    }
+  };
+
+  // ─── Drag-to-reorder rows ───────────────────────────────────────────────────
+  function initDragReorder() {
+    const taskList = document.getElementById('taskList');
+    if (!taskList) return;
+
+    let dragSrc = null;
+
+    taskList.addEventListener('dragstart', (e) => {
+      const row = e.target.closest('.task-item');
+      if (!row) return;
+      dragSrc = row;
+      row.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', row.dataset.noteId);
+    });
+
+    taskList.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      const row = e.target.closest('.task-item');
+      if (row && row !== dragSrc) {
+        taskList.querySelectorAll('.drag-over').forEach(r => r.classList.remove('drag-over'));
+        row.classList.add('drag-over');
+      }
+    });
+
+    taskList.addEventListener('dragleave', (e) => {
+      const row = e.target.closest('.task-item');
+      if (row) row.classList.remove('drag-over');
+    });
+
+    taskList.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      const targetRow = e.target.closest('.task-item');
+      if (!targetRow || !dragSrc || targetRow === dragSrc) return;
+
+      // Move in DOM for instant feedback
+      taskList.insertBefore(dragSrc, targetRow);
+
+      // Save new sort_order for all visible rows
+      const allRows = [...taskList.querySelectorAll('.task-item')];
+      if (currentList) {
+        const token = localStorage.getItem('auth_token');
+        allRows.forEach((row, i) => {
+          const nId = row.dataset.noteId;
+          const note = notes.find(n => n.id === nId) || generalNotes.find(n => n.id === nId);
+          if (note) {
+            note.sort_order = i * 10;
+            fetch(`${API_BASE}/packing-lists/${currentList.id}/items/${nId}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+              body: JSON.stringify({ sort_order: i * 10 })
+            }).catch(() => {});
+          }
+        });
+      }
+
+      taskList.querySelectorAll('.drag-over, .dragging').forEach(r => {
+        r.classList.remove('drag-over');
+        r.classList.remove('dragging');
+      });
+      dragSrc = null;
+    });
+
+    taskList.addEventListener('dragend', () => {
+      taskList.querySelectorAll('.dragging, .drag-over').forEach(r => {
+        r.classList.remove('dragging');
+        r.classList.remove('drag-over');
+      });
+      dragSrc = null;
+    });
+  }
+
   // Start
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
     init();
   }
-  
+
 })();
