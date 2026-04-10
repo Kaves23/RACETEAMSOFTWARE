@@ -531,8 +531,10 @@ router.post('/lazy-import', async (req, res, next) => {
           vals.push(newQty);
         }
       }
-      // Always update at minimum the sync timestamp
-      if (updates.length === 0) updates.push(`shopify_sync_at = NOW()`);
+      // If nothing changed, return immediately — avoids duplicate column in SET clause
+      if (updates.length === 0) {
+        return res.json({ success: true, item: existing.rows[0], created: false });
+      }
       vals.push(existing.rows[0].id);
 
       let updated;
@@ -543,14 +545,8 @@ router.post('/lazy-import', async (req, res, next) => {
           vals
         );
       } catch (updateErr) {
-        // Column shopify_inventory_item_id doesn't exist yet — remove it and retry
+        // Column shopify_inventory_item_id doesn't exist yet (pre-migration 047) — remove it and retry
         if (updateErr.code === '42703') {
-          const safeUpdates = updates.filter(u => !u.includes('shopify_inventory_item_id'));
-          const safeVals = vals.filter((_, i) => {
-            const u = updates[i];
-            return !u || !u.includes('shopify_inventory_item_id');
-          });
-          // Rebuild vals without the shopify_inventory_item_id entry
           const filteredUpdates = [];
           const filteredVals = [];
           for (let i = 0; i < updates.length; i++) {
@@ -559,7 +555,10 @@ router.post('/lazy-import', async (req, res, next) => {
               filteredVals.push(vals[i]);
             }
           }
-          if (filteredUpdates.length === 0) filteredUpdates.push(`shopify_sync_at = NOW()`);
+          if (filteredUpdates.length === 0) {
+            // Only update was the missing column — return existing row as-is
+            return res.json({ success: true, item: existing.rows[0], created: false });
+          }
           filteredVals.push(existing.rows[0].id);
           updated = await pool.query(
             `UPDATE inventory SET ${filteredUpdates.join(', ')}, shopify_sync_at = NOW(), updated_at = NOW()

@@ -2605,10 +2605,17 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       customerAssignments: []
     };
 
-    // Populate location dropdown
+    // Populate location dropdown with Shopify locations (pre-select the one used when packing)
     const locSel = document.getElementById('returnStepLocation');
-    locSel.innerHTML = '<option value="">Select Location</option>' +
-      allLocations.map(l => `<option value="${esc(l.id)}">${esc(l.name)}</option>`).join('');
+    const preselect = unpackState.shopifyLocationId;
+    if (_shopifyLocations && _shopifyLocations.length > 0) {
+      locSel.innerHTML = '<option value="">Select Shopify location</option>' +
+        _shopifyLocations.map(l => `<option value="${esc(l.legacyId)}"${l.legacyId === preselect ? ' selected' : ''}>${esc(l.name)}</option>`).join('');
+    } else {
+      // Shopify locations not loaded yet — fall back to local locations
+      locSel.innerHTML = '<option value="">Select Location</option>' +
+        allLocations.map(l => `<option value="${esc(l.id)}">${esc(l.name)}</option>`).join('');
+    }
 
     // Render Shopify item rows
     const shopifyHtml = shopifyItems.map((si, idx) => `
@@ -2662,7 +2669,9 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     if (!unpackState) return;
 
     const locationId = document.getElementById('returnStepLocation').value;
-    if (!locationId) { showToast('Please select an unpack location', 'warning'); return; }
+    if (!locationId) { showToast('Please select a Shopify location', 'warning'); return; }
+    // Store as both the Shopify location (for return-stock) and the local label
+    unpackState.shopifyLocationId = locationId;
     unpackState.locationId = locationId;
 
     // Read return quantities
@@ -2957,7 +2966,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       unpackStepConfirmModal.hide();
 
       const locationId = unpackState.locationId;
-      const locationName = allLocations.find(l => l.id === locationId)?.name || locationId;
+      const locationName = getShopifyLocationName(locationId) || allLocations.find(l => l.id === locationId)?.name || locationId;
       const contents = unpackState.allContents;
       const box = boxes.find(b => b.id === unpackState.boxId);
 
