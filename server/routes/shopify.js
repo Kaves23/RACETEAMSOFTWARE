@@ -327,58 +327,117 @@ router.get('/search', async (req, res, next) => {
     }
 
     const headers = { 'X-Shopify-Access-Token': cfg.accessToken, 'Content-Type': 'application/json' };
-    const apiBase = `https://${cfg.shop}/admin/api/2026-01`;
-
-    // Search by title AND by SKU in parallel
-    const [titleResp, skuResp] = await Promise.all([
-      fetch(`${apiBase}/products.json?title=${encodeURIComponent(q)}&limit=20&status=active`, { headers }),
-      fetch(`${apiBase}/variants.json?sku=${encodeURIComponent(q)}&limit=20`, { headers })
-    ]);
-
-    const seenVariantIds = new Set();
+    const graphqlUrl = `https://${cfg.shop}/admin/api/2026-01/graphql.json`;
     const results = [];
 
-    const addVariant = (product, variant) => {
-      if (seenVariantIds.has(String(variant.id))) return;
-      seenVariantIds.add(String(variant.id));
-      results.push({
-        shopify_product_id: String(product.id),
-        shopify_variant_id: String(variant.id),
-        shopify_inventory_item_id: String(variant.inventory_item_id || ''),
-        name: product.title + (variant.title !== 'Default Title' ? ` – ${variant.title}` : ''),
-        sku: variant.sku || '',
-        price: variant.price || '0.00',
-        category: product.product_type || 'Uncategorized',
-        vendor: product.vendor || '',
-        image_url: (product.images && product.images[0]) ? product.images[0].src : null,
-        shopify_quantity: variant.inventory_quantity || 0
-      });
-    };
-
-    // SKU search first — exact match only
-    if (skuResp.ok) {
-      const skuData = await skuResp.json();
-      const variants = (skuData.variants || []).filter(v => v.sku === q);
-      if (variants.length > 0) {
-        const productIds = [...new Set(variants.map(v => v.product_id))].join(',');
-        const prodResp = await fetch(`${apiBase}/products.json?ids=${productIds}&limit=20`, { headers });
-        if (prodResp.ok) {
-          const prodData = await prodResp.json();
-          const productMap = {};
-          for (const p of (prodData.products || [])) productMap[p.id] = p;
-          for (const variant of variants) {
-            const product = productMap[variant.product_id];
-            if (product) addVariant(product, variant);
+    // Use GraphQL to search by SKU (exact) first, then fall back to title search
+    const skuQuery = `{
+      products(first: 10, query: "sku:${q.replace(/"/g, '')}") {
+        edges {
+          node {
+            id
+            title
+            productType
+            vendor
+            images(first: 1) { edges { node { url } } }
+            variants(first: 20) {
+              edges {
+                node {
+                  id
+                  sku
+                  title
+                  price
+                  inventoryQuantity
+                  inventoryItem { id }
+                }
+              }
+            }
           }
         }
       }
+    }`;
+
+    const gqlResp = await fetch(graphqlUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ query: skuQuery })
+    });
+
+    const gqlData = await gqlResp.json();
+    const gqlProducts = gqlData?.data?.products?.edges || [];
+
+    const parseGid = (gid) => String(gid).split('/').pop();
+
+    for (const { node: product } of gqlProducts) {
+      for (const { node: variant } of (product.variants?.edges || [])) {
+        // For SKU search, only include exact SKU matches
+        if (!variant.sku || variant.sku !== q) continue;
+        results.push({
+          shopify_product_id: parseGid(product.id),
+          shopify_variant_id: parseGid(variant.id),
+          shopify_inventory_item_id: parseGid(variant.inventoryItem?.id || ''),
+          name: product.title + (variant.title !== 'Default Title' ? ` – ${variant.title}` : ''),
+          sku: variant.sku || '',
+          price: variant.price || '0.00',
+          category: product.productType || 'Uncategorized',
+          vendor: product.vendor || '',
+          image_url: product.images?.edges?.[0]?.node?.url || null,
+          shopify_quantity: variant.inventoryQuantity || 0
+        });
+      }
     }
 
-    // Title search — only use if SKU search returned nothing
-    if (results.length === 0 && titleResp.ok) {
+    // Fall back to title search if no SKU match
+    if (results.length === 0) {
+      const titleQuery = `{
+        products(first: 10, query: "title:${q.replace(/"/g, '')}") {
+          edges {
+            node {
+              id
+              title
+              productType
+              vendor
+              images(first: 1) { edges { node { url } } }
+              variants(first: 20) {
+                edges {
+                  node {
+                    id
+                    sku
+                    title
+                    price
+                    inventoryQuantity
+                    inventoryItem { id }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }`;
+
+      const titleResp = await fetch(graphqlUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ query: titleQuery })
+      });
       const titleData = await titleResp.json();
-      for (const product of (titleData.products || [])) {
-        for (const variant of (product.variants || [])) addVariant(product, variant);
+      const titleProducts = titleData?.data?.products?.edges || [];
+
+      for (const { node: product } of titleProducts) {
+        for (const { node: variant } of (product.variants?.edges || [])) {
+          results.push({
+            shopify_product_id: parseGid(product.id),
+            shopify_variant_id: parseGid(variant.id),
+            shopify_inventory_item_id: parseGid(variant.inventoryItem?.id || ''),
+            name: product.title + (variant.title !== 'Default Title' ? ` – ${variant.title}` : ''),
+            sku: variant.sku || '',
+            price: variant.price || '0.00',
+            category: product.productType || 'Uncategorized',
+            vendor: product.vendor || '',
+            image_url: product.images?.edges?.[0]?.node?.url || null,
+            shopify_quantity: variant.inventoryQuantity || 0
+          });
+        }
       }
     }
 
