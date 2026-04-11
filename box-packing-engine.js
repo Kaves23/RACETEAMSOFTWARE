@@ -2916,7 +2916,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
             const lineTotal = li.price != null ? (parseFloat(li.price) * li.quantity).toFixed(2) : null;
             return `<div style="display:flex;justify-content:space-between;font-size:.82rem;padding:2px 0">
               <span>${esc(li.name)} <span style="color:#5f6368">×${li.quantity}</span></span>
-              <span style="font-weight:600">${lineTotal != null ? '£' + lineTotal : ''}</span>
+              <span style="font-weight:600">${lineTotal != null ? 'R' + lineTotal : ''}</span>
              </div>`;
           }).join('');
           return `
@@ -2993,7 +2993,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
           const stockData = await stockResp.json();
           if (!stockResp.ok || stockData.errors?.length) {
             stockErrors = stockData.errors || [`Return stock failed (${stockResp.status})`];
-            console.warn('Return stock errors:', stockErrors);
+            console.warn('Return stock errors:', JSON.stringify(stockErrors));
           }
         } catch(e) {
           stockErrors = [e.message];
