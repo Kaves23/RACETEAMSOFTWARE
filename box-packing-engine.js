@@ -1623,6 +1623,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
         return {
           id: inv.id,
           barcode: String(inv.sku || inv.id || ''),
+          sku: String(inv.sku || ''),
           name: String(inv.name || 'Unnamed Item'),
           category: String(inv.category || 'Inventory'),
           type: 'inventory',
@@ -1659,6 +1660,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     // Show ALL items (not just packed ones) - users can drag them into boxes
     const filtered = allItems.filter(item =>
       String(item.barcode || '').toLowerCase().includes(search) ||
+      String(item.sku || '').toLowerCase().includes(search) ||
       String(item.name || '').toLowerCase().includes(search) ||
       String(item.category || '').toLowerCase().includes(search)
     );
