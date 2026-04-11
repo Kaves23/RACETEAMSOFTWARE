@@ -851,4 +851,43 @@ router.get('/variant-prices', async (req, res, next) => {
   }
 });
 
+/**
+ * GET /api/shopify/inventory-levels?locationId=X&ids=inv_item_id1,inv_item_id2
+ * Returns available stock for the given Shopify inventory_item_ids at a location.
+ */
+router.get('/inventory-levels', async (req, res, next) => {
+  try {
+    const { locationId, ids } = req.query;
+    if (!ids) return res.json({ success: true, levels: {} });
+
+    const cfg = await loadShopifyCredentials();
+    if (!cfg) return res.status(400).json({ success: false, error: 'Shopify not configured' });
+
+    const idList = ids.split(',').map(s => s.trim()).filter(Boolean);
+    const levels = {};
+
+    // Shopify allows up to 50 inventory_item_ids per request
+    for (let i = 0; i < idList.length; i += 50) {
+      const batch = idList.slice(i, i + 50);
+      const locParam = locationId ? `&location_ids=${encodeURIComponent(locationId)}` : '';
+      const url = `https://${cfg.shop}/admin/api/2026-01/inventory_levels.json?inventory_item_ids=${batch.join(',')}&limit=250${locParam}`;
+      const resp = await fetch(url, { headers: { 'X-Shopify-Access-Token': cfg.accessToken } });
+      if (resp.ok) {
+        const data = await resp.json();
+        for (const level of (data.inventory_levels || [])) {
+          const key = String(level.inventory_item_id);
+          levels[key] = (levels[key] || 0) + (level.available || 0);
+        }
+      } else {
+        console.warn('inventory-levels fetch failed:', resp.status, await resp.text());
+      }
+    }
+
+    res.json({ success: true, levels });
+  } catch (error) {
+    console.error('Shopify inventory-levels error:', error);
+    next(error);
+  }
+});
+
 module.exports = router;

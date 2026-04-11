@@ -499,9 +499,14 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     
     console.log(`✅ Data load complete: ${boxes.length} boxes, ${equipment.length} equipment, ${assets.length} assets`);
     
-    // Always load inventory items on startup so packed inventory items can be resolved
-    await loadInventoryItems();
-    
+    // Fire inventory load in the background — boxes render immediately without waiting
+    loadInventoryItems().then(() => {
+      const badge = document.getElementById('inventoryCount');
+      if (badge) badge.textContent = inventoryItems.filter(i => !i.shopify_variant_id).length;
+      if (currentFilter === 'inventory') renderItems();
+      if (currentFilter === 'shopify') renderLocalShopifyTab();
+    }).catch(e => console.warn('Background inventory load failed:', e));
+
     // Seed box contents if empty (pack items into boxes for testing)
     if (boxContents.length === 0 && boxes.length > 0) {
       await seedBoxContents();
@@ -857,9 +862,8 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     if (tab === 'inventory') {
       loadInventoryItems().then(() => renderItems());
     } else if (tab === 'shopify') {
-      // Show empty state until user types; focus the search input
-      renderShopifyResults([]);
       ensureShopifyLocations();
+      renderLocalShopifyTab();
       setTimeout(() => document.getElementById('searchShopify')?.focus(), 50);
     } else {
       renderItems();
@@ -929,15 +933,16 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       clearTimeout(_shopifyDebounceTimer);
       const q = el.value.trim();
       if (q.length < 2) {
-        renderShopifyResults([]);
+        renderLocalShopifyTab();
         return;
       }
       _shopifyDebounceTimer = setTimeout(() => searchShopify(q), 350);
     });
-    // Re-search when location changes
+    // Re-render or re-search when location changes
     document.getElementById('shopifyLocationSelect')?.addEventListener('change', () => {
       const q = el.value.trim();
       if (q.length >= 2) searchShopify(q);
+      else renderLocalShopifyTab();
     });
   }
 
@@ -1031,6 +1036,102 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
         </div>`;
     }).join('');
   }
+
+  // Renders locally-imported Shopify items with live stock from the selected Shopify location.
+  // Called on Shopify tab open and on location change (when no live search query).
+  async function renderLocalShopifyTab() {
+    if (currentFilter !== 'shopify') return;
+    const list = document.getElementById('itemsList');
+    const status = document.getElementById('shopifySearchStatus');
+    if (!list) return;
+
+    // Ensure inventory items are loaded
+    if (inventoryItems.length === 0) {
+      list.innerHTML = '<div style="text-align:center;padding:24px 12px;color:#5f6368;font-size:.82rem">⏳ Loading…</div>';
+      await loadInventoryItems();
+    }
+
+    const shopifyItems = inventoryItems.filter(i => i.shopify_variant_id || i.shopify_inventory_item_id);
+    const locationId = document.getElementById('shopifyLocationSelect')?.value || '';
+    const locationName = getShopifyLocationName(locationId);
+
+    if (shopifyItems.length === 0) {
+      list.innerHTML = '<div style="text-align:center;padding:24px 12px;color:#5f6368;font-size:.82rem">🛒 No locally imported Shopify items.<br><span style="font-size:.75rem">Add items from the Shopify tab search to see them here.</span></div>';
+      if (status) status.style.display = 'none';
+      return;
+    }
+
+    // Show loading state while fetching stock
+    if (status) { status.textContent = `⏳ Loading stock for ${shopifyItems.length} items…`; status.style.display = 'block'; }
+
+    // Fetch live inventory levels from Shopify for selected location
+    let levels = {};
+    const invItemIds = shopifyItems.map(i => i.shopify_inventory_item_id).filter(Boolean);
+    if (invItemIds.length > 0 && locationId) {
+      try {
+        const resp = await fetch(`/api/shopify/inventory-levels?locationId=${encodeURIComponent(locationId)}&ids=${invItemIds.join(',')}`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}` }
+        });
+        const data = await resp.json();
+        if (data.success) levels = data.levels;
+      } catch (e) { console.warn('Could not fetch inventory levels:', e); }
+    }
+
+    if (status) {
+      status.textContent = locationId
+        ? `${shopifyItems.length} Shopify items at ${locationName}`
+        : `${shopifyItems.length} Shopify items — select a location to see stock`;
+      status.style.display = 'block';
+    }
+
+    // Apply search filter from input
+    const q = (document.getElementById('searchShopify')?.value || '').toLowerCase().trim();
+    const filtered = q
+      ? shopifyItems.filter(i => (i.name || '').toLowerCase().includes(q) || (i.sku || '').toLowerCase().includes(q))
+      : shopifyItems;
+
+    if (filtered.length === 0) {
+      list.innerHTML = `<div style="text-align:center;padding:24px 12px;color:#5f6368;font-size:.82rem">No results for "${esc(q)}"</div>`;
+      return;
+    }
+
+    list.innerHTML = filtered.map(item => {
+      const invId = String(item.shopify_inventory_item_id || '');
+      const qty = invId && levels.hasOwnProperty(invId) ? levels[invId] : (locationId ? 0 : null);
+      const qtyColour = qty != null && qty > 0 ? '#34a853' : '#ea4335';
+      const packedQty = window.inventoryPackedQuantities?.get(item.id) || 0;
+      return `
+        <div class="item-card shopify-result-card"
+             data-shopify-variant-id="${esc(item.shopify_variant_id || '')}"
+             data-shopify-product-id="${esc(item.shopify_product_id || '')}"
+             data-shopify-inventory-item-id="${esc(item.shopify_inventory_item_id || '')}"
+             data-shopify-name="${esc(item.name)}"
+             data-shopify-sku="${esc(item.sku || '')}"
+             data-shopify-price="${esc(String(item.unit_cost || '0'))}"
+             data-shopify-category="${esc(item.category || '')}"
+             data-shopify-vendor="${esc(item.supplier || '')}"
+             data-shopify-qty="${qty != null ? qty : 0}"
+             style="cursor:pointer;padding:8px!important;padding-left:10px!important"
+             onclick="shopifyPackCard(this)">
+          <div style="display:flex;gap:8px;align-items:center">
+            <div style="width:36px;height:36px;background:#f0f0f0;border-radius:3px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.1rem">📦</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:.78rem;font-weight:600;color:#202124;line-height:1.3;margin-bottom:2px">${esc(item.name)}</div>
+              <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+                ${item.sku ? `<span style="font-family:monospace;font-size:.68rem;color:#1a73e8">${esc(item.sku)}</span>` : ''}
+                ${item.category ? `<span style="font-size:.68rem;color:#5f6368;background:#f0f0f0;padding:1px 5px;border-radius:3px">${esc(item.category)}</span>` : ''}
+                ${locationId
+                  ? `<span style="font-size:.68rem;font-weight:700;color:${qtyColour}">${qty != null ? qty + ' in stock' : '—'}</span>`
+                  : `<span style="font-size:.68rem;color:#5f6368">select location for stock</span>`}
+                ${packedQty > 0 ? `<span style="font-size:.68rem;font-weight:700;color:#ff9800">${packedQty} packed</span>` : ''}
+              </div>
+              <div style="font-size:.73rem;color:#34a853;font-weight:600;margin-top:2px">R${esc(String(item.unit_cost || '0.00'))} — click to pack ↓</div>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+  window.renderLocalShopifyTab = renderLocalShopifyTab;
 
   // Called when user clicks a Shopify result card
   window.shopifyPackCard = async function(cardEl) {
@@ -1507,12 +1608,12 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       ? document.getElementById('searchInventory')
       : document.getElementById('searchAssets');
     const search = (activeSearchEl?.value || document.getElementById('searchItems')?.value || '').toLowerCase();
-    const sortBy = document.getElementById('sortItems')?.value || 'name';
+    const sortBy = document.getElementById('sortAssets')?.value || document.getElementById('sortItems')?.value || 'name';
     let allItems = [];
 
     // If inventory filter is selected, show only inventory items
     if (currentFilter === 'inventory') {
-      allItems = inventoryItems.map(inv => {
+      allItems = inventoryItems.filter(inv => !inv.shopify_variant_id).map(inv => {
         // Calculate packed quantity across all boxes
         const packedQty = (window.inventoryPackedQuantities?.get(inv.id) || 
                           window.inventoryPackedQuantities?.get(String(inv.id))) || 0;
@@ -1603,8 +1704,9 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       const typeName = assetTypeObj ? assetTypeObj.name : (item.itemType || item.type || 'equipment');
       const serialNum = item.serialNumber || 'No S/N';
       return `
-        <div class="item-card ${isPackedClass} ${selectedClass}" draggable="${draggable}" data-item-id="${item.id}" data-item-type="${item.type}" style="padding:8px!important;padding-left:26px!important;${isPackedStyle};${cursorStyle}">
+        <div class="item-card ${isPackedClass} ${selectedClass}" draggable="${draggable}" data-item-id="${item.id}" data-item-type="${item.type}" style="position:relative;padding:8px!important;padding-left:26px!important;${cursorStyle}">
           <input type="checkbox" class="item-checkbox" data-item-id="${item.id}" onclick="event.stopPropagation(); toggleItemSelection('${item.id}')" ${isSelected ? 'checked' : ''}>
+          <div style="${isPackedStyle}">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
             <div class="item-barcode" style="font-family:monospace;font-size:.7rem;font-weight:700;color:#1a73e8">${esc(item.barcode)}</div>
             <div class="item-category ${categoryClass}" style="font-size:.65rem;padding:2px 6px">${esc(item.category || 'Uncategorized')}</div>
@@ -1617,6 +1719,8 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
           </div>
           ${quantityInfo}
           ${isPacked ? `<div style="font-size:.65rem;color:#ea4335;font-weight:600">📦 In ${esc(boxName)}</div>` : ''}
+          </div>
+          ${isPacked ? `<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:2"><div style="background:rgba(220,53,69,0.88);color:#fff;font-weight:900;font-size:.8rem;padding:4px 14px;border-radius:4px;letter-spacing:2px;box-shadow:0 1px 4px rgba(0,0,0,.3)">PACKED</div></div>` : ''}
         </div>
       `;
     }).join('');
