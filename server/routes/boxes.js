@@ -82,23 +82,23 @@ router.get('/:id', async (req, res, next) => {
       return res.status(404).json({ success: false, error: 'Box not found' });
     }
     
-    // Get contents — UNION ALL handles both physical items (item_type='item')
-    // and consumable inventory (item_type='inventory') with a single round-trip.
+    // Get contents — LEFT JOINs handle item_type = NULL (physical items),
+    // 'item', 'inventory', and any other values gracefully.
     const contents = await pool.query(`
-      SELECT bc.box_id, bc.item_id, bc.item_type, bc.quantity_packed,
-             bc.position_in_box, bc.packed_at,
-             i.name, i.barcode AS item_barcode, i.category, NULL AS sku
+      SELECT bc.box_id, bc.item_id,
+             COALESCE(bc.item_type, 'item') AS item_type,
+             bc.quantity_packed, bc.position_in_box, bc.packed_at,
+             COALESCE(i.name, inv.name)       AS name,
+             COALESCE(i.barcode, inv.sku)     AS item_barcode,
+             COALESCE(i.category, inv.category) AS category,
+             inv.sku
       FROM box_contents bc
-      JOIN items i ON bc.item_id = i.id
-      WHERE bc.box_id = $1 AND bc.item_type = 'item'
-      UNION ALL
-      SELECT bc.box_id, bc.item_id, bc.item_type, bc.quantity_packed,
-             bc.position_in_box, bc.packed_at,
-             inv.name, inv.sku AS item_barcode, inv.category, inv.sku
-      FROM box_contents bc
-      JOIN inventory inv ON bc.item_id = inv.id
-      WHERE bc.box_id = $1 AND bc.item_type = 'inventory'
-      ORDER BY packed_at DESC
+      LEFT JOIN items i
+        ON bc.item_id = i.id AND (bc.item_type IS NULL OR bc.item_type != 'inventory')
+      LEFT JOIN inventory inv
+        ON bc.item_id = inv.id AND bc.item_type = 'inventory'
+      WHERE bc.box_id = $1
+      ORDER BY bc.packed_at DESC
     `, [id]);
     
     res.json({ 

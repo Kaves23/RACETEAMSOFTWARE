@@ -242,7 +242,10 @@ function renderManifest(data) {
     '<strong>' + loaded + '</strong> <em>of ' + total + ' loaded</em>';
   document.getElementById('progressFill').style.width = pct + '%';
 
-  // Box rows
+  // Box rows — remove any prior click listener before adding new one
+  var list = document.getElementById('boxList');
+  var newList = list.cloneNode(false);
+  list.parentNode.replaceChild(newList, list);
   document.getElementById('boxList').innerHTML = boxes.map(function(box) {
     var isLoaded = !!box.loaded;
     return '<div class="box-row" data-boxid="' + escHtml(String(box.id)) + '" data-boxname="' + escHtml(box.name || '') + '" data-boxbarcode="' + escHtml(box.barcode || '') + '">' +
@@ -262,7 +265,7 @@ function renderManifest(data) {
     '</div>';
   }).join('');
 
-  document.getElementById('boxList').addEventListener('click', handleBoxRowClick);
+  document.getElementById('boxList').addEventListener('click', handleBoxRowClick, { once: false });
 }
 
 function handleBoxRowClick(e) {

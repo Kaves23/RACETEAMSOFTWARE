@@ -97,8 +97,10 @@ function cacheFirst(request) {
 function networkFirst(request) {
   return fetch(request.clone()).then(function(response) {
     if (response && response.status === 200) {
+      // Clone BEFORE any async operation — body can only be consumed once
+      var responseClone = response.clone();
       caches.open(CACHE_NAME).then(function(cache) {
-        cache.put(request, response.clone());
+        cache.put(request, responseClone);
       });
     }
     return response;
