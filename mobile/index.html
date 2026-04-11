@@ -10,6 +10,29 @@
   <link rel="stylesheet" href="mobile.css">
   <style>
     body { background: #fff; }
+    .login-form { display:flex; flex-direction:column; gap:12px; width:100%; }
+    .login-field { display:flex; flex-direction:column; gap:5px; }
+    .login-label { font-size:11px; font-weight:600; color:var(--text-2); letter-spacing:0.06em; text-transform:uppercase; }
+    .login-input {
+      width:100%; padding:11px 13px;
+      border:1px solid var(--border-2); border-radius:var(--r);
+      font-size:15px; font-family:inherit; color:var(--text);
+      background:#fff; outline:none;
+      -webkit-appearance:none;
+      transition:border-color 0.12s;
+    }
+    .login-input:focus { border-color:var(--text); }
+    .login-btn {
+      width:100%; padding:13px;
+      background:var(--text); color:#fff;
+      border:none; border-radius:var(--r);
+      font-size:15px; font-weight:600; font-family:inherit;
+      cursor:pointer; -webkit-tap-highlight-color:transparent;
+      transition:opacity 0.1s;
+    }
+    .login-btn:active { opacity:0.75; }
+    .login-btn:disabled { opacity:0.45; cursor:not-allowed; }
+    .login-err { font-size:12px; color:var(--danger); font-weight:500; text-align:center; min-height:16px; }
   </style>
 </head>
 <body>
@@ -23,8 +46,27 @@
       <div class="pin-app-sub">Mobile · Race day toolkit</div>
     </div>
 
-    <div id="mainContent">
-      <!-- PIN UI — shown once auth_token confirmed -->
+    <div id="mainContent" style="width:100%">
+
+      <!-- Login form — shown when no valid token -->
+      <div id="loginContent" style="display:none;width:100%;">
+        <form class="login-form" id="loginForm" autocomplete="on">
+          <div class="login-field">
+            <label class="login-label" for="inputUser">Username</label>
+            <input class="login-input" id="inputUser" type="text" name="username"
+                   autocomplete="username" inputmode="text" spellcheck="false" autocapitalize="off" placeholder="admin">
+          </div>
+          <div class="login-field">
+            <label class="login-label" for="inputPass">Password</label>
+            <input class="login-input" id="inputPass" type="password" name="password"
+                   autocomplete="current-password" placeholder="••••••••">
+          </div>
+          <p class="login-err" id="loginErr"></p>
+          <button class="login-btn" id="loginBtn" type="submit">Sign in</button>
+        </form>
+      </div>
+
+      <!-- PIN UI — shown once logged in -->
       <div id="pinContent" style="display:none;flex-direction:column;align-items:center;gap:22px;">
         <p class="pin-label">Enter PIN</p>
         <div class="pin-dots" id="pinDots">
@@ -50,22 +92,13 @@
         </div>
       </div>
 
-      <!-- No-session state — shown when no auth_token -->
-      <div id="noSessionContent" style="display:none;">
-        <p class="pin-no-session">
-          You need to be signed in from<br>
-          the desktop first.<br><br>
-          <a href="/login.html">Open desktop login →</a>
-        </p>
-      </div>
     </div>
-
   </div>
 </div>
 
 <script>
-  const CORRECT_PIN = '1234';
-  let entered = '';
+  var CORRECT_PIN = '1234';
+  var entered = '';
 
   // ── Service Worker ─────────────────────────────────────────────────────────
   if ('serviceWorker' in navigator) {
@@ -73,21 +106,85 @@
       .catch(function(e) { console.warn('SW registration failed:', e); });
   }
 
-  // ── Auth check ─────────────────────────────────────────────────────────────
+  // ── Init: decide which screen to show ────────────────────────────────────
   (function init() {
-    const token = localStorage.getItem('auth_token');
-    if (!token) {
-      document.getElementById('noSessionContent').style.display = 'block';
-      return;
-    }
-    // Already passed PIN this session?
-    if (sessionStorage.getItem('mobile_pin_ok') === '1') {
+    // Already fully auth'd this session
+    if (sessionStorage.getItem('mobile_pin_ok') === '1' && localStorage.getItem('auth_token')) {
       window.location.replace('load.html');
       return;
     }
-    var pc = document.getElementById('pinContent');
-    pc.style.display = 'flex';
+    var token = localStorage.getItem('auth_token');
+    if (token) {
+      // Verify token is still valid on the server
+      fetch('/api/auth/verify', { headers: { 'Authorization': 'Bearer ' + token } })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d.success) {
+            showPin();
+          } else {
+            localStorage.removeItem('auth_token');
+            showLogin();
+          }
+        })
+        .catch(function() {
+          // Network error — if token exists assume ok, show pin
+          showPin();
+        });
+    } else {
+      showLogin();
+    }
   })();
+
+  function showLogin() {
+    document.getElementById('loginContent').style.display = 'block';
+    document.getElementById('pinContent').style.display = 'none';
+    setTimeout(function() { document.getElementById('inputUser').focus(); }, 100);
+  }
+
+  function showPin() {
+    document.getElementById('loginContent').style.display = 'none';
+    document.getElementById('pinContent').style.display = 'flex';
+  }
+
+  // ── Login form ─────────────────────────────────────────────────────────────
+  document.getElementById('loginForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    var username = document.getElementById('inputUser').value.trim();
+    var password = document.getElementById('inputPass').value;
+    var btn = document.getElementById('loginBtn');
+    var err = document.getElementById('loginErr');
+
+    if (!username || !password) {
+      err.textContent = 'Please enter username and password.';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Signing in…';
+    err.textContent = '';
+
+    fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: username, password: password })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.success && data.token) {
+        localStorage.setItem('auth_token', data.token);
+        showPin();
+      } else {
+        err.textContent = data.error || 'Invalid username or password.';
+        btn.disabled = false;
+        btn.textContent = 'Sign in';
+      }
+    })
+    .catch(function() {
+      err.textContent = 'Connection error. Try again.';
+      btn.disabled = false;
+      btn.textContent = 'Sign in';
+    });
+  });
 
   // ── PIN logic ──────────────────────────────────────────────────────────────
   function updateDots() {
