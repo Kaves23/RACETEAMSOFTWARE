@@ -1148,6 +1148,14 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     const locationId   = document.getElementById('shopifyLocationSelect')?.value || '';
     const locationName = getShopifyLocationName(locationId);
 
+    // ⚠️ Require a Shopify location to be selected before packing live stock
+    if (!locationId) {
+      showToast('Please select a Shopify location first so we know which store\'s stock to decrement.', 'warning');
+      const sel = document.getElementById('shopifyLocationSelect');
+      if (sel) { sel.focus(); sel.style.outline = '2px solid #f59e0b'; setTimeout(() => { sel.style.outline = ''; }, 2500); }
+      return;
+    }
+
     try {
       if (currentBoxId) {
         // ── Box selected: ask qty, decrement Shopify stock, then pack ──

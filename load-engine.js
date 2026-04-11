@@ -74,11 +74,12 @@ console.log('📦 load-engine.js loading...');
             const serial  = item ? item.serial_number : (c.serial_number || null);
             if (!name) return null;
             contentsItems.push({
-              id:      item ? item.id : c.item_id,
-              barcode: barcode,
-              name:    name,
-              type:    type,
-              serial:  serial
+              id:       item ? item.id : c.item_id,
+              barcode:  barcode,
+              name:     name,
+              type:     type,
+              serial:   serial,
+              quantity: c.quantity_packed || 1
             });
             return `${barcode}: ${name}`;
           }).filter(Boolean);
@@ -1929,15 +1930,15 @@ console.log('📦 load-engine.js loading...');
     lines.push('');
 
     // Column headers
-    lines.push('Box Name,Box Barcode,Zone,#,Item Barcode,Serial Number,Item Name,Item Type');
+    lines.push('Box Name,Box Barcode,Zone,#,Qty,Item Name,Item Barcode,Serial Number,Item Type');
 
     data.forEach(({ box, zoneLabel, items }) => {
       if (items.length === 0) {
         // Box is loaded but empty
-        lines.push(`"${box.name}","${box.barcode}","${zoneLabel}","","","","(empty box)",""`);
+        lines.push(`"${box.name}","${box.barcode}","${zoneLabel}","","","(empty box)","","",""`);
       } else {
         items.forEach((item, idx) => {
-          lines.push(`"${idx === 0 ? box.name : ''}","${idx === 0 ? box.barcode : ''}","${idx === 0 ? zoneLabel : ''}","${idx + 1}","${item.barcode || ''}","${item.serial || ''}","${item.name || ''}","${item.type || ''}"`);
+          lines.push(`"${idx === 0 ? box.name : ''}","${idx === 0 ? box.barcode : ''}","${idx === 0 ? zoneLabel : ''}","${idx + 1}","${item.quantity || 1}","${item.name || ''}","${item.barcode || ''}","${item.serial || ''}","${item.type || ''}"`);
         });
       }
     });
@@ -2008,6 +2009,7 @@ console.log('📦 load-engine.js loading...');
     tr:last-child td { border-bottom: none; }
     tbody tr:nth-child(even) td { background: #fafafa; }
     .col-num { width: 24px; text-align: center; font-size: 7.5pt; color: #888; }
+    .col-qty { width: 28px; text-align: center; font-size: 8.5pt; }
     .col-barcode, .col-serial { font-family: 'Courier New', monospace; font-size: 8pt; }
     .col-type { font-size: 8pt; color: #555; }
     .no-val { color: #bbb; }
@@ -2069,6 +2071,7 @@ console.log('📦 load-engine.js loading...');
       } else {
         html += `<table><thead><tr>
           <th class="col-num">#</th>
+          <th class="col-qty">Qty</th>
           <th>Item Name</th>
           <th class="col-barcode">Barcode / SKU</th>
           <th class="col-serial">Serial Number</th>
@@ -2076,8 +2079,10 @@ console.log('📦 load-engine.js loading...');
         </tr></thead><tbody>`;
         items.forEach((item, idx) => {
           const serial = item.serial ? esc(item.serial) : '<span class="no-val">—</span>';
+          const qty = item.quantity && item.quantity > 1 ? `<strong>${item.quantity}</strong>` : (item.quantity || 1);
           html += `<tr>
             <td class="col-num">${idx + 1}</td>
+            <td class="col-qty" style="text-align:center;font-weight:600;">${qty}</td>
             <td>${esc(item.name || '—')}</td>
             <td class="col-barcode">${esc(item.barcode || '—')}</td>
             <td class="col-serial">${serial}</td>
