@@ -3697,6 +3697,131 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     updateBoxBulkToolbar();
   }
   
+  function bulkPrintLabelSheets() {
+    if (selectedBoxes.size === 0) {
+      showToast('No boxes selected', 'warning');
+      return;
+    }
+    const selectedBoxList = boxes.filter(b => selectedBoxes.has(b.id));
+
+    function escHtml(str) {
+      return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    const KOKORO_LOGO = 'https://www.fpzero.co.uk/images/partner_kokoro.png';
+    const FTW_LOGO    = 'https://ftwmotorsport.com/cdn/shop/files/FTW_Logo_4d20e63f-d033-40e3-9d0e-70d69a8b59ce.png?v=1664635126&width=225';
+
+    function stickerHtml(boxName) {
+      const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=4&data=' + encodeURIComponent(boxName);
+      return `
+        <div class="sticker">
+          <div class="sticker-logos">
+            <img src="${KOKORO_LOGO}" class="logo-img" alt="Kokoro">
+            <img src="${FTW_LOGO}" class="logo-img" alt="FTW">
+          </div>
+          <div class="sticker-qr">
+            <img src="${qrUrl}" alt="QR: ${escHtml(boxName)}">
+          </div>
+          <div class="sticker-name">${escHtml(boxName)}</div>
+        </div>`;
+    }
+
+    const pages = selectedBoxList.map(box => `
+      <div class="page">
+        ${stickerHtml(box.name)}
+        ${stickerHtml(box.name)}
+        ${stickerHtml(box.name)}
+        ${stickerHtml(box.name)}
+      </div>`
+    ).join('');
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Box Label Sheets</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: Arial, Helvetica, sans-serif; background:#fff; }
+
+    .page {
+      width: 210mm;
+      height: 297mm;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1fr;
+      page-break-after: always;
+      break-after: page;
+    }
+
+    .sticker {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 10mm;
+      gap: 6mm;
+      border: 1px dashed #bbb;
+    }
+
+    .sticker-logos {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8mm;
+      width: 100%;
+    }
+
+    .logo-img {
+      max-height: 16mm;
+      max-width: 38mm;
+      width: auto;
+      object-fit: contain;
+    }
+
+    .sticker-qr img {
+      display: block;
+      width: 44mm;
+      height: 44mm;
+    }
+
+    .sticker-name {
+      font-size: 13pt;
+      font-weight: 700;
+      text-align: center;
+      color: #000;
+      word-break: break-word;
+      max-width: 80mm;
+      line-height: 1.2;
+    }
+
+    @media print {
+      body { margin:0; }
+      .page { border:none; page-break-after: always; break-after: page; }
+      .sticker { border: 0.5pt dashed #999; }
+    }
+  </style>
+</head>
+<body>
+  ${pages}
+  <script>
+    // Wait for all QR code images to load before printing
+    window.addEventListener('load', function() {
+      setTimeout(function() { window.print(); }, 400);
+    });
+  <\/script>
+</body>
+</html>`;
+
+    const win = window.open('', '_blank');
+    if (!win) {
+      showToast('Popup blocked — please allow popups for this page', 'warning');
+      return;
+    }
+    win.document.write(html);
+    win.document.close();
+  }
+
   function toggleBulkBoxDropdown(event) {
     event.stopPropagation();
     const dropdown = document.getElementById('bulkBoxDropdown');
@@ -4101,6 +4226,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   window.bulkUnpackBoxesToLocation = bulkUnpackBoxesToLocation;
   window.bulkDeleteBoxesAndMoveItems = bulkDeleteBoxesAndMoveItems;
   window.bulkDeleteBoxesAndItems = bulkDeleteBoxesAndItems;
+  window.bulkPrintLabelSheets = bulkPrintLabelSheets;
   
   // Expose item selection functions globally
   window.toggleItemSelection = toggleItemSelection;
