@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>Vehicles · Race Team OS</title>
+  <link rel="stylesheet" href="mobile.css">
+</head>
+<body>
+
+<div class="app" id="app">
+
+  <!-- Header -->
+  <header class="app-header">
+    <div class="offline-banner" id="offlineBanner">⚡ Offline — showing cached data</div>
+    <div class="page-bar">
+      <div class="page-bar-brand">
+        <div class="page-bar-mark">RT</div>
+        <span class="page-bar-title">Vehicles</span>
+      </div>
+      <span id="vehicleCount" style="font-size:12px;color:var(--text-3);font-weight:500;"></span>
+    </div>
+    <!-- Search -->
+    <div style="padding:0 16px 12px;display:flex;gap:8px;align-items:center;">
+      <div style="position:relative;flex:1;">
+        <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-3);" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="search" id="searchInput" placeholder="Search vehicles…" autocomplete="off"
+          style="width:100%;box-sizing:border-box;height:36px;border:1px solid var(--border);border-radius:var(--r);padding:0 10px 0 32px;font-size:14px;background:var(--bg-2,#f5f5f5);outline:none;-webkit-appearance:none;">
+      </div>
+    </div>
+    <!-- Status filter chips -->
+    <div class="pill-strip" id="statusStrip" style="padding-bottom:12px;">
+      <button class="pill pill-active" data-status="">All</button>
+      <button class="pill" data-status="available">Available</button>
+      <button class="pill" data-status="in_use">In Use</button>
+      <button class="pill" data-status="maintenance">Maintenance</button>
+    </div>
+  </header>
+
+  <!-- Body -->
+  <main class="app-body" id="appBody">
+    <div id="vehicleList"></div>
+  </main>
+
+  <!-- Bottom nav -->
+  <nav class="app-nav">
+    <div class="nav-bar">
+      <a href="tasks.html" class="nav-item">📋 <span>Lists</span><div class="nav-dot"></div></a>
+      <a href="load.html" class="nav-item">🚛 <span>Load Plan</span><div class="nav-dot"></div></a>
+      <a href="browse.html" class="nav-item nav-item--active">📦 <span>Browse</span><div class="nav-dot"></div></a>
+      <a href="scan.html" class="nav-item">📡 <span>Scan</span><div class="nav-dot"></div></a>
+    </div>
+  </nav>
+
+</div>
+
+<!-- Detail Drawer -->
+<div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
+<div class="drawer" id="detailDrawer">
+  <div class="drawer-handle" onclick="closeDrawer()"></div>
+  <div class="drawer-header">
+    <div>
+      <div class="drawer-title" id="drawerName">—</div>
+      <div id="drawerReg" style="font-size:12px;color:var(--text-3);font-family:ui-monospace,monospace;margin-top:2px;letter-spacing:0.05em;">—</div>
+    </div>
+    <span id="drawerStatus" class="tag">—</span>
+  </div>
+  <div class="drawer-body" id="drawerBody"></div>
+</div>
+
+<style>
+  .vehicle-row {
+    display: flex;
+    align-items: center;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    gap: 12px;
+    cursor: pointer;
+    background: var(--bg);
+    transition: background 0.12s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .vehicle-row:active { background: var(--bg-2, #f5f5f5); }
+  .vehicle-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: var(--r);
+    background: var(--bg-2, #f5f5f5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .vehicle-info { flex: 1; min-width: 0; }
+  .vehicle-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .vehicle-meta {
+    font-size: 12px;
+    color: var(--text-3);
+    margin-top: 2px;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .vehicle-reg {
+    font-family: ui-monospace, monospace;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+  }
+
+  .status-available   { background: #dcfce7; color: #16a34a; }
+  .status-in_use      { background: #dbeafe; color: #1d4ed8; }
+  .status-maintenance { background: #fef3c7; color: #d97706; }
+  .status-retired     { background: #f3f4f6; color: #6b7280; }
+
+  .detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    gap: 12px;
+  }
+  .detail-row:last-child { border-bottom: none; }
+  .detail-label { font-size: 12px; color: var(--text-3); font-weight: 500; flex-shrink: 0; }
+  .detail-value { font-size: 13px; color: var(--text); text-align: right; word-break: break-word; }
+
+  /* Skeletons */
+  .skel-row {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+  .skel-icon { width: 38px; height: 38px; border-radius: var(--r); background: var(--border); flex-shrink: 0; }
+  .skel-lines { flex: 1; }
+  .skel-line { height: 12px; border-radius: 4px; background: var(--border); margin-bottom: 6px; }
+  @keyframes shimmer { 0%{opacity:.5} 50%{opacity:1} 100%{opacity:.5} }
+  .skel-icon, .skel-line { animation: shimmer 1.4s ease-in-out infinite; }
+</style>
+
+<script>
+  // Auth guard
+  if (!localStorage.getItem('auth_token') || sessionStorage.getItem('mobile_pin_ok') !== '1') {
+    window.location.replace('index.html');
+  }
+
+  const API = window.location.origin;
+  const authHeaders = () => ({ 'Authorization': 'Bearer ' + localStorage.getItem('auth_token') });
+
+  let allVehicles = [];
+  let activeStatus = '';
+  let searchQuery = '';
+
+  // ── Offline banner ──────────────────────────────────────────────
+  window.addEventListener('online',  () => document.getElementById('offlineBanner').style.display = 'none');
+  window.addEventListener('offline', () => document.getElementById('offlineBanner').style.display = 'block');
+  if (!navigator.onLine) document.getElementById('offlineBanner').style.display = 'block';
+
+  // ── Load vehicles ────────────────────────────────────────────────
+  async function loadVehicles() {
+    renderSkeletons();
+    try {
+      const res = await fetch(`${API}/api/trucks`, { headers: authHeaders() });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      allVehicles = data.trucks || [];
+      renderList();
+      document.getElementById('vehicleCount').textContent = allVehicles.length + ' vehicles';
+    } catch (err) {
+      document.getElementById('vehicleList').innerHTML =
+        `<div style="padding:40px 16px;text-align:center;color:var(--text-3);font-size:13px;">Failed to load vehicles.<br><button onclick="loadVehicles()" style="margin-top:12px;padding:8px 16px;border:1px solid var(--border);border-radius:var(--r);background:var(--bg);font-size:13px;cursor:pointer;">Retry</button></div>`;
+    }
+  }
+
+  function renderSkeletons() {
+    let html = '';
+    for (let i = 0; i < 6; i++) {
+      html += `<div class="skel-row"><div class="skel-icon"></div><div class="skel-lines"><div class="skel-line" style="width:50%"></div><div class="skel-line" style="width:30%"></div></div></div>`;
+    }
+    document.getElementById('vehicleList').innerHTML = html;
+  }
+
+  // ── Status chips ─────────────────────────────────────────────────
+  document.getElementById('statusStrip').querySelectorAll('.pill').forEach(btn => {
+    btn.addEventListener('click', () => {
+      activeStatus = btn.dataset.status;
+      document.getElementById('statusStrip').querySelectorAll('.pill').forEach(b => b.classList.remove('pill-active'));
+      btn.classList.add('pill-active');
+      renderList();
+    });
+  });
+
+  // ── Render list ──────────────────────────────────────────────────
+  function renderList() {
+    const q = searchQuery.toLowerCase();
+    const filtered = allVehicles.filter(v => {
+      const matchStatus = !activeStatus || (v.status || '').toLowerCase() === activeStatus;
+      const matchQ = !q || (v.name || '').toLowerCase().includes(q) || (v.registration || '').toLowerCase().includes(q);
+      return matchStatus && matchQ;
+    });
+
+    if (filtered.length === 0) {
+      document.getElementById('vehicleList').innerHTML =
+        `<div style="padding:60px 16px;text-align:center;color:var(--text-3);font-size:13px;">No vehicles match your search.</div>`;
+      return;
+    }
+
+    document.getElementById('vehicleList').innerHTML = filtered.map(v => {
+      const status = (v.status || 'available').toLowerCase();
+      const statusLabel = status.replace(/_/g, ' ');
+      const icon = iconFor(v.truck_type);
+      return `<div class="vehicle-row" onclick="openVehicle('${esc(v.id)}')">
+        <div class="vehicle-icon">${icon}</div>
+        <div class="vehicle-info">
+          <div class="vehicle-name">${esc(v.name)}</div>
+          <div class="vehicle-meta">
+            <span class="vehicle-reg">${esc(v.registration)}</span>
+            ${v.truck_type ? `<span>·</span><span>${esc(v.truck_type)}</span>` : ''}
+          </div>
+        </div>
+        <span class="tag status-${status}" style="font-size:11px;flex-shrink:0;">${esc(statusLabel)}</span>
+      </div>`;
+    }).join('');
+  }
+
+  function iconFor(type) {
+    const t = (type || '').toLowerCase();
+    if (t.includes('trailer'))   return '🚛';
+    if (t.includes('van'))       return '🚐';
+    if (t.includes('car'))       return '🚗';
+    if (t.includes('truck'))     return '🚚';
+    if (t.includes('generator')) return '⚡';
+    if (t.includes('bus'))       return '🚌';
+    return '🚛';
+  }
+
+  // ── Open vehicle drawer ──────────────────────────────────────────
+  function openVehicle(id) {
+    const v = allVehicles.find(x => String(x.id) === String(id));
+    if (!v) return;
+
+    document.getElementById('drawerName').textContent = v.name || v.registration || '—';
+    document.getElementById('drawerReg').textContent = v.registration || '';
+
+    const status = (v.status || 'available').toLowerCase();
+    const drawerStatus = document.getElementById('drawerStatus');
+    drawerStatus.textContent = status.replace(/_/g, ' ');
+    drawerStatus.className = 'tag status-' + status;
+
+    // Dimensions string
+    let dims = null;
+    if (v.dimensions_length_m || v.dimensions_width_m || v.dimensions_height_m) {
+      dims = [v.dimensions_length_m, v.dimensions_width_m, v.dimensions_height_m]
+        .map(d => d != null ? d + 'm' : '?').join(' × ');
+    }
+
+    const details = [
+      ['Type',       esc(v.truck_type)],
+      ['Max weight', v.max_weight_kg ? v.max_weight_kg + ' kg' : null],
+      ['Dimensions', dims ? esc(dims) + ' <span style="color:var(--text-3);font-size:11px;">(L×W×H)</span>' : null],
+      ['Notes',      esc(v.notes)],
+    ].filter(([, val]) => val);
+
+    const rows = details.map(([label, val]) =>
+      `<div class="detail-row"><span class="detail-label">${label}</span><span class="detail-value">${val}</span></div>`
+    ).join('');
+
+    document.getElementById('drawerBody').innerHTML = `<div>${rows || '<div style="color:var(--text-3);font-size:13px;padding:8px 0;">No additional details recorded.</div>'}</div>`;
+    showDrawer();
+  }
+
+  // ── Drawer ───────────────────────────────────────────────────────
+  function showDrawer() {
+    document.getElementById('drawerOverlay').classList.add('active');
+    document.getElementById('detailDrawer').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeDrawer() {
+    document.getElementById('drawerOverlay').classList.remove('active');
+    document.getElementById('detailDrawer').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  // ── Search ───────────────────────────────────────────────────────
+  document.getElementById('searchInput').addEventListener('input', e => {
+    searchQuery = e.target.value;
+    renderList();
+  });
+
+  // ── SW ───────────────────────────────────────────────────────────
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+
+  function esc(str) {
+    if (str == null) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  loadVehicles();
+</script>
+
+</body>
+</html>
