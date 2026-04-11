@@ -2524,8 +2524,8 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       return;
     }
 
-    // For whole-box mode: ensure inventory items are fresh then check for Shopify items
-    if (!isSingleItem) {
+    // Check for Shopify items — whole-box always; single-item only when type is inventory
+    if (!isSingleItem || contents[0]?.itemType === 'inventory') {
       await loadInventoryItems();
       const shopifyContents = contents.filter(c => {
         const item = getItem(c.itemId, c.itemType);
@@ -2842,10 +2842,13 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       .filter(si => si.consumedQty > 0);
     unpackState.consumedItems = consumed;
 
-    // Render consumed list
-    document.getElementById('billStepConsumedList').innerHTML = consumed.map(si =>
+    // Render consumed list with live remaining counter
+    document.getElementById('billStepConsumedList').innerHTML = consumed.map((si, idx) =>
       `<div style="padding:4px 0;border-bottom:1px solid #ffc107">
-        <div style="font-weight:600">${esc(si.name)}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div style="font-weight:600">${esc(si.name)}</div>
+          <div style="font-size:.82rem;font-weight:700;color:#e53935" id="billRemaining_${idx}">${si.consumedQty}</div>
+        </div>
         <div style="font-size:.78rem">Qty to bill: <strong>${si.consumedQty}</strong></div>
        </div>`
     ).join('');
@@ -2872,7 +2875,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       `<div style="display:flex;align-items:center;gap:4px;margin-bottom:4px">
         <span style="font-size:.76rem;color:#5f6368;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(si.name)}</span>
         <input type="number" min="0" max="${si.consumedQty}" value="0"
-               id="${rowId}_item_${i}" style="width:60px;text-align:center;border:1px solid #ccc;border-radius:4px;padding:2px;font-size:.82rem">
+               id="${rowId}_item_${i}" oninput="updateBillRemainingCounters()" style="width:60px;text-align:center;border:1px solid #ccc;border-radius:4px;padding:2px;font-size:.82rem">
        </div>`
     ).join('');
 
@@ -2942,6 +2945,24 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     if (unpackState?.customerRows) {
       unpackState.customerRows = unpackState.customerRows.filter(r => r.rowId !== rowId);
     }
+    updateBillRemainingCounters();
+  };
+
+  window.updateBillRemainingCounters = function() {
+    const consumed = unpackState?.consumedItems || [];
+    const activeRows = (unpackState?.customerRows || []).filter(r => document.getElementById(r.rowId));
+    consumed.forEach((si, i) => {
+      let assigned = 0;
+      activeRows.forEach(row => {
+        assigned += parseInt(document.getElementById(`${row.rowId}_item_${i}`)?.value) || 0;
+      });
+      const remaining = Math.max(0, si.consumedQty - assigned);
+      const el = document.getElementById('billRemaining_' + i);
+      if (el) {
+        el.textContent = remaining;
+        el.style.color = remaining === 0 ? '#34a853' : '#e53935';
+      }
+    });
   };
 
   window.handleBillStepBack = async function() {
