@@ -846,22 +846,25 @@
         scanModalEl.addEventListener('shown.bs.modal', () => { if (scanInput) scanInput.focus(); });
       }
 
-      // Spacebar → open scanner (when not typing and no other modal is open)
-      // Uses getOrCreateInstance so it works even if Bootstrap loaded after build()
-      document.addEventListener('keydown', (ev) => {
+    } catch(_e) { /* non-fatal */ }
+
+    // ── Spacebar → scanner (standalone — never swallowed by scanner init errors) ──
+    try {
+      document.addEventListener('keydown', function rtsScanSpaceHandler(ev) {
         if (ev.key !== ' ') return;
         if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
         const ae  = document.activeElement;
         const tag = (ae && ae.tagName || '').toLowerCase();
         if (tag === 'input' || tag === 'textarea' || (ae && ae.isContentEditable)) return;
-        if (document.querySelector('.modal.show')) return; // another modal already visible
+        // Don't open scanner if another Bootstrap modal is already visible
+        if (document.querySelector('.modal.show')) return;
         ev.preventDefault();
         const el = document.getElementById('rtsScanModal');
-        if (!el || !window.bootstrap) return;
-        try { bootstrap.Modal.getOrCreateInstance(el).show(); } catch(_e) {}
+        if (!el) return;
+        if (!window.bootstrap) return;
+        try { bootstrap.Modal.getOrCreateInstance(el).show(); } catch(_e2) {}
       });
-
-    } catch(_e) { /* non-fatal */ }
+    } catch(_e) {}
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', build);
