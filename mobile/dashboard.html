@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>Dashboard · Race Team OS</title>
+  <link rel="stylesheet" href="mobile.css">
+</head>
+<body>
+
+<div class="app" id="app">
+
+  <!-- Header -->
+  <header class="app-header" style="padding-bottom:16px;">
+    <div class="offline-banner" id="offlineBanner">⚡ Offline — showing cached data</div>
+    <div class="page-bar">
+      <div class="page-bar-brand">
+        <div class="page-bar-mark">RT</div>
+        <div>
+          <div style="font-size:15px;font-weight:700;color:var(--text);line-height:1.1;">Race Team OS</div>
+          <div id="dateLabel" style="font-size:11px;color:var(--text-3);margin-top:1px;"></div>
+        </div>
+      </div>
+      <button id="refreshBtn" onclick="loadAll()" style="border:none;background:none;padding:6px;cursor:pointer;color:var(--text-3);font-size:18px;line-height:1;" title="Refresh">↻</button>
+    </div>
+  </header>
+
+  <!-- Body -->
+  <main class="app-body" style="padding:16px;">
+
+    <!-- Stat grid -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">
+
+      <div class="stat-card" id="statVehicles" onclick="window.location.href='vehicles.html'">
+        <div class="stat-icon">🚛</div>
+        <div class="stat-num" id="statVehiclesNum"><span class="stat-dot"></span></div>
+        <div class="stat-label">Vehicles</div>
+        <div class="stat-sub" id="statVehiclesSub"></div>
+      </div>
+
+      <div class="stat-card" id="statBoxes" onclick="window.location.href='boxes.html'">
+        <div class="stat-icon">📦</div>
+        <div class="stat-num" id="statBoxesNum"><span class="stat-dot"></span></div>
+        <div class="stat-label">Boxes</div>
+        <div class="stat-sub" id="statBoxesSub"></div>
+      </div>
+
+      <div class="stat-card" id="statAssets" onclick="window.location.href='assets.html'">
+        <div class="stat-icon">🏷️</div>
+        <div class="stat-num" id="statAssetsNum"><span class="stat-dot"></span></div>
+        <div class="stat-label">Assets</div>
+        <div class="stat-sub" id="statAssetsSub"></div>
+      </div>
+
+      <div class="stat-card" id="statStock" onclick="window.location.href='inventory.html'">
+        <div class="stat-icon">🧴</div>
+        <div class="stat-num" id="statStockNum"><span class="stat-dot"></span></div>
+        <div class="stat-label">Inventory</div>
+        <div class="stat-sub" id="statStockSub"></div>
+      </div>
+
+    </div>
+
+    <!-- Quick nav -->
+    <div style="color:var(--text-3);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;">Quick access</div>
+
+    <a href="load.html"      class="dash-nav-row">🚛 <span>Load Plan</span><span class="dash-nav-arrow">›</span></a>
+    <a href="tasks.html"     class="dash-nav-row">📋 <span>Lists &amp; Tasks</span><span class="dash-nav-arrow">›</span></a>
+    <a href="browse.html"    class="dash-nav-row">📦 <span>Browse Equipment</span><span class="dash-nav-arrow">›</span></a>
+    <a href="scan.html"      class="dash-nav-row">📡 <span>Scanner</span><span class="dash-nav-arrow">›</span></a>
+
+  </main>
+
+  <!-- Bottom nav -->
+  <nav class="app-nav">
+    <div class="nav-bar">
+      <a href="tasks.html"  class="nav-item">📋 <span>Lists</span><div class="nav-dot"></div></a>
+      <a href="load.html"   class="nav-item">🚛 <span>Load Plan</span><div class="nav-dot"></div></a>
+      <a href="browse.html" class="nav-item">📦 <span>Browse</span><div class="nav-dot"></div></a>
+      <a href="scan.html"   class="nav-item">📡 <span>Scan</span><div class="nav-dot"></div></a>
+    </div>
+  </nav>
+
+</div>
+
+<style>
+  .stat-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 16px 14px 14px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.12s;
+  }
+  .stat-card:active { background: var(--bg-2, #f5f5f5); }
+  .stat-icon { font-size: 22px; margin-bottom: 8px; }
+  .stat-num {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--text);
+    line-height: 1;
+    margin-bottom: 4px;
+    min-height: 28px;
+  }
+  .stat-label { font-size: 12px; font-weight: 600; color: var(--text-2, #525252); }
+  .stat-sub   { font-size: 11px; color: var(--text-3); margin-top: 2px; min-height: 14px; }
+
+  /* Loading dot */
+  .stat-dot {
+    display: inline-block;
+    width: 20px;
+    height: 10px;
+    border-radius: 4px;
+    background: var(--border);
+    animation: shimmer 1.4s ease-in-out infinite;
+    vertical-align: middle;
+  }
+  @keyframes shimmer { 0%{opacity:.4} 50%{opacity:.9} 100%{opacity:.4} }
+
+  /* Alert highlight on stat card */
+  .stat-card.has-alert {
+    border-color: #fcd34d;
+    background: #fffbeb;
+  }
+  .stat-card.has-alert .stat-sub { color: #d97706; font-weight: 600; }
+
+  /* Quick nav rows */
+  .dash-nav-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+    text-decoration: none;
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 500;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .dash-nav-row:last-child { border-bottom: none; }
+  .dash-nav-row span:first-of-type { flex: 1; }
+  .dash-nav-arrow { color: var(--text-3); font-size: 18px; }
+</style>
+
+<script>
+  // Auth guard
+  if (!localStorage.getItem('auth_token') || sessionStorage.getItem('mobile_pin_ok') !== '1') {
+    window.location.replace('index.html');
+  }
+
+  const API = window.location.origin;
+  const auth = () => ({ 'Authorization': 'Bearer ' + localStorage.getItem('auth_token') });
+
+  // ── Offline banner ──────────────────────────────────────────────
+  window.addEventListener('online',  () => document.getElementById('offlineBanner').style.display = 'none');
+  window.addEventListener('offline', () => document.getElementById('offlineBanner').style.display = 'block');
+  if (!navigator.onLine) document.getElementById('offlineBanner').style.display = 'block';
+
+  // ── Date label ──────────────────────────────────────────────────
+  document.getElementById('dateLabel').textContent = new Date().toLocaleDateString('en-GB', {
+    weekday: 'long', day: 'numeric', month: 'long'
+  });
+
+  // ── Helpers ──────────────────────────────────────────────────────
+  function setNum(id, val) {
+    document.getElementById(id).textContent = val;
+  }
+  function setSub(id, val) {
+    document.getElementById(id).textContent = val;
+  }
+
+  // ── Load all stats ────────────────────────────────────────────────
+  async function loadAll() {
+    // Reset to loading state
+    ['statVehiclesNum','statBoxesNum','statAssetsNum','statStockNum'].forEach(id => {
+      document.getElementById(id).innerHTML = '<span class="stat-dot"></span>';
+    });
+    ['statVehiclesSub','statBoxesSub','statAssetsSub','statStockSub'].forEach(id => {
+      document.getElementById(id).textContent = '';
+    });
+    document.getElementById('statStock').classList.remove('has-alert');
+
+    const [trucks, boxes, assets, inventory] = await Promise.allSettled([
+      fetch(`${API}/api/trucks`,                   { headers: auth() }).then(r => r.json()),
+      fetch(`${API}/api/boxes`,                    { headers: auth() }).then(r => r.json()),
+      fetch(`${API}/api/items`,                    { headers: auth() }).then(r => r.json()),
+      fetch(`${API}/api/collections/inventory`,    { headers: auth() }).then(r => r.json()),
+    ]);
+
+    // Vehicles
+    if (trucks.status === 'fulfilled' && trucks.value.success) {
+      const all = trucks.value.trucks || [];
+      const active = all.filter(v => (v.status || '').toLowerCase() === 'in_use').length;
+      setNum('statVehiclesNum', all.length);
+      setSub('statVehiclesSub', active ? active + ' in use' : 'none in use');
+    } else {
+      setNum('statVehiclesNum', '—');
+    }
+
+    // Boxes
+    if (boxes.status === 'fulfilled' && boxes.value.success) {
+      const all = boxes.value.boxes || [];
+      const packed = all.filter(b => (b.status || '').toLowerCase() === 'packed').length;
+      setNum('statBoxesNum', all.length);
+      setSub('statBoxesSub', packed + ' packed');
+    } else {
+      setNum('statBoxesNum', '—');
+    }
+
+    // Assets
+    if (assets.status === 'fulfilled' && assets.value.success) {
+      const all = assets.value.items || [];
+      const active = all.filter(a => (a.status || '').toLowerCase() === 'in_use' || (a.status || '').toLowerCase() === 'in use').length;
+      setNum('statAssetsNum', all.length);
+      setSub('statAssetsSub', active ? active + ' in use' : '');
+    } else {
+      setNum('statAssetsNum', '—');
+    }
+
+    // Inventory + low stock alert
+    if (inventory.status === 'fulfilled' && inventory.value.success) {
+      const all = inventory.value.items || [];
+      const lowStock = all.filter(i => {
+        const qty = i.quantity ?? 0;
+        const min = i.min_quantity ?? 0;
+        return qty === 0 || (min > 0 && qty <= min);
+      });
+      setNum('statStockNum', all.length);
+      if (lowStock.length > 0) {
+        setSub('statStockSub', lowStock.length + ' low / out of stock');
+        document.getElementById('statStock').classList.add('has-alert');
+      } else {
+        setSub('statStockSub', 'all stocked');
+      }
+    } else {
+      setNum('statStockNum', '—');
+    }
+  }
+
+  // ── SW ───────────────────────────────────────────────────────────
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+
+  loadAll();
+</script>
+
+</body>
+</html>
