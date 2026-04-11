@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>Boxes · Race Team OS</title>
+  <link rel="stylesheet" href="mobile.css">
+</head>
+<body>
+
+<div class="app" id="app">
+
+  <!-- Header -->
+  <header class="app-header">
+    <div class="offline-banner" id="offlineBanner">⚡ Offline — showing cached data</div>
+    <div class="page-bar">
+      <div class="page-bar-brand">
+        <div class="page-bar-mark">RT</div>
+        <span class="page-bar-title">Boxes</span>
+      </div>
+      <span id="boxCount" style="font-size:12px;color:var(--text-3);font-weight:500;"></span>
+    </div>
+    <!-- Search -->
+    <div style="padding:0 16px 12px;display:flex;gap:8px;align-items:center;">
+      <div style="position:relative;flex:1;">
+        <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-3);" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="search" id="searchInput" placeholder="Search boxes…" autocomplete="off"
+          style="width:100%;box-sizing:border-box;height:36px;border:1px solid var(--border);border-radius:var(--r);padding:0 10px 0 32px;font-size:14px;background:var(--bg-2,#f5f5f5);outline:none;-webkit-appearance:none;">
+      </div>
+    </div>
+    <!-- Status filter chips -->
+    <div class="pill-strip" id="statusStrip" style="padding-bottom:12px;">
+      <button class="pill pill-active" data-status="">All</button>
+      <button class="pill" data-status="packed">Packed</button>
+      <button class="pill" data-status="empty">Empty</button>
+      <button class="pill" data-status="in_transit">In Transit</button>
+    </div>
+  </header>
+
+  <!-- Body -->
+  <main class="app-body" id="appBody">
+    <div id="boxList"></div>
+  </main>
+
+  <!-- Bottom nav -->
+  <nav class="app-nav">
+    <div class="nav-bar">
+      <a href="tasks.html" class="nav-item">📋 <span>Lists</span><div class="nav-dot"></div></a>
+      <a href="load.html" class="nav-item">🚛 <span>Load Plan</span><div class="nav-dot"></div></a>
+      <a href="browse.html" class="nav-item nav-item--active">📦 <span>Browse</span><div class="nav-dot"></div></a>
+      <a href="scan.html" class="nav-item">📡 <span>Scan</span><div class="nav-dot"></div></a>
+    </div>
+  </nav>
+
+</div>
+
+<!-- Detail Drawer -->
+<div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
+<div class="drawer" id="detailDrawer">
+  <div class="drawer-handle" onclick="closeDrawer()"></div>
+  <div class="drawer-header">
+    <div>
+      <div class="drawer-title" id="drawerName">—</div>
+      <div id="drawerBarcode" style="font-size:12px;color:var(--text-3);font-family:ui-monospace,monospace;margin-top:2px;">—</div>
+    </div>
+    <span id="drawerStatus" class="tag">—</span>
+  </div>
+  <div class="drawer-body" id="drawerBody">
+    <!-- Contents injected here -->
+  </div>
+</div>
+
+<style>
+  .box-row {
+    display: flex;
+    align-items: center;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    gap: 12px;
+    cursor: pointer;
+    background: var(--bg);
+    transition: background 0.12s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .box-row:active { background: var(--bg-2, #f5f5f5); }
+  .box-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: var(--r);
+    background: var(--bg-2, #f5f5f5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .box-info { flex: 1; min-width: 0; }
+  .box-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .box-meta {
+    font-size: 12px;
+    color: var(--text-3);
+    margin-top: 2px;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .box-barcode { font-family: ui-monospace, monospace; font-size: 11px; }
+  .item-count-badge {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 20px;
+    background: var(--bg-2, #f5f5f5);
+    color: var(--text-2);
+    flex-shrink: 0;
+  }
+  .item-count-badge.has-items { background: #dbeafe; color: #1d4ed8; }
+
+  /* Status colours */
+  .status-packed     { background: #dbeafe; color: #1d4ed8; }
+  .status-empty      { background: #f3f4f6; color: #6b7280; }
+  .status-in_transit { background: #fef3c7; color: #d97706; }
+  .status-delivered  { background: #dcfce7; color: #16a34a; }
+
+  /* Drawer detail rows */
+  .detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    gap: 12px;
+  }
+  .detail-row:last-child { border-bottom: none; }
+  .detail-label { font-size: 12px; color: var(--text-3); font-weight: 500; flex-shrink: 0; }
+  .detail-value { font-size: 13px; color: var(--text); text-align: right; word-break: break-word; }
+
+  /* Contents list */
+  .contents-section { margin-top: 20px; }
+  .contents-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-3);
+    margin-bottom: 10px;
+  }
+  .content-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .content-item:last-child { border-bottom: none; }
+  .content-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--r-sm);
+    background: var(--bg-2, #f5f5f5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+  .content-info { flex: 1; min-width: 0; }
+  .content-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .content-sub {
+    font-size: 11px;
+    color: var(--text-3);
+    font-family: ui-monospace, monospace;
+    margin-top: 1px;
+  }
+  .content-qty {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-2);
+    flex-shrink: 0;
+  }
+
+  /* Weight bar */
+  .weight-bar-wrap { margin: 16px 0 8px; }
+  .weight-bar-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-3);
+    margin-bottom: 4px;
+  }
+  .weight-track {
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .weight-fill {
+    height: 100%;
+    background: #16a34a;
+    border-radius: 3px;
+    transition: width 0.4s;
+  }
+  .weight-fill.warn { background: #d97706; }
+  .weight-fill.over { background: #dc2626; }
+
+  /* Skeletons */
+  .skel-row {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+  .skel-icon { width: 38px; height: 38px; border-radius: var(--r); background: var(--border); flex-shrink: 0; }
+  .skel-lines { flex: 1; }
+  .skel-line { height: 12px; border-radius: 4px; background: var(--border); margin-bottom: 6px; }
+  @keyframes shimmer { 0%{opacity:.5} 50%{opacity:1} 100%{opacity:.5} }
+  .skel-icon, .skel-line { animation: shimmer 1.4s ease-in-out infinite; }
+</style>
+
+<script>
+  // Auth guard
+  if (!localStorage.getItem('auth_token') || sessionStorage.getItem('mobile_pin_ok') !== '1') {
+    window.location.replace('index.html');
+  }
+
+  const API = window.location.origin;
+  const authHeaders = () => ({ 'Authorization': 'Bearer ' + localStorage.getItem('auth_token') });
+
+  let allBoxes = [];
+  let activeStatus = '';
+  let searchQuery = '';
+
+  // ── Offline banner ──────────────────────────────────────────────
+  window.addEventListener('online',  () => document.getElementById('offlineBanner').style.display = 'none');
+  window.addEventListener('offline', () => document.getElementById('offlineBanner').style.display = 'block');
+  if (!navigator.onLine) document.getElementById('offlineBanner').style.display = 'block';
+
+  // ── Load boxes ───────────────────────────────────────────────────
+  async function loadBoxes() {
+    renderSkeletons();
+    try {
+      const res = await fetch(`${API}/api/boxes`, { headers: authHeaders() });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      allBoxes = data.boxes || [];
+      renderList();
+      document.getElementById('boxCount').textContent = allBoxes.length + ' boxes';
+    } catch (err) {
+      document.getElementById('boxList').innerHTML =
+        `<div style="padding:40px 16px;text-align:center;color:var(--text-3);font-size:13px;">Failed to load boxes.<br><button onclick="loadBoxes()" style="margin-top:12px;padding:8px 16px;border:1px solid var(--border);border-radius:var(--r);background:var(--bg);font-size:13px;cursor:pointer;">Retry</button></div>`;
+    }
+  }
+
+  function renderSkeletons() {
+    let html = '';
+    for (let i = 0; i < 8; i++) {
+      html += `<div class="skel-row"><div class="skel-icon"></div><div class="skel-lines"><div class="skel-line" style="width:50%"></div><div class="skel-line" style="width:30%"></div></div></div>`;
+    }
+    document.getElementById('boxList').innerHTML = html;
+  }
+
+  // ── Status chips ─────────────────────────────────────────────────
+  document.getElementById('statusStrip').querySelectorAll('.pill').forEach(btn => {
+    btn.addEventListener('click', () => {
+      activeStatus = btn.dataset.status;
+      document.getElementById('statusStrip').querySelectorAll('.pill').forEach(b => b.classList.remove('pill-active'));
+      btn.classList.add('pill-active');
+      renderList();
+    });
+  });
+
+  // ── Render list ──────────────────────────────────────────────────
+  function renderList() {
+    const q = searchQuery.toLowerCase();
+    const filtered = allBoxes.filter(b => {
+      const matchStatus = !activeStatus || (b.status || '').toLowerCase() === activeStatus;
+      const matchQ = !q || (b.name || '').toLowerCase().includes(q) || (b.barcode || '').toLowerCase().includes(q);
+      return matchStatus && matchQ;
+    });
+
+    if (filtered.length === 0) {
+      document.getElementById('boxList').innerHTML =
+        `<div style="padding:60px 16px;text-align:center;color:var(--text-3);font-size:13px;">No boxes match your search.</div>`;
+      return;
+    }
+
+    document.getElementById('boxList').innerHTML = filtered.map(b => {
+      const status = (b.status || 'empty').toLowerCase();
+      const statusClass = 'status-' + status;
+      const statusLabel = status.replace(/_/g, ' ');
+      const itemCount = b.item_count ?? 0;
+      const countClass = itemCount > 0 ? 'item-count-badge has-items' : 'item-count-badge';
+      return `<div class="box-row" onclick="openBox('${esc(b.id)}')">
+        <div class="box-icon">📦</div>
+        <div class="box-info">
+          <div class="box-name">${esc(b.name || b.id)}</div>
+          <div class="box-meta">
+            <span class="box-barcode">${esc(b.barcode || b.id)}</span>
+            ${b.assigned_driver_name ? `<span>·</span><span>${esc(b.assigned_driver_name)}</span>` : ''}
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;">
+          <span class="tag ${statusClass}" style="font-size:11px;">${esc(statusLabel)}</span>
+          <span class="${countClass}">${itemCount} item${itemCount !== 1 ? 's' : ''}</span>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // ── Open box drawer ──────────────────────────────────────────────
+  async function openBox(id) {
+    const box = allBoxes.find(b => String(b.id) === String(id));
+    if (!box) return;
+
+    document.getElementById('drawerName').textContent = box.name || box.id || '—';
+    document.getElementById('drawerBarcode').textContent = box.barcode || '';
+    const status = (box.status || 'empty').toLowerCase();
+    const drawerStatus = document.getElementById('drawerStatus');
+    drawerStatus.textContent = status.replace(/_/g, ' ');
+    drawerStatus.className = 'tag status-' + status;
+
+    // Basic box info rows
+    const details = [
+      ['Type', esc(box.box_type)],
+      ['Driver', esc(box.assigned_driver_name)],
+      ['Staff', esc(box.assigned_staff_name)],
+      ['Max weight', box.max_weight_kg ? box.max_weight_kg + ' kg' : null],
+      ['Zone', esc(box.current_zone)],
+    ].filter(([, v]) => v);
+
+    const detailHtml = details.map(([label, val]) =>
+      `<div class="detail-row"><span class="detail-label">${label}</span><span class="detail-value">${val}</span></div>`
+    ).join('');
+
+    // Weight bar
+    let weightBarHtml = '';
+    if (box.current_weight_kg != null && box.max_weight_kg > 0) {
+      const pct = Math.min(100, (box.current_weight_kg / box.max_weight_kg) * 100);
+      const fillClass = pct >= 100 ? 'over' : (pct >= 80 ? 'warn' : '');
+      weightBarHtml = `<div class="weight-bar-wrap">
+        <div class="weight-bar-label"><span>Weight</span><span>${box.current_weight_kg} / ${box.max_weight_kg} kg</span></div>
+        <div class="weight-track"><div class="weight-fill ${fillClass}" style="width:${pct}%"></div></div>
+      </div>`;
+    }
+
+    // Show drawer with loading state for contents
+    document.getElementById('drawerBody').innerHTML =
+      weightBarHtml +
+      `<div>${detailHtml}</div>` +
+      `<div id="contentsArea"><div style="padding:20px 0;text-align:center;color:var(--text-3);font-size:13px;">Loading contents…</div></div>`;
+
+    showDrawer();
+
+    // Fetch contents
+    try {
+      const res = await fetch(`${API}/api/boxes/${id}`, { headers: authHeaders() });
+      const data = await res.json();
+      document.getElementById('contentsArea').innerHTML = renderContents(data.contents || []);
+    } catch (_) {
+      document.getElementById('contentsArea').innerHTML = `<div style="padding:12px 0;color:var(--text-3);font-size:12px;">Could not load contents.</div>`;
+    }
+  }
+
+  function renderContents(contents) {
+    const section = document.createElement('div');
+    section.className = 'contents-section';
+
+    const title = document.createElement('div');
+    title.className = 'contents-title';
+    title.textContent = `Contents (${contents.length})`;
+    section.appendChild(title);
+
+    if (contents.length === 0) {
+      const empty = document.createElement('div');
+      empty.style.cssText = 'color:var(--text-3);font-size:13px;padding:8px 0;';
+      empty.textContent = 'This box is empty.';
+      section.appendChild(empty);
+      return section.outerHTML;
+    }
+
+    contents.forEach(c => {
+      const icon = c.item_type === 'inventory' ? '🧴' : '📦';
+      const qty  = c.quantity_packed > 1 ? `×${c.quantity_packed}` : '';
+      const sub  = c.item_barcode || c.sku || '';
+      const cat  = c.category ? `${esc(c.category)}` : '';
+      const div  = document.createElement('div');
+      div.className = 'content-item';
+      div.innerHTML = `
+        <div class="content-icon">${icon}</div>
+        <div class="content-info">
+          <div class="content-name">${esc(c.name || c.item_id)}</div>
+          ${cat || sub ? `<div class="content-sub">${[cat, sub].filter(Boolean).join(' · ')}</div>` : ''}
+        </div>
+        ${qty ? `<div class="content-qty">${esc(qty)}</div>` : ''}
+      `;
+      section.appendChild(div);
+    });
+
+    return section.outerHTML;
+  }
+
+  // ── Drawer ───────────────────────────────────────────────────────
+  function showDrawer() {
+    document.getElementById('drawerOverlay').classList.add('active');
+    document.getElementById('detailDrawer').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeDrawer() {
+    document.getElementById('drawerOverlay').classList.remove('active');
+    document.getElementById('detailDrawer').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  // ── Search ───────────────────────────────────────────────────────
+  document.getElementById('searchInput').addEventListener('input', e => {
+    searchQuery = e.target.value;
+    renderList();
+  });
+
+  // ── SW ───────────────────────────────────────────────────────────
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+
+  function esc(str) {
+    if (str == null) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  loadBoxes();
+</script>
+
+</body>
+</html>
