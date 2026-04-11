@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>Race Team OS</title>
+  <link rel="stylesheet" href="mobile.css">
+  <style>
+    body { background: #fff; }
+  </style>
+</head>
+<body>
+
+<div class="pin-page" id="pinPage">
+  <div class="pin-wrap">
+
+    <div class="pin-logo-wrap">
+      <div class="pin-mark">RT</div>
+      <div class="pin-app-name">Race Team OS</div>
+      <div class="pin-app-sub">Mobile · Race day toolkit</div>
+    </div>
+
+    <div id="mainContent">
+      <!-- PIN UI — shown once auth_token confirmed -->
+      <div id="pinContent" style="display:none;flex-direction:column;align-items:center;gap:22px;">
+        <p class="pin-label">Enter PIN</p>
+        <div class="pin-dots" id="pinDots">
+          <div class="pin-dot" id="dot0"></div>
+          <div class="pin-dot" id="dot1"></div>
+          <div class="pin-dot" id="dot2"></div>
+          <div class="pin-dot" id="dot3"></div>
+        </div>
+        <p class="pin-error-msg" id="pinError"></p>
+        <div class="pin-pad" id="pinPad">
+          <button class="pin-key" data-digit="1">1</button>
+          <button class="pin-key" data-digit="2">2</button>
+          <button class="pin-key" data-digit="3">3</button>
+          <button class="pin-key" data-digit="4">4</button>
+          <button class="pin-key" data-digit="5">5</button>
+          <button class="pin-key" data-digit="6">6</button>
+          <button class="pin-key" data-digit="7">7</button>
+          <button class="pin-key" data-digit="8">8</button>
+          <button class="pin-key" data-digit="9">9</button>
+          <button class="pin-key pin-key-empty" aria-hidden="true" tabindex="-1"></button>
+          <button class="pin-key" data-digit="0">0</button>
+          <button class="pin-key pin-key-back" id="backBtn" aria-label="Delete">⌫</button>
+        </div>
+      </div>
+
+      <!-- No-session state — shown when no auth_token -->
+      <div id="noSessionContent" style="display:none;">
+        <p class="pin-no-session">
+          You need to be signed in from<br>
+          the desktop first.<br><br>
+          <a href="/login.html">Open desktop login →</a>
+        </p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const CORRECT_PIN = '1234';
+  let entered = '';
+
+  // ── Service Worker ─────────────────────────────────────────────────────────
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/mobile/sw.js', { scope: '/mobile/' })
+      .catch(function(e) { console.warn('SW registration failed:', e); });
+  }
+
+  // ── Auth check ─────────────────────────────────────────────────────────────
+  (function init() {
+    const token = localStorage.getItem('auth_token');
+    if (!token) {
+      document.getElementById('noSessionContent').style.display = 'block';
+      return;
+    }
+    // Already passed PIN this session?
+    if (sessionStorage.getItem('mobile_pin_ok') === '1') {
+      window.location.replace('load.html');
+      return;
+    }
+    var pc = document.getElementById('pinContent');
+    pc.style.display = 'flex';
+  })();
+
+  // ── PIN logic ──────────────────────────────────────────────────────────────
+  function updateDots() {
+    for (var i = 0; i < 4; i++) {
+      document.getElementById('dot' + i).classList.toggle('filled', i < entered.length);
+    }
+  }
+
+  function handleDigit(d) {
+    if (entered.length >= 4) return;
+    entered += d;
+    updateDots();
+    if (entered.length === 4) {
+      setTimeout(checkPin, 80);
+    }
+  }
+
+  function handleBack() {
+    if (entered.length === 0) return;
+    entered = entered.slice(0, -1);
+    updateDots();
+    document.getElementById('pinError').textContent = '';
+  }
+
+  function checkPin() {
+    if (entered === CORRECT_PIN) {
+      sessionStorage.setItem('mobile_pin_ok', '1');
+      window.location.replace('load.html');
+    } else {
+      var dots = document.getElementById('pinDots');
+      dots.classList.remove('shake');
+      // Force reflow so animation re-triggers
+      void dots.offsetWidth;
+      dots.classList.add('shake');
+      document.getElementById('pinError').textContent = 'Incorrect PIN — try again';
+      entered = '';
+      setTimeout(function() {
+        updateDots();
+        dots.classList.remove('shake');
+      }, 500);
+    }
+  }
+
+  // ── Pad events ─────────────────────────────────────────────────────────────
+  document.getElementById('pinPad').addEventListener('click', function(e) {
+    var btn = e.target.closest('[data-digit]');
+    if (btn) handleDigit(btn.getAttribute('data-digit'));
+  });
+  document.getElementById('backBtn').addEventListener('click', handleBack);
+
+  // Hardware keyboard support
+  document.addEventListener('keydown', function(e) {
+    if (e.key >= '0' && e.key <= '9') handleDigit(e.key);
+    else if (e.key === 'Backspace') handleBack();
+  });
+</script>
+</body>
+</html>
