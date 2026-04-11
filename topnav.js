@@ -700,7 +700,7 @@
         b.addEventListener('click', onClick);
         return b;
       }
-      function goPage(url){ if(scanModal) scanModal.hide(); window.location.href = url; }
+      function goPage(url){ try { const _el=document.getElementById('rtsScanModal'); if(_el&&window.bootstrap) bootstrap.Modal.getOrCreateInstance(_el).hide(); } catch(_e){} window.location.href = url; }
 
       async function expandHistory(btn, itemId, card){
         btn.textContent = '⏳'; btn.disabled = true;
@@ -847,6 +847,7 @@
       }
 
       // Spacebar → open scanner (when not typing and no other modal is open)
+      // Uses getOrCreateInstance so it works even if Bootstrap loaded after build()
       document.addEventListener('keydown', (ev) => {
         if (ev.key !== ' ') return;
         if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
@@ -855,7 +856,9 @@
         if (tag === 'input' || tag === 'textarea' || (ae && ae.isContentEditable)) return;
         if (document.querySelector('.modal.show')) return; // another modal already visible
         ev.preventDefault();
-        if (scanModal) scanModal.show();
+        const el = document.getElementById('rtsScanModal');
+        if (!el || !window.bootstrap) return;
+        try { bootstrap.Modal.getOrCreateInstance(el).show(); } catch(_e) {}
       });
 
     } catch(_e) { /* non-fatal */ }
