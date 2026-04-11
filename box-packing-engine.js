@@ -3711,27 +3711,34 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     const KOKORO_LOGO = 'https://www.fpzero.co.uk/images/partner_kokoro.png';
     const FTW_LOGO    = 'https://ftwmotorsport.com/cdn/shop/files/FTW_Logo_4d20e63f-d033-40e3-9d0e-70d69a8b59ce.png?v=1664635126&width=225';
 
-    function stickerHtml(boxName) {
-      const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=4&data=' + encodeURIComponent(boxName);
+    function stickerHtml(boxBarcode, boxName) {
+      const label = boxBarcode || boxName;
+      const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=4&data=' + encodeURIComponent(label);
+      const nameLine = (boxName && boxName !== boxBarcode)
+        ? `<div class="sticker-name">${escHtml(boxName)}</div>`
+        : '';
       return `
         <div class="sticker">
-          <div class="sticker-logos">
+          <div class="sticker-logo-top">
             <img src="${KOKORO_LOGO}" class="logo-img" alt="Kokoro">
-            <img src="${FTW_LOGO}" class="logo-img" alt="FTW">
           </div>
           <div class="sticker-qr">
-            <img src="${qrUrl}" alt="QR: ${escHtml(boxName)}">
+            <img src="${qrUrl}" alt="QR: ${escHtml(label)}">
           </div>
-          <div class="sticker-name">${escHtml(boxName)}</div>
+          <div class="sticker-barcode">${escHtml(label)}</div>
+          ${nameLine}
+          <div class="sticker-logo-bottom">
+            <img src="${FTW_LOGO}" class="logo-img logo-img-ftw" alt="FTW">
+          </div>
         </div>`;
     }
 
     const pages = selectedBoxList.map(box => `
       <div class="page">
-        ${stickerHtml(box.name)}
-        ${stickerHtml(box.name)}
-        ${stickerHtml(box.name)}
-        ${stickerHtml(box.name)}
+        ${stickerHtml(box.barcode, box.name)}
+        ${stickerHtml(box.barcode, box.name)}
+        ${stickerHtml(box.barcode, box.name)}
+        ${stickerHtml(box.barcode, box.name)}
       </div>`
     ).join('');
 
@@ -3764,32 +3771,45 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       border: 1px dashed #bbb;
     }
 
-    .sticker-logos {
+    .sticker-logo-top,
+    .sticker-logo-bottom {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 8mm;
       width: 100%;
     }
 
     .logo-img {
       max-height: 16mm;
-      max-width: 38mm;
+      max-width: 42mm;
       width: auto;
       object-fit: contain;
     }
 
+    .logo-img-ftw {
+      max-height: 12mm;
+      max-width: 36mm;
+    }
+
     .sticker-qr img {
       display: block;
-      width: 44mm;
-      height: 44mm;
+      width: 48mm;
+      height: 48mm;
+    }
+
+    .sticker-barcode {
+      font-size: 15pt;
+      font-weight: 800;
+      text-align: center;
+      color: #000;
+      letter-spacing: 1px;
     }
 
     .sticker-name {
-      font-size: 13pt;
-      font-weight: 700;
+      font-size: 10pt;
+      font-weight: 500;
       text-align: center;
-      color: #000;
+      color: #444;
       word-break: break-word;
       max-width: 80mm;
       line-height: 1.2;
