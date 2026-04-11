@@ -2780,13 +2780,19 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     // Initialize consumed labels
     shopifyItems.forEach((_, idx) => updateReturnStepConsumed(idx));
 
-    // Render other items
+    // Render other items + populate asset location picker
     if (otherContents.length > 0) {
       const otherHtml = otherContents.map(c => {
         const item = getItem(c.itemId, c.itemType);
         return `<div style="padding:4px 0;border-bottom:1px solid #e0e0e0">${esc(item?.name || 'Unknown')} <span style="color:#5f6368">(${c.quantityPacked || 1})</span></div>`;
       }).join('');
       document.getElementById('returnStepOtherList').innerHTML = otherHtml;
+
+      // Populate local location dropdown for non-Shopify items
+      const assetLocSel = document.getElementById('returnStepAssetLocation');
+      assetLocSel.innerHTML = '<option value="">Select location…</option>' +
+        allLocations.map(l => `<option value="${esc(l.id)}">${esc(l.name)}</option>`).join('');
+
       document.getElementById('returnStepOtherItems').style.display = 'block';
     } else {
       document.getElementById('returnStepOtherItems').style.display = 'none';
@@ -2809,9 +2815,17 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
 
     const locationId = document.getElementById('returnStepLocation').value;
     if (!locationId) { showToast('Please select a Shopify location', 'warning'); return; }
-    // Store as both the Shopify location (for return-stock) and the local label
+
+    // Validate asset location if there are non-Shopify items
+    let assetLocationId = '';
+    if ((unpackState.otherContents || []).length > 0) {
+      assetLocationId = document.getElementById('returnStepAssetLocation').value;
+      if (!assetLocationId) { showToast('Please select a location for the other items', 'warning'); return; }
+    }
+
     unpackState.shopifyLocationId = locationId;
     unpackState.locationId = locationId;
+    unpackState.assetLocationId = assetLocationId;
 
     // Read return quantities
     let totalConsumed = 0;
@@ -3170,8 +3184,13 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       for (const content of contents) {
         const item = getItem(content.itemId, content.itemType);
         if (item) {
+          // Shopify inventory items stay with Shopify/local location;
+          // equipment & assets go to the separately chosen asset location
+          const effectiveLocationId = (content.itemType !== 'inventory' && unpackState.assetLocationId)
+            ? unpackState.assetLocationId
+            : locationId;
           item.currentBoxId = null;
-          item.currentLocationId = locationId;
+          item.currentLocationId = effectiveLocationId;
           if (content.itemType === 'inventory') {
             inventoryBoxTracking.delete(content.itemId);
             if (window.RTS_API?.unpackInventoryItem) {
@@ -3180,8 +3199,8 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
           } else {
             try {
               await window.RTS_API.unpackItem(unpackState.boxId, item.id);
-              if (locationId && window.RTS_API?.updateItem) {
-                await window.RTS_API.updateItem(item.id, { current_location_id: locationId });
+              if (effectiveLocationId && window.RTS_API?.updateItem) {
+                await window.RTS_API.updateItem(item.id, { current_location_id: effectiveLocationId });
               }
             } catch(e) { console.error('unpackItem failed:', e.message); }
           }
