@@ -630,6 +630,235 @@
         });
       }
     } catch(_e) { /* non-fatal */ }
+
+    // ── Global Barcode Scanner ────────────────────────────────────────────────
+    // Press SPACE from any page (when not typing) → scan overlay opens.
+    // Scan or type a barcode/name → lookup hits /api/lookup → shows cards with
+    // type-specific quick-action buttons (box / item / inventory).
+    try {
+      const scanModalHtml = `
+        <div class="modal fade" id="rtsScanModal" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered" style="max-width:580px;">
+            <div class="modal-content" style="background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:12px;overflow:hidden;">
+              <div class="modal-body p-0">
+                <div style="background:#161b22;padding:20px;border-bottom:1px solid #30363d;">
+                  <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+                    <span style="font-size:1.4rem;">📡</span>
+                    <span style="font-size:1.05rem;font-weight:700;color:#e6edf3;">Quick Scan</span>
+                    <span style="margin-left:auto;font-size:0.73rem;color:#8b949e;">SPACE to open &nbsp;·&nbsp; ESC to close</span>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" style="margin:0;"></button>
+                  </div>
+                  <div style="position:relative;">
+                    <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);pointer-events:none;">🔍</span>
+                    <input id="rtsScanInput" type="text" autocomplete="off" autocorrect="off" spellcheck="false"
+                      placeholder="Scan barcode or type a name…"
+                      style="width:100%;padding:10px 38px 10px 34px;background:#0d1117;color:#e6edf3;border:1.5px solid #388bfd;border-radius:6px;font-size:1rem;outline:none;box-sizing:border-box;"/>
+                    <span id="rtsScanSpinner" style="position:absolute;right:11px;top:50%;transform:translateY(-50%);display:none;font-size:0.85rem;">⏳</span>
+                  </div>
+                  <div style="font-size:0.73rem;color:#8b949e;margin-top:6px;">Scan a box, asset, or inventory barcode / QR code. Press Enter to search.</div>
+                </div>
+                <div id="rtsScanResults" style="max-height:58vh;overflow-y:auto;padding:12px 14px;">
+                  <div id="rtsScanEmpty" style="text-align:center;padding:36px 0;color:#8b949e;">
+                    <div style="font-size:2.2rem;margin-bottom:8px;">📷</div>
+                    <div style="font-size:0.9rem;">Ready to scan</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>`;
+      const scanTmpDiv = document.createElement('div');
+      scanTmpDiv.innerHTML = scanModalHtml.trim();
+      host.appendChild(scanTmpDiv.firstChild);
+
+      const scanModalEl   = document.getElementById('rtsScanModal');
+      const scanInput     = document.getElementById('rtsScanInput');
+      const scanResultsEl = document.getElementById('rtsScanResults');
+      const scanSpinner   = document.getElementById('rtsScanSpinner');
+      const scanEmpty     = document.getElementById('rtsScanEmpty');
+      const scanModal     = (scanModalEl && window.bootstrap) ? new bootstrap.Modal(scanModalEl, { backdrop: true }) : null;
+
+      // XSS-safe escaping reused inside scanner scope
+      function sEsc(s){ return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+      function statusBadge(status){
+        const s = String(status||'').toLowerCase();
+        const cls = {active:'success',available:'success',packed:'primary',loaded:'primary',in_use:'warning',maintenance:'warning',missing:'danger',retired:'secondary',returned:'secondary',on_truck:'info'}[s] || 'secondary';
+        return `<span class="badge bg-${cls}" style="font-size:0.68rem;">${sEsc(status||'—')}</span>`;
+      }
+      function typePill(type){
+        const icons = {box:'📦',item:'🔧',inventory:'🛒'};
+        const cols  = {box:'#1c6efb',item:'#8957e5',inventory:'#2ea044'};
+        return `<span style="background:${cols[type]||'#555'};color:#fff;font-size:0.65rem;font-weight:700;padding:2px 7px;border-radius:10px;letter-spacing:.05em;text-transform:uppercase;">${icons[type]||''} ${type}</span>`;
+      }
+      function actionBtn(label, onClick){
+        const b = document.createElement('button');
+        b.type = 'button'; b.textContent = label;
+        b.style.cssText = 'background:#21262d;color:#e6edf3;border:1px solid #30363d;border-radius:5px;padding:5px 12px;font-size:0.78rem;cursor:pointer;white-space:nowrap;';
+        b.addEventListener('mouseenter',()=>{ b.style.borderColor='#388bfd'; b.style.color='#79c0ff'; });
+        b.addEventListener('mouseleave',()=>{ b.style.borderColor='#30363d'; b.style.color='#e6edf3'; });
+        b.addEventListener('click', onClick);
+        return b;
+      }
+      function goPage(url){ if(scanModal) scanModal.hide(); window.location.href = url; }
+
+      async function expandHistory(btn, itemId, card){
+        btn.textContent = '⏳'; btn.disabled = true;
+        try {
+          const token = localStorage.getItem('auth_token') || '';
+          const r   = await fetch(`/api/items/${encodeURIComponent(itemId)}/history`, { headers:{'Authorization':'Bearer '+token} });
+          const data = await r.json();
+          const hist = (data.history||[]).slice(0,6);
+          if (!hist.length){ btn.textContent = 'No history'; return; }
+          const wrap = document.createElement('div');
+          wrap.style.cssText = 'margin-top:8px;padding:8px;background:#0d1117;border-radius:4px;font-size:0.73rem;color:#8b949e;';
+          hist.forEach(h => {
+            const row = document.createElement('div');
+            row.style.cssText = 'padding:3px 0;border-bottom:1px solid #21262d;';
+            const ts = h.timestamp ? new Date(h.timestamp).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : '—';
+            row.innerHTML = `<span style="color:#e6edf3;">${sEsc(h.action||'—')}</span>${h.details?` <span style="color:#8b949e;">${sEsc(h.details)}</span>`:''}<span style="float:right;">${ts}</span>`;
+            wrap.appendChild(row);
+          });
+          btn.style.display = 'none';
+          card.appendChild(wrap);
+        } catch(_e){ btn.textContent = '⚠️ Failed'; }
+      }
+
+      function renderScanResults(results, query){
+        if (!scanResultsEl) return;
+        // Remove all old result cards (keep #rtsScanEmpty)
+        Array.from(scanResultsEl.children).forEach(c => { if (c.id !== 'rtsScanEmpty') c.remove(); });
+        if (!results || !results.length){
+          if (scanEmpty){ scanEmpty.style.display=''; scanEmpty.innerHTML=`<div style="font-size:2.2rem;margin-bottom:8px;">🔍</div><div style="font-size:0.9rem;">No results for <strong>${sEsc(query)}</strong></div>`; }
+          return;
+        }
+        if (scanEmpty) scanEmpty.style.display = 'none';
+
+        results.forEach(({ type, record: r }) => {
+          const card = document.createElement('div');
+          card.style.cssText = 'background:#161b22;border:1px solid #30363d;border-radius:8px;padding:14px 16px;margin-bottom:10px;';
+
+          let infoLine='', subStr='', nameStr='';
+          if (type === 'box') {
+            nameStr  = r.name || r.barcode || '—';
+            const loc     = r.location_name ? `📍 ${sEsc(r.location_name)}` : '📍 No location';
+            const truck   = r.truck_name   ? ` &nbsp;·&nbsp; 🚛 ${sEsc(r.truck_name)}`   : '';
+            const driver  = r.driver_name  ? ` &nbsp;·&nbsp; 👤 ${sEsc(r.driver_name)}`  : '';
+            infoLine = loc + truck + driver;
+            subStr   = `${r.barcode?`<span style="font-family:monospace;font-size:0.78rem;color:#8b949e;">${sEsc(r.barcode)}</span> &nbsp;`:''}${statusBadge(r.status)} &nbsp;<span style="font-size:0.75rem;color:#8b949e;">Items: ${r.item_count||0}</span>`;
+          } else if (type === 'item') {
+            nameStr  = r.name || '—';
+            infoLine = (r.box_name ? `📦 In box: ${sEsc(r.box_name)}` : (r.location_name ? `📍 ${sEsc(r.location_name)}` : '📍 No location'))
+                     + (r.assigned_staff_name ? ` &nbsp;·&nbsp; 👤 ${sEsc(r.assigned_staff_name)}` : '');
+            subStr   = `${r.barcode?`<span style="font-family:monospace;font-size:0.78rem;color:#8b949e;">${sEsc(r.barcode)}</span> &nbsp;`:''}${statusBadge(r.status)} &nbsp;<span style="font-size:0.75rem;color:#8b949e;text-transform:capitalize;">${sEsc(r.item_type||'')} · ${sEsc(r.category||'—')}</span>`;
+          } else {
+            nameStr  = r.name || '—';
+            infoLine = (r.location_name ? `📍 ${sEsc(r.location_name)}` : '📍 No location')
+                     + ` &nbsp;·&nbsp; Qty: <strong style="color:#e6edf3">${r.quantity||0}${r.quantity_unit?' '+sEsc(r.quantity_unit):''}</strong>`;
+            subStr   = r.sku ? `<span style="font-family:monospace;font-size:0.78rem;color:#8b949e;">SKU: ${sEsc(r.sku)}</span>` : '';
+          }
+
+          card.innerHTML = `
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+              ${typePill(type)}
+              <span style="font-size:1rem;font-weight:600;color:#e6edf3;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${sEsc(nameStr)}">${sEsc(nameStr)}</span>
+            </div>
+            ${subStr?`<div style="margin-bottom:5px;">${subStr}</div>`:''}
+            <div style="font-size:0.78rem;color:#8b949e;margin-bottom:10px;">${infoLine}</div>
+            <div class="rts-scan-actions" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+          `;
+
+          const act = card.querySelector('.rts-scan-actions');
+          if (type === 'box') {
+            act.appendChild(actionBtn('📦 Box Packing',  () => goPage('box-packing.html')));
+            act.appendChild(actionBtn('🚛 Scan to Load', () => goPage('scan-load.html')));
+            act.appendChild(actionBtn('📋 Load Plan',    () => goPage('load.html')));
+            if (r.barcode){
+              act.appendChild(actionBtn('🖨️ Print Label', () => {
+                const qr  = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(r.barcode)}&size=140x140`;
+                const win = window.open('','_blank','width=420,height=300,toolbar=0,menubar=0');
+                if (!win) return;
+                win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Label</title>
+                  <style>body{margin:0;display:flex;flex-direction:column;align-items:center;font-family:monospace;padding:16px;}
+                  img{max-width:140px;margin:6px 0;}h2{font-size:1.4rem;margin:4px 0;}p{font-size:0.9rem;margin:2px 0;color:#555;}</style>
+                  </head><body><img src="${qr}"/><h2>${sEsc(r.barcode)}</h2><p>${sEsc(r.name)}</p>
+                  <script>window.onload=function(){window.print();}<\/script></body></html>`);
+                win.document.close();
+              }));
+            }
+          } else if (type === 'item') {
+            act.appendChild(actionBtn('🔧 View in Assets', () => goPage('assets.html')));
+            act.appendChild(actionBtn('📦 Box Packing',    () => goPage('box-packing.html')));
+            const histBtn = actionBtn('📋 History', () => expandHistory(histBtn, r.id, card));
+            act.appendChild(histBtn);
+          } else {
+            act.appendChild(actionBtn('🛒 View Inventory', () => goPage('inventory.html')));
+            act.appendChild(actionBtn('📦 Box Packing',    () => goPage('box-packing.html')));
+          }
+
+          scanResultsEl.insertBefore(card, scanEmpty);
+        });
+      }
+
+      async function doScan(q){
+        if (!q) return;
+        if (scanSpinner) scanSpinner.style.display = '';
+        if (scanEmpty){ scanEmpty.style.display=''; scanEmpty.innerHTML=`<div style="font-size:2rem;margin-bottom:8px;">⏳</div><div style="font-size:0.9rem;">Searching…</div>`; }
+        Array.from(scanResultsEl.children).forEach(c => { if (c.id !== 'rtsScanEmpty') c.remove(); });
+        try {
+          const token = localStorage.getItem('auth_token') || '';
+          const resp  = await fetch(`/api/lookup?q=${encodeURIComponent(q)}`, { headers:{'Authorization':'Bearer '+token} });
+          const data  = await resp.json();
+          renderScanResults(data.results || [], q);
+        } catch(_e){
+          if (scanEmpty){ scanEmpty.style.display=''; scanEmpty.innerHTML=`<div style="font-size:1.6rem;margin-bottom:8px;">⚠️</div><div>Lookup failed. Check connection.</div>`; }
+        } finally {
+          if (scanSpinner) scanSpinner.style.display = 'none';
+        }
+      }
+
+      let scanDebounce = null;
+      if (scanInput){
+        // Enter: fire immediately (barcode scanners always send Enter at end)
+        scanInput.addEventListener('keydown', (e) => {
+          if (e.key !== 'Enter') return;
+          e.preventDefault();
+          clearTimeout(scanDebounce);
+          const q = scanInput.value.trim();
+          if (q) doScan(q);
+        });
+        // Live typing: debounced search for manual use
+        scanInput.addEventListener('input', () => {
+          clearTimeout(scanDebounce);
+          const q = scanInput.value.trim();
+          if (q.length >= 2) scanDebounce = setTimeout(() => doScan(q), 420);
+        });
+      }
+
+      // Reset state every time the modal opens
+      if (scanModalEl){
+        scanModalEl.addEventListener('show.bs.modal', () => {
+          if (scanInput) scanInput.value = '';
+          if (scanEmpty){ scanEmpty.style.display=''; scanEmpty.innerHTML=`<div style="font-size:2.2rem;margin-bottom:8px;">📷</div><div style="font-size:0.9rem;">Ready to scan</div>`; }
+          Array.from(scanResultsEl.children).forEach(c => { if (c.id !== 'rtsScanEmpty') c.remove(); });
+          if (scanSpinner) scanSpinner.style.display = 'none';
+        });
+        scanModalEl.addEventListener('shown.bs.modal', () => { if (scanInput) scanInput.focus(); });
+      }
+
+      // Spacebar → open scanner (when not typing and no other modal is open)
+      document.addEventListener('keydown', (ev) => {
+        if (ev.key !== ' ') return;
+        if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
+        const ae  = document.activeElement;
+        const tag = (ae && ae.tagName || '').toLowerCase();
+        if (tag === 'input' || tag === 'textarea' || (ae && ae.isContentEditable)) return;
+        if (document.querySelector('.modal.show')) return; // another modal already visible
+        ev.preventDefault();
+        if (scanModal) scanModal.show();
+      });
+
+    } catch(_e) { /* non-fatal */ }
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', build);
