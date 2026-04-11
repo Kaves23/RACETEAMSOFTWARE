@@ -1443,12 +1443,15 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     );
     const countLoaded    = searchFiltered.filter(b => !!b.truckId).length;
     const countAvailable = searchFiltered.filter(b => !b.truckId).length;
+    const countUnreturned = searchFiltered.filter(b => !!b.truckId).length; // boxes still assigned to a truck
     const el_all  = document.getElementById('boxFilterCountAll');
     const el_avail= document.getElementById('boxFilterCountAvailable');
     const el_load = document.getElementById('boxFilterCountLoaded');
+    const el_unr  = document.getElementById('boxFilterCountUnreturned');
     if (el_all)   el_all.textContent   = searchFiltered.length;
     if (el_avail) el_avail.textContent = countAvailable;
     if (el_load)  el_load.textContent  = countLoaded;
+    if (el_unr)   el_unr.textContent   = countUnreturned;
     // Update active button
     document.querySelectorAll('.box-filter-btn').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.filter === boxLoadFilter);
@@ -1456,8 +1459,9 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
 
     // Apply load filter
     let filtered = searchFiltered.filter(b => {
-      if (boxLoadFilter === 'available') return !b.truckId;
-      if (boxLoadFilter === 'loaded')    return !!b.truckId;
+      if (boxLoadFilter === 'available')  return !b.truckId;
+      if (boxLoadFilter === 'loaded')     return !!b.truckId;
+      if (boxLoadFilter === 'unreturned') return !!b.truckId; // still assigned to a truck
       return true;
     });
 
@@ -1595,6 +1599,9 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     // Update checkbox states and toolbar after rendering
     updateBoxCheckboxStates();
     updateBoxBulkToolbar();
+
+    // Render driver summary
+    renderDriverSummary();
   }
 
   function renderItems() {
@@ -4255,6 +4262,57 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   window.setBoxLoadFilter = function(val) {
     boxLoadFilter = val;
     renderBoxes();
+  };
+
+  function renderDriverSummary() {
+    const section = document.getElementById('driverSummarySection');
+    const body    = document.getElementById('driverSummaryBody');
+    if (!section || !body) return;
+
+    // Group boxes by driver (only those with an assigned driver)
+    const driverMap = {};
+    boxes.forEach(box => {
+      const id   = box.assignedDriverId || box.assigned_driver_id;
+      const name = box.assignedDriverName || box.assigned_driver_name;
+      if (!id) return;
+      if (!driverMap[id]) driverMap[id] = { name: name || 'Unknown Driver', boxes: [] };
+      driverMap[id].boxes.push(box);
+    });
+
+    const drivers = Object.values(driverMap);
+    if (drivers.length === 0) { section.style.display = 'none'; return; }
+    section.style.display = 'block';
+
+    const bodyHidden = body.style.display === 'none';
+    if (bodyHidden) return; // collapsed — don't re-render until expanded
+
+    body.innerHTML = drivers.map(d => {
+      const boxItems = d.boxes.map(b => {
+        const count = boxContents.filter(c => c.boxId === b.id).length;
+        const loaded = b.truckId ? ' <span style="color:#1a73e8;font-size:.68rem">🚛</span>' : '';
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid #f0f0f0;font-size:.78rem">
+          <span style="font-family:monospace;font-weight:700;color:#1a73e8">${esc(b.barcode)}</span>
+          <span style="flex:1;margin:0 8px;color:#202124;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(b.name)}</span>
+          <span style="color:#5f6368;font-size:.7rem">${count} item${count !== 1 ? 's' : ''}${loaded}</span>
+        </div>`;
+      }).join('');
+      const totalItems = d.boxes.reduce((s, b) => s + boxContents.filter(c => c.boxId === b.id).length, 0);
+      return `<div style="margin-bottom:10px;background:#f8f9fa;border-radius:6px;padding:8px 10px">
+        <div style="font-weight:700;font-size:.8rem;color:#202124;margin-bottom:5px">🚗 ${esc(d.name)} <span style="color:#5f6368;font-weight:400">(${d.boxes.length} box${d.boxes.length !== 1 ? 'es' : ''}, ${totalItems} items)</span></div>
+        ${boxItems}
+      </div>`;
+    }).join('');
+  }
+
+  let _driverSummaryOpen = true;
+  window.toggleDriverSummary = function() {
+    const body = document.getElementById('driverSummaryBody');
+    const chev = document.getElementById('driverSummaryChevron');
+    if (!body) return;
+    _driverSummaryOpen = !_driverSummaryOpen;
+    body.style.display = _driverSummaryOpen ? 'block' : 'none';
+    if (chev) chev.textContent = _driverSummaryOpen ? '▼' : '▶';
+    if (_driverSummaryOpen) renderDriverSummary();
   };
 
   // Expose box selection functions globally for onclick handlers

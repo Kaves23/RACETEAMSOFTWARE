@@ -774,6 +774,7 @@ console.log('📦 load-engine.js loading...');
     document.getElementById('statStatus').textContent = currentLoad.status || 'Draft';
     const updated = currentLoad.updatedAt ? new Date(currentLoad.updatedAt).toLocaleString() : 'Never';
     document.getElementById('statUpdated').textContent = updated;
+    updateWeightBalanceBar();
   }
 
   // ========== DRAG AND DROP ==========
@@ -1105,6 +1106,87 @@ console.log('📦 load-engine.js loading...');
     printWindow.document.write(html);
     printWindow.document.close();
   }
+
+  function updateWeightBalanceBar() {
+    const bar = document.getElementById('weightBalanceBar');
+    if (!bar || !currentLoad?.placements?.length) {
+      if (bar) bar.classList.remove('show');
+      return;
+    }
+    const truck = getTruck();
+    const zones = truck?.zones || {};
+
+    // Split zones into front half (grid 1,2,3,4 or odd cols) vs rear (5,6,7,8 or even cols)
+    // Convention: lower grid numbers = front of truck
+    const sortedKeys = Object.keys(zones).sort((a, b) =>
+      parseInt(a.replace('grid-','')) - parseInt(b.replace('grid-',''))
+    );
+    const half = Math.ceil(sortedKeys.length / 2);
+    const frontZones = new Set(sortedKeys.slice(0, half));
+
+    let frontKg = 0, rearKg = 0;
+    currentLoad.placements.forEach(p => {
+      const box = getBox(p.boxId);
+      if (!box) return;
+      const w = parseFloat(box.weight) || 0;
+      if (frontZones.has(p.zone)) frontKg += w;
+      else rearKg += w;
+    });
+
+    const total = frontKg + rearKg;
+    if (total === 0) { bar.classList.remove('show'); return; }
+
+    const frontPct = Math.round((frontKg / total) * 100);
+    const rearPct  = 100 - frontPct;
+
+    document.getElementById('wbbFront').style.width  = frontPct + '%';
+    document.getElementById('wbbRear').style.width   = rearPct  + '%';
+    document.getElementById('wbbFrontLabel').textContent = `Front — ${frontKg.toFixed(0)} kg (${frontPct}%)`;
+    document.getElementById('wbbRearLabel').textContent  = `Rear — ${rearKg.toFixed(0)} kg (${rearPct}%)`;
+
+    // Warning colour if >60/40 imbalance
+    const imbalanced = frontPct > 65 || rearPct > 65;
+    document.getElementById('wbbFront').style.background = imbalanced ? '#f29900' : '#1a73e8';
+    document.getElementById('wbbRear').style.background  = imbalanced ? '#ea4335' : '#34a853';
+    bar.classList.add('show');
+  }
+
+  // ========== BOX CONTENTS TOOLTIP (2D view) ==========
+  (function setupBoxTooltip() {
+    const tip = document.createElement('div');
+    tip.className = 'box-tooltip-popup';
+    tip.style.display = 'none';
+    document.body.appendChild(tip);
+
+    let hideTimer = null;
+
+    document.addEventListener('mouseover', e => {
+      const el = e.target.closest('.box-item');
+      if (!el) return;
+      const boxId = el.dataset.boxId;
+      if (!boxId) return;
+      const box = boxes.find(b => b.id === boxId);
+      if (!box) return;
+      clearTimeout(hideTimer);
+      const items = box.contentsItems || [];
+      if (items.length === 0) return; // no tooltip for empty boxes
+      const rows = items.slice(0, 12).map(it =>
+        `<div style="padding:2px 0;border-bottom:1px solid #f0f0f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(it.name)}</div>`
+      ).join('');
+      const more = items.length > 12 ? `<div style="color:#1a73e8;font-size:.7rem;margin-top:4px">+${items.length - 12} more…</div>` : '';
+      tip.innerHTML = `<div style="font-weight:700;margin-bottom:5px;color:#1a73e8">${esc(box.barcode)} — ${esc(box.name)}</div>${rows}${more}`;
+      const rect = el.getBoundingClientRect();
+      tip.style.display = 'block';
+      tip.style.left = (rect.right + window.scrollX + 8) + 'px';
+      tip.style.top  = Math.max(8, rect.top + window.scrollY) + 'px';
+    });
+
+    document.addEventListener('mouseout', e => {
+      const el = e.target.closest('.box-item');
+      if (!el) return;
+      hideTimer = setTimeout(() => { tip.style.display = 'none'; }, 120);
+    });
+  })();
 
   // ========== 3D VIEW ==========
   function switchView(view) {
