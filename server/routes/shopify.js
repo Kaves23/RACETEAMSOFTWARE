@@ -22,7 +22,7 @@ router.post('/test-connection', async (req, res, next) => {
     const { shop, accessToken } = cfg;
     
     // Test connection by fetching shop info
-    const shopUrl = `https://${shop}/admin/api/2024-01/shop.json`;
+    const shopUrl = `https://${shop}/admin/api/2026-01/shop.json`;
     const response = await fetch(shopUrl, {
       headers: {
         'X-Shopify-Access-Token': accessToken,
@@ -69,41 +69,35 @@ router.post('/sync-inventory', async (req, res, next) => {
     }
     const { shop, accessToken } = cfg;
     
-    // Fetch all products from Shopify
+    // Fetch all products from Shopify using cursor-based pagination (page-based is deprecated)
     let allProducts = [];
-    let page = 1;
-    let hasMore = true;
-    
-    while (hasMore && page <= 10) { // Limit to 10 pages (2500 products) for safety
-      const productsUrl = `https://${shop}/admin/api/2024-01/products.json?limit=250&page=${page}`;
-      const response = await fetch(productsUrl, {
+    let nextUrl = `https://${shop}/admin/api/2026-01/products.json?limit=250`;
+
+    while (nextUrl) {
+      const response = await fetch(nextUrl, {
         headers: {
           'X-Shopify-Access-Token': accessToken,
           'Content-Type': 'application/json'
         }
       });
-      
+
       if (!response.ok) {
         const error = await response.text();
-        return res.status(response.status).json({ 
-          success: false, 
-          error: `Shopify API Error: ${error}` 
+        return res.status(response.status).json({
+          success: false,
+          error: `Shopify API Error: ${error}`
         });
       }
-      
+
       const data = await response.json();
-      
       if (data.products && data.products.length > 0) {
         allProducts = allProducts.concat(data.products);
-        page++;
-        
-        // Check if there are more pages
-        if (data.products.length < 250) {
-          hasMore = false;
-        }
-      } else {
-        hasMore = false;
       }
+
+      // Advance to next page via Link header cursor
+      const linkHeader = response.headers.get('Link') || '';
+      const nextMatch = linkHeader.match(/<([^>]+)>;\s*rel="next"/);
+      nextUrl = nextMatch ? nextMatch[1] : null;
     }
     
     // Process and insert/update products into inventory table
@@ -137,7 +131,7 @@ router.post('/sync-inventory', async (req, res, next) => {
           let locationDist = {};
           if (variant.inventory_item_id) {
             // Fetch inventory levels for this variant
-            const levelsUrl = `https://${shop}/admin/api/2024-01/inventory_levels.json?inventory_item_ids=${variant.inventory_item_id}`;
+            const levelsUrl = `https://${shop}/admin/api/2026-01/inventory_levels.json?inventory_item_ids=${variant.inventory_item_id}`;
             const levelsResponse = await fetch(levelsUrl, {
               headers: {
                 'X-Shopify-Access-Token': accessToken,
@@ -823,6 +817,36 @@ router.post('/return-stock', async (req, res, next) => {
     res.json({ success: true, adjusted, errors: errors.length ? errors : undefined });
   } catch (error) {
     console.error('Shopify return-stock error:', error);
+    next(error);
+  }
+});
+
+/**
+ * GET /api/shopify/variant-prices?ids=123,456
+ * Returns current Shopify prices for one or more variant IDs.
+ */
+router.get('/variant-prices', async (req, res, next) => {
+  try {
+    const ids = (req.query.ids || '').split(',').map(s => s.trim()).filter(Boolean);
+    if (!ids.length) return res.json({ success: true, prices: {} });
+
+    const cfg = await loadShopifyCredentials();
+    if (!cfg) return res.status(400).json({ success: false, error: 'Shopify not configured' });
+
+    const resp = await fetch(
+      `https://${cfg.shop}/admin/api/2026-01/variants.json?ids=${ids.join(',')}`,
+      { headers: { 'X-Shopify-Access-Token': cfg.accessToken } }
+    );
+    const data = await resp.json();
+    if (!resp.ok) return res.status(resp.status).json({ success: false, error: 'Shopify API error' });
+
+    const prices = {};
+    for (const v of (data.variants || [])) {
+      prices[String(v.id)] = v.price;
+    }
+    res.json({ success: true, prices });
+  } catch (error) {
+    console.error('Shopify variant-prices error:', error);
     next(error);
   }
 });

@@ -2620,6 +2620,23 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       customerAssignments: []
     };
 
+    // Fetch live Shopify prices for all Shopify-linked items
+    const variantIds = shopifyItems.map(si => si.variantId).filter(Boolean);
+    if (variantIds.length > 0) {
+      try {
+        const priceResp = await fetch(`/api/shopify/variant-prices?ids=${variantIds.join(',')}`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}` }
+        });
+        const priceData = await priceResp.json();
+        if (priceData.success) {
+          unpackState.shopifyItems.forEach(si => {
+            const p = priceData.prices[String(si.variantId)];
+            if (p != null) si.unitCost = parseFloat(p);
+          });
+        }
+      } catch(e) { console.warn('Could not fetch Shopify prices:', e); }
+    }
+
     // Populate location dropdown with Shopify locations (always — fetch if not yet loaded)
     const locSel = document.getElementById('returnStepLocation');
     const preselect = unpackState.shopifyLocationId;
@@ -2895,12 +2912,13 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     // Order previews
     const assignmentsHtml = unpackState.customerAssignments.length > 0
       ? unpackState.customerAssignments.map(ca => {
-          const linesHtml = ca.lineItems.map(li =>
-            `<div style="display:flex;justify-content:space-between;font-size:.82rem;padding:2px 0">
-              <span>${esc(li.name)}</span>
-              <span style="font-weight:600">×${li.quantity}</span>
-             </div>`
-          ).join('');
+          const linesHtml = ca.lineItems.map(li => {
+            const lineTotal = li.price != null ? (parseFloat(li.price) * li.quantity).toFixed(2) : null;
+            return `<div style="display:flex;justify-content:space-between;font-size:.82rem;padding:2px 0">
+              <span>${esc(li.name)} <span style="color:#5f6368">×${li.quantity}</span></span>
+              <span style="font-weight:600">${lineTotal != null ? '£' + lineTotal : ''}</span>
+             </div>`;
+          }).join('');
           return `
             <div style="border:1px solid #e0e0e0;border-radius:6px;padding:12px;margin-bottom:10px">
               <div style="font-weight:700;font-size:.9rem;margin-bottom:8px;color:#1a73e8">📋 Order for ${esc(ca.customer.name)}</div>
@@ -2946,7 +2964,44 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     if (btn) { btn.disabled = true; btn.textContent = 'Creating orders…'; }
 
     try {
-      // 1. Create Shopify orders
+      // 1. Return stock to Shopify FIRST (before creating orders)
+      const returnItems = unpackState.shopifyItems
+        .map((si, idx) => ({
+          inventory_item_id: si.inventoryItemId,
+          location_id: unpackState.shopifyLocationId,
+          adjustment: unpackState.returnQtys[idx] || 0
+        }))
+        .filter(x => x.inventory_item_id && x.location_id && x.adjustment > 0);
+
+      // Warn about items that can't be returned (missing inventoryItemId)
+      const missingIds = unpackState.shopifyItems
+        .filter((si, idx) => (unpackState.returnQtys[idx] || 0) > 0 && !si.inventoryItemId)
+        .map(si => si.name);
+      if (missingIds.length > 0) {
+        console.warn('Items missing inventoryItemId (stock not returned):', missingIds);
+        showToast(`⚠️ Could not return stock for: ${missingIds.join(', ')} — inventory item ID not linked. Re-import from Shopify to fix.`, 'warning');
+      }
+
+      let stockErrors = [];
+      if (returnItems.length > 0) {
+        try {
+          const stockResp = await fetch('/api/shopify/return-stock', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}` },
+            body: JSON.stringify({ items: returnItems })
+          });
+          const stockData = await stockResp.json();
+          if (!stockResp.ok || stockData.errors?.length) {
+            stockErrors = stockData.errors || [`Return stock failed (${stockResp.status})`];
+            console.warn('Return stock errors:', stockErrors);
+          }
+        } catch(e) {
+          stockErrors = [e.message];
+          console.warn('Return stock exception:', e);
+        }
+      }
+
+      // 2. Create Shopify orders
       const orderResults = [];
       for (const ca of unpackState.customerAssignments) {
         try {
@@ -2973,29 +3028,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
         }
       }
 
-      // 2. Return stock to Shopify
-      const returnItems = unpackState.shopifyItems
-        .map((si, idx) => ({
-          inventory_item_id: si.inventoryItemId,
-          location_id: unpackState.shopifyLocationId,
-          adjustment: unpackState.returnQtys[idx] || 0
-        }))
-        .filter(x => x.inventory_item_id && x.location_id && x.adjustment > 0);
-
-      if (returnItems.length > 0) {
-        // Find Shopify location from selected location (try to use stored shopify location)
-        // We'll skip Shopify return-stock if we can't determine the Shopify location ID
-        // (The user may not have a mapping; this is soft fail)
-        try {
-          await fetch('/api/shopify/return-stock', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}` },
-            body: JSON.stringify({ items: returnItems })
-          });
-        } catch(e) { console.warn('Return stock failed (non-fatal):', e); }
-      }
-
-      // 3. Run existing unpack logic (uses unpackState.locationId for all contents)
+      // 3. Run existing unpack logic (moves items to location in local DB)
       unpackStepConfirmModal.hide();
 
       const locationId = unpackState.locationId;
@@ -3037,17 +3070,19 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       renderAll();
       hideLoading();
 
-      // Show results summary
+      // Build final toast
       const orderSummary = orderResults.length > 0
         ? '\n' + orderResults.map(r => r.error ? `  ✗ ${r.customer}: ${r.error}` : `  ✅ Order #${r.orderNumber} → ${r.customer}${r.fulfillNote || ''}`).join('\n')
         : '';
-      showToast(`✅ Box emptied! ${contents.length} items moved to ${locationName}${orderSummary ? '\n' + orderSummary : ''}`, 'success');
+      const stockSummary = stockErrors.length > 0 ? `\n  ⚠️ Stock return errors: ${stockErrors.join('; ')}` : '';
+      showToast(`✅ Box emptied! ${contents.length} items moved to ${locationName}${orderSummary}${stockSummary}`, 'success');
 
       unpackState = null;
     } catch(e) {
       console.error('handleConfirmAndCreate error:', e);
       hideLoading();
       showToast('Error: ' + e.message, 'error');
+    } finally {
       if (btn) { btn.disabled = false; btn.textContent = '✅ Create Orders & Empty Box'; }
     }
   };
