@@ -4,6 +4,7 @@
    ───────────────────────────────────────────────────────────────────────────── */
 
 var CACHE_NAME = 'rts-mobile-v5';
+var DATA_CACHE = 'rts-offline-data'; // persists across SW version bumps
 var SHELL_FILES = [
   '/mobile/mobile.css',
   '/mobile/index.html',
@@ -35,7 +36,7 @@ self.addEventListener('activate', function(event) {
   event.waitUntil(
     caches.keys().then(function(keys) {
       return Promise.all(
-        keys.filter(function(k) { return k !== CACHE_NAME; })
+        keys.filter(function(k) { return k !== CACHE_NAME && k !== DATA_CACHE; })
             .map(function(k) { return caches.delete(k); })
       );
     }).then(function() {
@@ -53,9 +54,9 @@ self.addEventListener('fetch', function(event) {
 
   var path = url.pathname;
 
-  // API routes: stale-while-revalidate
-  if (path === '/api/trucks' || path.startsWith('/api/scan/manifest/')) {
-    event.respondWith(staleWhileRevalidate(event.request));
+  // API GET routes: network-first, store in persistent data cache, fall back to data cache
+  if (path.startsWith('/api/') && event.request.method === 'GET') {
+    event.respondWith(apiNetworkFirst(event.request));
     return;
   }
 
@@ -68,6 +69,23 @@ self.addEventListener('fetch', function(event) {
   // Everything else: network-first with cache fallback
   event.respondWith(networkFirst(event.request));
 });
+
+// ── Strategy: API network-first (data cache) ──────────────────────────────
+function apiNetworkFirst(request) {
+  return fetch(request.clone()).then(function(response) {
+    if (response && response.status === 200) {
+      var clone = response.clone();
+      caches.open(DATA_CACHE).then(function(cache) {
+        cache.put(request, clone);
+      });
+    }
+    return response;
+  }).catch(function() {
+    return caches.open(DATA_CACHE).then(function(cache) {
+      return cache.match(request);
+    });
+  });
+}
 
 // ── Strategy: stale-while-revalidate ──────────────────────────────────────
 function staleWhileRevalidate(request) {

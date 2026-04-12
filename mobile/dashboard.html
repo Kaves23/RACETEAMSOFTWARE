@@ -72,6 +72,20 @@
     <a href="browse.html"    class="dash-nav-row">📦 <span>Browse Equipment</span><span class="dash-nav-arrow">›</span></a>
     <a href="scan.html"      class="dash-nav-row">📡 <span>Scanner</span><span class="dash-nav-arrow">›</span></a>
 
+    <!-- Offline download -->
+    <div style="margin-top:28px;">
+      <button id="offlineBtn" onclick="saveForOffline()">
+        ✈️ Save for offline
+      </button>
+      <div id="offlineProgress" style="display:none;margin-top:12px;">
+        <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:8px;">
+          <div id="offlineBar" style="height:100%;background:#7c3aed;border-radius:3px;width:0%;transition:width 0.3s;"></div>
+        </div>
+        <div id="offlineMsg" style="font-size:12px;color:var(--text-3);text-align:center;"></div>
+      </div>
+      <div id="offlineSavedAt" style="font-size:11px;color:var(--text-3);text-align:center;margin-top:8px;"></div>
+    </div>
+
   </main>
 
   <!-- Bottom nav -->
@@ -144,6 +158,25 @@
   .dash-nav-row:last-child { border-bottom: none; }
   .dash-nav-row span:first-of-type { flex: 1; }
   .dash-nav-arrow { color: var(--text-3); font-size: 18px; }
+
+  /* Offline button */
+  #offlineBtn {
+    display: block;
+    width: 100%;
+    padding: 14px;
+    background: #7c3aed;
+    color: #fff;
+    border: none;
+    border-radius: var(--r);
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0.01em;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.15s, opacity 0.15s;
+  }
+  #offlineBtn:active  { background: #6d28d9; }
+  #offlineBtn:disabled { opacity: 0.6; cursor: default; }
 </style>
 
 <script>
@@ -239,6 +272,118 @@
     } else {
       setNum('statStockNum', '—');
     }
+  }
+
+  // ── Show last saved timestamp ─────────────────────────────────────────────
+  function showSavedAt() {
+    var ts = localStorage.getItem('offline_saved_at');
+    var el = document.getElementById('offlineSavedAt');
+    if (ts) {
+      var d = new Date(parseInt(ts, 10));
+      el.textContent = '✓ Last saved ' + d.toLocaleDateString('en-GB', { day:'numeric', month:'short' }) + ' at ' + d.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+    } else {
+      el.textContent = 'Not saved yet';
+    }
+  }
+  showSavedAt();
+
+  // ── Save for offline ──────────────────────────────────────────────────────
+  var DATA_CACHE = 'rts-offline-data';
+
+  var OFFLINE_ENDPOINTS = [
+    { label: 'Vehicles',   url: '/api/trucks' },
+    { label: 'Boxes',      url: '/api/boxes' },
+    { label: 'Assets',     url: '/api/items' },
+    { label: 'Inventory',  url: '/api/collections/inventory' },
+  ];
+
+  async function saveForOffline() {
+    if (!navigator.onLine) {
+      alert('You need a connection to download data. Connect to WiFi first.');
+      return;
+    }
+
+    var btn = document.getElementById('offlineBtn');
+    var progressWrap = document.getElementById('offlineProgress');
+    var bar = document.getElementById('offlineBar');
+    var msg = document.getElementById('offlineMsg');
+
+    btn.disabled = true;
+    btn.textContent = 'Downloading…';
+    progressWrap.style.display = 'block';
+
+    var total = OFFLINE_ENDPOINTS.length;
+    var done  = 0;
+    var errors = 0;
+
+    // Open the persistent data cache
+    var cache;
+    try {
+      cache = await caches.open(DATA_CACHE);
+    } catch (_) {
+      // caches API not available (unlikely on modern mobile, but handle gracefully)
+      cache = null;
+    }
+
+    for (var i = 0; i < OFFLINE_ENDPOINTS.length; i++) {
+      var ep = OFFLINE_ENDPOINTS[i];
+      msg.textContent = 'Downloading ' + ep.label + '…';
+      bar.style.width = Math.round((i / total) * 100) + '%';
+
+      try {
+        var res = await fetch(ep.url, { headers: auth() });
+        if (res.ok && cache) {
+          await cache.put(ep.url, res.clone());
+          // Also fetch individual box details if this was the boxes endpoint
+          if (ep.url === '/api/boxes') {
+            var data = await res.clone().json().catch(function() { return null; });
+            if (data && data.boxes) {
+              var boxes = data.boxes.slice(0, 60); // cap at 60 to avoid timeouts
+              for (var b = 0; b < boxes.length; b++) {
+                var boxUrl = '/api/boxes/' + boxes[b].id;
+                try {
+                  var boxRes = await fetch(boxUrl, { headers: auth() });
+                  if (boxRes.ok) await cache.put(boxUrl, boxRes.clone());
+                } catch (_) {}
+                // Update sub-progress for boxes
+                msg.textContent = 'Box contents ' + (b + 1) + '/' + boxes.length + '…';
+                bar.style.width = Math.round(((i + (b + 1) / boxes.length) / (total + 1)) * 100) + '%';
+              }
+            }
+          }
+        }
+        done++;
+      } catch (err) {
+        errors++;
+      }
+
+      bar.style.width = Math.round(((i + 1) / total) * 100) + '%';
+    }
+
+    // Done
+    bar.style.width = '100%';
+    var savedAt = Date.now();
+    localStorage.setItem('offline_saved_at', savedAt);
+
+    if (errors === 0) {
+      btn.textContent = '✓ Saved — safe to fly!';
+      btn.style.background = '#16a34a';
+      msg.textContent = 'All data ready for offline use.';
+    } else {
+      btn.textContent = '⚠️ Partial save (' + (done) + '/' + total + ')';
+      btn.style.background = '#d97706';
+      msg.textContent = done + ' of ' + total + ' downloaded. Try again on better WiFi.';
+    }
+
+    showSavedAt();
+
+    // Reset button after 4 s
+    setTimeout(function() {
+      btn.textContent = '✈️ Save for offline';
+      btn.style.background = '';
+      btn.disabled = false;
+      progressWrap.style.display = 'none';
+    }, 4000);
   }
 
   // ── SW ───────────────────────────────────────────────────────────
