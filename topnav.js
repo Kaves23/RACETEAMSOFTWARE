@@ -8,6 +8,7 @@
   const groups = [
     { label: 'Ops', items: [
       { href: 'events.html', label: 'Events', key: 'E' },
+      { href: 'project-management.html', label: 'Projects', key: 'P' },
       { href: 'tasks.html', label: 'Tasks', key: 'T' },
       { href: 'forecast.html', label: 'Forecast', key: 'F' },
       { href: 'orders.html', label: 'Orders', key: 'O' },

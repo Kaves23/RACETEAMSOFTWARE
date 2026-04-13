@@ -1,0 +1,2028 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Race Team OS — Project Management</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="style.css" rel="stylesheet">
+  <style>
+    /* ─── RESET & BASE ─────────────────────────────────────────── */
+    body.light-mode { background: #f5f7fa; color: #111; }
+    * { box-sizing: border-box; }
+
+    /* ─── OVERALL SHELL ─────────────────────────────────────────── */
+    #pm-shell {
+      display: flex;
+      height: calc(100vh - var(--rts-topbar-h, 52px));
+      overflow: hidden;
+      font-family: 'Inter', 'Segoe UI', sans-serif;
+      font-size: 12px;
+    }
+
+    /* ─── LEFT SIDEBAR — PLAN LIST ─────────────────────────────── */
+    #pm-sidebar {
+      width: 210px;
+      min-width: 150px;
+      max-width: 300px;
+      background: #edf0f4;
+      border-right: 1px solid #cdd3db;
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+    #pm-sidebar-header {
+      padding: 10px 12px 8px;
+      border-bottom: 1px solid #cdd3db;
+      background: #f8f9fa;
+    }
+    #pm-sidebar-header h6 {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #666;
+      margin: 0 0 6px;
+    }
+    #btn-new-plan {
+      width: 100%;
+      font-size: 11px;
+      padding: 4px 8px;
+      background: #a64dff;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    #btn-new-plan:hover { background: #8e3de0; }
+    #pm-plan-list { overflow-y: auto; flex: 1; padding: 6px 0; }
+    .pm-group-heading {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #999;
+      padding: 8px 12px 2px;
+    }
+    .pm-plan-item {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 12px;
+      cursor: pointer;
+      border-left: 3px solid transparent;
+      transition: background 0.1s;
+      user-select: none;
+    }
+    .pm-plan-item:hover { background: rgba(166,77,255,0.07); }
+    .pm-plan-item.active {
+      background: rgba(166,77,255,0.12);
+      border-left-color: #a64dff;
+    }
+    .pm-plan-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .pm-plan-name {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-weight: 500;
+    }
+    .pm-plan-status {
+      font-size: 9px;
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: #e0e0e0;
+      color: #555;
+    }
+    .pm-plan-status.active { background: #d4f8e8; color: #1a7a4a; }
+    .pm-plan-status.archived { background: #eee; color: #888; }
+    .pm-plan-status.completed { background: #ddeeff; color: #1a5ab0; }
+    .pm-plan-kebab {
+      opacity: 0; background: none; border: none;
+      padding: 0 2px; cursor: pointer; color: #666;
+      font-size: 13px; line-height: 1;
+    }
+    .pm-plan-item:hover .pm-plan-kebab { opacity: 1; }
+
+    /* ─── MAIN AREA ──────────────────────────────────────────────── */
+    #pm-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+    /* TOOLBAR */
+    #pm-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      background: #f8f9fa;
+      border-bottom: 1px solid #cdd3db;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+    #pm-plan-title { font-weight: 700; font-size: 13px; margin-right: 4px; color: #111; }
+    .pm-toolbar-sep { width: 1px; height: 20px; background: #cdd3db; margin: 0 2px; }
+    .pm-zoom-btn {
+      font-size: 11px; padding: 3px 8px;
+      border: 1px solid #cdd3db; background: #fff; border-radius: 4px; cursor: pointer;
+    }
+    .pm-zoom-btn.active { background: #a64dff; color: #fff; border-color: #a64dff; }
+    .pm-toolbar-btn {
+      font-size: 11px; padding: 3px 9px;
+      border: 1px solid #cdd3db; background: #fff; border-radius: 4px; cursor: pointer;
+      display: flex; align-items: center; gap: 4px;
+    }
+    .pm-toolbar-btn:hover { background: #f0f0f0; }
+    .pm-toolbar-btn.primary { background: #a64dff; color: #fff; border-color: #a64dff; }
+    .pm-toolbar-btn.primary:hover { background: #8e3de0; }
+    #pm-link-mode-btn.active { background: #ff6b35; color: #fff; border-color: #ff6b35; }
+    #pm-empty-state {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      color: #aaa; gap: 12px;
+    }
+    #pm-empty-state svg { opacity: 0.3; }
+    #pm-empty-state p { font-size: 13px; }
+
+    /* ─── GANTT AREA (outline + chart side by side) ─────────────── */
+    #pm-gantt-area {
+      flex: 1; display: flex; overflow: hidden;
+      position: relative;
+    }
+
+    /* OUTLINE TABLE */
+    #pm-outline-wrap {
+      width: 420px;
+      min-width: 260px;
+      border-right: 2px solid #cdd3db;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      flex-shrink: 0;
+      background: #fff;
+    }
+    #pm-outline-header {
+      display: grid;
+      grid-template-columns: 18px 26px 1fr 44px 72px 72px 38px 28px;
+      align-items: center;
+      padding: 0 4px;
+      height: 28px;
+      background: #f8f9fa;
+      border-bottom: 1px solid #cdd3db;
+      font-size: 10px;
+      font-weight: 700;
+      color: #777;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      flex-shrink: 0;
+      gap: 2px;
+    }
+    #pm-outline-header span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #pm-outline-body {
+      overflow-y: auto;
+      overflow-x: hidden;
+      flex: 1;
+    }
+    .pm-task-row {
+      display: grid;
+      grid-template-columns: 18px 26px 1fr 44px 72px 72px 38px 28px;
+      align-items: center;
+      height: 32px;
+      padding: 0 4px;
+      border-bottom: 1px solid #f0f0f0;
+      cursor: pointer;
+      gap: 2px;
+      position: relative;
+      transition: background 0.08s;
+    }
+    .pm-task-row:hover { background: rgba(166,77,255,0.05); }
+    .pm-task-row.selected {
+      background: rgba(166,77,255,0.10);
+      border-left: 3px solid #a64dff;
+    }
+    .pm-task-row.milestone-row { font-style: italic; }
+    .pm-task-row.completed-row { opacity: 0.55; }
+
+    .pm-expand-btn {
+      background: none; border: none; padding: 0;
+      width: 16px; height: 16px; cursor: pointer;
+      color: #999; font-size: 10px; line-height: 1;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .pm-wbs { color: #bbb; font-size: 10px; text-align: right; white-space: nowrap; }
+    .pm-task-name-cell {
+      display: flex; align-items: center; gap: 4px;
+      overflow: hidden; min-width: 0;
+    }
+    .pm-task-name-indent { flex-shrink: 0; }
+    .pm-color-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      flex-shrink: 0; cursor: pointer;
+    }
+    .pm-milestone-icon { font-size: 11px; flex-shrink: 0; }
+    .pm-task-title-text {
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      flex: 1; font-size: 12px;
+    }
+    .pm-task-title-text.editing {
+      outline: none;
+      background: #fff;
+      border: 1px solid #a64dff;
+      border-radius: 3px;
+      padding: 0 3px;
+    }
+    .pm-entity-chip {
+      font-size: 9px; padding: 1px 5px;
+      border-radius: 3px; white-space: nowrap;
+      max-width: 60px; overflow: hidden; text-overflow: ellipsis;
+      flex-shrink: 0;
+    }
+    .pm-dur { font-size: 11px; color: #666; text-align: right; white-space: nowrap; }
+    .pm-date-cell {
+      font-size: 10px; color: #555;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      text-align: center;
+    }
+    .pm-date-cell.editing input {
+      width: 100%; font-size: 10px; border: 1px solid #a64dff;
+      border-radius: 3px; padding: 1px 2px;
+    }
+    .pm-progress-cell {
+      display: flex; align-items: center; gap: 2px;
+    }
+    .pm-progress-bar-mini {
+      height: 4px; border-radius: 2px;
+      background: #e0e0e0; overflow: hidden; flex: 1;
+    }
+    .pm-progress-fill { height: 100%; border-radius: 2px; }
+    .pm-assignee-chip {
+      width: 22px; height: 22px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 9px; font-weight: 700; color: #fff;
+      background: #888; overflow: hidden; flex-shrink: 0;
+      cursor: pointer;
+    }
+
+    /* OUTLINE RESIZER */
+    #pm-outline-resizer {
+      width: 5px; cursor: col-resize;
+      background: transparent;
+      flex-shrink: 0;
+      position: relative;
+      z-index: 5;
+    }
+    #pm-outline-resizer:hover { background: rgba(166,77,255,0.3); }
+
+    /* ─── GANTT CHART PANEL ──────────────────────────────────────── */
+    #pm-chart-wrap {
+      flex: 1; overflow: hidden; display: flex; flex-direction: column;
+      position: relative; background: #fff;
+    }
+    #pm-chart-scroll {
+      overflow-x: auto; overflow-y: hidden;
+      flex-shrink: 0; background: #f8f9fa;
+      border-bottom: 1px solid #cdd3db;
+    }
+    #pm-chart-header { position: relative; }
+    .pm-header-months {
+      display: flex; height: 16px;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    .pm-header-month-cell {
+      flex-shrink: 0; border-right: 1px solid #e0e0e0;
+      font-size: 10px; font-weight: 700; color: #555;
+      display: flex; align-items: center;
+      padding: 0 6px; overflow: hidden;
+    }
+    .pm-header-days {
+      display: flex; height: 14px;
+    }
+    .pm-header-day-cell {
+      flex-shrink: 0; border-right: 1px solid #f0f0f0;
+      font-size: 9px; color: #aaa;
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden;
+    }
+    .pm-header-day-cell.weekend { background: rgba(0,0,0,0.03); }
+    .pm-header-day-cell.today-col { background: rgba(231,76,60,0.12); color: #e74c3c; font-weight: 700; }
+
+    /* Chart body rows container */
+    #pm-chart-body-scroll {
+      flex: 1; overflow-x: auto; overflow-y: auto; position: relative;
+    }
+    #pm-chart-body { position: relative; }
+    .pm-chart-row {
+      height: 32px; position: relative;
+      border-bottom: 1px solid #f0f0f0;
+      display: flex; align-items: center;
+    }
+    .pm-chart-row:hover { background: rgba(166,77,255,0.03); }
+    .pm-chart-row.selected { background: rgba(166,77,255,0.07); }
+    .pm-col-weekend {
+      position: absolute; top: 0; bottom: 0;
+      background: rgba(0,0,0,0.025);
+      pointer-events: none;
+    }
+    .pm-today-line {
+      position: absolute; top: 0; bottom: 0;
+      width: 2px; background: #e74c3c;
+      pointer-events: none; z-index: 4;
+    }
+    .pm-today-label {
+      position: absolute; top: 0;
+      background: #e74c3c; color: #fff;
+      font-size: 8px; font-weight: 700;
+      padding: 1px 4px; border-radius: 0 0 3px 3px;
+      z-index: 5; transform: translateX(-50%);
+    }
+
+    /* GANTT BARS */
+    .pm-bar-wrap {
+      position: absolute; top: 50%; transform: translateY(-50%);
+      height: 20px; border-radius: 10px;
+      overflow: hidden; cursor: grab;
+      user-select: none; z-index: 2;
+      min-width: 4px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+    }
+    .pm-bar-wrap:active { cursor: grabbing; }
+    .pm-bar-progress {
+      position: absolute; top: 0; left: 0; height: 100%;
+      border-radius: 10px 0 0 10px;
+      opacity: 0.5;
+      pointer-events: none;
+    }
+    .pm-bar-label {
+      position: absolute; inset: 0;
+      display: flex; align-items: center;
+      padding: 0 6px;
+      font-size: 10px; font-weight: 600; color: rgba(0,0,0,0.7);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      pointer-events: none;
+    }
+    .pm-bar-resize-handle {
+      position: absolute; right: 0; top: 0; bottom: 0;
+      width: 8px; cursor: e-resize;
+      background: rgba(0,0,0,0.12);
+      border-radius: 0 10px 10px 0;
+    }
+    /* Milestone diamond */
+    .pm-milestone-diamond {
+      position: absolute; top: 50%; transform: translateY(-50%) rotate(45deg);
+      width: 14px; height: 14px;
+      border-radius: 2px;
+      z-index: 2;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+      cursor: pointer;
+    }
+
+    /* SVG dependency arrow overlay */
+    #pm-arrows-svg {
+      position: absolute; top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 3;
+      overflow: visible;
+    }
+    .pm-dep-arrow { fill: none; stroke: rgba(0,0,0,0.28); stroke-width: 1.5; marker-end: url(#arrowhead); }
+    .pm-dep-arrow-preview { fill: none; stroke: #a64dff; stroke-width: 1.5; stroke-dasharray: 4 3; }
+
+    /* ─── MODALS ──────────────────────────────────────────────────── */
+    .pm-modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.35);
+      z-index: 1000;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .pm-modal {
+      background: #fff; border-radius: 10px;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.22);
+      padding: 20px 24px;
+      min-width: 360px; max-width: 95vw;
+      max-height: 90vh; overflow-y: auto;
+    }
+    .pm-modal h5 { font-size: 14px; font-weight: 700; margin: 0 0 14px; }
+    .pm-modal label { font-size: 11px; font-weight: 600; color: #555; display: block; margin-bottom: 10px; }
+    .pm-modal input, .pm-modal select, .pm-modal textarea {
+      width: 100%; font-size: 12px;
+      border: 1px solid #cdd3db; border-radius: 5px;
+      padding: 5px 8px; margin-top: 3px;
+      background: #fff; color: #111;
+    }
+    .pm-modal input:focus, .pm-modal select:focus { outline: none; border-color: #a64dff; }
+    .pm-modal-footer {
+      display: flex; gap: 8px; justify-content: flex-end;
+      margin-top: 16px;
+    }
+    .pm-modal-footer button {
+      font-size: 12px; padding: 6px 16px;
+      border: 1px solid #cdd3db; border-radius: 5px; cursor: pointer;
+      background: #fff;
+    }
+    .pm-modal-footer button.primary { background: #a64dff; color: #fff; border-color: #a64dff; }
+    .pm-modal-footer button.danger { background: #e74c3c; color: #fff; border-color: #e74c3c; }
+
+    /* ─── COLOUR PICKER POPOVER ──────────────────────────────────── */
+    #pm-color-popover {
+      position: fixed; z-index: 2000;
+      background: #fff; border: 1px solid #cdd3db;
+      border-radius: 8px; padding: 10px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+      display: none;
+    }
+    #pm-color-popover.visible { display: block; }
+    .pm-color-swatches { display: flex; gap: 6px; margin-bottom: 8px; }
+    .pm-color-swatch {
+      width: 20px; height: 20px; border-radius: 50%;
+      cursor: pointer; border: 2px solid transparent;
+      transition: transform 0.1s;
+    }
+    .pm-color-swatch:hover { transform: scale(1.2); border-color: #333; }
+    #pm-color-custom { width: 100%; height: 26px; border: 1px solid #cdd3db; border-radius: 4px; cursor: pointer; padding: 1px; }
+
+    /* ─── ENTITY LINKER MODAL ──────────────────────────────────────  */
+    #pm-entity-modal .pm-entity-tabs {
+      display: flex; gap: 0; border-bottom: 1px solid #cdd3db;
+      margin-bottom: 10px; flex-wrap: wrap;
+    }
+    #pm-entity-modal .pm-entity-tab {
+      font-size: 11px; padding: 4px 10px;
+      border: none; background: none; cursor: pointer;
+      border-bottom: 2px solid transparent; color: #666;
+    }
+    #pm-entity-modal .pm-entity-tab.active { color: #a64dff; border-bottom-color: #a64dff; font-weight: 700; }
+    #pm-entity-modal .pm-entity-search { width: 100%; margin-bottom: 8px; }
+    #pm-entity-list { max-height: 240px; overflow-y: auto; }
+    .pm-entity-result {
+      padding: 6px 8px; cursor: pointer; border-radius: 5px;
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12px;
+    }
+    .pm-entity-result:hover { background: rgba(166,77,255,0.08); }
+    .pm-entity-type-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+    /* Entity chip colors */
+    .entity-chip-event     { background: #ddeeff; color: #1a5ab0; }
+    .entity-chip-item      { background: #d4f8e8; color: #1a7a4a; }
+    .entity-chip-box       { background: #fff3cd; color: #856404; }
+    .entity-chip-driver    { background: #ffe5d0; color: #a64000; }
+    .entity-chip-truck     { background: #e8e8e8; color: #444; }
+    .entity-chip-load_plan { background: #e8d8ff; color: #5a0080; }
+    .entity-chip-inventory { background: #d0f0f0; color: #006060; }
+    .entity-chip-purchase_order { background: #ffeedd; color: #803000; }
+    .entity-chip-user      { background: #f0e8ff; color: #5020a0; }
+
+    .entity-dot-event     { background: #3498db; }
+    .entity-dot-item      { background: #2ecc71; }
+    .entity-dot-box       { background: #f39c12; }
+    .entity-dot-driver    { background: #ff6b35; }
+    .entity-dot-truck     { background: #95a5a6; }
+    .entity-dot-load_plan { background: #a64dff; }
+    .entity-dot-inventory { background: #1abc9c; }
+    .entity-dot-purchase_order { background: #e67e22; }
+    .entity-dot-user      { background: #8e44ad; }
+
+    /* ─── CONTEXT MENU ─────────────────────────────────────────────  */
+    #pm-ctx-menu {
+      position: fixed; z-index: 3000;
+      background: #fff; border: 1px solid #cdd3db;
+      border-radius: 7px; padding: 4px 0;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+      min-width: 160px;
+      display: none;
+      font-size: 12px;
+    }
+    #pm-ctx-menu.visible { display: block; }
+    .pm-ctx-item {
+      padding: 6px 14px; cursor: pointer; color: #222;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .pm-ctx-item:hover { background: rgba(166,77,255,0.08); }
+    .pm-ctx-item.danger { color: #e74c3c; }
+    .pm-ctx-sep { height: 1px; background: #eee; margin: 3px 0; }
+  </style>
+</head>
+<body class="light-mode">
+  <div id="rtsTopNav"></div>
+
+  <div id="pm-shell">
+    <!-- ── LEFT SIDEBAR ── -->
+    <aside id="pm-sidebar">
+      <div id="pm-sidebar-header">
+        <h6>Plans</h6>
+        <button id="btn-new-plan">+ New Plan</button>
+      </div>
+      <div id="pm-plan-list">
+        <div style="padding:20px 12px;color:#bbb;font-size:11px;">Loading plans…</div>
+      </div>
+    </aside>
+
+    <!-- ── MAIN ── -->
+    <div id="pm-main">
+      <!-- TOOLBAR -->
+      <div id="pm-toolbar">
+        <span id="pm-plan-title">Select a plan</span>
+        <div class="pm-toolbar-sep"></div>
+        <button class="pm-zoom-btn" data-zoom="day">Day</button>
+        <button class="pm-zoom-btn active" data-zoom="week">Week</button>
+        <button class="pm-zoom-btn" data-zoom="month">Month</button>
+        <div class="pm-toolbar-sep"></div>
+        <button class="pm-toolbar-btn" id="pm-today-btn">⬤ Today</button>
+        <div class="pm-toolbar-sep"></div>
+        <button class="pm-toolbar-btn primary" id="btn-add-task">+ Task</button>
+        <button class="pm-toolbar-btn" id="pm-link-mode-btn" title="Draw dependency arrows between tasks">⤳ Link</button>
+        <div style="margin-left:auto;display:flex;gap:6px;">
+          <button class="pm-toolbar-btn" id="btn-edit-plan" style="display:none">✎ Edit Plan</button>
+        </div>
+      </div>
+
+      <!-- EMPTY STATE -->
+      <div id="pm-empty-state">
+        <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+          <rect x="6" y="14" width="52" height="36" rx="5" stroke="#aaa" stroke-width="2"/>
+          <line x1="6" y1="24" x2="58" y2="24" stroke="#aaa" stroke-width="1.5"/>
+          <rect x="14" y="31" width="16" height="7" rx="3" fill="#ccc"/>
+          <rect x="24" y="31" width="20" height="7" rx="3" fill="#ddd" opacity=".6"/>
+        </svg>
+        <p>Select a plan to get started, or create a new one.</p>
+        <button class="pm-toolbar-btn primary" onclick="document.getElementById('btn-new-plan').click()">+ New Plan</button>
+      </div>
+
+      <!-- GANTT AREA -->
+      <div id="pm-gantt-area" style="display:none;">
+        <!-- Outline -->
+        <div id="pm-outline-wrap">
+          <div id="pm-outline-header">
+            <span></span><!-- expand -->
+            <span style="text-align:right">#</span>
+            <span>Task</span>
+            <span style="text-align:right">Dur</span>
+            <span style="text-align:center">Start</span>
+            <span style="text-align:center">End</span>
+            <span>%</span>
+            <span>👤</span>
+          </div>
+          <div id="pm-outline-body"></div>
+        </div>
+        <div id="pm-outline-resizer"></div>
+
+        <!-- Chart -->
+        <div id="pm-chart-wrap">
+          <div id="pm-chart-scroll">
+            <div id="pm-chart-header"></div>
+          </div>
+          <div id="pm-chart-body-scroll">
+            <div id="pm-chart-body">
+              <svg id="pm-arrows-svg">
+                <defs>
+                  <marker id="arrowhead" markerWidth="6" markerHeight="6"
+                          refX="5" refY="3" orient="auto">
+                    <path d="M0,0 L6,3 L0,6 Z" fill="rgba(0,0,0,0.35)"/>
+                  </marker>
+                  <marker id="arrowhead-preview" markerWidth="6" markerHeight="6"
+                          refX="5" refY="3" orient="auto">
+                    <path d="M0,0 L6,3 L0,6 Z" fill="#a64dff"/>
+                  </marker>
+                </defs>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── COLOUR POPOVER ─────────────────────────────────── -->
+  <div id="pm-color-popover">
+    <div class="pm-color-swatches" id="pm-color-swatches"></div>
+    <input type="color" id="pm-color-custom">
+  </div>
+
+  <!-- ─── CONTEXT MENU ───────────────────────────────────── -->
+  <div id="pm-ctx-menu">
+    <div class="pm-ctx-item" data-action="add-child">  ↳  Add Subtask</div>
+    <div class="pm-ctx-item" data-action="add-sibling">+ Add Sibling Below</div>
+    <div class="pm-ctx-item" data-action="indent">    → Indent</div>
+    <div class="pm-ctx-item" data-action="outdent">   ← Outdent</div>
+    <div class="pm-ctx-sep"></div>
+    <div class="pm-ctx-item" data-action="link-entity">🔗 Link Entity…</div>
+    <div class="pm-ctx-item" data-action="milestone">◆ Toggle Milestone</div>
+    <div class="pm-ctx-sep"></div>
+    <div class="pm-ctx-item danger" data-action="delete">🗑 Delete Task</div>
+  </div>
+
+  <!-- ─── PLAN MODAL ─────────────────────────────────────── -->
+  <div class="pm-modal-overlay" id="pm-plan-modal" style="display:none">
+    <div class="pm-modal">
+      <h5 id="pm-plan-modal-title">New Plan</h5>
+      <label>Name *<input id="pf-name" type="text" placeholder="e.g. Round 3 – Zandvoort Setup"></label>
+      <label>Linked Event (optional)
+        <select id="pf-event"><option value="">— Standalone (no event) —</option></select>
+      </label>
+      <label>Start Date<input id="pf-start" type="date"></label>
+      <label>End Date<input id="pf-end" type="date"></label>
+      <label>Colour
+        <div style="display:flex;gap:8px;align-items:center;margin-top:4px;">
+          <input type="color" id="pf-color" value="#a64dff" style="width:40px;height:30px;padding:1px;border-radius:4px;border:1px solid #cdd3db;cursor:pointer;">
+          <span style="font-size:11px;color:#777">Plan accent color</span>
+        </div>
+      </label>
+      <label>Description<textarea id="pf-desc" rows="2" placeholder="Optional description…"></textarea></label>
+      <div class="pm-modal-footer">
+        <button id="pm-plan-modal-delete" class="danger" style="display:none;margin-right:auto">Delete Plan</button>
+        <button onclick="closePlanModal()">Cancel</button>
+        <button class="primary" id="pm-plan-modal-save">Create Plan</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── TASK MODAL ────────────────────────────────────── -->
+  <div class="pm-modal-overlay" id="pm-task-modal" style="display:none">
+    <div class="pm-modal" style="min-width:420px">
+      <h5 id="pm-task-modal-title">New Task</h5>
+      <label>Title *<input id="tf-title" type="text" placeholder="Task title"></label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <label>Start Date<input id="tf-start" type="date"></label>
+        <label>End Date<input id="tf-end" type="date"></label>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <label>Priority
+          <select id="tf-priority">
+            <option value="low">Low</option>
+            <option value="medium" selected>Medium</option>
+            <option value="high">High</option>
+            <option value="critical">Critical</option>
+          </select>
+        </label>
+        <label>Status
+          <select id="tf-status">
+            <option value="not_started">Not Started</option>
+            <option value="in_progress">In Progress</option>
+            <option value="blocked">Blocked</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </label>
+      </div>
+      <label>Progress: <span id="tf-progress-val">0</span>%
+        <input id="tf-progress" type="range" min="0" max="100" value="0" style="width:100%;margin-top:4px;">
+      </label>
+      <label>Colour
+        <div style="display:flex;gap:8px;align-items:center;margin-top:4px;">
+          <input type="color" id="tf-color" value="#a64dff" style="width:40px;height:30px;padding:1px;border-radius:4px;border:1px solid #cdd3db;cursor:pointer;">
+          <label style="display:flex;align-items:center;gap:6px;margin:0;font-weight:400;">
+            <input type="checkbox" id="tf-inherit-color" checked>
+            <span>Auto-inherit from parent</span>
+          </label>
+        </div>
+      </label>
+      <label>Assignee
+        <select id="tf-assignee"><option value="">— Unassigned —</option></select>
+      </label>
+      <label>Description<textarea id="tf-desc" rows="2"></textarea></label>
+      <label><input type="checkbox" id="tf-milestone"> Milestone (no duration)</label>
+      <div class="pm-modal-footer">
+        <button id="pm-task-modal-delete" class="danger" style="display:none;margin-right:auto">Delete</button>
+        <button onclick="closeTaskModal()">Cancel</button>
+        <button class="primary" id="pm-task-modal-save">Create Task</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── ENTITY LINKER MODAL ──────────────────────────── -->
+  <div class="pm-modal-overlay" id="pm-entity-modal" style="display:none">
+    <div class="pm-modal" style="min-width:440px">
+      <h5>Link Entity to Task</h5>
+      <div class="pm-entity-tabs" id="pm-entity-tabs"></div>
+      <input type="text" class="pm-entity-search" id="pm-entity-search" placeholder="Search…">
+      <div id="pm-entity-list"><div style="color:#aaa;font-size:11px;padding:8px;">Search above to find items</div></div>
+      <div class="pm-modal-footer">
+        <button id="pm-entity-clear" style="margin-right:auto">Remove Link</button>
+        <button onclick="closeEntityModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="topnav.js"></script>
+  <script>
+  'use strict';
+  // ════════════════════════════════════════════════════════════════
+  //  CONSTANTS & STATE
+  // ════════════════════════════════════════════════════════════════
+  const API = '/api';
+  const TOKEN = () => localStorage.getItem('auth_token');
+  const authHdr = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN()}` });
+
+  const COLOR_SWATCHES = ['#a64dff','#4dd1ff','#ff6b35','#2ecc71','#e74c3c','#3498db','#f39c12','#95a5a6'];
+  const ENTITY_TYPES = [
+    { type: 'event',          label: 'Events',         endpoint: '/api/collections/events',    nameField: 'name' },
+    { type: 'item',           label: 'Items/Assets',   endpoint: '/api/items',                  nameField: 'name' },
+    { type: 'box',            label: 'Boxes',          endpoint: '/api/boxes',                  nameField: 'name' },
+    { type: 'driver',         label: 'Drivers',        endpoint: '/api/collections/drivers',    nameField: 'name' },
+    { type: 'truck',          label: 'Trucks',         endpoint: '/api/trucks',                 nameField: 'name' },
+    { type: 'load_plan',      label: 'Load Plans',     endpoint: '/api/load-plans',             nameField: 'name' },
+    { type: 'inventory',      label: 'Inventory',      endpoint: '/api/inventory',              nameField: 'name' },
+    { type: 'purchase_order', label: 'Orders',         endpoint: '/api/collections/orders',     nameField: 'po_number' },
+    { type: 'user',           label: 'Users',          endpoint: '/api/auth/users',             nameField: 'full_name' }
+  ];
+
+  // Zoom config: pxPerDay
+  const ZOOM = { day: 28, week: 8, month: 3.2 };
+
+  let state = {
+    plans: [],
+    activePlanId: null,
+    tasks: [],          // flat array for active plan
+    links: [],          // dependency links for active plan
+    users: [],
+    zoom: 'week',       // 'day' | 'week' | 'month'
+    collapsed: new Set(), // task IDs that are collapsed
+    selectedTaskId: null,
+    linkMode: false,
+    linkFromId: null,
+    colorTargetTaskId: null,
+    entityTargetTaskId: null,
+    entityTabType: 'event',
+    entitySearchCache: {},
+    ganttStartDate: null,  // Date object — left edge of chart
+    ganttTotalDays: 90,
+    ctxTaskId: null,
+    editingPlanId: null,   // for plan modal
+    editingTaskId: null,   // for task modal
+    undoStack: [],
+  };
+
+  // ════════════════════════════════════════════════════════════════
+  //  UTILITIES
+  // ════════════════════════════════════════════════════════════════
+  function api(path, opts = {}) {
+    return fetch(path, {
+      ...opts,
+      headers: { ...authHdr(), ...(opts.headers || {}) }
+    }).then(async r => {
+      if (r.status === 401) { window.location.href = '/login.html'; throw new Error('Unauthorized'); }
+      const data = await r.json();
+      if (!data.success && data.error) throw new Error(data.error);
+      return data;
+    });
+  }
+
+  function fmtDate(d) {
+    if (!d) return '';
+    const dt = new Date(d);
+    if (isNaN(dt)) return '';
+    return dt.toISOString().slice(0, 10);
+  }
+  function fmtDateShort(d) {
+    if (!d) return '';
+    const dt = new Date(d);
+    if (isNaN(dt)) return '';
+    return `${dt.getDate()}/${dt.getMonth() + 1}`;
+  }
+  function parseDateLocal(s) {
+    if (!s) return null;
+    const [y, m, d] = s.split('-').map(Number);
+    return new Date(y, m - 1, d);
+  }
+  function daysBetween(a, b) {
+    return Math.round((b - a) / 86400000);
+  }
+  function addDays(d, n) {
+    return new Date(d.getTime() + n * 86400000);
+  }
+  function isWeekend(d) { const w = d.getDay(); return w === 0 || w === 6; }
+  function startOfWeek(d) {
+    const c = new Date(d); c.setDate(c.getDate() - c.getDay() + 1); return c;
+  }
+
+  // Color HSL lightening
+  function hexToRgb(hex) {
+    const h = hex.replace('#', '');
+    const r = parseInt(h.substring(0,2),16), g = parseInt(h.substring(2,4),16), b = parseInt(h.substring(4,6),16);
+    return [r, g, b];
+  }
+  function rgbToHsl(r, g, b) {
+    r /= 255; g /= 255; b /= 255;
+    const max = Math.max(r,g,b), min = Math.min(r,g,b);
+    let h, s, l = (max+min)/2;
+    if (max===min) { h=s=0; } else {
+      const d = max-min;
+      s = l > 0.5 ? d/(2-max-min) : d/(max+min);
+      switch(max){ case r: h=((g-b)/d+(g<b?6:0))/6; break; case g: h=((b-r)/d+2)/6; break; default: h=((r-g)/d+4)/6; }
+    }
+    return [h*360, s*100, l*100];
+  }
+  function hslToHex(h, s, l) {
+    s /= 100; l /= 100;
+    const a = s * Math.min(l, 1-l);
+    const f = n => { const k=(n+h/30)%12; const c=l-a*Math.max(-1,Math.min(k-3,9-k,1)); return Math.round(255*c).toString(16).padStart(2,'0'); };
+    return `#${f(0)}${f(8)}${f(4)}`;
+  }
+  function lightenColor(hex, amount) {
+    if (!hex || !hex.startsWith('#')) return '#cccccc';
+    try {
+      const [r,g,b] = hexToRgb(hex);
+      let [h,s,l] = rgbToHsl(r,g,b);
+      l = Math.min(92, l + amount);
+      return hslToHex(h, s, l);
+    } catch { return hex; }
+  }
+
+  // Compute effective color for a task (inherit from root parent, lighten by depth)
+  function taskColor(task) {
+    if (task.color) return task.color;
+    if (!task.parent_task_id) return '#cccccc';
+    const root = getTaskRoot(task);
+    const depth = getTaskDepth(task);
+    const rootColor = root.color || '#a64dff';
+    return lightenColor(rootColor, depth * 22);
+  }
+
+  function getTaskRoot(task) {
+    let t = task;
+    while (t.parent_task_id) {
+      const p = state.tasks.find(x => x.id === t.parent_task_id);
+      if (!p) break; t = p;
+    }
+    return t;
+  }
+  function getTaskDepth(task) {
+    let t = task, d = 0;
+    while (t.parent_task_id) {
+      const p = state.tasks.find(x => x.id === t.parent_task_id);
+      if (!p) break; t = p; d++;
+    }
+    return d;
+  }
+
+  // Build sorted visible task list (tree-order, respecting collapse)
+  function buildVisibleTasks() {
+    const roots = state.tasks.filter(t => !t.parent_task_id)
+      .sort((a,b) => a.sort_order - b.sort_order || a.created_at < b.created_at ? -1 : 1);
+    const vis = [];
+    function walk(tasks) {
+      for (const t of tasks) {
+        vis.push(t);
+        if (!state.collapsed.has(t.id)) {
+          const children = state.tasks.filter(c => c.parent_task_id === t.id)
+            .sort((a,b) => a.sort_order - b.sort_order || a.created_at < b.created_at ? -1 : 1);
+          if (children.length) walk(children);
+        }
+      }
+    }
+    walk(roots);
+    return vis;
+  }
+
+  // Compute WBS string (1, 1.1, 1.1.2, …)
+  function computeWbs() {
+    const wbs = {};
+    const counters = {};
+    function walk(tasks, prefix) {
+      let i = 0;
+      for (const t of tasks) {
+        i++;
+        const key = prefix ? `${prefix}.${i}` : String(i);
+        wbs[t.id] = key;
+        const children = state.tasks.filter(c => c.parent_task_id === t.id)
+          .sort((a,b) => a.sort_order - b.sort_order);
+        if (children.length) walk(children, key);
+      }
+    }
+    walk(state.tasks.filter(t => !t.parent_task_id).sort((a,b) => a.sort_order - b.sort_order), '');
+    return wbs;
+  }
+
+  // Duration string
+  function durStr(task) {
+    if (task.is_milestone) return '◆';
+    if (!task.start_date || !task.end_date) return '—';
+    const d = daysBetween(parseDateLocal(task.start_date), parseDateLocal(task.end_date));
+    if (d < 0) return '—';
+    return `${d}d`;
+  }
+
+  // Calculate gantt viewport
+  function computeGanttRange() {
+    const allDates = state.tasks
+      .filter(t => t.start_date || t.end_date)
+      .flatMap(t => [t.start_date, t.end_date].filter(Boolean).map(parseDateLocal));
+    const today = new Date(); today.setHours(0,0,0,0);
+    allDates.push(today, addDays(today, 30));
+    const min = new Date(Math.min(...allDates));
+    const max = new Date(Math.max(...allDates));
+    min.setDate(min.getDate() - 7);
+    max.setDate(max.getDate() + 14);
+    state.ganttStartDate = min;
+    state.ganttTotalDays = Math.max(60, daysBetween(min, max));
+  }
+
+  function pxPerDay() { return ZOOM[state.zoom]; }
+  function dayToX(date) {
+    if (!date) return 0;
+    return daysBetween(state.ganttStartDate, date) * pxPerDay();
+  }
+  function xToDay(x) {
+    return addDays(state.ganttStartDate, Math.round(x / pxPerDay()));
+  }
+  function totalChartWidth() { return state.ganttTotalDays * pxPerDay(); }
+
+  // ════════════════════════════════════════════════════════════════
+  //  LOAD DATA
+  // ════════════════════════════════════════════════════════════════
+  async function loadPlans() {
+    const data = await api(`${API}/project-plans`);
+    state.plans = data.data || [];
+    renderPlanList();
+  }
+
+  async function loadPlan(planId) {
+    state.activePlanId = planId;
+    state.tasks = [];
+    state.links = [];
+    state.selectedTaskId = null;
+    const [tasksData, linksData] = await Promise.all([
+      api(`${API}/project-plans/${planId}/tasks`),
+      api(`${API}/project-plans/${planId}/links`)
+    ]);
+    state.tasks = tasksData.data || [];
+    state.links = linksData.data || [];
+    computeGanttRange();
+    renderAll();
+  }
+
+  async function loadUsers() {
+    try {
+      const data = await api(`${API}/auth/users`);
+      state.users = data.users || data.data || [];
+    } catch { state.users = []; }
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  RENDER — PLAN SIDEBAR
+  // ════════════════════════════════════════════════════════════════
+  function renderPlanList() {
+    const el = document.getElementById('pm-plan-list');
+    if (!state.plans.length) {
+      el.innerHTML = '<div style="padding:16px 12px;color:#bbb;font-size:11px;">No plans yet. Create one above.</div>';
+      return;
+    }
+    // Group by event
+    const groups = {};
+    for (const p of state.plans) {
+      const key = p.event_id ? (p.event_name || p.event_id) : '__standalone__';
+      if (!groups[key]) groups[key] = { label: p.event_id ? (p.event_name || 'Event') : 'Standalone', plans: [] };
+      groups[key].plans.push(p);
+    }
+    let html = '';
+    for (const [, g] of Object.entries(groups)) {
+      html += `<div class="pm-group-heading">${g.label}</div>`;
+      for (const p of g.plans) {
+        const active = p.id === state.activePlanId ? ' active' : '';
+        html += `<div class="pm-plan-item${active}" data-plan-id="${p.id}">
+          <div class="pm-plan-dot" style="background:${p.color||'#a64dff'}"></div>
+          <span class="pm-plan-name">${esc(p.name)}</span>
+          <span class="pm-plan-status ${p.status}">${p.status}</span>
+          <button class="pm-plan-kebab" data-plan-id="${p.id}" title="Plan options">⋮</button>
+        </div>`;
+      }
+    }
+    el.innerHTML = html;
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  RENDER — ALL (outline + chart)
+  // ════════════════════════════════════════════════════════════════
+  function renderAll() {
+    const plan = state.plans.find(p => p.id === state.activePlanId);
+    document.getElementById('pm-plan-title').textContent = plan ? plan.name : '—';
+    document.getElementById('btn-edit-plan').style.display = plan ? '' : 'none';
+    document.getElementById('pm-empty-state').style.display = state.activePlanId ? 'none' : '';
+    document.getElementById('pm-gantt-area').style.display = state.activePlanId ? '' : 'none';
+    if (!state.activePlanId) return;
+    const visibleTasks = buildVisibleTasks();
+    const wbs = computeWbs();
+    renderOutline(visibleTasks, wbs);
+    renderChart(visibleTasks);
+    renderPlanList(); // refresh active state
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  RENDER — OUTLINE
+  // ════════════════════════════════════════════════════════════════
+  function renderOutline(visibleTasks, wbs) {
+    const body = document.getElementById('pm-outline-body');
+    if (!visibleTasks.length) {
+      body.innerHTML = '<div style="padding:16px 12px;color:#bbb;text-align:center;">No tasks yet.<br>Click <b>+ Task</b> to add one.</div>';
+      return;
+    }
+    body.innerHTML = visibleTasks.map(task => {
+      const depth = getTaskDepth(task);
+      const indentPx = depth * 14;
+      const children = state.tasks.filter(c => c.parent_task_id === task.id);
+      const hasChildren = children.length > 0;
+      const collapsed = state.collapsed.has(task.id);
+      const selected = task.id === state.selectedTaskId ? ' selected' : '';
+      const isMilestone = task.is_milestone;
+      const isCompleted = task.status === 'completed';
+      const color = taskColor(task);
+      const user = state.users.find(u => u.id === task.assignee_user_id);
+      const initials = user ? (user.full_name || user.username || '?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase() : '';
+      const assigneeTitle = user ? (user.full_name || user.username) : 'Unassigned';
+
+      const expandBtn = hasChildren
+        ? `<button class="pm-expand-btn" data-toggle="${task.id}" title="${collapsed?'Expand':'Collapse'}">${collapsed?'▶':'▼'}</button>`
+        : `<span style="width:16px;display:inline-block;"></span>`;
+
+      const colorDot = isMilestone
+        ? `<span class="pm-milestone-icon" style="color:${color}">◆</span>`
+        : `<div class="pm-color-dot" style="background:${color}" data-color-task="${task.id}" title="Change colour"></div>`;
+
+      const entityChip = task.linked_entity_type
+        ? `<span class="pm-entity-chip entity-chip-${task.linked_entity_type}" data-entity-task="${task.id}" title="${task.linked_entity_type}">${esc(task.linked_entity_label||task.linked_entity_id||'linked')}</span>`
+        : '';
+
+      const progressFill = `<div class="pm-progress-bar-mini"><div class="pm-progress-fill" style="width:${task.progress||0}%;background:${color};"></div></div>`;
+
+      const assigneeChip = initials
+        ? `<div class="pm-assignee-chip" style="background:${color}" title="${assigneeTitle}">${initials}</div>`
+        : `<div style="width:22px;height:22px;"></div>`;
+
+      return `<div class="pm-task-row${selected}${isMilestone?' milestone-row':''}${isCompleted?' completed-row':''}"
+                   data-task-id="${task.id}" tabindex="0">
+        <div>${expandBtn}</div>
+        <div class="pm-wbs">${wbs[task.id]||''}</div>
+        <div class="pm-task-name-cell">
+          <span class="pm-task-name-indent" style="width:${indentPx}px;flex-shrink:0;"></span>
+          ${colorDot}
+          <span class="pm-task-title-text" data-edit-title="${task.id}" title="${esc(task.title)}">${esc(task.title)}</span>
+          ${entityChip}
+        </div>
+        <div class="pm-dur">${durStr(task)}</div>
+        <div class="pm-date-cell" data-edit-start="${task.id}">${fmtDateShort(task.start_date)||'—'}</div>
+        <div class="pm-date-cell" data-edit-end="${task.id}">${fmtDateShort(task.end_date)||'—'}</div>
+        <div class="pm-progress-cell">${progressFill}</div>
+        <div>${assigneeChip}</div>
+      </div>`;
+    }).join('');
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  RENDER — GANTT CHART
+  // ════════════════════════════════════════════════════════════════
+  function renderChart(visibleTasks) {
+    renderChartHeader();
+    renderChartBody(visibleTasks);
+    syncChartScroll();
+  }
+
+  function renderChartHeader() {
+    const W = totalChartWidth();
+    const px = pxPerDay();
+    const start = state.ganttStartDate;
+    const today = new Date(); today.setHours(0,0,0,0);
+
+    let monthsHtml = '', daysHtml = '';
+    let cur = new Date(start);
+    let prevMonth = -1;
+    let monthStart = 0;
+
+    const dayCells = [];
+    for (let i = 0; i < state.ganttTotalDays; i++) {
+      const d = addDays(start, i);
+      const isToday = d.getTime() === today.getTime();
+      const wknd = isWeekend(d);
+      const cls = isToday ? ' today-col' : (wknd ? ' weekend' : '');
+      let label = '';
+      if (state.zoom === 'day') label = d.getDate();
+      else if (state.zoom === 'week') { if (d.getDay() === 1) label = d.getDate(); }
+      else { /* month: no day labels */ }
+      dayCells.push(`<div class="pm-header-day-cell${cls}" style="width:${px}px;min-width:${px}px;">${label}</div>`);
+    }
+    daysHtml = dayCells.join('');
+
+    // Month row
+    let monthAccum = [];
+    for (let i = 0; i <= state.ganttTotalDays; i++) {
+      const d = addDays(start, i);
+      const m = d.getMonth();
+      if (m !== prevMonth) {
+        if (prevMonth !== -1 && monthAccum.length) {
+          const w = monthAccum.length * px;
+          const mName = new Date(d.getFullYear(), prevMonth, 1).toLocaleString('default',{month:'short',year:'2-digit'});
+          monthsHtml += `<div class="pm-header-month-cell" style="width:${w}px;min-width:${w}px;">${mName}</div>`;
+        }
+        monthAccum = [];
+        prevMonth = m;
+      }
+      if (i < state.ganttTotalDays) monthAccum.push(i);
+    }
+    if (monthAccum.length) {
+      const w = monthAccum.length * px;
+      const mName = addDays(start, monthAccum[0]).toLocaleString('default',{month:'short',year:'2-digit'});
+      monthsHtml += `<div class="pm-header-month-cell" style="width:${w}px;min-width:${w}px;">${mName}</div>`;
+    }
+
+    document.getElementById('pm-chart-header').innerHTML = `
+      <div class="pm-header-months" style="width:${W}px;">${monthsHtml}</div>
+      <div class="pm-header-days" style="width:${W}px;">${daysHtml}</div>
+    `;
+  }
+
+  function renderChartBody(visibleTasks) {
+    const W = totalChartWidth();
+    const px = pxPerDay();
+    const today = new Date(); today.setHours(0,0,0,0);
+    const chartBody = document.getElementById('pm-chart-body');
+
+    // Weekend columns
+    let weekendHtml = '';
+    for (let i = 0; i < state.ganttTotalDays; i++) {
+      const d = addDays(state.ganttStartDate, i);
+      if (isWeekend(d)) {
+        weekendHtml += `<div class="pm-col-weekend" style="left:${i*px}px;width:${px}px;"></div>`;
+      }
+    }
+
+    // Today line
+    const todayX = dayToX(today);
+    const todayLine = `<div class="pm-today-line" style="left:${todayX}px;"></div>
+      <div class="pm-today-label" style="left:${todayX}px;">Today</div>`;
+
+    // Task rows
+    const rowsHtml = visibleTasks.map(task => {
+      const color = taskColor(task);
+      let barHtml = '';
+      if (task.is_milestone && task.start_date) {
+        const x = dayToX(parseDateLocal(task.start_date));
+        barHtml = `<div class="pm-milestone-diamond" style="left:${x - 7}px;background:${color};" data-task-id="${task.id}"></div>`;
+      } else if (task.start_date && task.end_date) {
+        const x = dayToX(parseDateLocal(task.start_date));
+        const x2 = dayToX(parseDateLocal(task.end_date));
+        const w = Math.max(4, x2 - x);
+        const prog = task.progress || 0;
+        barHtml = `<div class="pm-bar-wrap ${state.linkMode ? 'link-mode' : ''}"
+            style="left:${x}px;width:${w}px;background:${color};"
+            data-task-id="${task.id}"
+            data-x="${x}" data-w="${w}">
+          <div class="pm-bar-progress" style="width:${prog}%;background:${color};"></div>
+          <div class="pm-bar-label">${esc(task.title)}</div>
+          <div class="pm-bar-resize-handle" data-resize-task="${task.id}"></div>
+        </div>`;
+      }
+      const selected = task.id === state.selectedTaskId ? ' selected' : '';
+      return `<div class="pm-chart-row${selected}" style="width:${W}px;" data-task-id="${task.id}">
+        ${barHtml}
+      </div>`;
+    }).join('');
+
+    chartBody.innerHTML = `
+      ${weekendHtml}
+      ${todayLine}
+      ${rowsHtml}
+      <svg id="pm-arrows-svg" style="position:absolute;top:0;left:0;width:${W}px;height:${visibleTasks.length*32}px;overflow:visible;pointer-events:none;z-index:3;">
+        <defs>
+          <marker id="arrowhead" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 Z" fill="rgba(0,0,0,0.35)"/>
+          </marker>
+          <marker id="arrowhead-preview" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 Z" fill="#a64dff"/>
+          </marker>
+        </defs>
+      </svg>
+    `;
+    renderArrows(visibleTasks);
+  }
+
+  function renderArrows(visibleTasks) {
+    const svg = document.getElementById('pm-arrows-svg');
+    if (!svg) return;
+    const arrows = state.links.map(link => {
+      const fromIdx = visibleTasks.findIndex(t => t.id === link.from_task_id);
+      const toIdx   = visibleTasks.findIndex(t => t.id === link.to_task_id);
+      if (fromIdx < 0 || toIdx < 0) return '';
+      const fromTask = visibleTasks[fromIdx];
+      const toTask   = visibleTasks[toIdx];
+      if (!fromTask.end_date || !toTask.start_date) return '';
+      const x1 = dayToX(parseDateLocal(fromTask.end_date));
+      const y1 = fromIdx * 32 + 16;
+      const x2 = dayToX(parseDateLocal(toTask.start_date));
+      const y2 = toIdx * 32 + 16;
+      const cx = (x1 + x2) / 2;
+      return `<path class="pm-dep-arrow" d="M${x1},${y1} C${cx},${y1} ${cx},${y2} ${x2},${y2}" marker-end="url(#arrowhead)"/>`;
+    }).join('');
+
+    // Re-append arrows to existing SVG content
+    const existing = svg.querySelectorAll('.pm-dep-arrow,.pm-dep-arrow-preview:not(.preview-live)');
+    existing.forEach(e => e.remove());
+    svg.insertAdjacentHTML('beforeend', arrows);
+  }
+
+  function syncChartScroll() {
+    const headerScroll = document.getElementById('pm-chart-scroll');
+    const bodyScroll = document.getElementById('pm-chart-body-scroll');
+    const outlineBody = document.getElementById('pm-outline-body');
+    if (!headerScroll || !bodyScroll) return;
+
+    // Sync horizontal scroll between header and body
+    bodyScroll.addEventListener('scroll', () => {
+      headerScroll.scrollLeft = bodyScroll.scrollLeft;
+    }, { passive: true });
+    headerScroll.addEventListener('scroll', () => {
+      bodyScroll.scrollLeft = headerScroll.scrollLeft;
+    }, { passive: true });
+
+    // Sync vertical scroll between outline and chart body
+    outlineBody.addEventListener('scroll', () => {
+      bodyScroll.scrollTop = outlineBody.scrollTop;
+    }, { passive: true });
+    bodyScroll.addEventListener('scroll', () => {
+      outlineBody.scrollTop = bodyScroll.scrollTop;
+    }, { passive: true });
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  PLAN CRUD
+  // ════════════════════════════════════════════════════════════════
+  async function loadEventsForSelect() {
+    try {
+      const data = await api(`${API}/collections/events`);
+      const events = data.items || data.data || [];
+      const sel = document.getElementById('pf-event');
+      events.sort((a,b) => (a.start_date||'').localeCompare(b.start_date||'') );
+      sel.innerHTML = '<option value="">— Standalone (no event) —</option>' +
+        events.map(e => `<option value="${e.id}">${esc(e.name)}${e.start_date?' ('+fmtDate(e.start_date)+')':''}</option>`).join('');
+    } catch {}
+  }
+
+  function openPlanModal(plan) {
+    state.editingPlanId = plan ? plan.id : null;
+    document.getElementById('pm-plan-modal-title').textContent = plan ? 'Edit Plan' : 'New Plan';
+    document.getElementById('pm-plan-modal-save').textContent = plan ? 'Save Changes' : 'Create Plan';
+    document.getElementById('pm-plan-modal-delete').style.display = plan ? '' : 'none';
+    document.getElementById('pf-name').value = plan?.name || '';
+    document.getElementById('pf-start').value = plan?.start_date ? fmtDate(plan.start_date) : '';
+    document.getElementById('pf-end').value = plan?.end_date ? fmtDate(plan.end_date) : '';
+    document.getElementById('pf-color').value = plan?.color || '#a64dff';
+    document.getElementById('pf-desc').value = plan?.description || '';
+    loadEventsForSelect().then(() => {
+      if (plan?.event_id) document.getElementById('pf-event').value = plan.event_id;
+    });
+    document.getElementById('pm-plan-modal').style.display = '';
+    setTimeout(() => document.getElementById('pf-name').focus(), 80);
+  }
+  function closePlanModal() { document.getElementById('pm-plan-modal').style.display = 'none'; }
+
+  async function savePlan() {
+    const name = document.getElementById('pf-name').value.trim();
+    if (!name) { alert('Plan name is required'); return; }
+    const body = {
+      name,
+      event_id: document.getElementById('pf-event').value || null,
+      start_date: document.getElementById('pf-start').value || null,
+      end_date: document.getElementById('pf-end').value || null,
+      color: document.getElementById('pf-color').value,
+      description: document.getElementById('pf-desc').value || null
+    };
+    if (state.editingPlanId) {
+      await api(`${API}/project-plans/${state.editingPlanId}`, { method:'PUT', body: JSON.stringify(body) });
+    } else {
+      const res = await api(`${API}/project-plans`, { method:'POST', body: JSON.stringify(body) });
+      state.activePlanId = res.data.id;
+    }
+    closePlanModal();
+    await loadPlans();
+    if (state.activePlanId) await loadPlan(state.activePlanId);
+  }
+
+  async function deletePlan() {
+    if (!confirm('Delete this plan and all its tasks?')) return;
+    await api(`${API}/project-plans/${state.editingPlanId}`, { method:'DELETE' });
+    closePlanModal();
+    state.activePlanId = null;
+    state.tasks = [];
+    state.links = [];
+    await loadPlans();
+    renderAll();
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  TASK CRUD
+  // ════════════════════════════════════════════════════════════════
+  async function loadUsersForSelect() {
+    const sel = document.getElementById('tf-assignee');
+    sel.innerHTML = '<option value="">— Unassigned —</option>' +
+      state.users.map(u => `<option value="${u.id}">${esc(u.full_name||u.username)}</option>`).join('');
+  }
+
+  function openTaskModal(task, defaults = {}) {
+    state.editingTaskId = task ? task.id : null;
+    document.getElementById('pm-task-modal-title').textContent = task ? 'Edit Task' : 'New Task';
+    document.getElementById('pm-task-modal-save').textContent = task ? 'Save Changes' : 'Create Task';
+    document.getElementById('pm-task-modal-delete').style.display = task ? '' : 'none';
+    document.getElementById('tf-title').value = task?.title || '';
+    document.getElementById('tf-start').value = task?.start_date ? fmtDate(task.start_date) : (defaults.start||'');
+    document.getElementById('tf-end').value = task?.end_date ? fmtDate(task.end_date) : (defaults.end||'');
+    document.getElementById('tf-priority').value = task?.priority || 'medium';
+    document.getElementById('tf-status').value = task?.status || 'not_started';
+    document.getElementById('tf-progress').value = task?.progress || 0;
+    document.getElementById('tf-progress-val').textContent = task?.progress || 0;
+    document.getElementById('tf-color').value = task?.color || '#a64dff';
+    document.getElementById('tf-inherit-color').checked = !task?.color;
+    document.getElementById('tf-desc').value = task?.description || '';
+    document.getElementById('tf-milestone').checked = task?.is_milestone || false;
+    loadUsersForSelect().then(() => {
+      if (task?.assignee_user_id) document.getElementById('tf-assignee').value = task.assignee_user_id;
+    });
+    document.getElementById('pm-task-modal').style.display = '';
+    setTimeout(() => document.getElementById('tf-title').focus(), 80);
+  }
+  function closeTaskModal() { document.getElementById('pm-task-modal').style.display = 'none'; }
+
+  async function saveTask() {
+    if (!state.activePlanId) return;
+    const title = document.getElementById('tf-title').value.trim();
+    if (!title) { alert('Task title is required'); return; }
+    const inheritColor = document.getElementById('tf-inherit-color').checked;
+    const body = {
+      plan_id: state.activePlanId,
+      title,
+      start_date: document.getElementById('tf-start').value || null,
+      end_date: document.getElementById('tf-end').value || null,
+      priority: document.getElementById('tf-priority').value,
+      status: document.getElementById('tf-status').value,
+      progress: parseInt(document.getElementById('tf-progress').value, 10),
+      color: inheritColor ? null : document.getElementById('tf-color').value,
+      assignee_user_id: document.getElementById('tf-assignee').value || null,
+      description: document.getElementById('tf-desc').value || null,
+      is_milestone: document.getElementById('tf-milestone').checked,
+      sort_order: state.tasks.length
+    };
+    if (state.editingTaskId) {
+      await api(`${API}/project-plans/tasks/${state.editingTaskId}`, { method:'PUT', body: JSON.stringify(body) });
+    } else {
+      // Inherit parent if a task is selected
+      if (state.selectedTaskId) {
+        const sel = state.tasks.find(t => t.id === state.selectedTaskId);
+        if (sel && sel.parent_task_id) body.parent_task_id = sel.parent_task_id; // sibling
+      }
+      const res = await api(`${API}/project-plans/tasks`, { method:'POST', body: JSON.stringify(body) });
+      state.selectedTaskId = res.data.id;
+    }
+    closeTaskModal();
+    await loadPlan(state.activePlanId);
+  }
+
+  async function deleteTask(taskId) {
+    if (!confirm('Delete this task and all its subtasks?')) return;
+    await api(`${API}/project-plans/tasks/${taskId}`, { method:'DELETE' });
+    closeTaskModal();
+    state.selectedTaskId = null;
+    await loadPlan(state.activePlanId);
+  }
+
+  // Quick inline title edit
+  async function saveTaskTitle(taskId, newTitle) {
+    if (!newTitle.trim()) return;
+    const task = state.tasks.find(t => t.id === taskId);
+    if (!task || task.title === newTitle.trim()) return;
+    pushUndo({ ...task });
+    await api(`${API}/project-plans/tasks/${taskId}`, { method:'PUT', body: JSON.stringify({ title: newTitle.trim() }) });
+    const t = state.tasks.find(t => t.id === taskId);
+    if (t) t.title = newTitle.trim();
+    renderAll();
+  }
+
+  async function saveTaskDates(taskId, field, value) {
+    pushUndo(state.tasks.find(t => t.id === taskId));
+    await api(`${API}/project-plans/tasks/${taskId}`, { method:'PUT', body: JSON.stringify({ [field]: value || null }) });
+    const t = state.tasks.find(t => t.id === taskId);
+    if (t) t[field] = value || null;
+    computeGanttRange();
+    renderAll();
+  }
+
+  // Indent / Outdent
+  async function indentTask(taskId) {
+    const idx = state.tasks.findIndex(t => t.id === taskId);
+    if (idx <= 0) return;
+    const task = state.tasks[idx];
+    // Find previous sibling or any task that can be parent
+    const prev = state.tasks.slice(0, idx).reverse().find(t => t.sort_order < task.sort_order && !t.parent_task_id || t.parent_task_id === task.parent_task_id);
+    if (!prev || prev.id === taskId) return;
+    pushUndo({ ...task });
+    await api(`${API}/project-plans/tasks/${taskId}`, { method:'PUT', body: JSON.stringify({ parent_task_id: prev.id }) });
+    await loadPlan(state.activePlanId);
+  }
+  async function outdentTask(taskId) {
+    const task = state.tasks.find(t => t.id === taskId);
+    if (!task || !task.parent_task_id) return;
+    const parent = state.tasks.find(t => t.id === task.parent_task_id);
+    pushUndo({ ...task });
+    await api(`${API}/project-plans/tasks/${taskId}`, { method:'PUT', body: JSON.stringify({ parent_task_id: parent?.parent_task_id || null }) });
+    await loadPlan(state.activePlanId);
+  }
+
+  // Color change
+  async function setTaskColor(taskId, color) {
+    await api(`${API}/project-plans/tasks/${taskId}`, { method:'PUT', body: JSON.stringify({ color }) });
+    const t = state.tasks.find(t => t.id === taskId);
+    if (t) t.color = color;
+    renderAll();
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  DRAG: MOVE & RESIZE BARS
+  // ════════════════════════════════════════════════════════════════
+  let dragState = null;
+
+  function setupBarDrag() {
+    const chartBodyScroll = document.getElementById('pm-chart-body-scroll');
+    chartBodyScroll.addEventListener('pointerdown', e => {
+      const resizeEl = e.target.closest('[data-resize-task]');
+      const barEl = e.target.closest('.pm-bar-wrap');
+      const milestoneEl = e.target.closest('.pm-milestone-diamond');
+
+      if (state.linkMode) {
+        // In link mode: clicking bar sets from_task, then click another to create link
+        const taskId = (barEl||milestoneEl)?.dataset.taskId;
+        if (!taskId) return;
+        if (!state.linkFromId) {
+          state.linkFromId = taskId;
+          highlightLinkFrom(taskId);
+        } else {
+          if (taskId !== state.linkFromId) {
+            createDependencyLink(state.linkFromId, taskId);
+          }
+          state.linkFromId = null;
+          clearLinkHighlight();
+        }
+        return;
+      }
+
+      if (resizeEl) {
+        e.preventDefault();
+        const taskId = resizeEl.dataset.resizeTask;
+        const task = state.tasks.find(t => t.id === taskId);
+        if (!task || !task.start_date) return;
+        dragState = {
+          type: 'resize', taskId,
+          startX: e.clientX,
+          origEnd: parseDateLocal(task.end_date || task.start_date),
+          scrollLeft: chartBodyScroll.scrollLeft
+        };
+        chartBodyScroll.setPointerCapture(e.pointerId);
+        return;
+      }
+      if (barEl && !resizeEl) {
+        e.preventDefault();
+        const taskId = barEl.dataset.taskId;
+        const task = state.tasks.find(t => t.id === taskId);
+        if (!task || !task.start_date) return;
+        dragState = {
+          type: 'move', taskId,
+          startX: e.clientX,
+          origStart: parseDateLocal(task.start_date),
+          origEnd: task.end_date ? parseDateLocal(task.end_date) : null,
+          scrollLeft: chartBodyScroll.scrollLeft
+        };
+        barEl.style.cursor = 'grabbing';
+        chartBodyScroll.setPointerCapture(e.pointerId);
+      }
+    });
+
+    chartBodyScroll.addEventListener('pointermove', e => {
+      if (!dragState) return;
+      const dx = e.clientX - dragState.startX;
+      const daysDelta = Math.round(dx / pxPerDay());
+      const t = state.tasks.find(t => t.id === dragState.taskId);
+      if (!t) return;
+      if (dragState.type === 'move') {
+        const newStart = addDays(dragState.origStart, daysDelta);
+        const newEnd = dragState.origEnd ? addDays(dragState.origEnd, daysDelta) : null;
+        const barEl = document.querySelector(`.pm-bar-wrap[data-task-id="${dragState.taskId}"]`);
+        if (barEl) {
+          barEl.style.left = `${dayToX(newStart)}px`;
+        }
+      } else if (dragState.type === 'resize') {
+        const newEnd = addDays(dragState.origEnd, daysDelta);
+        const startX = dayToX(parseDateLocal(t.start_date));
+        const endX = dayToX(newEnd);
+        const barEl = document.querySelector(`.pm-bar-wrap[data-task-id="${dragState.taskId}"]`);
+        if (barEl) barEl.style.width = `${Math.max(4, endX - startX)}px`;
+      }
+    });
+
+    chartBodyScroll.addEventListener('pointerup', async e => {
+      if (!dragState) return;
+      const dx = e.clientX - dragState.startX;
+      const daysDelta = Math.round(dx / pxPerDay());
+      const taskId = dragState.taskId;
+      const type = dragState.type;
+      dragState = null;
+      if (Math.abs(daysDelta) < 1) return;
+
+      const t = state.tasks.find(t => t.id === taskId);
+      if (!t) return;
+      pushUndo({ ...t });
+      let body = {};
+      if (type === 'move') {
+        body.start_date = fmtDate(addDays(parseDateLocal(t.start_date || new Date().toISOString().slice(0,10)), daysDelta));
+        if (t.end_date) body.end_date = fmtDate(addDays(parseDateLocal(t.end_date), daysDelta));
+      } else {
+        const origEnd = parseDateLocal(t.end_date || t.start_date);
+        body.end_date = fmtDate(addDays(origEnd, daysDelta));
+      }
+      Object.assign(t, body);
+      computeGanttRange();
+      renderAll();
+      try {
+        await api(`${API}/project-plans/tasks/${taskId}`, { method:'PUT', body: JSON.stringify(body) });
+      } catch { await loadPlan(state.activePlanId); }
+    });
+  }
+
+  async function createDependencyLink(fromId, toId) {
+    try {
+      const res = await api(`${API}/project-plans/task-links`, {
+        method: 'POST',
+        body: JSON.stringify({ from_task_id: fromId, to_task_id: toId, link_type: 'finish_to_start' })
+      });
+      state.links.push(res.data);
+      renderArrows(buildVisibleTasks());
+    } catch(e) { console.error('Link error', e); }
+  }
+
+  function highlightLinkFrom(taskId) {
+    document.querySelectorAll(`.pm-bar-wrap[data-task-id="${taskId}"],.pm-chart-row[data-task-id="${taskId}"]`)
+      .forEach(el => el.style.outline = '2px solid #a64dff');
+  }
+  function clearLinkHighlight() {
+    document.querySelectorAll('.pm-bar-wrap,.pm-chart-row').forEach(el => el.style.outline = '');
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  UNDO
+  // ════════════════════════════════════════════════════════════════
+  function pushUndo(taskSnapshot) {
+    state.undoStack.push(taskSnapshot);
+    if (state.undoStack.length > 20) state.undoStack.shift();
+  }
+  async function undo() {
+    if (!state.undoStack.length) return;
+    const snap = state.undoStack.pop();
+    await api(`${API}/project-plans/tasks/${snap.id}`, { method:'PUT', body: JSON.stringify(snap) });
+    await loadPlan(state.activePlanId);
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  COLOUR PICKER POPOVER
+  // ════════════════════════════════════════════════════════════════
+  function initColorPopover() {
+    const swatchEl = document.getElementById('pm-color-swatches');
+    swatchEl.innerHTML = COLOR_SWATCHES.map(c =>
+      `<div class="pm-color-swatch" style="background:${c}" data-color="${c}"></div>`
+    ).join('');
+    swatchEl.addEventListener('click', e => {
+      const sw = e.target.closest('[data-color]');
+      if (!sw) return;
+      applyColorChoice(sw.dataset.color);
+    });
+    document.getElementById('pm-color-custom').addEventListener('input', e => {
+      applyColorChoice(e.target.value);
+    });
+    document.addEventListener('click', e => {
+      if (!document.getElementById('pm-color-popover').contains(e.target) &&
+          !e.target.closest('[data-color-task]')) {
+        hideColorPopover();
+      }
+    });
+  }
+  function showColorPopover(taskId, anchorEl) {
+    state.colorTargetTaskId = taskId;
+    const pop = document.getElementById('pm-color-popover');
+    const rect = anchorEl.getBoundingClientRect();
+    pop.style.top = `${rect.bottom + 4}px`;
+    pop.style.left = `${rect.left}px`;
+    pop.classList.add('visible');
+    const t = state.tasks.find(t => t.id === taskId);
+    if (t?.color) document.getElementById('pm-color-custom').value = t.color;
+  }
+  function hideColorPopover() {
+    document.getElementById('pm-color-popover').classList.remove('visible');
+    state.colorTargetTaskId = null;
+  }
+  async function applyColorChoice(color) {
+    if (!state.colorTargetTaskId) return;
+    await setTaskColor(state.colorTargetTaskId, color);
+    hideColorPopover();
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  ENTITY LINKER
+  // ════════════════════════════════════════════════════════════════
+  function openEntityModal(taskId) {
+    state.entityTargetTaskId = taskId;
+    const tabs = document.getElementById('pm-entity-tabs');
+    tabs.innerHTML = ENTITY_TYPES.map(et =>
+      `<button class="pm-entity-tab${et.type === state.entityTabType ? ' active' : ''}" data-etype="${et.type}">${et.label}</button>`
+    ).join('');
+    document.getElementById('pm-entity-search').value = '';
+    document.getElementById('pm-entity-list').innerHTML = '<div style="color:#aaa;font-size:11px;padding:8px;">Search above to find items</div>';
+    document.getElementById('pm-entity-modal').style.display = '';
+    setTimeout(() => document.getElementById('pm-entity-search').focus(), 80);
+  }
+  function closeEntityModal() { document.getElementById('pm-entity-modal').style.display = 'none'; }
+
+  let entitySearchTimer = null;
+  async function searchEntities(query) {
+    const et = ENTITY_TYPES.find(x => x.type === state.entityTabType);
+    if (!et) return;
+    const cacheKey = `${et.type}:${query}`;
+    if (state.entitySearchCache[cacheKey]) {
+      renderEntityResults(state.entitySearchCache[cacheKey], et);
+      return;
+    }
+    try {
+      let url = et.endpoint;
+      const data = await api(url);
+      let items = data.items || data.data || data.boxes || data.trucks || data.inventory || [];
+      if (query) {
+        const q = query.toLowerCase();
+        items = items.filter(i => {
+          const nameVal = i[et.nameField] || i.name || i.po_number || Object.values(i)[0] || '';
+          return String(nameVal).toLowerCase().includes(q);
+        });
+      }
+      state.entitySearchCache[cacheKey] = items.slice(0, 50);
+      renderEntityResults(state.entitySearchCache[cacheKey], et);
+    } catch(e) {
+      document.getElementById('pm-entity-list').innerHTML = `<div style="color:#e74c3c;font-size:11px;padding:8px;">Error: ${esc(e.message)}</div>`;
+    }
+  }
+
+  function renderEntityResults(items, et) {
+    const el = document.getElementById('pm-entity-list');
+    if (!items.length) { el.innerHTML = '<div style="color:#aaa;font-size:11px;padding:8px;">No results</div>'; return; }
+    el.innerHTML = items.map(item => {
+      const name = item[et.nameField] || item.name || item.id || '?';
+      const sub = item.barcode || item.registration || item.sku || item.email || '';
+      return `<div class="pm-entity-result" data-entity-id="${item.id}" data-entity-name="${esc(name)}">
+        <div class="pm-entity-type-dot entity-dot-${et.type}"></div>
+        <div><div style="font-weight:600">${esc(name)}</div>${sub?`<div style="font-size:10px;color:#888;">${esc(sub)}</div>`:''}</div>
+      </div>`;
+    }).join('');
+  }
+
+  async function selectEntity(entityId, entityName) {
+    if (!state.entityTargetTaskId) return;
+    const body = { linked_entity_type: state.entityTabType, linked_entity_id: entityId };
+    await api(`${API}/project-plans/tasks/${state.entityTargetTaskId}`, { method:'PUT', body: JSON.stringify(body) });
+    const t = state.tasks.find(t => t.id === state.entityTargetTaskId);
+    if (t) { t.linked_entity_type = state.entityTabType; t.linked_entity_id = entityId; t.linked_entity_label = entityName; }
+    closeEntityModal();
+    renderAll();
+  }
+
+  async function clearEntityLink() {
+    if (!state.entityTargetTaskId) return;
+    await api(`${API}/project-plans/tasks/${state.entityTargetTaskId}`, { method:'PUT', body: JSON.stringify({ linked_entity_type: null, linked_entity_id: null }) });
+    const t = state.tasks.find(t => t.id === state.entityTargetTaskId);
+    if (t) { t.linked_entity_type = null; t.linked_entity_id = null; t.linked_entity_label = null; }
+    closeEntityModal();
+    renderAll();
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  OUTLINE RESIZER (drag to resize outline pane width)
+  // ════════════════════════════════════════════════════════════════
+  function setupOutlineResizer() {
+    const resizer = document.getElementById('pm-outline-resizer');
+    const outlineWrap = document.getElementById('pm-outline-wrap');
+    let dragging = false, startX = 0, startW = 0;
+    resizer.addEventListener('pointerdown', e => {
+      dragging = true;
+      startX = e.clientX;
+      startW = outlineWrap.offsetWidth;
+      resizer.setPointerCapture(e.pointerId);
+    });
+    resizer.addEventListener('pointermove', e => {
+      if (!dragging) return;
+      const newW = Math.max(200, Math.min(700, startW + e.clientX - startX));
+      outlineWrap.style.width = `${newW}px`;
+    });
+    resizer.addEventListener('pointerup', () => { dragging = false; });
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  EVENT DELEGATION (clicks)
+  // ════════════════════════════════════════════════════════════════
+  function setupEvents() {
+    // Plan sidebar
+    document.getElementById('pm-plan-list').addEventListener('click', e => {
+      const kebab = e.target.closest('.pm-plan-kebab');
+      const item = e.target.closest('.pm-plan-item');
+      if (kebab) {
+        e.stopPropagation();
+        const plan = state.plans.find(p => p.id === kebab.dataset.planId);
+        if (plan) openPlanModal(plan);
+        return;
+      }
+      if (item) {
+        loadPlan(item.dataset.planId);
+      }
+    });
+
+    document.getElementById('btn-new-plan').addEventListener('click', () => openPlanModal(null));
+    document.getElementById('btn-edit-plan').addEventListener('click', () => {
+      const plan = state.plans.find(p => p.id === state.activePlanId);
+      if (plan) openPlanModal(plan);
+    });
+    document.getElementById('pm-plan-modal-save').addEventListener('click', savePlan);
+    document.getElementById('pm-plan-modal-delete').addEventListener('click', deletePlan);
+    document.getElementById('pm-plan-modal').addEventListener('click', e => {
+      if (e.target === document.getElementById('pm-plan-modal')) closePlanModal();
+    });
+
+    document.getElementById('btn-add-task').addEventListener('click', () => {
+      if (!state.activePlanId) return;
+      openTaskModal(null);
+    });
+    document.getElementById('pm-task-modal-save').addEventListener('click', saveTask);
+    document.getElementById('pm-task-modal-delete').addEventListener('click', () => deleteTask(state.editingTaskId));
+    document.getElementById('pm-task-modal').addEventListener('click', e => {
+      if (e.target === document.getElementById('pm-task-modal')) closeTaskModal();
+    });
+    document.getElementById('tf-progress').addEventListener('input', e => {
+      document.getElementById('tf-progress-val').textContent = e.target.value;
+    });
+
+    // Zoom buttons
+    document.querySelectorAll('.pm-zoom-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.pm-zoom-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        state.zoom = btn.dataset.zoom;
+        computeGanttRange();
+        renderAll();
+      });
+    });
+
+    // Today button
+    document.getElementById('pm-today-btn').addEventListener('click', () => {
+      const today = new Date(); today.setHours(0,0,0,0);
+      const x = dayToX(today);
+      const bodyScroll = document.getElementById('pm-chart-body-scroll');
+      if (bodyScroll) bodyScroll.scrollLeft = Math.max(0, x - 200);
+    });
+
+    // Link mode toggle
+    document.getElementById('pm-link-mode-btn').addEventListener('click', () => {
+      state.linkMode = !state.linkMode;
+      state.linkFromId = null;
+      clearLinkHighlight();
+      document.getElementById('pm-link-mode-btn').classList.toggle('active', state.linkMode);
+      document.getElementById('pm-link-mode-btn').title = state.linkMode
+        ? 'Link Mode ON — click a bar, then click another to create dependency. Click again to exit.'
+        : 'Draw dependency arrows between tasks';
+    });
+
+    // Outline: expand/collapse, row select, inline editing, color dot, entity chip
+    document.getElementById('pm-outline-body').addEventListener('click', e => {
+      const toggleBtn = e.target.closest('[data-toggle]');
+      const colorDot = e.target.closest('[data-color-task]');
+      const entityChip = e.target.closest('[data-entity-task]');
+      const titleEl = e.target.closest('[data-edit-title]');
+      const row = e.target.closest('[data-task-id]');
+
+      if (toggleBtn) {
+        e.stopPropagation();
+        const id = toggleBtn.dataset.toggle;
+        state.collapsed.has(id) ? state.collapsed.delete(id) : state.collapsed.add(id);
+        renderAll();
+        return;
+      }
+      if (colorDot) {
+        e.stopPropagation();
+        showColorPopover(colorDot.dataset.colorTask, colorDot);
+        return;
+      }
+      if (entityChip) {
+        e.stopPropagation();
+        openEntityModal(entityChip.dataset.entityTask);
+        return;
+      }
+      if (row) { state.selectedTaskId = row.dataset.taskId; renderAll(); }
+    });
+
+    // Inline title edit on double-click
+    document.getElementById('pm-outline-body').addEventListener('dblclick', e => {
+      const titleEl = e.target.closest('[data-edit-title]');
+      const startEl = e.target.closest('[data-edit-start]');
+      const endEl = e.target.closest('[data-edit-end]');
+      if (titleEl) {
+        titleEl.contentEditable = 'true';
+        titleEl.classList.add('editing');
+        titleEl.focus();
+        const sel = window.getSelection(); sel.selectAllChildren(titleEl);
+        const taskId = titleEl.dataset.editTitle;
+        const done = () => {
+          titleEl.contentEditable = 'false';
+          titleEl.classList.remove('editing');
+          saveTaskTitle(taskId, titleEl.textContent);
+        };
+        titleEl.addEventListener('blur', done, { once: true });
+        titleEl.addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); done(); } });
+      }
+      if (startEl || endEl) {
+        const taskId = (startEl || endEl).dataset[startEl ? 'editStart' : 'editEnd'];
+        const field = startEl ? 'start_date' : 'end_date';
+        const task = state.tasks.find(t => t.id === taskId);
+        const cell = startEl || endEl;
+        const input = document.createElement('input');
+        input.type = 'date';
+        input.value = task?.[field] ? fmtDate(task[field]) : '';
+        input.style.cssText = 'font-size:10px;border:1px solid #a64dff;border-radius:3px;padding:1px;width:90px;';
+        cell.innerHTML = '';
+        cell.appendChild(input);
+        input.focus();
+        const done = () => { saveTaskDates(taskId, field, input.value); };
+        input.addEventListener('blur', done, { once: true });
+        input.addEventListener('keydown', ev => { if (ev.key === 'Enter') done(); });
+      }
+    });
+
+    // Double-click on task row in outline to open edit modal
+    document.getElementById('pm-outline-body').addEventListener('dblclick', e => {
+      const row = e.target.closest('[data-task-id]');
+      if (!row || e.target.closest('[data-edit-title],[data-edit-start],[data-edit-end],[data-color-task],[data-entity-task]')) return;
+      const task = state.tasks.find(t => t.id === row.dataset.taskId);
+      if (task) openTaskModal(task);
+    });
+
+    // Right-click context menu on task rows
+    document.getElementById('pm-outline-body').addEventListener('contextmenu', e => {
+      const row = e.target.closest('[data-task-id]');
+      if (row) {
+        e.preventDefault();
+        state.ctxTaskId = row.dataset.taskId;
+        state.selectedTaskId = row.dataset.taskId;
+        showCtxMenu(e.clientX, e.clientY);
+      }
+    });
+
+    // Chart: click row to select
+    document.getElementById('pm-chart-body-scroll').addEventListener('click', e => {
+      const row = e.target.closest('.pm-chart-row[data-task-id]');
+      const bar = e.target.closest('.pm-bar-wrap,.pm-milestone-diamond');
+      if (bar || row) {
+        const taskId = (bar || row).dataset.taskId;
+        state.selectedTaskId = taskId;
+        renderAll();
+        if (bar && !state.linkMode) {
+          const task = state.tasks.find(t => t.id === taskId);
+          if (task) openTaskModal(task);
+        }
+      }
+    });
+
+    // Context menu actions
+    document.getElementById('pm-ctx-menu').addEventListener('click', async e => {
+      const item = e.target.closest('[data-action]');
+      if (!item) return;
+      hideCtxMenu();
+      const taskId = state.ctxTaskId;
+      if (!taskId) return;
+      const task = state.tasks.find(t => t.id === taskId);
+      const action = item.dataset.action;
+      if (action === 'add-child') {
+        const res = await api(`${API}/project-plans/tasks`, { method:'POST', body: JSON.stringify({
+          plan_id: state.activePlanId, parent_task_id: taskId, title: 'New subtask', sort_order: state.tasks.length
+        })});
+        state.selectedTaskId = res.data.id;
+        await loadPlan(state.activePlanId);
+        const el = document.querySelector(`[data-edit-title="${res.data.id}"]`);
+        if (el) { el.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); }
+      } else if (action === 'add-sibling') {
+        const res = await api(`${API}/project-plans/tasks`, { method:'POST', body: JSON.stringify({
+          plan_id: state.activePlanId, parent_task_id: task.parent_task_id, title: 'New task', sort_order: (task.sort_order||0)+1
+        })});
+        state.selectedTaskId = res.data.id;
+        await loadPlan(state.activePlanId);
+      } else if (action === 'indent') { await indentTask(taskId); }
+      else if (action === 'outdent') { await outdentTask(taskId); }
+      else if (action === 'link-entity') { openEntityModal(taskId); }
+      else if (action === 'milestone') {
+        await api(`${API}/project-plans/tasks/${taskId}`, { method:'PUT', body: JSON.stringify({ is_milestone: !task.is_milestone }) });
+        await loadPlan(state.activePlanId);
+      } else if (action === 'delete') { await deleteTask(taskId); }
+    });
+    document.addEventListener('click', e => {
+      if (!document.getElementById('pm-ctx-menu').contains(e.target)) hideCtxMenu();
+    });
+
+    // Entity modal
+    document.getElementById('pm-entity-tabs').addEventListener('click', e => {
+      const btn = e.target.closest('.pm-entity-tab');
+      if (!btn) return;
+      state.entityTabType = btn.dataset.etype;
+      state.entitySearchCache = {}; // clear cache on tab change
+      document.querySelectorAll('.pm-entity-tab').forEach(b => b.classList.toggle('active', b.dataset.etype === state.entityTabType));
+      document.getElementById('pm-entity-search').value = '';
+      document.getElementById('pm-entity-list').innerHTML = '<div style="color:#aaa;font-size:11px;padding:8px;">Search above to find items</div>';
+    });
+    document.getElementById('pm-entity-search').addEventListener('input', e => {
+      clearTimeout(entitySearchTimer);
+      entitySearchTimer = setTimeout(() => searchEntities(e.target.value), 300);
+    });
+    document.getElementById('pm-entity-search').addEventListener('focus', e => {
+      if (!e.target.value) searchEntities('');
+    });
+    document.getElementById('pm-entity-list').addEventListener('click', e => {
+      const result = e.target.closest('.pm-entity-result');
+      if (result) selectEntity(result.dataset.entityId, result.dataset.entityName);
+    });
+    document.getElementById('pm-entity-clear').addEventListener('click', clearEntityLink);
+    document.getElementById('pm-entity-modal').addEventListener('click', e => {
+      if (e.target === document.getElementById('pm-entity-modal')) closeEntityModal();
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', e => {
+      const tag = document.activeElement?.tagName;
+      const isInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || document.activeElement?.contentEditable === 'true';
+      if (isInput) {
+        // Allow Enter in task title input in modals
+        return;
+      }
+      if (e.ctrlKey && e.key === 'z') { e.preventDefault(); undo(); return; }
+      if (!state.selectedTaskId || !state.activePlanId) return;
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const task = state.tasks.find(t => t.id === state.selectedTaskId);
+        api(`${API}/project-plans/tasks`, { method:'POST', body: JSON.stringify({
+          plan_id: state.activePlanId, parent_task_id: task?.parent_task_id, title: 'New task', sort_order: (task?.sort_order||0)+1
+        })}).then(async res => {
+          state.selectedTaskId = res.data.id;
+          await loadPlan(state.activePlanId);
+        });
+      } else if (e.key === 'Tab' && !e.shiftKey) {
+        e.preventDefault();
+        indentTask(state.selectedTaskId);
+      } else if (e.key === 'Tab' && e.shiftKey) {
+        e.preventDefault();
+        outdentTask(state.selectedTaskId);
+      } else if (e.key === 'Delete' || e.key === 'Backspace') {
+        deleteTask(state.selectedTaskId);
+      } else if (e.key === 'Escape') {
+        state.linkMode = false;
+        state.linkFromId = null;
+        clearLinkHighlight();
+        document.getElementById('pm-link-mode-btn').classList.remove('active');
+      }
+    });
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  CONTEXT MENU HELPERS
+  // ════════════════════════════════════════════════════════════════
+  function showCtxMenu(x, y) {
+    const menu = document.getElementById('pm-ctx-menu');
+    menu.style.left = `${Math.min(x, window.innerWidth - 180)}px`;
+    menu.style.top = `${Math.min(y, window.innerHeight - 260)}px`;
+    menu.classList.add('visible');
+  }
+  function hideCtxMenu() { document.getElementById('pm-ctx-menu').classList.remove('visible'); }
+
+  // ════════════════════════════════════════════════════════════════
+  //  HTML ESCAPE
+  // ════════════════════════════════════════════════════════════════
+  function esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  INIT
+  // ════════════════════════════════════════════════════════════════
+  async function init() {
+    if (!TOKEN()) { window.location.href = '/login.html'; return; }
+    initColorPopover();
+    setupOutlineResizer();
+    setupEvents();
+    renderAll(); // show empty state first
+    await Promise.all([loadPlans(), loadUsers()]);
+    // Auto-select first active plan if any
+    const firstActive = state.plans.find(p => p.status === 'active');
+    if (firstActive) await loadPlan(firstActive.id);
+    setupBarDrag();
+  }
+
+  document.addEventListener('DOMContentLoaded', init);
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
