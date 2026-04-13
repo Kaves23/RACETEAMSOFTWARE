@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { pool } = require('../db');
+const { logActivity } = require('../lib/activityLog');
 
 // GET /api/items - Get all items
 router.get('/', async (req, res, next) => {
@@ -176,6 +177,11 @@ router.post('/', async (req, res, next) => {
     ];
     
     const result = await pool.query(query, values);
+    logActivity(pool, {
+      entityType: 'item', entityId: result.rows[0].id, entityName: result.rows[0].name,
+      action: 'created', userId: req.user?.userId || null, userName: req.user?.username || null,
+      details: { item_type, category },
+    }).catch(() => {});
     res.status(201).json({ success: true, item: result.rows[0] });
   } catch (error) {
     if (error.code === '23505') { // Unique violation
@@ -244,6 +250,10 @@ router.put('/:id', async (req, res, next) => {
       return res.status(404).json({ success: false, error: 'Item not found' });
     }
     
+    logActivity(pool, {
+      entityType: 'item', entityId: id, entityName: result.rows[0].name,
+      action: 'updated', userId: req.user?.userId || null, userName: req.user?.username || null,
+    }).catch(() => {});
     res.json({ success: true, item: result.rows[0] });
   } catch (error) {
     next(error);
@@ -266,6 +276,10 @@ router.delete('/:id', async (req, res, next) => {
       return res.status(404).json({ success: false, error: 'Item not found' });
     }
     
+    logActivity(pool, {
+      entityType: 'item', entityId: id, entityName: result.rows[0].name,
+      action: 'retired', userId: req.user?.userId || null, userName: req.user?.username || null,
+    }).catch(() => {});
     res.json({ success: true, message: 'Item deleted', item: result.rows[0] });
   } catch (error) {
     next(error);
@@ -384,6 +398,11 @@ router.post('/pack', async (req, res, next) => {
         "INSERT INTO item_history (id, item_id, action, to_box_id, performed_by_user_id, timestamp) VALUES ($1, $2, 'packed', $3, $4, NOW())",
         [`hist-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`, itemId, boxId, userId]
       );
+      await logActivity(client, {
+        entityType: 'item', entityId: itemId, entityName: result.rows[0]?.name,
+        action: 'packed', userId,
+        details: { to_box_id: boxId },
+      });
       
       await client.query('COMMIT');
       
@@ -461,6 +480,11 @@ router.post('/unpack', async (req, res, next) => {
         "INSERT INTO item_history (id, item_id, action, from_box_id, performed_by_user_id, timestamp) VALUES ($1, $2, 'unpacked', $3, $4, NOW())",
         [`hist-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`, itemId, fromBoxId, userId]
       );
+      await logActivity(client, {
+        entityType: 'item', entityId: itemId, entityName: result.rows[0]?.name,
+        action: 'unpacked', userId,
+        details: { from_box_id: fromBoxId },
+      });
       
       await client.query('COMMIT');
       

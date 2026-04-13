@@ -23,9 +23,11 @@
       { href: 'scan-load.html', label: 'Scan to Load', key: 'S' },
       { href: 'box-packing.html', label: 'Box Packing', key: 'B' },
       { href: 'vehicles.html', label: 'Vehicles', key: 'V' },
+      { href: 'race-fleet.html', label: 'Race Fleet', key: 'R' },
       { href: 'event-notes.html', label: 'Checklists', key: 'C' },
       { href: 'inventory.html', label: 'Inventory', key: 'I' },
-      { href: 'assets.html', label: 'Assets', key: 'A' }
+      { href: 'assets.html', label: 'Assets', key: 'A' },
+      { href: 'history.html', label: 'Activity History', key: 'H' }
     ]},
     { label: 'Tech', items: [
       { href: 'service.html', label: 'Service', key: 'S' },

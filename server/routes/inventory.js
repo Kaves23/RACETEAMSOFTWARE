@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { pool } = require('../db');
+const { logActivity } = require('../lib/activityLog');
 
 // POST /api/inventory/pack - Pack inventory item into box (with quantity)
 router.post('/pack', async (req, res, next) => {
@@ -237,15 +238,49 @@ router.put('/:id', async (req, res, next) => {
     
     fields.push(`updated_at = NOW()`);
     values.push(id);
-    
+
+    // Capture qty_before so we can record a delta in inventory_history
+    const beforeRow = await pool.query('SELECT quantity FROM inventory WHERE id = $1', [id]);
+    const qtyBefore = parseInt(beforeRow.rows[0]?.quantity) || 0;
+
     const query = `UPDATE inventory SET ${fields.join(', ')} WHERE id = $${paramCount} RETURNING *`;
     const result = await pool.query(query, values);
-    
+
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Inventory item not found' });
     }
-    
-    res.json({ success: true, item: result.rows[0] });
+
+    const item   = result.rows[0];
+    const userId = req.user?.userId || null;
+
+    if (updates.quantity !== undefined) {
+      const qtyAfter  = parseInt(updates.quantity) || 0;
+      const qtyChange = qtyAfter - qtyBefore;
+      if (qtyChange !== 0) {
+        const histId     = `ih-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+        const histAction = qtyChange > 0 ? 'restocked' : 'used';
+        pool.query(
+          `INSERT INTO inventory_history
+             (id, inventory_id, action, qty_before, qty_change, qty_after, performed_by_user_id, notes)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+          [histId, id, histAction, qtyBefore, qtyChange, qtyAfter, userId, updates.notes || null]
+        ).catch(e => console.warn('[inventory_history]', e.message));
+      }
+    }
+
+    logActivity(pool, {
+      entityType: 'inventory',
+      entityId:   id,
+      entityName: item.name,
+      action:     'updated',
+      userId,
+      userName:   req.user?.username || null,
+      details: updates.quantity !== undefined
+        ? { qty_before: qtyBefore, qty_after: parseInt(updates.quantity) || 0 }
+        : undefined,
+    }).catch(() => {});
+
+    res.json({ success: true, item });
   } catch (error) {
     next(error);
   }

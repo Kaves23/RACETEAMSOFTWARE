@@ -1255,6 +1255,11 @@
                 </div>
               </div>
               <div class="card-body" style="overflow-y: auto; height: calc(100% - 60px);">
+                <!-- Overdue Alert Banner -->
+                <div id="overdueAlertBanner" style="display:none;" class="alert alert-warning py-2 px-3 mb-2 d-flex align-items-center justify-content-between" role="alert">
+                  <span>⚠️ <strong><span id="overdueCount">0</span> item(s)</strong> past their expected return date.</span>
+                  <span><a href="#" class="alert-link" onclick="event.preventDefault();document.getElementById('filterStatus').value='in_use';renderAssets()">View checked-out ›</a></span>
+                </div>
                 <!-- Bulk Actions Toolbar -->
                 <div id="bulkActionsToolbar">
                   <div class="bulk-toolbar-header">
@@ -1292,6 +1297,9 @@
                           <div class="bulk-dropdown-divider"></div>
                           <button class="bulk-dropdown-item" onclick="exportSelected(); closeBulkDropdown()">
                             <span style="font-size: 1.1rem;">📊</span> Export to CSV
+                          </button>
+                          <button class="bulk-dropdown-item" onclick="bulkCheckoutAssets(); closeBulkDropdown()">
+                            <span style="font-size: 1.1rem;">📋</span> Check Out
                           </button>
                           <div class="bulk-dropdown-divider"></div>
                           <button class="bulk-dropdown-item" onclick="bulkDeleteAssets(); closeBulkDropdown()" style="color: #ff6b6b;">
@@ -1710,6 +1718,91 @@
     </div>
   </div>
 
+  <!-- Checkout Modal -->
+  <div class="modal fade" id="checkoutModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header" style="background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); color: white;">
+          <h5 class="modal-title">📋 Check Out — <span id="checkoutItemCount">1</span> item(s)</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <form id="checkoutForm">
+            <input type="hidden" id="checkoutItemIds" value="[]">
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Checked Out To <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" id="checkoutToName" placeholder="Driver name, customer, team member…" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Type</label>
+              <select class="form-select" id="checkoutToType">
+                <option value="driver">Driver</option>
+                <option value="customer">Customer</option>
+                <option value="external" selected>External / Other</option>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Expected Return Date</label>
+              <input type="datetime-local" class="form-control" id="checkoutExpectedReturn">
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Condition Out</label>
+              <select class="form-select" id="checkoutConditionOut">
+                <option value="excellent">Excellent</option>
+                <option value="good" selected>Good</option>
+                <option value="fair">Fair</option>
+                <option value="poor">Poor</option>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Notes</label>
+              <textarea class="form-control" id="checkoutNotes" rows="2" placeholder="Optional…"></textarea>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" id="btnSubmitCheckout" onclick="submitCheckout()">Check Out</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Return Modal -->
+  <div class="modal fade" id="returnModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header" style="background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); color: white;">
+          <h5 class="modal-title">↩ Return Item</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <form id="returnForm">
+            <input type="hidden" id="returnAssetId">
+            <input type="hidden" id="returnCheckoutId">
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Condition In</label>
+              <select class="form-select" id="returnConditionIn">
+                <option value="excellent">Excellent</option>
+                <option value="good" selected>Good</option>
+                <option value="fair">Fair</option>
+                <option value="poor">Poor — needs attention</option>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Return Notes</label>
+              <textarea class="form-control" id="returnNotes" rows="2" placeholder="Any damage, issues or notes…"></textarea>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-success" id="btnSubmitReturn" onclick="submitReturn()">Return Item</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification Container -->
   <div class="toast-container" id="toastContainer"></div>
 
@@ -2051,7 +2144,8 @@
         populateBoxDropdowns();
         populateAssetTypeDropdowns();
         renderAssets();
-        
+        checkOverdueItems();
+
         console.log('✅ loadData complete');
       } catch (error) {
         console.error('❌ Error loading data:', error);
@@ -2482,7 +2576,21 @@
       if (location) locationStatusHtml += `<li style="padding: 4px 0; border-left: 3px solid #ffc107; padding-left: 8px; margin-bottom: 4px;">Physical location: <strong>${location.name}</strong></li>`;
       if (!box && !location) locationStatusHtml += `<li style="padding: 4px 0; border-left: 3px solid #ddd; padding-left: 8px;">No location assigned</li>`;
       locationStatusHtml += '</ul>';
-      
+
+      const checkoutSectionHtml = asset.status === 'in_use'
+        ? `<div class="section-card mt-2" style="border-left:3px solid #f59e0b;padding:12px 16px;border-radius:6px;background:#fff;">
+              <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#5f6368;margin-bottom:8px;">📋 Checkout</div>
+              <div id="checkoutInfoDiv" class="small text-muted mb-2">
+                <span class="spinner-border spinner-border-sm me-1" role="status"></span> Loading checkout info…
+              </div>
+              <button type="button" class="btn btn-sm btn-warning" onclick="showReturnModal('${asset.id}')">&#x21a9; Return Item</button>
+           </div>`
+        : `<div class="section-card mt-2" style="border-left:3px solid #f59e0b;padding:12px 16px;border-radius:6px;background:#fff;">
+              <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#5f6368;margin-bottom:8px;">📋 Checkout</div>
+              <p class="text-muted small mb-2">This item is available to check out.</p>
+              <button type="button" class="btn btn-sm btn-outline-primary" onclick="showCheckoutModal(['${asset.id}'])">&#x1f4cb; Check Out</button>
+           </div>`;
+
       panelContent.innerHTML = `
         <ul class="nav nav-tabs" role="tablist">
           <li class="nav-item">
@@ -2643,6 +2751,8 @@
               </div>
             </div>
 
+            ${checkoutSectionHtml}
+
             <div class="section-card details mt-2">
               <div class="section-header">
                 <div class="section-icon"></div>
@@ -2729,6 +2839,7 @@
       setTimeout(() => {
         console.log('Auto-generating QR code for asset:', asset.barcode || asset.id);
         generatePanelQR();
+        if (asset.status === 'in_use') loadCheckoutInfo(asset.id);
       }, 100);
     }
 
@@ -4569,6 +4680,144 @@ if (!newLocationId && !newBoxId) {
         btnConfirm.addEventListener('click', handleConfirm);
         modalElement.addEventListener('hidden.bs.modal', handleCancel);
       });
+    }
+
+    // =================== CHECKOUT SYSTEM ===================
+
+    async function checkOverdueItems() {
+      try {
+        const token = localStorage.getItem('auth_token') || '';
+        const resp = await fetch(`${window.RTS_CONFIG.api.baseURL}/asset-checkouts/overdue`,
+          { headers: { 'Authorization': 'Bearer ' + token } });
+        if (!resp.ok) return;
+        const result = await resp.json();
+        const count = result.count || 0;
+        const banner = document.getElementById('overdueAlertBanner');
+        if (count > 0 && banner) {
+          document.getElementById('overdueCount').textContent = count;
+          banner.style.display = '';
+        }
+      } catch (e) { /* non-critical */ }
+    }
+
+    async function loadCheckoutInfo(assetId) {
+      const div = document.getElementById('checkoutInfoDiv');
+      if (!div) return;
+      try {
+        const token = localStorage.getItem('auth_token') || '';
+        const resp = await fetch(
+          `${window.RTS_CONFIG.api.baseURL}/asset-checkouts?item_id=${encodeURIComponent(assetId)}&status=active`,
+          { headers: { 'Authorization': 'Bearer ' + token } }
+        );
+        if (!resp.ok) { div.innerHTML = '<span class="text-muted small">Could not load checkout info.</span>'; return; }
+        const result = await resp.json();
+        if (result.checkouts && result.checkouts.length > 0) {
+          const co = result.checkouts[0];
+          const since = new Date(co.checked_out_at).toLocaleDateString();
+          const due   = co.expected_return_at ? new Date(co.expected_return_at).toLocaleDateString() : '—';
+          div.innerHTML = `
+            <table class="table table-sm mb-0" style="font-size:0.82rem;">
+              <tr><td class="text-muted" style="width:40%;white-space:nowrap">Checked out to</td><td><strong>${co.checked_out_to_name}</strong> <span class="badge text-bg-secondary">${co.checked_out_to_type}</span></td></tr>
+              <tr><td class="text-muted">Since</td><td>${since}</td></tr>
+              <tr><td class="text-muted">Due back</td><td>${due}</td></tr>
+              ${co.notes_out ? `<tr><td class="text-muted">Note</td><td>${co.notes_out}</td></tr>` : ''}
+            </table>`;
+          div.dataset.checkoutId = co.id;
+        } else {
+          div.innerHTML = '<span class="text-muted small">No active checkout record.</span>';
+        }
+      } catch (e) {
+        div.innerHTML = '<span class="text-muted small">Could not load checkout info.</span>';
+      }
+    }
+
+    function showCheckoutModal(itemIds) {
+      const modal = new bootstrap.Modal(document.getElementById('checkoutModal'));
+      document.getElementById('checkoutItemIds').value = JSON.stringify(itemIds);
+      document.getElementById('checkoutForm').reset();
+      document.getElementById('checkoutItemCount').textContent = itemIds.length;
+      modal.show();
+    }
+
+    function bulkCheckoutAssets() {
+      if (selectedAssets.size === 0) { showToast('No assets selected', 'warning'); return; }
+      showCheckoutModal(Array.from(selectedAssets));
+    }
+
+    async function submitCheckout() {
+      const btn = document.getElementById('btnSubmitCheckout');
+      const name = document.getElementById('checkoutToName').value.trim();
+      if (!name) { showToast('Please enter who the item is being checked out to', 'warning'); return; }
+      const itemIds = JSON.parse(document.getElementById('checkoutItemIds').value || '[]');
+      btn.disabled = true; btn.textContent = 'Saving…';
+      try {
+        const token = localStorage.getItem('auth_token') || '';
+        const resp = await fetch(`${window.RTS_CONFIG.api.baseURL}/asset-checkouts`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({
+            item_ids:            itemIds,
+            checked_out_to_name: name,
+            checked_out_to_type: document.getElementById('checkoutToType').value,
+            expected_return_at:  document.getElementById('checkoutExpectedReturn').value || null,
+            condition_out:       document.getElementById('checkoutConditionOut').value,
+            notes_out:           document.getElementById('checkoutNotes').value.trim() || null,
+          })
+        });
+        const result = await resp.json();
+        if (result.success) {
+          bootstrap.Modal.getInstance(document.getElementById('checkoutModal')).hide();
+          showToast(`${itemIds.length} item${itemIds.length > 1 ? 's' : ''} checked out to ${name}`, 'success');
+          selectedAssets.clear();
+          await loadData(); renderAssets(); updateBulkToolbar();
+        } else {
+          showToast('Checkout failed: ' + (result.error || 'Unknown error'), 'danger');
+        }
+      } catch (e) { showToast('Error: ' + e.message, 'danger'); }
+      finally { btn.disabled = false; btn.textContent = 'Check Out'; }
+    }
+
+    function showReturnModal(assetId) {
+      const modal = new bootstrap.Modal(document.getElementById('returnModal'));
+      document.getElementById('returnAssetId').value = assetId;
+      document.getElementById('returnForm').reset();
+      const infoDiv = document.getElementById('checkoutInfoDiv');
+      document.getElementById('returnCheckoutId').value = infoDiv?.dataset?.checkoutId || '';
+      modal.show();
+    }
+
+    async function submitReturn() {
+      const btn = document.getElementById('btnSubmitReturn');
+      const checkoutId = document.getElementById('returnCheckoutId').value;
+      if (!checkoutId) { showToast('Checkout record not found — reload the page and try again', 'warning'); return; }
+      btn.disabled = true; btn.textContent = 'Saving…';
+      try {
+        const token = localStorage.getItem('auth_token') || '';
+        const resp = await fetch(
+          `${window.RTS_CONFIG.api.baseURL}/asset-checkouts/${encodeURIComponent(checkoutId)}/return`,
+          {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({
+              condition_in: document.getElementById('returnConditionIn').value,
+              notes_in:     document.getElementById('returnNotes').value.trim() || null,
+            })
+          }
+        );
+        const result = await resp.json();
+        if (result.success) {
+          bootstrap.Modal.getInstance(document.getElementById('returnModal')).hide();
+          showToast('Item returned successfully', 'success');
+          await loadData(); renderAssets();
+          if (currentAsset) {
+            const updated = allAssets.find(a => a.id === currentAsset.id);
+            if (updated) openAssetPanel(updated);
+          }
+        } else {
+          showToast('Return failed: ' + (result.error || 'Unknown error'), 'danger');
+        }
+      } catch (e) { showToast('Error: ' + e.message, 'danger'); }
+      finally { btn.disabled = false; btn.textContent = 'Return Item'; }
     }
   </script>
 </body>

@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Race Team OS – Race Fleet</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="style.css" rel="stylesheet">
+  <style>
+    .vehicle-card {
+      background: #fff; border: 1px solid #e0e0e0; border-radius: 10px;
+      padding: 16px 18px; margin-bottom: 10px;
+      display: flex; align-items: flex-start; gap: 16px;
+      transition: box-shadow .15s;
+    }
+    .vehicle-card:hover { box-shadow: 0 2px 10px rgba(0,0,0,.12); }
+    .vehicle-icon { font-size: 2rem; width: 52px; text-align: center; flex-shrink: 0; }
+    .vehicle-info { flex: 1; min-width: 0; }
+    .vehicle-name { font-weight: 700; font-size: .95rem; color: #202124; }
+    .vehicle-class { font-size: .78rem; color: #5f6368; }
+    .vehicle-meta  { font-size: .8rem; color: #5f6368; margin-top: 4px; }
+    .vehicle-stats { display: flex; gap: 12px; margin-top: 6px; flex-wrap: wrap; }
+    .stat-chip {
+      background: #f1f3f4; border-radius: 12px; padding: 2px 10px;
+      font-size: .72rem; color: #3c4043; font-weight: 600;
+    }
+    .stat-chip.warning { background: #fff3e0; color: #e65100; }
+    .vehicle-actions { display: flex; gap: 6px; flex-shrink: 0; }
+    .type-badge {
+      display: inline-block; padding: 2px 10px; border-radius: 12px;
+      font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
+    }
+    .type-kart     { background: #e1f5fe; color: #01579b; }
+    .type-car      { background: #e8f5e9; color: #1b5e20; }
+    .type-other    { background: #f3e5f5; color: #4a148c; }
+    .status-available   { background: #e8f5e9; color: #2e7d32; }
+    .status-in_use      { background: #e3f2fd; color: #1565c0; }
+    .status-maintenance { background: #fff3e0; color: #e65100; }
+    .status-retired     { background: #f5f5f5; color: #9e9e9e; }
+    .summary-strip { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+    .summary-card {
+      background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;
+      padding: 12px 20px; min-width: 120px; text-align: center;
+    }
+    .summary-card .val { font-size: 1.5rem; font-weight: 700; color: #1a73e8; }
+    .summary-card .lbl { font-size: .7rem; color: #5f6368; text-transform: uppercase; letter-spacing: .5px; }
+    #vehicleList { list-style: none; padding: 0; margin: 0; }
+    .empty-state { text-align: center; padding: 60px 20px; color: #9aa0a6; }
+    .service-alert { background: #fff3e0; border: 1px solid #ffcc02; border-radius: 6px; padding: 10px 14px; font-size: .82rem; color: #e65100; margin-bottom: 12px; }
+  </style>
+</head>
+<body class="page-race-fleet light-mode">
+  <div id="rtsTopNav"></div>
+  <div class="rts-main container-fluid py-3">
+
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-end mb-3 pb-2 border-bottom">
+      <div>
+        <h1 class="h4 mb-1" style="color:#202124">Race Fleet</h1>
+        <div class="text-secondary" style="font-size:.85rem">Karts, race cars and their service history, usage and mileage.</div>
+      </div>
+      <div class="d-flex gap-2">
+        <select class="form-select form-select-sm" id="filterType" style="width:130px">
+          <option value="">All Types</option>
+          <option value="kart">Karts</option>
+          <option value="car">Race Cars</option>
+          <option value="other">Other</option>
+        </select>
+        <select class="form-select form-select-sm" id="filterStatus" style="width:130px">
+          <option value="">All Status</option>
+          <option value="available">Available</option>
+          <option value="in_use">In Use</option>
+          <option value="maintenance">Maintenance</option>
+          <option value="retired">Retired</option>
+        </select>
+        <input type="text" id="searchInput" class="form-control form-control-sm" placeholder="Search…" style="width:160px">
+        <button class="btn btn-sm btn-primary" id="btnAdd">➕ Add Vehicle</button>
+      </div>
+    </div>
+
+    <!-- Summary Strip -->
+    <div class="summary-strip" id="summaryStrip">
+      <div class="summary-card"><div class="val" id="statTotal">–</div><div class="lbl">Total</div></div>
+      <div class="summary-card"><div class="val" id="statKarts">–</div><div class="lbl">Karts</div></div>
+      <div class="summary-card"><div class="val" id="statCars">–</div><div class="lbl">Race Cars</div></div>
+      <div class="summary-card"><div class="val" id="statAvailable">–</div><div class="lbl">Available</div></div>
+      <div class="summary-card"><div class="val" id="statMaintenance">–</div><div class="lbl">Maintenance</div></div>
+    </div>
+
+    <!-- Service Due Alert -->
+    <div id="serviceDueAlert" style="display:none" class="service-alert">
+      🔧 <strong><span id="serviceDueCount">0</span> vehicle(s)</strong> due for service or overdue.
+      <a href="#" onclick="event.preventDefault();document.getElementById('filterStatus').value='';filterServiceDue()" class="ms-2 fw-semibold" style="color:#e65100">Show ›</a>
+    </div>
+
+    <!-- Vehicle List -->
+    <ul id="vehicleList">
+      <li class="text-center py-5 text-muted">
+        <div class="spinner-border text-primary" role="status"></div>
+        <div class="mt-2">Loading fleet…</div>
+      </li>
+    </ul>
+
+  </div>
+
+  <!-- Add / Edit Modal -->
+  <div class="modal fade" id="vehicleModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header" style="background: linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%); color:white;">
+          <h5 class="modal-title" id="modalTitle">🏎️ Add Race Vehicle</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="vehicleId">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Name <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" id="vName" placeholder="e.g. Kart #7 – Senior Rotax">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Type</label>
+              <select class="form-select" id="vType">
+                <option value="kart">Kart</option>
+                <option value="car">Race Car</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Status</label>
+              <select class="form-select" id="vStatus">
+                <option value="available">Available</option>
+                <option value="in_use">In Use</option>
+                <option value="maintenance">Maintenance</option>
+                <option value="retired">Retired</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Class / Category</label>
+              <input type="text" class="form-control" id="vClass" placeholder="Senior Rotax, F4, etc.">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Make</label>
+              <input type="text" class="form-control" id="vMake" placeholder="CRG, Tony Kart…">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Model / Year</label>
+              <div class="input-group">
+                <input type="text" class="form-control" id="vModel" placeholder="Model">
+                <input type="number" class="form-control" id="vYear" placeholder="Year" style="max-width:90px">
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Chassis Number</label>
+              <input type="text" class="form-control" id="vChassis">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Engine Serial</label>
+              <input type="text" class="form-control" id="vEngine">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Next Service Due (race hours)</label>
+              <input type="number" class="form-control" id="vServiceDue" placeholder="e.g. 50" step="0.1">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Last Service Date</label>
+              <input type="date" class="form-control" id="vLastService">
+            </div>
+            <div class="col-12">
+              <label class="form-label">Notes</label>
+              <textarea class="form-control" id="vNotes" rows="2"></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" id="btnSaveVehicle" onclick="saveVehicle()">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Log Usage Modal -->
+  <div class="modal fade" id="usageModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header" style="background: linear-gradient(135deg, #e65100 0%, #bf360c 100%); color:white;">
+          <h5 class="modal-title">🏁 Log Race Session — <span id="usageVehicleName"></span></h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="usageVehicleId">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Session Type</label>
+              <select class="form-select" id="usageSessionType">
+                <option value="race">Race</option>
+                <option value="qualifying">Qualifying</option>
+                <option value="practice">Practice</option>
+                <option value="testing">Testing</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Driver</label>
+              <input type="text" class="form-control" id="usageDriver" placeholder="Driver name">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Race Hours</label>
+              <input type="number" class="form-control" id="usageHours" placeholder="0.5" step="0.1" min="0">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Distance (km)</label>
+              <input type="number" class="form-control" id="usageKm" placeholder="0" step="0.1" min="0">
+            </div>
+            <div class="col-12">
+              <label class="form-label">Notes</label>
+              <textarea class="form-control" id="usageNotes" rows="2" placeholder="Incidents, tyre sets, setup notes…"></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-danger" id="btnLogUsage" onclick="logUsage()">Log Session</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- History Modal -->
+  <div class="modal fade" id="historyModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">📋 History — <span id="historyVehicleName"></span></h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body" id="historyBody" style="max-height:60vh;overflow-y:auto;">
+          <div class="text-center py-4 text-muted"><div class="spinner-border spinner-border-sm"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="topnav.js"></script>
+  <script src="config.js"></script>
+  <script src="core.js"></script>
+  <script>
+    const API = window.RTS_CONFIG?.api?.baseURL || '/api';
+    let allVehicles = [];
+    let showServiceDueOnly = false;
+
+    function authHeaders(json = false) {
+      const h = { 'Authorization': 'Bearer ' + (localStorage.getItem('auth_token') || '') };
+      if (json) h['Content-Type'] = 'application/json';
+      return h;
+    }
+
+    function showToast(msg, type = 'success') {
+      const div = document.createElement('div');
+      div.className = `alert alert-${type} position-fixed bottom-0 end-0 m-3`;
+      div.style.cssText = 'z-index:9999;min-width:250px;';
+      div.textContent = msg;
+      document.body.appendChild(div);
+      setTimeout(() => div.remove(), 3500);
+    }
+
+    async function loadVehicles() {
+      const list = document.getElementById('vehicleList');
+      list.innerHTML = '<li class="text-center py-4 text-muted"><div class="spinner-border spinner-border-sm"></div></li>';
+      try {
+        const resp = await fetch(`${API}/race-fleet`, { headers: authHeaders() });
+        const result = await resp.json();
+        allVehicles = result.vehicles || [];
+        updateSummary();
+        renderVehicles();
+      } catch (e) {
+        list.innerHTML = '<li><div class="alert alert-danger m-3">Failed to load. ' + e.message + '</div></li>';
+      }
+    }
+
+    function updateSummary() {
+      document.getElementById('statTotal').textContent      = allVehicles.length;
+      document.getElementById('statKarts').textContent      = allVehicles.filter(v => v.vehicle_type === 'kart').length;
+      document.getElementById('statCars').textContent       = allVehicles.filter(v => v.vehicle_type === 'car').length;
+      document.getElementById('statAvailable').textContent  = allVehicles.filter(v => v.status === 'available').length;
+      document.getElementById('statMaintenance').textContent= allVehicles.filter(v => v.status === 'maintenance').length;
+
+      // Service due check
+      const due = allVehicles.filter(v =>
+        v.next_service_due_hours && v.total_race_hours >= parseFloat(v.next_service_due_hours)
+      );
+      if (due.length > 0) {
+        document.getElementById('serviceDueCount').textContent = due.length;
+        document.getElementById('serviceDueAlert').style.display = '';
+      }
+    }
+
+    function renderVehicles() {
+      const typeF   = document.getElementById('filterType').value;
+      const statF   = document.getElementById('filterStatus').value;
+      const search  = document.getElementById('searchInput').value.toLowerCase();
+      const list    = document.getElementById('vehicleList');
+
+      let filtered = allVehicles.filter(v => {
+        if (typeF   && v.vehicle_type !== typeF)    return false;
+        if (statF   && v.status       !== statF)    return false;
+        if (search  && !v.name.toLowerCase().includes(search)) return false;
+        if (showServiceDueOnly && !(v.next_service_due_hours && v.total_race_hours >= parseFloat(v.next_service_due_hours))) return false;
+        return true;
+      });
+
+      if (filtered.length === 0) {
+        list.innerHTML = '<li><div class="empty-state"><div style="font-size:2.5rem">🏎️</div><h5 class="mt-3">No vehicles found</h5></div></li>';
+        return;
+      }
+
+      list.innerHTML = filtered.map(v => {
+        const typeClass = `type-${v.vehicle_type}`;
+        const statClass = `status-${v.status}`;
+        const icon = v.vehicle_type === 'kart' ? '🏎️' : v.vehicle_type === 'car' ? '🚗' : '🏁';
+        const serviceDue = v.next_service_due_hours && parseFloat(v.total_race_hours) >= parseFloat(v.next_service_due_hours);
+        const serviceHtml = serviceDue
+          ? `<span class="stat-chip warning">⚠ Service overdue</span>`
+          : v.next_service_due_hours
+            ? `<span class="stat-chip">Next svc: ${v.next_service_due_hours}h</span>`
+            : '';
+        return `
+          <li class="vehicle-card">
+            <div class="vehicle-icon">${icon}</div>
+            <div class="vehicle-info">
+              <div class="vehicle-name">${v.name}</div>
+              <div class="vehicle-class">
+                <span class="type-badge ${typeClass}">${v.vehicle_type}</span>
+                ${v.class ? `<span class="ms-1 text-muted">${v.class}</span>` : ''}
+                ${v.make  ? `<span class="ms-1 text-muted">· ${v.make}${v.model ? ' ' + v.model : ''}${v.year ? ' ' + v.year : ''}</span>` : ''}
+              </div>
+              <div class="vehicle-stats">
+                <span class="stat-chip">🕐 ${parseFloat(v.total_race_hours || 0).toFixed(1)} hrs</span>
+                <span class="stat-chip">📏 ${parseFloat(v.total_mileage_km || 0).toFixed(0)} km</span>
+                ${v.driver_name ? `<span class="stat-chip">👤 ${v.driver_name}</span>` : ''}
+                ${serviceHtml}
+                <span class="type-badge ${statClass} ms-1">${v.status.replace('_',' ')}</span>
+              </div>
+              ${v.chassis_number ? `<div class="vehicle-meta">Chassis: <code>${v.chassis_number}</code>${v.engine_serial ? ` · Engine: <code>${v.engine_serial}</code>` : ''}</div>` : ''}
+            </div>
+            <div class="vehicle-actions">
+              <button class="btn btn-sm btn-outline-danger" title="Log Race Session" onclick="openUsageModal('${v.id}','${escHtml(v.name)}')">🏁</button>
+              <button class="btn btn-sm btn-outline-secondary" title="View History" onclick="openHistory('${v.id}','${escHtml(v.name)}')">📋</button>
+              <button class="btn btn-sm btn-outline-primary" title="Edit" onclick="openEdit('${v.id}')">✏️</button>
+              <button class="btn btn-sm btn-outline-danger" title="Delete" onclick="deleteVehicle('${v.id}','${escHtml(v.name)}')">🗑️</button>
+            </div>
+          </li>`;
+      }).join('');
+    }
+
+    function escHtml(s) { return String(s||'').replace(/'/g,"&#39;").replace(/"/g,'&quot;'); }
+
+    function filterServiceDue() {
+      showServiceDueOnly = !showServiceDueOnly;
+      renderVehicles();
+    }
+
+    // =================== CRUD ===================
+
+    function openAdd() {
+      clearForm();
+      document.getElementById('vehicleId').value = '';
+      document.getElementById('modalTitle').textContent = '🏎️ Add Race Vehicle';
+      new bootstrap.Modal(document.getElementById('vehicleModal')).show();
+    }
+
+    function openEdit(id) {
+      const v = allVehicles.find(v => v.id === id);
+      if (!v) return;
+      clearForm();
+      document.getElementById('vehicleId').value        = v.id;
+      document.getElementById('vName').value            = v.name || '';
+      document.getElementById('vType').value            = v.vehicle_type || 'kart';
+      document.getElementById('vStatus').value          = v.status || 'available';
+      document.getElementById('vClass').value           = v.class || '';
+      document.getElementById('vMake').value            = v.make  || '';
+      document.getElementById('vModel').value           = v.model || '';
+      document.getElementById('vYear').value            = v.year  || '';
+      document.getElementById('vChassis').value         = v.chassis_number || '';
+      document.getElementById('vEngine').value          = v.engine_serial  || '';
+      document.getElementById('vServiceDue').value      = v.next_service_due_hours || '';
+      document.getElementById('vLastService').value     = v.last_service_date ? v.last_service_date.slice(0,10) : '';
+      document.getElementById('vNotes').value           = v.notes || '';
+      document.getElementById('modalTitle').textContent = '✏️ Edit ' + v.name;
+      new bootstrap.Modal(document.getElementById('vehicleModal')).show();
+    }
+
+    function clearForm() {
+      ['vName','vClass','vMake','vModel','vYear','vChassis','vEngine','vServiceDue','vLastService','vNotes'].forEach(id => {
+        document.getElementById(id).value = '';
+      });
+      document.getElementById('vType').value   = 'kart';
+      document.getElementById('vStatus').value = 'available';
+    }
+
+    async function saveVehicle() {
+      const id   = document.getElementById('vehicleId').value;
+      const name = document.getElementById('vName').value.trim();
+      if (!name) { showToast('Name is required', 'warning'); return; }
+
+      const body = {
+        name,
+        vehicle_type:          document.getElementById('vType').value,
+        status:                document.getElementById('vStatus').value,
+        class:                 document.getElementById('vClass').value.trim()    || undefined,
+        make:                  document.getElementById('vMake').value.trim()     || undefined,
+        model:                 document.getElementById('vModel').value.trim()    || undefined,
+        year:                  parseInt(document.getElementById('vYear').value)  || undefined,
+        chassis_number:        document.getElementById('vChassis').value.trim()  || undefined,
+        engine_serial:         document.getElementById('vEngine').value.trim()   || undefined,
+        next_service_due_hours:parseFloat(document.getElementById('vServiceDue').value) || undefined,
+        last_service_date:     document.getElementById('vLastService').value     || undefined,
+        notes:                 document.getElementById('vNotes').value.trim()    || undefined,
+      };
+
+      const btn = document.getElementById('btnSaveVehicle');
+      btn.disabled = true; btn.textContent = 'Saving…';
+      try {
+        const url = id ? `${API}/race-fleet/${id}` : `${API}/race-fleet`;
+        const method = id ? 'PUT' : 'POST';
+        const resp = await fetch(url, { method, headers: authHeaders(true), body: JSON.stringify(body) });
+        const result = await resp.json();
+        if (result.success) {
+          bootstrap.Modal.getInstance(document.getElementById('vehicleModal')).hide();
+          showToast(id ? 'Vehicle updated' : 'Vehicle added', 'success');
+          loadVehicles();
+        } else {
+          showToast('Error: ' + (result.error || 'Unknown'), 'danger');
+        }
+      } catch (e) { showToast('Error: ' + e.message, 'danger'); }
+      finally { btn.disabled = false; btn.textContent = 'Save'; }
+    }
+
+    async function deleteVehicle(id, name) {
+      if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+      try {
+        const resp = await fetch(`${API}/race-fleet/${id}`, { method: 'DELETE', headers: authHeaders() });
+        const result = await resp.json();
+        if (result.success) { showToast('Vehicle deleted', 'success'); loadVehicles(); }
+        else showToast('Error: ' + result.error, 'danger');
+      } catch (e) { showToast('Error: ' + e.message, 'danger'); }
+    }
+
+    // =================== USAGE ===================
+
+    function openUsageModal(id, name) {
+      document.getElementById('usageVehicleId').value = id;
+      document.getElementById('usageVehicleName').textContent = name;
+      ['usageHours','usageKm','usageDriver','usageNotes'].forEach(i => document.getElementById(i).value = '');
+      document.getElementById('usageSessionType').value = 'race';
+      new bootstrap.Modal(document.getElementById('usageModal')).show();
+    }
+
+    async function logUsage() {
+      const id  = document.getElementById('usageVehicleId').value;
+      const btn = document.getElementById('btnLogUsage');
+      btn.disabled = true; btn.textContent = 'Saving…';
+      try {
+        const resp = await fetch(`${API}/race-fleet/${id}/usage`, {
+          method: 'POST',
+          headers: authHeaders(true),
+          body: JSON.stringify({
+            session_type: document.getElementById('usageSessionType').value,
+            race_hours:   parseFloat(document.getElementById('usageHours').value) || 0,
+            distance_km:  parseFloat(document.getElementById('usageKm').value)    || 0,
+            driver_name:  document.getElementById('usageDriver').value.trim()     || undefined,
+            notes:        document.getElementById('usageNotes').value.trim()      || undefined,
+          })
+        });
+        const result = await resp.json();
+        if (result.success) {
+          bootstrap.Modal.getInstance(document.getElementById('usageModal')).hide();
+          showToast('Race session logged', 'success');
+          loadVehicles();
+        } else {
+          showToast('Error: ' + (result.error || 'Unknown'), 'danger');
+        }
+      } catch (e) { showToast('Error: ' + e.message, 'danger'); }
+      finally { btn.disabled = false; btn.textContent = 'Log Session'; }
+    }
+
+    // =================== HISTORY ===================
+
+    async function openHistory(id, name) {
+      document.getElementById('historyVehicleName').textContent = name;
+      const body = document.getElementById('historyBody');
+      body.innerHTML = '<div class="text-center py-4 text-muted"><div class="spinner-border spinner-border-sm"></div></div>';
+      new bootstrap.Modal(document.getElementById('historyModal')).show();
+      try {
+        const resp = await fetch(`${API}/race-fleet/${id}/history`, { headers: authHeaders() });
+        const result = await resp.json();
+        const history = result.history || [];
+        if (history.length === 0) {
+          body.innerHTML = '<div class="text-center py-4 text-muted">No history yet.</div>';
+          return;
+        }
+        const ACTION_ICONS = { created:'✨', updated:'✏️', used:'🏁', mileage_added:'🛣️', note_added:'📝' };
+        body.innerHTML = `<ul class="list-unstyled mb-0">${history.map(h => `
+          <li class="d-flex gap-3 py-2 border-bottom">
+            <span style="font-size:1.3rem">${ACTION_ICONS[h.action]||'•'}</span>
+            <div>
+              <div><strong>${h.action.replace(/_/g,' ')}</strong>
+                ${h.performed_by_name ? `<span class="text-muted ms-1">by ${h.performed_by_name}</span>` : ''}
+              </div>
+              <div class="text-muted small">${new Date(h.created_at).toLocaleString()}</div>
+              ${h.details ? `<div class="small text-secondary mt-1">${Object.entries(h.details).filter(([,v])=>v!=null).map(([k,v])=>`${k.replace(/_/g,' ')}: ${v}`).join(' · ')}</div>` : ''}
+            </div>
+          </li>`).join('')}</ul>`;
+      } catch (e) {
+        body.innerHTML = '<div class="alert alert-danger">Error loading history: ' + e.message + '</div>';
+      }
+    }
+
+    // =================== FILTERS & EVENTS ===================
+
+    document.getElementById('btnAdd').addEventListener('click', openAdd);
+    document.getElementById('filterType').addEventListener('change', renderVehicles);
+    document.getElementById('filterStatus').addEventListener('change', renderVehicles);
+    document.getElementById('searchInput').addEventListener('input', renderVehicles);
+
+    loadVehicles();
+  </script>
+</body>
+</html>

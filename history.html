@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Race Team OS – Activity History</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="style.css" rel="stylesheet">
+  <style>
+    .timeline-feed { list-style: none; padding: 0; margin: 0; }
+    .feed-item {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      padding: 10px 0;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .feed-item:last-child { border-bottom: none; }
+    .feed-icon {
+      width: 36px; height: 36px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem; flex-shrink: 0;
+      background: #f0f4ff; color: #1a73e8;
+    }
+    .feed-body { flex: 1; min-width: 0; }
+    .feed-action { font-weight: 600; font-size: .88rem; color: #202124; }
+    .feed-entity { font-size: .82rem; color: #1a73e8; font-weight: 500; }
+    .feed-meta   { font-size: .75rem; color: #80868b; margin-top: 2px; }
+    .feed-time   { font-size: .72rem; color: #9aa0a6; white-space: nowrap; flex-shrink: 0; padding-top: 2px; }
+    .action-badge {
+      display: inline-block; padding: 1px 8px; border-radius: 10px;
+      font-size: .68rem; font-weight: 700; letter-spacing: .4px; text-transform: uppercase;
+    }
+    .action-created   { background: #e8f5e9; color: #2e7d32; }
+    .action-updated   { background: #e3f2fd; color: #1565c0; }
+    .action-packed    { background: #fff3e0; color: #e65100; }
+    .action-unpacked  { background: #fce4ec; color: #c62828; }
+    .action-retired   { background: #f5f5f5; color: #757575; }
+    .action-checked_out { background: #fff9c4; color: #f57f17; }
+    .action-returned  { background: #d1fae5; color: #065f46; }
+    .action-note_added { background: #ede9fe; color: #5b21b6; }
+    .action-mileage_added { background: #dbeafe; color: #1e40af; }
+    .action-used      { background: #ffedd5; color: #9a3412; }
+    .entity-badge {
+      display: inline-block; padding: 1px 7px; border-radius: 8px;
+      font-size: .68rem; font-weight: 600; text-transform: uppercase; letter-spacing: .3px;
+      background: #e8f0fe; color: #1a73e8;
+    }
+    .filter-bar { background: #fff; border: 1px solid #e8eaed; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; }
+    .empty-state { text-align: center; padding: 60px 20px; color: #9aa0a6; }
+    .pagination-row { display: flex; gap: 8px; justify-content: center; align-items: center; padding-top: 12px; }
+    #logCount { font-size: .78rem; color: #5f6368; }
+  </style>
+</head>
+<body class="page-history light-mode">
+  <div id="rtsTopNav"></div>
+  <div class="rts-main container-fluid py-3">
+
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-end mb-3 pb-2 border-bottom">
+      <div>
+        <h1 class="h4 mb-1" style="color:#202124">Activity History</h1>
+        <div class="text-secondary" style="font-size:.85rem">Audit log of all actions across assets, inventory, packing and fleet.</div>
+      </div>
+      <button class="btn btn-sm btn-outline-secondary" id="btnExportCsv">⬇ Export CSV</button>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="filter-bar">
+      <div class="row g-2 align-items-end">
+        <div class="col-md-2">
+          <label class="form-label mb-1" style="font-size:.78rem;font-weight:600">Entity Type</label>
+          <select class="form-select form-select-sm" id="fEntityType">
+            <option value="">All Types</option>
+            <option value="item">Asset</option>
+            <option value="inventory">Inventory</option>
+            <option value="race_fleet">Race Fleet</option>
+            <option value="box">Box</option>
+            <option value="truck">Truck</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label mb-1" style="font-size:.78rem;font-weight:600">Action</label>
+          <select class="form-select form-select-sm" id="fAction">
+            <option value="">All Actions</option>
+            <option value="created">Created</option>
+            <option value="updated">Updated</option>
+            <option value="packed">Packed</option>
+            <option value="unpacked">Unpacked</option>
+            <option value="retired">Retired</option>
+            <option value="checked_out">Checked Out</option>
+            <option value="returned">Returned</option>
+            <option value="note_added">Note Added</option>
+            <option value="mileage_added">Mileage Logged</option>
+            <option value="used">Used (Race)</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label mb-1" style="font-size:.78rem;font-weight:600">From</label>
+          <input type="date" class="form-control form-control-sm" id="fFrom">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label mb-1" style="font-size:.78rem;font-weight:600">To</label>
+          <input type="date" class="form-control form-control-sm" id="fTo">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label mb-1" style="font-size:.78rem;font-weight:600">Search Item / Name</label>
+          <input type="text" class="form-control form-control-sm" id="fEntityId" placeholder="Paste entity ID…">
+        </div>
+        <div class="col-md-1 d-flex align-items-end gap-1">
+          <button class="btn btn-sm btn-primary flex-fill" id="btnFilter">Filter</button>
+          <button class="btn btn-sm btn-outline-secondary" id="btnClear" title="Clear filters">✕</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <span id="logCount">Loading…</span>
+      <div class="pagination-row" id="paginationRow" style="margin:0;padding:0;"></div>
+    </div>
+
+    <div id="feedContainer">
+      <div class="text-center py-5 text-muted">
+        <div class="spinner-border text-primary" role="status"></div>
+        <div class="mt-2">Loading activity log…</div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="topnav.js"></script>
+  <script src="config.js"></script>
+  <script src="core.js"></script>
+  <script>
+    const API = window.RTS_CONFIG?.api?.baseURL || '/api';
+    const LIMIT = 50;
+    let currentOffset = 0;
+    let currentTotal  = 0;
+    let currentParams = {};
+
+    function authHeaders() {
+      return { 'Authorization': 'Bearer ' + (localStorage.getItem('auth_token') || '') };
+    }
+
+    async function loadLogs(params = {}, offset = 0) {
+      const container = document.getElementById('feedContainer');
+      container.innerHTML = '<div class="text-center py-4 text-muted"><div class="spinner-border spinner-border-sm"></div></div>';
+
+      const q = new URLSearchParams();
+      if (params.entity_type) q.set('entity_type', params.entity_type);
+      if (params.entity_id)   q.set('entity_id',   params.entity_id);
+      if (params.action)      q.set('action',       params.action);
+      if (params.from)        q.set('from',         params.from + 'T00:00:00Z');
+      if (params.to)          q.set('to',           params.to   + 'T23:59:59Z');
+      q.set('limit',  LIMIT);
+      q.set('offset', offset);
+
+      try {
+        const resp = await fetch(`${API}/activity-log?${q}`, { headers: authHeaders() });
+        if (!resp.ok) { container.innerHTML = '<div class="alert alert-danger m-3">Failed to load logs.</div>'; return; }
+        const result = await resp.json();
+        currentTotal  = result.count || 0;
+        currentOffset = offset;
+        renderFeed(result.logs || []);
+        renderPagination();
+        document.getElementById('logCount').textContent =
+          `${result.count} result${result.count !== 1 ? 's' : ''}` +
+          (offset > 0 ? ` (showing ${offset + 1}–${offset + (result.logs?.length || 0)})` : '');
+      } catch (e) {
+        container.innerHTML = '<div class="alert alert-danger m-3">Error: ' + e.message + '</div>';
+      }
+    }
+
+    const ACTION_ICONS = {
+      created:      '✨', updated: '✏️', packed: '📦', unpacked: '📤',
+      retired:      '🗑️', checked_out: '📋', returned: '↩️',
+      note_added:   '📝', mileage_added: '🛣️', used: '🏎️',
+    };
+    const ENTITY_LINKS = {
+      item:       id => `assets.html`,
+      inventory:  id => `inventory.html`,
+      race_fleet: id => `race-fleet.html`,
+      truck:      id => `vehicles.html`,
+    };
+
+    function renderFeed(logs) {
+      const container = document.getElementById('feedContainer');
+      if (logs.length === 0) {
+        container.innerHTML = '<div class="empty-state"><div style="font-size:2.5rem">📭</div><h5 class="mt-3">No activity found</h5><p>Try adjusting the filters above.</p></div>';
+        return;
+      }
+      const items = logs.map(log => {
+        const icon    = ACTION_ICONS[log.action] || '•';
+        const ts      = new Date(log.created_at);
+        const timeStr = ts.toLocaleString();
+        const timeAgo = formatTimeAgo(ts);
+        const entityLink = ENTITY_LINKS[log.entity_type];
+        const nameHtml = entityLink
+          ? `<a href="${entityLink(log.entity_id)}" class="feed-entity">${log.entity_name || log.entity_id}</a>`
+          : `<span class="feed-entity">${log.entity_name || log.entity_id}</span>`;
+        const details = log.details ? formatDetails(log.details) : '';
+        return `
+          <li class="feed-item">
+            <div class="feed-icon">${icon}</div>
+            <div class="feed-body">
+              <div class="feed-action">
+                <span class="action-badge action-${log.action}">${log.action.replace(/_/g,' ')}</span>
+                <span class="entity-badge ms-1">${log.entity_type.replace(/_/g,' ')}</span>
+              </div>
+              <div>${nameHtml}</div>
+              <div class="feed-meta">
+                ${log.performed_by_name || log.performed_by_user_id ? `by <strong>${log.performed_by_name || log.performed_by_user_id}</strong>` : ''}
+                ${log.event_name || log.event_id ? `· event: ${log.event_name || log.event_id}` : ''}
+                ${details ? `<div class="mt-1 text-secondary">${details}</div>` : ''}
+              </div>
+            </div>
+            <div class="feed-time" title="${timeStr}">${timeAgo}</div>
+          </li>`;
+      }).join('');
+      container.innerHTML = `<ul class="timeline-feed">${items}</ul>`;
+    }
+
+    function formatDetails(d) {
+      if (!d || typeof d !== 'object') return '';
+      return Object.entries(d)
+        .filter(([, v]) => v != null && v !== '')
+        .map(([k, v]) => `<span class="me-2"><span class="text-muted">${k.replace(/_/g,' ')}:</span> ${v}</span>`)
+        .join('');
+    }
+
+    function formatTimeAgo(date) {
+      const secs = Math.floor((Date.now() - date.getTime()) / 1000);
+      if (secs < 60)    return 'just now';
+      if (secs < 3600)  return Math.floor(secs/60)  + 'm ago';
+      if (secs < 86400) return Math.floor(secs/3600) + 'h ago';
+      if (secs < 604800)return Math.floor(secs/86400)+ 'd ago';
+      return date.toLocaleDateString();
+    }
+
+    function renderPagination() {
+      const row = document.getElementById('paginationRow');
+      const totalPages = Math.ceil(currentTotal / LIMIT);
+      const currentPage = Math.floor(currentOffset / LIMIT);
+      if (totalPages <= 1) { row.innerHTML = ''; return; }
+      let html = `<button class="btn btn-sm btn-outline-secondary" ${currentPage === 0 ? 'disabled' : ''} onclick="goPage(${currentPage-1})">‹ Prev</button>`;
+      html += `<span style="font-size:.8rem;color:#5f6368;">Page ${currentPage+1} of ${totalPages}</span>`;
+      html += `<button class="btn btn-sm btn-outline-secondary" ${currentPage >= totalPages-1 ? 'disabled' : ''} onclick="goPage(${currentPage+1})">Next ›</button>`;
+      row.innerHTML = html;
+    }
+
+    function goPage(page) {
+      loadLogs(currentParams, page * LIMIT);
+    }
+
+    function getFilters() {
+      return {
+        entity_type: document.getElementById('fEntityType').value,
+        action:      document.getElementById('fAction').value,
+        entity_id:   document.getElementById('fEntityId').value.trim(),
+        from:        document.getElementById('fFrom').value,
+        to:          document.getElementById('fTo').value,
+      };
+    }
+
+    document.getElementById('btnFilter').addEventListener('click', () => {
+      currentParams = getFilters();
+      loadLogs(currentParams, 0);
+    });
+
+    document.getElementById('btnClear').addEventListener('click', () => {
+      document.getElementById('fEntityType').value = '';
+      document.getElementById('fAction').value = '';
+      document.getElementById('fEntityId').value = '';
+      document.getElementById('fFrom').value = '';
+      document.getElementById('fTo').value = '';
+      currentParams = {};
+      loadLogs({}, 0);
+    });
+
+    document.getElementById('btnExportCsv').addEventListener('click', async () => {
+      const q = new URLSearchParams(currentParams);
+      q.set('limit', 500);
+      q.set('offset', 0);
+      const resp = await fetch(`${API}/activity-log?${q}`, { headers: authHeaders() });
+      const result = await resp.json();
+      const rows = (result.logs || []).map(l => [
+        l.id, l.entity_type, l.entity_name || l.entity_id, l.action,
+        l.performed_by_name || '', l.event_name || '', l.created_at
+      ]);
+      rows.unshift(['id','entity_type','entity_name','action','performed_by','event','created_at']);
+      const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+      const a = document.createElement('a');
+      a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+      a.download = 'activity-log-' + new Date().toISOString().slice(0,10) + '.csv';
+      a.click();
+    });
+
+    // Keyboard shortcut: Enter in search field
+    document.getElementById('fEntityId').addEventListener('keydown', e => {
+      if (e.key === 'Enter') document.getElementById('btnFilter').click();
+    });
+
+    // Check for entity_id param in URL (deep-link from other pages)
+    const urlParams = new URLSearchParams(location.search);
+    if (urlParams.get('entity_id')) {
+      document.getElementById('fEntityId').value = urlParams.get('entity_id');
+      if (urlParams.get('entity_type')) document.getElementById('fEntityType').value = urlParams.get('entity_type');
+      currentParams = getFilters();
+    }
+
+    loadLogs(currentParams, 0);
+  </script>
+</body>
+</html>

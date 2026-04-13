@@ -129,6 +129,18 @@ app.use('/api/whatsapp', whatsappRouter);
 app.use('/api/staff-assignments', requireAuth, staffAssignmentsRouter); // Webhook must be public, individual routes handle auth
 app.use('/api/lookup', requireAuth, lookupRouter);
 
+const assetCheckoutsRouter  = require('./routes/asset-checkouts');
+const activityLogRouter      = require('./routes/activity-log');
+const raceFleetRouter        = require('./routes/race-fleet');
+const postEventNotesRouter   = require('./routes/post-event-notes');
+const mileageLogRouter       = require('./routes/mileage-log');
+
+app.use('/api/asset-checkouts',  requireAuth, assetCheckoutsRouter);
+app.use('/api/activity-log',     requireAuth, activityLogRouter);
+app.use('/api/race-fleet',       requireAuth, raceFleetRouter);
+app.use('/api/post-event-notes', requireAuth, postEventNotesRouter);
+app.use('/api/mileage-log',      requireAuth, mileageLogRouter);
+
 // Get settings (read-only endpoint) - PROTECTED
 app.get('/api/settings', requireAuth, async (req, res) => {
   try {
