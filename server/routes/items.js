@@ -6,13 +6,13 @@ const { logActivity } = require('../lib/activityLog');
 // GET /api/items - Get all items
 router.get('/', async (req, res, next) => {
   try {
-    const { item_type, category, status, current_box_id, search } = req.query;
-    
+    const { item_type, category, status, current_box_id, search, is_race_fleet } = req.query;
+
     // Only select columns needed by frontend for better performance
     let query = `SELECT 
       i.id, i.barcode, i.name, i.serial_number, i.category, i.item_type, 
       i.status, i.current_box_id, i.current_location_id, i.weight_kg, 
-      i.value_usd, i.description, i.assigned_staff_id,
+      i.value_usd, i.description, i.assigned_staff_id, i.is_race_fleet,
       s.name AS assigned_staff_name,
       i.created_at, i.updated_at
     FROM items i
@@ -20,7 +20,10 @@ router.get('/', async (req, res, next) => {
     WHERE 1=1`;
     const params = [];
     let paramCount = 1;
-    
+    if (is_race_fleet === 'true') {
+      query += ` AND i.is_race_fleet = TRUE`;
+    }
+
     if (item_type) {
       query += ` AND i.item_type = $${paramCount++}`;
       params.push(item_type);
@@ -233,15 +236,18 @@ router.put('/:id', async (req, res, next) => {
           value_usd = COALESCE($10, value_usd),
           serial_number = COALESCE($11, serial_number),
           status = COALESCE($12, status),
+          is_race_fleet = COALESCE($13, is_race_fleet),
           updated_at = NOW()
-      WHERE id = $13
+      WHERE id = $14
       RETURNING *
     `;
     
     const values = [
       name, item_type, category, description, current_box_id,
       current_location_id, last_maintenance_date, next_maintenance_date,
-      weight, value, serial_number, status, id
+      weight, value, serial_number, status,
+      req.body.is_race_fleet !== undefined ? Boolean(req.body.is_race_fleet) : null,
+      id
     ];
     
     const result = await pool.query(query, values);

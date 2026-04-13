@@ -168,6 +168,35 @@
       background: rgba(0,153,204,0.08);
       box-shadow: 0 0 0 2px rgba(0,153,204,0.2);
     }
+    /* Checked-out single-line compact variant */
+    .asset-card.checked-out {
+      background: #fff8e1;
+      border-color: #ffe082;
+      gap: 0;
+      padding: 5px 10px 5px 14px;
+    }
+    .asset-card.checked-out:hover {
+      background: #fff3cd;
+      border-color: #ffca28;
+    }
+    .asset-card.checked-out.selected {
+      background: #fff0bd;
+      border-color: #f59e0b;
+    }
+    .checkout-badge {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+      flex-shrink: 0;
+      font-size: 0.68rem;
+      font-weight: 600;
+      color: #b45309;
+      background: rgba(245,158,11,0.12);
+      border: 1px solid rgba(245,158,11,0.3);
+      border-radius: 3px;
+      padding: 1px 6px;
+    }
     /* Mechanic-assigned single-line compact variant */
     .asset-card.assigned-to-mechanic {
       background: #e8f6fd;
@@ -1885,6 +1914,7 @@
     let allStaff = [];
     let allAssetTypes = [];
     let currentAsset = null;
+    let checkoutsMap = {}; // item_id -> active checkout record
     let currentView = 'cards';
     let sortColumn = null;
     let sortDirection = 'desc';
@@ -2430,6 +2460,26 @@
       if (asset.weight_kg) metaItems.push(`<div class="asset-meta-item">⚖️ ${asset.weight_kg}kg</div>`);
       if (asset.value_usd) metaItems.push(`<div class="asset-meta-item">💰 $${parseFloat(asset.value_usd).toFixed(0)}</div>`);
 
+      // Compact single-line layout for checked-out assets
+      if (asset.status === 'in_use' && checkoutsMap[asset.id]) {
+        const co = checkoutsMap[asset.id];
+        return `<div class="asset-card checked-out" data-id="${asset.id}">
+          <div class="status-indicator ${statusClass}"></div>
+          <div class="card-checkbox-container">
+            <input type="checkbox" class="asset-checkbox" data-id="${asset.id}" onclick="event.stopPropagation(); toggleAssetSelection('${asset.id}', event)">
+          </div>
+          <div class="asset-card-mechanic-row">
+            <div class="asset-barcode" style="font-size:0.7rem;">${asset.barcode || asset.id}</div>
+            <div class="asset-name" title="${asset.name}" style="font-size:0.8rem;">${asset.name}</div>
+            ${locationHtml}
+            <div style="flex:1;min-width:0;"></div>
+            <div class="checkout-badge">
+              \uD83D\uDCCB ${co.checked_out_to_name}${co.checked_out_to_type !== 'external' ? ' <span style="opacity:.7;font-weight:400">('+co.checked_out_to_type+')</span>' : ''}
+            </div>
+          </div>
+        </div>`;
+      }
+
       // Compact single-line layout for mechanic-assigned assets
       if (asset.assigned_staff_id) {
         const mechanicName = asset.assigned_staff_name || asset.assigned_staff_id;
@@ -2675,6 +2725,15 @@
                   <div class="col-12">
                     <label class="form-label">Description / Notes</label>
                     <textarea class="form-control form-control-sm" id="panelAssetDescription" rows="2" placeholder="Additional details...">${asset.description || ''}</textarea>
+                  </div>
+                  <div class="col-12">
+                    <div class="form-check form-switch mt-1">
+                      <input class="form-check-input" type="checkbox" id="panelRaceFleetFlag" ${asset.is_race_fleet ? 'checked' : ''} onchange="toggleRaceFleetFlag()">
+                      <label class="form-check-label fw-semibold" for="panelRaceFleetFlag">
+                        \uD83C\uDFC1 Race Fleet Asset
+                        <small class="text-muted fw-normal">&nbsp;\u2014 also shows in Race Fleet</small>
+                      </label>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -3301,7 +3360,8 @@ if (!newLocationId && !newBoxId) {
         value_usd: parseFloat(document.getElementById('panelAssetValue').value) || 0,
         description: document.getElementById('panelAssetDescription').value,
         last_maintenance_date: document.getElementById('panelAssetLastMaintenance').value || null,
-        next_maintenance_date: document.getElementById('panelAssetNextMaintenance').value || null
+        next_maintenance_date: document.getElementById('panelAssetNextMaintenance').value || null,
+        is_race_fleet: document.getElementById('panelRaceFleetFlag')?.checked ?? false
       };
 
       try {
@@ -4683,6 +4743,35 @@ if (!newLocationId && !newBoxId) {
     }
 
     // =================== CHECKOUT SYSTEM ===================
+
+    async function toggleRaceFleetFlag() {
+      const id  = currentAsset?.id;
+      const val = document.getElementById('panelRaceFleetFlag')?.checked;
+      if (!id) return;
+      try {
+        const token = localStorage.getItem('auth_token') || '';
+        const resp = await fetch(`${window.RTS_CONFIG.api.baseURL}/items/${encodeURIComponent(id)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ is_race_fleet: val })
+        });
+        const result = await resp.json();
+        if (result.success) {
+          showToast(val ? '\uD83C\uDFC1 Added to Race Fleet' : 'Removed from Race Fleet', 'success');
+          // Update local data immediately
+          const idx = allAssets.findIndex(a => a.id === id);
+          if (idx > -1) allAssets[idx].is_race_fleet = val;
+          if (currentAsset) currentAsset.is_race_fleet = val;
+        } else {
+          showToast('Error: ' + (result.error || 'Could not save'), 'danger');
+          // Revert the checkbox
+          document.getElementById('panelRaceFleetFlag').checked = !val;
+        }
+      } catch(e) {
+        showToast('Error: ' + e.message, 'danger');
+        document.getElementById('panelRaceFleetFlag').checked = !val;
+      }
+    }
 
     async function checkOverdueItems() {
       try {

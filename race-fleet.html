@@ -101,6 +101,12 @@
       </li>
     </ul>
 
+    <!-- Fleet Assets (flagged from Assets page) -->
+    <h6 class="text-muted mt-4 mb-2" style="font-size:.75rem;text-transform:uppercase;letter-spacing:.5px;">🔧 Fleet Assets <small style="text-transform:none;font-size:.85em;">(assigned via Assets page)</small></h6>
+    <ul id="fleetAssetList" class="list-unstyled mb-4">
+      <li class="text-center py-3 text-muted"><div class="spinner-border spinner-border-sm"></div></li>
+    </ul>
+
   </div>
 
   <!-- Add / Edit Modal -->
@@ -525,6 +531,69 @@
     document.getElementById('searchInput').addEventListener('input', renderVehicles);
 
     loadVehicles();
+    loadFleetAssets();
+
+    async function loadFleetAssets() {
+      const list = document.getElementById('fleetAssetList');
+      try {
+        const resp = await fetch(`${API}/items?is_race_fleet=true`, { headers: authHeaders() });
+        const result = await resp.json();
+        const items = result.items || [];
+        if (items.length === 0) {
+          list.innerHTML = '<li class="text-muted" style="font-size:.85rem;padding:6px 0;">No assets flagged as race fleet yet. Open an asset in Assets and tick the Race Fleet checkbox.</li>';
+          return;
+        }
+        list.innerHTML = items.map(item => {
+          const statusColour = item.status === 'available' ? '#198754' : item.status === 'in_use' ? '#0d6efd' : '#6c757d';
+          const boxInfo = item.current_box_id ? `<span class="stat-chip" style="font-size:.75rem;">📦 In box</span>` : '';
+          return `
+            <li class="vehicle-card" style="border-left:3px solid #f59e0b;">
+              <div class="vehicle-icon">🔧</div>
+              <div class="vehicle-info">
+                <div class="vehicle-name">${escHtml(item.name)}</div>
+                <div class="vehicle-class">
+                  ${item.category ? `<span class="type-badge" style="background:#fff8e1;color:#b45309;border:1px solid #ffe082;">${escHtml(item.category)}</span>` : ''}
+                  ${item.barcode  ? `<span class="ms-1 text-muted" style="font-size:.8rem;">· ${escHtml(item.barcode)}</span>` : ''}
+                </div>
+                <div class="vehicle-stats">
+                  <span class="stat-chip" style="font-size:.75rem;color:${statusColour};">${escHtml(item.status || 'unknown').replace('_',' ')}</span>
+                  ${boxInfo}
+                  ${item.serial_number ? `<span class="stat-chip" style="font-size:.75rem;">S/N: ${escHtml(item.serial_number)}</span>` : ''}
+                </div>
+              </div>
+              <div class="vehicle-actions">
+                <a href="assets.html" class="btn btn-sm btn-outline-secondary" title="View in Assets">📋 Assets</a>
+                <button class="btn btn-sm btn-outline-warning" title="Remove from Race Fleet" onclick="removeFromFleet('${item.id}', this)">✕ Fleet</button>
+              </div>
+            </li>`;
+        }).join('');
+      } catch (e) {
+        list.innerHTML = '<li><div class="alert alert-danger m-0 py-2">Failed to load fleet assets: ' + e.message + '</div></li>';
+      }
+    }
+
+    async function removeFromFleet(id, btn) {
+      if (!confirm('Remove this asset from Race Fleet?')) return;
+      btn.disabled = true;
+      try {
+        const resp = await fetch(`${API}/items/${id}`, {
+          method: 'PUT',
+          headers: authHeaders(true),
+          body: JSON.stringify({ is_race_fleet: false })
+        });
+        const result = await resp.json();
+        if (result.success || result.item) {
+          showToast('Removed from Race Fleet', 'success');
+          loadFleetAssets();
+        } else {
+          showToast('Error: ' + (result.error || 'Unknown'), 'danger');
+          btn.disabled = false;
+        }
+      } catch (e) {
+        showToast('Error: ' + e.message, 'danger');
+        btn.disabled = false;
+      }
+    }
   </script>
 </body>
 </html>

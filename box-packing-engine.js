@@ -3355,58 +3355,115 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
 
     const box = getBox(currentBoxId);
     const contents = boxContents.filter(c => c.boxId === currentBoxId);
-    
+
+    const KOKORO_LOGO = 'https://www.fpzero.co.uk/images/partner_kokoro.png';
+    const FTW_LOGO    = 'https://ftwmotorsport.com/cdn/shop/files/FTW_Logo_4d20e63f-d033-40e3-9d0e-70d69a8b59ce.png?v=1664635126&width=225';
+
+    function escHtml(str) {
+      return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    const label = box.barcode || box.name;
+    const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=400x400&margin=4&data=' + encodeURIComponent(label);
+
+    const contentRows = contents.map(c => {
+      const item = getItem(c.itemId, c.itemType);
+      return item ? `<div class="item">• ${escHtml(item.name)} <span class="item-bc">(${escHtml(item.barcode)})</span></div>` : '';
+    }).join('');
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Box Label — ${escHtml(label)}</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: Arial, Helvetica, sans-serif; background:#fff; }
+    .label {
+      width: 180mm;
+      margin: 10mm auto;
+      border: 2px solid #000;
+      border-radius: 3mm;
+      padding: 8mm 10mm;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5mm;
+    }
+    .logo-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+    }
+    .logo-kokoro { max-height: 14mm; max-width: 40mm; object-fit: contain; }
+    .logo-ftw    { max-height: 10mm; max-width: 32mm; object-fit: contain; }
+    .box-name {
+      font-size: 16pt;
+      font-weight: 800;
+      text-align: center;
+      letter-spacing: 0.5px;
+    }
+    .qr-img { width: 52mm; height: 52mm; display: block; }
+    .barcode-text {
+      font-size: 13pt;
+      font-weight: 700;
+      letter-spacing: 2px;
+      color: #000;
+    }
+    .details {
+      width: 100%;
+      border-top: 1px solid #ccc;
+      padding-top: 4mm;
+      font-size: 9.5pt;
+      line-height: 1.7;
+    }
+    .contents {
+      width: 100%;
+      border-top: 1px solid #ccc;
+      padding-top: 4mm;
+      font-size: 9pt;
+      line-height: 1.6;
+    }
+    .contents-header { font-weight: 700; margin-bottom: 2mm; }
+    .item { margin-bottom: 1.5mm; }
+    .item-bc { color: #555; font-size: 8.5pt; }
+    @media print {
+      body { margin: 0; }
+      .label { margin: 8mm auto; border: 1.5pt solid #000; }
+    }
+  </style>
+</head>
+<body>
+  <div class="label">
+    <div class="logo-row">
+      <img src="${KOKORO_LOGO}" class="logo-kokoro" alt="Kokoro Racing">
+      <img src="${FTW_LOGO}" class="logo-ftw" alt="FTW Motorsport">
+    </div>
+    <div class="box-name">${escHtml(box.name)}</div>
+    <img src="${qrUrl}" class="qr-img" alt="QR ${escHtml(label)}">
+    <div class="barcode-text">${escHtml(label)}</div>
+    <div class="details">
+      <div><strong>Dimensions:</strong> ${escHtml(box.length)} × ${escHtml(box.width)} × ${escHtml(box.height)} cm</div>
+      <div><strong>Weight Capacity:</strong> ${escHtml(String(box.weightCapacity))} kg</div>
+      <div><strong>Location:</strong> ${escHtml(box.location)}</div>
+      <div><strong>Items Inside:</strong> ${contents.length}</div>
+    </div>
+    ${contentRows ? `<div class="contents"><div class="contents-header">Contents:</div>${contentRows}</div>` : ''}
+  </div>
+  <script>
+    window.addEventListener('load', function() {
+      setTimeout(function() { window.print(); }, 400);
+    });
+  <\/script>
+</body>
+</html>`;
+
     const printWindow = window.open('', '_blank');
-    const html = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Box Label - ${box.barcode}</title>
-        <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
-        <style>
-          body { font-family: Arial; padding: 20px; }
-          .label { border: 2px solid #000; padding: 20px; max-width: 600px; }
-          h1 { margin: 0 0 10px 0; font-size: 1.5rem; }
-          .barcode-container { margin: 15px 0; }
-          svg { width: 100%; height: 80px; }
-          .details { margin-top: 20px; }
-          .details div { margin-bottom: 8px; }
-          .contents-list { margin-top: 15px; border-top: 1px solid #ccc; padding-top: 15px; }
-          .item { margin-bottom: 5px; font-size: 0.9rem; }
-        </style>
-      </head>
-      <body>
-        <div class="label">
-          <h1>${box.name}</h1>
-          <div class="barcode-container">
-            <svg id="barcode"></svg>
-          </div>
-          <div class="details">
-            <div><strong>Dimensions:</strong> ${box.length} × ${box.width} × ${box.height} cm</div>
-            <div><strong>Weight Capacity:</strong> ${box.weightCapacity} kg</div>
-            <div><strong>Location:</strong> ${box.location}</div>
-            <div><strong>Items Inside:</strong> ${contents.length}</div>
-          </div>
-          <div class="contents-list">
-            <strong>Contents:</strong>
-            ${contents.map(c => {
-              const item = getItem(c.itemId, c.itemType);
-              return item ? `<div class="item">• ${item.name} (${item.barcode})</div>` : '';
-            }).join('')}
-          </div>
-        </div>
-        <script>
-          JsBarcode("#barcode", "${box.barcode}", {
-            format: "CODE128",
-            displayValue: true,
-            fontSize: 18,
-            height: 60
-          });
-          setTimeout(() => window.print(), 500);
-        </script>
-      </body>
-      </html>
-    `;
+    if (!printWindow) {
+      showToast('Popup blocked — please allow popups for this page', 'warning');
+      return;
+    }
     printWindow.document.write(html);
     printWindow.document.close();
   }
