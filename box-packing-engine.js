@@ -69,6 +69,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   let selectedItems = new Set(); // Track selected item IDs for multi-drag
   let boxLoadFilter = 'all'; // 'all' | 'available' | 'loaded'
   let itemLocationFilter = ''; // '' = all locations, or a location id
+  let hidePackedItems = false; // hide assets already packed into a box
   let itemsPage = 1; // Fix 14: pagination state
   const ITEMS_PER_PAGE = 50;
 
@@ -1670,6 +1671,11 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     // Apply location filter (assets only — inventory items don't have a location)
     if (itemLocationFilter && currentFilter !== 'inventory') {
       allItems = allItems.filter(item => item.currentLocationId === itemLocationFilter);
+    }
+
+    // Hide items already packed in a box
+    if (hidePackedItems && currentFilter !== 'inventory') {
+      allItems = allItems.filter(item => !item.currentBoxId);
     }
 
     // Show ALL items (not just packed ones) - users can drag them into boxes
@@ -4329,6 +4335,18 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     renderBoxes();
   };
 
+  window.toggleHidePackedItems = function() {
+    hidePackedItems = !hidePackedItems;
+    const btn = document.getElementById('btnHidePackedItems');
+    if (btn) {
+      btn.style.background = hidePackedItems ? '#e8f0fe' : '#fff';
+      btn.style.color      = hidePackedItems ? '#1a73e8' : '#5f6368';
+      btn.style.borderColor= hidePackedItems ? '#1a73e8' : '#d0d0d0';
+      btn.textContent      = hidePackedItems ? '📦 In-box hidden' : '📦 Hide in-box';
+    }
+    renderItems();
+  };
+
   function renderDriverSummary() {
     const section = document.getElementById('driverSummarySection');
     const body    = document.getElementById('driverSummaryBody');
@@ -4355,7 +4373,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       const boxItems = d.boxes.map(b => {
         const count = boxContents.filter(c => c.boxId === b.id).length;
         const loaded = b.truckId ? ' <span style="color:#1a73e8;font-size:.68rem">🚛</span>' : '';
-        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid #f0f0f0;font-size:.78rem">
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid #f0f0f0;font-size:.78rem;cursor:pointer;border-radius:3px" onclick="handleBoxClick('${b.id}')" title="Open ${esc(b.name)}" onmouseover="this.style.background='#e8f0fe'" onmouseout="this.style.background=''">
           <span style="font-family:monospace;font-weight:700;color:#1a73e8">${esc(b.barcode)}</span>
           <span style="flex:1;margin:0 8px;color:#202124;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(b.name)}</span>
           <span style="color:#5f6368;font-size:.7rem">${count} item${count !== 1 ? 's' : ''}${loaded}</span>
