@@ -344,6 +344,14 @@
       background: rgba(0,0,0,0.025);
       pointer-events: none;
     }
+    .pm-col-gridline {
+      position: absolute; top: 0; bottom: 0;
+      width: 1px; background: rgba(0,0,0,0.07);
+      pointer-events: none;
+    }
+    .pm-col-gridline.major {
+      background: rgba(0,0,0,0.13);
+    }
     .pm-today-line {
       position: absolute; top: 0; bottom: 0;
       width: 2px; background: #e74c3c;
@@ -1409,12 +1417,24 @@
     const today = new Date(); today.setHours(0,0,0,0);
     const chartBody = document.getElementById('pm-chart-body');
 
-    // Weekend columns
+    // Weekend columns + vertical gridlines
     let weekendHtml = '';
     for (let i = 0; i < state.ganttTotalDays; i++) {
       const d = addDays(state.ganttStartDate, i);
       if (isWeekend(d)) {
         weekendHtml += `<div class="pm-col-weekend" style="left:${i*px}px;width:${px}px;"></div>`;
+      }
+      // Gridlines: every day (day zoom), every Monday (week zoom), every 1st (month zoom)
+      if (state.zoom === 'day') {
+        weekendHtml += `<div class="pm-col-gridline" style="left:${i*px}px;"></div>`;
+      } else if (state.zoom === 'week') {
+        if (d.getDay() === 1) { // Monday
+          weekendHtml += `<div class="pm-col-gridline major" style="left:${i*px}px;"></div>`;
+        }
+      } else { // month zoom
+        if (d.getDate() === 1) {
+          weekendHtml += `<div class="pm-col-gridline major" style="left:${i*px}px;"></div>`;
+        }
       }
     }
 
