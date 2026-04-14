@@ -7,51 +7,104 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="style.css" rel="stylesheet" />
   <style>
-    /* Compact left-pane list items */
-    .mlo-pane-left .pastel-tree {
-      padding: 0 !important;
-      margin: 0 !important;
+    /* ── LIGHT PAGE BASE ─────────────────────────────────────────── */
+    body { background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%); }
+
+    /* ── STATS BAR ───────────────────────────────────────────────── */
+    .ev-stats-bar { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+    .ev-stat-card { background: #fff; border: 1px solid rgba(0,0,0,0.1); border-radius: 8px; padding: 10px 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.06); min-width: 110px; }
+    .ev-stat-label { font-size: 0.7rem; color: #6c757d; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+    .ev-stat-value { font-size: 1.5rem; font-weight: 700; color: #1a1d24; line-height: 1.2; }
+
+    /* ── SHELL ───────────────────────────────────────────────────── */
+    #evShell.mlo-shell { background: transparent; border: none; gap: 10px; }
+    #evShell .mlo-pane-left,
+    #evShell .mlo-pane-mid,
+    #evShell .mlo-pane-right {
+      background: #ffffff;
+      border: 1px solid rgba(0,0,0,0.1);
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.06);
     }
-    /* More specific overrides to beat .ev-pastel/.pastel-tree defaults */
-    .mlo-pane-left .ev-pastel li,
-    .mlo-pane-left .pastel-tree.ev-pastel li,
-    .mlo-pane-left .pastel-tree li {
-      padding: 0 !important;
-      margin-bottom: 0.08rem !important;
-      line-height: 1 !important;
-      height: 24px !important; /* even tighter single-line height */
+    #evShell .mlo-pane-header {
+      background: #f8f9fa;
+      border-bottom: 1px solid rgba(0,0,0,0.1);
+    }
+    #evShell .mlo-title { color: #1a1d24 !important; }
+    #evShell .mlo-section-label { color: #6c757d !important; opacity: 1 !important; }
+    #evShell .mlo-pane-content { color: #1a1d24; }
+    #evShell .mlo-resizer { background: transparent; }
+    #evShell .mlo-resizer:hover { background: rgba(0,153,204,0.3); }
+
+    /* ── LEFT PANE LIST ITEMS ────────────────────────────────────── */
+    #evShell .mlo-pane-left .pastel-tree { padding: 0 !important; margin: 0 !important; }
+    #evShell .mlo-pane-left .ev-pastel li,
+    #evShell .mlo-pane-left .pastel-tree li {
+      height: 28px !important;
       display: flex !important;
       align-items: center !important;
+      font-size: 0.83rem !important;
+      font-weight: 500 !important;
+      padding-left: 10px !important;
+      margin-bottom: 2px !important;
+      border-radius: 5px !important;
+      border: 1px solid rgba(0,0,0,0.08) !important;
+      box-shadow: none !important;
+      color: #1a1d24 !important;
       white-space: nowrap !important;
       overflow: hidden !important;
       text-overflow: ellipsis !important;
-      border-radius: 4px !important;
-      box-shadow: none !important;
-      border: 1px solid rgba(0,0,0,0.18) !important;
-      font-weight: 300 !important;
-      font-size: 0.95rem !important;
-      padding-left: 8px !important;
+      cursor: pointer !important;
+    }
+    #evShell .mlo-pane-left .ev-pastel li.active,
+    #evShell .mlo-pane-left .pastel-tree li.active {
+      background: rgba(0,153,204,0.1) !important;
+      border-color: rgba(0,153,204,0.35) !important;
+      color: #0072a3 !important;
+      font-weight: 700 !important;
     }
 
-    /* Inspector: make TYPE label/value clearly readable on dark background */
-    .mlo-pane-right #f_ev_type,
-    .mlo-pane-right #f_ev_type + .form-select,
-    .mlo-pane-right label[for="f_ev_type"] {
-      color: #ffffff !important;
+    /* ── FILTER ROW CONTROLS ─────────────────────────────────────── */
+    #evShell .form-control, #evShell .form-select {
+      background: #fff; color: #1a1d24; border-color: #dee2e6;
     }
+    #evShell .form-control::placeholder { color: #9aa5b4; }
 
-    /* New-event highlight (bright pink) */
-    .rts-new-highlight {
-      background: #ff5ab5 !important;
-      color: #ffffff !important;
+    /* ── EVENT LIST TABLE ────────────────────────────────────────── */
+    .ev-list-table { width: 100%; font-size: 0.82rem; border-collapse: separate; border-spacing: 0; }
+    .ev-list-table thead { position: sticky; top: 0; background: #f8f9fa; z-index: 5; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+    .ev-list-table th { padding: 8px 10px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #6c757d; border-bottom: 2px solid #dee2e6; white-space: nowrap; }
+    .ev-list-table td { padding: 6px 10px; border-bottom: 1px solid rgba(0,0,0,0.05); vertical-align: middle; }
+    .ev-list-table tbody tr { cursor: pointer; transition: filter 0.1s; }
+    .ev-list-table tbody tr:hover { filter: brightness(0.93); }
+    .mlo-row-selected { outline: 2px solid #0099cc; outline-offset: -2px; }
+    .mlo-group-row td { background: #f0f2f5 !important; color: #6c757d !important; font-size: 0.7rem !important; font-weight: 700 !important; text-transform: uppercase; letter-spacing: 0.05em; padding: 4px 10px !important; }
+    .ev-type-pill { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 0.65rem; font-weight: 700; color: #fff; }
+
+    /* ── NEW EVENT HIGHLIGHT ─────────────────────────────────────── */
+    .rts-new-highlight { background: #ff5ab5 !important; color: #ffffff !important; }
+
+    /* ── INSPECTOR TABS ──────────────────────────────────────────── */
+    #evShell #evTabs .nav-link { color: #6c757d; background: transparent; border-color: transparent; font-size: 0.8rem; padding: 7px 10px; }
+    #evShell #evTabs .nav-link.active { color: #0099cc; border-color: #dee2e6 #dee2e6 #fff; background: #fff; font-weight: 600; }
+    #evShell #evTabs .nav-link:hover:not(.active) { color: #1a1d24; border-color: #f0f0f0 #f0f0f0 transparent; }
+
+    /* ── INSPECTOR FORM ──────────────────────────────────────────── */
+    #evShell .mlo-pane-right .form-label { color: #495057 !important; font-size: 0.78rem; font-weight: 600; margin-bottom: 2px; }
+    #evShell .mlo-pane-right .form-control,
+    #evShell .mlo-pane-right .form-select {
+      background: #fff !important; color: #1a1d24 !important; border-color: #dee2e6 !important; font-size: 0.82rem;
     }
-    
-    /* Light mode adjustments for events page */
-    body.light-mode .mlo-pane-right #f_ev_type,
-    body.light-mode .mlo-pane-right #f_ev_type + .form-select,
-    body.light-mode .mlo-pane-right label[for="f_ev_type"] {
-      color: #000000 !important;
-    }
+    #evShell .mlo-pane-right .text-secondary { color: #6c757d !important; }
+    #evShell .mlo-pane-right a { color: #0099cc; }
+
+    /* ── INSPECTOR SUB-TABLES ────────────────────────────────────── */
+    #evShell .ev-sub-table { width: 100%; font-size: 0.78rem; border-collapse: collapse; }
+    #evShell .ev-sub-table th { background: #f8f9fa; color: #6c757d; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; padding: 5px 8px; border-bottom: 1px solid #dee2e6; }
+    #evShell .ev-sub-table td { padding: 4px 8px; border-bottom: 1px solid #f0f0f0; color: #1a1d24; vertical-align: middle; }
+    #evShell .ev-sub-table .form-select, #evShell .ev-sub-table .form-control { font-size: 0.78rem; }
+    /* Wrap a class for the table containers */
+    .ev-table-wrap { border: 1px solid #dee2e6; border-radius: 6px; overflow: hidden; }
   </style>
 </head>
 <body class="light-mode">
@@ -61,11 +114,20 @@
       
 
       
-        <div class="pt-3 pb-2 mb-2 border-bottom">
-          <h1 class="h4">Events</h1>
-          <div class="text-secondary" style="font-size:0.85rem;">
-            Plan race weekends, test days, travel days. Assign drivers, crew, documents, and export to calendar.
+        <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+          <div>
+            <h1 class="h4 mb-1">Events</h1>
+            <div class="text-secondary" style="font-size:0.85rem;">Plan race weekends, test days, travel days. Assign drivers, crew, documents, and export to calendar.</div>
           </div>
+          <button class="btn btn-sm btn-primary" id="btnAddEv" type="button">+ Add Event</button>
+        </div>
+
+        <!-- Stats Bar -->
+        <div class="ev-stats-bar">
+          <div class="ev-stat-card"><div class="ev-stat-label">📅 Total Events</div><div class="ev-stat-value" id="statEvTotal">0</div></div>
+          <div class="ev-stat-card"><div class="ev-stat-label">🔜 Upcoming</div><div class="ev-stat-value" id="statEvUpcoming">0</div></div>
+          <div class="ev-stat-card"><div class="ev-stat-label">✅ Past</div><div class="ev-stat-value" id="statEvPast">0</div></div>
+          <div class="ev-stat-card"><div class="ev-stat-label">📆 This Month</div><div class="ev-stat-value" id="statEvMonth">0</div></div>
         </div>
 
         <div class="mlo-shell" id="evShell">
@@ -112,12 +174,11 @@
                   <option value="status">Group: Status</option>
                   <option value="month">Group: Month</option>
                 </select>
-                <button class="btn btn-sm btn-outline-light mlo-btn" id="btnAddEv" type="button" style="white-space:nowrap;">Add Event</button>
               </div>
             </div>
 
             <div class="mlo-pane-content" style="padding:0;">
-              <table class="table table-dark table-hover mlo-table" style="margin:0;">
+              <table class="ev-list-table" style="margin:0;">
                 <thead>
                   <tr>
                     <th style="width:60px;">#</th>
@@ -205,8 +266,8 @@
 
                   <div class="col-12">
                     <label class="form-label">Drivers attending</label>
-                    <div class="border rounded" style="border-color: rgba(255,255,255,0.10) !important;">
-                      <table class="table table-dark mlo-table" style="margin:0;">
+                    <div class="ev-table-wrap">
+                      <table class="ev-sub-table" style="width:100%;">
                         <thead>
                           <tr>
                             <th>Driver</th>
@@ -218,7 +279,7 @@
                         <tbody id="evDriversTbody"></tbody>
                       </table>
                     </div>
-                    <button class="btn btn-sm btn-outline-light mlo-btn mt-1" id="btnAddDriver" type="button">Add driver</button>
+                    <button class="btn btn-sm btn-outline-secondary mt-1" id="btnAddDriver" type="button">Add driver</button>
                     <div class="text-secondary" style="font-size:0.75rem; margin-top:0.15rem;">
                       Driver list is managed in <a href="settings.html" class="text-decoration-none">Settings</a>.
                     </div>
@@ -226,8 +287,8 @@
 
                   <div class="col-12">
                     <label class="form-label">Crew roster</label>
-                    <div class="border rounded" style="border-color: rgba(255,255,255,0.10) !important;">
-                      <table class="table table-dark mlo-table" style="margin:0;">
+                    <div class="ev-table-wrap">
+                      <table class="ev-sub-table" style="width:100%;">
                         <thead>
                           <tr>
                             <th>Person</th>
@@ -238,7 +299,7 @@
                         <tbody id="evCrewTbody"></tbody>
                       </table>
                     </div>
-                    <button class="btn btn-sm btn-outline-light mlo-btn mt-1" id="btnAddCrew" type="button">Add crew row</button>
+                    <button class="btn btn-sm btn-outline-secondary mt-1" id="btnAddCrew" type="button">Add crew row</button>
                     <div class="text-secondary" style="font-size:0.75rem; margin-top:0.15rem;">
                       Staff and roles are managed in <a href="settings.html" class="text-decoration-none">Settings</a>.
                     </div>
@@ -250,8 +311,8 @@
                     <div class="d-flex gap-1 mt-1">
                       <input id="docName" class="form-control form-control-sm" type="text" placeholder="Document name" style="max-width: 220px;">
                       <input id="docUrl" class="form-control form-control-sm" type="text" placeholder="URL or file name">
-                      <button class="btn btn-sm btn-outline-light mlo-btn" id="btnAddDocDrive" type="button">Drive</button>
-                      <button class="btn btn-sm btn-outline-light mlo-btn" id="btnAddDoc" type="button">Add</button>
+                      <button class="btn btn-sm btn-outline-secondary" id="btnAddDocDrive" type="button">Drive</button>
+                      <button class="btn btn-sm btn-outline-secondary" id="btnAddDoc" type="button">Add</button>
                     </div>
                     <div class="text-secondary" style="font-size:0.75rem; margin-top:0.15rem;">
                       Attachments are stored as metadata in this prototype. When Drive Picker is enabled in Settings, "Drive" attaches real Google Drive files.
@@ -261,8 +322,8 @@
                   <div class="col-12">
                     <label class="form-label">Calendar</label>
                     <div class="d-flex flex-wrap gap-1">
-                      <button class="btn btn-sm btn-outline-light mlo-btn" id="btnICS" type="button">Download .ics</button>
-                      <a class="btn btn-sm btn-outline-light mlo-btn" id="btnGCalLink" href="#" target="_blank" rel="noopener">Create Google event</a>
+                      <button class="btn btn-sm btn-outline-secondary" id="btnICS" type="button">Download .ics</button>
+                      <a class="btn btn-sm btn-outline-secondary" id="btnGCalLink" href="#" target="_blank" rel="noopener">Create Google event</a>
                     </div>
                     <div class="text-secondary" style="font-size:0.75rem; margin-top:0.15rem;">
                       Google Calendar full sync requires OAuth + backend. For now this generates portable calendar artifacts.
@@ -271,7 +332,7 @@
 
                   <div class="col-12 d-flex gap-1 mt-1">
                     <button class="btn btn-sm btn-primary mlo-btn" id="btnSaveEv" type="button">Save</button>
-                    <button class="btn btn-sm btn-outline-light mlo-btn" id="btnDupEv" type="button">Duplicate</button>
+                    <button class="btn btn-sm btn-outline-secondary" id="btnDupEv" type="button">Duplicate</button>
                     <button class="btn btn-sm btn-outline-danger mlo-btn" id="btnDelEv" type="button">Delete</button>
                   </div>
 
@@ -299,7 +360,7 @@
                     <div class="col-12">
                       <label class="form-label">Gates / critical path</label>
                       <div class="table-responsive">
-                        <table class="table table-dark table-sm mlo-table" style="margin:0;">
+                        <table class="ev-sub-table" style="width:100%;">
                           <thead>
                             <tr>
                               <th>Name</th>
@@ -323,14 +384,14 @@
                           <option>Complete</option>
                           <option>Waived</option>
                         </select>
-                        <button class="btn btn-sm btn-outline-light mlo-btn" id="btn_add_gate" type="button">Add gate</button>
+                        <button class="btn btn-sm btn-outline-secondary" id="btn_add_gate" type="button">Add gate</button>
                       </div>
                     </div>
 
                     <div class="col-12">
                       <label class="form-label">Schedule</label>
                       <div class="table-responsive">
-                        <table class="table table-dark table-sm mlo-table" style="margin:0;">
+                        <table class="ev-sub-table" style="width:100%;">
                           <thead>
                             <tr>
                               <th style="width:140px;">Start</th>
@@ -348,12 +409,12 @@
                         <input id="rb_sched_end" class="form-control form-control-sm" type="datetime-local" style="flex:0 1 160px; min-width:150px;">
                         <input id="rb_sched_type" class="form-control form-control-sm" type="text" placeholder="Practice / Qualy / Heat" style="flex:0 1 160px; min-width:140px;">
                         <input id="rb_sched_notes" class="form-control form-control-sm" type="text" placeholder="Class, notes" style="flex:1 1 200px; min-width:160px;">
-                        <button class="btn btn-sm btn-outline-light mlo-btn" id="btn_add_sched" type="button">Add session</button>
+                        <button class="btn btn-sm btn-outline-secondary" id="btn_add_sched" type="button">Add session</button>
                       </div>
                     </div>
 
                     <div class="col-12 d-flex gap-1 mt-1">
-                      <button class="btn btn-sm btn-outline-light mlo-btn" id="btn_runbook_pdf" type="button">Runbook PDF</button>
+                      <button class="btn btn-sm btn-outline-secondary" id="btn_runbook_pdf" type="button">Runbook PDF</button>
                     </div>
                   </div>
                 </div>
@@ -373,7 +434,7 @@
                       <div id="setup_fields" class="row g-2"></div>
                     </div>
                     <div class="col-12 d-flex gap-1 mt-1">
-                      <button class="btn btn-sm btn-outline-light mlo-btn" id="btn_setup_add" type="button">Add Setup</button>
+                      <button class="btn btn-sm btn-outline-secondary" id="btn_setup_add" type="button">Add Setup</button>
                     </div>
                     <hr class="border-secondary">
                     <div class="col-12">
@@ -381,7 +442,7 @@
                       <div class="d-flex flex-wrap gap-1">
                         <select id="setup_cmp_a" class="form-select form-select-sm" style="max-width: 220px;"></select>
                         <select id="setup_cmp_b" class="form-select form-select-sm" style="max-width: 220px;"></select>
-                        <button class="btn btn-sm btn-outline-light mlo-btn" id="btn_setup_compare" type="button">Compare</button>
+                        <button class="btn btn-sm btn-outline-secondary" id="btn_setup_compare" type="button">Compare</button>
                       </div>
                       <div id="setup_cmp_result" class="mt-2"></div>
                     </div>
@@ -397,7 +458,7 @@
                     </div>
                     <div class="col-12">
                       <div class="table-responsive">
-                        <table class="table table-dark table-sm mlo-table" style="margin:0;">
+                        <table class="ev-sub-table" style="width:100%;">
                           <thead>
                             <tr>
                               <th style="width:140px;">Start</th>
@@ -420,7 +481,7 @@
                           <option>Complete</option>
                         </select>
                         <input id="rp_dur" class="form-control form-control-sm" type="number" min="1" step="1" placeholder="Dur (min)" style="flex:0 1 120px; min-width:100px;">
-                        <button class="btn btn-sm btn-outline-light mlo-btn" id="btn_rp_add" type="button">Add Session</button>
+                        <button class="btn btn-sm btn-outline-secondary" id="btn_rp_add" type="button">Add Session</button>
                       </div>
                     </div>
                   </div>
@@ -435,7 +496,7 @@
                         <select id="chk_master" class="form-select form-select-sm"></select>
                       </div>
                       <div>
-                        <button class="btn btn-sm btn-outline-light mlo-btn" id="btn_chk_spawn" type="button">Spawn Checklist</button>
+                        <button class="btn btn-sm btn-outline-secondary" id="btn_chk_spawn" type="button">Spawn Checklist</button>
                       </div>
                     </div>
                     <div class="col-12">
@@ -869,7 +930,7 @@
         const diff = (String(va) !== String(vb));
         return `<tr><td>${escapeHtml(k)}</td><td${diff?" style=\"background: rgba(255,255,0,0.15);\"":""}>${escapeHtml(va)}</td><td${diff?" style=\"background: rgba(255,255,0,0.15);\"":""}>${escapeHtml(vb)}</td></tr>`;
       }).join('');
-      els.setupCmpResult.innerHTML = `<div class="table-responsive"><table class="table table-dark mlo-table" style="margin:0;"><thead><tr><th>Field</th><th>A</th><th>B</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+      els.setupCmpResult.innerHTML = `<div class="table-responsive"><table class="ev-sub-table" style="margin:0;width:100%;"><thead><tr><th>Field</th><th>A</th><th>B</th></tr></thead><tbody>${rows}</tbody></table></div>`;
     }
 
     // ---------- Run Plan ----------
@@ -885,7 +946,7 @@
           <td>${escapeHtml(s.name||'')}</td>
           <td>${escapeHtml(s.driver||'')}</td>
           <td>${escapeHtml(s.status||'Pending')}</td>
-          <td><button class="btn btn-sm btn-outline-light mlo-btn rp-log" type="button">Log</button></td>
+          <td><button class="btn btn-sm btn-outline-secondary rp-log" type="button">Log</button></td>
         `;
         tr.querySelector('.rp-log').addEventListener('click', ()=> openSessionLogModal(s));
         els.runplanTbody.appendChild(tr);
@@ -939,7 +1000,7 @@
       let modalEl = document.getElementById('evSessionLogModal');
       if (!modalEl){
         const tpl = `
-          <div class=\"modal fade\" id=\"evSessionLogModal\" tabindex=\"-1\" aria-hidden=\"true\">\n            <div class=\"modal-dialog modal-dialog-centered\">\n              <div class=\"modal-content\" style=\"background:#0f1115; color:#e0e3e6; border:1px solid rgba(255,255,255,0.12);\">\n                <div class=\"modal-header\" style=\"border-bottom:1px solid rgba(255,255,255,0.1);\">\n                  <h5 class=\"modal-title\">Session Log</h5>\n                  <button type=\"button\" class=\"btn-close btn-close-white\" data-bs-dismiss=\"modal\" aria-label=\"Close\"></button>\n                </div>\n                <div class=\"modal-body\">\n                  <div class=\"row g-2\">\n                    <div class=\"col-6\">\n                      <label class=\"form-label\">Weather (Temp / Track)</label>\n                      <input id=\"sl_weather\" class=\"form-control form-control-sm\" type=\"text\" placeholder=\"22°C / Dry\">\n                    </div>\n                    <div class=\"col-6\">\n                      <label class=\"form-label\">Tags</label>\n                      <input id=\"sl_tags\" class=\"form-control form-control-sm\" type=\"text\" placeholder=\"#understeer #brakes\">\n                    </div>\n                    <div class=\"col-6\">\n                      <label class=\"form-label\">Tyre Pressures (Cold)</label>\n                      <input id=\"sl_press_cold\" class=\"form-control form-control-sm\" type=\"text\" placeholder=\"FL/FR/RL/RR\">\n                    </div>\n                    <div class=\"col-6\">\n                      <label class=\"form-label\">Tyre Pressures (Hot)</label>\n                      <input id=\"sl_press_hot\" class=\"form-control form-control-sm\" type=\"text\" placeholder=\"FL/FR/RL/RR\">\n                    </div>\n                    <div class=\"col-12\">\n                      <label class=\"form-label\">Driver Feedback</label>\n                      <textarea id=\"sl_feedback\" class=\"form-control form-control-sm\" rows=\"4\"></textarea>\n                    </div>\n                  </div>\n                </div>\n                <div class=\"modal-footer\" style=\"border-top:1px solid rgba(255,255,255,0.1);\">\n                  <button class=\"btn btn-sm btn-primary mlo-btn\" id=\"btn_sl_save\" type=\"button\">Save</button>\n                  <button type=\"button\" class=\"btn btn-sm btn-outline-light mlo-btn\" data-bs-dismiss=\"modal\">Close</button>\n                </div>\n              </div>\n            </div>\n          </div>`;
+          <div class=\"modal fade\" id=\"evSessionLogModal\" tabindex=\"-1\" aria-hidden=\"true\">\n            <div class=\"modal-dialog modal-dialog-centered\">\n              <div class=\"modal-content\" style=\"background:#0f1115; color:#e0e3e6; border:1px solid rgba(255,255,255,0.12);\">\n                <div class=\"modal-header\" style=\"border-bottom:1px solid rgba(255,255,255,0.1);\">\n                  <h5 class=\"modal-title\">Session Log</h5>\n                  <button type=\"button\" class=\"btn-close btn-close-white\" data-bs-dismiss=\"modal\" aria-label=\"Close\"></button>\n                </div>\n                <div class=\"modal-body\">\n                  <div class=\"row g-2\">\n                    <div class=\"col-6\">\n                      <label class=\"form-label\">Weather (Temp / Track)</label>\n                      <input id=\"sl_weather\" class=\"form-control form-control-sm\" type=\"text\" placeholder=\"22°C / Dry\">\n                    </div>\n                    <div class=\"col-6\">\n                      <label class=\"form-label\">Tags</label>\n                      <input id=\"sl_tags\" class=\"form-control form-control-sm\" type=\"text\" placeholder=\"#understeer #brakes\">\n                    </div>\n                    <div class=\"col-6\">\n                      <label class=\"form-label\">Tyre Pressures (Cold)</label>\n                      <input id=\"sl_press_cold\" class=\"form-control form-control-sm\" type=\"text\" placeholder=\"FL/FR/RL/RR\">\n                    </div>\n                    <div class=\"col-6\">\n                      <label class=\"form-label\">Tyre Pressures (Hot)</label>\n                      <input id=\"sl_press_hot\" class=\"form-control form-control-sm\" type=\"text\" placeholder=\"FL/FR/RL/RR\">\n                    </div>\n                    <div class=\"col-12\">\n                      <label class=\"form-label\">Driver Feedback</label>\n                      <textarea id=\"sl_feedback\" class=\"form-control form-control-sm\" rows=\"4\"></textarea>\n                    </div>\n                  </div>\n                </div>\n                <div class=\"modal-footer\" style=\"border-top:1px solid rgba(255,255,255,0.1);\">\n                  <button class=\"btn btn-sm btn-primary mlo-btn\" id=\"btn_sl_save\" type=\"button\">Save</button>\n                  <button type=\"button\" class=\"btn btn-sm btn-outline-secondary\" data-bs-dismiss=\"modal\">Close</button>\n                </div>\n              </div>\n            </div>\n          </div>`;
         const tmp = document.createElement('div'); tmp.innerHTML = tpl.trim();
         document.body.appendChild(tmp.firstChild);
         modalEl = document.getElementById('evSessionLogModal');
@@ -1001,7 +1062,7 @@
           return `<div class="form-check form-check-sm"><input class="form-check-input" type="checkbox" id="${id}" ${it.done? 'checked':''}><label class="form-check-label" for="${id}">${escapeHtml(it.text)}</label></div>`;
         }).join('');
         card.innerHTML = `
-          <div class="d-flex justify-content-between align-items-center mb-1"><strong>${escapeHtml(chk.name)}</strong><div class="d-flex gap-1"><button class="btn btn-sm btn-outline-light mlo-btn" data-act="clear">Clear</button><button class="btn btn-sm btn-outline-danger mlo-btn" data-act="remove">Remove</button></div></div>
+          <div class="d-flex justify-content-between align-items-center mb-1"><strong>${escapeHtml(chk.name)}</strong><div class="d-flex gap-1"><button class="btn btn-sm btn-outline-secondary" data-act="clear">Clear</button><button class="btn btn-sm btn-outline-danger" data-act="remove">Remove</button></div></div>
           ${itemsHtml || '<div class="text-secondary">No items.</div>'}
         `;
         card.querySelectorAll('.form-check-input').forEach((inp, j)=>{
@@ -1201,7 +1262,7 @@
         const provLabel = provider==='gdrive' ? 'Drive' : (provider ? provider : 'Link');
         const wrap = document.createElement('div');
         wrap.className = 'd-flex align-items-center justify-content-between gap-2 p-1';
-        wrap.style.border = '1px solid rgba(255,255,255,0.10)';
+        wrap.style.border = '1px solid #dee2e6';
         wrap.style.borderRadius = '0.25rem';
         wrap.innerHTML = `
           <div class="ev-doc-open" style="min-width:0; cursor:pointer;">
@@ -1419,6 +1480,12 @@
   // current filters.
   const visibleRows = selectedIsFiltered ? [selectedEv].concat(rows) : rows;
       els.countBadge.textContent = rows.length;
+      // Update stats bar
+      const _today = isoLocal(new Date()); const _month = _today.slice(0,7);
+      const _st = document.getElementById('statEvTotal'); if (_st) _st.textContent = events.length;
+      const _su = document.getElementById('statEvUpcoming'); if (_su) _su.textContent = events.filter(e => (e.start||'') >= _today).length;
+      const _sp = document.getElementById('statEvPast'); if (_sp) _sp.textContent = events.filter(e => (e.start||'') < _today).length;
+      const _sm = document.getElementById('statEvMonth'); if (_sm) _sm.textContent = events.filter(e => (e.start||'').startsWith(_month)).length;
 
       // keep selections stable
       if(!ui.selectedId || !events.some(e=>e.id===ui.selectedId)) {
@@ -1929,7 +1996,7 @@
       btnAdd.textContent = 'Add';
       const btnCancel = document.createElement('button');
       btnCancel.type = 'button';
-      btnCancel.className = 'btn btn-sm btn-outline-light';
+      btnCancel.className = 'btn btn-sm btn-outline-secondary';
       btnCancel.textContent = 'Cancel';
 
       wrap.appendChild(sel);
