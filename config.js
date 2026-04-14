@@ -430,7 +430,9 @@ window.RTS_DATA = {
         current_location_id: item.locationId || item.current_location_id,
         current_box_id: item.boxId || item.current_box_id,
         last_maintenance_date: item.lastMaintenance || item.last_maintenance_date,
-        next_maintenance_date: item.nextMaintenance || item.next_maintenance_date
+        next_maintenance_date: item.nextMaintenance || item.next_maintenance_date,
+        custom_fields: item.custom_fields || undefined,
+        parent_asset_id: 'parent_asset_id' in item ? item.parent_asset_id : undefined
       };
       
       if (item.id && !isNew) {
