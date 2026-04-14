@@ -331,7 +331,14 @@
     #pm-chart-body-scroll {
       flex: 1; overflow-x: auto; overflow-y: auto; position: relative;
     }
-    #pm-chart-body { position: relative; }
+    #pm-chart-body { position: relative;
+      /* Horizontal row lines continue into empty space below tasks */
+      background-image: repeating-linear-gradient(
+        to bottom,
+        transparent 0px, transparent 31px,
+        #f0f0f0 31px, #f0f0f0 32px
+      );
+    }
     .pm-chart-row {
       height: 32px; position: relative;
       border-bottom: 1px solid #f0f0f0;
@@ -1410,8 +1417,14 @@
 
     document.getElementById('pm-chart-header').innerHTML = `
       <div class="pm-header-months" style="width:${W}px;">${monthsHtml}</div>
-      <div class="${row2Class}" style="width:${W}px;">${row2Html}</div>
+      <div class="${row2Class}" style="width:${W}px;height:22px;">${row2Html}</div>
     `;
+    // Sync outline header height to match chart header so task rows align
+    requestAnimationFrame(() => {
+      const cs = document.getElementById('pm-chart-scroll');
+      const oh = document.getElementById('pm-outline-header');
+      if (cs && oh) { const h = cs.offsetHeight; if (h > 0) oh.style.height = h + 'px'; }
+    });
   }
 
   function renderChartBody(visibleTasks) {
@@ -1488,6 +1501,15 @@
         </defs>
       </svg>
     `;
+    // Expand chart body to fill the scroll container so gridlines reach the bottom
+    requestAnimationFrame(() => {
+      const bodyScroll = document.getElementById('pm-chart-body-scroll');
+      if (bodyScroll) {
+        const minH = Math.max(visibleTasks.length * 32, bodyScroll.clientHeight);
+        chartBody.style.minHeight = minH + 'px';
+        chartBody.style.width = W + 'px';
+      }
+    });
     renderArrows(visibleTasks);
   }
 
