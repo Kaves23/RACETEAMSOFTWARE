@@ -1037,7 +1037,9 @@
   }
   function parseDateLocal(s) {
     if (!s) return null;
-    const [y, m, d] = s.split('-').map(Number);
+    // Handle both 'YYYY-MM-DD' and ISO datetime 'YYYY-MM-DDTHH:mm:ssZ'
+    const [y, m, d] = String(s).slice(0, 10).split('-').map(Number);
+    if (!y || !m || !d) return null;
     return new Date(y, m - 1, d);
   }
   function daysBetween(a, b) {
@@ -1162,7 +1164,8 @@
   function computeGanttRange() {
     const allDates = state.tasks
       .filter(t => t.start_date || t.end_date)
-      .flatMap(t => [t.start_date, t.end_date].filter(Boolean).map(parseDateLocal));
+      .flatMap(t => [t.start_date, t.end_date].filter(Boolean).map(parseDateLocal))
+      .filter(d => d && !isNaN(d.getTime())); // drop invalid/null dates
     const today = new Date(); today.setHours(0,0,0,0);
     allDates.push(today, addDays(today, 30));
     const min = new Date(Math.min(...allDates));
@@ -1329,7 +1332,7 @@
   function renderChart(visibleTasks) {
     renderChartHeader();
     renderChartBody(visibleTasks);
-    syncChartScroll();
+    // syncChartScroll is only wired once (see initScrollSync)
   }
 
   function renderChartHeader() {
@@ -1533,6 +1536,11 @@
     bodyScroll.addEventListener('scroll', () => {
       outlineBody.scrollTop = bodyScroll.scrollTop;
     }, { passive: true });
+  }
+
+  // Call once at startup — never called again during renders
+  function initScrollSync() {
+    syncChartScroll();
   }
 
   // ════════════════════════════════════════════════════════════════
@@ -2569,6 +2577,7 @@
     setupEvents();
     setupInspectorEvents();
     renderAll(); // show empty state first
+    initScrollSync(); // wire scroll sync once, not on every render
     await Promise.all([loadPlans(), loadUsers()]);
     // Auto-select first active plan if any
     const firstActive = state.plans.find(p => p.status === 'active');
