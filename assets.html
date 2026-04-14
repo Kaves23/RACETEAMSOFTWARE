@@ -612,6 +612,26 @@
       }
     }
     
+    /* Engine / Exhaust type-specific field sections */
+    .type-fields-section { display: none; }
+    .type-fields-section.visible { display: block; }
+    .type-fields-section .section-header {
+      background: linear-gradient(90deg, #e8f4fd, #fff);
+      border-left: 3px solid #0099cc;
+    }
+    .seal-history-btn { font-size:0.7rem; padding:2px 8px; vertical-align:middle; margin-left:6px; }
+    .seal-history-list { font-size:0.78rem; border-top:1px solid #e0e0e0; margin-top:8px; padding-top:8px; }
+    .seal-history-entry { display:flex; gap:8px; padding:3px 0; border-bottom:1px solid #f5f5f5; color:#495057; }
+    .seal-history-entry .seal-date { color:#888; white-space:nowrap; min-width:100px; }
+
+    /* Linked Assets */
+    .linked-asset-row { display:flex; align-items:center; gap:8px; padding:6px 10px; background:#f8f9fa; border:1px solid #dee2e6; border-radius:5px; margin-bottom:5px; font-size:0.8rem; }
+    .linked-asset-row .la-type { font-size:0.7rem; color:white; padding:1px 7px; border-radius:3px; background:#0099cc; white-space:nowrap; }
+    .linked-asset-row .la-name { flex:1; font-weight:500; color:#1a1d24; }
+    .linked-asset-row .la-serial { color:#888; font-size:0.72rem; }
+    .linked-asset-row .la-unlink { background:none; border:none; color:#dc3545; cursor:pointer; padding:0 4px; font-size:0.8rem; }
+    .linked-asset-row .la-unlink:hover { color:#a71d2a; }
+
     /* Loading Spinner Overlay */
     .loading-overlay {
       position: fixed;
@@ -1426,7 +1446,7 @@
                     </div>
                     <div class="col-md-4">
                       <label class="form-label">📦 Type *</label>
-                      <select class="form-select" id="assetType" required>
+                      <select class="form-select" id="assetType" required onchange="onModalTypeChange(this.value)">
                         <!-- Populated dynamically from settings -->
                       </select>
                     </div>
@@ -1488,6 +1508,76 @@
                       <input type="number" class="form-control" id="assetValue" step="0.01" placeholder="0.00">
                     </div>
                   </div>
+                </div>
+
+                <!-- Engine-specific fields (shown only when type contains "engine") -->
+                <div class="section-card type-fields-section" id="engineFieldsSection">
+                  <div class="section-header">
+                    <div class="section-icon">⚙️</div>
+                    <span>Engine Details</span>
+                  </div>
+                  <div class="row g-3">
+                    <div class="col-md-6">
+                      <label class="form-label">
+                        🔒 Seal Number
+                        <button type="button" class="btn btn-outline-secondary seal-history-btn" id="btnSealHistory" style="display:none" onclick="toggleSealHistory('modalSealHistory')">📜 History</button>
+                      </label>
+                      <input type="text" class="form-control" id="engineSealNumber" placeholder="Current seal number">
+                      <div id="modalSealHistory" class="seal-history-list" style="display:none"></div>
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label">🔩 Carb Number <small class="text-muted">(optional)</small></label>
+                      <input type="text" class="form-control" id="engineCarbNumber" placeholder="Carb / carburettor number">
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label">💨 Exhaust Number <small class="text-muted">(optional)</small></label>
+                      <input type="text" class="form-control" id="engineExhaustNumber" placeholder="Exhaust fitted to engine">
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label">🌬️ Airbox Number <small class="text-muted">(optional)</small></label>
+                      <input type="text" class="form-control" id="engineAirboxNumber" placeholder="Airbox fitted to engine">
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Exhaust-specific fields (shown only when type contains "exhaust") -->
+                <div class="section-card type-fields-section" id="exhaustFieldsSection">
+                  <div class="section-header">
+                    <div class="section-icon">💨</div>
+                    <span>Exhaust Details</span>
+                  </div>
+                  <div class="row g-3">
+                    <div class="col-md-6">
+                      <label class="form-label">🔢 Exhaust Number</label>
+                      <input type="text" class="form-control" id="exhaustNumber" placeholder="Exhaust identification number">
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label fw-normal text-muted" style="font-size:0.8rem;">Serial Number is in Technical Details above</label>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Linked Assets (shown only on engine types, for combining assets) -->
+                <div class="section-card type-fields-section linked-assets-section" id="linkedAssetsSection">
+                  <div class="section-header">
+                    <div class="section-icon">🔗</div>
+                    <span>Linked Assets <small class="text-muted fw-normal">(move together as a set)</small></span>
+                  </div>
+                  <div id="linkedAssetsList" class="mb-3">
+                    <div class="text-muted" style="font-size:0.82rem;">Save this asset first, then link others to it.</div>
+                  </div>
+                  <div class="row g-2 align-items-end">
+                    <div class="col">
+                      <label class="form-label">Link an asset to this engine</label>
+                      <select class="form-select form-select-sm" id="linkAssetSelect">
+                        <option value="">Select asset to link…</option>
+                      </select>
+                    </div>
+                    <div class="col-auto">
+                      <button type="button" class="btn btn-sm btn-outline-primary" onclick="linkAssetToCurrentEngine()">🔗 Link</button>
+                    </div>
+                  </div>
+                  <div class="mt-2" style="font-size:0.75rem;color:#888;">Linked assets will check in/out with this engine automatically.</div>
                 </div>
               </form>
             </div>
@@ -2739,6 +2829,8 @@
               </div>
             </form>
 
+            ${buildPanelTypeFields(asset)}
+
             <div class="section-card location mt-2">
               <div class="section-header">
                 <div class="section-icon"></div>
@@ -2899,6 +2991,7 @@
         console.log('Auto-generating QR code for asset:', asset.barcode || asset.id);
         generatePanelQR();
         if (asset.status === 'in_use') loadCheckoutInfo(asset.id);
+        if (isEngineType(asset.item_type || '')) loadPanelLinkedAssets(asset.id);
       }, 100);
     }
 
@@ -2958,6 +3051,17 @@
         document.getElementById('assetNextMaintenance').value = asset.next_maintenance_date || '';
         document.getElementById('btnDeleteAsset').style.display = 'block';
         
+        // Populate type-specific fields from custom_fields
+        const cf = asset.custom_fields || {};
+        document.getElementById('engineSealNumber').value = cf.seal_number || '';
+        document.getElementById('engineCarbNumber').value = cf.carb_number || '';
+        document.getElementById('engineExhaustNumber').value = cf.exhaust_number || '';
+        document.getElementById('engineAirboxNumber').value = cf.airbox_number || '';
+        document.getElementById('exhaustNumber').value = cf.exhaust_number || '';
+
+        // Show/hide type-specific sections based on type
+        onModalTypeChange(asset.item_type || '');
+
         // Reset movement form
         document.getElementById('moveToLocation').value = '';
         document.getElementById('moveToBox').value = '';
@@ -2965,6 +3069,11 @@
         
         updateLocationStatus(asset);
         loadAssetHistory(asset);
+
+        // Load linked assets if engine
+        if (isEngineType(asset.item_type || '')) {
+          loadModalLinkedAssets(asset.id);
+        }
       } else {
         document.getElementById('modalTitle').textContent = '✨ Add New Asset';
         document.getElementById('assetForm').reset();
@@ -2973,6 +3082,13 @@
         document.getElementById('assetCategoryCustom').style.display = 'none';
         document.getElementById('assetCategoryCustom').value = '';
         document.getElementById('btnDeleteAsset').style.display = 'none';
+        // Reset type-specific fields
+        document.getElementById('engineSealNumber').value = '';
+        document.getElementById('engineCarbNumber').value = '';
+        document.getElementById('engineExhaustNumber').value = '';
+        document.getElementById('engineAirboxNumber').value = '';
+        document.getElementById('exhaustNumber').value = '';
+        onModalTypeChange(document.getElementById('assetType').value || '');
       }
       modal.show();
     }
@@ -3003,11 +3119,12 @@
         return;
       }
       
+      const itemType = document.getElementById('assetType')?.value || 'equipment';
       const data = {
         id: id || undefined,
         barcode: document.getElementById('assetBarcode')?.value || undefined,
         name: nameInput.value.trim(),
-        item_type: document.getElementById('assetType')?.value || 'equipment',
+        item_type: itemType,
         category: categoryValue,
         status: document.getElementById('assetStatus')?.value || 'available',
         serial_number: document.getElementById('assetSerial')?.value || '',
@@ -3017,7 +3134,8 @@
         current_location_id: document.getElementById('assetLocation')?.value || null,
         current_box_id: document.getElementById('assetBox')?.value || null,
         last_maintenance_date: document.getElementById('assetLastMaintenance')?.value || null,
-        next_maintenance_date: document.getElementById('assetNextMaintenance')?.value || null
+        next_maintenance_date: document.getElementById('assetNextMaintenance')?.value || null,
+        custom_fields: collectModalCustomFields(itemType)
       };
       
       console.log('Asset data to save:', data);
@@ -3349,10 +3467,11 @@ if (!newLocationId && !newBoxId) {
         return;
       }
 
+      const panelItemType = document.getElementById('panelAssetType').value;
       const data = {
         barcode: document.getElementById('panelAssetBarcode').value || undefined,
         name: document.getElementById('panelAssetName').value,
-        item_type: document.getElementById('panelAssetType').value,
+        item_type: panelItemType,
         category: getCategoryValue('panelAssetCategory', 'panelAssetCategoryCustom'),
         status: document.getElementById('panelAssetStatus').value,
         serial_number: document.getElementById('panelAssetSerial').value,
@@ -3361,7 +3480,8 @@ if (!newLocationId && !newBoxId) {
         description: document.getElementById('panelAssetDescription').value,
         last_maintenance_date: document.getElementById('panelAssetLastMaintenance').value || null,
         next_maintenance_date: document.getElementById('panelAssetNextMaintenance').value || null,
-        is_race_fleet: document.getElementById('panelRaceFleetFlag')?.checked ?? false
+        is_race_fleet: document.getElementById('panelRaceFleetFlag')?.checked ?? false,
+        custom_fields: collectPanelCustomFields(panelItemType)
       };
 
       try {
@@ -4908,6 +5028,292 @@ if (!newLocationId && !newBoxId) {
       } catch (e) { showToast('Error: ' + e.message, 'danger'); }
       finally { btn.disabled = false; btn.textContent = 'Return Item'; }
     }
+
+    // ─────────────────────────────────────────────────────────────────
+    // ENGINE / EXHAUST TYPE-SPECIFIC FIELD HELPERS
+    // ─────────────────────────────────────────────────────────────────
+
+    function isEngineType(type) {
+      return /engine/i.test(type || '');
+    }
+    function isExhaustType(type) {
+      return /exhaust/i.test(type || '');
+    }
+
+    /** Called when assetType changes in the Add/Edit modal */
+    function onModalTypeChange(type) {
+      const engineSec = document.getElementById('engineFieldsSection');
+      const exhaustSec = document.getElementById('exhaustFieldsSection');
+      const linkedSec = document.getElementById('linkedAssetsSection');
+      if (engineSec) engineSec.classList.toggle('visible', isEngineType(type));
+      if (exhaustSec) exhaustSec.classList.toggle('visible', isExhaustType(type) && !isEngineType(type));
+      if (linkedSec) {
+        const isEngine = isEngineType(type);
+        linkedSec.classList.toggle('visible', isEngine);
+        const assetId = document.getElementById('assetId')?.value;
+        if (isEngine && assetId) loadModalLinkedAssets(assetId);
+      }
+      // Show/hide seal history button — only relevant if editing existing
+      const btnSeal = document.getElementById('btnSealHistory');
+      if (btnSeal) btnSeal.style.display = (isEngineType(type) && document.getElementById('assetId')?.value) ? 'inline-block' : 'none';
+    }
+
+    /** Collect custom_fields from modal form */
+    function collectModalCustomFields(type) {
+      if (isEngineType(type)) {
+        return {
+          seal_number:    document.getElementById('engineSealNumber')?.value || '',
+          carb_number:    document.getElementById('engineCarbNumber')?.value || '',
+          exhaust_number: document.getElementById('engineExhaustNumber')?.value || '',
+          airbox_number:  document.getElementById('engineAirboxNumber')?.value || ''
+        };
+      }
+      if (isExhaustType(type)) {
+        return { exhaust_number: document.getElementById('exhaustNumber')?.value || '' };
+      }
+      return {};
+    }
+
+    /** Collect custom_fields from side-panel form */
+    function collectPanelCustomFields(type) {
+      if (isEngineType(type)) {
+        return {
+          seal_number:    document.getElementById('panelEngineSealNumber')?.value || '',
+          carb_number:    document.getElementById('panelEngineCarbNumber')?.value || '',
+          exhaust_number: document.getElementById('panelEngineExhaustNumber')?.value || '',
+          airbox_number:  document.getElementById('panelEngineAirboxNumber')?.value || ''
+        };
+      }
+      if (isExhaustType(type)) {
+        return { exhaust_number: document.getElementById('panelExhaustNumber')?.value || '' };
+      }
+      return {};
+    }
+
+    /** Build the HTML for type-specific fields in the side panel.
+     *  Called inside the openAssetPanel template literal.
+     */
+    function buildPanelTypeFields(asset) {
+      const type = asset.item_type || '';
+      const cf = asset.custom_fields || {};
+      if (isEngineType(type)) {
+        return `
+          <div class="section-card type-fields-section visible mt-2">
+            <div class="section-header" style="background:linear-gradient(90deg,#e8f4fd,#fff);border-left:3px solid #0099cc;">
+              <div class="section-icon">⚙️</div>
+              <span>Engine Details</span>
+            </div>
+            <div class="row g-2">
+              <div class="col-12">
+                <label class="form-label">
+                  🔒 Seal Number
+                  <button type="button" class="btn btn-outline-secondary seal-history-btn" onclick="loadSealHistory('${asset.id}', 'panelSealHistoryList')">📜 History</button>
+                </label>
+                <input type="text" class="form-control form-control-sm" id="panelEngineSealNumber" value="${cf.seal_number || ''}" placeholder="Current seal number">
+                <div id="panelSealHistoryList" class="seal-history-list" style="display:none"></div>
+              </div>
+              <div class="col-6">
+                <label class="form-label">🔩 Carb Number</label>
+                <input type="text" class="form-control form-control-sm" id="panelEngineCarbNumber" value="${cf.carb_number || ''}" placeholder="Carb number">
+              </div>
+              <div class="col-6">
+                <label class="form-label">💨 Exhaust Number</label>
+                <input type="text" class="form-control form-control-sm" id="panelEngineExhaustNumber" value="${cf.exhaust_number || ''}" placeholder="On this engine">
+              </div>
+              <div class="col-6">
+                <label class="form-label">🌬️ Airbox Number</label>
+                <input type="text" class="form-control form-control-sm" id="panelEngineAirboxNumber" value="${cf.airbox_number || ''}" placeholder="On this engine">
+              </div>
+            </div>
+          </div>
+          <div class="section-card mt-2" style="border-left:3px solid #0099cc;">
+            <div class="section-header">
+              <div class="section-icon">🔗</div>
+              <span>Linked Assets <small class="text-muted fw-normal">(move together)</small></span>
+            </div>
+            <div id="panelLinkedAssetsList" class="mb-2">
+              <div class="text-muted" style="font-size:0.8rem;"><span class="spinner-border spinner-border-sm me-1"></span> Loading…</div>
+            </div>
+            <div class="row g-2 align-items-end">
+              <div class="col">
+                <select class="form-select form-select-sm" id="panelLinkAssetSelect">
+                  <option value="">Select asset to link…</option>
+                  ${allAssets.filter(a => a.id !== asset.id && !a.parent_asset_id).map(a => `<option value="${a.id}">${a.name}${a.serial_number ? ' [SN:'+a.serial_number+']' : ''}</option>`).join('')}
+                </select>
+              </div>
+              <div class="col-auto">
+                <button type="button" class="btn btn-sm btn-outline-primary" onclick="panelLinkAsset('${asset.id}')">🔗 Link</button>
+              </div>
+            </div>
+            <div class="mt-1" style="font-size:0.72rem;color:#888;">Linked assets check in/out together with this engine.</div>
+          </div>`;
+      }
+      if (isExhaustType(type)) {
+        return `
+          <div class="section-card type-fields-section visible mt-2">
+            <div class="section-header" style="background:linear-gradient(90deg,#e8f4fd,#fff);border-left:3px solid #0099cc;">
+              <div class="section-icon">💨</div>
+              <span>Exhaust Details</span>
+            </div>
+            <div class="row g-2">
+              <div class="col-md-6">
+                <label class="form-label">🔢 Exhaust Number</label>
+                <input type="text" class="form-control form-control-sm" id="panelExhaustNumber" value="${cf.exhaust_number || ''}" placeholder="Exhaust ID number">
+              </div>
+            </div>
+          </div>`;
+      }
+      return '';
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // SEAL NUMBER HISTORY
+    // ─────────────────────────────────────────────────────────────────
+
+    async function loadSealHistory(assetId, containerId) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      // Toggle off if already showing
+      if (container.style.display === 'block') { container.style.display = 'none'; return; }
+      container.style.display = 'block';
+      container.innerHTML = '<div class="text-muted" style="font-size:0.78rem;"><span class="spinner-border spinner-border-sm me-1"></span> Loading seal history…</div>';
+      try {
+        const token = localStorage.getItem('auth_token') || '';
+        const resp = await fetch(`${window.RTS_CONFIG.api.baseURL}/items/${encodeURIComponent(assetId)}/history`, {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await resp.json();
+        const sealEvents = (data.history || []).filter(h => h.action === 'seal_changed');
+        if (sealEvents.length === 0) {
+          container.innerHTML = '<div class="text-muted" style="font-size:0.78rem;">No seal number changes recorded yet.</div>';
+          return;
+        }
+        container.innerHTML = sealEvents.map(h => {
+          let details = {};
+          try { details = typeof h.details === 'string' ? JSON.parse(h.details) : (h.details || {}); } catch(e) {}
+          const date = new Date(h.timestamp).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+          return `<div class="seal-history-entry">
+            <span class="seal-date">${date}</span>
+            <span>${details.old_seal ? '🔒 ' + details.old_seal : '(none)'} → <strong>${details.new_seal || '(cleared)'}</strong></span>
+          </div>`;
+        }).join('');
+      } catch(e) {
+        container.innerHTML = '<div class="text-danger" style="font-size:0.78rem;">Failed to load history.</div>';
+      }
+    }
+
+    function toggleSealHistory(containerId) {
+      const assetId = document.getElementById('assetId')?.value;
+      if (assetId) loadSealHistory(assetId, containerId);
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // LINKED ASSETS — MODAL
+    // ─────────────────────────────────────────────────────────────────
+
+    async function loadModalLinkedAssets(assetId) {
+      const list = document.getElementById('linkedAssetsList');
+      if (!list) return;
+      list.innerHTML = '<div class="text-muted" style="font-size:0.8rem;"><span class="spinner-border spinner-border-sm me-1"></span> Loading…</div>';
+      try {
+        const token = localStorage.getItem('auth_token') || '';
+        const resp = await fetch(`${window.RTS_CONFIG.api.baseURL}/items/${encodeURIComponent(assetId)}/linked`, {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await resp.json();
+        populateLinkedAssetsList('linkedAssetsList', data.items || [], assetId, 'modal');
+        populateLinkAssetDropdown('linkAssetSelect', assetId, data.items || []);
+      } catch(e) {
+        if (list) list.innerHTML = '<div class="text-danger" style="font-size:0.8rem;">Failed to load linked assets.</div>';
+      }
+    }
+
+    function populateLinkedAssetsList(containerId, items, parentId, context) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      if (items.length === 0) {
+        container.innerHTML = '<div class="text-muted" style="font-size:0.8rem;">No assets linked yet.</div>';
+        return;
+      }
+      container.innerHTML = items.map(a => `
+        <div class="linked-asset-row" id="linked-row-${a.id}">
+          <span class="la-type">${(a.item_type || '').replace(/_/g,' ')}</span>
+          <span class="la-name">${a.name}</span>
+          ${a.serial_number ? `<span class="la-serial">SN: ${a.serial_number}</span>` : ''}
+          <button class="la-unlink" title="Unlink" onclick="unlinkAsset('${a.id}', '${parentId}', '${context}')">✕</button>
+        </div>`).join('');
+    }
+
+    function populateLinkAssetDropdown(selectId, parentId, alreadyLinked) {
+      const sel = document.getElementById(selectId);
+      if (!sel) return;
+      const linkedIds = new Set(alreadyLinked.map(a => a.id));
+      const available = allAssets.filter(a => a.id !== parentId && !linkedIds.has(a.id) && !a.parent_asset_id);
+      sel.innerHTML = '<option value="">Select asset to link…</option>' +
+        available.map(a => `<option value="${a.id}">${a.name}${a.serial_number ? ' [SN:'+a.serial_number+']' : ''}</option>`).join('');
+    }
+
+    async function linkAssetToCurrentEngine() {
+      const engineId = document.getElementById('assetId')?.value;
+      const childId = document.getElementById('linkAssetSelect')?.value;
+      if (!engineId || !childId) { showToast('Select an asset to link', 'warning'); return; }
+      await setParentAsset(childId, engineId);
+      loadModalLinkedAssets(engineId);
+    }
+
+    async function panelLinkAsset(engineId) {
+      const childId = document.getElementById('panelLinkAssetSelect')?.value;
+      if (!childId) { showToast('Select an asset to link', 'warning'); return; }
+      await setParentAsset(childId, engineId);
+      loadPanelLinkedAssets(engineId);
+    }
+
+    async function unlinkAsset(childId, parentId, context) {
+      await setParentAsset(childId, null);
+      if (context === 'panel') loadPanelLinkedAssets(parentId);
+      else loadModalLinkedAssets(parentId);
+    }
+
+    async function setParentAsset(childId, parentId) {
+      try {
+        const token = localStorage.getItem('auth_token') || '';
+        const resp = await fetch(`${window.RTS_CONFIG.api.baseURL}/items/${encodeURIComponent(childId)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ parent_asset_id: parentId })
+        });
+        const data = await resp.json();
+        if (data.success) {
+          // Update local cache
+          const idx = allAssets.findIndex(a => a.id === childId);
+          if (idx !== -1) allAssets[idx].parent_asset_id = parentId || null;
+          showToast(parentId ? 'Asset linked' : 'Asset unlinked', 'success');
+        } else {
+          showToast('Error: ' + data.error, 'error');
+        }
+      } catch(e) {
+        showToast('Network error linking asset', 'error');
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // LINKED ASSETS — PANEL
+    // ─────────────────────────────────────────────────────────────────
+    async function loadPanelLinkedAssets(assetId) {
+      const list = document.getElementById('panelLinkedAssetsList');
+      if (!list) return;
+      try {
+        const token = localStorage.getItem('auth_token') || '';
+        const resp = await fetch(`${window.RTS_CONFIG.api.baseURL}/items/${encodeURIComponent(assetId)}/linked`, {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await resp.json();
+        populateLinkedAssetsList('panelLinkedAssetsList', data.items || [], assetId, 'panel');
+      } catch(e) {
+        if (list) list.innerHTML = '<div class="text-danger" style="font-size:0.8rem;">Failed to load.</div>';
+      }
+    }
+
   </script>
 </body>
 </html>

@@ -55,7 +55,9 @@ async function runMigrations() {
     '046_add_text_color_to_packing_items.sql',
     '047_add_shopify_inventory_item_id.sql',
     '048_history_and_checkout_system.sql',
-    '049_items_is_race_fleet.sql'
+    '049_items_is_race_fleet.sql',
+    '050_project_management.sql',
+    '051_engine_fields_and_asset_groups.sql'
   ];
   
   for (const filename of migrationFiles) {

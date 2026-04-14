@@ -13,6 +13,7 @@ router.get('/', async (req, res, next) => {
       i.id, i.barcode, i.name, i.serial_number, i.category, i.item_type, 
       i.status, i.current_box_id, i.current_location_id, i.weight_kg, 
       i.value_usd, i.description, i.assigned_staff_id, i.is_race_fleet,
+      i.custom_fields, i.parent_asset_id,
       s.name AS assigned_staff_name,
       i.created_at, i.updated_at
     FROM items i
@@ -75,6 +76,21 @@ router.get('/:id', async (req, res, next) => {
   }
 });
 
+// GET /api/items/:id/linked - Get assets linked to this asset (children)
+router.get('/:id/linked', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query(
+      `SELECT id, barcode, name, item_type, status, serial_number, custom_fields, current_box_id, current_location_id
+       FROM items WHERE parent_asset_id = $1 ORDER BY name`,
+      [id]
+    );
+    res.json({ success: true, items: result.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // GET /api/items/:id/history - Get item history
 router.get('/:id/history', async (req, res, next) => {
   try {
@@ -129,7 +145,9 @@ router.post('/', async (req, res, next) => {
       next_maintenance_date,
       value,
       serial_number,
-      status
+      status,
+      custom_fields,
+      parent_asset_id
     } = req.body;
     // Accept both 'weight' and 'weight_kg' field names; default to 0 (column is NOT NULL)
     const weight = req.body.weight_kg ?? req.body.weight ?? 0;
@@ -150,14 +168,17 @@ router.post('/', async (req, res, next) => {
       INSERT INTO items (
         id, barcode, name, item_type, category, description,
         current_box_id, current_location_id, last_maintenance_date,
-        next_maintenance_date, weight_kg, value_usd, serial_number, status
+        next_maintenance_date, weight_kg, value_usd, serial_number, status,
+        custom_fields, parent_asset_id
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
       ON CONFLICT (barcode) DO UPDATE SET
         name = EXCLUDED.name,
         item_type = EXCLUDED.item_type,
         category = EXCLUDED.category,
         description = EXCLUDED.description,
+        custom_fields = EXCLUDED.custom_fields,
+        parent_asset_id = EXCLUDED.parent_asset_id,
         updated_at = NOW()
       RETURNING *
     `;
@@ -176,7 +197,9 @@ router.post('/', async (req, res, next) => {
       Number(weight) || 0,
       value ?? null,
       serial_number || null,
-      status || 'warehouse'
+      status || 'warehouse',
+      custom_fields ? JSON.stringify(custom_fields) : '{}',
+      parent_asset_id || null
     ];
     
     const result = await pool.query(query, values);
@@ -219,8 +242,29 @@ router.put('/:id', async (req, res, next) => {
       weight,
       value,
       serial_number,
-      status
+      status,
+      custom_fields,
+      parent_asset_id
     } = req.body;
+
+    // Detect seal number change so we can log it to item_history
+    let sealChanged = false;
+    let oldSealNumber = null;
+    let newSealNumber = null;
+    if (custom_fields && custom_fields.seal_number !== undefined) {
+      const existing = await pool.query('SELECT custom_fields FROM items WHERE id = $1', [id]);
+      if (existing.rows.length > 0) {
+        const existingFields = existing.rows[0].custom_fields || {};
+        oldSealNumber = existingFields.seal_number || null;
+        newSealNumber = custom_fields.seal_number || null;
+        sealChanged = oldSealNumber !== newSealNumber;
+      }
+    }
+    
+    // Build parent_asset_id clause conditionally
+    // If explicitly sent (even as null), update it. If not in body, leave unchanged.
+    const hasParentField = 'parent_asset_id' in req.body;
+    const parentFieldSql = hasParentField ? ', parent_asset_id = $16' : '';
     
     const query = `
       UPDATE items
@@ -237,6 +281,7 @@ router.put('/:id', async (req, res, next) => {
           serial_number = COALESCE($11, serial_number),
           status = COALESCE($12, status),
           is_race_fleet = COALESCE($13, is_race_fleet),
+          custom_fields = COALESCE($15, custom_fields)${parentFieldSql},
           updated_at = NOW()
       WHERE id = $14
       RETURNING *
@@ -247,13 +292,25 @@ router.put('/:id', async (req, res, next) => {
       current_location_id, last_maintenance_date, next_maintenance_date,
       weight, value, serial_number, status,
       req.body.is_race_fleet !== undefined ? Boolean(req.body.is_race_fleet) : null,
-      id
+      id,
+      custom_fields ? JSON.stringify(custom_fields) : null,
+      ...(hasParentField ? [parent_asset_id || null] : [])
     ];
     
     const result = await pool.query(query, values);
     
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Item not found' });
+    }
+
+    // Log seal number change to item_history
+    if (sealChanged) {
+      const histId = `IH-${Date.now().toString(36).toUpperCase()}`;
+      await pool.query(
+        `INSERT INTO item_history (id, item_id, action, details, timestamp)
+         VALUES ($1, $2, 'seal_changed', $3, NOW())`,
+        [histId, id, JSON.stringify({ old_seal: oldSealNumber, new_seal: newSealNumber })]
+      );
     }
     
     logActivity(pool, {
