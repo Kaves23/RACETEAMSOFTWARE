@@ -288,27 +288,44 @@
       border-bottom: 1px solid #cdd3db;
     }
     #pm-chart-header { position: relative; }
+    /* Month-label row */
     .pm-header-months {
-      display: flex; height: 16px;
-      border-bottom: 1px solid #e0e0e0;
+      display: flex; height: 22px;
+      border-bottom: 1px solid #d8dce3;
+      background: #f0f2f5;
     }
     .pm-header-month-cell {
-      flex-shrink: 0; border-right: 1px solid #e0e0e0;
-      font-size: 10px; font-weight: 700; color: #555;
+      flex-shrink: 0; border-right: 1px solid #d8dce3;
+      font-size: 11px; font-weight: 700; color: #444;
       display: flex; align-items: center;
-      padding: 0 6px; overflow: hidden;
+      padding: 0 8px; overflow: hidden; white-space: nowrap;
     }
-    .pm-header-days {
-      display: flex; height: 14px;
-    }
+    /* Day-label row (day + week zoom) */
+    .pm-header-days { display: flex; }
     .pm-header-day-cell {
-      flex-shrink: 0; border-right: 1px solid #f0f0f0;
-      font-size: 9px; color: #aaa;
-      display: flex; align-items: center; justify-content: center;
-      overflow: hidden;
+      flex-shrink: 0; border-right: 1px solid #ebebeb;
+      font-size: 9px; color: #999;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 1px; overflow: hidden; padding: 2px 0;
     }
-    .pm-header-day-cell.weekend { background: rgba(0,0,0,0.03); }
-    .pm-header-day-cell.today-col { background: rgba(231,76,60,0.12); color: #e74c3c; font-weight: 700; }
+    .pm-header-day-cell.weekend { background: rgba(0,0,0,0.03); color: #c0c0c0; }
+    .pm-header-day-cell.today-col {
+      background: rgba(231,76,60,0.1); color: #e74c3c; font-weight: 700;
+    }
+    /* Stacked label parts inside day cells */
+    .ph-dow  { font-size: 8px;  line-height: 1; text-transform: uppercase; letter-spacing: .3px; }
+    .ph-date { font-size: 12px; line-height: 1; font-weight: 700; }
+    .ph-wdate{ font-size: 9px;  line-height: 1; font-weight: 600; color: #a64dff; }
+    /* Week-block row (month zoom) */
+    .pm-header-weeks { display: flex; }
+    .pm-header-week-cell {
+      flex-shrink: 0; border-right: 1px solid #ebebeb;
+      font-size: 8px; color: #bbb; font-weight: 600;
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden; padding: 2px 0;
+    }
+    .pm-header-week-cell.today-col { background: rgba(231,76,60,0.1); color: #e74c3c; }
 
     /* Chart body rows container */
     #pm-chart-body-scroll {
@@ -1312,51 +1329,77 @@
     const px = pxPerDay();
     const start = state.ganttStartDate;
     const today = new Date(); today.setHours(0,0,0,0);
+    const DOW3 = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const DOW1 = ['S','M','T','W','T','F','S'];
 
-    let monthsHtml = '', daysHtml = '';
-    let cur = new Date(start);
-    let prevMonth = -1;
-    let monthStart = 0;
-
-    const dayCells = [];
-    for (let i = 0; i < state.ganttTotalDays; i++) {
-      const d = addDays(start, i);
-      const isToday = d.getTime() === today.getTime();
-      const wknd = isWeekend(d);
-      const cls = isToday ? ' today-col' : (wknd ? ' weekend' : '');
-      let label = '';
-      if (state.zoom === 'day') label = d.getDate();
-      else if (state.zoom === 'week') { if (d.getDay() === 1) label = d.getDate(); }
-      else { /* month: no day labels */ }
-      dayCells.push(`<div class="pm-header-day-cell${cls}" style="width:${px}px;min-width:${px}px;">${label}</div>`);
-    }
-    daysHtml = dayCells.join('');
-
-    // Month row
-    let monthAccum = [];
+    // ── Row 1: month groups (all zooms)
+    let monthsHtml = '';
+    let prevMonth = -1, monthAccum = [];
     for (let i = 0; i <= state.ganttTotalDays; i++) {
       const d = addDays(start, i);
       const m = d.getMonth();
       if (m !== prevMonth) {
         if (prevMonth !== -1 && monthAccum.length) {
           const w = monthAccum.length * px;
-          const mName = new Date(d.getFullYear(), prevMonth, 1).toLocaleString('default',{month:'short',year:'2-digit'});
-          monthsHtml += `<div class="pm-header-month-cell" style="width:${w}px;min-width:${w}px;">${mName}</div>`;
+          const label = addDays(start, monthAccum[0]).toLocaleString('default',{month:'short', year:'numeric'});
+          monthsHtml += `<div class="pm-header-month-cell" style="width:${w}px;min-width:${w}px;">${label}</div>`;
         }
-        monthAccum = [];
-        prevMonth = m;
+        monthAccum = []; prevMonth = m;
       }
       if (i < state.ganttTotalDays) monthAccum.push(i);
     }
     if (monthAccum.length) {
       const w = monthAccum.length * px;
-      const mName = addDays(start, monthAccum[0]).toLocaleString('default',{month:'short',year:'2-digit'});
-      monthsHtml += `<div class="pm-header-month-cell" style="width:${w}px;min-width:${w}px;">${mName}</div>`;
+      const label = addDays(start, monthAccum[0]).toLocaleString('default',{month:'short', year:'numeric'});
+      monthsHtml += `<div class="pm-header-month-cell" style="width:${w}px;min-width:${w}px;">${label}</div>`;
+    }
+
+    // ── Row 2: per-day cells OR per-week blocks
+    let row2Html = '', row2Class;
+
+    if (state.zoom === 'month') {
+      // Weekly blocks (run from current day until next Monday)
+      row2Class = 'pm-header-weeks';
+      let i = 0;
+      while (i < state.ganttTotalDays) {
+        const d = addDays(start, i);
+        let runLen = 1;
+        let j = i + 1;
+        while (j < state.ganttTotalDays && addDays(start, j).getDay() !== 1) { runLen++; j++; }
+        const w = runLen * px;
+        const hasToday = today.getTime() >= d.getTime() &&
+                         today.getTime() < addDays(d, runLen).getTime();
+        const cls = hasToday ? ' today-col' : '';
+        // Label = date of the first day of the block (will be Monday for all complete weeks)
+        const label = d.getDate();
+        row2Html += `<div class="pm-header-week-cell${cls}" style="width:${w}px;min-width:${w}px;" title="${d.toLocaleDateString()}">${label}</div>`;
+        i += runLen;
+      }
+    } else {
+      // Per-day cells (day or week zoom)
+      row2Class = 'pm-header-days';
+      for (let i = 0; i < state.ganttTotalDays; i++) {
+        const d = addDays(start, i);
+        const isToday = d.getTime() === today.getTime();
+        const dow = d.getDay();
+        const wknd = isWeekend(d);
+        const cls = `${isToday?' today-col':''}${wknd?' weekend':''}`;
+        let inner;
+        if (state.zoom === 'day') {
+          inner = `<span class="ph-dow">${DOW3[dow]}</span><span class="ph-date">${d.getDate()}</span>`;
+        } else {
+          // week zoom: each cell = 8px; day letter + Monday shows date below
+          inner = dow === 1
+            ? `<span class="ph-dow">${DOW1[dow]}</span><span class="ph-wdate">${d.getDate()}</span>`
+            : `<span class="ph-dow">${DOW1[dow]}</span>`;
+        }
+        row2Html += `<div class="pm-header-day-cell${cls}" style="min-width:${px}px;width:${px}px;">${inner}</div>`;
+      }
     }
 
     document.getElementById('pm-chart-header').innerHTML = `
       <div class="pm-header-months" style="width:${W}px;">${monthsHtml}</div>
-      <div class="pm-header-days" style="width:${W}px;">${daysHtml}</div>
+      <div class="${row2Class}" style="width:${W}px;">${row2Html}</div>
     `;
   }
 
