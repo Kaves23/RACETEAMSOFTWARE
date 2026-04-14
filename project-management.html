@@ -327,6 +327,27 @@
     }
     .pm-header-week-cell.today-col { background: rgba(231,76,60,0.1); color: #e74c3c; }
 
+    /* Event indicators on chart header day cells */
+    .ph-date.pm-ev-day {
+      color: #fff; background: #a64dff; border-radius: 50%;
+      width: 18px; height: 18px;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 11px; cursor: default;
+    }
+    .ph-wdate.pm-ev-wday {
+      color: #fff; background: #a64dff; border-radius: 50%;
+      width: 14px; height: 14px; font-size: 8px;
+      display: inline-flex; align-items: center; justify-content: center;
+      cursor: default;
+    }
+    #pm-gantt-ev-tip {
+      display: none; position: fixed; z-index: 600;
+      background: #333; color: #fff; font-size: 11px; font-weight: 500;
+      padding: 5px 10px; border-radius: 5px; pointer-events: none;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.35); max-width: 220px;
+      white-space: nowrap; transform: translateX(-50%);
+    }
+
     /* Chart body rows container */
     #pm-chart-body-scroll {
       flex: 1; overflow-x: auto; overflow-y: auto; position: relative;
@@ -521,11 +542,17 @@
     /* ─── FULL-PAGE TASK INSPECTOR ────────────────────────────────── */
     #pm-inspector {
       position: fixed; inset: 0; z-index: 1500;
-      display: none; flex-direction: column;
-      background: #f5f7fa;
+      display: none; align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.45);
       font-family: 'Inter','Segoe UI',sans-serif; font-size: 12px;
     }
     #pm-inspector.visible { display: flex; }
+    #pm-inspector-panel {
+      width: 85vw; height: 85vh;
+      display: flex; flex-direction: column;
+      background: #f5f7fa; border-radius: 12px; overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    }
     #pm-inspector-header {
       display: flex; align-items: center; gap: 10px;
       padding: 0 16px; height: 48px;
@@ -851,7 +878,9 @@
   </div>
 
   <!-- ─── FULL-PAGE TASK INSPECTOR ─────────────────────── -->
+  <div id="pm-gantt-ev-tip"></div>
   <div id="pm-inspector">
+    <div id="pm-inspector-panel">
     <div id="pm-inspector-header">
       <button id="pm-insp-back" class="pm-insp-header-btn" onclick="closeInspector()">← Back</button>
       <input id="pm-insp-title-input" type="text" placeholder="Task title…" autocomplete="off">
@@ -963,6 +992,7 @@
 
       </div>
     </div>
+    </div>
   </div>
 
   <script src="topnav.js"></script>
@@ -1008,6 +1038,7 @@
     entitySearchCache: {},
     ganttStartDate: null,  // Date object — left edge of chart
     ganttTotalDays: 90,
+    calendarEvents: [],   // events loaded for header circles
     ctxTaskId: null,
     editingPlanId: null,   // for plan modal
     editingTaskId: null,   // for task modal
@@ -1181,6 +1212,13 @@
     max.setDate(max.getDate() + 14);
     state.ganttStartDate = min;
     state.ganttTotalDays = Math.max(60, daysBetween(min, max));
+    // Extend to fill the visible chart scroll area (adds dates to the right)
+    const scrollEl = document.getElementById('pm-chart-body-scroll');
+    if (scrollEl && scrollEl.clientWidth > 0) {
+      const px = ZOOM[state.zoom];
+      const daysToFill = Math.ceil((scrollEl.clientWidth + 300) / px);
+      if (daysToFill > state.ganttTotalDays) state.ganttTotalDays = daysToFill;
+    }
   }
 
   function pxPerDay() { return ZOOM[state.zoom]; }
@@ -1372,6 +1410,19 @@
       monthsHtml += `<div class="pm-header-month-cell" style="width:${w}px;min-width:${w}px;">${label}</div>`;
     }
 
+    // ── Build event date map for calendar circles
+    const evMap = {};
+    (state.calendarEvents || []).forEach(ev => {
+      if (ev.start_date) {
+        const k = String(ev.start_date).slice(0, 10);
+        if (!evMap[k]) evMap[k] = [];
+        evMap[k].push(esc(ev.name || 'Event'));
+      }
+    });
+    function dayKey(d) {
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+
     // ── Row 2: per-day cells OR per-week blocks
     let row2Html = '', row2Class;
 
@@ -1388,9 +1439,15 @@
         const hasToday = today.getTime() >= d.getTime() &&
                          today.getTime() < addDays(d, runLen).getTime();
         const cls = hasToday ? ' today-col' : '';
-        // Label = date of the first day of the block (will be Monday for all complete weeks)
+        // Check for any event within the week block
+        let weekEvs = [];
+        for (let k = 0; k < runLen; k++) {
+          const dk = dayKey(addDays(d, k));
+          if (evMap[dk]) weekEvs = weekEvs.concat(evMap[dk]);
+        }
+        const evTipAttr = weekEvs.length ? ` data-ev-tip="${weekEvs.join(', ')}"` : '';
         const label = d.getDate();
-        row2Html += `<div class="pm-header-week-cell${cls}" style="width:${w}px;min-width:${w}px;" title="${d.toLocaleDateString()}">${label}</div>`;
+        row2Html += `<div class="pm-header-week-cell${cls}" style="width:${w}px;min-width:${w}px;" title="${d.toLocaleDateString()}"${evTipAttr}>${weekEvs.length ? `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#a64dff;margin-right:3px;flex-shrink:0;"></span>` : ''}${label}</div>`;
         i += runLen;
       }
     } else {
@@ -1402,16 +1459,27 @@
         const dow = d.getDay();
         const wknd = isWeekend(d);
         const cls = `${isToday?' today-col':''}${wknd?' weekend':''}`;
+        const dk = dayKey(d);
+        const evs = evMap[dk];
+        const evTipAttr = evs ? ` data-ev-tip="${evs.join(', ')}"` : '';
         let inner;
         if (state.zoom === 'day') {
-          inner = `<span class="ph-dow">${DOW3[dow]}</span><span class="ph-date">${d.getDate()}</span>`;
+          const dateSpan = evs
+            ? `<span class="ph-date pm-ev-day">${d.getDate()}</span>`
+            : `<span class="ph-date">${d.getDate()}</span>`;
+          inner = `<span class="ph-dow">${DOW3[dow]}</span>${dateSpan}`;
         } else {
           // week zoom: each cell = 8px; day letter + Monday shows date below
-          inner = dow === 1
-            ? `<span class="ph-dow">${DOW1[dow]}</span><span class="ph-wdate">${d.getDate()}</span>`
-            : `<span class="ph-dow">${DOW1[dow]}</span>`;
+          if (dow === 1) {
+            const dateSpan = evs
+              ? `<span class="ph-wdate pm-ev-wday">${d.getDate()}</span>`
+              : `<span class="ph-wdate">${d.getDate()}</span>`;
+            inner = `<span class="ph-dow">${DOW1[dow]}</span>${dateSpan}`;
+          } else {
+            inner = `<span class="ph-dow">${DOW1[dow]}</span>${evs ? `<span style="display:inline-block;width:4px;height:4px;border-radius:50%;background:#a64dff;"></span>` : ''}`;
+          }
         }
-        row2Html += `<div class="pm-header-day-cell${cls}" style="min-width:${px}px;width:${px}px;">${inner}</div>`;
+        row2Html += `<div class="pm-header-day-cell${cls}" style="min-width:${px}px;width:${px}px;"${evTipAttr}>${inner}</div>`;
       }
     }
 
@@ -2305,6 +2373,27 @@
   //  EVENT DELEGATION (clicks)
   // ════════════════════════════════════════════════════════════════
   function setupEvents() {
+    // Event tooltip for calendar circles in chart header
+    const hdr = document.getElementById('pm-chart-header');
+    hdr.addEventListener('mouseover', e => {
+      const el = e.target.closest('[data-ev-tip]');
+      const tip = document.getElementById('pm-gantt-ev-tip');
+      if (!tip) return;
+      if (el) {
+        tip.textContent = el.dataset.evTip;
+        const r = el.getBoundingClientRect();
+        tip.style.left = (r.left + r.width / 2) + 'px';
+        tip.style.top = (r.bottom + 6) + 'px';
+        tip.style.display = 'block';
+      } else {
+        tip.style.display = 'none';
+      }
+    });
+    hdr.addEventListener('mouseleave', () => {
+      const tip = document.getElementById('pm-gantt-ev-tip');
+      if (tip) tip.style.display = 'none';
+    });
+
     // Plan sidebar
     document.getElementById('pm-plan-list').addEventListener('click', e => {
       const kebab = e.target.closest('.pm-plan-kebab');
@@ -2600,6 +2689,12 @@
     setupInspectorEvents();
     renderAll(); // show empty state first
     initScrollSync(); // wire scroll sync once, not on every render
+    // Load events for calendar circles in Gantt header
+    try {
+      const evData = await api('/api/collections/events');
+      state.calendarEvents = evData.items || evData.data || [];
+      renderChartHeader(); // re-render header now that events are loaded
+    } catch (e) { state.calendarEvents = []; }
     await Promise.all([loadPlans(), loadUsers()]);
     // Auto-select first active plan if any
     const firstActive = state.plans.find(p => p.status === 'active');
