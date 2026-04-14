@@ -1156,31 +1156,21 @@
       if(ui.section==='assetTypes') {
         cur.name = els.f_assettype_name.value.trim();
         cur.color = els.f_assettype_color.value;
+        if (!cur.name) { if (RTS.showToast) RTS.showToast('Asset type name is required', 'error'); return; }
         // Save to database
         (async () => {
           try {
-            const isNew = !cur.created_at; // Check if this is a new item
-            if (isNew) {
-              await RTS_API.createAssetType({
-                id: cur.id,
-                name: cur.name,
-                color: cur.color,
-                is_active: cur.is_active !== false,
-                sort_order: cur.sort_order || 0
-              });
-            } else {
-              await RTS_API.updateAssetType(cur.id, {
-                name: cur.name,
-                color: cur.color
-              });
-            }
-            // Reload cache
+            await RTS_API.updateAssetType(cur.id, { name: cur.name, color: cur.color });
             await loadAssetTypesFromDB();
+            await renderList();
+            loadInspector();
+            if (RTS.showToast) RTS.showToast('✅ Asset type saved', 'success');
           } catch (error) {
             console.error('Error saving asset type:', error);
-            alert('Error saving asset type: ' + (error.message || 'Unknown error'));
+            if (RTS.showToast) RTS.showToast('Failed to save: ' + (error.message || 'Unknown error'), 'error');
           }
         })();
+        return;
       }
       if(ui.section==='venues') {
         cur.name = els.f_venue_name.value.trim();
@@ -1322,25 +1312,22 @@
         return;
       }
       if(ui.section==='assetTypes') {
-        // Create in database
+        const maxSort = (assetTypesCache || []).reduce((m, t) => Math.max(m, t.sort_order || 0), -1);
+        const ts = Date.now();
+        const newType = { id: `at-${ts}`, name: `New Type ${ts.toString(36).slice(-4).toUpperCase()}`, color: '#0ea5e9', is_active: true, sort_order: maxSort + 1 };
         try {
-          await RTS_API.createAssetType({
-            id: item.id,
-            name: item.name,
-            color: item.color,
-            is_active: item.is_active,
-            sort_order: item.sort_order
-          });
+          const resp = await RTS_API.createAssetType(newType);
+          if (!resp || !resp.success) throw new Error(resp?.error || 'Unknown error');
           await loadAssetTypesFromDB();
-          ui.selectedId = item.id;
+          ui.selectedId = resp.assetType.id;
           saveUI();
           await renderList();
-          return;
+          if (RTS.showToast) RTS.showToast('✅ Asset type created', 'success');
         } catch (error) {
           console.error('Error creating asset type:', error);
-          alert('Error creating asset type: ' + (error.message || 'Unknown error'));
-          return;
+          if (RTS.showToast) RTS.showToast('Failed to create asset type: ' + (error.message || 'Unknown error'), 'error');
         }
+        return;
       }
       if(ui.section==='venues') item = { id: RTS.uid('venue'), name:'New Venue', location:'', notes:'' };
       if(ui.section==='eventTypes') item = { id: RTS.uid('et'), code:'New Type', color:'#e32636' };
