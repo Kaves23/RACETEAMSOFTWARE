@@ -185,4 +185,21 @@ async function requireAuth(req, res, next) {
 
 // Note: Session cleanup is handled in server/index.js main cron job
 
+// GET /api/auth/users - List known users (for assignee dropdowns)
+router.get('/users', async (req, res) => {
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  if (!token) return res.status(401).json({ success: false, error: 'Authentication required' });
+  try {
+    const result = await db.query(
+      `SELECT id, username, email, full_name, role
+       FROM users
+       WHERE is_active = TRUE
+       ORDER BY full_name, username`
+    );
+    res.json({ success: true, users: result.rows });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = { router, requireAuth };
