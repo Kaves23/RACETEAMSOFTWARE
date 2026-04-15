@@ -182,7 +182,7 @@
                 <thead>
                   <tr>
                     <th style="width:60px;">#</th>
-                    <th style="width:170px;">Date</th>
+                    <th style="width:110px;">Date</th>
                     <th>Title</th>
                     <th style="width:220px;">Type</th>
                     <th style="width:220px;">Venue</th>
@@ -1041,9 +1041,16 @@
     }
 
     function formatDateRange(e) {
-      const s = e.start || '';
-      const en = e.end || '';
+      const toYMD = v => (v && v.includes('T')) ? v.slice(0,10) : (v || '');
+      const s = toYMD(e.start);
+      const en = toYMD(e.end);
       if(!en || en===s) return s;
+      // Same month → show "17–18 Apr"
+      const [sy, sm, sd] = s.split('-');
+      const [ey, em, ed] = en.split('-');
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      if (sy===ey && sm===em) return `${parseInt(sd,10)}–${parseInt(ed,10)} ${months[parseInt(sm,10)-1]}`;
+      if (sy===ey) return `${parseInt(sd,10)} ${months[parseInt(sm,10)-1]} – ${parseInt(ed,10)} ${months[parseInt(em,10)-1]}`;
       return `${s} → ${en}`;
     }
 
@@ -1480,8 +1487,7 @@
           tr.style.removeProperty('background');
           tr.style.removeProperty('color');
         } else {
-          tr.style.setProperty('background', typeColor || '#222', 'important');
-          tr.style.setProperty('color', rowTextColor, 'important');
+          tr.style.setProperty('border-left', `4px solid ${typeColor}`, 'important');
         }
 
         tr.innerHTML = `
@@ -1498,9 +1504,6 @@
             td.classList.add('rts-new-highlight');
             td.style.removeProperty('background');
             td.style.removeProperty('color');
-          } else {
-            td.style.setProperty('background', typeColor || '#222', 'important');
-            td.style.setProperty('color', rowTextColor, 'important');
           }
         });
         tr.addEventListener('click', ()=>{ ui.selectedId = e.id; saveAll(); render(); });
