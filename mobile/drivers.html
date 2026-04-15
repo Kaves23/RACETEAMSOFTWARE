@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>Drivers · Race Team OS</title>
+  <link rel="stylesheet" href="mobile.css">
+</head>
+<body>
+
+<div class="app" id="app">
+
+  <!-- Header -->
+  <header class="app-header">
+    <div class="offline-banner" id="offlineBanner">⚡ Offline — showing cached data</div>
+    <div class="page-bar">
+      <div class="page-bar-brand" onclick="window.location.href='dashboard.html'" style="cursor:pointer;">
+        <div class="page-bar-mark">RT</div>
+        <span class="page-bar-title">Drivers</span>
+      </div>
+      <span id="driverCount" style="font-size:12px;color:var(--text-3);font-weight:500;"></span>
+    </div>
+    <!-- Search -->
+    <div style="padding:0 16px 12px;display:flex;gap:8px;align-items:center;">
+      <div style="position:relative;flex:1;">
+        <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-3);" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="search" id="searchInput" placeholder="Search drivers…" autocomplete="off"
+          style="width:100%;box-sizing:border-box;height:36px;border:1px solid var(--border);border-radius:var(--r);padding:0 10px 0 32px;font-size:14px;background:var(--bg-2,#f5f5f5);outline:none;-webkit-appearance:none;">
+      </div>
+    </div>
+    <!-- Class filter chips -->
+    <div class="pill-strip" id="classStrip" style="padding-bottom:12px;">
+      <button class="pill pill-active" data-class="">All</button>
+    </div>
+  </header>
+
+  <!-- Body -->
+  <main class="app-body" id="appBody">
+    <div id="driverList"></div>
+  </main>
+
+  <!-- Bottom nav -->
+  <nav class="app-nav">
+    <div class="nav-bar">
+      <a href="events.html"  class="nav-item">📅 <span>Events</span><div class="nav-dot"></div></a>
+      <a href="load.html"    class="nav-item">🚛 <span>Load Plan</span><div class="nav-dot"></div></a>
+      <a href="drivers.html" class="nav-item nav-item--active">🏎️ <span>Drivers</span><div class="nav-dot"></div></a>
+      <a href="scan.html"    class="nav-item">📡 <span>Scan</span><div class="nav-dot"></div></a>
+    </div>
+  </nav>
+
+</div>
+
+<!-- Detail Drawer -->
+<div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
+<div class="drawer" id="detailDrawer">
+  <div class="drawer-handle" onclick="closeDrawer()"></div>
+  <div class="drawer-header">
+    <div style="flex:1;min-width:0;">
+      <div class="drawer-title" id="drawerName">—</div>
+      <div id="drawerClass" style="font-size:12px;color:var(--text-3);margin-top:3px;">—</div>
+    </div>
+    <span id="drawerNumber" class="tag" style="flex-shrink:0;margin-left:8px;font-size:18px;font-weight:800;">—</span>
+  </div>
+  <div class="drawer-body" id="drawerBody"></div>
+</div>
+
+<style>
+  .driver-row {
+    display: flex;
+    align-items: center;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    gap: 13px;
+    cursor: pointer;
+    background: var(--bg);
+    transition: background 0.12s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .driver-row:active { background: var(--bg-2, #f5f5f5); }
+
+  .driver-avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 800;
+    color: #fff;
+    flex-shrink: 0;
+    letter-spacing: -0.5px;
+  }
+
+  .driver-info { flex: 1; min-width: 0; }
+  .driver-name {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .driver-meta {
+    font-size: 12px;
+    color: var(--text-3);
+    margin-top: 2px;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .driver-num {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--text-3);
+    min-width: 30px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  .class-chip {
+    display: inline-block;
+    padding: 1px 7px;
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 700;
+    background: var(--bg-2, #f5f5f5);
+    color: var(--text-3);
+  }
+
+  .detail-section { margin-bottom: 18px; }
+  .detail-section-title {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.07em; color: var(--text-3); margin-bottom: 8px;
+    padding-bottom: 5px; border-bottom: 1px solid var(--border);
+  }
+  .detail-row {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    gap: 10px; padding: 5px 0; border-bottom: 1px solid var(--border); font-size: 13px;
+  }
+  .detail-row:last-child { border-bottom: none; }
+  .detail-label { color: var(--text-3); font-weight: 500; flex-shrink: 0; min-width: 90px; }
+  .detail-value { color: var(--text); font-weight: 600; text-align: right; }
+
+  .ev-empty { text-align:center; padding:60px 24px; color:var(--text-3); font-size:14px; }
+  .ev-empty-icon { font-size:40px; margin-bottom:12px; }
+</style>
+
+<script>
+  if (!localStorage.getItem('auth_token') || sessionStorage.getItem('mobile_pin_ok') !== '1') {
+    window.location.replace('index.html');
+  }
+
+  const API = window.location.origin;
+  const auth = () => ({ 'Authorization': 'Bearer ' + localStorage.getItem('auth_token') });
+
+  window.addEventListener('online',  () => document.getElementById('offlineBanner').style.display = 'none');
+  window.addEventListener('offline', () => document.getElementById('offlineBanner').style.display = 'block');
+  if (!navigator.onLine) document.getElementById('offlineBanner').style.display = 'block';
+
+  // Colour palette for avatars
+  const AVATAR_COLORS = ['#e32636','#3b82f6','#10b981','#f59e0b','#7c3aed','#ec4899','#0891b2','#84cc16','#f97316','#6366f1'];
+
+  let allDrivers = [];
+  let currentClass = '';
+  let currentSearch = '';
+
+  function escHtml(str) {
+    return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function initials(name) {
+    const parts = String(name || '?').trim().split(/\s+/);
+    if (parts.length >= 2) return (parts[0][0] + parts[parts.length-1][0]).toUpperCase();
+    return String(name || '?').slice(0,2).toUpperCase();
+  }
+
+  function avatarColor(name) {
+    let h = 0;
+    for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+    return AVATAR_COLORS[h % AVATAR_COLORS.length];
+  }
+
+  function getFiltered() {
+    let list = allDrivers.slice().sort((a,b) => {
+      const an = (a.full_name || a.name || '').toLowerCase();
+      const bn = (b.full_name || b.name || '').toLowerCase();
+      return an.localeCompare(bn);
+    });
+    if (currentClass) list = list.filter(d => (d.class || d.klass || '') === currentClass);
+    if (currentSearch) {
+      const q = currentSearch.toLowerCase();
+      list = list.filter(d =>
+        (d.full_name || d.name || '').toLowerCase().includes(q) ||
+        (d.nationality || '').toLowerCase().includes(q) ||
+        (d.class || d.klass || '').toLowerCase().includes(q) ||
+        String(d.number || d.kart_number || '').includes(q)
+      );
+    }
+    return list;
+  }
+
+  function buildClassChips() {
+    const classes = [...new Set(allDrivers.map(d => d.class || d.klass || '').filter(Boolean))].sort();
+    const strip = document.getElementById('classStrip');
+    strip.innerHTML = '<button class="pill pill-active" data-class="">All</button>' +
+      classes.map(c => `<button class="pill" data-class="${escHtml(c)}">${escHtml(c)}</button>`).join('');
+  }
+
+  function renderDrivers() {
+    const list = getFiltered();
+    document.getElementById('driverCount').textContent = list.length + ' driver' + (list.length !== 1 ? 's' : '');
+    const container = document.getElementById('driverList');
+
+    if (list.length === 0) {
+      container.innerHTML = `<div class="ev-empty"><div class="ev-empty-icon">🏎️</div><div>No drivers found</div></div>`;
+      return;
+    }
+
+    container.innerHTML = list.map(d => {
+      const name = d.full_name || d.name || 'Unknown';
+      const cls = d.class || d.klass || '';
+      const num = d.number || d.kart_number || '';
+      const nat = d.nationality || '';
+      const color = d.color || avatarColor(name);
+      return `<div class="driver-row" onclick="openDrawer('${escHtml(d.id)}')">
+        <div class="driver-avatar" style="background:${escHtml(color)};">${escHtml(initials(name))}</div>
+        <div class="driver-info">
+          <div class="driver-name">${escHtml(name)}</div>
+          <div class="driver-meta">
+            ${cls ? `<span class="class-chip">${escHtml(cls)}</span>` : ''}
+            ${nat ? `<span>${escHtml(nat)}</span>` : ''}
+          </div>
+        </div>
+        ${num ? `<div class="driver-num">#${escHtml(String(num))}</div>` : ''}
+      </div>`;
+    }).join('');
+  }
+
+  function openDrawer(id) {
+    const d = allDrivers.find(x => String(x.id) === String(id));
+    if (!d) return;
+    const name = d.full_name || d.name || 'Unknown';
+    const cls = d.class || d.klass || '';
+    const color = d.color || avatarColor(name);
+
+    document.getElementById('drawerName').textContent = name;
+    document.getElementById('drawerClass').textContent = cls || '—';
+    const numEl = document.getElementById('drawerNumber');
+    numEl.textContent = d.number || d.kart_number ? '#' + (d.number || d.kart_number) : '—';
+    numEl.style.background = color;
+
+    let body = `<div class="detail-section"><div class="detail-section-title">Profile</div>`;
+    if (d.nationality) body += detRow('Nationality', escHtml(d.nationality));
+    if (d.dob || d.date_of_birth) body += detRow('Date of birth', escHtml(d.dob || d.date_of_birth));
+    if (d.email) body += detRow('Email', `<a href="mailto:${escHtml(d.email)}" style="color:#0072a3;">${escHtml(d.email)}</a>`);
+    if (d.phone) body += detRow('Phone', `<a href="tel:${escHtml(d.phone)}" style="color:#0072a3;">${escHtml(d.phone)}</a>`);
+    if (d.license_number) body += detRow('Licence #', escHtml(d.license_number));
+    body += `</div>`;
+
+    if (d.notes) {
+      body += `<div class="detail-section"><div class="detail-section-title">Notes</div>
+        <div style="font-size:13px;color:var(--text);line-height:1.5;">${escHtml(d.notes)}</div>
+      </div>`;
+    }
+
+    document.getElementById('drawerBody').innerHTML = body;
+    document.getElementById('drawerOverlay').classList.add('active');
+    document.getElementById('detailDrawer').classList.add('open');
+  }
+
+  function detRow(label, value) {
+    return `<div class="detail-row"><span class="detail-label">${label}</span><span class="detail-value">${value}</span></div>`;
+  }
+
+  function closeDrawer() {
+    document.getElementById('drawerOverlay').classList.remove('active');
+    document.getElementById('detailDrawer').classList.remove('open');
+  }
+
+  document.getElementById('classStrip').addEventListener('click', e => {
+    const btn = e.target.closest('[data-class]');
+    if (!btn) return;
+    currentClass = btn.dataset.class;
+    document.querySelectorAll('#classStrip .pill').forEach(p => p.classList.remove('pill-active'));
+    btn.classList.add('pill-active');
+    renderDrivers();
+  });
+
+  document.getElementById('searchInput').addEventListener('input', e => {
+    currentSearch = e.target.value.trim();
+    renderDrivers();
+  });
+
+  async function loadDrivers() {
+    try {
+      const resp = await fetch(`${API}/api/drivers`, { headers: auth() });
+      const data = await resp.json();
+      const list = data.drivers || data.items || [];
+      allDrivers = list;
+      buildClassChips();
+      renderDrivers();
+    } catch (err) {
+      console.error('Failed to load drivers:', err);
+      document.getElementById('driverList').innerHTML = `<div class="ev-empty"><div class="ev-empty-icon">⚠️</div><div>Failed to load drivers</div></div>`;
+    }
+  }
+
+  loadDrivers();
+</script>
+</body>
+</html>

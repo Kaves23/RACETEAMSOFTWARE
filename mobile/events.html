@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>Events · Race Team OS</title>
+  <link rel="stylesheet" href="mobile.css">
+</head>
+<body>
+
+<div class="app" id="app">
+
+  <!-- Header -->
+  <header class="app-header">
+    <div class="offline-banner" id="offlineBanner">⚡ Offline — showing cached data</div>
+    <div class="page-bar">
+      <div class="page-bar-brand" onclick="window.location.href='dashboard.html'" style="cursor:pointer;">
+        <div class="page-bar-mark">RT</div>
+        <span class="page-bar-title">Events</span>
+      </div>
+      <span id="evCount" style="font-size:12px;color:var(--text-3);font-weight:500;"></span>
+    </div>
+    <!-- Search -->
+    <div style="padding:0 16px 10px;display:flex;gap:8px;align-items:center;">
+      <div style="position:relative;flex:1;">
+        <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-3);" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="search" id="searchInput" placeholder="Search events…" autocomplete="off"
+          style="width:100%;box-sizing:border-box;height:36px;border:1px solid var(--border);border-radius:var(--r);padding:0 10px 0 32px;font-size:14px;background:var(--bg-2,#f5f5f5);outline:none;-webkit-appearance:none;">
+      </div>
+    </div>
+    <!-- Filter chips: Upcoming / Past / All -->
+    <div class="pill-strip" id="filterStrip" style="padding-bottom:12px;">
+      <button class="pill pill-active" data-filter="upcoming">Upcoming</button>
+      <button class="pill" data-filter="all">All</button>
+      <button class="pill" data-filter="past">Past</button>
+    </div>
+  </header>
+
+  <!-- Body -->
+  <main class="app-body" id="appBody">
+    <div id="eventList"></div>
+  </main>
+
+  <!-- Bottom nav -->
+  <nav class="app-nav">
+    <div class="nav-bar">
+      <a href="events.html"  class="nav-item nav-item--active">📅 <span>Events</span><div class="nav-dot"></div></a>
+      <a href="load.html"    class="nav-item">🚛 <span>Load Plan</span><div class="nav-dot"></div></a>
+      <a href="browse.html"  class="nav-item">📦 <span>Browse</span><div class="nav-dot"></div></a>
+      <a href="scan.html"    class="nav-item">📡 <span>Scan</span><div class="nav-dot"></div></a>
+    </div>
+  </nav>
+
+</div>
+
+<!-- Detail Drawer -->
+<div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
+<div class="drawer" id="detailDrawer">
+  <div class="drawer-handle" onclick="closeDrawer()"></div>
+  <div class="drawer-header">
+    <div style="flex:1;min-width:0;">
+      <div class="drawer-title" id="drawerName" style="white-space:normal;line-height:1.3;">—</div>
+      <div id="drawerDate" style="font-size:12px;color:var(--text-3);margin-top:3px;">—</div>
+    </div>
+    <span id="drawerTypePill" class="tag" style="flex-shrink:0;margin-left:8px;">—</span>
+  </div>
+  <div class="drawer-body" id="drawerBody"></div>
+</div>
+
+<style>
+  /* ── Event card ──────────────────────────────────────────────────────── */
+  .ev-card {
+    display: flex;
+    align-items: flex-start;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    gap: 12px;
+    cursor: pointer;
+    background: var(--bg);
+    transition: background 0.12s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .ev-card:active { background: var(--bg-2, #f5f5f5); }
+
+  .ev-accent {
+    width: 4px;
+    border-radius: 2px;
+    align-self: stretch;
+    flex-shrink: 0;
+    min-height: 40px;
+  }
+
+  .ev-info { flex: 1; min-width: 0; }
+  .ev-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 3px;
+  }
+  .ev-meta {
+    font-size: 12px;
+    color: var(--text-3);
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .ev-type-pill {
+    display: inline-block;
+    padding: 1px 7px;
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .ev-venue-chip {
+    font-size: 11px;
+    color: var(--text-3);
+    background: var(--bg-2, #f5f5f5);
+    border-radius: 4px;
+    padding: 1px 6px;
+  }
+  .ev-status-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* ── Section divider (month/date group) ─────────────────────────────── */
+  .ev-group-header {
+    padding: 10px 16px 5px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-3);
+    background: var(--bg-2, #f5f5f5);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+
+  /* ── Today / next marker ─────────────────────────────────────────────── */
+  .ev-upcoming-divider {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 16px;
+    background: #e8f7ff;
+    border-bottom: 1px solid #b3dff4;
+    font-size: 11px;
+    font-weight: 700;
+    color: #0072a3;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  /* ── Empty state ─────────────────────────────────────────────────────── */
+  .ev-empty {
+    text-align: center;
+    padding: 60px 24px;
+    color: var(--text-3);
+    font-size: 14px;
+  }
+  .ev-empty-icon { font-size: 40px; margin-bottom: 12px; }
+
+  /* ── Drawer detail rows ──────────────────────────────────────────────── */
+  .detail-section { margin-bottom: 18px; }
+  .detail-section-title {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-3);
+    margin-bottom: 8px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid var(--border);
+  }
+  .detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .detail-row:last-child { border-bottom: none; }
+  .detail-label { color: var(--text-3); font-weight: 500; flex-shrink: 0; min-width: 70px; }
+  .detail-value { color: var(--text); font-weight: 600; text-align: right; }
+</style>
+
+<script>
+  // Auth guard
+  if (!localStorage.getItem('auth_token') || sessionStorage.getItem('mobile_pin_ok') !== '1') {
+    window.location.replace('index.html');
+  }
+
+  const API = window.location.origin;
+  const auth = () => ({ 'Authorization': 'Bearer ' + localStorage.getItem('auth_token') });
+
+  // Offline banner
+  window.addEventListener('online',  () => document.getElementById('offlineBanner').style.display = 'none');
+  window.addEventListener('offline', () => document.getElementById('offlineBanner').style.display = 'block');
+  if (!navigator.onLine) document.getElementById('offlineBanner').style.display = 'block';
+
+  const TYPE_COLORS = {
+    'Practice':         '#3b82f6',
+    'Race/Event':       '#e32636',
+    'Travel':           '#6b7280',
+    'Camp':             '#16a34a',
+    'Regional Weekend': '#f59e0b',
+    'National Weekend': '#7c3aed',
+    'International Trip':'#0891b2',
+    'Test Day':         '#10b981',
+    'Travel Day':       '#f59e0b',
+    'Promo / Media':    '#ec4899',
+  };
+  const STATUS_COLORS = {
+    'Elapsed': '#9ca3af',
+    'Upcoming': '#3b82f6',
+    'Open':    '#10b981',
+    'Closed':  '#6b7280',
+    'Planned': '#6b7280',
+  };
+
+  let allEvents = [];
+  let currentFilter = 'upcoming';
+  let currentSearch = '';
+
+  function todayISO() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  function toISO(v) {
+    if (!v) return '';
+    if (v.includes('T')) return v.slice(0,10);
+    return v;
+  }
+
+  function formatDate(v) {
+    if (!v) return '—';
+    const s = toISO(v);
+    const [y, m, d] = s.split('-');
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return `${parseInt(d,10)} ${months[parseInt(m,10)-1]} ${y}`;
+  }
+
+  function formatDateRange(ev) {
+    const s = toISO(ev.start_date || ev.start || '');
+    const e = toISO(ev.end_date || ev.end || '');
+    if (!s) return '—';
+    if (!e || e === s) return formatDate(s);
+    const [sy, sm, sd] = s.split('-');
+    const [ey, em, ed] = e.split('-');
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    if (sy === ey && sm === em) return `${parseInt(sd,10)}–${parseInt(ed,10)} ${months[parseInt(sm,10)-1]} ${sy}`;
+    if (sy === ey) return `${parseInt(sd,10)} ${months[parseInt(sm,10)-1]} – ${parseInt(ed,10)} ${months[parseInt(em,10)-1]} ${sy}`;
+    return `${formatDate(s)} – ${formatDate(e)}`;
+  }
+
+  function monthLabel(isoDate) {
+    if (!isoDate) return 'No date';
+    const [y, m] = isoDate.split('-');
+    const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    return `${months[parseInt(m,10)-1]} ${y}`;
+  }
+
+  function typeColor(type) {
+    return TYPE_COLORS[type] || '#6b7280';
+  }
+
+  function getFilteredEvents() {
+    const today = todayISO();
+    let list = allEvents.slice().sort((a, b) => {
+      const as = toISO(a.start_date || a.start || '');
+      const bs = toISO(b.start_date || b.start || '');
+      return as.localeCompare(bs);
+    });
+
+    if (currentFilter === 'upcoming') {
+      list = list.filter(e => toISO(e.start_date || e.start || '') >= today);
+    } else if (currentFilter === 'past') {
+      list = list.filter(e => toISO(e.start_date || e.start || '') < today);
+      list.reverse(); // Most recent first for past
+    }
+
+    if (currentSearch) {
+      const q = currentSearch.toLowerCase();
+      list = list.filter(e =>
+        (e.name || e.title || '').toLowerCase().includes(q) ||
+        (e.circuit || e.venue || '').toLowerCase().includes(q) ||
+        (e.event_type || e.type || '').toLowerCase().includes(q)
+      );
+    }
+
+    return list;
+  }
+
+  function renderEvents() {
+    const list = getFilteredEvents();
+    const today = todayISO();
+    const container = document.getElementById('eventList');
+    document.getElementById('evCount').textContent = list.length + ' event' + (list.length !== 1 ? 's' : '');
+
+    if (list.length === 0) {
+      container.innerHTML = `
+        <div class="ev-empty">
+          <div class="ev-empty-icon">📅</div>
+          <div>No events found</div>
+        </div>`;
+      return;
+    }
+
+    let html = '';
+    let lastMonth = null;
+    let nextInserted = false;
+
+    list.forEach((ev, idx) => {
+      const startISO = toISO(ev.start_date || ev.start || '');
+      const month = startISO ? monthLabel(startISO) : 'No date';
+      const color = typeColor(ev.event_type || ev.type || '');
+      const statusColor = STATUS_COLORS[ev.status] || '#6b7280';
+      const title = ev.name || ev.title || 'Untitled';
+      const venue = ev.circuit || ev.venue || '';
+      const type = ev.event_type || ev.type || '';
+      const status = ev.status || '';
+      const dateStr = formatDateRange(ev);
+
+      // Month group header
+      if (month !== lastMonth) {
+        lastMonth = month;
+        html += `<div class="ev-group-header">${month}</div>`;
+      }
+
+      // "Next event" divider
+      if (!nextInserted && currentFilter !== 'past' && startISO >= today) {
+        const nextIdx = list.findIndex(e => toISO(e.start_date || e.start || '') >= today);
+        if (nextIdx === idx) {
+          html += `<div class="ev-upcoming-divider">⬇ Next upcoming</div>`;
+          nextInserted = true;
+        }
+      }
+
+      html += `
+        <div class="ev-card" onclick="openDrawer(${JSON.stringify(ev.id)})">
+          <div class="ev-accent" style="background:${color};"></div>
+          <div class="ev-info">
+            <div class="ev-title">${escHtml(title)}</div>
+            <div class="ev-meta">
+              <span>${dateStr}</span>
+              ${venue ? `<span class="ev-venue-chip">${escHtml(venue)}</span>` : ''}
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0;">
+            <span class="ev-type-pill" style="background:${color};">${escHtml(type)}</span>
+            <span style="font-size:10px;font-weight:600;color:${statusColor};">${escHtml(status)}</span>
+          </div>
+        </div>`;
+    });
+
+    container.innerHTML = html;
+  }
+
+  function escHtml(str) {
+    return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function openDrawer(id) {
+    const ev = allEvents.find(e => String(e.id) === String(id));
+    if (!ev) return;
+
+    const title = ev.name || ev.title || 'Untitled';
+    const type  = ev.event_type || ev.type || '';
+    const color = typeColor(type);
+    const dateStr = formatDateRange(ev);
+    const venue = ev.circuit || ev.venue || '';
+    const status = ev.status || '';
+    const brief = ev.brief || '';
+    const drivers = ev.drivers || [];
+    const crew = ev.crew || [];
+    const docs = ev.documents || [];
+    const runbook = ev.runbook || {};
+    const gates = runbook.gates || [];
+    const schedule = runbook.schedule || [];
+
+    document.getElementById('drawerName').textContent = title;
+    document.getElementById('drawerDate').textContent = dateStr;
+    document.getElementById('drawerTypePill').textContent = type;
+    document.getElementById('drawerTypePill').style.background = color;
+
+    let body = '';
+
+    // Key details
+    body += `<div class="detail-section">
+      <div class="detail-section-title">Details</div>`;
+    if (venue) body += detailRow('Venue', escHtml(venue));
+    body += detailRow('Status', escHtml(status));
+    if (brief) body += detailRow('Brief', escHtml(brief));
+    body += `</div>`;
+
+    // Drivers
+    if (drivers.length > 0) {
+      body += `<div class="detail-section">
+        <div class="detail-section-title">Drivers (${drivers.length})</div>`;
+      drivers.forEach(d => {
+        const name = typeof d === 'string' ? d : (d.name || d.driverName || d.driver_name || JSON.stringify(d));
+        const cls = typeof d === 'object' ? (d.class || d.klass || '') : '';
+        body += detailRow(cls || '—', escHtml(name));
+      });
+      body += `</div>`;
+    }
+
+    // Crew roster
+    if (crew.length > 0) {
+      body += `<div class="detail-section">
+        <div class="detail-section-title">Crew (${crew.length})</div>`;
+      crew.forEach(c => {
+        const name = typeof c === 'string' ? c : (c.name || c.staffName || c.staffId || '—');
+        const role = typeof c === 'object' ? (c.role || '') : '';
+        body += detailRow(role || '—', escHtml(name));
+      });
+      body += `</div>`;
+    }
+
+    // Runbook gates
+    if (gates.length > 0) {
+      body += `<div class="detail-section">
+        <div class="detail-section-title">Runbook gates</div>`;
+      gates.forEach(g => {
+        const done = g.status === 'Complete' || g.status === 'Done';
+        body += detailRow(done ? '✅' : '⏳', escHtml(g.name || '—'));
+      });
+      body += `</div>`;
+    }
+
+    // Schedule
+    if (schedule.length > 0) {
+      body += `<div class="detail-section">
+        <div class="detail-section-title">Schedule</div>`;
+      schedule.forEach(s => {
+        const label = s.type || 'Session';
+        const t = [s.start ? formatDate(s.start) : '', s.end ? formatDate(s.end) : ''].filter(Boolean).join(' → ');
+        body += detailRow(escHtml(label), t || '—');
+      });
+      body += `</div>`;
+    }
+
+    // Documents
+    if (docs.length > 0) {
+      body += `<div class="detail-section">
+        <div class="detail-section-title">Documents</div>`;
+      docs.forEach(d => {
+        const name = d.name || 'Document';
+        const url = d.url || '';
+        body += `<div class="detail-row">
+          <span class="detail-label">📄</span>
+          <span class="detail-value">${url ? `<a href="${escHtml(url)}" target="_blank" style="color:#0072a3;">${escHtml(name)}</a>` : escHtml(name)}</span>
+        </div>`;
+      });
+      body += `</div>`;
+    }
+
+    document.getElementById('drawerBody').innerHTML = body;
+    document.getElementById('drawerOverlay').classList.add('active');
+    document.getElementById('detailDrawer').classList.add('open');
+  }
+
+  function detailRow(label, value) {
+    return `<div class="detail-row">
+      <span class="detail-label">${label}</span>
+      <span class="detail-value">${value}</span>
+    </div>`;
+  }
+
+  function closeDrawer() {
+    document.getElementById('drawerOverlay').classList.remove('active');
+    document.getElementById('detailDrawer').classList.remove('open');
+  }
+
+  // Filter chips
+  document.getElementById('filterStrip').addEventListener('click', e => {
+    const btn = e.target.closest('[data-filter]');
+    if (!btn) return;
+    currentFilter = btn.dataset.filter;
+    document.querySelectorAll('#filterStrip .pill').forEach(p => p.classList.remove('pill-active'));
+    btn.classList.add('pill-active');
+    renderEvents();
+  });
+
+  // Search
+  document.getElementById('searchInput').addEventListener('input', e => {
+    currentSearch = e.target.value.trim();
+    renderEvents();
+  });
+
+  // Load events
+  async function loadEvents() {
+    try {
+      const resp = await fetch(`${API}/api/collections/events`, { headers: auth() });
+      const data = await resp.json();
+      if (data.success) {
+        allEvents = data.items || [];
+        renderEvents();
+      }
+    } catch (err) {
+      console.error('Failed to load events:', err);
+      document.getElementById('eventList').innerHTML = `<div class="ev-empty"><div class="ev-empty-icon">⚠️</div><div>Failed to load events</div></div>`;
+    }
+  }
+
+  loadEvents();
+</script>
+</body>
+</html>

@@ -64,9 +64,28 @@
 
     </div>
 
-    <!-- Quick nav -->
+    <!-- Events + Drivers row -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">
+
+      <div class="stat-card" id="statEvents" onclick="window.location.href='events.html'">
+        <div class="stat-icon">📅</div>
+        <div class="stat-num" id="statEventsNum"><span class="stat-dot"></span></div>
+        <div class="stat-label">Events</div>
+        <div class="stat-sub" id="statEventsSub"></div>
+      </div>
+
+      <div class="stat-card" id="statDrivers" onclick="window.location.href='drivers.html'">
+        <div class="stat-icon">🏎️</div>
+        <div class="stat-num" id="statDriversNum"><span class="stat-dot"></span></div>
+        <div class="stat-label">Drivers</div>
+        <div class="stat-sub" id="statDriversSub"></div>
+      </div>
+
+    </div>
     <div style="color:var(--text-3);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px;">Quick access</div>
 
+    <a href="events.html"    class="dash-nav-row">📅 <span>Events</span><span class="dash-nav-arrow">›</span></a>
+    <a href="drivers.html"   class="dash-nav-row">🏎️ <span>Drivers</span><span class="dash-nav-arrow">›</span></a>
     <a href="load.html"      class="dash-nav-row">🚛 <span>Load Plan</span><span class="dash-nav-arrow">›</span></a>
     <a href="tasks.html"     class="dash-nav-row">📋 <span>Lists &amp; Tasks</span><span class="dash-nav-arrow">›</span></a>
     <a href="browse.html"    class="dash-nav-row">📦 <span>Browse Equipment</span><span class="dash-nav-arrow">›</span></a>
@@ -91,10 +110,10 @@
   <!-- Bottom nav -->
   <nav class="app-nav">
     <div class="nav-bar">
-      <a href="tasks.html"  class="nav-item">📋 <span>Lists</span><div class="nav-dot"></div></a>
-      <a href="load.html"   class="nav-item">🚛 <span>Load Plan</span><div class="nav-dot"></div></a>
-      <a href="browse.html" class="nav-item">📦 <span>Browse</span><div class="nav-dot"></div></a>
-      <a href="scan.html"   class="nav-item">📡 <span>Scan</span><div class="nav-dot"></div></a>
+      <a href="events.html"  class="nav-item">📅 <span>Events</span><div class="nav-dot"></div></a>
+      <a href="load.html"    class="nav-item">🚛 <span>Load Plan</span><div class="nav-dot"></div></a>
+      <a href="drivers.html" class="nav-item">🏎️ <span>Drivers</span><div class="nav-dot"></div></a>
+      <a href="scan.html"    class="nav-item">📡 <span>Scan</span><div class="nav-dot"></div></a>
     </div>
   </nav>
 
@@ -209,20 +228,42 @@
   // ── Load all stats ────────────────────────────────────────────────
   async function loadAll() {
     // Reset to loading state
-    ['statVehiclesNum','statBoxesNum','statAssetsNum','statStockNum'].forEach(id => {
+    ['statVehiclesNum','statBoxesNum','statAssetsNum','statStockNum','statEventsNum','statDriversNum'].forEach(id => {
       document.getElementById(id).innerHTML = '<span class="stat-dot"></span>';
     });
-    ['statVehiclesSub','statBoxesSub','statAssetsSub','statStockSub'].forEach(id => {
+    ['statVehiclesSub','statBoxesSub','statAssetsSub','statStockSub','statEventsSub','statDriversSub'].forEach(id => {
       document.getElementById(id).textContent = '';
     });
     document.getElementById('statStock').classList.remove('has-alert');
 
-    const [trucks, boxes, assets, inventory] = await Promise.allSettled([
+    const [trucks, boxes, assets, inventory, eventsResp, driversResp] = await Promise.allSettled([
       fetch(`${API}/api/trucks`,                   { headers: auth() }).then(r => r.json()),
       fetch(`${API}/api/boxes`,                    { headers: auth() }).then(r => r.json()),
       fetch(`${API}/api/items`,                    { headers: auth() }).then(r => r.json()),
       fetch(`${API}/api/collections/inventory`,    { headers: auth() }).then(r => r.json()),
+      fetch(`${API}/api/collections/events`,       { headers: auth() }).then(r => r.json()),
+      fetch(`${API}/api/drivers`,                  { headers: auth() }).then(r => r.json()),
     ]);
+
+    // Events
+    if (eventsResp.status === 'fulfilled' && eventsResp.value.success) {
+      const all = eventsResp.value.items || [];
+      const today = new Date().toISOString().slice(0,10);
+      const upcoming = all.filter(e => (e.start_date || '').slice(0,10) >= today).length;
+      setNum('statEventsNum', all.length);
+      setSub('statEventsSub', upcoming + ' upcoming');
+    } else {
+      setNum('statEventsNum', '—');
+    }
+
+    // Drivers
+    if (driversResp.status === 'fulfilled') {
+      const all = driversResp.value.drivers || driversResp.value.items || [];
+      setNum('statDriversNum', all.length);
+      setSub('statDriversSub', all.length > 0 ? 'active roster' : '');
+    } else {
+      setNum('statDriversNum', '—');
+    }
 
     // Vehicles
     if (trucks.status === 'fulfilled' && trucks.value.success) {
