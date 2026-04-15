@@ -537,7 +537,6 @@
     RTS.setActiveNav();
     const LS_UI = 'rts.events.ui.v4';
     const LS_PANES = 'rts.events.panes.v4';
-    const LS_CLEANED = 'rts.events.db_cleaned_v1';
 
     let settings = RTS.getSettings();
     function getEventTypes(){
@@ -608,26 +607,13 @@
     // Load events from database
     async function loadEventsFromDB() {
       try {
-        // Clear old localStorage event data (one-time migration)
+        // Clear old localStorage event data
         localStorage.removeItem('rts.events.v4');
 
         const resp = await RTS_API.getCollectionItems('events');
         if (!resp || !resp.success) throw new Error('Failed to load events');
-        const dbEvents = resp.items || [];
 
-        // One-time cleanup: delete all existing test/seed events from DB
-        if (!localStorage.getItem(LS_CLEANED)) {
-          for (const ev of dbEvents) {
-            try { await RTS_API.deleteCollectionItem('events', ev.id); } catch(e) {}
-          }
-          localStorage.setItem(LS_CLEANED, '1');
-          events = [];
-          eventsCache = [];
-          render();
-          return;
-        }
-
-        eventsCache = dbEvents.map(dbEventToLocal);
+        eventsCache = (resp.items || []).map(dbEventToLocal);
         events = eventsCache.slice();
         render();
       } catch (error) {
