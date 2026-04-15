@@ -67,7 +67,14 @@ app.use(bodyParser.json({ limit: constants.REQUEST_SIZE_LIMIT }));
 app.use(bodyParser.urlencoded({ extended: true, limit: constants.REQUEST_SIZE_LIMIT }))
 
 // Serve static files from parent directory (HTML, CSS, JS files)
-app.use(express.static(path.join(__dirname, '..')));
+// HTML files: no-cache so browsers always revalidate (JS/CSS can be cached longer)
+app.use(express.static(path.join(__dirname, '..'), {
+  setHeaders(res, filePath) {
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache');
+    }
+  }
+}));
 
 // Request logging (only in development)
 app.use((req, res, next) => {
