@@ -52,6 +52,9 @@ self.addEventListener('fetch', function(event) {
   // Only handle same-origin requests
   if (url.origin !== self.location.origin) return;
 
+  // Never intercept non-GET requests — Cache API only supports GET
+  if (event.request.method !== 'GET') return;
+
   var path = url.pathname;
 
   // API GET routes: network-first, store in persistent data cache, fall back to data cache

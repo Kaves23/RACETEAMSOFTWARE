@@ -749,8 +749,11 @@
     async function deleteEventFromDB(id) {
       try {
         const resp = await RTS_API.deleteCollectionItem('events', id);
-        if (!resp || !resp.success) throw new Error('Failed to delete event');
+        // 404 means the event was never in the DB (localStorage-only) — treat as success
+        if (!resp || (!resp.success && resp.error !== 'Record not found')) throw new Error('Failed to delete event');
       } catch (error) {
+        // If the server returned 404, event wasn't in DB — that's fine
+        if (error.message && error.message.includes('Record not found')) return;
         console.error('Error deleting event:', error);
         throw error;
       }
@@ -1659,8 +1662,8 @@
       els.inspectorBadge.textContent = String(ev.id);
 
       els.f_title.value = ev.title||'';
-      els.f_start.value = ev.start||'';
-      els.f_end.value = ev.end||'';
+      els.f_start.value = ev.start ? (ev.start.includes('T') ? ev.start.slice(0,10) : ev.start) : '';
+      els.f_end.value = ev.end ? (ev.end.includes('T') ? ev.end.slice(0,10) : ev.end) : '';
       const types = getEventTypes();
       if(ev.type && !types.includes(ev.type)){
         const opt = document.createElement('option');
