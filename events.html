@@ -535,9 +535,9 @@
   <script>
   (function(){
     RTS.setActiveNav();
-    const LS_DATA = 'rts.events.v4';
     const LS_UI = 'rts.events.ui.v4';
     const LS_PANES = 'rts.events.panes.v4';
+    const LS_CLEANED = 'rts.events.db_cleaned_v1';
 
     let settings = RTS.getSettings();
     function getEventTypes(){
@@ -567,10 +567,6 @@
       return `${y}-${m}-${da}`;
     }
 
-    function ts(minsAgo){
-      return new Date(Date.now()-minsAgo*60000).toISOString();
-    }
-
     function escapeHtml(str){
       return String(str||'')
         .replace(/&/g,'&amp;')
@@ -589,49 +585,6 @@
         { id:'zwartkops', name:'Zwartkops Kart Circuit', location:'Pretoria, Gauteng', notes:'Club layout, braking focus.' },
         { id:'rheebok', name:'Rheebok', location:'George, Western Cape', notes:'Coastal, flowing.' }
       ];
-    }
-
-    function seedEvents(){
-      const venues = (settings.venues||[]).map(v=>v.name);
-      const types = getEventTypes().length ? getEventTypes() : ['National Weekend','Test Day'];
-      const out=[];
-      for(let i=0;i<10;i++) {
-        const start = new Date();
-        start.setDate(start.getDate() + (i-2)*14);
-        const end = new Date(start.getTime());
-        end.setDate(start.getDate() + (i%2 ? 2 : 0));
-        out.push({
-          id: 1000+i,
-          title: i%2 ? `National Weekend – R${i+1}` : `Test Day – Setup`,
-          start: isoLocal(start),
-          end: isoLocal(end),
-          type: types[i % types.length],
-          status: (i<3?'Closed':(i<6?'Open':'Planned')),
-          venue: venues[i%venues.length],
-          brief: '',
-    // start with no drivers — do not pre-populate driver attendance
-    drivers: [],
-          crew: (settings.staff||[]).slice(0,3).map(s=>({ staffId:s.id, role:s.role || 'Crew' })),
-          documents: [
-            { name:'Supplementary Regulations', url:'supp-regs.pdf' },
-            { name:'Timetable', url:'timetable.pdf' }
-          ],
-          runbook: {
-            version: 1,
-            notes: '',
-            gates: [
-              { id: RTS.uid('gate'), name:'Scrutineering complete', due: isoLocal(start), owner:'Chief Mechanic', status:'Not Started' },
-              { id: RTS.uid('gate'), name:'Departure workshop', due: isoLocal(start), owner:'Logistics', status:'Not Started' }
-            ],
-            schedule: [
-              { id: RTS.uid('sched'), start: isoLocal(start), end: isoLocal(end), type:'Practice', notes:'Baseline run' }
-            ]
-          },
-          createdAt: ts(2500-i*33),
-          updatedAt: ts(1200-i*11)
-        });
-      }
-      return out;
     }
 
     const defaultUI = {
@@ -655,17 +608,27 @@
     // Load events from database
     async function loadEventsFromDB() {
       try {
+        // Clear old localStorage event data (one-time migration)
+        localStorage.removeItem('rts.events.v4');
+
         const resp = await RTS_API.getCollectionItems('events');
         if (!resp || !resp.success) throw new Error('Failed to load events');
-        eventsCache = (resp.items || []).map(dbEventToLocal);
-        events = eventsCache.slice();
-        if (events.length === 0) {
-          events = seedEvents();
-          // Save seed events to database
-          for (const ev of events) {
-            await createEventInDB(ev);
+        const dbEvents = resp.items || [];
+
+        // One-time cleanup: delete all existing test/seed events from DB
+        if (!localStorage.getItem(LS_CLEANED)) {
+          for (const ev of dbEvents) {
+            try { await RTS_API.deleteCollectionItem('events', ev.id); } catch(e) {}
           }
+          localStorage.setItem(LS_CLEANED, '1');
+          events = [];
+          eventsCache = [];
+          render();
+          return;
         }
+
+        eventsCache = dbEvents.map(dbEventToLocal);
+        events = eventsCache.slice();
         render();
       } catch (error) {
         console.error('Error loading events from database:', error);
