@@ -1272,14 +1272,22 @@
   // Build sorted visible task list (tree-order, respecting collapse)
   function buildVisibleTasks() {
     const roots = state.tasks.filter(t => !t.parent_task_id)
-      .sort((a,b) => a.sort_order - b.sort_order || a.created_at < b.created_at ? -1 : 1);
+      .sort((a,b) => {
+        const so = (a.sort_order || 0) - (b.sort_order || 0);
+        if (so !== 0) return so;
+        return a.created_at < b.created_at ? -1 : 1;
+      });
     const vis = [];
     function walk(tasks) {
       for (const t of tasks) {
         vis.push(t);
         if (!state.collapsed.has(t.id)) {
           const children = state.tasks.filter(c => c.parent_task_id === t.id)
-            .sort((a,b) => a.sort_order - b.sort_order || a.created_at < b.created_at ? -1 : 1);
+            .sort((a,b) => {
+              const so = (a.sort_order || 0) - (b.sort_order || 0);
+              if (so !== 0) return so;
+              return a.created_at < b.created_at ? -1 : 1;
+            });
           if (children.length) walk(children);
         }
       }
@@ -1303,7 +1311,11 @@
         if (children.length) walk(children, key);
       }
     }
-    walk(state.tasks.filter(t => !t.parent_task_id).sort((a,b) => a.sort_order - b.sort_order), '');
+    walk(state.tasks.filter(t => !t.parent_task_id).sort((a,b) => {
+      const so = (a.sort_order || 0) - (b.sort_order || 0);
+      if (so !== 0) return so;
+      return a.created_at < b.created_at ? -1 : 1;
+    }), '');
     return wbs;
   }
 
