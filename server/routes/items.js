@@ -239,13 +239,14 @@ router.put('/:id', async (req, res, next) => {
       current_location_id,
       last_maintenance_date,
       next_maintenance_date,
-      weight,
       value,
       serial_number,
       status,
       custom_fields,
       parent_asset_id
     } = req.body;
+    // Accept both 'weight_kg' and 'weight' field names (client sends weight_kg)
+    const weight = req.body.weight_kg ?? req.body.weight ?? null;
 
     // Detect seal number change so we can log it to item_history
     let sealChanged = false;
