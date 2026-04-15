@@ -429,10 +429,12 @@ window.RTS_DATA = {
         status: item.status,
         current_location_id: item.locationId || item.current_location_id,
         current_box_id: item.boxId || item.current_box_id,
-        last_maintenance_date: item.lastMaintenance || item.last_maintenance_date,
-        next_maintenance_date: item.nextMaintenance || item.next_maintenance_date,
+        last_maintenance_date: item.lastMaintenance || item.last_maintenance_date || null,
+        next_maintenance_date: item.nextMaintenance || item.next_maintenance_date || null,
         custom_fields: item.custom_fields || undefined,
-        parent_asset_id: 'parent_asset_id' in item ? item.parent_asset_id : undefined
+        parent_asset_id: 'parent_asset_id' in item ? item.parent_asset_id : undefined,
+        ...('is_flagged' in item ? { is_flagged: item.is_flagged } : {}),
+        ...('flag_reason' in item ? { flag_reason: item.flag_reason } : {})
       };
       
       if (item.id && !isNew) {

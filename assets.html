@@ -348,6 +348,66 @@
     .status-maintenance { background: #ff6b00; }
     .status-retired { background: #6c757d; }
     .status-warehouse { background: #17a2b8; }
+
+    /* ── Flagged / Needs Attention ─────────────────────────────── */
+    .asset-card.flagged {
+      border-color: #dc3545 !important;
+      box-shadow: 0 0 0 2px rgba(220,53,69,0.25), 0 1px 3px rgba(0,0,0,0.05) !important;
+      background: rgba(220,53,69,0.03) !important;
+    }
+    .asset-card.flagged:hover {
+      border-color: #dc3545 !important;
+      box-shadow: 0 0 0 3px rgba(220,53,69,0.35) !important;
+      background: rgba(220,53,69,0.07) !important;
+      transform: translateX(3px);
+    }
+    .asset-card.flagged.selected {
+      box-shadow: 0 0 0 3px rgba(220,53,69,0.45) !important;
+      background: rgba(220,53,69,0.1) !important;
+    }
+    .asset-table tr.flagged > td { background: rgba(220,53,69,0.04) !important; }
+    .asset-table tr.flagged { outline: 2px solid rgba(220,53,69,0.3); outline-offset: -2px; }
+    .needs-attention-badge {
+      display: inline-flex; align-items: center; gap: 3px;
+      font-size: 0.6rem; font-weight: 700; color: #dc3545;
+      background: rgba(220,53,69,0.1); border: 1px solid rgba(220,53,69,0.3);
+      border-radius: 3px; padding: 1px 6px;
+      text-transform: uppercase; letter-spacing: 0.02em;
+      white-space: nowrap; flex-shrink: 0;
+      animation: pulse-attention 2s infinite;
+    }
+    @keyframes pulse-attention { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+    /* Panel red glow when viewing a flagged asset */
+    #assetDetailsPanel.panel-flagged {
+      border-color: #dc3545 !important;
+      box-shadow: 0 0 0 3px rgba(220,53,69,0.2), 0 2px 8px rgba(220,53,69,0.15) !important;
+    }
+    #assetDetailsPanel.panel-flagged .card-header {
+      background: rgba(220,53,69,0.07) !important;
+      border-bottom-color: rgba(220,53,69,0.25) !important;
+    }
+    /* Flagged banner */
+    .flagged-banner {
+      display: flex; align-items: flex-start; gap: 10px;
+      background: rgba(220,53,69,0.08);
+      border: 1px solid rgba(220,53,69,0.3); border-left: 4px solid #dc3545;
+      border-radius: 6px; padding: 10px 14px; margin-bottom: 14px;
+    }
+    .flagged-banner-icon { font-size: 1.3rem; line-height: 1; flex-shrink: 0; margin-top: 1px; }
+    .flagged-banner-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: #dc3545; line-height: 1; margin-bottom: 4px; }
+    .flagged-banner-reason { font-size: 0.9rem; font-weight: 600; color: #1a1d24; line-height: 1.3; }
+    /* Flag toggle bar */
+    .flag-toggle-bar {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 7px 12px; border-radius: 6px; margin-bottom: 10px;
+      background: rgba(0,0,0,0.03); border: 1px solid rgba(0,0,0,0.08);
+    }
+    .flag-toggle-bar.is-flagged { background: rgba(220,53,69,0.06); border-color: rgba(220,53,69,0.24); }
+    .flag-toggle-bar .flag-label { font-size: 0.8rem; font-weight: 500; color: #5f6368; display: flex; align-items: center; gap: 5px; }
+    .flag-toggle-bar.is-flagged .flag-label { color: #b91c1c; }
+    .flag-reason-row { margin-bottom: 10px; }
+    .flag-reason-row .btn-flag-save { background:#dc3545; border-color:#dc3545; color:#fff; }
+    .flag-reason-row .btn-flag-save:hover { background:#b91c1c; }
     
     /* Checkbox Styles */
     .asset-checkbox {
@@ -2491,11 +2551,11 @@
           ? `<span style="font-size:0.58rem;background:#fff3cd;color:#856404;border-radius:3px;padding:1px 5px;margin-left:4px;font-weight:600;vertical-align:middle;white-space:nowrap;">🚛 On Truck</span>`
           : '';
         
-        return `<tr data-id="${asset.id}" style="position: relative;">
+        return `<tr data-id="${asset.id}"${asset.is_flagged ? ' class="flagged"' : ''} style="position: relative;">
           <td class="checkbox-cell"><input type="checkbox" class="asset-checkbox" data-id="${asset.id}" onclick="event.stopPropagation(); toggleAssetSelection('${asset.id}', event)"></td>
           <div class="status-indicator ${statusClass}"></div>
           <td class="table-barcode" title="${asset.barcode || asset.id}">${asset.barcode || asset.id}</td>
-          <td class="table-name" title="${asset.name}">${asset.name}${inBoxBadge}${loadedBadge}</td>
+          <td class="table-name" title="${asset.name}">${asset.name}${inBoxBadge}${loadedBadge}${asset.is_flagged ? ' <span class="needs-attention-badge">⚠ Needs Attention</span>' : ''}</td>
           <td><span class="table-badge" style="background: ${typeColor}; color: white; font-weight: 500; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;">${typeName}</span></td>
           <td class="table-serial">${asset.serial_number || '—'}</td>
           <td class="table-location">${locationText}</td>
@@ -2601,7 +2661,7 @@
         </div>`;
       }
 
-      return `<div class="asset-card" data-id="${asset.id}">
+      return `<div class="asset-card${asset.is_flagged ? ' flagged' : ''}" data-id="${asset.id}">
         <div class="status-indicator ${statusClass}"></div>
         <div class="card-checkbox-container">
           <input type="checkbox" class="asset-checkbox" data-id="${asset.id}" onclick="event.stopPropagation(); toggleAssetSelection('${asset.id}', event)">
@@ -2609,6 +2669,7 @@
         <div class="asset-card-row-1">
           <div class="asset-barcode">${asset.barcode || asset.id}</div>
           <div class="asset-name" title="${asset.name}">${asset.name}</div>
+          ${asset.is_flagged ? '<span class="needs-attention-badge">⚠ Needs Attention</span>' : ''}
         </div>
         <div class="asset-card-row">
           ${asset.category ? `<div class="asset-category">${asset.category}</div>` : ''}
@@ -2717,6 +2778,10 @@
       panelContent.style.display = 'block';
       panelTitle.textContent = asset.name;
       
+      // Red glow on panel when asset is flagged
+      const detailsPanel = document.getElementById('assetDetailsPanel');
+      detailsPanel.classList.toggle('panel-flagged', !!asset.is_flagged);
+      
       // Populate the form fields
       const box = allBoxes.find(b => b.id === asset.current_box_id);
       const location = allLocations.find(l => l.id === asset.current_location_id);
@@ -2742,6 +2807,34 @@
            </div>`;
 
       panelContent.innerHTML = `
+        ${asset.is_flagged ? `
+        <div class="flagged-banner">
+          <div class="flagged-banner-icon">⚠️</div>
+          <div>
+            <div class="flagged-banner-label">Needs Attention</div>
+            <div class="flagged-banner-reason">${asset.flag_reason ? asset.flag_reason.replace(/</g,'&lt;').replace(/>/g,'&gt;') : 'This asset has been flagged.'}</div>
+          </div>
+        </div>` : ''}
+        <div class="flag-toggle-bar${asset.is_flagged ? ' is-flagged' : ''}" id="flagToggleBar">
+          <span class="flag-label" id="flagToggleLabel">${asset.is_flagged ? '🚨 Flagged for attention' : '🔔 Flag for attention'}</span>
+          <div class="form-check form-switch mb-0">
+            <input class="form-check-input" type="checkbox" id="flagToggle" role="switch"
+              ${asset.is_flagged ? 'checked' : ''} onchange="handleFlagToggle(this)">
+          </div>
+        </div>
+        <div id="flagReasonEditor" class="flag-reason-row row g-2 align-items-end" style="display:${asset.is_flagged ? 'flex' : 'none'};">
+          <div class="col">
+            <input type="text" class="form-control form-control-sm" id="flagReasonInput"
+              value="${asset.flag_reason ? asset.flag_reason.replace(/"/g, '&quot;') : ''}"
+              placeholder="e.g. confirm seal number, locate this engine…"
+              onkeydown="if(event.key==='Enter'){event.preventDefault();saveFlagStatus();}">
+          </div>
+          <div class="col-auto">
+            <button type="button" class="btn btn-sm btn-flag-save" onclick="saveFlagStatus()">
+              ${asset.is_flagged ? 'Update' : 'Flag Asset'}
+            </button>
+          </div>
+        </div>
         <ul class="nav nav-tabs" role="tablist">
           <li class="nav-item">
             <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#panelTabDetails">
@@ -3469,9 +3562,41 @@ if (!newLocationId && !newBoxId) {
     }
 
     // ==================== PANEL-SPECIFIC FUNCTIONS ====================
-    
+
+    function handleFlagToggle(checkbox) {
+      const editor = document.getElementById('flagReasonEditor');
+      const bar = document.getElementById('flagToggleBar');
+      const label = document.getElementById('flagToggleLabel');
+      if (checkbox.checked) {
+        editor.style.display = 'flex';
+        bar.classList.add('is-flagged');
+        label.textContent = '🚨 Flagged for attention';
+        setTimeout(() => document.getElementById('flagReasonInput')?.focus(), 50);
+      } else {
+        // Immediately save un-flagged state
+        saveFlagStatus(false);
+      }
+    }
+
+    async function saveFlagStatus(forceFlag) {
+      const id = document.getElementById('panelAssetId')?.value;
+      if (!id) return;
+      const isFlagged = forceFlag !== undefined ? forceFlag : (document.getElementById('flagToggle')?.checked ?? false);
+      const reason = isFlagged ? (document.getElementById('flagReasonInput')?.value.trim() || null) : null;
+      try {
+        const result = await window.RTS_DATA.saveItem({ id, is_flagged: isFlagged, flag_reason: reason });
+        if (result.success) {
+          showToast(isFlagged ? '🚨 Asset flagged' : '✅ Flag cleared', isFlagged ? 'warning' : 'success');
+          const idx = allAssets.findIndex(a => a.id === id);
+          if (idx !== -1) { allAssets[idx].is_flagged = isFlagged; allAssets[idx].flag_reason = reason; }
+          renderAssets();
+          const updated = allAssets.find(a => a.id === id);
+          if (updated) openAssetPanel(updated);
+        } else { showToast('Error: ' + result.error, 'error'); }
+      } catch (e) { showToast('Error saving flag: ' + e.message, 'error'); }
+    }
+
     async function saveAssetFromPanel() {
-      const id = document.getElementById('panelAssetId').value;
       if (!id) {
         alert('No asset selected');
         return;

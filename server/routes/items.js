@@ -14,6 +14,8 @@ router.get('/', async (req, res, next) => {
       i.status, i.current_box_id, i.current_location_id, i.weight_kg, 
       i.value_usd, i.description, i.assigned_staff_id, i.is_race_fleet,
       i.custom_fields, i.parent_asset_id,
+      i.last_maintenance_date, i.next_maintenance_date,
+      i.is_flagged, i.flag_reason,
       s.name AS assigned_staff_name,
       i.created_at, i.updated_at
     FROM items i
@@ -249,6 +251,11 @@ router.put('/:id', async (req, res, next) => {
     const weight = req.body.weight_kg ?? req.body.weight ?? null;
     // Accept both 'value_usd' and 'value' field names
     const itemValue = req.body.value_usd ?? value ?? null;
+    // Flag system
+    const hasFlagField = 'is_flagged' in req.body;
+    const isFlagged = hasFlagField ? Boolean(req.body.is_flagged) : null;
+    const flagReason = req.body.flag_reason !== undefined ? (req.body.flag_reason || null) : null;
+    const hasFlagReason = 'flag_reason' in req.body;
 
     // Detect seal number change so we can log it to item_history
     let sealChanged = false;
@@ -264,10 +271,8 @@ router.put('/:id', async (req, res, next) => {
       }
     }
     
-    // Build parent_asset_id clause conditionally
-    // If explicitly sent (even as null), update it. If not in body, leave unchanged.
+    // Build parent_asset_id: use CASE to avoid overwriting when not sent
     const hasParentField = 'parent_asset_id' in req.body;
-    const parentFieldSql = hasParentField ? ', parent_asset_id = $16' : '';
     
     const query = `
       UPDATE items
@@ -284,7 +289,10 @@ router.put('/:id', async (req, res, next) => {
           serial_number = COALESCE($11, serial_number),
           status = COALESCE($12, status),
           is_race_fleet = COALESCE($13, is_race_fleet),
-          custom_fields = COALESCE($15, custom_fields)${parentFieldSql},
+          custom_fields = COALESCE($15, custom_fields),
+          parent_asset_id = CASE WHEN $16 THEN $17 ELSE parent_asset_id END,
+          is_flagged = COALESCE($18, is_flagged),
+          flag_reason = CASE WHEN $19 THEN $20 ELSE flag_reason END,
           updated_at = NOW()
       WHERE id = $14
       RETURNING *
@@ -297,7 +305,11 @@ router.put('/:id', async (req, res, next) => {
       req.body.is_race_fleet !== undefined ? Boolean(req.body.is_race_fleet) : null,
       id,
       custom_fields ? JSON.stringify(custom_fields) : null,
-      ...(hasParentField ? [parent_asset_id || null] : [])
+      hasParentField,                                // $16 bool: update parent?
+      hasParentField ? (parent_asset_id || null) : null, // $17 value
+      isFlagged,                                     // $18 COALESCE: null=no-op
+      hasFlagReason,                                 // $19 bool: update flag_reason?
+      flagReason                                     // $20 new reason (or null)
     ];
     
     const result = await pool.query(query, values);
