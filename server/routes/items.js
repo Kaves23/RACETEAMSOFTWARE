@@ -247,6 +247,8 @@ router.put('/:id', async (req, res, next) => {
     } = req.body;
     // Accept both 'weight_kg' and 'weight' field names (client sends weight_kg)
     const weight = req.body.weight_kg ?? req.body.weight ?? null;
+    // Accept both 'value_usd' and 'value' field names
+    const itemValue = req.body.value_usd ?? value ?? null;
 
     // Detect seal number change so we can log it to item_history
     let sealChanged = false;
@@ -291,7 +293,7 @@ router.put('/:id', async (req, res, next) => {
     const values = [
       name, item_type, category, description, current_box_id,
       current_location_id, last_maintenance_date, next_maintenance_date,
-      weight, value, serial_number, status,
+      weight, itemValue, serial_number, status,
       req.body.is_race_fleet !== undefined ? Boolean(req.body.is_race_fleet) : null,
       id,
       custom_fields ? JSON.stringify(custom_fields) : null,

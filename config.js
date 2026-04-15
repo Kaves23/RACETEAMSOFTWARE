@@ -424,7 +424,7 @@ window.RTS_DATA = {
         category: item.category,
         description: item.description,
         serial_number: item.serialNumber || item.serial_number,
-        weight_kg: item.weight_kg ?? item.weight ?? 0,
+        weight_kg: item.weight_kg != null ? item.weight_kg : (item.weight != null ? item.weight : null),
         value_usd: item.value_usd ?? item.value ?? null,
         status: item.status,
         current_location_id: item.locationId || item.current_location_id,
