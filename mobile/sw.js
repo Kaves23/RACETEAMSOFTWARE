@@ -121,7 +121,7 @@ function cacheFirst(request) {
 // ── Strategy: network-first ───────────────────────────────────────────────
 function networkFirst(request) {
   return fetch(request.clone()).then(function(response) {
-    if (response && response.status === 200) {
+    if (response && response.status === 200 && request.method === 'GET') {
       // Clone BEFORE any async operation — body can only be consumed once
       var responseClone = response.clone();
       caches.open(CACHE_NAME).then(function(cache) {
