@@ -1203,14 +1203,14 @@
   <div class="rts-main container-fluid">
     <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
       <div>
-        <h1 class="h4 mb-1">Asset Tracking</h1>
+        <h1 class="h4 mb-1" style="color: #1a1d24;">Asset Tracking</h1>
         <div class="text-secondary" style="font-size:0.85rem;">
           Comprehensive inventory and equipment management system.
         </div>
       </div>
       <div class="d-flex gap-2">
-        <button class="btn btn-sm btn-outline-light mlo-btn" id="btnExportAssets">📊 Export</button>
-        <button class="btn btn-sm btn-outline-light mlo-btn" id="btnPrintLabels">🏷️ Print Labels</button>
+        <button class="btn btn-sm btn-outline-secondary mlo-btn" id="btnExportAssets">📊 Export</button>
+        <button class="btn btn-sm btn-outline-secondary mlo-btn" id="btnPrintLabels">🏷️ Print Labels</button>
         <button class="btn btn-sm btn-primary mlo-btn" id="btnAddAsset">➕ Add Asset</button>
       </div>
     </div>
@@ -2481,12 +2481,21 @@
         
         // Status color class
         const statusClass = `status-${asset.status}`;
+
+        // In-box and loaded badges
+        const inBoxBadge = box
+          ? `<span style="font-size:0.58rem;background:#e8f0fe;color:#1a73e8;border-radius:3px;padding:1px 5px;margin-left:5px;font-weight:600;vertical-align:middle;white-space:nowrap;">📦 ${box.name}</span>`
+          : '';
+        const isLoaded = box && (box.current_truck_id || box.load_plan_truck_id);
+        const loadedBadge = isLoaded
+          ? `<span style="font-size:0.58rem;background:#fff3cd;color:#856404;border-radius:3px;padding:1px 5px;margin-left:4px;font-weight:600;vertical-align:middle;white-space:nowrap;">🚛 On Truck</span>`
+          : '';
         
         return `<tr data-id="${asset.id}" style="position: relative;">
           <td class="checkbox-cell"><input type="checkbox" class="asset-checkbox" data-id="${asset.id}" onclick="event.stopPropagation(); toggleAssetSelection('${asset.id}', event)"></td>
           <div class="status-indicator ${statusClass}"></div>
           <td class="table-barcode" title="${asset.barcode || asset.id}">${asset.barcode || asset.id}</td>
-          <td class="table-name" title="${asset.name}">${asset.name}</td>
+          <td class="table-name" title="${asset.name}">${asset.name}${inBoxBadge}${loadedBadge}</td>
           <td><span class="table-badge" style="background: ${typeColor}; color: white; font-weight: 500; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;">${typeName}</span></td>
           <td class="table-serial">${asset.serial_number || '—'}</td>
           <td class="table-location">${locationText}</td>
@@ -3757,7 +3766,10 @@ if (!newLocationId && !newBoxId) {
       
       try {
         // Fetch history from API
-        const response = await fetch(`${window.RTS_CONFIG.api.baseURL}/items/${assetId}/history`);
+        const token = localStorage.getItem('auth_token') || '';
+        const response = await fetch(`${window.RTS_CONFIG.api.baseURL}/items/${assetId}/history`, {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
         
         if (!response.ok) {
           throw new Error('Failed to load history');

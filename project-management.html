@@ -109,6 +109,13 @@
       font-size: 13px; line-height: 1;
     }
     .pm-plan-item:hover .pm-plan-kebab { opacity: 1; }
+    .pm-plan-progress-row {
+      display: flex; align-items: center; gap: 5px;
+      padding: 0 12px 5px 27px; margin-top: -2px;
+    }
+    .pm-plan-pct-bar { flex: 1; height: 3px; background: #dde1e7; border-radius: 2px; overflow: hidden; }
+    .pm-plan-pct-fill { height: 100%; border-radius: 2px; transition: width .3s; }
+    .pm-plan-pct-lbl { font-size: 9px; color: #888; white-space: nowrap; }
 
     /* ─── MAIN AREA ──────────────────────────────────────────────── */
     #pm-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
@@ -123,6 +130,67 @@
       border-bottom: 1px solid #cdd3db;
       flex-shrink: 0;
       flex-wrap: wrap;
+    }
+    /* ─── HEALTH PANEL ───────────────────────────────────────────── */
+    #pm-health-bar {
+      display: none;
+      align-items: center;
+      gap: 12px;
+      padding: 5px 14px;
+      background: #f0f2f6;
+      border-bottom: 1px solid #cdd3db;
+      flex-shrink: 0;
+      font-size: 11px;
+      flex-wrap: wrap;
+    }
+    .pm-health-stat {
+      display: flex; align-items: center; gap: 4px;
+      cursor: pointer; padding: 2px 7px;
+      border-radius: 4px; border: 1px solid transparent;
+      transition: background .1s;
+    }
+    .pm-health-stat:hover { background: rgba(0,0,0,0.05); }
+    .pm-health-stat.active { background: rgba(166,77,255,0.1); border-color: #a64dff; }
+    .pm-health-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    /* ─── FILTER CHIPS ───────────────────────────────────────────── */
+    #pm-filter-bar {
+      display: none;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background: #f8f9fa;
+      border-bottom: 1px solid #e8eaed;
+      flex-shrink: 0; flex-wrap: wrap;
+    }
+    .pm-fchip {
+      font-size: 10px; padding: 2px 9px;
+      border-radius: 12px; cursor: pointer;
+      border: 1px solid #d0d3d8; background: #fff;
+      transition: background .1s, border-color .1s;
+      white-space: nowrap;
+    }
+    .pm-fchip:hover { background: #f0f0f0; }
+    .pm-fchip.active { background: #a64dff; color: #fff; border-color: #a64dff; }
+    .pm-fchip.chip-overdue.active  { background: #e74c3c; border-color: #e74c3c; }
+    .pm-fchip.chip-nodates.active  { background: #95a5a6; border-color: #95a5a6; }
+    .pm-fchip.chip-blocked.active  { background: #ff6b35; border-color: #ff6b35; }
+    .pm-fchip.chip-mine.active     { background: #3498db; border-color: #3498db; }
+    /* ─── CRITICAL PATH ──────────────────────────────────────────── */
+    .pm-bar-critical { outline: 2px solid #e74c3c !important; outline-offset: 1px; }
+    .pm-task-row.critical-row .pm-task-title-text { color: #c0392b; font-weight: 700; }
+    /* ─── PRINT ──────────────────────────────────────────────────── */
+    .pm-print-header { display: none; }
+    @media print {
+      #pm-sidebar, #pm-toolbar, #pm-health-bar, #pm-filter-bar,
+      #pm-chart-wrap, #pm-outline-resizer, #rtsTopNav { display: none !important; }
+      #pm-shell { height: auto !important; overflow: visible !important; }
+      #pm-main { overflow: visible !important; }
+      #pm-gantt-area { display: block !important; overflow: visible !important; }
+      #pm-outline-wrap { width: 100% !important; overflow: visible !important; }
+      #pm-outline-body { overflow: visible !important; height: auto !important; }
+      .pm-print-header { display: block !important; padding: 0 0 12px; }
+      .pm-print-header h2 { font-size: 16px; font-weight: 700; margin: 0 0 2px; }
+      .pm-print-header p  { font-size: 10px; color: #666; margin: 0; }
     }
     #pm-plan-title { font-weight: 700; font-size: 13px; margin-right: 4px; color: #111; }
     .pm-toolbar-sep { width: 1px; height: 20px; background: #cdd3db; margin: 0 2px; }
@@ -191,7 +259,7 @@
       display: grid;
       grid-template-columns: 18px 26px 1fr 44px 72px 72px 38px 28px;
       align-items: center;
-      height: 32px;
+      height: 16px;
       padding: 0 4px;
       border-bottom: 1px solid #f0f0f0;
       cursor: pointer;
@@ -356,12 +424,12 @@
       /* Horizontal row lines continue into empty space below tasks */
       background-image: repeating-linear-gradient(
         to bottom,
-        transparent 0px, transparent 31px,
-        #f0f0f0 31px, #f0f0f0 32px
+        transparent 0px, transparent 15px,
+        #f0f0f0 15px, #f0f0f0 16px
       );
     }
     .pm-chart-row {
-      height: 32px; position: relative;
+      height: 16px; position: relative;
       border-bottom: 1px solid #f0f0f0;
       display: flex; align-items: center;
     }
@@ -396,7 +464,7 @@
     /* GANTT BARS */
     .pm-bar-wrap {
       position: absolute; top: 50%; transform: translateY(-50%);
-      height: 20px; border-radius: 0;
+      height: 10px; border-radius: 0;
       overflow: hidden; cursor: grab;
       user-select: none; z-index: 2;
       min-width: 4px;
@@ -426,7 +494,7 @@
     /* Milestone diamond */
     .pm-milestone-diamond {
       position: absolute; top: 50%; transform: translateY(-50%) rotate(45deg);
-      width: 14px; height: 14px;
+      width: 8px; height: 8px;
       border-radius: 2px;
       z-index: 2;
       box-shadow: 0 1px 3px rgba(0,0,0,0.2);
@@ -705,9 +773,55 @@
         <div class="pm-toolbar-sep"></div>
         <button class="pm-toolbar-btn primary" id="btn-add-task">+ Task</button>
         <button class="pm-toolbar-btn" id="pm-link-mode-btn" title="Draw dependency arrows between tasks">⤳ Link</button>
+        <button class="pm-toolbar-btn" id="pm-critical-btn" title="Highlight critical path">🔴 Critical Path</button>
+        <button class="pm-toolbar-btn" id="pm-print-btn" title="Print task outline">🖨️ Print</button>
+        <div class="pm-toolbar-sep"></div>
+        <input type="text" id="pm-task-search" placeholder="🔍 Search tasks…"
+          style="padding:3px 8px;font-size:11px;border:1px solid #d0d3d8;border-radius:4px;width:160px;outline:none;"
+          oninput="pmSearchTasks(this.value)">
         <div style="margin-left:auto;display:flex;gap:6px;">
+          <button class="pm-toolbar-btn" id="btn-health-toggle" title="Toggle health panel">📊 Health</button>
           <button class="pm-toolbar-btn" id="btn-edit-plan" style="display:none">✎ Edit Plan</button>
         </div>
+      </div>
+
+      <!-- HEALTH PANEL -->
+      <div id="pm-health-bar">
+        <strong style="font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.06em;">Plan Health</strong>
+        <div class="pm-health-stat" data-health="overdue" title="Tasks past due date">
+          <div class="pm-health-dot" style="background:#e74c3c"></div>
+          <span id="ph-overdue">0 overdue</span>
+        </div>
+        <div class="pm-health-stat" data-health="nodates" title="Tasks with no dates set">
+          <div class="pm-health-dot" style="background:#95a5a6"></div>
+          <span id="ph-nodates">0 no dates</span>
+        </div>
+        <div class="pm-health-stat" data-health="unassigned" title="Tasks with no assignee">
+          <div class="pm-health-dot" style="background:#f39c12"></div>
+          <span id="ph-unassigned">0 unassigned</span>
+        </div>
+        <div class="pm-health-stat" data-health="blocked" title="Blocked tasks">
+          <div class="pm-health-dot" style="background:#ff6b35"></div>
+          <span id="ph-blocked">0 blocked</span>
+        </div>
+        <div class="pm-health-stat" data-health="all" title="Show all tasks" style="margin-left:auto;">
+          <span style="color:#a64dff;font-weight:600;">Show All</span>
+        </div>
+      </div>
+
+      <!-- FILTER CHIPS -->
+      <div id="pm-filter-bar">
+        <span class="pm-fchip chip-all active" data-chip="all">All</span>
+        <span class="pm-fchip chip-overdue" data-chip="overdue">⏰ Overdue</span>
+        <span class="pm-fchip chip-nodates" data-chip="nodates">📅 No Dates</span>
+        <span class="pm-fchip chip-blocked" data-chip="blocked">⛔ Blocked</span>
+        <span class="pm-fchip chip-mine" data-chip="mine">👤 Mine</span>
+      </div>
+
+      <!-- PRINT HEADER -->
+      <div class="pm-print-header">
+        <h2 id="pm-print-title">Project Plan</h2>
+        <p id="pm-print-meta"></p>
       </div>
 
       <!-- EMPTY STATE -->
@@ -1044,6 +1158,10 @@
     editingTaskId: null,   // for task modal
     inspectorTaskId: null, // for full-page inspector
     undoStack: [],
+    chipFilter: 'all',
+    searchQuery: '',
+    criticalPath: new Set(),
+    showCritical: false,
   };
 
   // ════════════════════════════════════════════════════════════════
@@ -1271,7 +1389,6 @@
       el.innerHTML = '<div style="padding:16px 12px;color:#bbb;font-size:11px;">No plans yet. Create one above.</div>';
       return;
     }
-    // Group by event
     const groups = {};
     for (const p of state.plans) {
       const key = p.event_id ? (p.event_name || p.event_id) : '__standalone__';
@@ -1283,12 +1400,23 @@
       html += `<div class="pm-group-heading">${g.label}</div>`;
       for (const p of g.plans) {
         const active = p.id === state.activePlanId ? ' active' : '';
+        let progressRow = '';
+        if (p.id === state.activePlanId && state.tasks.length) {
+          const total = state.tasks.length;
+          const done = state.tasks.filter(t => t.status === 'completed').length;
+          const pct = Math.round(done / total * 100);
+          const barColor = pct >= 100 ? '#2ecc71' : pct >= 60 ? '#3498db' : pct >= 30 ? '#f39c12' : '#e74c3c';
+          progressRow = `<div class="pm-plan-progress-row">
+            <div class="pm-plan-pct-bar"><div class="pm-plan-pct-fill" style="width:${pct}%;background:${barColor};"></div></div>
+            <span class="pm-plan-pct-lbl">${done}/${total} · ${pct}%</span>
+          </div>`;
+        }
         html += `<div class="pm-plan-item${active}" data-plan-id="${p.id}">
           <div class="pm-plan-dot" style="background:${p.color||'#a64dff'}"></div>
           <span class="pm-plan-name">${esc(p.name)}</span>
           <span class="pm-plan-status ${p.status}">${p.status}</span>
           <button class="pm-plan-kebab" data-plan-id="${p.id}" title="Plan options">⋮</button>
-        </div>`;
+        </div>${progressRow}`;
       }
     }
     el.innerHTML = html;
@@ -1304,11 +1432,89 @@
     document.getElementById('pm-empty-state').style.display = state.activePlanId ? 'none' : '';
     document.getElementById('pm-gantt-area').style.display = state.activePlanId ? '' : 'none';
     if (!state.activePlanId) return;
-    const visibleTasks = buildVisibleTasks();
+
+    document.getElementById('pm-filter-bar').style.display = 'flex';
+
+    if (state.showCritical) computeCriticalPath();
+    else state.criticalPath = new Set();
+
+    updateHealthPanel();
+
+    let visibleTasks = buildVisibleTasks();
+    const today = new Date(); today.setHours(0,0,0,0);
+    const me = state.users.find(u => u.id === localStorage.getItem('rts_user_id'));
+
+    if (state.chipFilter === 'overdue') {
+      visibleTasks = visibleTasks.filter(t => t.end_date && parseDateLocal(t.end_date) < today && t.status !== 'completed');
+    } else if (state.chipFilter === 'nodates') {
+      visibleTasks = visibleTasks.filter(t => !t.start_date && !t.end_date);
+    } else if (state.chipFilter === 'blocked') {
+      visibleTasks = visibleTasks.filter(t => t.status === 'blocked');
+    } else if (state.chipFilter === 'mine') {
+      visibleTasks = visibleTasks.filter(t => me && t.assignee_user_id === me.id);
+    }
+
+    if (state.searchQuery) {
+      const q = state.searchQuery.toLowerCase();
+      visibleTasks = visibleTasks.filter(t => t.title.toLowerCase().includes(q));
+    }
+
     const wbs = computeWbs();
     renderOutline(visibleTasks, wbs);
     renderChart(visibleTasks);
-    renderPlanList(); // refresh active state
+    renderPlanList();
+  }
+
+  function updateHealthPanel() {
+    if (!state.activePlanId) return;
+    const today = new Date(); today.setHours(0,0,0,0);
+    const tasks = state.tasks;
+    const overdue  = tasks.filter(t => t.end_date && parseDateLocal(t.end_date) < today && t.status !== 'completed').length;
+    const nodates  = tasks.filter(t => !t.start_date && !t.end_date).length;
+    const unassign = tasks.filter(t => !t.assignee_user_id).length;
+    const blocked  = tasks.filter(t => t.status === 'blocked').length;
+    const el = id => document.getElementById(id);
+    if (el('ph-overdue'))    el('ph-overdue').textContent    = `${overdue} overdue`;
+    if (el('ph-nodates'))    el('ph-nodates').textContent    = `${nodates} no dates`;
+    if (el('ph-unassigned')) el('ph-unassigned').textContent = `${unassign} unassigned`;
+    if (el('ph-blocked'))    el('ph-blocked').textContent    = `${blocked} blocked`;
+  }
+
+  function computeCriticalPath() {
+    const taskMap = {};
+    for (const t of state.tasks) taskMap[t.id] = t;
+    const dur = t => {
+      if (!t.start_date || !t.end_date) return 1;
+      return Math.max(1, daysBetween(parseDateLocal(t.start_date), parseDateLocal(t.end_date)));
+    };
+    const ef = {};
+    const visited = new Set();
+    function calcEF(id) {
+      if (visited.has(id)) return ef[id] || 0;
+      visited.add(id);
+      const preds = state.links.filter(l => l.to_task_id === id);
+      const maxPredEF = preds.length ? Math.max(...preds.map(l => calcEF(l.from_task_id))) : 0;
+      ef[id] = maxPredEF + dur(taskMap[id]);
+      return ef[id];
+    }
+    for (const t of state.tasks) calcEF(t.id);
+    const maxEF = Math.max(...Object.values(ef));
+    const cp = new Set();
+    function traceback(id) {
+      if (cp.has(id)) return;
+      cp.add(id);
+      const preds = state.links.filter(l => l.to_task_id === id);
+      for (const l of preds) {
+        if (ef[l.from_task_id] + dur(taskMap[id]) === ef[id]) traceback(l.from_task_id);
+      }
+    }
+    for (const t of state.tasks) { if (ef[t.id] === maxEF) traceback(t.id); }
+    state.criticalPath = cp;
+  }
+
+  function pmSearchTasks(q) {
+    state.searchQuery = q.trim();
+    renderAll();
   }
 
   // ════════════════════════════════════════════════════════════════
@@ -1352,8 +1558,11 @@
         ? `<div class="pm-assignee-chip" style="background:${color}" title="${assigneeTitle}">${initials}</div>`
         : `<div style="width:22px;height:22px;"></div>`;
 
-      return `<div class="pm-task-row${selected}${isMilestone?' milestone-row':''}${isCompleted?' completed-row':''}"
-                   data-task-id="${task.id}" tabindex="0">
+      const isCritical = state.criticalPath.has(task.id);
+      const indentBorderColor = depth > 0 ? taskColor(task) : 'transparent';
+      return `<div class="pm-task-row${selected}${isMilestone?' milestone-row':''}${isCompleted?' completed-row':''}${isCritical?' critical-row':''}"
+                   data-task-id="${task.id}" tabindex="0"
+                   style="border-left:3px solid ${indentBorderColor};">
         <div>${expandBtn}</div>
         <div class="pm-wbs">${wbs[task.id]||''}</div>
         <div class="pm-task-name-cell">
@@ -1533,19 +1742,32 @@
       let barHtml = '';
       if (task.is_milestone && task.start_date) {
         const x = dayToX(parseDateLocal(task.start_date));
-        barHtml = `<div class="pm-milestone-diamond" style="left:${x - 7}px;background:${color};" data-task-id="${task.id}"></div>`;
+        barHtml = `<div class="pm-milestone-diamond" style="left:${x - 4}px;background:${color};" data-task-id="${task.id}"></div>`;
       } else if (task.start_date && task.end_date) {
         const x = dayToX(parseDateLocal(task.start_date));
         const x2 = dayToX(parseDateLocal(task.end_date));
         const w = Math.max(4, x2 - x);
         const prog = task.progress || 0;
-        barHtml = `<div class="pm-bar-wrap ${state.linkMode ? 'link-mode' : ''}"
+        const critClass = state.criticalPath.has(task.id) ? ' pm-bar-critical' : '';
+        barHtml = `<div class="pm-bar-wrap ${state.linkMode ? 'link-mode' : ''}${critClass}"
             style="left:${x}px;width:${w}px;background:${color};"
             data-task-id="${task.id}"
             data-x="${x}" data-w="${w}">
           <div class="pm-bar-progress" style="width:${prog}%;background:${color};"></div>
           <div class="pm-bar-label">${esc(task.title)}</div>
           <div class="pm-bar-resize-handle" data-resize-task="${task.id}"></div>
+        </div>`;
+      } else if (!task.is_milestone) {
+        // No dates set — placeholder bar: today → today+3 days
+        const todayPlaceholder = new Date(); todayPlaceholder.setHours(0,0,0,0);
+        const endPlaceholder = new Date(todayPlaceholder.getTime() + 3 * 86400000);
+        const x = dayToX(todayPlaceholder);
+        const x2 = dayToX(endPlaceholder);
+        const w = Math.max(4, x2 - x);
+        barHtml = `<div class="pm-bar-wrap"
+            style="left:${x}px;width:${w}px;background:${color};opacity:0.25;outline:1px dashed ${color};cursor:default;"
+            data-task-id="${task.id}" title="No dates set">
+          <div class="pm-bar-label" style="font-style:italic;opacity:0.8;">no dates</div>
         </div>`;
       }
       const selected = task.id === state.selectedTaskId ? ' selected' : '';
@@ -1558,7 +1780,7 @@
       ${weekendHtml}
       ${todayLine}
       ${rowsHtml}
-      <svg id="pm-arrows-svg" style="position:absolute;top:0;left:0;width:${W}px;height:${visibleTasks.length*32}px;overflow:visible;pointer-events:none;z-index:3;">
+      <svg id="pm-arrows-svg" style="position:absolute;top:0;left:0;width:${W}px;height:${visibleTasks.length*16}px;overflow:visible;pointer-events:none;z-index:3;">
         <defs>
           <marker id="arrowhead" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
             <path d="M0,0 L6,3 L0,6 Z" fill="rgba(0,0,0,0.35)"/>
@@ -1573,7 +1795,7 @@
     requestAnimationFrame(() => {
       const bodyScroll = document.getElementById('pm-chart-body-scroll');
       if (bodyScroll) {
-        const minH = Math.max(visibleTasks.length * 32, bodyScroll.clientHeight);
+        const minH = Math.max(visibleTasks.length * 16, bodyScroll.clientHeight);
         chartBody.style.minHeight = minH + 'px';
         chartBody.style.width = W + 'px';
       }
@@ -1592,9 +1814,9 @@
       const toTask   = visibleTasks[toIdx];
       if (!fromTask.end_date || !toTask.start_date) return '';
       const x1 = dayToX(parseDateLocal(fromTask.end_date));
-      const y1 = fromIdx * 32 + 16;
+      const y1 = fromIdx * 16 + 8;
       const x2 = dayToX(parseDateLocal(toTask.start_date));
-      const y2 = toIdx * 32 + 16;
+      const y2 = toIdx * 16 + 8;
       const cx = (x1 + x2) / 2;
       return `<path class="pm-dep-arrow" d="M${x1},${y1} C${cx},${y1} ${cx},${y2} ${x2},${y2}" marker-end="url(#arrowhead)"/>`;
     }).join('');
@@ -2049,10 +2271,25 @@
   }
 
   async function saveTaskDates(taskId, field, value) {
+    // Duration validation: reject if end < start
+    const task = state.tasks.find(t => t.id === taskId);
+    if (task && value) {
+      const otherField = field === 'start_date' ? 'end_date' : 'start_date';
+      const otherVal = task[otherField];
+      if (otherVal) {
+        const start = field === 'start_date' ? parseDateLocal(value) : parseDateLocal(otherVal);
+        const end   = field === 'end_date'   ? parseDateLocal(value) : parseDateLocal(otherVal);
+        if (start && end && end < start) {
+          if (window.RTS?.showToast) RTS.showToast('End date cannot be before start date', 'error');
+          else alert('End date cannot be before start date');
+          renderAll();
+          return;
+        }
+      }
+    }
     pushUndo(state.tasks.find(t => t.id === taskId));
     await api(`${API}/project-plans/tasks/${taskId}`, { method:'PUT', body: JSON.stringify({ [field]: value || null }) });
-    const t = state.tasks.find(t => t.id === taskId);
-    if (t) t[field] = value || null;
+    if (task) task[field] = value || null;
     computeGanttRange();
     renderAll();
   }
@@ -2461,6 +2698,55 @@
       document.getElementById('pm-link-mode-btn').title = state.linkMode
         ? 'Link Mode ON — click a bar, then click another to create dependency. Click again to exit.'
         : 'Draw dependency arrows between tasks';
+    });
+
+    // Critical path toggle
+    document.getElementById('pm-critical-btn').addEventListener('click', () => {
+      state.showCritical = !state.showCritical;
+      document.getElementById('pm-critical-btn').classList.toggle('active', state.showCritical);
+      renderAll();
+    });
+
+    // Print button
+    document.getElementById('pm-print-btn').addEventListener('click', () => {
+      const plan = state.plans.find(p => p.id === state.activePlanId);
+      const ph = document.getElementById('pm-print-title');
+      const pm = document.getElementById('pm-print-meta');
+      if (ph) ph.textContent = plan?.name || 'Project Plan';
+      const total = state.tasks.length;
+      const done  = state.tasks.filter(t => t.status === 'completed').length;
+      if (pm) pm.textContent = `Printed: ${new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})} · ${done}/${total} tasks complete`;
+      window.print();
+    });
+
+    // Health panel toggle
+    document.getElementById('btn-health-toggle').addEventListener('click', () => {
+      const bar = document.getElementById('pm-health-bar');
+      const showing = bar.style.display === 'flex';
+      bar.style.display = showing ? 'none' : 'flex';
+      document.getElementById('btn-health-toggle').classList.toggle('active', !showing);
+    });
+
+    // Health panel stat click → apply chip filter
+    document.getElementById('pm-health-bar').addEventListener('click', e => {
+      const stat = e.target.closest('[data-health]');
+      if (!stat) return;
+      const h = stat.dataset.health;
+      document.querySelectorAll('.pm-health-stat').forEach(s => s.classList.remove('active'));
+      stat.classList.add('active');
+      const chipMap = { overdue: 'overdue', nodates: 'nodates', blocked: 'blocked', all: 'all' };
+      state.chipFilter = chipMap[h] || 'all';
+      document.querySelectorAll('.pm-fchip').forEach(c => c.classList.toggle('active', c.dataset.chip === state.chipFilter));
+      renderAll();
+    });
+
+    // Filter chips
+    document.getElementById('pm-filter-bar').addEventListener('click', e => {
+      const chip = e.target.closest('[data-chip]');
+      if (!chip) return;
+      state.chipFilter = chip.dataset.chip;
+      document.querySelectorAll('.pm-fchip').forEach(c => c.classList.toggle('active', c.dataset.chip === state.chipFilter));
+      renderAll();
     });
 
     // Outline: expand/collapse, row select, inline editing, color dot, entity chip

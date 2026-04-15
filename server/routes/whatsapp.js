@@ -9,6 +9,24 @@ const crypto = require('crypto');
 // CONFIGURATION
 // ============================================
 
+// POST /api/whatsapp/send-reminder - Send a WhatsApp reminder for a checklist task
+router.post('/send-reminder', async (req, res) => {
+  try {
+    const { phone, message } = req.body;
+    if (!phone || !message) {
+      return res.status(400).json({ success: false, error: 'Phone and message required' });
+    }
+    const cleanPhone = phone.replace(/[^\d+]/g, '');
+    if (cleanPhone.length < 8) {
+      return res.status(400).json({ success: false, error: 'Invalid phone number' });
+    }
+    await sendWhatsAppMessage(cleanPhone, message);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // GET /api/whatsapp/config - Get WhatsApp configuration
 router.get('/config', async (req, res) => {
   try {

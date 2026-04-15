@@ -22,15 +22,32 @@
     .panel-body{flex:1;overflow-y:auto;padding:6px 0 6px 0}
 
     /* ── Left sidebar items ── */
-    .inv-sidebar-section { padding: 2px 0 6px; }
+    .inv-sidebar-section { padding: 2px 0 4px; }
     .inv-sidebar-hdr {
-      padding: 6px 12px 2px;
+      padding: 5px 10px 3px;
       font-size: 9px;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: .8px;
       color: #9aa5b4;
     }
+    .inv-sidebar-hdr.collapsible {
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 5px 10px 3px;
+      border-radius: 3px;
+      user-select: none;
+    }
+    .inv-sidebar-hdr.collapsible:hover { background: rgba(0,0,0,.04); color: #4a5568; }
+    .inv-sidebar-hdr.collapsible .chev { font-size: 10px; transition: transform .18s; display: inline-block; }
+    .inv-sidebar-hdr.collapsible.collapsed .chev { transform: rotate(-90deg); }
+    .inv-sidebar-body { overflow: hidden; }
+    .inv-sidebar-body.collapsed { display: none; }
+    .inv-active-filters { margin: 0 8px 4px; padding: 4px 8px; background: #e8f0fe; border-radius: 4px; font-size: 0.7rem; color: #1a55b0; display: none; }
+    .inv-active-filters.show { display: flex; justify-content: space-between; align-items: center; }
+    .inv-clear-btn { background: none; border: none; color: #d93025; font-size: 0.68rem; font-weight: 700; cursor: pointer; padding: 0; }
     .inv-sidebar-item {
       display: flex;
       justify-content: space-between;
@@ -76,7 +93,7 @@
     .detail-panel{flex:0 0 300px}
     
     /* Item Cards for List View */
-    .inventory-row{background:#f8f9fa;border:1px solid #d0d0d0;border-radius:4px;padding:8px 10px;margin-bottom:4px;cursor:pointer;transition:all .15s}
+    .inventory-row{background:#f8f9fa;border:1px solid #d0d0d0;border-radius:4px;padding:4px 8px;margin-bottom:2px;cursor:pointer;transition:all .15s}
     .inventory-row:hover{background:#e8f0fe;border-color:#1a73e8}
     .inventory-row.active{background:#e8f0fe;border-color:#1967d2;box-shadow:0 0 0 1px rgba(26,115,232,.2)}
     .inventory-row.selected{background:#e3f2fd;border-left:3px solid #1a73e8}
@@ -301,6 +318,12 @@
           <span class="stat-badge" id="totalItemsBadge">0</span>
         </div>
         <div class="panel-body">
+          <!-- Active filter indicator -->
+          <div class="inv-active-filters" id="activeFiltersBar">
+            <span id="activeFiltersLabel">🔍 Filters active</span>
+            <button class="inv-clear-btn" onclick="clearAllFilters()">Clear ×</button>
+          </div>
+
           <div class="inv-sidebar-section">
             <div class="inv-sidebar-hdr">Stock Status</div>
             <div class="inv-sidebar-item active" data-view="all">
@@ -324,22 +347,30 @@
           <div class="inv-sidebar-divider"></div>
 
           <div class="inv-sidebar-section">
-            <div class="inv-sidebar-hdr">Categories</div>
-            <div id="categoryList"></div>
+            <div class="inv-sidebar-hdr collapsible" data-sidebar-toggle="categoryBody">
+              Categories <span class="chev">▾</span>
+            </div>
+            <div class="inv-sidebar-body" id="categoryBody">
+              <div id="categoryList"></div>
+            </div>
           </div>
 
-          <div class="inv-sidebar-divider"></div>
-
           <div class="inv-sidebar-section">
-            <div class="inv-sidebar-hdr">Locations</div>
-            <div id="locationList"></div>
+            <div class="inv-sidebar-hdr collapsible collapsed" data-sidebar-toggle="locationBody">
+              Locations <span class="chev">▾</span>
+            </div>
+            <div class="inv-sidebar-body collapsed" id="locationBody">
+              <div id="locationList"></div>
+            </div>
           </div>
 
-          <div class="inv-sidebar-divider"></div>
-
           <div class="inv-sidebar-section">
-            <div class="inv-sidebar-hdr">Suppliers</div>
-            <div id="supplierList"></div>
+            <div class="inv-sidebar-hdr collapsible collapsed" data-sidebar-toggle="supplierBody">
+              Suppliers <span class="chev">▾</span>
+            </div>
+            <div class="inv-sidebar-body collapsed" id="supplierBody">
+              <div id="supplierList"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -1015,6 +1046,7 @@
             currentFilter.category = btn.dataset.filterCat;
             document.getElementById('filterCategory').value = currentFilter.category;
             applyFilters();
+            updateActiveFiltersBar();
           });
         });
 
@@ -1041,6 +1073,7 @@
             currentFilter.location = btn.dataset.filterLoc;
             document.getElementById('filterLocation').value = currentFilter.location;
             applyFilters();
+            updateActiveFiltersBar();
           });
         });
 
@@ -1067,6 +1100,7 @@
             currentFilter.supplier = btn.dataset.filterSup;
             document.getElementById('filterSupplier').value = currentFilter.supplier;
             applyFilters();
+            updateActiveFiltersBar();
           });
         });
         
@@ -1851,6 +1885,47 @@
         };
       }
       
+      // Sidebar collapse toggles
+      document.addEventListener('click', function(e) {
+        const hdr = e.target.closest('[data-sidebar-toggle]');
+        if (!hdr) return;
+        const targetId = hdr.dataset.sidebarToggle;
+        const body = document.getElementById(targetId);
+        if (!body) return;
+        const collapsed = body.classList.toggle('collapsed');
+        hdr.classList.toggle('collapsed', collapsed);
+      });
+
+      // Clear all filters
+      function clearAllFilters() {
+        currentFilter.category = '';
+        currentFilter.location = '';
+        currentFilter.supplier = '';
+        document.getElementById('filterCategory').value = '';
+        document.getElementById('filterLocation').value = '';
+        document.getElementById('filterSupplier').value = '';
+        document.querySelectorAll('[data-filter-cat],[data-filter-loc],[data-filter-sup]').forEach(b => b.classList.remove('active'));
+        document.getElementById('activeFiltersBar').classList.remove('show');
+        applyFilters();
+      }
+
+      // Update active filters bar visibility
+      function updateActiveFiltersBar() {
+        const bar = document.getElementById('activeFiltersBar');
+        const label = document.getElementById('activeFiltersLabel');
+        const active = [currentFilter.category, currentFilter.location, currentFilter.supplier].filter(Boolean);
+        if (active.length > 0) {
+          const parts = [];
+          if (currentFilter.category) parts.push(currentFilter.category);
+          if (currentFilter.location) parts.push(currentFilter.location);
+          if (currentFilter.supplier) parts.push(currentFilter.supplier);
+          label.textContent = '🔍 ' + parts.join(' · ');
+          bar.classList.add('show');
+        } else {
+          bar.classList.remove('show');
+        }
+      }
+
       // Initialize on DOM ready
       if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);

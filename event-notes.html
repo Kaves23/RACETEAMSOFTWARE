@@ -180,9 +180,6 @@
       min-height: 26px;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
     }
-      gap: 6px;
-      min-height: 28px;
-    }
     .sidebar-list-item:hover {
       background: rgba(0,153,204,0.06);
       color: #1a1d24;
@@ -836,6 +833,99 @@
       border-color: #007aa3;
     }
     .detail-button-primary:hover { background: #007aa3; }
+
+    /* ── Filter chip bar ── */
+    .filter-chip-bar {
+      padding: 5px 10px 4px;
+      display: flex;
+      gap: 5px;
+      flex-wrap: wrap;
+      border-bottom: 1px solid #e8ecf0;
+      background: #fafbfc;
+      align-items: center;
+    }
+    .filter-chip {
+      padding: 2px 9px;
+      border: 1px solid #dde1e8;
+      border-radius: 10px;
+      font-size: 10.5px;
+      cursor: pointer;
+      background: #fff;
+      color: #4a5568;
+      font-weight: 500;
+      transition: all .12s;
+      user-select: none;
+      white-space: nowrap;
+    }
+    .filter-chip:hover { background: #edf0f4; border-color: #9faab8; }
+    .filter-chip.active { background: #0099cc; color: #fff; border-color: #007aa3; font-weight: 600; }
+    .filter-chip.chip-overdue.active, .filter-chip.chip-critical.active { background: #dc3545; border-color: #b02a37; }
+    .filter-chip.chip-blocked.active { background: #ff9800; border-color: #cc7a00; color: #fff; }
+    .filter-chip.chip-required.active { background: #6f42c1; border-color: #5a32a3; }
+
+    /* ── Sidebar progress bar ── */
+    .sidebar-progress-bar-wrap {
+      height: 5px;
+      background: #c5cdd8;
+      border-radius: 0 0 3px 3px;
+      overflow: hidden;
+      margin-top: 6px;
+    }
+    .sidebar-progress-bar-fill {
+      height: 100%;
+      border-radius: inherit;
+      transition: width 0.5s ease, background 0.5s ease;
+      background: #dc3545;
+    }
+
+    /* ── Required star ── */
+    .required-star { color: #e67e00; font-size: 11px; flex-shrink: 0; cursor: default; margin-right: 2px; }
+
+    /* ── Sign-off badge ── */
+    .signoff-badge {
+      font-size: 9px;
+      color: #28a745;
+      background: #e8f5e9;
+      border: 1px solid #c3e6cb;
+      border-radius: 3px;
+      padding: 0 5px;
+      white-space: nowrap;
+      flex-shrink: 0;
+      margin-left: 4px;
+    }
+
+    /* ── List color dot ── */
+    .sli-color-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; display: inline-block; margin-right: 3px; }
+
+    /* ── Color swatches (list creation modal) ── */
+    .list-color-swatch {
+      width: 22px; height: 22px; border-radius: 50%; cursor: pointer;
+      border: 2px solid transparent; display: inline-block;
+      transition: border-color .12s, transform .1s;
+    }
+    .list-color-swatch:hover { transform: scale(1.2); }
+    .list-color-swatch.selected { border-color: #1a1d24; transform: scale(1.15); }
+
+    /* ── Confetti celebration ── */
+    @keyframes confetti-fall {
+      0%   { transform: translateY(0) rotate(0deg); opacity: 1; }
+      80%  { opacity: 1; }
+      100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+    }
+
+    /* ── Print styles ── */
+    .print-header { display: none; padding: 0 8px 12px; }
+    .print-header h2 { font-size: 18px; font-weight: 700; color: #1a1d24; margin: 0 0 2px; }
+    .print-header p  { font-size: 11px; color: #666; margin: 0; }
+    @media print {
+      #rtsTopNav, .mlo-sidebar-left, .mlo-sidebar-right,
+      .mlo-toolbar, .filter-chip-bar, .task-header { display: none !important; }
+      .mlo-container { display: block !important; }
+      .mlo-main { width: 100% !important; max-width: 100% !important; padding: 0 !important; }
+      .task-list { overflow: visible !important; height: auto !important; max-height: none !important; }
+      .print-header { display: block !important; }
+      .note-item { break-inside: avoid; border-bottom: 1px solid #e0e0e0; }
+    }
   </style>
 </head>
 <body class="light-mode">
@@ -860,6 +950,9 @@
             <span class="spill-val" id="sStatPct">0%</span>
             <span class="spill-lbl">Done</span>
           </div>
+        </div>
+        <div class="sidebar-progress-bar-wrap">
+          <div class="sidebar-progress-bar-fill" id="sidebarProgressFill"></div>
         </div>
       </div>
       <div class="sidebar-list" id="sidebarLists">
@@ -909,10 +1002,27 @@
         <button onclick="window.toggleBulkMode()" id="btnBulkMode" title="Select multiple tasks">☑ Select</button>
         <button onclick="window.bulkComplete()" id="btnBulkComplete" style="display:none;background:#28a745;color:#fff;border-color:#28a745;">✅ Complete Selected (<span id="bulkCount">0</span>)</button>
         <div style="flex:1"></div>
+        <button onclick="window.printChecklist()" title="Print checklist" style="background:#f8f9fa;color:#1a1d24;border-color:#d0d3d8;">🖨️ Print</button>
         <input type="text" id="taskSearch" placeholder="🔍 Search tasks…"
                style="padding:4px 10px;font-size:12px;border:1px solid #e0e0e0;border-radius:3px;width:190px;outline:none;"
                oninput="window.filterTasks(this.value)">
         <span style="font-size:12px;color:#666;margin-left:8px;" id="currentListLabel">GENERAL LIST</span>
+      </div>
+
+      <!-- Filter Chips -->
+      <div class="filter-chip-bar">
+        <span class="filter-chip chip-all active" data-chip="all" onclick="window.setChipFilter('all')">All</span>
+        <span class="filter-chip chip-overdue" data-chip="overdue" onclick="window.setChipFilter('overdue')">⏰ Overdue</span>
+        <span class="filter-chip chip-today" data-chip="today" onclick="window.setChipFilter('today')">📅 Today</span>
+        <span class="filter-chip chip-critical" data-chip="critical" onclick="window.setChipFilter('critical')">🔴 Critical</span>
+        <span class="filter-chip chip-blocked" data-chip="blocked" onclick="window.setChipFilter('blocked')">⛔ Blocked</span>
+        <span class="filter-chip chip-required" data-chip="required" onclick="window.setChipFilter('required')">★ Required</span>
+      </div>
+
+      <!-- Print Header (hidden on screen, shown on print) -->
+      <div class="print-header">
+        <h2 id="printListTitle">Checklist</h2>
+        <p id="printListMeta"></p>
       </div>
 
       <!-- Column Headers -->
@@ -1009,6 +1119,19 @@
           <div class="mb-3">
             <label class="form-label">Description (optional)</label>
             <textarea class="form-control" id="customListDescription" rows="2" placeholder="What is this list for?"></textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">List Colour <small class="text-muted">(shown in sidebar)</small></label>
+            <div id="listColorPicker" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">
+              <span class="list-color-swatch" data-color="" style="background:#e0e4ea;border:2px solid #aaa;" title="None"></span>
+              <span class="list-color-swatch" data-color="#e53935" style="background:#e53935" title="Red"></span>
+              <span class="list-color-swatch" data-color="#e67e00" style="background:#e67e00" title="Orange"></span>
+              <span class="list-color-swatch" data-color="#28a745" style="background:#28a745" title="Green"></span>
+              <span class="list-color-swatch" data-color="#0099cc" style="background:#0099cc" title="Blue"></span>
+              <span class="list-color-swatch" data-color="#7c3aed" style="background:#7c3aed" title="Purple"></span>
+              <span class="list-color-swatch" data-color="#607d8b" style="background:#607d8b" title="Grey"></span>
+            </div>
+            <input type="hidden" id="customListColor" value="">
           </div>
         </div>
         <div class="modal-footer">

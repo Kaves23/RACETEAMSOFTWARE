@@ -16,11 +16,13 @@
   let generalNotes = [];
   let activityData = [];
   let currentFilter = 'all';
+  let _chipFilter = 'all';
   let activityPollInterval = null;
   let isGeneralList = false;
   let selectedTask = null;
   let _searchQuery = '';
   let _bulkSelectMode = false;
+  let _celebratedList = null;
   
   // Bootstrap modals
   let selectEventModal, noteModal, createListModal;
@@ -176,8 +178,10 @@
           const total = isActive ? notes.length : '';
           const prog = isActive ? `<span class="sli-progress">${done}/${total}</span>` : '';
           const safeName = list.name.replace(/'/g, "\\'");
+          const listColor = localStorage.getItem('rts.list.color.' + list.id) || '';
+          const colorDot = listColor ? `<span class="sli-color-dot" style="background:${listColor};"></span>` : '';
           html += `<div class="sidebar-list-item ${isActive ? 'active' : ''}" data-list-id="${list.id}" onclick="window.selectList('${list.id}', 'CUSTOM')">
-            <span class="sli-icon">📋</span>
+            ${colorDot}<span class="sli-icon">📋</span>
             <span class="sli-name" title="${list.name}">${list.name}</span>
             ${prog}
             <span class="sli-actions" onclick="event.stopPropagation()">
@@ -674,7 +678,35 @@
     const sidebarListName = document.getElementById('sidebarListName');
     if (sStatDone) sStatDone.textContent = done;
     if (sStatTotal) sStatTotal.textContent = total;
-    if (sStatPct) sStatPct.textContent = percent + '%';
+
+    // Required items gate: can't reach 100% until all required items are done
+    const requiredItems = (isGeneralList ? notes : [...notes]).filter(n => n.required);
+    const requiredPending = requiredItems.filter(n => n.status !== 'packed' && n.status !== 'loaded' && n.status !== 'completed');
+    const gated = percent >= 100 && requiredPending.length > 0;
+    const displayPercent = gated ? 99 : percent;
+
+    if (sStatPct) sStatPct.textContent = displayPercent + '%' + (gated ? ' ★' : '');
+
+    // Update sidebar progress bar
+    const progressFill = document.getElementById('sidebarProgressFill');
+    if (progressFill) {
+      progressFill.style.width = displayPercent + '%';
+      progressFill.style.background = displayPercent >= 100 ? '#28a745' : displayPercent >= 70 ? '#17a2b8' : displayPercent >= 40 ? '#ffc107' : '#dc3545';
+    }
+
+    // Celebration when 100% complete
+    if (displayPercent >= 100 && total > 0 && currentList) {
+      if (_celebratedList !== currentList.id) {
+        _celebratedList = currentList.id;
+        setTimeout(triggerCelebration, 300);
+      }
+    } else if (displayPercent < 100 && currentList) {
+      _celebratedList = null; // Reset so it fires again if list goes back to 100%
+    }
+
+    // Update print meta
+    const pm = document.getElementById('printListMeta');
+    if (pm) pm.textContent = `Printed: ${new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})} · ${done}/${total} complete`;
     if (sidebarListName && currentList) sidebarListName.textContent = currentList.name;
   }
   
@@ -709,6 +741,24 @@
         (note.assigned_to_name || '').toLowerCase().includes(searchQuery) ||
         (note.tags || '').toLowerCase().includes(searchQuery)
       );
+    }
+
+    // Chip filter (applied after view/search filters)
+    if (_chipFilter === 'overdue') {
+      const now = new Date();
+      filtered = filtered.filter(note => {
+        const done = note.status === 'packed' || note.status === 'loaded' || note.status === 'completed';
+        return !done && note.due_date && new Date(note.due_date) < now;
+      });
+    } else if (_chipFilter === 'today') {
+      const today = new Date().toDateString();
+      filtered = filtered.filter(note => note.due_date && new Date(note.due_date).toDateString() === today);
+    } else if (_chipFilter === 'critical') {
+      filtered = filtered.filter(note => note.priority === 'critical');
+    } else if (_chipFilter === 'blocked') {
+      filtered = filtered.filter(note => note.status === 'blocked');
+    } else if (_chipFilter === 'required') {
+      filtered = filtered.filter(note => note.required);
     }
 
     // Sort: overdue non-done tasks first, then by sort_order
@@ -826,6 +876,16 @@
     const priorityIcon  = priorityIcons[note.priority] || priorityIcons.normal;
     const priorityClass = note.priority ? `priority-${note.priority}` : 'priority-normal';
 
+    // Required star badge
+    const requiredStar = note.required
+      ? `<span class="required-star" title="Required – must be done before 100%">★</span>`
+      : '';
+
+    // Sign-off badge (who completed it and when)
+    const signoffBadge = isDone && note.packed_by_name
+      ? `<span class="signoff-badge" title="${escapeHtml(note.packed_by_name)}${note.packed_at ? ' • ' + new Date(note.packed_at).toLocaleDateString('en-GB', {day:'2-digit',month:'short'}) : ''}">✓ ${escapeHtml(note.packed_by_name.split(' ')[0])}</span>`
+      : '';
+
     // Overdue
     const isOverdue = note.due_date && new Date(note.due_date) < new Date() && !isDone;
 
@@ -835,10 +895,13 @@
     const progress     = note.progress_percent || 0;
     const dueDate      = note.due_date ? new Date(note.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-';
 
-    // Assigned-to avatar chip
+    // Multi-assignee avatar chips (comma-separated names supported)
     const assignedTo = note.assigned_to_name || '';
-    const avatarHtml = assignedTo
-      ? `<span class="avatar-chip" style="background:${stringToColor(assignedTo)}" title="${escapeHtml(assignedTo)}">${escapeHtml(assignedTo.slice(0,2).toUpperCase())}</span>`
+    const assignedPeople = assignedTo ? assignedTo.split(',').map(s => s.trim()).filter(Boolean) : [];
+    const avatarHtml = assignedPeople.length > 0
+      ? assignedPeople.slice(0, 3).map(name =>
+          `<span class="avatar-chip" style="background:${stringToColor(name)}" title="${escapeHtml(name)}">${escapeHtml(name.slice(0,2).toUpperCase())}</span>`
+        ).join('') + (assignedPeople.length > 3 ? `<span style="font-size:9px;color:#999;">+${assignedPeople.length - 3}</span>` : '')
       : '<span style="color:#ccc;font-size:11px;">—</span>';
 
     // Tags
@@ -879,7 +942,7 @@
                  ${isDone ? 'checked' : ''}
                  onclick="event.stopPropagation(); window.handleTaskCheckbox('${note.id}', ${isFromGeneral}, this)"
                  style="margin:0 4px;flex-shrink:0;">
-          <span class="task-name-text" style="${isDone ? 'text-decoration:line-through;color:#999;' : ''}">${escapeHtml(note.item_name)}</span>
+          ${requiredStar}<span class="task-name-text" style="${isDone ? 'text-decoration:line-through;color:#999;' : ''}">${escapeHtml(note.item_name)}</span>${signoffBadge}
         </div>
         <div class="task-col task-flag-col" title="${note.priority}">${priorityIcon}</div>
         <div class="task-col task-relation-col">${escapeHtml(relationName)}</div>
@@ -1242,6 +1305,12 @@
       }).then(r => r.json());
       
       if (!resp.success) throw new Error('Failed to create list');
+
+      // Store list color in localStorage
+      const pickedColor = document.getElementById('customListColor')?.value;
+      if (pickedColor && resp.list) {
+        localStorage.setItem('rts.list.color.' + resp.list.id, pickedColor);
+      }
       
       if (createListModal) createListModal.hide();
       RTS.showToast(`Created ${name}`, 'success');
@@ -1482,6 +1551,7 @@
             </div>
           </div>
         </div>
+        <button class="detail-button" style="width:100%;margin-top:5px;background:#25d366;color:#fff;border-color:#1da851;" onclick="window.sendWhatsAppReminder('${note.id}', ${isFromGeneral})">📱 Send WhatsApp Reminder</button>
       </div>
 
       <div class="detail-section ds-meta">
@@ -1519,6 +1589,10 @@
         <div style="display:flex;align-items:center;gap:6px;margin-top:2px;">
           <input type="checkbox" id="editTaskMilestone" ${note.is_milestone ? 'checked' : ''} style="margin:0;cursor:pointer;">
           <label for="editTaskMilestone" style="font-size:11px;color:#555;margin:0;cursor:pointer;">Milestone 🏁</label>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
+          <input type="checkbox" id="editTaskRequired" ${note.required ? 'checked' : ''} style="margin:0;cursor:pointer;">
+          <label for="editTaskRequired" style="font-size:11px;color:#e67e00;margin:0;cursor:pointer;font-weight:600;">★ Required (gates 100%)</label>
         </div>
       </div>
 
@@ -1596,6 +1670,16 @@
           <button class="detail-button detail-button-primary" onclick="window.addSubtask('${note.id}',${isFromGeneral})">＋</button>
         </div>
       </div>
+
+      ${isDone && note.packed_by_name ? `
+      <div class="detail-section" style="border-left-color:#28a745;">
+        <div class="detail-section-hdr"><span class="dsh-icon">✅</span> Completed By</div>
+        <div style="font-size:12px;color:#1a1d24;">
+          <strong>${escapeHtml(note.packed_by_name)}</strong>
+          ${note.packed_at ? `<span style="color:#6b7a8d;"> · ${new Date(note.packed_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</span>` : ''}
+        </div>
+      </div>
+      ` : ''}
 
       <div style="font-size:10px;color:#aaa;padding:2px 2px 10px;line-height:1.9;">
         <span><strong>Source:</strong> ${fromWhatsApp ? '📱 WhatsApp' : '💻 Manual'}</span> &nbsp;
@@ -1679,6 +1763,7 @@
       const category = document.getElementById('editTaskCategory')?.value.trim();
       const tags = document.getElementById('editTaskTags')?.value.trim();
       const isMilestone = document.getElementById('editTaskMilestone')?.checked;
+      const isRequired = document.getElementById('editTaskRequired')?.checked ?? null;
       const blockedReason = document.getElementById('editTaskBlocked')?.value?.trim();
       const color = document.getElementById('editTaskColor')?.value;
       const textColor = document.getElementById('editTaskTextColor')?.value;
@@ -1709,7 +1794,8 @@
         status: status,
         priority: priority,
         progress_percent: parseInt(progress) || 0,
-        is_milestone: isMilestone
+        is_milestone: isMilestone,
+        required: isRequired !== null ? isRequired : undefined
       };
       
       // Add optional fields if provided
@@ -1782,6 +1868,77 @@
     _searchQuery = (q || '').toLowerCase().trim();
     renderNotes();
   };
+
+  window.setChipFilter = function(chip) {
+    _chipFilter = chip;
+    document.querySelectorAll('.filter-chip').forEach(el => {
+      el.classList.toggle('active', el.dataset.chip === chip);
+    });
+    renderNotes();
+  };
+
+  // Send WhatsApp reminder for a task
+  window.sendWhatsAppReminder = async function(noteId, isFromGeneral = false) {
+    const noteList = isFromGeneral ? generalNotes : notes;
+    const note = noteList.find(n => n.id === noteId);
+    if (!note) return;
+
+    const savedPhone = localStorage.getItem('rts.notes.reminderPhone') || '';
+    const phone = prompt('Send WhatsApp reminder to (include country code, e.g. +27831234567):', savedPhone);
+    if (!phone) return;
+
+    const dueStr = note.due_date
+      ? ` (due ${new Date(note.due_date).toLocaleDateString('en-GB', {day:'2-digit',month:'short'})})`
+      : '';
+    const message = `✅ Checklist Reminder: "${note.item_name}"${dueStr}\nList: ${currentList?.name || 'Checklist'}\nPlease ensure this task is completed.`;
+
+    try {
+      const resp = await fetch(`${API_BASE}/whatsapp/send-reminder`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+        },
+        body: JSON.stringify({ phone, message })
+      }).then(r => r.json());
+
+      if (!resp.success) throw new Error(resp.error || 'Failed to send');
+      localStorage.setItem('rts.notes.reminderPhone', phone);
+      RTS.showToast('📱 WhatsApp reminder sent!', 'success');
+    } catch (error) {
+      RTS.showToast('Failed to send reminder: ' + error.message, 'error');
+    }
+  };
+
+  // Print current checklist
+  window.printChecklist = function() {
+    const ph = document.getElementById('printListTitle');
+    const pm = document.getElementById('printListMeta');
+    if (ph) ph.textContent = currentList?.name || 'Checklist';
+    const allNotes = isGeneralList ? notes : [...notes];
+    const done = allNotes.filter(n => n.status === 'packed' || n.status === 'loaded' || n.status === 'completed').length;
+    if (pm) pm.textContent = `Printed: ${new Date().toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'})} · ${done}/${allNotes.length} complete`;
+    window.print();
+  };
+
+  // 100% complete celebration — confetti burst
+  function triggerCelebration() {
+    RTS.showToast('🎉 List complete! 100% done!', 'success');
+    const container = document.createElement('div');
+    container.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;overflow:hidden;';
+    document.body.appendChild(container);
+    const colors = ['#e53935','#e67e00','#28a745','#0099cc','#7c3aed','#ffd700','#ff69b4'];
+    for (let i = 0; i < 60; i++) {
+      const p = document.createElement('div');
+      const color = colors[Math.floor(Math.random() * colors.length)];
+      const x = Math.random() * 100;
+      const dur = 1.5 + Math.random() * 1.5;
+      const size = 6 + Math.random() * 6;
+      p.style.cssText = `position:absolute;top:-12px;left:${x}%;width:${size}px;height:${size}px;background:${color};border-radius:${Math.random() > 0.5 ? '50%' : '2px'};animation:confetti-fall ${dur}s ease-in forwards;animation-delay:${Math.random() * 0.6}s;`;
+      container.appendChild(p);
+    }
+    setTimeout(() => { if (container.parentNode) container.remove(); }, 4000);
+  }
 
   // ─── Bulk-select mode ───────────────────────────────────────────────────────
   window.toggleBulkMode = function() {
@@ -2026,6 +2183,16 @@
       dragSrc = null;
     });
   }
+
+  // Color swatch selection handler (delegated — fires for list creation modal)
+  document.addEventListener('click', function(e) {
+    const swatch = e.target.closest('.list-color-swatch');
+    if (!swatch) return;
+    document.querySelectorAll('.list-color-swatch').forEach(s => s.classList.remove('selected'));
+    swatch.classList.add('selected');
+    const colorInput = document.getElementById('customListColor');
+    if (colorInput) colorInput.value = swatch.dataset.color || '';
+  });
 
   // Start
   if (document.readyState === 'loading') {
