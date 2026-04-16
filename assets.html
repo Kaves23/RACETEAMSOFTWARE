@@ -2059,6 +2059,8 @@
     let allBoxes = [];
     let allLocations = [];
     let allStaff = [];
+    let boxMap = new Map();      // id → box, rebuilt after each loadData
+    let locationMap = new Map(); // id → location, rebuilt after each loadData
     let allAssetTypes = [];
     let currentAsset = null;
     let checkoutsMap = {}; // item_id -> active checkout record
@@ -2190,7 +2192,6 @@
       // WAIT for authentication to complete before loading data
       try {
         await window.authReady;
-        console.log('✅ Authentication complete, loading data...');
       } catch (err) {
         console.error('❌ Authentication failed:', err);
         return; // Don't proceed if auth fails
@@ -2264,14 +2265,49 @@
           }
         };
         setStep('Loading assets…', 'Connecting to database');
-        console.log('🔄 Starting loadData...');
 
-        // Start all requests in parallel immediately
+        // ── Cache hit: skip items + boxes network calls if data is < 30 s old ──
+        if (isCacheValid(dataCache.items) && isCacheValid(dataCache.boxes)) {
+          allAssets = dataCache.items.data;
+          allBoxes  = dataCache.boxes.data;
+          boxMap    = new Map(allBoxes.map(b => [b.id, b]));
+
+          // Reference data is tiny + server-cached — always refresh it
+          const [assetTypesResponse, locationsResponse, staffResponse] = await Promise.all([
+            window.RTS_API.getAssetTypes().catch(err => { console.error('⚠️ Failed to load asset types:', err); return { success: false, assetTypes: null }; }),
+            window.RTS_API.getLocations().catch(err => { console.warn('⚠️ Failed to load locations:', err); return { success: false, items: [] }; }),
+            window.RTS_API.getCollectionItems('staff').catch(err => { console.warn('⚠️ Failed to load staff:', err); return { success: false, items: [] }; })
+          ]);
+
+          if (locationsResponse?.items?.length > 0) {
+            allLocations = locationsResponse.items.filter(l => l.is_active !== false);
+          } else { allLocations = []; }
+          locationMap = new Map(allLocations.map(l => [l.id, l]));
+
+          allStaff = staffResponse?.items ? staffResponse.items.filter(s => s.active !== false && s.status !== 'inactive') : [];
+
+          if (assetTypesResponse?.success && assetTypesResponse.assetTypes?.length > 0) {
+            allAssetTypes = assetTypesResponse.assetTypes;
+          } else if (assetTypesResponse?.assetTypes === null) {
+            document.getElementById('assetList').innerHTML = '<div class="alert alert-danger m-3">⚠️ Could not load asset types from database. Please check your connection and refresh.</div>';
+            return;
+          } else { allAssetTypes = []; }
+
+          populateLocationDropdowns();
+          populateBoxDropdowns();
+          populateAssetTypeDropdowns();
+          renderAssets();
+          checkOverdueItems();
+          return;
+        }
+
+        // ── Fire all requests in parallel ──
         const itemsP = window.RTS_DATA.getItems();
-        const boxesP = window.RTS_DATA.getBoxes();
+        // Request only the fields assets.html needs — reduces box payload ~80%
+        const boxesP = window.RTS_API.getBoxes({ fields: 'id,name,barcode,current_truck_id' });
         const typesP = window.RTS_API.getAssetTypes().catch(err => {
           console.error('⚠️ Failed to load asset types from API:', err);
-          return { success: false, assetTypes: null }; // null = error, not just empty
+          return { success: false, assetTypes: null };
         });
         const locsP = window.RTS_API.getLocations().catch(err => {
           console.warn('⚠️ Failed to load locations from API:', err);
@@ -2282,51 +2318,48 @@
           return { success: false, items: [] };
         });
 
-        // Await items first to show live count, then wait for references
-        const allItems = await itemsP;
-        setStep(`${allItems?.length || 0} assets loaded — loading references…`);
-        const [allBoxesData, assetTypesResponse, locationsResponse, staffResponse] = await Promise.all([boxesP, typesP, locsP, staffP]);
-        setStep('Rendering…');
+        // ── Phase 1: render as soon as items + types + locations are ready ──
+        const [allItems, assetTypesResponse, locationsResponse] = await Promise.all([itemsP, typesP, locsP]);
+        setStep(`${allItems?.length || 0} assets loaded — rendering…`);
 
-        console.log(`📦 Loaded ${allItems?.length || 0} items, ${allBoxesData?.length || 0} boxes`);
-        
         allAssets = allItems || [];
-        allBoxes = allBoxesData || [];
-        
-        // Load locations from database only
-          if (locationsResponse && locationsResponse.items && locationsResponse.items.length > 0) {
+
+        if (locationsResponse?.items?.length > 0) {
           allLocations = locationsResponse.items.filter(l => l.is_active !== false);
-          console.log(`✅ Loaded ${allLocations.length} locations from database`);
         } else {
           allLocations = [];
           console.warn('⚠️ No locations in database');
         }
+        locationMap = new Map(allLocations.map(l => [l.id, l]));
 
-        allStaff = (staffResponse && staffResponse.items) ? staffResponse.items.filter(s => s.active !== false && s.status !== 'inactive') : [];
-        console.log(`✅ Loaded ${allStaff.length} staff members`);
-        
-        // Load asset types from database only — no fallback
-        if (assetTypesResponse && assetTypesResponse.success && assetTypesResponse.assetTypes?.length > 0) {
+        if (assetTypesResponse?.success && assetTypesResponse.assetTypes?.length > 0) {
           allAssetTypes = assetTypesResponse.assetTypes;
-          console.log(`✅ Loaded ${allAssetTypes.length} asset types from database`);
-        } else if (assetTypesResponse && assetTypesResponse.assetTypes === null) {
-          // API error — hard fail
+        } else if (assetTypesResponse?.assetTypes === null) {
           document.getElementById('assetList').innerHTML = '<div class="alert alert-danger m-3">⚠️ Could not load asset types from database. Please check your connection and refresh.</div>';
           return;
         } else {
           allAssetTypes = [];
           console.warn('⚠️ No asset types defined in database — add them in Settings.');
         }
-        
-        console.log('🎨 Asset types:', allAssetTypes);
-        
-        populateLocationDropdowns();
-        populateBoxDropdowns();
-        populateAssetTypeDropdowns();
-        renderAssets();
-        checkOverdueItems();
 
-        console.log('✅ loadData complete');
+        populateLocationDropdowns();
+        populateAssetTypeDropdowns();
+        renderAssets(); // Phase 1 — box indicators show once boxes arrive
+
+        // ── Phase 2: enrich with boxes + staff ──
+        const [boxesResponse, staffResponse] = await Promise.all([boxesP, staffP]);
+
+        allBoxes = boxesResponse?.boxes || [];
+        boxMap   = new Map(allBoxes.map(b => [b.id, b]));
+        allStaff = staffResponse?.items ? staffResponse.items.filter(s => s.active !== false && s.status !== 'inactive') : [];
+
+        // Populate 30-second client-side cache
+        dataCache.items = { data: allAssets, timestamp: Date.now(), ttl: 30000 };
+        dataCache.boxes = { data: allBoxes,  timestamp: Date.now(), ttl: 30000 };
+
+        populateBoxDropdowns();
+        renderAssets(); // Phase 2 — full render with box + truck info
+        checkOverdueItems();
       } catch (error) {
         console.error('❌ Error loading data:', error);
         document.getElementById('assetList').innerHTML = '<div class="alert alert-danger">Error loading data. Please refresh the page.</div>';
@@ -2477,8 +2510,8 @@
 
     function createAssetTable(assets) {
       const rows = assets.map((asset, idx) => {
-        const box = allBoxes.find(b => b.id === asset.current_box_id);
-        const location = allLocations.find(l => l.id === asset.current_location_id);
+        const box = boxMap.get(asset.current_box_id);
+        const location = locationMap.get(asset.current_location_id);
         
         let locationText = '<span class="location-line">—</span>';
         if (box && location) {
@@ -2540,8 +2573,8 @@
     }
     
     function createAssetCard(asset) {
-      const box = allBoxes.find(b => b.id === asset.current_box_id);
-      const location = allLocations.find(l => l.id === asset.current_location_id);
+      const box = boxMap.get(asset.current_box_id);
+      const location = locationMap.get(asset.current_location_id);
       let locationHtml = '';
       if (box) locationHtml = `<div class="location-indicator in-box">📦 ${box.name}</div>`;
       else if (location) locationHtml = `<div class="location-indicator in-location">📍 ${location.name}</div>`;
@@ -2690,10 +2723,10 @@
             bVal = (b.serial_number || '').toLowerCase();
             break;
           case 'location':
-            const aBox = allBoxes.find(box => box.id === a.current_box_id);
-            const bBox = allBoxes.find(box => box.id === b.current_box_id);
-            const aLoc = allLocations.find(loc => loc.id === a.current_location_id);
-            const bLoc = allLocations.find(loc => loc.id === b.current_location_id);
+            const aBox = boxMap.get(a.current_box_id);
+            const bBox = boxMap.get(b.current_box_id);
+            const aLoc = locationMap.get(a.current_location_id);
+            const bLoc = locationMap.get(b.current_location_id);
             aVal = (aBox?.name || aLoc?.name || '').toLowerCase();
             bVal = (bBox?.name || bLoc?.name || '').toLowerCase();
             break;
@@ -2741,8 +2774,8 @@
       detailsPanel.classList.toggle('panel-flagged', !!asset.is_flagged);
       
       // Populate the form fields
-      const box = allBoxes.find(b => b.id === asset.current_box_id);
-      const location = allLocations.find(l => l.id === asset.current_location_id);
+      const box = boxMap.get(asset.current_box_id);
+      const location = locationMap.get(asset.current_location_id);
       
       let locationStatusHtml = '<ul class="mb-0" style="list-style: none; padding-left: 0; font-size: 0.9rem;">';
       if (box) locationStatusHtml += `<li style="padding: 4px 0; border-left: 3px solid #4dd1ff; padding-left: 8px; margin-bottom: 4px;">Packed in box: <strong>${box.name}</strong> (${box.barcode})</li>`;
@@ -3156,8 +3189,8 @@
 
     function updateLocationStatus(asset) {
       const statusDiv = document.getElementById('locationStatus');
-      const box = allBoxes.find(b => b.id === asset.current_box_id);
-      const location = allLocations.find(l => l.id === asset.current_location_id);
+      const box = boxMap.get(asset.current_box_id);
+      const location = locationMap.get(asset.current_location_id);
       let html = '<ul class="mb-0" style="list-style: none; padding-left: 0;">';
       if (box) html += `<li style="padding: 8px 0; border-left: 3px solid #4dd1ff; padding-left: 12px; margin-bottom: 8px;">📦 Packed in box: <strong>${box.name}</strong> (${box.barcode})</li>`;
       if (location) html += `<li style="padding: 8px 0; border-left: 3px solid #ffc107; padding-left: 12px; margin-bottom: 8px;">📍 Physical location: <strong>${location.name}</strong></li>`;
@@ -3394,14 +3427,14 @@ if (!newLocationId && !newBoxId) {
         // Handle location change
         if (newLocationId && newLocationId !== currentAsset.current_location_id) {
           updateData.current_location_id = newLocationId;
-          const location = allLocations.find(l => l.id === newLocationId);
+          const location = locationMap.get(newLocationId);
           historyAction = 'Moved to location';
           historyNote = `Moved to ${location?.name || newLocationId}${note ? '. ' + note : ''}`;
         }
         
         // Handle packing into box
         if (newBoxId && newBoxId !== currentAsset.current_box_id) {
-          const box = allBoxes.find(b => b.id === newBoxId);
+          const box = boxMap.get(newBoxId);
           
           // Use the pack API
           const packResult = await window.RTS_DATA.packItem(newBoxId, currentAsset.id);
@@ -3466,7 +3499,7 @@ if (!newLocationId && !newBoxId) {
       if (!confirmed) return;
       
       try {
-        const box = allBoxes.find(b => b.id === assetToUnpack.current_box_id);
+        const box = boxMap.get(assetToUnpack.current_box_id);
         const result = await window.RTS_DATA.unpackItem(assetToUnpack.current_box_id, assetToUnpack.id);
         
         if (result.success) {
@@ -3681,7 +3714,7 @@ if (!newLocationId && !newBoxId) {
       if (!confirmed) return;
 
       try {
-        const box = allBoxes.find(b => b.id === asset.current_box_id);
+        const box = boxMap.get(asset.current_box_id);
         const result = await window.RTS_DATA.unpackItem(asset.current_box_id, asset.id);
         
         if (result.success) {
@@ -4056,8 +4089,8 @@ if (!newLocationId && !newBoxId) {
       
       // Display results
       const resultsHTML = results.slice(0, 10).map((asset, index) => {
-        const box = allBoxes.find(b => b.id === asset.current_box_id);
-        const location = allLocations.find(l => l.id === asset.current_location_id);
+        const box = boxMap.get(asset.current_box_id);
+        const location = locationMap.get(asset.current_location_id);
         let locationText = box ? `📦 ${box.name}` : (location ? `📍 ${location.name}` : '❓ Unassigned');
         
         return `
@@ -4097,8 +4130,8 @@ if (!newLocationId && !newBoxId) {
       document.getElementById('scannerActions').classList.add('active');
       
       // Display selected asset details
-      const box = allBoxes.find(b => b.id === asset.current_box_id);
-      const location = allLocations.find(l => l.id === asset.current_location_id);
+      const box = boxMap.get(asset.current_box_id);
+      const location = locationMap.get(asset.current_location_id);
       let locationText = box ? `📦 ${box.name}` : (location ? `📍 ${location.name}` : '❓ Unassigned');
       
       const resultsDiv = document.getElementById('scannerResults');
@@ -4817,8 +4850,8 @@ if (!newLocationId && !newBoxId) {
       
       // Create CSV rows
       const rows = assets.map(asset => {
-        const box = allBoxes.find(b => b.id === asset.current_box_id);
-        const location = allLocations.find(l => l.id === asset.current_location_id);
+        const box = boxMap.get(asset.current_box_id);
+        const location = locationMap.get(asset.current_location_id);
         const assetType = allAssetTypes.find(t => t.name.toLowerCase().replace(/\\s+/g, '_') === asset.item_type);
         
         return [
