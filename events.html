@@ -613,6 +613,7 @@
 
     let events = [];
     let eventsCache = []; // Cache of database events
+    let driversCache = []; // Cache of database drivers
     let venues = Array.isArray(settings.venues) && settings.venues.length ? settings.venues.slice() : seedVenues();
     settings.venues = venues.slice();
     RTS.saveSettings(settings);
@@ -624,10 +625,13 @@
         // Clear old localStorage event data
         localStorage.removeItem('rts.events.v4');
 
-        const resp = await RTS_API.getCollectionItems('events');
-        if (!resp || !resp.success) throw new Error('Failed to load events');
-
-        eventsCache = (resp.items || []).map(dbEventToLocal);
+        const [evResp, drvResp] = await Promise.all([
+          RTS_API.getCollectionItems('events'),
+          RTS_API.getCollectionItems('drivers').catch(() => ({ success: false }))
+        ]);
+        if (!evResp || !evResp.success) throw new Error('Failed to load events');
+        driversCache = (drvResp && drvResp.success) ? (drvResp.items || []) : [];
+        eventsCache = (evResp.items || []).map(dbEventToLocal);
         events = eventsCache.slice();
         render();
       } catch (error) {
@@ -1153,6 +1157,10 @@
     }
 
     function driverOptions() {
+      // Prefer DB cache; fall back to localStorage settings for backwards-compat
+      if (driversCache && driversCache.length > 0) {
+        return driversCache.filter(d => d.active !== false);
+      }
       return (RTS.getSettings().drivers||[]).filter(d=>d.active!==false);
     }
     function staffOptions() {
