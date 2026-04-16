@@ -61,9 +61,14 @@ router.get('/:table', async (req, res) => {
       sql += ' WHERE ' + conditions.join(' AND ');
     }
     
-    sql += ' ORDER BY created_at DESC';
+    sql += ' ORDER BY created_at DESC LIMIT 500';
     
     const result = await db.query(sql, params);
+    // Reference collections (drivers, staff, locations) change infrequently — allow browser to cache for 30 s
+    const CACHEABLE = ['drivers', 'staff', 'locations'];
+    if (!status && !event_id && !category && CACHEABLE.includes(table)) {
+      res.set('Cache-Control', 'private, max-age=30');
+    }
     res.json({ success: true, items: result.rows, count: result.rows.length });
   } catch (error) {
     console.error(`Error getting ${req.params.table}:`, error);

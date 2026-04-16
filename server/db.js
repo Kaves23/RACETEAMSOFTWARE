@@ -123,17 +123,46 @@ async function getSettings() {
   }
 }
 
-// Generic upsertMany function (placeholder - basic implementation)
+// Generic upsertMany — used by telemetry upload endpoint.
+// Inserts rows from the items array into the given table using ON CONFLICT DO UPDATE.
+// Column names are derived from the keys of the first item (all must share the same shape).
+// Only tables in the allowlist are permitted (prevents SQL injection).
 async function upsertMany(tableName, items) {
-  // This is a simplified implementation
-  // In production, you'd want proper UPSERT logic with ON CONFLICT
+  const ALLOWED = new Set(['telemetry_uploads', 'telemetry_points']);
+  if (!ALLOWED.has(tableName)) {
+    console.warn(`upsertMany: table "${tableName}" is not allowed`);
+    return items;
+  }
+  if (!items || items.length === 0) return [];
+
+  const cols = Object.keys(items[0]);
+  if (cols.length === 0) return [];
+
+  // Build a multi-row VALUES clause — each item becomes one parameterised row
+  const valuePlaceholders = [];
+  const flatParams = [];
+  let paramIdx = 1;
+  for (const item of items) {
+    const rowPlaceholders = cols.map(() => `$${paramIdx++}`);
+    valuePlaceholders.push(`(${rowPlaceholders.join(', ')})`);
+    for (const col of cols) {
+      const v = item[col];
+      flatParams.push(Array.isArray(v) || (v !== null && typeof v === 'object') ? JSON.stringify(v) : v);
+    }
+  }
+
+  const colList    = cols.map(c => `"${c}"`).join(', ');
+  const updateList = cols.filter(c => c !== 'id').map(c => `"${c}" = EXCLUDED."${c}"`).join(', ');
+  const sql = `INSERT INTO ${tableName} (${colList})
+    VALUES ${valuePlaceholders.join(', ')}
+    ON CONFLICT (id) DO UPDATE SET ${updateList}`;
+
+  await query(sql, flatParams);
   return items;
 }
 
-// Generic createOne function (placeholder - basic implementation)
+// Generic createOne function — not currently used by active routes; kept for compatibility
 async function createOne(tableName, data) {
-  // This is a simplified implementation
-  // In production, you'd construct proper INSERT statement
   return data;
 }
 

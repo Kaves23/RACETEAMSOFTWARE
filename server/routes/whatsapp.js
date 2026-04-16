@@ -4,6 +4,8 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const crypto = require('crypto');
+const constants = require('../constants');
+const LOG = constants.LOG_REQUEST_DETAILS;
 
 // ============================================
 // CONFIGURATION
@@ -121,26 +123,28 @@ router.get('/webhook', (req, res) => {
 // POST /api/whatsapp/webhook - Receive incoming messages
 router.post('/webhook', async (req, res) => {
   try {
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('📱 WhatsApp webhook received!');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('Request body:', JSON.stringify(req.body, null, 2));
+    if (LOG) {
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('📱 WhatsApp webhook received!');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('Request body:', JSON.stringify(req.body, null, 2));
+    }
     
     // Detect provider from request structure
     const isTwilio = req.body.From && req.body.Body;
     const isMeta = req.body.object === 'whatsapp_business_account';
     
-    console.log(`Provider detection - Twilio: ${isTwilio}, Meta: ${isMeta}`);
+    if (LOG) console.log(`Provider detection - Twilio: ${isTwilio}, Meta: ${isMeta}`);
     
     let replyMessage = null;
     
     if (isTwilio) {
-      console.log('🟢 Routing to Twilio handler');
+      if (LOG) console.log('🟢 Routing to Twilio handler');
       replyMessage = await handleTwilioMessage(req.body);
       
       // Send TwiML response for immediate reply
       if (replyMessage) {
-        console.log(`📤 Sending TwiML reply: "${replyMessage}"`);
+        if (LOG) console.log(`📤 Sending TwiML reply: "${replyMessage}"`);
         res.set('Content-Type', 'text/xml');
         res.send(`<?xml version="1.0" encoding="UTF-8"?>
 <Response>
@@ -150,17 +154,19 @@ router.post('/webhook', async (req, res) => {
         res.sendStatus(200);
       }
     } else if (isMeta) {
-      console.log('🔵 Routing to Meta handler');
+      if (LOG) console.log('🔵 Routing to Meta handler');
       await handleMetaMessage(req.body);
       res.sendStatus(200);
     } else {
-      console.log('⚠️ Unknown WhatsApp provider format');
+      if (LOG) console.log('⚠️ Unknown WhatsApp provider format');
       res.sendStatus(200);
     }
     
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('✅ Webhook processing complete');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+    if (LOG) {
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('✅ Webhook processing complete');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+    }
   } catch (error) {
     console.error('❌ Error processing WhatsApp message:', error);
     console.error('Stack:', error.stack);

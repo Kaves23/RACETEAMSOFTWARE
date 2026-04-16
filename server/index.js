@@ -259,10 +259,13 @@ app.post('/api/telemetry/upload', requireAuth, async (req, res) => {
 // List uploads (optionally filtered by driverId) - PROTECTED
 app.get('/api/telemetry/uploads', requireAuth, async (req, res) => {
   try {
-    const all = await db.getAll('telemetry_uploads');
-    const driverId = req.query.driverId || '';
-    const out = driverId ? all.filter(u => u.driverId === driverId) : all;
-    res.json({ ok:true, uploads: out });
+    const driverId = (req.query.driverId || '').trim();
+    let sql = 'SELECT * FROM telemetry_uploads';
+    const params = [];
+    if (driverId) { sql += ' WHERE "driverId" = $1'; params.push(driverId); }
+    sql += ' ORDER BY "uploadedTs" DESC LIMIT 500';
+    const result = await db.query(sql, params);
+    res.json({ ok:true, uploads: result.rows });
   } catch (err){
     console.error('GET /api/telemetry/uploads error', err);
     res.status(500).json({ ok:false, error: String(err) });
@@ -272,15 +275,18 @@ app.get('/api/telemetry/uploads', requireAuth, async (req, res) => {
 // Get points for a driver/session with optional limit - PROTECTED
 app.get('/api/telemetry/points', requireAuth, async (req, res) => {
   try {
-    const driverId = req.query.driverId || '';
-    const sessionId = req.query.sessionId || '';
-    const limit = Math.max(0, parseInt(req.query.limit||'0',10));
-    const all = await db.getAll('telemetry_points');
-    let pts = all;
-    if (driverId) pts = pts.filter(p => p.driverId === driverId);
-    if (sessionId) pts = pts.filter(p => p.sessionId === sessionId);
-    if (limit && pts.length > limit) pts = pts.slice(0, limit);
-    res.json({ ok:true, points: pts });
+    const driverId  = (req.query.driverId  || '').trim();
+    const sessionId = (req.query.sessionId || '').trim();
+    const limit = Math.min(Math.max(1, parseInt(req.query.limit || '1000', 10)), 10000);
+    const conditions = [];
+    const params = [];
+    if (driverId)  { conditions.push(`"driverId" = $${params.length+1}`);  params.push(driverId); }
+    if (sessionId) { conditions.push(`"sessionId" = $${params.length+1}`); params.push(sessionId); }
+    let sql = 'SELECT * FROM telemetry_points';
+    if (conditions.length) sql += ' WHERE ' + conditions.join(' AND ');
+    sql += ` ORDER BY "tsMs" ASC LIMIT ${limit}`;
+    const result = await db.query(sql, params);
+    res.json({ ok:true, points: result.rows });
   } catch (err){
     console.error('GET /api/telemetry/points error', err);
     res.status(500).json({ ok:false, error: String(err) });

@@ -1982,28 +1982,52 @@
       is_milestone: document.getElementById('tf-milestone').checked,
       sort_order: nextSortOrder()
     };
+    closeTaskModal();
     if (state.editingTaskId) {
+      // Optimistic update: patch local state immediately, save in background
+      const t = state.tasks.find(t => t.id === state.editingTaskId);
+      if (t) Object.assign(t, body);
+      computeGanttRange();
+      renderAll();
       await api(`${API}/project-plans/tasks/${state.editingTaskId}`, { method:'PUT', body: JSON.stringify(body) });
     } else {
-      // Inherit parent if a task is selected
+      // Create: need server-assigned ID — show instantly with temp id then patch on response
       if (state.selectedTaskId) {
         const sel = state.tasks.find(t => t.id === state.selectedTaskId);
-        if (sel && sel.parent_task_id) body.parent_task_id = sel.parent_task_id; // sibling
+        if (sel && sel.parent_task_id) body.parent_task_id = sel.parent_task_id;
       }
+      const tempId = 'tmp-' + Date.now();
+      const tempTask = { ...body, id: tempId, wbs: '', expanded: true };
+      state.tasks.push(tempTask);
+      computeGanttRange();
+      renderAll();
       const res = await api(`${API}/project-plans/tasks`, { method:'POST', body: JSON.stringify(body) });
+      // Replace temp placeholder with real record from server
+      const idx = state.tasks.findIndex(t => t.id === tempId);
+      if (idx !== -1) state.tasks[idx] = res.data;
       state.selectedTaskId = res.data.id;
+      computeGanttRange();
+      renderAll();
     }
-    closeTaskModal();
-    await loadPlan(state.activePlanId);
   }
 
   async function deleteTask(taskId) {
     if (!confirm('Delete this task and all its subtasks?')) return;
-    await api(`${API}/project-plans/tasks/${taskId}`, { method:'DELETE' });
+    // Optimistic: remove task + its subtree from local state immediately
+    const idsToRemove = new Set();
+    const collect = (id) => {
+      idsToRemove.add(id);
+      state.tasks.filter(t => t.parent_task_id === id).forEach(c => collect(c.id));
+    };
+    collect(taskId);
+    state.tasks = state.tasks.filter(t => !idsToRemove.has(t.id));
+    state.links = state.links.filter(l => !idsToRemove.has(l.from_task_id) && !idsToRemove.has(l.to_task_id));
     closeTaskModal();
     closeInspector();
     state.selectedTaskId = null;
-    await loadPlan(state.activePlanId);
+    computeGanttRange();
+    renderAll();
+    await api(`${API}/project-plans/tasks/${taskId}`, { method:'DELETE' });
   }
 
   // ════════════════════════════════════════════════════════════════
@@ -2143,9 +2167,13 @@
       is_milestone: document.getElementById('pi-milestone').checked
     };
     pushUndo({ ...state.tasks.find(t => t.id === taskId) });
-    await api(`${API}/project-plans/tasks/${taskId}`, { method:'PUT', body: JSON.stringify(body) });
+    // Optimistic update: apply changes to local state, save in background
+    const t = state.tasks.find(t => t.id === taskId);
+    if (t) Object.assign(t, body);
     closeInspector();
-    await loadPlan(state.activePlanId);
+    computeGanttRange();
+    renderAll();
+    await api(`${API}/project-plans/tasks/${taskId}`, { method:'PUT', body: JSON.stringify(body) });
   }
 
   async function clearInspectorLink() {
@@ -2309,20 +2337,23 @@
     const idx = state.tasks.findIndex(t => t.id === taskId);
     if (idx <= 0) return;
     const task = state.tasks[idx];
-    // Find previous sibling or any task that can be parent
     const prev = state.tasks.slice(0, idx).reverse().find(t => t.sort_order < task.sort_order && !t.parent_task_id || t.parent_task_id === task.parent_task_id);
     if (!prev || prev.id === taskId) return;
     pushUndo({ ...task });
+    task.parent_task_id = prev.id;
+    computeGanttRange();
+    renderAll();
     await api(`${API}/project-plans/tasks/${taskId}`, { method:'PUT', body: JSON.stringify({ parent_task_id: prev.id }) });
-    await loadPlan(state.activePlanId);
   }
   async function outdentTask(taskId) {
     const task = state.tasks.find(t => t.id === taskId);
     if (!task || !task.parent_task_id) return;
     const parent = state.tasks.find(t => t.id === task.parent_task_id);
     pushUndo({ ...task });
+    task.parent_task_id = parent?.parent_task_id || null;
+    computeGanttRange();
+    renderAll();
     await api(`${API}/project-plans/tasks/${taskId}`, { method:'PUT', body: JSON.stringify({ parent_task_id: parent?.parent_task_id || null }) });
-    await loadPlan(state.activePlanId);
   }
 
   // Color change

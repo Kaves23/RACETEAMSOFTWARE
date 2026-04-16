@@ -8,6 +8,7 @@ router.get('/', async (req, res) => {
     const result = await db.query(
       'SELECT * FROM suppliers WHERE is_active = TRUE ORDER BY name ASC'
     );
+    res.set('Cache-Control', 'private, max-age=30');
     res.json({ success: true, suppliers: result.rows });
   } catch (err) {
     console.error('GET /api/suppliers error:', err.message);

@@ -8,6 +8,7 @@ router.get('/', async (req, res) => {
     const result = await db.query(
       'SELECT id, name, sort_order FROM inventory_categories ORDER BY sort_order ASC, name ASC'
     );
+    res.set('Cache-Control', 'private, max-age=30');
     res.json({ success: true, categories: result.rows });
   } catch (err) {
     console.error('GET /api/inventory-categories error:', err.message);
