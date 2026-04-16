@@ -88,6 +88,15 @@
     .ev-list-table tbody .ev-row-past td { padding: 2px 10px !important; font-size: 0.74rem !important; }
     .ev-row-past { opacity: 0.42; }
 
+    /* ── COMING SOON (within 5 days) ───────────────────────────────── */
+    .ev-row-soon { background: #fffbe6 !important; }
+    .ev-row-soon td { color: #7a5800 !important; font-weight: 600 !important; }
+    .ev-row-soon td:first-child::before { content: '⚡ '; }
+
+    /* ── ROW DELETE BUTTON ──────────────────────────────────────────── */
+    .ev-row-del { opacity: 0; transition: opacity 0.15s; background: none; border: none; color: #dc3545; font-size: 1rem; line-height: 1; padding: 0 4px; cursor: pointer; }
+    .ev-list-table tbody tr:hover .ev-row-del { opacity: 1; }
+
     /* ── INSPECTOR TABS ──────────────────────────────────────────── */
     #evShell #evTabs .nav-link { color: #6c757d; background: transparent; border-color: transparent; font-size: 0.8rem; padding: 7px 10px; }
     #evShell #evTabs .nav-link.active { color: #0099cc; border-color: #dee2e6 #dee2e6 #fff; background: #fff; font-weight: 600; }
@@ -192,6 +201,7 @@
                     <th style="width:220px;">Venue</th>
                     <th style="width:120px;">Status</th>
                     <th style="width:90px;">Drv</th>
+                    <th style="width:32px;"></th>
                   </tr>
                 </thead>
                 <tbody id="evTbody"></tbody>
@@ -1491,6 +1501,9 @@
         const drvCount = Array.isArray(e.drivers) ? e.drivers.length : (String(e.drivers||'').trim()?1:0);
         // if this event was just created and not yet edited, make it visually obvious
         const isPast = !e.rtsNew && (e.start || '') < _today;
+        const _soonDate = new Date(); _soonDate.setDate(_soonDate.getDate() + 5);
+        const _soonISO = isoLocal(_soonDate);
+        const isSoon = !e.rtsNew && !isPast && (e.start || '') >= _today && (e.start || '') <= _soonISO;
         if (e.rtsNew) {
           tr.classList.add('rts-new-highlight');
           tr.style.removeProperty('background');
@@ -1498,6 +1511,7 @@
         } else {
           tr.style.setProperty('border-left', `4px solid ${typeColor}`, 'important');
           if (isPast) tr.classList.add('ev-row-past');
+          else if (isSoon) tr.classList.add('ev-row-soon');
         }
 
         tr.innerHTML = `
@@ -1508,6 +1522,7 @@
           <td>${escapeHtml(e.venue||'')}</td>
           <td>${escapeHtml(e.status||'')}</td>
           <td>${drvCount}</td>
+          <td><button class="ev-row-del" title="Delete event" type="button">&#x2715;</button></td>
         `;
         tr.querySelectorAll('td').forEach(td=>{
           if (e.rtsNew) {
@@ -1515,6 +1530,20 @@
             td.style.removeProperty('background');
             td.style.removeProperty('color');
           }
+        });
+        tr.querySelector('.ev-row-del').addEventListener('click', async (ev) => {
+          ev.stopPropagation();
+          const ok = window.RTS && typeof window.RTS.confirmPrompt === 'function'
+            ? await window.RTS.confirmPrompt(`Delete "${e.title||'event'}"?`)
+            : window.confirm(`Delete "${e.title||'event'}"?`);
+          if (!ok) return;
+          try {
+            await deleteEventFromDB(e.id);
+          } catch(_){}
+          events = events.filter(x => String(x.id) !== String(e.id));
+          if (ui.selectedId === e.id) ui.selectedId = null;
+          await saveAll();
+          render();
         });
         tr.addEventListener('click', ()=>{ ui.selectedId = e.id; saveAll(); render(); });
         tr.addEventListener('dblclick', ()=>{ ui.selectedId = e.id; saveAll(); render(); });

@@ -98,7 +98,7 @@
 
     // restore widths
     const saved = safeLoadJSON(storeKey, null) || {};
-    if (saved && left && typeof saved.left === 'number') left.style.width = saved.left + 'px';
+    if (saved && left && typeof saved.left === 'number') left.style.width = Math.max(minLeft, saved.left) + 'px';
     if (saved && right && typeof saved.right === 'number') right.style.width = saved.right + 'px';
     // inspector collapsed support
     function setRightCollapsed(flag){
