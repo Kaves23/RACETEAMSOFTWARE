@@ -97,6 +97,12 @@
     .ev-row-del { opacity: 0; transition: opacity 0.15s; background: none; border: none; color: #dc3545; font-size: 1rem; line-height: 1; padding: 0 4px; cursor: pointer; }
     .ev-list-table tbody tr:hover .ev-row-del { opacity: 1; }
 
+    /* ── MONTH DIVIDER ────────────────────────────────────────────── */
+    .ev-month-divider td { padding: 6px 0 2px !important; border: none !important; background: transparent !important; }
+    .ev-month-divider-inner { display: flex; align-items: center; gap: 8px; padding: 0 10px; }
+    .ev-month-divider-line { flex: 1; height: 1px; background: rgba(0,0,0,0.12); }
+    .ev-month-divider-label { font-size: 0.65rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #9aa5b4; white-space: nowrap; }
+
     /* ── INSPECTOR TABS ──────────────────────────────────────────── */
     #evShell #evTabs .nav-link { color: #6c757d; background: transparent; border-color: transparent; font-size: 0.8rem; padding: 7px 10px; }
     #evShell #evTabs .nav-link.active { color: #0099cc; border-color: #dee2e6 #dee2e6 #fff; background: #fff; font-weight: 600; }
@@ -1480,6 +1486,8 @@
       els.tbody.innerHTML = '';
       let idx=0;
       let last=null;
+      let lastMonth=null;
+      const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
       const sorted = visibleRows.slice().sort((a,b)=> (a.start||'').localeCompare(b.start||''));
       sorted.forEach(e => {
@@ -1488,12 +1496,27 @@
           // annotate the title to indicate this row is hidden by filters
           if (!e._rts_syntheticTitle) e._rts_syntheticTitle = (e.title||'') + ' (hidden by filters)';
         }
+
+        // Month divider (always shown, independent of groupBy)
+        const eMonth = (e.start||'').slice(0, 7); // YYYY-MM
+        if (eMonth && eMonth !== lastMonth) {
+          if (lastMonth !== null) { // don't insert above the very first row
+            const [y, m] = eMonth.split('-');
+            const label = `${MONTHS[parseInt(m,10)-1]} ${y}`;
+            const trDiv = document.createElement('tr');
+            trDiv.className = 'ev-month-divider';
+            trDiv.innerHTML = `<td colspan="8"><div class="ev-month-divider-inner"><span class="ev-month-divider-line"></span><span class="ev-month-divider-label">${label}</span><span class="ev-month-divider-line"></span></div></td>`;
+            els.tbody.appendChild(trDiv);
+          }
+          lastMonth = eMonth;
+        }
+
         const g = ui.groupBy ? groupKey(e) : '';
         if(ui.groupBy && g !== last) {
           last = g;
           const trG = document.createElement('tr');
           trG.className = 'mlo-group-row';
-          trG.innerHTML = `<td colspan="7">${g}</td>`;
+          trG.innerHTML = `<td colspan="8">${g}</td>`;
           els.tbody.appendChild(trG);
         }
 
