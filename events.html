@@ -84,6 +84,10 @@
     /* ── NEW EVENT HIGHLIGHT ─────────────────────────────────────── */
     .rts-new-highlight { background: #ff5ab5 !important; color: #ffffff !important; }
 
+    /* ── PAST EVENT ROWS ─────────────────────────────────────────── */
+    .ev-list-table tbody .ev-row-past td { padding: 2px 10px !important; font-size: 0.74rem !important; }
+    .ev-row-past { opacity: 0.42; }
+
     /* ── INSPECTOR TABS ──────────────────────────────────────────── */
     #evShell #evTabs .nav-link { color: #6c757d; background: transparent; border-color: transparent; font-size: 0.8rem; padding: 7px 10px; }
     #evShell #evTabs .nav-link.active { color: #0099cc; border-color: #dee2e6 #dee2e6 #fff; background: #fff; font-weight: 600; }
@@ -1044,14 +1048,18 @@
       const toYMD = v => (v && v.includes('T')) ? v.slice(0,10) : (v || '');
       const s = toYMD(e.start);
       const en = toYMD(e.end);
-      if(!en || en===s) return s;
-      // Same month → show "17–18 Apr"
-      const [sy, sm, sd] = s.split('-');
-      const [ey, em, ed] = en.split('-');
       const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-      if (sy===ey && sm===em) return `${parseInt(sd,10)}–${parseInt(ed,10)} ${months[parseInt(sm,10)-1]}`;
-      if (sy===ey) return `${parseInt(sd,10)} ${months[parseInt(sm,10)-1]} – ${parseInt(ed,10)} ${months[parseInt(em,10)-1]}`;
-      return `${s} → ${en}`;
+      const fmt = (y, m, d) => `${parseInt(d,10)} ${months[parseInt(m,10)-1]} ${y}`;
+      if (!s) return '';
+      const [sy, sm, sd] = s.split('-');
+      if (!en || en === s) return fmt(sy, sm, sd);
+      const [ey, em, ed] = en.split('-');
+      // Same month & year → "17–18 Apr 2025"
+      if (sy === ey && sm === em) return `${parseInt(sd,10)}\u2013${parseInt(ed,10)} ${months[parseInt(sm,10)-1]} ${sy}`;
+      // Same year → "17 Apr – 18 May 2025"
+      if (sy === ey) return `${parseInt(sd,10)} ${months[parseInt(sm,10)-1]} \u2013 ${parseInt(ed,10)} ${months[parseInt(em,10)-1]} ${sy}`;
+      // Cross-year → "17 Apr 2024 – 3 Jan 2025"
+      return `${fmt(sy, sm, sd)} \u2013 ${fmt(ey, em, ed)}`;
     }
 
     function monthKey(e) {
@@ -1482,12 +1490,14 @@
         const typePill = `<span class="ev-type-pill" style="background:${typeColor};">${e.type||''}</span>`;
         const drvCount = Array.isArray(e.drivers) ? e.drivers.length : (String(e.drivers||'').trim()?1:0);
         // if this event was just created and not yet edited, make it visually obvious
+        const isPast = !e.rtsNew && (e.start || '') < _today;
         if (e.rtsNew) {
           tr.classList.add('rts-new-highlight');
           tr.style.removeProperty('background');
           tr.style.removeProperty('color');
         } else {
           tr.style.setProperty('border-left', `4px solid ${typeColor}`, 'important');
+          if (isPast) tr.classList.add('ev-row-past');
         }
 
         tr.innerHTML = `
