@@ -6,15 +6,59 @@
   <title>Race Team OS – Performance</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="style.css" rel="stylesheet" />
+  <style>
+    body { background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%); }
+    .ev-stats-bar { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+    .ev-stat-card { background: #fff; border: 1px solid rgba(0,0,0,0.1); border-radius: 8px; padding: 10px 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.06); min-width: 110px; }
+    .ev-stat-label { font-size: 0.7rem; color: #6c757d; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+    .ev-stat-value { font-size: 1.5rem; font-weight: 700; color: #1a1d24; line-height: 1.2; }
+    #perfShell.mlo-shell { background: transparent; border: none; gap: 10px; }
+    #perfShell .mlo-pane-left, #perfShell .mlo-pane-mid, #perfShell .mlo-pane-right { background: #ffffff; border: 1px solid rgba(0,0,0,0.1); border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.06); }
+    #perfShell .mlo-pane-header { background: #f8f9fa; border-bottom: 1px solid rgba(0,0,0,0.1); }
+    #perfShell .mlo-title { color: #1a1d24 !important; }
+    #perfShell .mlo-section-label { color: #6c757d !important; opacity: 1 !important; }
+    #perfShell .mlo-pane-content { color: #1a1d24; }
+    #perfShell .mlo-resizer { background: transparent; }
+    #perfShell .mlo-resizer:hover { background: rgba(0,153,204,0.3); }
+    #perfShell .mlo-pane-left .pastel-tree { padding: 0 !important; margin: 0 !important; }
+    #perfShell .mlo-pane-left .pastel-tree li { height: 28px !important; display: flex !important; align-items: center !important; font-size: 0.83rem !important; font-weight: 500 !important; padding-left: 10px !important; margin-bottom: 2px !important; border-radius: 5px !important; border: 1px solid rgba(0,0,0,0.08) !important; box-shadow: none !important; color: #1a1d24 !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; cursor: pointer !important; }
+    #perfShell .mlo-pane-left .pastel-tree li.active { background: rgba(0,153,204,0.1) !important; border-color: rgba(0,153,204,0.35) !important; color: #0072a3 !important; font-weight: 700 !important; }
+    .prf-list-table { width: 100%; font-size: 0.82rem; border-collapse: separate; border-spacing: 0; }
+    .prf-list-table thead { position: sticky; top: 0; background: #f8f9fa; z-index: 5; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+    .prf-list-table th { padding: 8px 10px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #6c757d; border-bottom: 2px solid #dee2e6; white-space: nowrap; }
+    .prf-list-table td { padding: 6px 10px; border-bottom: 1px solid rgba(0,0,0,0.05); vertical-align: middle; color: #1a1d24 !important; }
+    .prf-list-table tbody tr { cursor: pointer; transition: background 0.1s; }
+    .prf-list-table tbody tr:hover { background: #f8f9fa; }
+    .prf-list-table tbody tr.prf-row-selected { background: rgba(0,153,204,0.08) !important; outline: 2px solid #0099cc; outline-offset: -2px; }
+    #perfShell #perfTabs .nav-link { color: #6c757d; background: transparent; border-color: transparent; font-size: 0.8rem; padding: 7px 10px; }
+    #perfShell #perfTabs .nav-link.active { color: #0099cc; border-color: #dee2e6 #dee2e6 #fff; background: #fff; font-weight: 600; }
+    #perfShell .form-label { color: #495057 !important; font-size: 0.78rem; font-weight: 600; margin-bottom: 2px; }
+    #perfShell .form-control, #perfShell .form-select { background: #fff !important; color: #1a1d24 !important; border-color: #dee2e6 !important; font-size: 0.82rem; }
+    .kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+    .kpi-block { background: #f8f9fa; border: 1px solid rgba(0,0,0,0.08); border-radius: 6px; padding: 8px 10px; }
+    .kpi-label { font-size: 0.68rem; color: #6c757d; font-weight: 700; text-transform: uppercase; }
+    .kpi-value { font-size: 1.2rem; font-weight: 700; color: #1a1d24; }
+    .lap-table { width: 100%; font-size: 0.78rem; border-collapse: collapse; }
+    .lap-table th { background: #f8f9fa; padding: 5px 8px; text-align: right; font-size: 0.68rem; color: #6c757d; font-weight: 700; text-transform: uppercase; border-bottom: 2px solid #dee2e6; }
+    .lap-table th:first-child { text-align: left; }
+    .lap-table td { padding: 4px 8px; border-bottom: 1px solid rgba(0,0,0,0.05); text-align: right; }
+    .lap-table td:first-child { text-align: left; font-weight: 600; }
+    .lap-fastest { color: #7c3aed; font-weight: 700; }
+  </style>
 </head>
-<body>
+<body class="light-mode">
   <div id="rtsTopNav"></div>
+  <div class="rts-version-badge">v3</div>
   <div class="rts-main container-fluid">
-      
-
-      
-        <h1 class="my-3">Performance</h1>
-
+    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+      <div><h1 class="h4 mb-1">Performance</h1><div class="text-secondary" style="font-size:0.85rem;">Analyse race sessions — KPIs, lap times, telemetry links and engineer notes.</div></div>
+    </div>
+    <div class="ev-stats-bar">
+      <div class="ev-stat-card"><div class="ev-stat-label">Total</div><div class="ev-stat-value" id="statPrfTotal">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">With Telemetry</div><div class="ev-stat-value" id="statPrfTele">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Best Lap</div><div class="ev-stat-value" id="statPrfBest">—</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Latest</div><div class="ev-stat-value" id="statPrfLatest">—</div></div>
+    </div>
         <div class="mlo-shell" id="perfShell">
           <!-- LEFT -->
           <section class="mlo-pane mlo-pane-left" aria-label="Performance navigation">
@@ -25,20 +69,14 @@
               </div>
             </div>
             <div class="mlo-pane-content">
-              <div class="mlo-section-label">Data sources</div>
-              <ul class="mlo-tree pastel-tree" id="perfSources">
-                <li class="active" data-source="aim"><span style="opacity:0.75;">AiM</span> <span class="badge text-bg-secondary" id="srcAim">Ready</span></li>
-                <li data-source="timing"><span style="opacity:0.75;">Timing</span> <span class="badge text-bg-secondary" id="srcTiming">Planned</span></li>
-                <li data-source="video"><span style="opacity:0.75;">Video</span> <span class="badge text-bg-secondary" id="srcVideo">Planned</span></li>
-              </ul>
-
-              <div class="mlo-section-label mt-3">Perspectives</div>
+              <div class="mlo-section-label">Filter</div>
               <ul class="mlo-tree pastel-tree" id="perfPerspectiveList">
                 <li class="active" data-perspective="all">All sessions</li>
-                <li data-perspective="latest">Latest</li>
-                <li data-perspective="flagged">Flagged</li>
-                <li data-perspective="withTelemetry">With telemetry</li>
-                <li data-perspective="withVideo">With video</li>
+                <li data-perspective="latest">Latest (30 days)</li>
+                <li data-perspective="practice">Practice only</li>
+                <li data-perspective="qualifying">Qualifying only</li>
+                <li data-perspective="race">Race only</li>
+                <li data-perspective="telemetry">With telemetry</li>
               </ul>
 
               <div class="mlo-section-label mt-3">Drivers</div>
@@ -53,29 +91,23 @@
             <div class="mlo-pane-header">
               <div class="d-flex flex-wrap align-items-center gap-1">
                 <input id="perfSearch" type="text" class="form-control form-control-sm" placeholder="Search…" style="max-width: 220px;">
-                <select id="perfEvent" class="form-select form-select-sm" style="max-width: 220px;"></select>
-                <select id="perfDriver" class="form-select form-select-sm" style="max-width: 190px;"></select>
-                <select id="perfGroup" class="form-select form-select-sm" style="max-width: 190px;">
-                  <option value="">Group: None</option>
-                  <option value="event">Group: Event</option>
-                  <option value="driver">Group: Driver</option>
-                  <option value="track">Group: Track</option>
-                </select>
-                <button class="btn btn-sm btn-outline-light mlo-btn" id="btnFlag" type="button">Toggle Flag</button>
+                <select id="perfEvent" class="form-select form-select-sm" style="max-width: 220px;"><option value="">All events</option></select>
+                <select id="perfDriver" class="form-select form-select-sm" style="max-width: 190px;"><option value="">All drivers</option></select>
+                <button class="btn btn-sm btn-outline-primary ms-auto" id="btnNewPrf" type="button">+ New Session</button>
               </div>
             </div>
 
-            <div class="mlo-pane-content" style="padding:0;">
-              <table class="table table-dark table-hover mlo-table" style="margin:0;">
+            <div class="mlo-pane-content" style="padding:0; overflow-y:auto;">
+              <table class="prf-list-table">
                 <thead>
                   <tr>
-                    <th style="width:60px;">#</th>
+                    <th style="width:50px;">#</th>
                     <th>Session</th>
-                    <th style="width:220px;">Event</th>
-                    <th style="width:150px;">Date</th>
-                    <th style="width:160px;">Driver</th>
-                    <th style="width:110px;">Data</th>
-                    <th style="width:80px;">Flag</th>
+                    <th style="width:200px;">Event</th>
+                    <th style="width:140px;">Driver</th>
+                    <th style="width:100px;">Type</th>
+                    <th style="width:90px;">Best Lap</th>
+                    <th style="width:50px;"></th>
                   </tr>
                 </thead>
                 <tbody id="perfTbody"></tbody>
@@ -94,489 +126,393 @@
               </div>
             </div>
             <div class="mlo-pane-content">
-                <ul class="nav nav-tabs nav-dark mb-2" role="tablist">
+                <ul class="nav nav-tabs mb-2" id="perfTabs" role="tablist">
                   <li class="nav-item" role="presentation">
-                    <button class="nav-link active" id="tab-perf-snap" data-bs-toggle="tab" data-bs-target="#pane-perf-snap" type="button" role="tab" aria-controls="pane-perf-snap" aria-selected="true">Snapshot</button>
+                    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#pane-perf-snap" type="button">Snapshot</button>
                   </li>
                   <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="tab-perf-details" data-bs-toggle="tab" data-bs-target="#pane-perf-details" type="button" role="tab" aria-controls="pane-perf-details" aria-selected="false">Details</button>
+                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#pane-perf-laps" type="button">Lap Times</button>
+                  </li>
+                  <li class="nav-item" role="presentation">
+                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#pane-perf-details" type="button">Details</button>
                   </li>
                 </ul>
                 <div class="tab-content">
-                  <div class="tab-pane fade show active" id="pane-perf-snap" role="tabpanel" aria-labelledby="tab-perf-snap">
-                    <div class="card">
-                      <div class="card-header">RaceWatch-style Snapshot</div>
-                      <div class="card-body" style="display:grid; grid-template-columns: 1fr 1fr; gap: 0.35rem;">
-                        <div><span style="opacity:0.7;">Best Lap</span><div id="kpiBestLap" style="font-weight:700;">—</div></div>
-                        <div><span style="opacity:0.7;">Consistency</span><div id="kpiCons" style="font-weight:700;">—</div></div>
-                        <div><span style="opacity:0.7;">Laps</span><div id="kpiLaps" style="font-weight:700;">—</div></div>
-                        <div><span style="opacity:0.7;">Delta vs PB</span><div id="kpiDelta" style="font-weight:700;">—</div></div>
-                      </div>
+
+                  <!-- SNAPSHOT -->
+                  <div class="tab-pane fade show active" id="pane-perf-snap" role="tabpanel">
+                    <div class="kpi-grid">
+                      <div class="kpi-block"><div class="kpi-label">Best Lap</div><div class="kpi-value" id="kpiBestLap">—</div></div>
+                      <div class="kpi-block"><div class="kpi-label">Consistency</div><div class="kpi-value" id="kpiCons">—</div></div>
+                      <div class="kpi-block"><div class="kpi-label">Laps</div><div class="kpi-value" id="kpiLaps">—</div></div>
+                      <div class="kpi-block"><div class="kpi-label">Delta vs PB</div><div class="kpi-value" id="kpiDelta">—</div></div>
                     </div>
-                    <div class="card" style="margin-top:0.35rem;">
-                      <div class="card-header">Sources • Layout • Replay</div>
-                      <div class="card-body">
-                        <div class="mlo-section-label">Data sources (sync plan)</div>
-                        <div class="d-flex flex-wrap gap-1" id="pfSources" style="margin-bottom:0.35rem;"></div>
-
-                        <div class="mlo-section-label">Layout presets</div>
-                        <div class="d-flex flex-wrap gap-1" id="pfLayouts" style="margin-bottom:0.35rem;"></div>
-
-                        <div class="mlo-section-label">Instant replay & clips (Focus-style)</div>
-                        <div class="text-secondary" style="font-size:0.82rem;">
-                          The front-end supports bookmarking timecodes, multi-angle placeholders, and clip notes. Video ingest, multi-channel recording, and API wiring are scheduled for the backend phase.
-                        </div>
-                        <div class="d-flex gap-1" style="margin-top:0.35rem;">
-                          <button class="btn btn-sm btn-outline-light mlo-btn" id="btnAddMarker" type="button">Add Marker</button>
-                          <button class="btn btn-sm btn-outline-light mlo-btn" id="btnClip" type="button">Create Clip (Demo)</button>
-                        </div>
-                      </div>
+                    <div class="mb-2">
+                      <label class="form-label">Engineer notes</label>
+                      <textarea id="f_pf_notes_snap" class="form-control form-control-sm" rows="4" placeholder="Markers, observations, sector notes, driver comments…"></textarea>
+                    </div>
+                    <div class="d-flex gap-1 mt-1">
+                      <button class="btn btn-sm btn-primary" id="btnSavePfSnap" type="button">Save Notes</button>
+                      <button class="btn btn-sm btn-outline-secondary ms-auto" id="btnViewEventPrf" type="button">View Event</button>
                     </div>
                   </div>
 
-                  <div class="tab-pane fade" id="pane-perf-details" role="tabpanel" aria-labelledby="tab-perf-details">
-                    <form id="perfForm" autocomplete="off" style="margin-top:0.35rem;">
+                  <!-- LAP TIMES -->
+                  <div class="tab-pane fade" id="pane-perf-laps" role="tabpanel">
+                    <div style="overflow-y:auto; max-height:260px;" class="mb-2">
+                      <table class="lap-table">
+                        <thead><tr><th>Lap</th><th>Time</th><th>S1</th><th>S2</th><th>S3</th></tr></thead>
+                        <tbody id="prfLapTbody"></tbody>
+                      </table>
+                    </div>
+                    <div class="d-flex gap-1 align-items-center mt-1">
+                      <label class="btn btn-sm btn-outline-secondary mb-0" style="cursor:pointer;">Import CSV<input type="file" id="prfLapCsvInput" accept=".csv" style="display:none;"></label>
+                      <button class="btn btn-sm btn-outline-danger" id="btnClearPrfLaps" type="button">Clear all</button>
+                    </div>
+                  </div>
+
+                  <!-- DETAILS -->
+                  <div class="tab-pane fade" id="pane-perf-details" role="tabpanel">
+                    <form id="perfForm" autocomplete="off" style="margin-top:6px;">
                       <div class="row g-2">
-                  <div class="col-4">
-                    <label class="form-label">ID</label>
-                    <input id="f_pf_id" class="form-control form-control-sm" type="text" readonly>
-                  </div>
-                  <div class="col-8">
-                    <label class="form-label">Session name</label>
-                    <input id="f_pf_name" class="form-control form-control-sm" type="text">
+                        <div class="col-12">
+                          <label class="form-label">Session name</label>
+                          <input id="f_pf_name" class="form-control form-control-sm" type="text">
+                        </div>
+                        <div class="col-6">
+                          <label class="form-label">Session type</label>
+                          <select id="f_pf_type" class="form-select form-select-sm">
+                            <option value="">— Type —</option>
+                            <option value="practice">Practice</option>
+                            <option value="qualifying">Qualifying</option>
+                            <option value="race">Race</option>
+                            <option value="test">Test</option>
+                          </select>
+                        </div>
+                        <div class="col-6">
+                          <label class="form-label">Weather</label>
+                          <input id="f_pf_weather" class="form-control form-control-sm" type="text" placeholder="Hot / Cool / Wet">
+                        </div>
+                        <div class="col-12">
+                          <label class="form-label">Event</label>
+                          <select id="f_pf_event" class="form-select form-select-sm"><option value="">— Event —</option></select>
+                        </div>
+                        <div class="col-6">
+                          <label class="form-label">Driver</label>
+                          <select id="f_pf_driver" class="form-select form-select-sm"><option value="">— Driver —</option></select>
+                        </div>
+                        <div class="col-6">
+                          <label class="form-label">Kart</label>
+                          <select id="f_pf_kart" class="form-select form-select-sm"><option value="">— Kart —</option></select>
+                        </div>
+                        <div class="col-6">
+                          <label class="form-label">Start time</label>
+                          <input id="f_pf_start" class="form-control form-control-sm" type="datetime-local">
+                        </div>
+                        <div class="col-6">
+                          <label class="form-label">End time</label>
+                          <input id="f_pf_end" class="form-control form-control-sm" type="datetime-local">
+                        </div>
+                        <div class="col-12">
+                          <label class="form-label">Engineer notes</label>
+                          <textarea id="f_pf_notes" class="form-control form-control-sm" rows="3" placeholder="Observations, setup notes…"></textarea>
+                        </div>
+                        <div class="col-12 d-flex gap-1 mt-1 flex-wrap">
+                          <button class="btn btn-sm btn-primary" id="btnSavePf" type="button">Save</button>
+                          <button class="btn btn-sm btn-outline-danger" id="btnDeletePf" type="button">Delete</button>
+                        </div>
+                      </div>
+                    </form>
                   </div>
 
-                  <div class="col-12">
-                    <label class="form-label">Event</label>
-                    <input id="f_pf_event" class="form-control form-control-sm" type="text">
-                  </div>
-
-                  <div class="col-7">
-                    <label class="form-label">Driver</label>
-                    <input id="f_pf_driver" class="form-control form-control-sm" type="text">
-                  </div>
-                  <div class="col-5">
-                    <label class="form-label">Track</label>
-                    <input id="f_pf_track" class="form-control form-control-sm" type="text">
-                  </div>
-
-                  <div class="col-6">
-                    <label class="form-label">Date</label>
-                    <input id="f_pf_date" class="form-control form-control-sm" type="date">
-                  </div>
-                  <div class="col-6">
-                    <label class="form-label">Weather</label>
-                    <input id="f_pf_weather" class="form-control form-control-sm" type="text" placeholder="Hot / Cool / Wet">
-                  </div>
-
-                  <div class="col-12">
-                    <label class="form-label">Video sync offset (s)</label>
-                    <input id="f_pf_video" class="form-control form-control-sm" type="number" step="0.01">
-                  </div>
-
-                  <div class="col-12">
-                    <label class="form-label">Telemetry channels (planned for AiM)</label>
-                    <div class="d-flex flex-wrap gap-1" id="pfChannels"></div>
-                  </div>
-
-                  <div class="col-12">
-                    <label class="form-label">Engineer notes</label>
-                    <textarea id="f_pf_notes" class="form-control form-control-sm" rows="4" placeholder="Markers, observations, sector notes, driver comments…"></textarea>
-                  </div>
-
-                  <div class="col-12 d-flex gap-1 mt-1">
-                    <button class="btn btn-sm btn-primary mlo-btn" id="btnSavePf" type="button">Save</button>
-                  </div>
-                </div>
-              </form>
+                </div><!-- /tab-content -->
             </div>
           </section>
         </div>
       </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="core.js"></script>
+  <script src="core.js?v=20260407-1700"></script>
   <script src="topnav.js?v=20260411-2"></script>
   <script>
   (function(){
-    RTS.setActiveNav();
-    const LS = 'rts.performance.v4';
-    const LS_UI = 'rts.performance.ui.v4';
-    const LS_PANES = 'rts.performance.panes.v4';
+    const LS_PANES = 'rts.performance.panes.v2';
+    let sessions = [], events = [], drivers = [], karts = [];
+    let activePerspective = 'all', activeDriverId = null, activeSid = null;
 
-    const settings = RTS.getSettings();
-    const DRIVERS = (settings.drivers||[]).filter(d=>d.active!==false).map(d=>d.name);
-    const EVENTS = (RTS.safeLoadJSON('rts.events.v4', [])||[]).map(e=>e.title).filter(Boolean);
+    const $ = id => document.getElementById(id);
 
-    const TRACKS = ['Killarney','Red Star','Zwartkops','Kyalami','iDube','Formula K'];
-
-    const CHANNELS = ['GPS Speed','RPM','Throttle','Brake','Lateral G','Longitudinal G','Water Temp','EGT'];
-    // RaceWatch-style: multiple data sources synchronised (timing, GPS, telemetry, race control, weather, radios, video).
-    const SOURCES = ['Timing','GPS','Telemetry','Race Control','Weather','Team Radio','Onboards','CCTV','Broadcast'];
-    // AiM Race Studio style: predefined analysis layouts.
-    const LAYOUTS = ['Time/Distance','Video','Histogram','Channels Report','Command Center'];
-
-    function iso(d){
-      const dt = new Date(d);
-      const y = dt.getFullYear();
-      const m = String(dt.getMonth()+1).padStart(2,'0');
-      const da = String(dt.getDate()).padStart(2,'0');
-      return `${y}-${m}-${da}`;
+    function fmtMs(ms){
+      if (!ms) return '—';
+      const m = Math.floor(ms/60000), s = Math.floor((ms%60000)/1000), c = Math.floor((ms%1000)/10);
+      return m>0 ? `${m}:${String(s).padStart(2,'0')}.${String(c).padStart(2,'0')}` : `${s}.${String(c).padStart(2,'0')}`;
     }
 
-    function seed(){
-      const base = new Date();
-      const out = [];
-      for (let i=1;i<=24;i++){
-        const date = new Date(base.getTime());
-        date.setDate(date.getDate() - (i*4));
-        const event = EVENTS[i % EVENTS.length];
-        const driver = DRIVERS[i % DRIVERS.length];
-        const track = TRACKS[i % TRACKS.length];
-        const withTelemetry = i % 2 === 0;
-        const withVideo = i % 3 === 0;
-        const laps = 10 + (i % 12);
-        const best = 48.5 + (i % 7) + (Math.random()*0.6);
-        const consistency = 0.35 + (Math.random()*0.35);
-        out.push({
-          id: i,
-          name: `Session ${i} – ${i%3===0?'Qualifying Sim':'Practice'}`,
-          event,
-          driver,
-          track,
-          date: iso(date),
-          weather: i%5===0 ? 'Hot' : (i%7===0 ? 'Wet' : 'Cool'),
-          withTelemetry,
-          withVideo,
-          flagged: i%8===0,
-          videoOffset: 0,
-          sources: (function(){
-            const base = ['Timing','GPS'];
-            if (withTelemetry) base.push('Telemetry');
-            if (withVideo) base.push('Onboards');
-            if (i%6===0) base.push('Weather');
-            if (i%9===0) base.push('Race Control');
-            return Array.from(new Set(base));
-          })(),
-          layout: (withVideo ? 'Video' : 'Time/Distance'),
-          markers: [],
-          clips: [],
-          channels: CHANNELS.filter((_c, idx)=> (withTelemetry ? (idx%2===0) : false)),
-          laps,
-          bestLap: best,
-          consistency,
-          notes: ''
-        });
-      }
-      return out;
+    function bestLapMs(s){
+      if (!s.lap_times || !s.lap_times.length) return null;
+      return Math.min(...s.lap_times.map(l=>l.time_ms||Infinity).filter(v=>isFinite(v)));
     }
 
-    const defaultUI = { perspective:'all', driverPick:'', search:'', event:'', driver:'', groupBy:'', selectedId:null };
-    let sessions = RTS.safeLoadJSON(LS, null);
-    if (!Array.isArray(sessions) || !sessions.length) sessions = seed();
-    let ui = RTS.deepMerge(defaultUI, RTS.safeLoadJSON(LS_UI, {}));
-
-    const el = {
-      shell: document.getElementById('perfShell'),
-      badge: document.getElementById('perfCountBadge'),
-      inspectorBadge: document.getElementById('perfInspectorBadge'),
-      sources: document.getElementById('perfSources'),
-      perspectives: document.getElementById('perfPerspectiveList'),
-      driversTree: document.getElementById('perfDriverList'),
-      tbody: document.getElementById('perfTbody'),
-      search: document.getElementById('perfSearch'),
-      ev: document.getElementById('perfEvent'),
-      dr: document.getElementById('perfDriver'),
-      group: document.getElementById('perfGroup'),
-      flag: document.getElementById('btnFlag'),
-      kpi: {
-        best: document.getElementById('kpiBestLap'),
-        cons: document.getElementById('kpiCons'),
-        laps: document.getElementById('kpiLaps'),
-        delta: document.getElementById('kpiDelta')
-      },
-      f: {
-        id: document.getElementById('f_pf_id'),
-        name: document.getElementById('f_pf_name'),
-        event: document.getElementById('f_pf_event'),
-        driver: document.getElementById('f_pf_driver'),
-        track: document.getElementById('f_pf_track'),
-        date: document.getElementById('f_pf_date'),
-        weather: document.getElementById('f_pf_weather'),
-        video: document.getElementById('f_pf_video'),
-        notes: document.getElementById('f_pf_notes')
-      },
-      sources: document.getElementById('pfSources'),
-      layouts: document.getElementById('pfLayouts'),
-      btnMarker: document.getElementById('btnAddMarker'),
-      btnClip: document.getElementById('btnClip'),
-      channels: document.getElementById('pfChannels'),
-      save: document.getElementById('btnSavePf')
-    };
-
-    function persist(){
-      RTS.safeSaveJSON(LS, sessions);
-      RTS.safeSaveJSON(LS_UI, ui);
+    function consistencyMs(s){
+      if (!s.lap_times || s.lap_times.length < 2) return null;
+      const times = s.lap_times.map(l=>l.time_ms).filter(Boolean);
+      if (times.length < 2) return null;
+      const mean = times.reduce((a,b)=>a+b,0)/times.length;
+      const std = Math.sqrt(times.reduce((a,b)=>a+(b-mean)**2,0)/times.length);
+      return std;
     }
 
-    function buildTrees(){
-      // driver tree
-      const uniqDrivers = Array.from(new Set(sessions.map(s=>s.driver))).sort();
-      el.driversTree.innerHTML = '';
-      const liAll = document.createElement('li');
-      liAll.textContent = 'All drivers';
-      liAll.dataset.driver = '';
-      if (!ui.driverPick) liAll.classList.add('active');
-      el.driversTree.appendChild(liAll);
-      uniqDrivers.forEach(d=>{
-        const li = document.createElement('li');
-        li.textContent = d;
-        li.dataset.driver = d;
-        if (ui.driverPick===d) li.classList.add('active');
-        el.driversTree.appendChild(li);
-      });
-      // filters
-      const uniqEvents = Array.from(new Set(sessions.map(s=>s.event))).sort();
-      el.ev.innerHTML = '<option value="">Event: All</option>' + uniqEvents.map(e=>`<option>${e}</option>`).join('');
-      el.dr.innerHTML = '<option value="">Driver: All</option>' + uniqDrivers.map(d=>`<option>${d}</option>`).join('');
+    // Stats bar
+    function updateStats(){
+      $('statPrfTotal').textContent = sessions.length;
+      $('statPrfTele').textContent = sessions.filter(s=>s.aims_upload_id).length;
+      const allBests = sessions.map(s=>bestLapMs(s)).filter(Boolean);
+      $('statPrfBest').textContent = allBests.length ? fmtMs(Math.min(...allBests)) : '—';
+      const latest = sessions.filter(s=>s.start_time).sort((a,b)=>new Date(b.start_time)-new Date(a.start_time))[0];
+      $('statPrfLatest').textContent = latest ? latest.name.substring(0,12) : '—';
     }
 
-    function applyFilters(list){
-      let out = list.slice();
-      // left perspectives
-      if (ui.perspective==='latest') out = out.slice().sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,10);
-      if (ui.perspective==='flagged') out = out.filter(s=>s.flagged);
-      if (ui.perspective==='withTelemetry') out = out.filter(s=>s.withTelemetry);
-      if (ui.perspective==='withVideo') out = out.filter(s=>s.withVideo);
-      if (ui.driverPick) out = out.filter(s=>s.driver===ui.driverPick);
-      // mid filters
-      if (ui.search){
-        const q = ui.search.toLowerCase();
-        out = out.filter(s => (`${s.name} ${s.event} ${s.driver} ${s.track}`).toLowerCase().includes(q));
-      }
-      if (ui.event) out = out.filter(s=>s.event===ui.event);
-      if (ui.driver) out = out.filter(s=>s.driver===ui.driver);
-      return out;
-    }
-
-    function groupKey(s){
-      if (!ui.groupBy) return '';
-      if (ui.groupBy==='event') return s.event || '—';
-      if (ui.groupBy==='driver') return s.driver || '—';
-      if (ui.groupBy==='track') return s.track || '—';
-      return '';
-    }
-
-    function render(){
-      el.search.value = ui.search || '';
-      el.ev.value = ui.event || '';
-      el.dr.value = ui.driver || '';
-      el.group.value = ui.groupBy || '';
-
-      const filtered = applyFilters(sessions);
-      el.badge.textContent = String(filtered.length);
-      el.tbody.innerHTML = '';
-      let rows = filtered.slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-      if (ui.groupBy){
-        rows.sort((a,b)=>{
-          const ga=groupKey(a), gb=groupKey(b);
-          if (ga!==gb) return ga.localeCompare(gb);
-          return (b.date||'').localeCompare(a.date||'');
-        });
-      }
-
-      let idx=0, lastG=null;
-      rows.forEach(s=>{
-        const g = ui.groupBy ? groupKey(s) : '';
-        if (ui.groupBy && g!==lastG){
-          lastG=g;
-          const trg=document.createElement('tr');
-          trg.className='mlo-group-row';
-          trg.innerHTML=`<td colspan="7">${g}</td>`;
-          el.tbody.appendChild(trg);
+    function populateSelects(){
+      // Filter bar selects
+      ['perfEvent','perfDriver','f_pf_event','f_pf_driver','f_pf_kart'].forEach(id => {
+        const el = $(id); if (!el) return;
+        const cur = el.value;
+        if (id==='perfEvent' || id==='f_pf_event'){
+          el.innerHTML = id==='f_pf_event' ? '<option value="">— Event —</option>' : '<option value="">All events</option>';
+          events.forEach(e=>{ const o=document.createElement('option'); o.value=e.id; o.textContent=e.name; el.appendChild(o); });
+        } else if (id==='perfDriver' || id==='f_pf_driver'){
+          el.innerHTML = id==='f_pf_driver' ? '<option value="">— Driver —</option>' : '<option value="">All drivers</option>';
+          drivers.forEach(d=>{ const o=document.createElement('option'); o.value=d.id; o.textContent=d.name; el.appendChild(o); });
+        } else if (id==='f_pf_kart'){
+          el.innerHTML = '<option value="">— Kart —</option>';
+          karts.forEach(k=>{ const o=document.createElement('option'); o.value=k.id; o.textContent=k.name||k.registration||'Kart '+k.id; el.appendChild(o); });
         }
-        idx += 1;
-        const tr=document.createElement('tr');
-        tr.dataset.id = String(s.id);
-        if (ui.selectedId===s.id) tr.classList.add('mlo-row-selected');
-        tr.innerHTML = `
-          <td>${idx}</td>
-          <td>${s.name}</td>
-          <td>${s.event}</td>
-          <td>${s.date}</td>
-          <td>${s.driver}</td>
-          <td>${s.withTelemetry?'AiM':''}${(s.withTelemetry&&s.withVideo)?' + ':''}${s.withVideo?'Video':''}</td>
-          <td>${s.flagged?'●':''}</td>
-        `;
-        tr.addEventListener('click',()=>select(s.id));
-        el.tbody.appendChild(tr);
+        el.value = cur;
       });
-
-      hydrate(sessions.find(x=>x.id===ui.selectedId)||null);
-      persist();
-    }
-
-    function hydrate(s){
-      // KPIs
-      if (!s){
-        el.inspectorBadge.textContent = 'No selection';
-        el.kpi.best.textContent = '—';
-        el.kpi.cons.textContent = '—';
-        el.kpi.laps.textContent = '—';
-        el.kpi.delta.textContent = '—';
-        Object.values(el.f).forEach(i=>i.value='');
-        el.channels.innerHTML='';
-        el.sources.innerHTML='';
-        el.layouts.innerHTML='';
-        return;
-      }
-      el.inspectorBadge.textContent = `Session #${s.id}`;
-      el.kpi.best.textContent = (s.bestLap ? s.bestLap.toFixed(3)+'s' : '—');
-      el.kpi.cons.textContent = (s.consistency ? (s.consistency.toFixed(3)+'s σ') : '—');
-      el.kpi.laps.textContent = String(s.laps || 0);
-      el.kpi.delta.textContent = s.bestLap ? ((s.bestLap - 48.000).toFixed(3)+'s') : '—';
-
-      el.f.id.value = s.id;
-      el.f.name.value = s.name || '';
-      el.f.event.value = s.event || '';
-      el.f.driver.value = s.driver || '';
-      el.f.track.value = s.track || '';
-      el.f.date.value = s.date || '';
-      el.f.weather.value = s.weather || '';
-      el.f.video.value = s.videoOffset || 0;
-      el.f.notes.value = s.notes || '';
-
-      // channels
-      el.channels.innerHTML='';
-      CHANNELS.forEach(ch=>{
-        const id = 'ch_' + ch.replace(/\s+/g,'_');
-        const wrap=document.createElement('div');
-        wrap.className='form-check form-check-inline';
-        wrap.innerHTML = `
-          <input class="form-check-input" type="checkbox" id="${id}">
-          <label class="form-check-label" for="${id}" style="font-size:0.8rem;">${ch}</label>
-        `;
-        const cb = wrap.querySelector('input');
-        cb.checked = (s.channels||[]).includes(ch);
-        cb.addEventListener('change', ()=>{
-          const idx = sessions.findIndex(x=>x.id===s.id);
-          if (idx<0) return;
-          const cur = sessions[idx];
-          const set = new Set(cur.channels||[]);
-          if (cb.checked) set.add(ch); else set.delete(ch);
-          sessions[idx] = {...cur, channels: Array.from(set)};
-          persist();
-        });
-        el.channels.appendChild(wrap);
+      // Driver tree
+      const dt = $('perfDriverList');
+      dt.innerHTML = '<li data-driver="" class="active">All drivers</li>';
+      drivers.forEach(d=>{
+        const li = document.createElement('li');
+        li.dataset.driver = d.id;
+        li.textContent = d.name;
+        dt.appendChild(li);
       });
-
-      // sources + layouts
-      const srcSet = new Set(s.sources||[]);
-      el.sources.innerHTML='';
-      SOURCES.forEach(src=>{
-        const btn=document.createElement('button');
-        btn.type='button';
-        btn.className = 'btn btn-sm ' + (srcSet.has(src) ? 'btn-primary' : 'btn-outline-light') + ' mlo-btn';
-        btn.textContent = src;
-        btn.addEventListener('click', ()=>{
-          const idx = sessions.findIndex(x=>x.id===s.id);
-          if (idx<0) return;
-          const cur = sessions[idx];
-          const set = new Set(cur.sources||[]);
-          if (set.has(src)) set.delete(src); else set.add(src);
-          sessions[idx] = {...cur, sources: Array.from(set)};
-          persist();
-          hydrate(sessions.find(x=>x.id===s.id));
-        });
-        el.sources.appendChild(btn);
-      });
-
-      el.layouts.innerHTML='';
-      LAYOUTS.forEach(l=>{
-        const btn=document.createElement('button');
-        btn.type='button';
-        btn.className = 'btn btn-sm ' + (s.layout===l ? 'btn-primary' : 'btn-outline-light') + ' mlo-btn';
-        btn.textContent = l;
-        btn.addEventListener('click', ()=>{
-          const idx = sessions.findIndex(x=>x.id===s.id);
-          if (idx<0) return;
-          const cur = sessions[idx];
-          sessions[idx] = {...cur, layout: l};
-          persist();
-          hydrate(sessions.find(x=>x.id===s.id));
-        });
-        el.layouts.appendChild(btn);
-      });
-    }
-
-    function select(id){ ui.selectedId=id; render(); }
-
-    function save(){
-      const id = parseInt(el.f.id.value,10);
-      const idx = sessions.findIndex(x=>x.id===id);
-      if (idx<0) return;
-      const cur = sessions[idx];
-      sessions[idx] = {
-        ...cur,
-        name: el.f.name.value.trim() || cur.name,
-        event: el.f.event.value.trim() || cur.event,
-        driver: el.f.driver.value.trim() || cur.driver,
-        track: el.f.track.value.trim() || cur.track,
-        date: el.f.date.value,
-        weather: el.f.weather.value.trim(),
-        videoOffset: parseFloat(el.f.video.value || 0),
-        notes: el.f.notes.value
-      };
-      buildTrees();
-      render();
-    }
-
-    function toggleFlag(){
-      const idx = sessions.findIndex(x=>x.id===ui.selectedId);
-      if (idx<0) return;
-      sessions[idx] = { ...sessions[idx], flagged: !sessions[idx].flagged };
-      render();
-    }
-
-    function bind(){
-      el.perspectives.querySelectorAll('li').forEach(li=>{
+      dt.querySelectorAll('li').forEach(li=>{
         li.addEventListener('click', ()=>{
-          el.perspectives.querySelectorAll('li').forEach(x=>x.classList.remove('active'));
+          dt.querySelectorAll('li').forEach(x=>x.classList.remove('active'));
           li.classList.add('active');
-          ui.perspective = li.dataset.perspective;
+          activeDriverId = li.dataset.driver || null;
           render();
         });
       });
-      el.driversTree.addEventListener('click', (e)=>{
-        const li=e.target.closest('li');
-        if (!li) return;
-        el.driversTree.querySelectorAll('li').forEach(x=>x.classList.remove('active'));
-        li.classList.add('active');
-        ui.driverPick = li.dataset.driver || '';
-        render();
-      });
-
-      function onInputs(){
-        ui.search = el.search.value;
-        ui.event = el.ev.value;
-        ui.driver = el.dr.value;
-        ui.groupBy = el.group.value;
-        render();
-      }
-      el.search.addEventListener('input', onInputs);
-      el.ev.addEventListener('change', onInputs);
-      el.dr.addEventListener('change', onInputs);
-      el.group.addEventListener('change', onInputs);
-
-      el.save.addEventListener('click', save);
-      el.flag.addEventListener('click', toggleFlag);
-
-      RTS.initTriPaneResizers(el.shell, LS_PANES);
     }
 
-    buildTrees();
-    bind();
-    render();
+    function filtered(){
+      const q = $('perfSearch').value.toLowerCase();
+      const evF = $('perfEvent').value;
+      const drF = $('perfDriver').value;
+      const now = new Date(), d30 = new Date(now-30*864e5);
+      return sessions.filter(s=>{
+        if (activePerspective==='latest' && new Date(s.start_time)<d30) return false;
+        if (activePerspective==='practice' && s.session_type!=='practice') return false;
+        if (activePerspective==='qualifying' && s.session_type!=='qualifying') return false;
+        if (activePerspective==='race' && s.session_type!=='race') return false;
+        if (activePerspective==='telemetry' && !s.aims_upload_id) return false;
+        if (activeDriverId && String(s.driver_id)!==String(activeDriverId)) return false;
+        if (evF && String(s.event_id)!==evF) return false;
+        if (drF && String(s.driver_id)!==drF) return false;
+        if (q){
+          const evName = (events.find(e=>e.id==s.event_id)||{}).name||'';
+          const drName = (drivers.find(d=>d.id==s.driver_id)||{}).name||'';
+          const hay = `${s.name||''} ${evName} ${drName}`.toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        return true;
+      });
+    }
+
+    const TYPES = {practice:'Practice',qualifying:'Qualifying',race:'Race',test:'Test'};
+    const TYPE_COLORS = {practice:'primary',qualifying:'warning',race:'danger',test:'secondary'};
+
+    function render(){
+      const rows = filtered();
+      $('perfCountBadge').textContent = rows.length;
+      const tb = $('perfTbody');
+      tb.innerHTML = '';
+      rows.forEach((s,i)=>{
+        const evName = (events.find(e=>e.id==s.event_id)||{}).name||'';
+        const drName = (drivers.find(d=>d.id==s.driver_id)||{}).name||'';
+        const bl = bestLapMs(s);
+        const typeLabel = TYPES[s.session_type]||s.session_type||'—';
+        const typeColor = TYPE_COLORS[s.session_type]||'secondary';
+        const tr = document.createElement('tr');
+        tr.className = 'prf-list-table-row' + (s.id===activeSid ? ' prf-row-selected' : '');
+        tr.innerHTML = `<td>${i+1}</td><td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.name||'—'}</td><td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${evName}</td><td>${drName}</td><td><span class="badge text-bg-${typeColor}">${typeLabel}</span></td><td style="font-variant-numeric:tabular-nums;">${fmtMs(bl)}</td><td><button class="btn btn-sm btn-link p-0 text-danger del-prf" data-id="${s.id}" title="Delete">✕</button></td>`;
+        tr.addEventListener('click', e=>{ if (e.target.classList.contains('del-prf')) return; selectSession(s.id); });
+        tr.querySelector('.del-prf').addEventListener('click', ()=>deleteSession(s.id));
+        tb.appendChild(tr);
+      });
+      if (activeSid) hydrateInspector(sessions.find(s=>s.id===activeSid));
+    }
+
+    function selectSession(id){
+      activeSid = id;
+      render();
+      hydrateInspector(sessions.find(s=>s.id===id));
+    }
+
+    function hydrateInspector(s){
+      if (!s){ $('perfInspectorBadge').textContent='No selection'; return; }
+      $('perfInspectorBadge').textContent = s.name||'Session';
+      // Snapshot KPIs
+      const bl = bestLapMs(s);
+      $('kpiBestLap').textContent = fmtMs(bl);
+      const std = consistencyMs(s);
+      $('kpiCons').textContent = std ? '±'+fmtMs(std) : '—';
+      $('kpiLaps').textContent = s.lap_times ? s.lap_times.length : 0;
+      // Delta vs PB: compare to same driver's other sessions
+      if (bl){
+        const driverSessions = sessions.filter(x=>x.driver_id===s.driver_id && x.id!==s.id);
+        const pbs = driverSessions.map(x=>bestLapMs(x)).filter(Boolean);
+        const pb = pbs.length ? Math.min(...pbs) : null;
+        $('kpiDelta').textContent = pb ? (bl>pb ? '+'+fmtMs(bl-pb) : '-'+fmtMs(pb-bl)) : '—';
+      } else { $('kpiDelta').textContent = '—'; }
+      $('f_pf_notes_snap').value = s.engineer_notes||'';
+      // Lap table
+      renderLaps(s);
+      // Details form
+      $('f_pf_name').value = s.name||'';
+      $('f_pf_type').value = s.session_type||'';
+      $('f_pf_weather').value = s.weather||'';
+      $('f_pf_event').value = s.event_id||'';
+      $('f_pf_driver').value = s.driver_id||'';
+      $('f_pf_kart').value = s.kart_id||'';
+      $('f_pf_start').value = s.start_time ? s.start_time.replace(' ','T').substring(0,16) : '';
+      $('f_pf_end').value = s.end_time ? s.end_time.replace(' ','T').substring(0,16) : '';
+      $('f_pf_notes').value = s.engineer_notes||'';
+      // View event button
+      $('btnViewEventPrf').onclick = ()=>{ if(s.event_id) location.href=`events.html?id=${s.event_id}`; };
+    }
+
+    function renderLaps(s){
+      const tb = $('prfLapTbody');
+      tb.innerHTML = '';
+      if (!s.lap_times || !s.lap_times.length){ tb.innerHTML='<tr><td colspan="5" class="text-center text-muted py-3">No lap data — import CSV or enter manually.</td></tr>'; return; }
+      const minT = Math.min(...s.lap_times.map(l=>l.time_ms).filter(Boolean));
+      s.lap_times.forEach(l=>{
+        const fastest = l.time_ms===minT;
+        const tr = document.createElement('tr');
+        if (fastest) tr.className='lap-fastest';
+        tr.innerHTML = `<td>${l.lap}</td><td>${fmtMs(l.time_ms)}</td><td>${fmtMs(l.s1_ms)}</td><td>${fmtMs(l.s2_ms)}</td><td>${fmtMs(l.s3_ms)}</td>`;
+        tb.appendChild(tr);
+      });
+    }
+
+    function parseLapCsv(text){
+      return text.trim().split('\n').slice(1).map((line,i)=>{
+        const [lap,time,s1,s2,s3] = line.split(',').map(v=>v.trim());
+        function toMs(v){ if (!v) return null; const p=v.split(':'); if(p.length===2) return Math.round((parseFloat(p[0])*60+parseFloat(p[1]))*1000); return Math.round(parseFloat(v)*1000); }
+        return {lap:lap||String(i+1),time_ms:toMs(time),s1_ms:toMs(s1),s2_ms:toMs(s2),s3_ms:toMs(s3)};
+      });
+    }
+
+    async function saveLapTimes(s){
+      s.lap_times = s.lap_times||[];
+      await apiFetch(`/api/race-sessions/${s.id}`, {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({lap_times:s.lap_times})});
+      renderLaps(s);
+      const bl = bestLapMs(s);
+      $('kpiBestLap').textContent = fmtMs(bl);
+      $('kpiLaps').textContent = s.lap_times.length;
+    }
+
+    async function loadAll(){
+      const [sess, evs, drs, kts] = await Promise.all([
+        apiFetch('/api/race-sessions'),
+        apiFetch('/api/events'),
+        apiFetch('/api/drivers'),
+        apiFetch('/api/assets?is_race_fleet=true').catch(()=>[])
+      ]);
+      sessions = Array.isArray(sess) ? sess : (sess.data||[]);
+      events   = Array.isArray(evs)  ? evs  : (evs.data||[]);
+      drivers  = Array.isArray(drs)  ? drs  : (drs.data||[]);
+      karts    = Array.isArray(kts)  ? kts  : (kts.data||[]);
+      populateSelects();
+      updateStats();
+      render();
+      const sp = new URLSearchParams(location.search).get('session');
+      if (sp) selectSession(parseInt(sp,10));
+    }
+
+    async function createSession(){
+      const body = {name:'New Session', session_type:'practice'};
+      const created = await apiFetch('/api/race-sessions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      await loadAll();
+      if (created && created.id) selectSession(created.id);
+    }
+
+    async function saveSession(){
+      const s = sessions.find(x=>x.id===activeSid);
+      if (!s) return;
+      const body = {
+        name: $('f_pf_name').value,
+        session_type: $('f_pf_type').value,
+        weather: $('f_pf_weather').value,
+        event_id: $('f_pf_event').value||null,
+        driver_id: $('f_pf_driver').value||null,
+        kart_id: $('f_pf_kart').value||null,
+        start_time: $('f_pf_start').value||null,
+        end_time: $('f_pf_end').value||null,
+        engineer_notes: $('f_pf_notes').value
+      };
+      await apiFetch(`/api/race-sessions/${s.id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      await loadAll();
+      if (activeSid) selectSession(activeSid);
+    }
+
+    async function deleteSession(id){
+      if (!confirm('Delete this session? This cannot be undone.')) return;
+      await apiFetch(`/api/race-sessions/${id}`,{method:'DELETE'});
+      if (activeSid===id){ activeSid=null; $('perfInspectorBadge').textContent='No selection'; }
+      await loadAll();
+    }
+
+    // Perspective list clicks
+    $('perfPerspectiveList').addEventListener('click', e=>{
+      const li = e.target.closest('li'); if (!li) return;
+      $('perfPerspectiveList').querySelectorAll('li').forEach(x=>x.classList.remove('active'));
+      li.classList.add('active');
+      activePerspective = li.dataset.perspective||'all';
+      render();
+    });
+
+    $('perfSearch').addEventListener('input', render);
+    $('perfEvent').addEventListener('change', render);
+    $('perfDriver').addEventListener('change', render);
+    $('btnNewPrf').addEventListener('click', createSession);
+    $('btnSavePf').addEventListener('click', saveSession);
+    $('btnSavePfSnap').addEventListener('click', async ()=>{
+      const s = sessions.find(x=>x.id===activeSid); if (!s) return;
+      await apiFetch(`/api/race-sessions/${s.id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({engineer_notes:$('f_pf_notes_snap').value})});
+      s.engineer_notes = $('f_pf_notes_snap').value;
+      $('f_pf_notes').value = s.engineer_notes;
+    });
+    $('btnDeletePf').addEventListener('click', ()=>{ if (activeSid) deleteSession(activeSid); });
+    $('prfLapCsvInput').addEventListener('change', async e=>{
+      const s = sessions.find(x=>x.id===activeSid); if (!s||!e.target.files[0]) return;
+      const text = await e.target.files[0].text();
+      s.lap_times = parseLapCsv(text);
+      await saveLapTimes(s);
+      e.target.value='';
+    });
+    $('btnClearPrfLaps').addEventListener('click', async ()=>{
+      const s = sessions.find(x=>x.id===activeSid); if (!s||!confirm('Clear all lap times?')) return;
+      s.lap_times = [];
+      await saveLapTimes(s);
+    });
+
+    RTS.setActiveNav();
+    loadAll();
   })();
   </script>
 </body>

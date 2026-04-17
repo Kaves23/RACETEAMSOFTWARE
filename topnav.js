@@ -37,10 +37,12 @@
     ]},
     { label: 'Team', items: [
       { href: 'drivers.html', label: 'Drivers', key: 'D' },
+      { href: 'staff.html', label: 'Staff & Crew', key: 'C' },
       { href: 'driver-dashboard.html', label: 'Driver Dashboard', key: 'H' },
       { href: 'performance.html', label: 'Performance', key: 'P' },
       { href: 'strategy.html', label: 'Strategy', key: 'S' },
-      { href: 'incidents.html', label: 'Incidents', key: 'N' }
+      { href: 'incidents.html', label: 'Incidents', key: 'N' },
+      { href: 'results.html', label: 'Results', key: 'R' }
     ]}
   ];
   const singles = [

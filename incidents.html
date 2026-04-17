@@ -6,976 +6,617 @@
   <title>Race Team OS – Incidents</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="style.css" rel="stylesheet" />
+  <style>
+    body { background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%); }
+    .ev-stats-bar { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+    .ev-stat-card { background: #fff; border: 1px solid rgba(0,0,0,0.1); border-radius: 8px; padding: 10px 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.06); min-width: 110px; }
+    .ev-stat-label { font-size: 0.7rem; color: #6c757d; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+    .ev-stat-value { font-size: 1.5rem; font-weight: 700; color: #1a1d24; line-height: 1.2; }
+
+    #incShell.mlo-shell { background: transparent; border: none; gap: 10px; }
+    #incShell .mlo-pane-left, #incShell .mlo-pane-mid, #incShell .mlo-pane-right {
+      background: #ffffff; border: 1px solid rgba(0,0,0,0.1); border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+    }
+    #incShell .mlo-pane-header { background: #f8f9fa; border-bottom: 1px solid rgba(0,0,0,0.1); }
+    #incShell .mlo-title { color: #1a1d24 !important; }
+    #incShell .mlo-section-label { color: #6c757d !important; opacity: 1 !important; }
+    #incShell .mlo-pane-content { color: #1a1d24; }
+    #incShell .mlo-resizer { background: transparent; }
+    #incShell .mlo-resizer:hover { background: rgba(0,153,204,0.3); }
+
+    #incShell .mlo-pane-left .pastel-tree { padding: 0 !important; margin: 0 !important; }
+    #incShell .mlo-pane-left .pastel-tree li {
+      height: 28px !important; display: flex !important; align-items: center !important;
+      font-size: 0.83rem !important; font-weight: 500 !important; padding-left: 10px !important;
+      margin-bottom: 2px !important; border-radius: 5px !important; border: 1px solid rgba(0,0,0,0.08) !important;
+      box-shadow: none !important; color: #1a1d24 !important; white-space: nowrap !important;
+      overflow: hidden !important; text-overflow: ellipsis !important; cursor: pointer !important;
+    }
+    #incShell .mlo-pane-left .pastel-tree li.active {
+      background: rgba(0,153,204,0.1) !important; border-color: rgba(0,153,204,0.35) !important;
+      color: #0072a3 !important; font-weight: 700 !important;
+    }
+    #incShell .form-control, #incShell .form-select { background: #fff; color: #1a1d24; border-color: #dee2e6; }
+    #incShell .form-control::placeholder { color: #9aa5b4; }
+
+    .inc-list-table { width: 100%; font-size: 0.82rem; border-collapse: separate; border-spacing: 0; }
+    .inc-list-table thead { position: sticky; top: 0; background: #f8f9fa; z-index: 5; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+    .inc-list-table th { padding: 8px 10px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #6c757d; border-bottom: 2px solid #dee2e6; white-space: nowrap; }
+    .inc-list-table td { padding: 6px 10px; border-bottom: 1px solid rgba(0,0,0,0.05); vertical-align: middle; color: #1a1d24 !important; }
+    .inc-list-table tbody tr { cursor: pointer; transition: background 0.1s; }
+    .inc-list-table tbody tr:hover { background: #f8f9fa; }
+    .inc-list-table tbody tr.inc-row-selected { background: rgba(0,153,204,0.08) !important; outline: 2px solid #0099cc; outline-offset: -2px; }
+    .inc-row-del { opacity: 0; transition: opacity 0.15s; background: none; border: none; color: #dc3545; font-size: 1rem; line-height: 1; padding: 0 4px; cursor: pointer; }
+    .inc-list-table tbody tr:hover .inc-row-del { opacity: 1; }
+
+    .sev-pill { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 0.65rem; font-weight: 700; }
+    .sev-low { background: #d1fae5; color: #065f46; }
+    .sev-medium { background: #fef3c7; color: #92400e; }
+    .sev-high { background: #fee2e2; color: #991b1b; }
+    .sev-critical { background: #dc3545; color: #fff; }
+
+    #incShell #incTabs .nav-link { color: #6c757d; background: transparent; border-color: transparent; font-size: 0.8rem; padding: 7px 10px; }
+    #incShell #incTabs .nav-link.active { color: #0099cc; border-color: #dee2e6 #dee2e6 #fff; background: #fff; font-weight: 600; }
+    #incShell #incTabs .nav-link:hover:not(.active) { color: #1a1d24; }
+
+    #incShell .mlo-pane-right .form-label { color: #495057 !important; font-size: 0.78rem; font-weight: 600; margin-bottom: 2px; }
+    #incShell .mlo-pane-right .form-control,
+    #incShell .mlo-pane-right .form-select { background: #fff !important; color: #1a1d24 !important; border-color: #dee2e6 !important; font-size: 0.82rem; }
+
+    #damageSvgWrap { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 12px; max-width: 560px; }
+    #damageSvg [data-part] { cursor: pointer; transition: fill 0.15s; }
+    #damageSvg [data-part]:hover { opacity: 0.8; }
+  </style>
 </head>
-<body>
+<body class="light-mode">
   <div id="rtsTopNav"></div>
+  <div class="rts-version-badge">v3</div>
   <div class="rts-main container-fluid">
-      
 
-      
-        <h1 class="my-3">Incidents</h1>
-
-        <div class="mlo-shell" id="incShell">
-          <!-- LEFT -->
-          <section class="mlo-pane mlo-pane-left" aria-label="Incident navigation">
-            <div class="mlo-pane-header">
-              <div class="d-flex justify-content-between align-items-center">
-                <div class="mlo-title">Perspectives</div>
-                <span class="badge text-bg-secondary" id="inCountBadge">0</span>
-              </div>
-            </div>
-            <div class="mlo-pane-content">
-              <div class="mlo-section-label">Smart lists</div>
-              <ul class="mlo-tree pastel-tree" id="inPerspectiveList">
-                <li class="active" data-perspective="open">Open</li>
-                <li data-perspective="all">All Incidents</li>
-                <li data-perspective="resolved">Resolved</li>
-                <li data-perspective="critical">Critical Only</li>
-              </ul>
-
-              <div class="mlo-section-label mt-3">Severity</div>
-              <ul class="mlo-tree pastel-tree" id="inSeverityList"></ul>
-            </div>
-          </section>
-
-          <div class="mlo-resizer" data-resize="left" title="Drag to resize"></div>
-
-          <!-- MIDDLE -->
-          <section class="mlo-pane mlo-pane-mid" aria-label="Incident list">
-            <div class="mlo-pane-header">
-              <div class="d-flex flex-wrap align-items-center gap-1">
-                <input id="inSearch" type="text" class="form-control form-control-sm" placeholder="Search…" style="max-width: 220px;">
-                <select id="inStatus" class="form-select form-select-sm" style="max-width: 170px;">
-                  <option value="">Status: All</option>
-                  <option>Open</option>
-                  <option>Monitoring</option>
-                  <option>Resolved</option>
-                </select>
-                <select id="inEvent" class="form-select form-select-sm" style="max-width: 260px;"><option value="">All events</option></select>
-                <select id="inGroup" class="form-select form-select-sm" style="max-width: 180px;">
-                  <option value="">Group: None</option>
-                  <option value="event">Group: Event</option>
-                  <option value="severity">Group: Severity</option>
-                  <option value="owner">Group: Owner</option>
-                </select>
-                <button class="btn btn-sm btn-outline-light mlo-btn" id="btnAddInc" type="button">Add Incident</button>
-              </div>
-            </div>
-
-            <div class="mlo-pane-content" style="padding:0;">
-              <table class="table table-dark table-hover mlo-table" style="margin:0;">
-                <thead>
-                  <tr>
-                    <th style="width:60px;">#</th>
-                    <th>Title</th>
-                    <th style="width:220px;">Event</th>
-                    <th style="width:120px;">Severity</th>
-                    <th style="width:140px;">Status</th>
-                    <th style="width:190px;">Owner</th>
-                    <th style="width:130px;">Timecode</th>
-                  </tr>
-                </thead>
-                <tbody id="inTbody"></tbody>
-              </table>
-            </div>
-          </section>
-
-          <div class="mlo-resizer" data-resize="right" title="Drag to resize"></div>
-
-          <!-- RIGHT -->
-          <section class="mlo-pane mlo-pane-right mlo-inspector" aria-label="Incident inspector">
-            <div class="mlo-pane-header">
-              <div class="d-flex justify-content-between align-items-center">
-                <div>
-                  <div class="mlo-title">Inspector</div>
-                  <div class="text-secondary" style="font-size:0.78rem;">Track-limit / off-track / mechanical / comms</div>
-                </div>
-                <span class="badge text-bg-secondary" id="inInspectorBadge">No selection</span>
-              </div>
-              <div class="d-flex flex-wrap gap-1 mt-1">
-                <a class="btn btn-sm btn-outline-light mlo-btn" id="btnOpenEvent" href="events.html">Open Event</a>
-                <a class="btn btn-sm btn-outline-light mlo-btn" id="btnOpenTasks" href="tasks.html">Tasks</a>
-                <a class="btn btn-sm btn-outline-light mlo-btn" id="btnOpenPerformance" href="performance.html">Performance</a>
-              </div>
-            </div>
-
-            <div class="mlo-pane-content">
-              <ul class="nav nav-tabs nav-dark mb-2" role="tablist">
-                <li class="nav-item" role="presentation">
-                  <button class="nav-link active" id="tab-inc-details" data-bs-toggle="tab" data-bs-target="#pane-inc-details" type="button" role="tab" aria-controls="pane-inc-details" aria-selected="true">Details</button>
-                </li>
-                <li class="nav-item" role="presentation">
-                  <button class="nav-link" id="tab-inc-attachments" data-bs-toggle="tab" data-bs-target="#pane-inc-attachments" type="button" role="tab" aria-controls="pane-inc-attachments" aria-selected="false">Attachments</button>
-                </li>
-                <li class="nav-item" role="presentation">
-                  <button class="nav-link" id="tab-inc-actions" data-bs-toggle="tab" data-bs-target="#pane-inc-actions" type="button" role="tab" aria-controls="pane-inc-actions" aria-selected="false">Actions</button>
-                </li>
-                <li class="nav-item" role="presentation">
-                  <button class="nav-link" id="tab-inc-map" data-bs-toggle="tab" data-bs-target="#pane-inc-map" type="button" role="tab" aria-controls="pane-inc-map" aria-selected="false">Damage Map</button>
-                </li>
-              </ul>
-
-              <div class="tab-content">
-                <div class="tab-pane fade show active" id="pane-inc-details" role="tabpanel" aria-labelledby="tab-inc-details">
-                  <form id="inForm" autocomplete="off">
-                    <div class="row g-2">
-                      <div class="col-4">
-                        <label class="form-label">ID</label>
-                        <input id="f_in_id" class="form-control form-control-sm" type="text" readonly>
-                      </div>
-                      <div class="col-8">
-                        <label class="form-label">Title</label>
-                        <input id="f_in_title" class="form-control form-control-sm" type="text" placeholder="e.g. Overheating after lap 6">
-                      </div>
-
-                      <div class="col-7">
-                        <label class="form-label">Event</label>
-                        <select id="f_in_event" class="form-select form-select-sm"></select>
-                      </div>
-                      <div class="col-5">
-                        <label class="form-label">Severity</label>
-                        <select id="f_in_sev" class="form-select form-select-sm">
-                          <option>Low</option>
-                          <option>Medium</option>
-                          <option>High</option>
-                          <option>Critical</option>
-                        </select>
-                      </div>
-
-                      <div class="col-7">
-                        <label class="form-label">Owner</label>
-                        <select id="f_in_owner" class="form-select form-select-sm"></select>
-                        <input id="f_in_owner_custom" class="form-control form-control-sm mt-1" type="text" placeholder="Custom owner (optional)">
-                      </div>
-                      <div class="col-5">
-                        <label class="form-label">Status</label>
-                        <select id="f_in_status" class="form-select form-select-sm">
-                          <option>Open</option>
-                          <option>Monitoring</option>
-                          <option>Resolved</option>
-                        </select>
-                      </div>
-
-                      <div class="col-6">
-                        <label class="form-label">Telemetry snapshot</label>
-                        <input id="f_in_tele" class="form-control form-control-sm" type="text" placeholder="e.g. Water 108°C, RPM 9,800">
-                      </div>
-                      <div class="col-6">
-                        <label class="form-label">Video timecode</label>
-                        <input id="f_in_tc" class="form-control form-control-sm" type="text" placeholder="mm:ss.ms">
-                      </div>
-
-                      <div class="col-12">
-                        <label class="form-label">Narrative</label>
-                        <textarea id="f_in_desc" class="form-control form-control-sm" rows="3" placeholder="What happened, when, under what conditions, symptoms, driver feedback…"></textarea>
-                      </div>
-
-                      <div class="col-12">
-                        <label class="form-label">Corrective actions</label>
-                        <textarea id="f_in_actions" class="form-control form-control-sm" rows="3" placeholder="Work order reference, parts, tests, validation steps…"></textarea>
-                      </div>
-                    </div>
-                  </form>
-                </div>
-
-                <div class="tab-pane fade" id="pane-inc-attachments" role="tabpanel" aria-labelledby="tab-inc-attachments">
-                  <div class="row g-2">
-                    <div class="col-12">
-                      <div class="mlo-section-label">Attachments</div>
-                      <div id="inAttachList" class="d-grid gap-1"></div>
-                      <div class="d-flex flex-wrap gap-1 mt-1">
-                        <button class="btn btn-sm btn-outline-light mlo-btn" id="btnInAttachDrive" type="button">Drive</button>
-                        <input id="inAttachName" class="form-control form-control-sm" style="max-width:180px;" type="text" placeholder="Name">
-                        <input id="inAttachUrl" class="form-control form-control-sm" style="min-width:260px; flex:1;" type="url" placeholder="https://...">
-                        <button class="btn btn-sm btn-outline-light mlo-btn" id="btnInAttachAdd" type="button">Add link</button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="tab-pane fade" id="pane-inc-actions" role="tabpanel" aria-labelledby="tab-inc-actions">
-                  <div class="row g-2">
-                    <div class="col-12 d-flex gap-1 mt-1">
-                      <button class="btn btn-sm btn-primary mlo-btn" id="btnSaveInc" type="button">Save</button>
-                      <button class="btn btn-sm btn-outline-light mlo-btn" id="btnDupInc" type="button">Duplicate</button>
-                      <button class="btn btn-sm btn-outline-danger mlo-btn" id="btnDelInc" type="button">Delete</button>
-                    </div>
-                    <div class="col-12">
-                      <div class="text-secondary" style="font-size:0.75rem;">
-                        Stored locally (prototype). Attachments support Google Drive Picker when enabled in Settings.
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div class="tab-pane fade" id="pane-inc-map" role="tabpanel" aria-labelledby="tab-inc-map">
-                  <div class="row g-2">
-                    <div class="col-12">
-                      <div class="text-secondary" style="font-size:0.85rem;">Click a part to record status (Green / Amber / Red).</div>
-                    </div>
-                    <div class="col-12">
-                      <div id="damageSvgWrap" class="p-2" style="background:#0f1115; border:1px solid rgba(255,255,255,0.08); border-radius:8px; max-width:560px;">
-                        <svg id="damageSvg" viewBox="0 0 560 300" width="100%" height="auto" xmlns="http://www.w3.org/2000/svg" style="display:block; margin:auto;">
-                          <!-- Top-down kart outline (simplified) -->
-                          <rect x="100" y="40" width="360" height="40" rx="10" ry="10" fill="#1b1f26" stroke="#666" data-part="front_wing" />
-                          <rect x="120" y="80" width="320" height="80" rx="12" ry="12" fill="#1b1f26" stroke="#666" data-part="nose" />
-                          <rect x="80" y="160" width="180" height="70" rx="12" ry="12" fill="#1b1f26" stroke="#666" data-part="left_side" />
-                          <rect x="300" y="160" width="180" height="70" rx="12" ry="12" fill="#1b1f26" stroke="#666" data-part="right_side" />
-                          <rect x="130" y="230" width="300" height="40" rx="10" ry="10" fill="#1b1f26" stroke="#666" data-part="rear_bumper" />
-                          <rect x="110" y="120" width="340" height="30" rx="8" ry="8" fill="#1b1f26" stroke="#666" data-part="seat" />
-                        </svg>
-                      </div>
-                    </div>
-                    <div class="col-12 d-flex gap-1">
-                      <button class="btn btn-sm btn-outline-light mlo-btn" id="btnDamageClear" type="button">Clear</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-        </div>
+    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+      <div>
+        <h1 class="h4 mb-1">Incidents</h1>
+        <div class="text-secondary" style="font-size:0.85rem;">Log on-track and mechanical incidents. Link to drivers, karts, sessions and events.</div>
       </div>
+      <button class="btn btn-sm btn-primary" id="btnAddInc" type="button">+ Add Incident</button>
+    </div>
+
+    <!-- Stats Bar -->
+    <div class="ev-stats-bar">
+      <div class="ev-stat-card"><div class="ev-stat-label">📋 Total</div><div class="ev-stat-value" id="statIncTotal">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">🔴 Open</div><div class="ev-stat-value" id="statIncOpen">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">⚠️ Critical</div><div class="ev-stat-value" id="statIncCritical">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">✅ Resolved</div><div class="ev-stat-value" id="statIncResolved">0</div></div>
+    </div>
+
+    <div class="mlo-shell" id="incShell">
+
+      <!-- LEFT PANE -->
+      <section class="mlo-pane mlo-pane-left" aria-label="Incident navigation">
+        <div class="mlo-pane-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="mlo-title">Incidents</div>
+            <span class="badge text-bg-secondary" id="inCountBadge">0</span>
+          </div>
+        </div>
+        <div class="mlo-pane-content">
+          <div class="mlo-section-label">Smart lists</div>
+          <ul class="pastel-tree" id="inPerspectiveList">
+            <li class="active" data-perspective="open">Open</li>
+            <li data-perspective="all">All Incidents</li>
+            <li data-perspective="resolved">Resolved</li>
+            <li data-perspective="critical">Critical Only</li>
+          </ul>
+          <div class="mlo-section-label mt-3">Severity</div>
+          <ul class="pastel-tree" id="inSeverityList"></ul>
+        </div>
+      </section>
+
+      <div class="mlo-resizer" data-resize="left" title="Drag to resize"></div>
+
+      <!-- MIDDLE PANE -->
+      <section class="mlo-pane mlo-pane-mid" aria-label="Incident list">
+        <div class="mlo-pane-header">
+          <div class="d-flex flex-wrap align-items-center gap-1">
+            <input id="inSearch" type="text" class="form-control form-control-sm" placeholder="Search…" style="flex:1 1 160px; min-width:140px;">
+            <select id="inStatus" class="form-select form-select-sm" style="flex:0 1 150px; min-width:120px;">
+              <option value="">Status: All</option>
+              <option>Open</option>
+              <option>Monitoring</option>
+              <option>Resolved</option>
+            </select>
+            <select id="inEventFilter" class="form-select form-select-sm" style="flex:0 1 180px; min-width:140px;">
+              <option value="">All events</option>
+            </select>
+          </div>
+        </div>
+        <div class="mlo-pane-content" style="padding:0;">
+          <table class="inc-list-table">
+            <thead>
+              <tr>
+                <th style="width:40px;">#</th>
+                <th>Title</th>
+                <th style="width:110px;">Driver</th>
+                <th style="width:100px;">Severity</th>
+                <th style="width:110px;">Status</th>
+                <th style="width:110px;">Event</th>
+                <th style="width:32px;"></th>
+              </tr>
+            </thead>
+            <tbody id="inTbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <div class="mlo-resizer" data-resize="right" title="Drag to resize"></div>
+
+      <!-- RIGHT PANE (INSPECTOR) -->
+      <section class="mlo-pane mlo-pane-right mlo-inspector" aria-label="Incident inspector">
+        <div class="mlo-pane-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="mlo-title">Inspector</div>
+            <span class="badge text-bg-secondary" id="inInspectorBadge">—</span>
+          </div>
+          <div class="d-flex gap-1 mt-1">
+            <a class="btn btn-sm btn-outline-secondary" id="btnViewEvent" href="events.html" style="font-size:0.75rem;">View Event</a>
+            <a class="btn btn-sm btn-outline-secondary" id="btnLogService" href="service.html" style="font-size:0.75rem;">Log Service Job</a>
+          </div>
+        </div>
+        <div class="mlo-pane-content">
+          <ul class="nav nav-tabs mb-2" id="incTabs" role="tablist">
+            <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#pane-inc-details" type="button" role="tab">Details</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#pane-inc-attachments" type="button" role="tab">Attachments</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#pane-inc-map" type="button" role="tab">Damage Map</button></li>
+          </ul>
+
+          <div class="tab-content" id="incTabContent">
+
+            <!-- DETAILS -->
+            <div class="tab-pane fade show active" id="pane-inc-details" role="tabpanel">
+              <form id="inForm" autocomplete="off">
+                <div class="row g-2">
+                  <div class="col-12">
+                    <label class="form-label">Title</label>
+                    <input id="f_in_title" class="form-control form-control-sm" type="text" placeholder="e.g. Overheating after lap 6">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Driver</label>
+                    <select id="f_in_driver" class="form-select form-select-sm"><option value="">— None —</option></select>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Kart</label>
+                    <select id="f_in_kart" class="form-select form-select-sm"><option value="">— None —</option></select>
+                  </div>
+                  <div class="col-7">
+                    <label class="form-label">Event</label>
+                    <select id="f_in_event" class="form-select form-select-sm"><option value="">— None —</option></select>
+                  </div>
+                  <div class="col-5">
+                    <label class="form-label">Severity</label>
+                    <select id="f_in_sev" class="form-select form-select-sm">
+                      <option>Low</option>
+                      <option>Medium</option>
+                      <option>High</option>
+                      <option>Critical</option>
+                    </select>
+                  </div>
+                  <div class="col-7">
+                    <label class="form-label">Owner / Staff</label>
+                    <select id="f_in_owner" class="form-select form-select-sm"><option value="">— None —</option></select>
+                  </div>
+                  <div class="col-5">
+                    <label class="form-label">Status</label>
+                    <select id="f_in_status" class="form-select form-select-sm">
+                      <option>Open</option>
+                      <option>Monitoring</option>
+                      <option>Resolved</option>
+                    </select>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Telemetry snapshot</label>
+                    <input id="f_in_tele" class="form-control form-control-sm" type="text" placeholder="Water 108°C, RPM 9,800">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Video timecode</label>
+                    <input id="f_in_tc" class="form-control form-control-sm" type="text" placeholder="mm:ss.ms">
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label">Narrative</label>
+                    <textarea id="f_in_desc" class="form-control form-control-sm" rows="3" placeholder="What happened, when, under what conditions, driver feedback…"></textarea>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label">Corrective actions</label>
+                    <textarea id="f_in_actions" class="form-control form-control-sm" rows="2" placeholder="Work order, parts, tests, validation steps…"></textarea>
+                  </div>
+                </div>
+                <div class="d-flex gap-1 mt-2">
+                  <button class="btn btn-sm btn-primary" id="btnSaveInc" type="button">Save</button>
+                  <button class="btn btn-sm btn-outline-secondary" id="btnDupInc" type="button">Duplicate</button>
+                  <button class="btn btn-sm btn-outline-danger ms-auto" id="btnDelInc" type="button">Delete</button>
+                </div>
+              </form>
+            </div>
+
+            <!-- ATTACHMENTS -->
+            <div class="tab-pane fade" id="pane-inc-attachments" role="tabpanel">
+              <div id="inAttachList" class="d-grid gap-1 mb-2"></div>
+              <div class="d-flex gap-1 flex-wrap mt-1">
+                <input id="inAttachName" class="form-control form-control-sm" style="max-width:160px;" type="text" placeholder="Title">
+                <input id="inAttachUrl" class="form-control form-control-sm" style="flex:1; min-width:200px;" type="url" placeholder="https://…">
+                <button class="btn btn-sm btn-outline-secondary" id="btnInAttachAdd" type="button">Add</button>
+              </div>
+            </div>
+
+            <!-- DAMAGE MAP -->
+            <div class="tab-pane fade" id="pane-inc-map" role="tabpanel">
+              <div class="text-secondary mb-2" style="font-size:0.8rem;">Click a part to cycle status: OK → Damaged → Critical → OK</div>
+              <div id="damageSvgWrap">
+                <svg id="damageSvg" viewBox="0 0 560 300" width="100%" height="auto" xmlns="http://www.w3.org/2000/svg" style="display:block; margin:auto;">
+                  <rect x="100" y="40" width="360" height="40" rx="10" ry="10" fill="#e9ecef" stroke="#adb5bd" data-part="front_wing" />
+                  <text x="280" y="66" text-anchor="middle" font-size="11" fill="#495057">Front Wing</text>
+                  <rect x="120" y="80" width="320" height="80" rx="12" ry="12" fill="#e9ecef" stroke="#adb5bd" data-part="nose" />
+                  <text x="280" y="126" text-anchor="middle" font-size="11" fill="#495057">Nose / Chassis</text>
+                  <rect x="80" y="160" width="180" height="70" rx="12" ry="12" fill="#e9ecef" stroke="#adb5bd" data-part="left_side" />
+                  <text x="170" y="200" text-anchor="middle" font-size="11" fill="#495057">Left Side</text>
+                  <rect x="300" y="160" width="180" height="70" rx="12" ry="12" fill="#e9ecef" stroke="#adb5bd" data-part="right_side" />
+                  <text x="390" y="200" text-anchor="middle" font-size="11" fill="#495057">Right Side</text>
+                  <rect x="130" y="230" width="300" height="40" rx="10" ry="10" fill="#e9ecef" stroke="#adb5bd" data-part="rear_bumper" />
+                  <text x="280" y="255" text-anchor="middle" font-size="11" fill="#495057">Rear Bumper</text>
+                  <rect x="110" y="120" width="340" height="30" rx="8" ry="8" fill="#e9ecef" stroke="#adb5bd" data-part="seat" />
+                  <text x="280" y="140" text-anchor="middle" font-size="11" fill="#495057">Seat</text>
+                </svg>
+              </div>
+              <div class="d-flex gap-2 mt-2">
+                <button class="btn btn-sm btn-outline-secondary" id="btnDamageClear" type="button">Clear</button>
+                <small class="text-secondary align-self-center">Green=OK · Amber=Damaged · Red=Critical</small>
+              </div>
+            </div>
+
+          </div><!-- tab-content -->
+        </div><!-- pane-content -->
+      </section>
+    </div><!-- mlo-shell -->
+  </div><!-- rts-main -->
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="core.js"></script>
+  <script src="core.js?v=20260407-1700"></script>
   <script src="topnav.js?v=20260411-2"></script>
   <script>
   (function(){
     'use strict';
-
     RTS.setActiveNav();
+    const LS_PANES = 'rts.incidents.panes.v5';
 
-    const LS_DATA = 'rts.incidents.v4';
-    const LS_UI = 'rts.incidents.ui.v4';
-    const LS_PANES = 'rts.incidents.panes.v4';
-
-    const settings = RTS.getSettings();
-    const STAFF = Array.isArray(settings.staff) ? settings.staff : [];
-
-    let EVENTS = RTS.safeLoadJSON('rts.events.v4', []);
-    if(!Array.isArray(EVENTS)) EVENTS = [];
-    if(EVENTS.length === 0){
-      EVENTS = [{ id: 0, title: '—', start:'', end:'', type:'', status:'', venue:'' }];
-    }
-
-    const SEV = ['Low','Medium','High','Critical'];
-    const STATUS = ['Open','Monitoring','Resolved'];
-
-    function escapeHtml(s){
-      return String(s ?? '')
-        .replaceAll('&','&amp;')
-        .replaceAll('<','&lt;')
-        .replaceAll('>','&gt;')
-        .replaceAll('"','&quot;')
-        .replaceAll("'",'&#039;');
-    }
-
-    function nowISO(){
-      return new Date().toISOString();
-    }
-
-    function findEventById(id){
-      const sid = String(id ?? '');
-      return EVENTS.find(e => String(e.id) === sid) || null;
-    }
-
-    function findEventByTitle(title){
-      const t = String(title ?? '').trim().toLowerCase();
-      if(!t) return null;
-      return EVENTS.find(e => String(e.title||'').trim().toLowerCase() === t) || null;
-    }
-
-    function eventTitle(id){
-      const ev = findEventById(id);
-      return ev ? (ev.title || '—') : '—';
-    }
-
-    function ownerLabel(inc){
-      if(!inc) return '—';
-      if(inc.ownerStaffId){
-        const st = STAFF.find(s => String(s.id) === String(inc.ownerStaffId));
-        if(st) return `${st.name || '—'}${st.role ? ' ('+st.role+')' : ''}`;
-      }
-      if(inc.ownerText) return inc.ownerText;
-      return '—';
-    }
-
-    function normalizeAttachments(x){
-      if(!x) return;
-
-      // legacy: x.attach as a single URL string
-      if(typeof x.attach === 'string' && x.attach.trim()){
-        x.attachments = x.attachments || [];
-        if(typeof x.attachments === 'string') x.attachments = [];
-        if(Array.isArray(x.attachments) && x.attachments.length === 0){
-          x.attachments.push({ provider:'url', name:'Attachment', url:x.attach.trim(), addedAt: nowISO() });
-        }
-      }
-
-      // legacy: attachments as newline list of URLs
-      if(typeof x.attachments === 'string' && x.attachments.trim()){
-        const lines = x.attachments.split(/\n+/).map(s=>s.trim()).filter(Boolean);
-        x.attachments = lines.map((url,i)=>({ provider:'url', name:'Attachment '+(i+1), url, addedAt: nowISO() }));
-      }
-
-      if(!Array.isArray(x.attachments)) x.attachments = [];
-      delete x.attach;
-    }
-
-    function normalizeIncident(x){
-      if(!x) return;
-
-      // event migration (legacy: x.event as title string)
-      if(!x.eventId && x.event){
-        const ev = findEventByTitle(x.event);
-        x.eventId = ev ? ev.id : '';
-        x.eventTitle = x.event;
-      }
-      if(x.eventId && !x.eventTitle){
-        x.eventTitle = eventTitle(x.eventId);
-      }
-      if(!x.eventTitle) x.eventTitle = x.event ? String(x.event) : '';
-      delete x.event;
-
-      // owner migration (legacy: x.owner as free text)
-      if(!x.ownerStaffId && x.owner){
-        const nm = String(x.owner).trim().toLowerCase();
-        const st = STAFF.find(s => String(s.name||'').trim().toLowerCase() === nm);
-        if(st) x.ownerStaffId = st.id;
-        else x.ownerText = x.owner;
-      }
-      if(!x.ownerText && x.owner && !x.ownerStaffId) x.ownerText = x.owner;
-      delete x.owner;
-
-      // housekeeping
-      if(!x.createdAt) x.createdAt = nowISO();
-      if(!x.updatedAt) x.updatedAt = x.createdAt;
-      normalizeAttachments(x);
-    }
-
-    function seedIncidents(){
-      const out = [];
-      const fallbackOwner = STAFF[0] ? STAFF[0].id : '';
-      for(let i=1;i<=50;i++){
-        const sev = SEV[i % SEV.length];
-        const st = (i % 6 === 0) ? 'Resolved' : ((i % 4 === 0) ? 'Monitoring' : 'Open');
-        const ev = EVENTS[i % EVENTS.length];
-        out.push({
-          id: i,
-          title: (sev==='Critical' ? 'Safety-critical: Brake fade' : (sev==='High' ? 'Overheating / loss of power' : (sev==='Medium' ? 'Handling imbalance after tyre heat' : 'Minor vibration / noise'))),
-          eventId: ev ? ev.id : '',
-          eventTitle: ev ? (ev.title || '—') : '—',
-          severity: sev,
-          status: st,
-          ownerStaffId: fallbackOwner,
-          ownerText: '',
-          telemetry: 'RPM 9,800; Water 108°C; Oil 132°C',
-          timecode: `0${i%5}:${String((i*7)%60).padStart(2,'0')}.${String((i*13)%100).padStart(2,'0')}`,
-          desc: '',
-          actions: '',
-          attachments: [],
-          createdAt: nowISO(),
-          updatedAt: nowISO(),
-        });
-      }
-      return out;
-    }
-
-    const defaultUI = {
-      perspective: 'open',
-      severityPick: '',
-      search: '',
-      eventId: '',
-      status: '',
-      groupBy: '',
-      selectedId: null
-    };
-
-    let incidents = RTS.safeLoadJSON(LS_DATA, null);
-    if(!Array.isArray(incidents) || incidents.length === 0) incidents = seedIncidents();
-    incidents.forEach(normalizeIncident);
-
-    let ui = RTS.deepMerge(defaultUI, RTS.safeLoadJSON(LS_UI, {}));
-
-    // Deep-linking: incidents.html?event=<eventId|eventTitle>&select=<incidentId>
-    const qEvent = RTS.getQueryParam('event');
-    if(qEvent){
-      const idNum = Number(qEvent);
-      if(!Number.isNaN(idNum) && String(idNum) !== '0'){
-        ui.eventId = String(idNum);
-      } else {
-        const ev = findEventByTitle(qEvent);
-        if(ev) ui.eventId = String(ev.id);
-      }
-    }
-    const qSel = RTS.getQueryParam('select');
-    if(qSel){
-      const idNum = Number(qSel);
-      if(!Number.isNaN(idNum)) ui.selectedId = idNum;
-    }
+    let incidents = [];
+    let drivers = [];
+    let karts = [];
+    let events = [];
+    let staff = [];
+    let ui = { perspective:'open', sevFilter:'', search:'', statusFilter:'', eventFilter:'', selectedId:null };
 
     const el = {
       shell: document.getElementById('incShell'),
-      badge: document.getElementById('inCountBadge'),
-      pList: document.getElementById('inPerspectiveList'),
-      sList: document.getElementById('inSeverityList'),
-      tbody: document.getElementById('inTbody'),
+      countBadge: document.getElementById('inCountBadge'),
+      perspList: document.getElementById('inPerspectiveList'),
+      sevList: document.getElementById('inSeverityList'),
       search: document.getElementById('inSearch'),
-      status: document.getElementById('inStatus'),
-      event: document.getElementById('inEvent'),
-      group: document.getElementById('inGroup'),
-      add: document.getElementById('btnAddInc'),
-      save: document.getElementById('btnSaveInc'),
-      dup: document.getElementById('btnDupInc'),
-      del: document.getElementById('btnDelInc'),
-      ib: document.getElementById('inInspectorBadge'),
-      openEvent: document.getElementById('btnOpenEvent'),
-      openTasks: document.getElementById('btnOpenTasks'),
-      openPerf: document.getElementById('btnOpenPerformance'),
+      statusFilter: document.getElementById('inStatus'),
+      eventFilter: document.getElementById('inEventFilter'),
+      tbody: document.getElementById('inTbody'),
+      inspBadge: document.getElementById('inInspectorBadge'),
+      attachList: document.getElementById('inAttachList'),
       f: {
-        id: document.getElementById('f_in_id'),
         title: document.getElementById('f_in_title'),
+        driver: document.getElementById('f_in_driver'),
+        kart: document.getElementById('f_in_kart'),
         event: document.getElementById('f_in_event'),
         sev: document.getElementById('f_in_sev'),
         owner: document.getElementById('f_in_owner'),
-        ownerCustom: document.getElementById('f_in_owner_custom'),
         status: document.getElementById('f_in_status'),
         tele: document.getElementById('f_in_tele'),
         tc: document.getElementById('f_in_tc'),
         desc: document.getElementById('f_in_desc'),
-        actions: document.getElementById('f_in_actions'),
-        attachList: document.getElementById('inAttachList'),
-        btnAttachDrive: document.getElementById('btnInAttachDrive'),
-        attachName: document.getElementById('inAttachName'),
-        attachUrl: document.getElementById('inAttachUrl'),
-        btnAttachAdd: document.getElementById('btnInAttachAdd')
-      }
-      ,
-      dm: {
-        svg: null,
-        clear: null
+        actions: document.getElementById('f_in_actions')
       }
     };
 
-    function persist(){
-      RTS.safeSaveJSON(LS_DATA, incidents);
-      RTS.safeSaveJSON(LS_UI, ui);
+    RTS.initTriPaneResizers(el.shell, LS_PANES);
+
+    const SEV_CLASS = { Low:'sev-low', Medium:'sev-medium', High:'sev-high', Critical:'sev-critical' };
+    const PART_STATES = ['#e9ecef', '#ffc107', '#dc3545']; // ok, damaged, critical
+    const PART_STATE_LABELS = ['ok','damaged','critical'];
+    let damageState = {};
+
+    function escHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+    function fmtDate(s){ if(!s) return '—'; const d=new Date(s); return isNaN(d)?s:d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'}); }
+
+    // ─── LOAD DATA ───────────────────────────────────────────────
+    async function loadAll(){
+      try {
+        const [incResp, drvResp, kartResp, evResp, stfResp] = await Promise.all([
+          apiFetch('/api/incidents').catch(()=>null),
+          RTS_API.getCollectionItems('drivers').catch(()=>null),
+          apiFetch('/api/items?is_race_fleet=true&limit=100').catch(()=>null),
+          RTS_API.getCollectionItems('events').catch(()=>null),
+          RTS_API.getCollectionItems('staff').catch(()=>null)
+        ]);
+        incidents = incResp && incResp.incidents ? incResp.incidents : (Array.isArray(incResp) ? incResp : []);
+        drivers = drvResp && drvResp.items ? drvResp.items : [];
+        karts = kartResp && kartResp.items ? kartResp.items : (Array.isArray(kartResp) ? kartResp : []);
+        events = evResp && evResp.items ? evResp.items : [];
+        staff = stfResp && stfResp.items ? stfResp.items : [];
+      } catch(e){ console.error('loadAll:', e); }
     }
 
-    function buildLeftSeverity(){
-      el.sList.innerHTML = '';
-      const mk = (label, sev) => {
-        const li = document.createElement('li');
-        li.textContent = label;
-        li.dataset.sev = sev;
-        li.classList.toggle('active', (ui.severityPick||'') === (sev||''));
-        return li;
-      };
-      el.sList.appendChild(mk('All severities', ''));
-      SEV.forEach(s => el.sList.appendChild(mk(s, s)));
+    // ─── POPULATE SELECTS ────────────────────────────────────────
+    function populateSelects(){
+      function populateSel(sel, items, labelFn, valueFn){
+        const first = sel.options[0];
+        sel.innerHTML = '';
+        sel.appendChild(first.cloneNode(true));
+        items.forEach(item=>{ const o=document.createElement('option'); o.value=valueFn(item); o.textContent=labelFn(item); sel.appendChild(o); });
+      }
+      populateSel(el.f.driver, drivers, d=>d.name||d.id, d=>d.id);
+      populateSel(el.f.kart, karts, k=>(k.name||k.barcode||k.id), k=>k.id);
+      populateSel(el.f.event, events, e=>e.title||e.name||e.id, e=>e.id);
+      populateSel(el.f.owner, staff, s=>s.name||s.id, s=>s.id);
+
+      // Event filter in header
+      const ef = el.eventFilter;
+      const first2 = ef.options[0];
+      ef.innerHTML = '';
+      ef.appendChild(first2.cloneNode(true));
+      events.forEach(e=>{ const o=document.createElement('option'); o.value=e.id; o.textContent=e.title||e.name||e.id; ef.appendChild(o); });
     }
 
-    function buildEventOptions(selectEl, includeAll){
-      const opts = [];
-      if(includeAll) opts.push(`<option value="">All events</option>`);
-      const sorted = EVENTS.slice().sort((a,b)=> String(a.title||'').localeCompare(String(b.title||'')));
-      sorted.forEach(ev => {
-        opts.push(`<option value="${escapeHtml(String(ev.id))}">${escapeHtml(ev.title || '—')}</option>`);
+    // ─── STATS ───────────────────────────────────────────────────
+    function renderStats(){
+      document.getElementById('statIncTotal').textContent = incidents.length;
+      document.getElementById('statIncOpen').textContent = incidents.filter(i=>i.status==='Open').length;
+      document.getElementById('statIncCritical').textContent = incidents.filter(i=>i.severity==='Critical').length;
+      document.getElementById('statIncResolved').textContent = incidents.filter(i=>i.status==='Resolved').length;
+    }
+
+    // ─── LEFT PANE ───────────────────────────────────────────────
+    function renderLeftPane(){
+      el.perspList.querySelectorAll('li').forEach(li=>li.classList.toggle('active',li.dataset.perspective===ui.perspective));
+      const sevs = [...new Set(incidents.map(i=>i.severity||'').filter(Boolean))];
+      el.sevList.innerHTML = '';
+      const allLi = document.createElement('li'); allLi.textContent='All severities'; allLi.classList.toggle('active',!ui.sevFilter);
+      allLi.addEventListener('click',()=>{ ui.sevFilter=''; render(); }); el.sevList.appendChild(allLi);
+      sevs.forEach(s=>{ const li=document.createElement('li'); li.textContent=s; li.classList.toggle('active',ui.sevFilter===s); li.addEventListener('click',()=>{ ui.sevFilter=s; render(); }); el.sevList.appendChild(li); });
+    }
+
+    // ─── MIDDLE TABLE ────────────────────────────────────────────
+    function getFiltered(){
+      return incidents.filter(i=>{
+        if (ui.perspective==='open' && i.status!=='Open') return false;
+        if (ui.perspective==='resolved' && i.status!=='Resolved') return false;
+        if (ui.perspective==='critical' && i.severity!=='Critical') return false;
+        if (ui.sevFilter && i.severity!==ui.sevFilter) return false;
+        if (ui.statusFilter && i.status!==ui.statusFilter) return false;
+        if (ui.eventFilter && i.event_id!==ui.eventFilter) return false;
+        if (ui.search){ const q=ui.search.toLowerCase(); if(!(`${i.title||''} ${i.description||''} ${i.driver_name||''}`).toLowerCase().includes(q)) return false; }
+        return true;
       });
-      selectEl.innerHTML = opts.join('');
     }
 
-    function buildOwnerOptions(){
-      const opts = [`<option value="">— Unassigned —</option>`, `<option value="custom">Custom…</option>`];
-      STAFF.slice()
-        .sort((a,b)=> String(a.name||'').localeCompare(String(b.name||'')))
-        .forEach(s => {
-          const label = `${s.name || '—'}${s.role ? ' ('+s.role+')' : ''}`;
-          opts.push(`<option value="${escapeHtml(String(s.id))}">${escapeHtml(label)}</option>`);
-        });
-      el.f.owner.innerHTML = opts.join('');
-    }
-
-    function itemFromId(id){
-      const idNum = Number(id);
-      return incidents.find(i => Number(i.id) === idNum) || null;
-    }
-
-    function applyFilters(list){
-      let out = list.slice();
-      if (ui.perspective === 'open') out = out.filter(i => i.status !== 'Resolved');
-      if (ui.perspective === 'resolved') out = out.filter(i => i.status === 'Resolved');
-      if (ui.perspective === 'critical') out = out.filter(i => i.severity === 'Critical');
-      if (ui.severityPick) out = out.filter(i => i.severity === ui.severityPick);
-      if (ui.status) out = out.filter(i => i.status === ui.status);
-      if (ui.eventId) out = out.filter(i => String(i.eventId||'') === String(ui.eventId));
-      if (ui.search){
-        const q = ui.search.toLowerCase();
-        out = out.filter(i => {
-          const hay = `${i.title||''} ${i.eventTitle||''} ${ownerLabel(i)} ${i.severity||''} ${i.status||''} ${i.telemetry||''} ${i.timecode||''}`.toLowerCase();
-          return hay.includes(q);
-        });
-      }
-      return out;
-    }
-
-    function groupKey(it){
-      switch(ui.groupBy){
-        case 'event': return it.eventTitle || eventTitle(it.eventId) || '—';
-        case 'severity': return it.severity || '—';
-        case 'owner': return ownerLabel(it) || '—';
-        default: return '';
-      }
-    }
-
-    function render(){
-      // control values
-      el.search.value = ui.search || '';
-      el.status.value = ui.status || '';
-      el.group.value = ui.groupBy || '';
-
-      // filters
-      buildEventOptions(el.event, true);
-      el.event.value = ui.eventId || '';
-
-      // counts
-      const filtered = applyFilters(incidents);
-      el.badge.textContent = String(filtered.length);
-
-      // list order
-      let rows = filtered.slice();
-      if (ui.groupBy){
-        rows.sort((a,b) => {
-          const ga = groupKey(a), gb = groupKey(b);
-          if (ga !== gb) return String(ga).localeCompare(String(gb));
-          return String(a.title||'').localeCompare(String(b.title||''));
-        });
-      } else {
-        rows.sort((a,b) => String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
-      }
-
+    function renderTable(){
+      const filtered = getFiltered();
+      el.countBadge.textContent = filtered.length;
       el.tbody.innerHTML = '';
-      let lastG = null;
-      let n = 0;
-      rows.forEach(it => {
-        const g = ui.groupBy ? groupKey(it) : '';
-        if (ui.groupBy && g !== lastG){
-          lastG = g;
-          const trG = document.createElement('tr');
-          trG.className = 'mlo-group-row';
-          trG.innerHTML = `<td colspan="7">${escapeHtml(g)}</td>`;
-          el.tbody.appendChild(trG);
-        }
-
-        n += 1;
+      filtered.forEach((inc,idx)=>{
+        const sevCls = SEV_CLASS[inc.severity]||'sev-low';
+        const statusBadge = inc.status==='Resolved'
+          ? '<span class="badge text-bg-success" style="font-size:0.62rem;">Resolved</span>'
+          : inc.status==='Monitoring'
+            ? '<span class="badge text-bg-warning text-dark" style="font-size:0.62rem;">Monitoring</span>'
+            : '<span class="badge text-bg-danger" style="font-size:0.62rem;">Open</span>';
         const tr = document.createElement('tr');
-        tr.dataset.id = String(it.id);
-        if (ui.selectedId === it.id) tr.classList.add('mlo-row-selected');
-
-        const evName = it.eventTitle || eventTitle(it.eventId);
+        if (inc.id===ui.selectedId) tr.classList.add('inc-row-selected');
         tr.innerHTML = `
-          <td>${n}</td>
-          <td>${escapeHtml(it.title || '')}</td>
-          <td>${escapeHtml(evName || '—')}</td>
-          <td>${escapeHtml(it.severity || '')}</td>
-          <td>${escapeHtml(it.status || '')}</td>
-          <td>${escapeHtml(ownerLabel(it))}</td>
-          <td>${escapeHtml(it.timecode || '')}</td>
+          <td style="color:#9aa5b4;">${idx+1}</td>
+          <td>${escHtml(inc.title||'Untitled')}</td>
+          <td style="font-size:0.75rem;">${escHtml(inc.driver_name||'—')}</td>
+          <td><span class="sev-pill ${sevCls}">${escHtml(inc.severity||'—')}</span></td>
+          <td>${statusBadge}</td>
+          <td style="font-size:0.75rem;color:#6c757d;">${escHtml(inc.event_name||'—')}</td>
+          <td><button class="inc-row-del" data-id="${escHtml(inc.id||'')}" title="Delete">✕</button></td>
         `;
-        tr.addEventListener('click', () => select(it.id));
+        tr.addEventListener('click', e=>{ if(e.target.classList.contains('inc-row-del')) return; ui.selectedId=inc.id; render(); });
+        tr.querySelector('.inc-row-del').addEventListener('click',()=>deleteIncident(inc.id));
         el.tbody.appendChild(tr);
       });
-
-      // ensure selection exists
-      if(ui.selectedId !== null && !incidents.some(i => i.id === ui.selectedId)){
-        ui.selectedId = null;
-      }
-      hydrate(itemFromId(ui.selectedId));
-      persist();
+      if (!ui.selectedId && filtered[0]){ ui.selectedId=filtered[0].id; hydrateInspector(); }
     }
 
-    function hydrate(it){
-      // static inspector options
-      buildEventOptions(el.f.event, false);
-      buildOwnerOptions();
-
-      if (!it){
-        el.ib.textContent = 'No selection';
-        el.openEvent.href = 'events.html';
-        el.openTasks.href = 'tasks.html';
-        el.openPerf.href = 'performance.html';
-
-        Object.values(el.f).forEach(x => {
-          if (x && 'value' in x) x.value = '';
-        });
-        el.f.attachList.innerHTML = '';
+    // ─── INSPECTOR ───────────────────────────────────────────────
+    function hydrateInspector(){
+      const inc = incidents.find(x=>x.id===ui.selectedId);
+      el.inspBadge.textContent = inc?(inc.title||inc.id||'—'):'—';
+      if (!inc){
+        Object.values(el.f).forEach(f=>{ if(f&&f.tagName) f.value=''; });
         return;
       }
+      el.f.title.value = inc.title||'';
+      el.f.driver.value = inc.driver_id||'';
+      el.f.kart.value = inc.kart_id||'';
+      el.f.event.value = inc.event_id||'';
+      el.f.sev.value = inc.severity||'Low';
+      el.f.owner.value = inc.owner_id||'';
+      el.f.status.value = inc.status||'Open';
+      el.f.tele.value = inc.telemetry_snapshot||'';
+      el.f.tc.value = inc.video_timecode||'';
+      el.f.desc.value = inc.description||'';
+      el.f.actions.value = inc.corrective_actions||'';
 
-      el.ib.textContent = `Incident #${it.id}`;
+      // Quick links
+      document.getElementById('btnViewEvent').href = inc.event_id ? `events.html?id=${inc.event_id}` : 'events.html';
+      document.getElementById('btnLogService').href = inc.kart_id ? `service.html?kart=${inc.kart_id}` : 'service.html';
 
-      el.f.id.value = String(it.id);
-      el.f.title.value = it.title || '';
-      el.f.event.value = String(it.eventId || '');
-      el.f.sev.value = it.severity || 'Low';
-      el.f.status.value = it.status || 'Open';
-      el.f.tele.value = it.telemetry || '';
-      el.f.tc.value = it.timecode || '';
-      el.f.desc.value = it.desc || '';
-      el.f.actions.value = it.actions || '';
-
-      if(it.ownerStaffId){
-        el.f.owner.value = String(it.ownerStaffId);
-        el.f.ownerCustom.value = it.ownerText || '';
-      } else if(it.ownerText){
-        el.f.owner.value = 'custom';
-        el.f.ownerCustom.value = it.ownerText;
-      } else {
-        el.f.owner.value = '';
-        el.f.ownerCustom.value = '';
-      }
-
-      // deep links
-      const evId = it.eventId ? String(it.eventId) : '';
-      el.openEvent.href = evId ? `events.html?select=${encodeURIComponent(evId)}` : 'events.html';
-      el.openTasks.href = evId ? `tasks.html?event=${encodeURIComponent(evId)}` : 'tasks.html';
-      el.openPerf.href = evId ? `performance.html?event=${encodeURIComponent(evId)}` : 'performance.html';
-
-      renderAttachments(it);
-      // damage map wiring
-      if (!el.dm.svg){
-        el.dm.svg = document.getElementById('damageSvg');
-        el.dm.clear = document.getElementById('btnDamageClear');
-        if (el.dm.svg){
-          el.dm.svg.querySelectorAll('[data-part]').forEach(node => {
-            node.style.cursor = 'pointer';
-            node.addEventListener('click', (ev)=> showDamageStatusPicker(ev.currentTarget));
-          });
-        }
-        if (el.dm.clear){ el.dm.clear.addEventListener('click', clearDamageStatuses); }
-      }
-      applyDamageStatuses(it);
+      renderAttachments(inc);
+      renderDamageSvg(inc.damage||{});
     }
 
-    function select(id){
-      ui.selectedId = Number(id);
-      render();
+    // ─── ATTACHMENTS ─────────────────────────────────────────────
+    function renderAttachments(inc){
+      const attachments = inc.attachments||[];
+      el.attachList.innerHTML = attachments.length
+        ? attachments.map((a,i)=>`<div class="d-flex gap-2 align-items-center p-1" style="border:1px solid #dee2e6;border-radius:5px;">
+            <span style="flex:1;font-size:0.8rem;">${escHtml(a.name||'File')}</span>
+            <a href="${escHtml(a.url||'#')}" target="_blank" rel="noopener" style="font-size:0.75rem;color:#0099cc;">Open</a>
+            <button class="btn btn-sm btn-outline-danger inc-att-del" data-idx="${i}" style="padding:1px 6px;font-size:0.7rem;">✕</button>
+          </div>`).join('')
+        : '<div class="text-secondary" style="font-size:0.78rem;">No attachments</div>';
+      el.attachList.querySelectorAll('.inc-att-del').forEach(btn=>btn.addEventListener('click',()=>deleteAttachment(inc,parseInt(btn.dataset.idx))));
     }
 
-    function nextId(){
-      return incidents.reduce((m,i)=>Math.max(m, Number(i.id)||0), 0) + 1;
+    // ─── DAMAGE MAP ──────────────────────────────────────────────
+    function renderDamageSvg(state){
+      damageState = Object.assign({}, state);
+      document.querySelectorAll('#damageSvg [data-part]').forEach(el=>{
+        const part = el.dataset.part;
+        const stateIdx = PART_STATE_LABELS.indexOf(damageState[part]||'ok');
+        el.setAttribute('fill', PART_STATES[Math.max(0,stateIdx)]);
+        el.style.stroke = stateIdx>0?'rgba(0,0,0,0.3)':'#adb5bd';
+      });
     }
 
-    function add(){
-      const id = nextId();
-      const evId = ui.eventId || String(EVENTS[0]?.id ?? '');
-      const ev = findEventById(evId);
-      const owner = STAFF[0] ? STAFF[0].id : '';
-      const it = {
-        id,
-        title: `New Incident ${id}`,
-        eventId: evId,
-        eventTitle: ev ? (ev.title || '—') : '—',
-        severity: 'Medium',
-        status: 'Open',
-        ownerStaffId: owner,
-        ownerText: '',
-        telemetry: '',
-        timecode: '',
-        desc: '',
-        actions: '',
-        attachments: [],
-        createdAt: nowISO(),
-        updatedAt: nowISO(),
+    function bindDamageSvg(){
+      document.querySelectorAll('#damageSvg [data-part]').forEach(rect=>{
+        rect.addEventListener('click', async ()=>{
+          const part = rect.dataset.part;
+          const cur = PART_STATE_LABELS.indexOf(damageState[part]||'ok');
+          damageState[part] = PART_STATE_LABELS[(cur+1)%3];
+          renderDamageSvg(damageState);
+          const inc = incidents.find(x=>x.id===ui.selectedId);
+          if (inc){ inc.damage=Object.assign({},damageState); await patchIncident(inc.id,{damage:inc.damage}); }
+        });
+      });
+      document.getElementById('btnDamageClear').addEventListener('click', async ()=>{
+        damageState={};
+        renderDamageSvg({});
+        const inc = incidents.find(x=>x.id===ui.selectedId);
+        if (inc){ inc.damage={}; await patchIncident(inc.id,{damage:{}}); }
+      });
+    }
+
+    // ─── CRUD HELPERS ────────────────────────────────────────────
+    async function patchIncident(id, updates){
+      try {
+        const resp = await apiFetch(`/api/incidents/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(updates) });
+        return resp;
+      } catch(e){ console.error('patch incident:', e); }
+    }
+
+    async function saveIncident(){
+      const inc = incidents.find(x=>x.id===ui.selectedId);
+      if (!inc) return;
+      const updates = {
+        title: el.f.title.value.trim(),
+        driver_id: el.f.driver.value||null,
+        kart_id: el.f.kart.value||null,
+        event_id: el.f.event.value||null,
+        severity: el.f.sev.value,
+        owner_id: el.f.owner.value||null,
+        status: el.f.status.value,
+        telemetry_snapshot: el.f.tele.value.trim(),
+        video_timecode: el.f.tc.value.trim(),
+        description: el.f.desc.value.trim(),
+        corrective_actions: el.f.actions.value.trim()
       };
-      incidents.unshift(it);
-      ui.selectedId = id;
-      render();
+      try {
+        const resp = await patchIncident(inc.id, updates);
+        if (resp && (resp.success||resp.id)){ Object.assign(inc, updates); if(RTS.showToast) RTS.showToast('Saved','success'); renderTable(); renderStats(); }
+        else throw new Error('Save failed');
+      } catch(e){ if(RTS.showToast) RTS.showToast('Save failed','error'); }
     }
 
-    function save(){
-      const id = Number(el.f.id.value);
-      const it = itemFromId(id);
-      if(!it) return;
-
-      const evId = String(el.f.event.value || '');
-      const ev = findEventById(evId);
-
-      it.title = (el.f.title.value || '').trim() || it.title || `Incident ${it.id}`;
-      it.eventId = evId;
-      it.eventTitle = ev ? (ev.title || '—') : (it.eventTitle || '—');
-      it.severity = el.f.sev.value;
-      it.status = el.f.status.value;
-
-      const ownerSel = String(el.f.owner.value || '');
-      if(ownerSel === 'custom'){
-        it.ownerStaffId = '';
-        it.ownerText = (el.f.ownerCustom.value || '').trim();
-      } else if(ownerSel){
-        it.ownerStaffId = ownerSel;
-        it.ownerText = '';
-      } else {
-        it.ownerStaffId = '';
-        it.ownerText = '';
-      }
-
-      it.telemetry = (el.f.tele.value || '').trim();
-      it.timecode = (el.f.tc.value || '').trim();
-      it.desc = el.f.desc.value || '';
-      it.actions = el.f.actions.value || '';
-      it.updatedAt = nowISO();
-
-      normalizeAttachments(it);
-      render();
+    async function addIncident(){
+      try {
+        const resp = await apiFetch('/api/incidents', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ title:'New Incident', severity:'Low', status:'Open' }) });
+        const newInc = resp && resp.incident ? resp.incident : resp;
+        if (newInc && newInc.id){ incidents.unshift(newInc); ui.selectedId=newInc.id; if(RTS.showToast) RTS.showToast('Incident added','success'); render(); }
+      } catch(e){ if(RTS.showToast) RTS.showToast('Add failed','error'); }
     }
 
-    function dup(){
-      const src = itemFromId(ui.selectedId);
-      if(!src) return;
-      const id = nextId();
-      const copy = JSON.parse(JSON.stringify(src));
-      copy.id = id;
-      copy.title = `${src.title || 'Incident'} (Copy)`;
-      copy.createdAt = nowISO();
-      copy.updatedAt = nowISO();
-      incidents.unshift(copy);
-      ui.selectedId = id;
-      render();
-    }
-
-    function del(){
-      const src = itemFromId(ui.selectedId);
-      if(!src) return;
-      incidents = incidents.filter(i => i.id !== src.id);
-      ui.selectedId = null;
-      render();
-    }
-
-    function renderAttachments(it){
-      el.f.attachList.innerHTML = '';
-      if(!it) return;
-      normalizeAttachments(it);
-
-      if(!it.attachments.length){
-        const e = document.createElement('div');
-        e.className = 'text-secondary';
-        e.style.fontSize = '0.8rem';
-        e.textContent = 'No attachments.';
-        el.f.attachList.appendChild(e);
-        return;
-      }
-
-      it.attachments.forEach((a, idx) => {
-        const row = document.createElement('div');
-        row.className = 'd-flex align-items-center justify-content-between gap-2 rts-attach-item';
-
-        const left = document.createElement('div');
-        left.style.minWidth = '0';
-
-        const name = document.createElement('div');
-        name.className = 'rts-attach-name';
-        name.textContent = a.name || (a.provider === 'gdrive' ? ('Drive file ' + (a.id || '')) : 'Attachment');
-
-        const meta = document.createElement('div');
-        meta.className = 'rts-attach-meta';
-        meta.textContent = (a.provider === 'gdrive' ? 'Google Drive' : 'Link') + (a.mimeType ? (' • ' + a.mimeType) : '');
-
-        left.appendChild(name);
-        left.appendChild(meta);
-
-        const right = document.createElement('div');
-        right.className = 'd-flex gap-1 flex-shrink-0';
-
-        const open = document.createElement('a');
-        open.className = 'btn btn-sm btn-outline-light mlo-btn';
-        open.textContent = 'Open';
-        open.target = '_blank';
-        open.rel = 'noopener';
-        open.href = a.url || '#';
-
-        const rm = document.createElement('button');
-        rm.className = 'btn btn-sm btn-outline-danger mlo-btn';
-        rm.textContent = 'Remove';
-        rm.type = 'button';
-        rm.addEventListener('click', () => {
-          it.attachments.splice(idx, 1);
-          persist();
-          renderAttachments(it);
-        });
-
-        right.appendChild(open);
-        right.appendChild(rm);
-
-        row.appendChild(left);
-        row.appendChild(right);
-        el.f.attachList.appendChild(row);
-      });
-    }
-
-    function bind(){
-      // perspectives
-      el.pList.querySelectorAll('li').forEach(li => {
-        li.addEventListener('click', () => {
-          el.pList.querySelectorAll('li').forEach(x => x.classList.remove('active'));
-          li.classList.add('active');
-          ui.perspective = li.dataset.perspective;
-          render();
-        });
-      });
-
-      // severity
-      el.sList.addEventListener('click', (e) => {
-        const li = e.target.closest('li');
-        if(!li) return;
-        ui.severityPick = li.dataset.sev || '';
-        buildLeftSeverity();
+    async function deleteIncident(id){
+      if (!confirm('Delete this incident?')) return;
+      try {
+        await apiFetch(`/api/incidents/${id}`, { method:'DELETE' });
+        incidents = incidents.filter(i=>i.id!==id);
+        if (ui.selectedId===id) ui.selectedId=null;
+        if(RTS.showToast) RTS.showToast('Deleted','success');
         render();
-      });
-
-      // filters
-      el.search.addEventListener('input', () => { ui.search = el.search.value; render(); });
-      el.status.addEventListener('change', () => { ui.status = el.status.value; render(); });
-      el.event.addEventListener('change', () => { ui.eventId = el.event.value; render(); });
-      el.group.addEventListener('change', () => { ui.groupBy = el.group.value; render(); });
-
-      // actions
-      el.add.addEventListener('click', add);
-      el.save.addEventListener('click', save);
-      el.dup.addEventListener('click', dup);
-      el.del.addEventListener('click', del);
-
-      // owner custom enable/disable hint
-      el.f.owner.addEventListener('change', () => {
-        const v = String(el.f.owner.value || '');
-        if(v === 'custom'){
-          el.f.ownerCustom.removeAttribute('disabled');
-          el.f.ownerCustom.focus();
-        } else {
-          el.f.ownerCustom.setAttribute('disabled', 'disabled');
-        }
-      });
-
-      // attachments
-      el.f.btnAttachDrive.addEventListener('click', async () => {
-        const it = itemFromId(ui.selectedId);
-        if(!it) return;
-        try {
-          normalizeAttachments(it);
-          const picked = await RTS.pickDriveFiles({ includeFolders:true });
-          if(!picked.length) return;
-          it.attachments.push(...picked);
-          it.updatedAt = nowISO();
-          persist();
-          renderAttachments(it);
-        } catch (e) {
-          alert((e && e.message) ? e.message : String(e));
-        }
-      });
-
-      el.f.btnAttachAdd.addEventListener('click', () => {
-        const it = itemFromId(ui.selectedId);
-        if(!it) return;
-        const name = (el.f.attachName.value || '').trim() || 'Link';
-        const url = (el.f.attachUrl.value || '').trim();
-        if(!url) return;
-        normalizeAttachments(it);
-        it.attachments.push({ provider:'url', name, url, addedAt: nowISO() });
-        it.updatedAt = nowISO();
-        el.f.attachName.value = '';
-        el.f.attachUrl.value = '';
-        persist();
-        renderAttachments(it);
-      });
-      // close any floating popovers when switching tabs
-      document.getElementById('tab-inc-map')?.addEventListener('shown.bs.tab', ()=> hideDamagePicker());
+      } catch(e){ if(RTS.showToast) RTS.showToast('Delete failed','error'); }
     }
 
-    function init(){
-      // seed left panel and restore active state
-      buildLeftSeverity();
-      el.pList.querySelectorAll('li').forEach(li => {
-        li.classList.toggle('active', li.dataset.perspective === ui.perspective);
-      });
+    async function duplicateIncident(){
+      const inc = incidents.find(x=>x.id===ui.selectedId);
+      if (!inc) return;
+      const copy = Object.assign({}, inc, { title: (inc.title||'Incident')+' (copy)', id:undefined, status:'Open' });
+      delete copy.id;
+      try {
+        const resp = await apiFetch('/api/incidents', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(copy) });
+        const newInc = resp && resp.incident ? resp.incident : resp;
+        if (newInc && newInc.id){ incidents.unshift(newInc); ui.selectedId=newInc.id; if(RTS.showToast) RTS.showToast('Duplicated','success'); render(); }
+      } catch(e){ if(RTS.showToast) RTS.showToast('Failed','error'); }
+    }
 
-      // tri-pane resizers
-      RTS.initTriPaneResizers(el.shell, LS_PANES);
+    async function addAttachment(){
+      const inc = incidents.find(x=>x.id===ui.selectedId);
+      if (!inc) return;
+      const name = document.getElementById('inAttachName').value.trim();
+      const url = document.getElementById('inAttachUrl').value.trim();
+      if (!name||!url) return;
+      const attachments = [...(inc.attachments||[]), { name, url }];
+      await patchIncident(inc.id, { attachments });
+      inc.attachments = attachments;
+      document.getElementById('inAttachName').value='';
+      document.getElementById('inAttachUrl').value='';
+      renderAttachments(inc);
+    }
 
+    async function deleteAttachment(inc, idx){
+      const attachments = (inc.attachments||[]).filter((_,i)=>i!==idx);
+      await patchIncident(inc.id, { attachments });
+      inc.attachments = attachments;
+      renderAttachments(inc);
+    }
+
+    // ─── MAIN RENDER ────────────────────────────────────────────
+    function render(){
+      renderStats();
+      renderLeftPane();
+      renderTable();
+      hydrateInspector();
+    }
+
+    // ─── BIND ────────────────────────────────────────────────────
+    function bind(){
+      el.search.addEventListener('input',()=>{ ui.search=el.search.value; renderTable(); });
+      el.statusFilter.addEventListener('change',()=>{ ui.statusFilter=el.statusFilter.value; renderTable(); });
+      el.eventFilter.addEventListener('change',()=>{ ui.eventFilter=el.eventFilter.value; renderTable(); });
+      el.perspList.querySelectorAll('li').forEach(li=>li.addEventListener('click',()=>{ ui.perspective=li.dataset.perspective; render(); }));
+      document.getElementById('btnAddInc').addEventListener('click',addIncident);
+      document.getElementById('btnSaveInc').addEventListener('click',saveIncident);
+      document.getElementById('btnDupInc').addEventListener('click',duplicateIncident);
+      document.getElementById('btnDelInc').addEventListener('click',()=>{ const inc=incidents.find(x=>x.id===ui.selectedId); if(inc) deleteIncident(inc.id); });
+      document.getElementById('btnInAttachAdd').addEventListener('click',addAttachment);
+      bindDamageSvg();
+      const params = new URLSearchParams(window.location.search);
+      const p = params.get('incident');
+      if (p) ui.selectedId = p;
+    }
+
+    async function init(){
       bind();
-
-      // disable owner custom unless "custom"
-      el.f.ownerCustom.setAttribute('disabled', 'disabled');
-
+      await loadAll();
+      populateSelects();
       render();
-
-      // auto-select first visible item if none selected
-      if(ui.selectedId === null){
-        const visible = applyFilters(incidents);
-        if(visible[0]){ ui.selectedId = visible[0].id; render(); }
-      }
     }
 
     document.addEventListener('DOMContentLoaded', init);
-
-    // ---------- Damage Map ----------
-    function ensureDamage(it){ if(!it.damage) it.damage = {}; return it.damage; }
-    const COLORS = { green: '#2ecc71', amber: '#f4d35e', red: '#e74c3c', default: '#1b1f26' };
-    function applyDamageStatuses(it){
-      if (!it || !el.dm.svg) return;
-      const dmg = ensureDamage(it);
-      el.dm.svg.querySelectorAll('[data-part]').forEach(node => {
-        const key = node.getAttribute('data-part');
-        const v = dmg[key] || 'default';
-        node.setAttribute('fill', COLORS[v] || COLORS.default);
-      });
-    }
-    let pickerDiv = null;
-    function showDamageStatusPicker(node){
-      hideDamagePicker();
-      const rect = node.getBoundingClientRect();
-      pickerDiv = document.createElement('div');
-      pickerDiv.className = 'position-absolute p-2';
-      pickerDiv.style.background = '#0f1115';
-      pickerDiv.style.border = '1px solid rgba(255,255,255,0.12)';
-      pickerDiv.style.borderRadius = '8px';
-      pickerDiv.style.zIndex = '9999';
-      pickerDiv.innerHTML = `
-        <div class=\"d-flex gap-1\">\n          <button class=\"btn btn-sm\" data-s=\"green\" style=\"background:${COLORS.green}; color:#0b0d12;\">Green</button>\n          <button class=\"btn btn-sm\" data-s=\"amber\" style=\"background:${COLORS.amber}; color:#0b0d12;\">Amber</button>\n          <button class=\"btn btn-sm\" data-s=\"red\" style=\"background:${COLORS.red}; color:#fff;\">Red</button>\n        </div>`;
-      document.body.appendChild(pickerDiv);
-      // position near the node
-      const top = rect.top + window.scrollY + rect.height + 6;
-      const left = rect.left + window.scrollX + Math.max(0, rect.width/2 - 80);
-      pickerDiv.style.top = `${top}px`;
-      pickerDiv.style.left = `${left}px`;
-      pickerDiv.querySelectorAll('button[data-s]').forEach(btn => {
-        btn.addEventListener('click', ()=>{
-          const s = btn.getAttribute('data-s');
-          const it = itemFromId(ui.selectedId); if (!it) return;
-          const dmg = ensureDamage(it);
-          const key = node.getAttribute('data-part');
-          dmg[key] = s;
-          it.updatedAt = nowISO();
-          applyDamageStatuses(it);
-          persist();
-          hideDamagePicker();
-        });
-      });
-      // click outside to close
-      setTimeout(()=>{
-        document.addEventListener('click', onDocClickClose, { once: true });
-      }, 0);
-    }
-    function onDocClickClose(e){
-      if (pickerDiv && !pickerDiv.contains(e.target)) hideDamagePicker();
-    }
-    function hideDamagePicker(){
-      if (pickerDiv){ pickerDiv.remove(); pickerDiv = null; }
-    }
-    function clearDamageStatuses(){
-      const it = itemFromId(ui.selectedId); if(!it) return;
-      it.damage = {}; it.updatedAt = nowISO();
-      applyDamageStatuses(it); persist();
-      hideDamagePicker();
-    }
   })();
   </script>
 </body>

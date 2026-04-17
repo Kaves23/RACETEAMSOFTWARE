@@ -142,6 +142,9 @@ const raceFleetRouter        = require('./routes/race-fleet');
 const postEventNotesRouter   = require('./routes/post-event-notes');
 const mileageLogRouter       = require('./routes/mileage-log');
 const projectPlansRouter     = require('./routes/project-plans');
+const raceSessionsRouter     = require('./routes/race-sessions');
+const incidentsRouter        = require('./routes/incidents');
+const raceResultsRouter      = require('./routes/race-results');
 
 app.use('/api/asset-checkouts',  requireAuth, assetCheckoutsRouter);
 app.use('/api/activity-log',     requireAuth, activityLogRouter);
@@ -149,6 +152,9 @@ app.use('/api/race-fleet',       requireAuth, raceFleetRouter);
 app.use('/api/post-event-notes', requireAuth, postEventNotesRouter);
 app.use('/api/mileage-log',      requireAuth, mileageLogRouter);
 app.use('/api/project-plans',    requireAuth, projectPlansRouter);
+app.use('/api/race-sessions',    requireAuth, raceSessionsRouter);
+app.use('/api/incidents',        requireAuth, incidentsRouter);
+app.use('/api/race-results',     requireAuth, raceResultsRouter);
 
 // Get settings (read-only endpoint) - PROTECTED
 app.get('/api/settings', requireAuth, async (req, res) => {

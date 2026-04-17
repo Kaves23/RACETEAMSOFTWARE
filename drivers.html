@@ -7,846 +7,791 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="style.css" rel="stylesheet" />
   <style>
-    #drvTbody td, #drvTbody th { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    body { background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%); }
+
+    .ev-stats-bar { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+    .ev-stat-card { background: #fff; border: 1px solid rgba(0,0,0,0.1); border-radius: 8px; padding: 10px 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.06); min-width: 110px; }
+    .ev-stat-label { font-size: 0.7rem; color: #6c757d; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+    .ev-stat-value { font-size: 1.5rem; font-weight: 700; color: #1a1d24; line-height: 1.2; }
+
+    #drvShell.mlo-shell { background: transparent; border: none; gap: 10px; }
+    #drvShell .mlo-pane-left,
+    #drvShell .mlo-pane-mid,
+    #drvShell .mlo-pane-right {
+      background: #ffffff;
+      border: 1px solid rgba(0,0,0,0.1);
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+    }
+    #drvShell .mlo-pane-header { background: #f8f9fa; border-bottom: 1px solid rgba(0,0,0,0.1); }
+    #drvShell .mlo-title { color: #1a1d24 !important; }
+    #drvShell .mlo-section-label { color: #6c757d !important; opacity: 1 !important; }
+    #drvShell .mlo-pane-content { color: #1a1d24; }
+    #drvShell .mlo-resizer { background: transparent; }
+    #drvShell .mlo-resizer:hover { background: rgba(0,153,204,0.3); }
+
+    #drvShell .mlo-pane-left .pastel-tree { padding: 0 !important; margin: 0 !important; }
+    #drvShell .mlo-pane-left .pastel-tree li {
+      height: 28px !important; display: flex !important; align-items: center !important;
+      font-size: 0.83rem !important; font-weight: 500 !important; padding-left: 10px !important;
+      margin-bottom: 2px !important; border-radius: 5px !important; border: 1px solid rgba(0,0,0,0.08) !important;
+      box-shadow: none !important; color: #1a1d24 !important; white-space: nowrap !important;
+      overflow: hidden !important; text-overflow: ellipsis !important; cursor: pointer !important;
+    }
+    #drvShell .mlo-pane-left .pastel-tree li.active {
+      background: rgba(0,153,204,0.1) !important; border-color: rgba(0,153,204,0.35) !important;
+      color: #0072a3 !important; font-weight: 700 !important;
+    }
+
+    #drvShell .form-control, #drvShell .form-select { background: #fff; color: #1a1d24; border-color: #dee2e6; }
+    #drvShell .form-control::placeholder { color: #9aa5b4; }
+
+    .drv-list-table { width: 100%; font-size: 0.82rem; border-collapse: separate; border-spacing: 0; }
+    .drv-list-table thead { position: sticky; top: 0; background: #f8f9fa; z-index: 5; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+    .drv-list-table th { padding: 8px 10px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #6c757d; border-bottom: 2px solid #dee2e6; white-space: nowrap; }
+    .drv-list-table td { padding: 6px 10px; border-bottom: 1px solid rgba(0,0,0,0.05); vertical-align: middle; color: #1a1d24 !important; }
+    .drv-list-table tbody tr { cursor: pointer; transition: background 0.1s; }
+    .drv-list-table tbody tr:hover { background: #f8f9fa; }
+    .drv-list-table tbody tr.drv-row-selected { background: rgba(0,153,204,0.08) !important; outline: 2px solid #0099cc; outline-offset: -2px; }
+    .drv-color-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+    .drv-row-del { opacity: 0; transition: opacity 0.15s; background: none; border: none; color: #dc3545; font-size: 1rem; line-height: 1; padding: 0 4px; cursor: pointer; }
+    .drv-list-table tbody tr:hover .drv-row-del { opacity: 1; }
+
+    .badge-exp { display: inline-block; padding: 2px 7px; border-radius: 20px; font-size: 0.65rem; font-weight: 700; white-space: nowrap; }
+    .badge-ok { background: #d1fae5; color: #065f46; }
+    .badge-warn { background: #fef3c7; color: #92400e; }
+    .badge-expired { background: #fee2e2; color: #991b1b; }
+    .badge-missing { background: #f3f4f6; color: #6b7280; }
+
+    #drvShell #drvTabs .nav-link { color: #6c757d; background: transparent; border-color: transparent; font-size: 0.8rem; padding: 7px 10px; }
+    #drvShell #drvTabs .nav-link.active { color: #0099cc; border-color: #dee2e6 #dee2e6 #fff; background: #fff; font-weight: 600; }
+    #drvShell #drvTabs .nav-link:hover:not(.active) { color: #1a1d24; }
+
+    #drvShell .mlo-pane-right .form-label { color: #495057 !important; font-size: 0.78rem; font-weight: 600; margin-bottom: 2px; }
+    #drvShell .mlo-pane-right .form-control,
+    #drvShell .mlo-pane-right .form-select { background: #fff !important; color: #1a1d24 !important; border-color: #dee2e6 !important; font-size: 0.82rem; }
+    #drvShell .mlo-pane-right .text-secondary { color: #6c757d !important; }
+    #drvShell .mlo-pane-right a { color: #0099cc; }
+
+    .drv-sub-table { width: 100%; font-size: 0.78rem; border-collapse: collapse; }
+    .drv-sub-table th { background: #f8f9fa; color: #6c757d; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; padding: 5px 8px; border-bottom: 1px solid #dee2e6; }
+    .drv-sub-table td { padding: 4px 8px; border-bottom: 1px solid #f0f0f0; color: #1a1d24; vertical-align: middle; }
+    .drv-table-wrap { border: 1px solid #dee2e6; border-radius: 6px; overflow: hidden; }
+
+    .compliance-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f0f0f0; }
+    .compliance-row:last-child { border-bottom: none; }
+    .compliance-label { font-size: 0.8rem; font-weight: 600; color: #495057; }
+    .compliance-sub { font-size: 0.7rem; color: #9aa5b4; }
+    .btn-wa { background: #25D366; color: #fff; border: none; border-radius: 6px; padding: 6px 14px; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
+    .btn-wa:hover { background: #1ebe57; color: #fff; }
   </style>
 </head>
-<body>
+<body class="light-mode">
   <div id="rtsTopNav"></div>
+  <div class="rts-version-badge">v3</div>
   <div class="rts-main container-fluid">
-    <h1 class="my-3">Drivers</h1>
+
+    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+      <div>
+        <h1 class="h4 mb-1">Drivers</h1>
+        <div class="text-secondary" style="font-size:0.85rem;">Manage driver profiles, compliance documents, event assignments and race results.</div>
+      </div>
+      <button class="btn btn-sm btn-primary" id="btnAddDriver" type="button">+ Add Driver</button>
+    </div>
+
+    <!-- Stats Bar -->
+    <div class="ev-stats-bar">
+      <div class="ev-stat-card"><div class="ev-stat-label">👤 Total Drivers</div><div class="ev-stat-value" id="statDrvTotal">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">✅ Active</div><div class="ev-stat-value" id="statDrvActive">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">⚠️ Compliance Issues</div><div class="ev-stat-value" id="statDrvIssues">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">🕐 Expiring ≤30d</div><div class="ev-stat-value" id="statDrvExpiring">0</div></div>
+    </div>
 
     <div class="mlo-shell" id="drvShell">
-      <section class="mlo-pane mlo-pane-left" aria-label="Drivers">
+
+      <!-- LEFT PANE -->
+      <section class="mlo-pane mlo-pane-left" aria-label="Driver lists">
         <div class="mlo-pane-header">
-          <div class="d-flex justify-content-between align-items-center">
+          <div class="d-flex align-items-center justify-content-between">
             <div class="mlo-title">Drivers</div>
-            <div class="d-flex align-items-center gap-2">
-              <button class="btn btn-sm btn-primary" id="btnAddDriver" title="Add new driver" style="padding:4px 12px;font-size:0.85rem;font-weight:600">
-                + Add Driver
-              </button>
-              <span class="badge text-bg-secondary" id="drvCountBadge">0</span>
-            </div>
+            <span class="badge text-bg-secondary" id="drvCountBadge">0</span>
           </div>
         </div>
         <div class="mlo-pane-content">
-          <ul class="mlo-tree pastel-tree" id="drvList"></ul>
+          <div class="mlo-section-label">Smart lists</div>
+          <ul class="pastel-tree" id="drvSmartList">
+            <li class="active" data-filter="all">All Drivers</li>
+            <li data-filter="active">Active</li>
+            <li data-filter="issues">Compliance Issues</li>
+            <li data-filter="expiring">Expiring Soon (≤30d)</li>
+            <li data-filter="no-events">No Events Assigned</li>
+          </ul>
+          <div class="mlo-section-label mt-3">Class</div>
+          <ul class="pastel-tree" id="drvClassList"></ul>
         </div>
       </section>
 
       <div class="mlo-resizer" data-resize="left" title="Drag to resize"></div>
 
-      <section class="mlo-pane mlo-pane-mid" aria-label="Driver documents & data">
+      <!-- MIDDLE PANE -->
+      <section class="mlo-pane mlo-pane-mid" aria-label="Driver list">
         <div class="mlo-pane-header">
           <div class="d-flex align-items-center flex-nowrap gap-1" style="overflow:hidden;">
-            <input id="drvSearch" type="text" class="form-control form-control-sm" placeholder="Search docs…" style="flex:1 1 200px; min-width:180px;">
+            <input id="drvSearch" type="text" class="form-control form-control-sm" placeholder="Search drivers…" style="flex:1 1 180px; min-width:160px;">
+            <select id="drvStatusFilter" class="form-select form-select-sm" style="flex:0 1 150px; min-width:120px;">
+              <option value="">Status: All</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
           </div>
         </div>
-        <div class="mlo-pane-content" style="padding:0; display:flex; flex-direction:column;">
-          <!-- Top half: documents/portals -->
-          <div style="flex:1; min-height:40%; overflow:auto;">
-            <div class="mlo-section-label" style="margin:0.3rem 0 0.2rem;">Documents & Portals</div>
-            <table class="table table-dark table-hover mlo-table" style="margin:0;">
-              <thead>
-                <tr>
-                  <th style="width:60px;">#</th>
-                  <th>Document / Portal</th>
-                  <th style="width:200px;">Source</th>
-                  <th style="width:160px;">Date</th>
-                </tr>
-              </thead>
-              <tbody id="drvTbody"></tbody>
-            </table>
-          </div>
-          <!-- Bottom half: data files / telemetry uploads list -->
-          <div style="flex:1; min-height:40%; overflow:auto; border-top: 1px solid rgba(255,255,255,0.08); padding: 0.35rem 0.45rem;">
-            <div class="d-flex justify-content-between align-items-center">
-              <div class="mlo-section-label" style="margin:0;">Data Files (Telemetry CSV)</div>
-              <small class="text-secondary">Bottom pane shows uploads by driver; files may be examples</small>
-            </div>
-            <table class="table table-dark table-hover mlo-table" style="margin:0;">
-              <thead>
-                <tr>
-                  <th>Session</th>
-                  <th style="width:180px;">Uploaded</th>
-                  <th style="width:200px;">Tags</th>
-                  <th style="width:100px;">Points</th>
-                </tr>
-              </thead>
-              <tbody id="drvMidTeleBody"></tbody>
-            </table>
-            <div class="mt-2">
-              <div class="mlo-section-label" style="margin:0 0 0.2rem;">Preview (RPM & Throttle)</div>
-              <canvas id="drvTeleChart" width="800" height="160" style="width:100%; height:160px; background:#0f1115; border:1px solid rgba(255,255,255,0.08);"></canvas>
-              <small class="text-secondary">Click a data row to preview. For examples, a synthetic preview is shown.</small>
-            </div>
-          </div>
+        <div class="mlo-pane-content" style="padding:0;">
+          <table class="drv-list-table">
+            <thead>
+              <tr>
+                <th style="width:36px;">#</th>
+                <th>Name</th>
+                <th style="width:80px;">Class</th>
+                <th style="width:54px;">No.</th>
+                <th style="width:90px;">License</th>
+                <th style="width:90px;">Medical</th>
+                <th style="width:90px;">Status</th>
+                <th style="width:32px;"></th>
+              </tr>
+            </thead>
+            <tbody id="drvTbody"></tbody>
+          </table>
         </div>
       </section>
 
       <div class="mlo-resizer" data-resize="right" title="Drag to resize"></div>
 
+      <!-- RIGHT PANE (INSPECTOR) -->
       <section class="mlo-pane mlo-pane-right mlo-inspector" aria-label="Driver inspector">
         <div class="mlo-pane-header">
-          <div class="d-flex justify-content-between align-items-center">
+          <div class="d-flex align-items-center justify-content-between">
             <div class="mlo-title">Inspector</div>
-            <span class="badge text-bg-secondary" id="drvInspectorBadge">No selection</span>
+            <span class="badge text-bg-secondary" id="drvInspectorBadge">—</span>
           </div>
         </div>
         <div class="mlo-pane-content">
-          <form id="drvForm" autocomplete="off">
-            <ul class="nav nav-tabs nav-dark mb-2" role="tablist">
-              <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="tab-drv-profile" data-bs-toggle="tab" data-bs-target="#pane-drv-profile" type="button" role="tab" aria-controls="pane-drv-profile" aria-selected="true">Profile</button>
-              </li>
-              <li class="nav-item" role="presentation">
-                <button class="nav-link" id="tab-drv-compliance" data-bs-toggle="tab" data-bs-target="#pane-drv-compliance" type="button" role="tab" aria-controls="pane-drv-compliance" aria-selected="false">Compliance</button>
-              </li>
-              <li class="nav-item" role="presentation">
-                <button class="nav-link" id="tab-drv-docs" data-bs-toggle="tab" data-bs-target="#pane-drv-docs" type="button" role="tab" aria-controls="pane-drv-docs" aria-selected="false">Documents</button>
-              </li>
-              <li class="nav-item" role="presentation">
-                <button class="nav-link" id="tab-drv-avail" data-bs-toggle="tab" data-bs-target="#pane-drv-avail" type="button" role="tab" aria-controls="pane-drv-avail" aria-selected="false">Availability</button>
-              </li>
-              <li class="nav-item" role="presentation">
-                <button class="nav-link" id="tab-drv-tele" data-bs-toggle="tab" data-bs-target="#pane-drv-tele" type="button" role="tab" aria-controls="pane-drv-tele" aria-selected="false">Telemetry</button>
-              </li>
-            </ul>
-            <div class="tab-content">
-              <div class="tab-pane fade show active" id="pane-drv-profile" role="tabpanel" aria-labelledby="tab-drv-profile">
+          <ul class="nav nav-tabs mb-2" id="drvTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+              <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#pane-drv-profile" type="button" role="tab">Profile</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" data-bs-toggle="tab" data-bs-target="#pane-drv-compliance" type="button" role="tab">Compliance</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" data-bs-toggle="tab" data-bs-target="#pane-drv-events" type="button" role="tab">Events</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" data-bs-toggle="tab" data-bs-target="#pane-drv-equipment" type="button" role="tab">Equipment</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" data-bs-toggle="tab" data-bs-target="#pane-drv-results" type="button" role="tab">Results</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" data-bs-toggle="tab" data-bs-target="#pane-drv-docs" type="button" role="tab">Docs</button>
+            </li>
+          </ul>
+
+          <div class="tab-content" id="drvTabContent">
+
+            <!-- PROFILE -->
+            <div class="tab-pane fade show active" id="pane-drv-profile" role="tabpanel">
+              <form id="drvForm" autocomplete="off">
                 <div class="row g-2">
+                  <div class="col-12 text-center mb-1">
+                    <img id="drvPhoto" src="" alt="" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:3px solid #dee2e6;display:none;">
+                  </div>
                   <div class="col-12">
                     <label class="form-label">Driver name</label>
-                    <input id="f_drv_name2" class="form-control form-control-sm" type="text">
+                    <input id="f_name" class="form-control form-control-sm" type="text">
                   </div>
                   <div class="col-6">
                     <label class="form-label">Class</label>
-                    <input id="f_drv_class2" class="form-control form-control-sm" type="text" placeholder="OK-N / OK-J / etc">
+                    <input id="f_class" class="form-control form-control-sm" type="text" placeholder="OKN / OKJ / Senior">
                   </div>
-                  <div class="col-6">
-                    <label class="form-label">Race number</label>
-                    <input id="f_drv_number2" class="form-control form-control-sm" type="text">
+                  <div class="col-3">
+                    <label class="form-label">Race #</label>
+                    <input id="f_number" class="form-control form-control-sm" type="text">
+                  </div>
+                  <div class="col-3">
+                    <label class="form-label">Status</label>
+                    <select id="f_status" class="form-select form-select-sm">
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                    </select>
                   </div>
                   <div class="col-6">
                     <label class="form-label">Email</label>
-                    <input id="f_drv_email2" class="form-control form-control-sm" type="email">
+                    <input id="f_email" class="form-control form-control-sm" type="email">
                   </div>
                   <div class="col-6">
                     <label class="form-label">Phone</label>
-                    <input id="f_drv_phone2" class="form-control form-control-sm" type="text">
+                    <input id="f_phone" class="form-control form-control-sm" type="tel">
                   </div>
                   <div class="col-6">
                     <label class="form-label">Guardian name</label>
-                    <input id="f_drv_guard_name2" class="form-control form-control-sm" type="text">
+                    <input id="f_gname" class="form-control form-control-sm" type="text">
                   </div>
                   <div class="col-6">
                     <label class="form-label">Guardian phone</label>
-                    <input id="f_drv_guard_phone2" class="form-control form-control-sm" type="text">
+                    <input id="f_gphone" class="form-control form-control-sm" type="tel">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Emergency contact</label>
+                    <input id="f_ec_name" class="form-control form-control-sm" type="text">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Emergency phone</label>
+                    <input id="f_ec_phone" class="form-control form-control-sm" type="tel">
+                  </div>
+                  <div class="col-4">
+                    <label class="form-label">Blood type</label>
+                    <select id="f_blood" class="form-select form-select-sm">
+                      <option value="">—</option>
+                      <option>A+</option><option>A-</option><option>B+</option><option>B-</option>
+                      <option>AB+</option><option>AB-</option><option>O+</option><option>O-</option>
+                    </select>
+                  </div>
+                  <div class="col-8">
+                    <label class="form-label">Medical notes</label>
+                    <input id="f_med_notes" class="form-control form-control-sm" type="text" placeholder="Allergies, conditions…">
                   </div>
                   <div class="col-12">
-                    <label class="form-label">Tags (comma)</label>
-                    <input id="f_drv_tags2" class="form-control form-control-sm" type="text" placeholder="A, OKN, Academy">
-                  </div>
-                  <div class="col-12">
-                    <label class="form-label">Driver Color (for assigned boxes)</label>
+                    <label class="form-label">Driver color</label>
                     <div class="d-flex gap-2 align-items-center">
-                      <input id="f_drv_color" type="color" class="form-control form-control-sm" value="#ea4335" style="width:60px;height:38px;cursor:pointer">
-                      <input id="f_drv_color_text" type="text" class="form-control form-control-sm" value="#ea4335" placeholder="#ea4335" maxlength="7" style="flex:1;font-family:monospace;text-transform:uppercase">
-                      <small class="text-muted">Boxes assigned to this driver will glow with this color</small>
+                      <input id="f_color" type="color" class="form-control form-control-sm" value="#ea4335" style="width:56px;height:34px;cursor:pointer;padding:2px;">
+                      <input id="f_color_text" type="text" class="form-control form-control-sm" value="#EA4335" placeholder="#ea4335" maxlength="7" style="font-family:monospace;text-transform:uppercase;max-width:100px;">
+                      <small class="text-secondary">Used for box assignments</small>
                     </div>
                   </div>
                   <div class="col-12">
-                    <label class="form-label">Notes</label>
-                    <textarea id="f_drv_notes2" class="form-control form-control-sm" rows="3"></textarea>
-                  </div>
-                </div>
-              </div>
-
-              <div class="tab-pane fade" id="pane-drv-compliance" role="tabpanel" aria-labelledby="tab-drv-compliance">
-                <div class="row g-2">
-                  <div class="col-6">
-                    <label class="form-label">License expiry</label>
-                    <input id="f_drv_license_exp" class="form-control form-control-sm" type="date">
-                  </div>
-                  <div class="col-6">
-                    <label class="form-label">Medical expiry</label>
-                    <input id="f_drv_med_exp" class="form-control form-control-sm" type="date">
-                  </div>
-                  <div class="col-6">
-                    <label class="form-label">Consent expiry (minor)</label>
-                    <input id="f_drv_consent_exp" class="form-control form-control-sm" type="date">
-                  </div>
-                  <div class="col-6 d-flex align-items-end">
-                    <div id="drvComplianceBadge">—</div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="tab-pane fade" id="pane-drv-docs" role="tabpanel" aria-labelledby="tab-drv-docs">
-                <div class="d-flex gap-1 mb-2">
-                  <button class="btn btn-sm btn-outline-light mlo-btn" id="btnDrvAttach" type="button">Attach from Drive</button>
-                  <button class="btn btn-sm btn-outline-light mlo-btn" id="btnDrvAddUrl" type="button">Add URL</button>
-                </div>
-                <table class="table table-dark table-hover mlo-table">
-                  <thead><tr><th>Title</th><th style="width:220px;">Link</th><th style="width:80px;">Delete</th></tr></thead>
-                  <tbody id="drvDocsTbody"></tbody>
-                </table>
-              </div>
-
-              <div class="tab-pane fade" id="pane-drv-avail" role="tabpanel" aria-labelledby="tab-drv-avail">
-                <div class="text-secondary mb-1" style="font-size:0.8rem;">Upcoming events availability</div>
-                <table class="table table-dark table-hover mlo-table">
-                  <thead><tr><th>Event</th><th style="width:140px;">Status</th></tr></thead>
-                  <tbody id="drvAvailTbody"></tbody>
-                </table>
-              </div>
-
-              <div class="tab-pane fade" id="pane-drv-tele" role="tabpanel" aria-labelledby="tab-drv-tele">
-                <div class="row g-2">
-                  <div class="col-6">
-                    <label class="form-label">Session name</label>
-                    <input id="f_tel_session" class="form-control form-control-sm" type="text" placeholder="e.g. Red Star Test – Session 1">
-                  </div>
-                  <div class="col-6">
-                    <label class="form-label">Tags (comma)</label>
-                    <input id="f_tel_tags" class="form-control form-control-sm" type="text" placeholder="e.g. Test, Wet, Baseline">
+                    <label class="form-label">Photo URL</label>
+                    <input id="f_photo_url" class="form-control form-control-sm" type="url" placeholder="https://…">
                   </div>
                   <div class="col-12">
-                    <label class="form-label">Upload CSV</label>
-                    <input id="f_tel_file" class="form-control form-control-sm" type="file" accept=".csv,text/csv">
+                    <label class="form-label">Notes</label>
+                    <textarea id="f_notes" class="form-control form-control-sm" rows="3"></textarea>
                   </div>
                 </div>
                 <div class="d-flex gap-1 mt-2">
-                  <button class="btn btn-sm btn-primary mlo-btn" id="btnTelUpload" type="button">Upload Telemetry</button>
-                  <button class="btn btn-sm btn-outline-light mlo-btn" id="btnTelExample" type="button">Load Example</button>
+                  <button class="btn btn-sm btn-primary" id="btnDrvSave" type="button">Save</button>
+                  <button class="btn btn-sm btn-outline-danger ms-auto" id="btnDrvDelete" type="button">Delete</button>
                 </div>
-                <div class="mlo-section-label mt-2">Uploads</div>
-                <table class="table table-dark table-hover mlo-table">
-                  <thead><tr><th>Session</th><th style="width:160px;">Uploaded</th><th style="width:200px;">Tags</th><th style="width:120px;">Points</th></tr></thead>
-                  <tbody id="drvTelUploads"></tbody>
+              </form>
+            </div>
+
+            <!-- COMPLIANCE -->
+            <div class="tab-pane fade" id="pane-drv-compliance" role="tabpanel">
+              <div id="complianceContent">
+                <p class="text-secondary" style="font-size:0.8rem;">Select a driver to view compliance status.</p>
+              </div>
+            </div>
+
+            <!-- EVENTS -->
+            <div class="tab-pane fade" id="pane-drv-events" role="tabpanel">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="text-secondary" style="font-size:0.78rem;">Events this driver is assigned to</span>
+                <a id="btnDrvEventsLink" href="events.html" class="btn btn-sm btn-outline-secondary" style="font-size:0.75rem;">Open Events →</a>
+              </div>
+              <div class="drv-table-wrap">
+                <table class="drv-sub-table">
+                  <thead><tr><th>Event</th><th style="width:100px;">Date</th><th style="width:80px;">Role</th></tr></thead>
+                  <tbody id="drvEventsTbody"></tbody>
                 </table>
               </div>
             </div>
-            <div class="d-flex gap-1 mt-2">
-              <button class="btn btn-sm btn-primary mlo-btn" id="btnDrvSave" type="button">Save</button>
+
+            <!-- EQUIPMENT -->
+            <div class="tab-pane fade" id="pane-drv-equipment" role="tabpanel">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="text-secondary" style="font-size:0.78rem;">Items assigned to this driver</span>
+                <a id="btnDrvAssetsLink" href="assets.html" class="btn btn-sm btn-outline-secondary" style="font-size:0.75rem;">Open Assets →</a>
+              </div>
+              <div class="drv-table-wrap">
+                <table class="drv-sub-table">
+                  <thead><tr><th>Item / Box</th><th style="width:80px;">Type</th><th style="width:80px;">Barcode</th></tr></thead>
+                  <tbody id="drvEquipTbody"></tbody>
+                </table>
+              </div>
             </div>
-          </form>
-        </div>
+
+            <!-- RESULTS -->
+            <div class="tab-pane fade" id="pane-drv-results" role="tabpanel">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="text-secondary" style="font-size:0.78rem;">Last 10 race results</span>
+                <a id="btnDrvResultsLink" href="results.html" class="btn btn-sm btn-outline-secondary" style="font-size:0.75rem;">All Results →</a>
+              </div>
+              <div class="drv-table-wrap">
+                <table class="drv-sub-table">
+                  <thead><tr><th>Event</th><th style="width:50px;">Grid</th><th style="width:50px;">Finish</th><th style="width:60px;">Pts</th><th style="width:46px;">DNF</th></tr></thead>
+                  <tbody id="drvResultsTbody"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- DOCS -->
+            <div class="tab-pane fade" id="pane-drv-docs" role="tabpanel">
+              <div class="d-flex gap-1 mb-2">
+                <button class="btn btn-sm btn-outline-secondary" id="btnDrvAddUrl" type="button">+ Add URL</button>
+              </div>
+              <div class="drv-table-wrap">
+                <table class="drv-sub-table">
+                  <thead><tr><th>Title</th><th style="width:60px;">Link</th><th style="width:50px;"></th></tr></thead>
+                  <tbody id="drvDocsTbody"></tbody>
+                </table>
+              </div>
+            </div>
+
+          </div><!-- tab-content -->
+        </div><!-- pane-content -->
       </section>
-    </div>
-  </div>
+    </div><!-- mlo-shell -->
+  </div><!-- rts-main -->
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="core.js?v=20260407-1700"></script>
   <script src="topnav.js?v=20260411-2"></script>
   <script>
   (function(){
+    'use strict';
     RTS.setActiveNav();
-    const LS_PANES = 'rts.drivers.panes.v1';
-    let settings = RTS.getSettings();
-    const events = RTS.safeLoadJSON('rts.events.v4', []) || [];
-    let drivers = []; // Load from database instead of settings
+    const LS_PANES = 'rts.drivers.panes.v2';
 
-    function escapeHtml(str){
-      return String(str||'')
-        .replace(/&/g,'&amp;')
-        .replace(/</g,'&lt;')
-        .replace(/>/g,'&gt;')
-        .replace(/\"/g,'&quot;')
-        .replace(/'/g,'&#39;');
-    }
+    let drivers = [];
+    let ui = { filter:'all', classFilter:'', search:'', statusFilter:'', selectedId:null };
 
     const el = {
       shell: document.getElementById('drvShell'),
-      count: document.getElementById('drvCountBadge'),
-      list: document.getElementById('drvList'),
-      tbody: document.getElementById('drvTbody'),
+      countBadge: document.getElementById('drvCountBadge'),
+      smartList: document.getElementById('drvSmartList'),
+      classList: document.getElementById('drvClassList'),
       search: document.getElementById('drvSearch'),
-      ibadge: document.getElementById('drvInspectorBadge'),
-      docsBody: document.getElementById('drvDocsTbody'),
-      availBody: document.getElementById('drvAvailTbody'),
-      complianceBadge: document.getElementById('drvComplianceBadge'),
-      btnSave: document.getElementById('btnDrvSave'),
-      btnAddDriver: document.getElementById('btnAddDriver'),
-      btnAttach: document.getElementById('btnDrvAttach'),
-      btnAddUrl: document.getElementById('btnDrvAddUrl'),
-      midTeleBody: document.getElementById('drvMidTeleBody'),
-      telUploads: document.getElementById('drvTelUploads'),
-      btnTelUpload: document.getElementById('btnTelUpload'),
-      btnTelExample: document.getElementById('btnTelExample'),
-      telFile: document.getElementById('f_tel_file'),
-      telSession: document.getElementById('f_tel_session'),
-      telTags: document.getElementById('f_tel_tags'),
+      statusFilter: document.getElementById('drvStatusFilter'),
+      tbody: document.getElementById('drvTbody'),
+      inspBadge: document.getElementById('drvInspectorBadge'),
+      complianceContent: document.getElementById('complianceContent'),
+      eventsTbody: document.getElementById('drvEventsTbody'),
+      equipTbody: document.getElementById('drvEquipTbody'),
+      resultsTbody: document.getElementById('drvResultsTbody'),
+      docsTbody: document.getElementById('drvDocsTbody'),
+      photo: document.getElementById('drvPhoto'),
       f: {
-        name: document.getElementById('f_drv_name2'),
-        class: document.getElementById('f_drv_class2'),
-        number: document.getElementById('f_drv_number2'),
-        email: document.getElementById('f_drv_email2'),
-        phone: document.getElementById('f_drv_phone2'),
-        gname: document.getElementById('f_drv_guard_name2'),
-        gphone: document.getElementById('f_drv_guard_phone2'),
-        tags: document.getElementById('f_drv_tags2'),
-        notes: document.getElementById('f_drv_notes2'),
-        licExp: document.getElementById('f_drv_license_exp'),
-        medExp: document.getElementById('f_drv_med_exp'),
-        consentExp: document.getElementById('f_drv_consent_exp'),
-        color: document.getElementById('f_drv_color'),
-        colorText: document.getElementById('f_drv_color_text')
+        name: document.getElementById('f_name'),
+        class: document.getElementById('f_class'),
+        number: document.getElementById('f_number'),
+        status: document.getElementById('f_status'),
+        email: document.getElementById('f_email'),
+        phone: document.getElementById('f_phone'),
+        gname: document.getElementById('f_gname'),
+        gphone: document.getElementById('f_gphone'),
+        ecName: document.getElementById('f_ec_name'),
+        ecPhone: document.getElementById('f_ec_phone'),
+        blood: document.getElementById('f_blood'),
+        medNotes: document.getElementById('f_med_notes'),
+        color: document.getElementById('f_color'),
+        colorText: document.getElementById('f_color_text'),
+        photoUrl: document.getElementById('f_photo_url'),
+        notes: document.getElementById('f_notes')
       }
     };
 
     RTS.initTriPaneResizers(el.shell, LS_PANES);
 
-    let ui = { search:'', selectedId: null };
+    // ─── HELPERS ────────────────────────────────────────────────
+    function escHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-    // Load drivers from database
-    async function loadDrivers() {
+    function expiryBadge(dateStr){
+      if (!dateStr) return '<span class="badge-exp badge-missing">Missing</span>';
+      const t = new Date(dateStr).getTime();
+      if (isNaN(t)) return '<span class="badge-exp badge-missing">Invalid</span>';
+      const diff = t - Date.now();
+      if (diff < 0) return '<span class="badge-exp badge-expired">Expired</span>';
+      if (diff < 30*86400000) return `<span class="badge-exp badge-warn">Exp ${fmtDate(dateStr)}</span>`;
+      return `<span class="badge-exp badge-ok">${fmtDate(dateStr)}</span>`;
+    }
+
+    function fmtDate(s){ if(!s) return '—'; const d=new Date(s); return isNaN(d)?s:d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'}); }
+
+    function complianceScore(d){
+      const dates = [d.license_expiry, d.medical_expiry, d.consent_expiry, d.helmet_cert_expiry].filter(Boolean);
+      let expired=0, expiring=0;
+      dates.forEach(s=>{ const t=new Date(s).getTime(); if(isNaN(t)) return; if(t<Date.now()) expired++; else if((t-Date.now())<30*86400000) expiring++; });
+      return { hasIssue: expired>0, expiring: expiring>0 };
+    }
+
+    function driverMatchesFilter(d){
+      if (ui.filter==='active') return (d.status||'active')==='active';
+      if (ui.filter==='issues') return complianceScore(d).hasIssue;
+      if (ui.filter==='expiring') return !complianceScore(d).hasIssue && complianceScore(d).expiring;
+      if (ui.filter==='no-events') return !d._eventCount;
+      return true;
+    }
+
+    function driverMatchesSearch(d){
+      if (!ui.search) return true;
+      const q = ui.search.toLowerCase();
+      return (`${d.name||''} ${d.racing_class||''} ${d.race_number||''} ${d.contact_email||''}`).toLowerCase().includes(q);
+    }
+
+    // ─── LOAD ────────────────────────────────────────────────────
+    async function loadDrivers(){
       try {
         const resp = await RTS_API.getCollectionItems('drivers');
-        if (resp && resp.items) {
-          drivers = resp.items;
-          console.log(`✅ Loaded ${drivers.length} drivers from database`);
-        }
-      } catch (error) {
-        console.error('❌ Error loading drivers:', error);
-        if (RTS.showToast) RTS.showToast('Failed to load drivers', 'error');
-        drivers = [];
-      }
+        drivers = (resp && resp.items) ? resp.items : [];
+      } catch(e){ console.error('Load drivers:', e); drivers = []; }
     }
 
-    function buildDriverList(){
-      const filtered = drivers.filter(d=>{
-        if (ui.search){
-          const q = ui.search.toLowerCase();
-          return (`${d.name||''} ${d.class||''} ${d.race_number||''}`).toLowerCase().includes(q);
-        }
+    // ─── STATS BAR ──────────────────────────────────────────────
+    function renderStats(){
+      document.getElementById('statDrvTotal').textContent = drivers.length;
+      document.getElementById('statDrvActive').textContent = drivers.filter(d=>(d.status||'active')==='active').length;
+      document.getElementById('statDrvIssues').textContent = drivers.filter(d=>complianceScore(d).hasIssue).length;
+      document.getElementById('statDrvExpiring').textContent = drivers.filter(d=>!complianceScore(d).hasIssue && complianceScore(d).expiring).length;
+    }
+
+    // ─── LEFT PANE ───────────────────────────────────────────────
+    function renderLeftPane(){
+      el.smartList.querySelectorAll('li').forEach(li=>li.classList.toggle('active', li.dataset.filter===ui.filter));
+
+      const classes = [...new Set(drivers.map(d=>d.racing_class||'').filter(Boolean))].sort();
+      el.classList.innerHTML = '';
+      const allLi = document.createElement('li');
+      allLi.textContent = 'All classes';
+      allLi.classList.toggle('active', !ui.classFilter);
+      allLi.addEventListener('click', ()=>{ ui.classFilter=''; render(); });
+      el.classList.appendChild(allLi);
+      classes.forEach(c=>{
+        const li = document.createElement('li');
+        li.textContent = c;
+        li.classList.toggle('active', ui.classFilter===c);
+        li.addEventListener('click', ()=>{ ui.classFilter=c; render(); });
+        el.classList.appendChild(li);
+      });
+    }
+
+    // ─── MIDDLE TABLE ────────────────────────────────────────────
+    function getFiltered(){
+      return drivers.filter(d=>{
+        if (ui.statusFilter && (d.status||'active')!==ui.statusFilter) return false;
+        if (ui.classFilter && (d.racing_class||'')!==ui.classFilter) return false;
+        if (!driverMatchesFilter(d)) return false;
+        if (!driverMatchesSearch(d)) return false;
         return true;
       });
-      el.list.innerHTML = '';
-      filtered.forEach(d=>{
-        const li = document.createElement('li');
-        li.textContent = d.name || d.id;
-        li.dataset.id = d.id;
-        if (ui.selectedId===d.id) li.classList.add('active');
-        li.addEventListener('click', ()=>{ ui.selectedId = d.id; render(); });
-        el.list.appendChild(li);
-      });
-      el.count.textContent = filtered.length;
-      if (!ui.selectedId && filtered[0]) ui.selectedId = filtered[0].id;
     }
 
-    async function render(){
-      await loadDrivers();
-      buildDriverList();
-      renderDocs();
-      hydrateInspector();
-      renderTelemetryUploads();
-      renderMidTelemetryList();
-    }
-
-    async function addNewDriver() {
-      const name = prompt('Enter driver name:');
-      if (!name || !name.trim()) return;
-      
-      try {
-        const newDriver = {
-          name: name.trim(),
-          racing_class: '',
-          race_number: '',
-          contact_email: '',
-          contact_phone: '',
-          guardian_name: '',
-          guardian_phone: '',
-          guardian_email: '',
-          license_number: '',
-          license_expiry: null,
-          medical_expiry: null,
-          consent_expiry: null,
-          team: '',
-          status: 'active',
-          nationality: '',
-          date_of_birth: null,
-          emergency_contact: '',
-          tags: [],
-          notes: '',
-          availability: {},
-          attachments: [],
-          color: '#ea4335'
-        };
-        
-        const resp = await RTS_API.createCollectionItem('drivers', newDriver);
-        if (resp && resp.success) {
-          if (RTS.showToast) RTS.showToast(`✅ Driver "${name}" added`, 'success');
-          ui.selectedId = resp.item?.id;
-          await render();
-        } else {
-          throw new Error(resp.error || 'Failed to create driver');
-        }
-      } catch (error) {
-        console.error('❌ Error adding driver:', error);
-        if (RTS.showToast) RTS.showToast(`Failed to add driver: ${error.message}`, 'error');
-      }
-    }
-
-    function renderDocs(){
-      const cur = drivers.find(d=>d.id===ui.selectedId);
-      const driverId = cur ? cur.id : null;
-      const docs = [];
-      if (driverId){
-        docs.push({ title:'Driver passport copy', source:'Profile', date:'—', url:'' });
-        docs.push({ title:'Medical clearance', source:'Profile', date:'—', url:'' });
-        // Build a color map for event types so we can style event rows like the Events page
-        const typeColorMap = Object.fromEntries((settings.eventTypes||[]).map(t=>[t.code, t.color]));
-        events.forEach(ev=>{
-          if (Array.isArray(ev.drivers) && ev.drivers.includes(driverId)){
-            (ev.documents||[]).forEach(doc=>{
-              docs.push({
-                title: doc.name || 'Document',
-                source: ev.title || 'Event',
-                date: ev.start || '',
-                url: doc.url || '',
-                // carry event metadata for styling
-                _eventId: ev.id,
-                _eventType: ev.type,
-                _eventColor: typeColorMap[ev.type] || '#e32636'
-              });
-            });
-            docs.push({ title: 'Event: ' + (ev.title||ev.id), source: 'Event', date: ev.start||'', url:'', _eventId: ev.id, _eventType: ev.type, _eventColor: typeColorMap[ev.type] || '#e32636' });
-          }
-        });
-      }
-      const filtered = docs.filter(d=>{
-        if (!ui.search) return true;
-        const q = ui.search.toLowerCase();
-        return (`${d.title} ${d.source} ${d.date}`).toLowerCase().includes(q);
-      });
+    function renderTable(){
+      const filtered = getFiltered();
+      el.countBadge.textContent = filtered.length;
       el.tbody.innerHTML = '';
-      let idx=0;
-      filtered.forEach(d=>{
-        idx++;
+      filtered.forEach((d, i)=>{
+        const color = d.color||'#ea4335';
+        const licBadge = expiryBadge(d.license_expiry);
+        const medBadge = expiryBadge(d.medical_expiry);
+        const statusBadge = (d.status||'active')==='active'
+          ? '<span class="badge text-bg-success" style="font-size:0.65rem;">Active</span>'
+          : '<span class="badge text-bg-secondary" style="font-size:0.65rem;">Inactive</span>';
         const tr = document.createElement('tr');
+        if (d.id===ui.selectedId) tr.classList.add('drv-row-selected');
         tr.innerHTML = `
-          <td>${idx}</td>
-          <td>${escapeHtml(d.title)}</td>
-          <td>${escapeHtml(d.source)}</td>
-          <td>${escapeHtml(d.date)}</td>
+          <td style="color:#9aa5b4;">${i+1}</td>
+          <td><div class="d-flex align-items-center gap-2">
+            <span class="drv-color-dot" style="background:${escHtml(color)};"></span>
+            <span>${escHtml(d.name||'—')}</span>
+          </div></td>
+          <td>${escHtml(d.racing_class||'—')}</td>
+          <td style="font-weight:700;">${escHtml(d.race_number||'—')}</td>
+          <td>${licBadge}</td>
+          <td>${medBadge}</td>
+          <td>${statusBadge}</td>
+          <td><button class="drv-row-del" data-id="${escHtml(d.id)}" title="Delete driver">✕</button></td>
         `;
-        // If this row comes from an Event, color it the same as on the Events page
-        if (d._eventColor) {
-          const bg = d._eventColor || '#e32636';
-          // compute readable text color (similar logic to Events page)
-          const hex = String(bg||'').replace('#','');
-          let textCol = '#000';
-          if (hex.length===6) {
-            const r = parseInt(hex.slice(0,2),16);
-            const g = parseInt(hex.slice(2,4),16);
-            const b = parseInt(hex.slice(4,6),16);
-            const lum = (0.299*r + 0.587*g + 0.114*b)/255;
-            textCol = lum > 0.6 ? '#000' : '#fff';
-          }
-          tr.style.setProperty('background', bg, 'important');
-          tr.style.setProperty('color', textCol, 'important');
-          tr.querySelectorAll('td').forEach(td=>{
-            td.style.setProperty('background', bg, 'important');
-            td.style.setProperty('color', textCol, 'important');
-          });
-        }
-        tr.addEventListener('click', ()=>{ if (d.url) window.open(d.url, '_blank', 'noopener'); });
+        tr.addEventListener('click', e=>{ if(e.target.classList.contains('drv-row-del')) return; ui.selectedId=d.id; render(); });
+        tr.querySelector('.drv-row-del').addEventListener('click', ()=>deleteDriver(d.id, d.name));
         el.tbody.appendChild(tr);
       });
+      if (!ui.selectedId && filtered[0]){ ui.selectedId=filtered[0].id; hydrateInspector(); }
     }
 
-    function isExpired(dateStr){
-      if (!dateStr) return false;
-      const d = new Date(dateStr);
-      return isNaN(d.getTime()) ? false : (d.getTime() < Date.now());
-    }
-
-    function complianceSummary(drv){
-      const dates = [drv.license_expiry, drv.medical_expiry, drv.consent_expiry].filter(Boolean);
-      if (dates.length===0) return '—';
-      const expired = dates.some(isExpired);
-      if (expired) return '<span class="badge text-bg-danger">EXPIRED</span>';
-      // warn if any within 30 days
-      const soon = dates.some(ds=>{ const t=new Date(ds).getTime(); return !isNaN(t) && (t - Date.now()) < 30*86400000; });
-      if (soon) return '<span class="badge text-bg-warning">WARN</span>';
-      return '<span class="badge text-bg-success">OK</span>';
-    }
-
+    // ─── INSPECTOR ───────────────────────────────────────────────
     function hydrateInspector(){
-      const cur = drivers.find(d=>d.id===ui.selectedId) || null;
-      el.ibadge.textContent = cur ? (cur.name||cur.id||'—') : 'No selection';
-      ['name','class','number','email','phone','gname','gphone','tags','notes'].forEach(k=>{
-        if (el.f[k]) el.f[k].value = '';
-      });
-      ['licExp','medExp','consentExp'].forEach(k=>{ if(el.f[k]) el.f[k].value=''; });
-      el.docsBody.innerHTML = '';
-      el.availBody.innerHTML = '';
-      el.complianceBadge.innerHTML = '—';
-      if (!cur) return;
-      el.f.name.value = cur.name||'';
-      el.f.class.value = cur.racing_class||cur.class||'';
-      el.f.number.value = cur.race_number||'';
-      el.f.email.value = cur.contact_email||cur.email||'';
-      el.f.phone.value = cur.contact_phone||cur.phone||'';
-      el.f.gname.value = cur.guardian_name||'';
-      el.f.gphone.value = cur.guardian_phone||'';
-      el.f.tags.value = (cur.tags||[]).join(', ');
-      el.f.notes.value = cur.notes||'';
-      el.f.licExp.value = cur.license_expiry||'';
-      el.f.medExp.value = cur.medical_expiry||'';
-      el.f.consentExp.value = cur.consent_expiry||'';
-      // Set color fields
-      const driverColor = cur.color || '#ea4335';
-      if (el.f.color) el.f.color.value = driverColor;
-      if (el.f.colorText) el.f.colorText.value = driverColor.toUpperCase();
-      el.complianceBadge.innerHTML = complianceSummary(cur);
-      // docs
-      (cur.attachments||[]).forEach((doc,i)=>{
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${(doc.name||'Document')}</td><td><a href="${doc.url||'#'}" target="_blank" rel="noopener">${doc.url? 'Open' : '—'}</a></td><td><button class="btn btn-sm btn-outline-danger mlo-btn">Delete</button></td>`;
-        tr.querySelector('button').addEventListener('click', ()=>{ deleteAttachment(i); });
-        el.docsBody.appendChild(tr);
-      });
-      // availability (upcoming events)
-      const upcoming = events.filter(ev=>{
-        const t = new Date(ev.start||'').getTime();
-        return !isNaN(t) && t >= Date.now();
-      }).slice(0, 20);
-      const avail = cur.availability || {};
-      upcoming.forEach(ev=>{
-        const tr = document.createElement('tr');
-        const sel = document.createElement('select');
-        sel.className = 'form-select form-select-sm';
-        sel.innerHTML = ['Available','Tentative','Not Available'].map(s=>`<option>${s}</option>`).join('');
-        sel.value = avail[ev.id] || 'Tentative';
-        sel.addEventListener('change', ()=>{ setAvailability(ev.id, sel.value); });
-        tr.innerHTML = `<td>${ev.title||ev.id}</td>`;
-        const tdSel = document.createElement('td'); tdSel.appendChild(sel);
-        tr.appendChild(tdSel);
-        el.availBody.appendChild(tr);
-      });
-      // telemetry uploads list hydrated per driver
-      renderTelemetryUploads();
-      renderMidTelemetryList();
+      const d = drivers.find(x=>x.id===ui.selectedId);
+      el.inspBadge.textContent = d?(d.name||d.id||'—'):'—';
+      if (!d){
+        Object.values(el.f).forEach(f=>{ if(f) f.value=''; });
+        el.complianceContent.innerHTML='<p class="text-secondary" style="font-size:0.8rem;">Select a driver.</p>';
+        return;
+      }
+      el.f.name.value = d.name||'';
+      el.f.class.value = d.racing_class||d.class||'';
+      el.f.number.value = d.race_number||'';
+      el.f.status.value = d.status||'active';
+      el.f.email.value = d.contact_email||d.email||'';
+      el.f.phone.value = d.contact_phone||d.phone||'';
+      el.f.gname.value = d.guardian_name||'';
+      el.f.gphone.value = d.guardian_phone||'';
+      el.f.ecName.value = d.emergency_contact_name||d.emergency_contact||'';
+      el.f.ecPhone.value = d.emergency_contact_phone||'';
+      el.f.blood.value = d.blood_type||'';
+      el.f.medNotes.value = d.medical_notes||'';
+      el.f.color.value = d.color||'#ea4335';
+      el.f.colorText.value = (d.color||'#ea4335').toUpperCase();
+      el.f.photoUrl.value = d.photo_url||'';
+      el.f.notes.value = d.notes||'';
+      if (d.photo_url){ el.photo.src=d.photo_url; el.photo.style.display='block'; } else el.photo.style.display='none';
+      renderCompliance(d);
+      renderDriverEvents(d);
+      renderDriverEquipment(d);
+      renderDriverResults(d);
+      renderDriverDocs(d);
     }
 
-    function sampleUploads(cur){
-      // Create example rows for visual formatting if no real uploads exist
-      const baseName = cur && cur.name ? cur.name : 'Driver';
-      const now = Date.now();
-      return [
-        { sessionName: `${baseName} – Fast Lap`, uploadedTs: now - 3600_000, tags:['Example','FastLap','Dry'], pointsCount: 950 },
-        { sessionName: `${baseName} – Baseline Session`, uploadedTs: now - 7200_000, tags:['Example','Baseline'], pointsCount: 4200 },
-        { sessionName: `${baseName} – Turn 1 Compare`, uploadedTs: now - 10800_000, tags:['Example','Corner1'], pointsCount: 1200 }
-      ];
-    }
+    // ─── COMPLIANCE TAB ─────────────────────────────────────────
+    function renderCompliance(d){
+      const cs = complianceScore(d);
+      const statusHtml = cs.hasIssue
+        ? '<div class="alert alert-danger p-2 mb-3" style="font-size:0.8rem;">⚠️ One or more documents expired or missing</div>'
+        : cs.expiring
+          ? '<div class="alert alert-warning p-2 mb-3" style="font-size:0.8rem;">🕐 Documents expiring within 30 days</div>'
+          : '<div class="alert alert-success p-2 mb-3" style="font-size:0.8rem;">✅ All compliance documents valid</div>';
 
-    function renderMidTelemetryList(){
-      el.midTeleBody.innerHTML = '';
-      const cur = drivers.find(d=>d.id===ui.selectedId) || null;
-      if (!cur) return;
-      RTS.apiGetTelemetryUploads(cur.id).then(list => {
-        let rows = (list||[]).slice().sort((a,b)=> (b.uploadedTs||0) - (a.uploadedTs||0));
-        if (!rows.length) rows = sampleUploads(cur);
-        rows.forEach(u => {
-          const tr = document.createElement('tr');
-          const when = u.uploadedTs ? new Date(u.uploadedTs).toLocaleString() : '—';
-          const tags = (u.tags||[]).join(', ');
-          tr.innerHTML = `<td>${u.sessionName||u.sessionId||'—'}</td><td>${when}</td><td class="text-secondary">${tags}</td><td>${u.pointsCount||0}</td>`;
-          tr.addEventListener('click', ()=>{ previewTelemetry(cur, u); });
-          el.midTeleBody.appendChild(tr);
+      function dateRow(label, sub, dateStr){
+        return `<div class="compliance-row">
+          <div><div class="compliance-label">${label}</div><div class="compliance-sub">${sub}</div></div>
+          <div>${expiryBadge(dateStr)}</div>
+        </div>`;
+      }
+
+      function checkRow(label, sub, field){
+        const checked = d[field];
+        const dateStr = d[field+'_date'] ? fmtDate(d[field+'_date']) : '';
+        return `<div class="compliance-row">
+          <div><div class="compliance-label">${label}</div><div class="compliance-sub">${sub}</div></div>
+          <div class="d-flex align-items-center gap-1">
+            <input type="checkbox" class="form-check-input comp-chk" data-field="${field}" ${checked?'checked':''} style="cursor:pointer;">
+            <span style="font-size:0.7rem;color:#9aa5b4;">${dateStr}</span>
+          </div>
+        </div>`;
+      }
+
+      const phoneHint = d.contact_phone||d.guardian_phone||'';
+      const waBtn = phoneHint
+        ? `<button class="btn-wa d-block w-100 mt-3" id="btnWaReminder" data-phone="${escHtml(phoneHint)}">📱 Send WhatsApp Reminder</button>` : '';
+
+      el.complianceContent.innerHTML = `
+        ${statusHtml}
+        <div style="border:1px solid #dee2e6;border-radius:6px;padding:0 10px;">
+          ${dateRow('CIK / FIA Licence',`Lic # ${escHtml(d.license_number||'—')}`,d.license_expiry)}
+          ${dateRow('Medical Certificate','Required annually',d.medical_expiry)}
+          ${dateRow('Guardian Consent (minor)','Parent / legal guardian',d.consent_expiry)}
+          ${dateRow('Helmet Homologation',`Cert # ${escHtml(d.helmet_cert_number||'—')}`,d.helmet_cert_expiry)}
+          ${checkRow('Contract signed','Signed team contract','contract_signed')}
+          ${checkRow('GDPR consent','Data processing consent','gdpr_consent')}
+          ${checkRow('Photo release','Photography / media release','photo_release')}
+          ${checkRow('FIA entry confirmed','Official entry submitted','fia_entry_confirmed')}
+        </div>
+        ${waBtn}
+      `;
+
+      el.complianceContent.querySelectorAll('.comp-chk').forEach(cb=>{
+        cb.addEventListener('change', async ()=>{
+          const field = cb.dataset.field;
+          const updates = { [field]: cb.checked, [field+'_date']: cb.checked ? new Date().toISOString().slice(0,10) : null };
+          try {
+            await RTS_API.updateCollectionItem('drivers', d.id, updates);
+            Object.assign(d, updates);
+            if (RTS.showToast) RTS.showToast('Saved','success');
+          } catch(e){ if(RTS.showToast) RTS.showToast('Save failed','error'); }
         });
       });
+
+      const waBtn2 = document.getElementById('btnWaReminder');
+      if (waBtn2) waBtn2.addEventListener('click', ()=>sendWhatsAppReminder(d));
     }
 
-    function drawSimpleChart(points){
-      const canvas = document.getElementById('drvTeleChart');
-      if (!canvas) return;
-      const ctx = canvas.getContext('2d');
-      // clear
-      ctx.fillStyle = '#0f1115';
-      ctx.fillRect(0,0,canvas.width,canvas.height);
-      // axes
-      const padL = 40, padR = 10, padT = 10, padB = 20;
-      const W = canvas.width - padL - padR;
-      const H = canvas.height - padT - padB;
-      ctx.strokeStyle = 'rgba(255,255,255,0.18)';
-      ctx.beginPath();
-      ctx.moveTo(padL, padT);
-      ctx.lineTo(padL, padT+H);
-      ctx.lineTo(padL+W, padT+H);
-      ctx.stroke();
-
-      if (!points || points.length===0) return;
-      const times = points.map(p=>Number(p.tsMs||0));
-      const tMin = Math.min.apply(null, times);
-      const tMax = Math.max.apply(null, times);
-      const rpmVals = points.map(p=>Number(p.rpm||0));
-      const thrVals = points.map(p=>Number(p.throttle||0));
-      const rpmMax = Math.max(1000, Math.max.apply(null, rpmVals));
-      // Normalize throttle 0-1 to percentage
-      const thrMax = 1;
-
-      function xOf(t){ return padL + (W * ((t - tMin) / Math.max(1, (tMax - tMin)))); }
-      function yOf(val, max){ return padT + H - (H * (val / Math.max(1, max))); }
-
-      // RPM line (purple accent)
-      ctx.strokeStyle = '#a64dff';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      points.forEach((p,i)=>{
-        const x = xOf(Number(p.tsMs||0));
-        const y = yOf(Number(p.rpm||0), rpmMax);
-        if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
-      });
-      ctx.stroke();
-
-      // Throttle line (cyan)
-      ctx.strokeStyle = '#4dd1ff';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      points.forEach((p,i)=>{
-        const x = xOf(Number(p.tsMs||0));
-        const y = yOf(Number(p.throttle||0), thrMax); // throttle assumed 0..1
-        if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
-      });
-      ctx.stroke();
-
-      // Legend
-      ctx.fillStyle = '#c7cbd2';
-      ctx.font = '10px Montserrat, sans-serif';
-      ctx.fillText('RPM', padL+6, padT+12);
-      ctx.fillStyle = '#a64dff'; ctx.fillRect(padL-2, padT+7, 4, 4);
-      ctx.fillStyle = '#c7cbd2'; ctx.fillText('Throttle', padL+50, padT+12);
-      ctx.fillStyle = '#4dd1ff'; ctx.fillRect(padL+42, padT+7, 4, 4);
+    function sendWhatsAppReminder(d){
+      const phone = (d.contact_phone||d.guardian_phone||'').replace(/\D/g,'');
+      if (!phone){ alert('No phone number on file.'); return; }
+      const lines = [];
+      const SOON = 30*86400000;
+      function checkDoc(label, exp){ if(!exp) return; const t=new Date(exp).getTime(); if(t<Date.now()) lines.push(`• ${label} (EXPIRED)`); else if((t-Date.now())<SOON) lines.push(`• ${label} (expires ${fmtDate(exp)})`); }
+      checkDoc('CIK Licence', d.license_expiry);
+      checkDoc('Medical Certificate', d.medical_expiry);
+      checkDoc('Guardian Consent', d.consent_expiry);
+      checkDoc('Helmet Cert', d.helmet_cert_expiry);
+      if (!lines.length) lines.push('• Please check your compliance documents are up to date');
+      const msg = `Hi ${d.name||'driver'}, this is a reminder from your race team regarding the following documents:\n\n${lines.join('\n')}\n\nPlease ensure these are updated before your next event. Thank you!`;
+      window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
     }
 
-    async function previewTelemetry(driver, upload){
+    // ─── EVENTS TAB ──────────────────────────────────────────────
+    async function renderDriverEvents(d){
+      el.eventsTbody.innerHTML = '<tr><td colspan="3" class="text-secondary" style="font-size:0.78rem;">Loading…</td></tr>';
+      document.getElementById('btnDrvEventsLink').href = `events.html?driver=${d.id}`;
       try {
-        if (upload && upload.sessionId){
-          const pts = await RTS.apiGetTelemetryPoints({ driverId: driver.id, sessionId: upload.sessionId, limit: 5000 });
-          drawSimpleChart(pts);
-        } else {
-          // synthetic preview for sample rows
-          const pts = [];
-          for (let i=0;i<300;i++){
-            const ts = i*50;
-            const rpm = 9000 + Math.sin(i/20)*2500 + (i>120 && i<180 ? 1500 : 0);
-            const thr = Math.max(0, Math.min(1, (Math.sin(i/15)*0.5 + 0.5)));
-            pts.push({ tsMs: ts, rpm, throttle: thr });
-          }
-          drawSimpleChart(pts);
-        }
-      } catch (e){ /* ignore */ }
+        const resp = await apiFetch(`/api/collections/driver_events?driver_id=${d.id}`);
+        const rows = resp && resp.items ? resp.items : [];
+        if (!rows.length){ el.eventsTbody.innerHTML='<tr><td colspan="3" class="text-secondary" style="font-size:0.78rem;">No events assigned</td></tr>'; return; }
+        el.eventsTbody.innerHTML = rows.map(r=>`<tr>
+          <td><a href="events.html?id=${escHtml(r.event_id||'')}" style="color:#0099cc;text-decoration:none;">${escHtml(r.event_name||r.event_id||'—')}</a></td>
+          <td>${fmtDate(r.event_date||r.start_date||'')}</td>
+          <td>${escHtml(r.role||'Driver')}</td>
+        </tr>`).join('');
+      } catch(e){ el.eventsTbody.innerHTML='<tr><td colspan="3" class="text-secondary" style="font-size:0.78rem;">Could not load</td></tr>'; }
     }
 
-    function renderTelemetryUploads(){
-      el.telUploads.innerHTML = '';
-      const cur = drivers.find(d=>d.id===ui.selectedId) || null;
-      if (!cur) return;
-      RTS.apiGetTelemetryUploads(cur.id).then(list => {
-        const rows = (list||[]).slice().sort((a,b)=> (b.uploadedTs||0) - (a.uploadedTs||0));
-        rows.forEach(u => {
-          const tr = document.createElement('tr');
-          const when = u.uploadedTs ? new Date(u.uploadedTs).toLocaleString() : '—';
-          const tags = (u.tags||[]).join(', ');
-          tr.innerHTML = `<td>${u.sessionName||u.sessionId||'—'}</td><td>${when}</td><td class="text-secondary">${tags}</td><td>${u.pointsCount||0}</td>`;
-          tr.addEventListener('click', ()=>{ /* future: open compare view */ });
-          el.telUploads.appendChild(tr);
-        });
+    // ─── EQUIPMENT TAB ───────────────────────────────────────────
+    async function renderDriverEquipment(d){
+      el.equipTbody.innerHTML = '<tr><td colspan="3" class="text-secondary" style="font-size:0.78rem;">Loading…</td></tr>';
+      document.getElementById('btnDrvAssetsLink').href = `assets.html?driver=${d.id}`;
+      try {
+        const resp = await apiFetch(`/api/items?assigned_driver_id=${d.id}&limit=50`);
+        const rows = resp && resp.items ? resp.items : (Array.isArray(resp) ? resp : []);
+        if (!rows.length){ el.equipTbody.innerHTML='<tr><td colspan="3" class="text-secondary" style="font-size:0.78rem;">No items assigned</td></tr>'; return; }
+        el.equipTbody.innerHTML = rows.map(r=>`<tr>
+          <td><a href="assets.html?item=${escHtml(r.id||'')}" style="color:#0099cc;text-decoration:none;">${escHtml(r.name||'—')}</a></td>
+          <td>${escHtml(r.category||'—')}</td>
+          <td style="font-family:monospace;font-size:0.72rem;">${escHtml(r.barcode||'—')}</td>
+        </tr>`).join('');
+      } catch(e){ el.equipTbody.innerHTML='<tr><td colspan="3" class="text-secondary" style="font-size:0.78rem;">Could not load</td></tr>'; }
+    }
+
+    // ─── RESULTS TAB ─────────────────────────────────────────────
+    async function renderDriverResults(d){
+      el.resultsTbody.innerHTML = '<tr><td colspan="5" class="text-secondary" style="font-size:0.78rem;">Loading…</td></tr>';
+      document.getElementById('btnDrvResultsLink').href = `results.html?driver=${d.id}`;
+      try {
+        const resp = await apiFetch(`/api/race-results?driver_id=${d.id}&limit=10`);
+        const rows = resp && resp.results ? resp.results : (Array.isArray(resp) ? resp : []);
+        if (!rows.length){ el.resultsTbody.innerHTML='<tr><td colspan="5" class="text-secondary" style="font-size:0.78rem;">No results</td></tr>'; return; }
+        el.resultsTbody.innerHTML = rows.map(r=>{
+          const posColor = r.finish_position===1?'#d4a017':r.finish_position===2?'#888':r.finish_position===3?'#b87333':'#1a1d24';
+          const posWeight = r.finish_position<=3?'700':'400';
+          return `<tr>
+            <td><a href="results.html?event=${escHtml(r.event_id||'')}" style="color:#0099cc;text-decoration:none;font-size:0.75rem;">${escHtml(r.event_name||r.event_id||'—')}</a></td>
+            <td style="text-align:center;">${r.grid_position||'—'}</td>
+            <td style="text-align:center;font-weight:${posWeight};color:${posColor};">${r.finish_position||'—'}</td>
+            <td style="text-align:center;">${r.points||'0'}</td>
+            <td style="text-align:center;">${r.dnf?'<span class="badge text-bg-danger" style="font-size:0.6rem;">DNF</span>':'—'}</td>
+          </tr>`;
+        }).join('');
+      } catch(e){ el.resultsTbody.innerHTML='<tr><td colspan="5" class="text-secondary" style="font-size:0.78rem;">Could not load</td></tr>'; }
+    }
+
+    // ─── DOCS TAB ────────────────────────────────────────────────
+    function renderDriverDocs(d){
+      const attachments = d.attachments||[];
+      if (!attachments.length){ el.docsTbody.innerHTML='<tr><td colspan="3" class="text-secondary" style="font-size:0.78rem;">No documents</td></tr>'; return; }
+      el.docsTbody.innerHTML = attachments.map((a,i)=>`<tr>
+        <td>${escHtml(a.name||'Document')}</td>
+        <td><a href="${escHtml(a.url||'#')}" target="_blank" rel="noopener" style="font-size:0.75rem;color:#0099cc;">Open</a></td>
+        <td><button class="btn btn-sm btn-outline-danger drv-doc-del" data-idx="${i}" style="padding:1px 6px;font-size:0.7rem;">✕</button></td>
+      </tr>`).join('');
+      el.docsTbody.querySelectorAll('.drv-doc-del').forEach(btn=>{
+        btn.addEventListener('click', ()=>deleteDoc(d, parseInt(btn.dataset.idx)));
       });
     }
 
-    function parseCSV(text){
-      // Simple CSV parser for common telemetry columns
-      const lines = String(text||'').trim().split(/\r?\n/);
-      if (lines.length<=1) return [];
-      const header = lines[0].split(',').map(s=>s.trim().toLowerCase());
-      const idx = {
-        ts: header.indexOf('timestamp_ms')>-1 ? header.indexOf('timestamp_ms') : (header.indexOf('ts_ms')>-1?header.indexOf('ts_ms'):(header.indexOf('time_ms')>-1?header.indexOf('time_ms'):-1)),
-        speed: header.indexOf('speed'),
-        rpm: header.indexOf('rpm'),
-        throttle: header.indexOf('throttle'),
-        brake: header.indexOf('brake'),
-        gear: header.indexOf('gear')
-      };
-      const out = [];
-      for (let i=1;i<lines.length;i++){
-        const parts = lines[i].split(',');
-        const p = {
-          tsMs: idx.ts>-1 ? Number(parts[idx.ts]||0) : (i*10),
-          speed: idx.speed>-1 ? Number(parts[idx.speed]||0) : 0,
-          rpm: idx.rpm>-1 ? Number(parts[idx.rpm]||0) : 0,
-          throttle: idx.throttle>-1 ? Number(parts[idx.throttle]||0) : 0,
-          brake: idx.brake>-1 ? Number(parts[idx.brake]||0) : 0,
-          gear: idx.gear>-1 ? Number(parts[idx.gear]||0) : 0
-        };
-        out.push(p);
-      }
-      return out;
-    }
-
-    async function uploadTelemetry(){
-      const cur = drivers.find(d=>d.id===ui.selectedId) || null;
-      if (!cur) { alert('Select a driver first'); return; }
-      const file = el.telFile.files && el.telFile.files[0];
-      if (!file) { alert('Choose a CSV file'); return; }
-      const sessionName = el.telSession.value.trim() || file.name;
-      const tags = el.telTags.value.split(',').map(s=>s.trim()).filter(Boolean);
-      const text = await file.text();
-      const points = parseCSV(text);
-      const meta = { driverId: cur.id, sessionId: RTS.uid('sess'), sessionName, tags };
-      const r = await RTS.apiUploadTelemetry(meta, points);
-      if (r && r.ok) {
-        alert(`Uploaded ${points.length} points`);
-        renderTelemetryUploads();
-      } else if (r && r.queued) {
-        alert('No API. Upload queued locally.');
-        renderTelemetryUploads();
-      } else {
-        alert('Upload failed');
-      }
-    }
-
-    async function loadExampleTelemetry(){
-      // Fetch bundled example CSVs and upload for current driver
-      const cur = drivers.find(d=>d.id===ui.selectedId) || null;
-      if (!cur) { alert('Select a driver first'); return; }
-      const samples = [
-        { url: 'example-data/driverA_fastlap.csv', name: 'Fast Lap – Driver A', tags:['FastLap','Dry'] },
-        { url: 'example-data/driverB_session.csv', name: 'Session – Driver B', tags:['Baseline','Dry'] },
-        { url: 'example-data/turn1_compare.csv', name: 'Turn 1 Compare', tags:['Analysis','Corner1'] }
-      ];
-      for (const s of samples){
-        try {
-          const resp = await fetch(s.url);
-          if (!resp.ok) continue;
-          const text = await resp.text();
-          const points = parseCSV(text);
-          const meta = { driverId: cur.id, sessionId: RTS.uid('sess'), sessionName: s.name, tags: s.tags };
-          await RTS.apiUploadTelemetry(meta, points);
-        } catch(_e){ /* ignore single sample errors */ }
-      }
-      renderTelemetryUploads();
-      alert('Example telemetry loaded.');
-    }
-
-    async function setAvailability(eventId, status){
-      const cur = drivers.find(d=>d.id===ui.selectedId);
-      if (!cur) return;
-      const availability = cur.availability || {};
-      availability[eventId] = status;
-      try {
-        await RTS_API.updateCollectionItem('drivers', cur.id, { availability });
-        cur.availability = availability;
-      } catch (error) {
-        console.error('❌ Error updating availability:', error);
-      }
-    }
-
-    async function attachFromDrive(){
-      try{
-        const picked = await RTS.pickDriveFiles({ multiSelect: true, includeFolders: false });
-        if (!picked || picked.length===0) return;
-        const cur = drivers.find(d=>d.id===ui.selectedId);
-        if (!cur) return;
-        const attachments = cur.attachments || [];
-        picked.forEach(p=>{
-          attachments.push({ name: p.name || 'Drive file', url: p.url || p.webViewLink || '' });
-        });
-        await RTS_API.updateCollectionItem('drivers', cur.id, { attachments });
-        cur.attachments = attachments;
-        hydrateInspector();
-        renderDocs();
-      } catch(e){ alert('Drive attach error: ' + (e && e.message ? e.message : String(e))); }
-    }
-
-    async function addUrl(){
-      const name = prompt('Document title'); if (name===null) return;
-      const url = prompt('Link URL (https://…)'); if (url===null) return;
-      const cur = drivers.find(d=>d.id===ui.selectedId);
-      if (!cur) return;
-      const attachments = cur.attachments || [];
-      attachments.push({ name, url });
-      await RTS_API.updateCollectionItem('drivers', cur.id, { attachments });
-      cur.attachments = attachments;
-      hydrateInspector();
-      renderDocs();
-    }
-
-    async function deleteAttachment(i){
-      const cur = drivers.find(d=>d.id===ui.selectedId);
-      if (!cur) return;
-      const attachments = (cur.attachments||[]).filter((_,idx2)=>idx2!==i);
-      await RTS_API.updateCollectionItem('drivers', cur.id, { attachments });
-      cur.attachments = attachments;
-      hydrateInspector();
-      renderDocs();
-    }
-
+    // ─── SAVE / DELETE ───────────────────────────────────────────
     async function saveDriver(){
-      const cur = drivers.find(d=>d.id===ui.selectedId);
-      if (!cur) return;
-      
+      const d = drivers.find(x=>x.id===ui.selectedId);
+      if (!d) return;
       const updates = {
         name: el.f.name.value.trim(),
         racing_class: el.f.class.value.trim(),
         race_number: el.f.number.value.trim(),
+        status: el.f.status.value,
         contact_email: el.f.email.value.trim(),
         contact_phone: el.f.phone.value.trim(),
         guardian_name: el.f.gname.value.trim(),
         guardian_phone: el.f.gphone.value.trim(),
-        tags: el.f.tags.value.split(',').map(s=>s.trim()).filter(Boolean),
-        notes: el.f.notes.value.trim(),
-        license_expiry: el.f.licExp.value || null,
-        medical_expiry: el.f.medExp.value || null,
-        consent_expiry: el.f.consentExp.value || null,
-        color: el.f.color.value || '#ea4335'
+        emergency_contact_name: el.f.ecName.value.trim(),
+        emergency_contact_phone: el.f.ecPhone.value.trim(),
+        blood_type: el.f.blood.value,
+        medical_notes: el.f.medNotes.value.trim(),
+        color: el.f.color.value,
+        photo_url: el.f.photoUrl.value.trim(),
+        notes: el.f.notes.value.trim()
       };
-      
       try {
-        const resp = await RTS_API.updateCollectionItem('drivers', cur.id, updates);
-        if (resp && resp.success) {
-          if (RTS.showToast) RTS.showToast('✅ Driver saved', 'success');
-          Object.assign(cur, updates);
-          hydrateInspector();
-          buildDriverList();
-        } else {
-          throw new Error('Save failed');
-        }
-      } catch (error) {
-        console.error('❌ Error saving driver:', error);
-        if (RTS.showToast) RTS.showToast('Failed to save driver', 'error');
-      }
+        const resp = await RTS_API.updateCollectionItem('drivers', d.id, updates);
+        if (resp && resp.success){ Object.assign(d, updates); if(RTS.showToast) RTS.showToast('Driver saved','success'); renderTable(); renderStats(); }
+        else throw new Error(resp && resp.error ? resp.error : 'Save failed');
+      } catch(e){ if(RTS.showToast) RTS.showToast('Save failed: '+e.message,'error'); }
     }
 
+    async function deleteDriver(id, name){
+      if (!confirm(`Delete driver "${name}"? This cannot be undone.`)) return;
+      try {
+        await RTS_API.deleteCollectionItem('drivers', id);
+        drivers = drivers.filter(d=>d.id!==id);
+        if (ui.selectedId===id) ui.selectedId=null;
+        if (RTS.showToast) RTS.showToast('Driver deleted','success');
+        render();
+      } catch(e){ if(RTS.showToast) RTS.showToast('Delete failed','error'); }
+    }
+
+    async function addNewDriver(){
+      const name = prompt('Driver name:');
+      if (!name || !name.trim()) return;
+      try {
+        const resp = await RTS_API.createCollectionItem('drivers', { name:name.trim(), status:'active', color:'#ea4335' });
+        if (resp && resp.success && resp.item){ drivers.push(resp.item); ui.selectedId=resp.item.id; if(RTS.showToast) RTS.showToast(`Driver "${name}" added`,'success'); render(); }
+      } catch(e){ if(RTS.showToast) RTS.showToast('Add failed','error'); }
+    }
+
+    async function addUrl(){
+      const d = drivers.find(x=>x.id===ui.selectedId);
+      if (!d) return;
+      const name = prompt('Document title:'); if (!name) return;
+      const url = prompt('URL (https://…):'); if (!url) return;
+      const attachments = [...(d.attachments||[]), { name, url }];
+      try { await RTS_API.updateCollectionItem('drivers', d.id, { attachments }); d.attachments=attachments; renderDriverDocs(d); }
+      catch(e){ if(RTS.showToast) RTS.showToast('Failed','error'); }
+    }
+
+    async function deleteDoc(d, idx){
+      const attachments = (d.attachments||[]).filter((_,i)=>i!==idx);
+      try { await RTS_API.updateCollectionItem('drivers', d.id, { attachments }); d.attachments=attachments; renderDriverDocs(d); }
+      catch(e){ if(RTS.showToast) RTS.showToast('Failed','error'); }
+    }
+
+    // ─── MAIN RENDER ────────────────────────────────────────────
+    function render(){
+      renderStats();
+      renderLeftPane();
+      renderTable();
+      hydrateInspector();
+    }
+
+    // ─── BIND EVENTS ────────────────────────────────────────────
     function bind(){
-      el.search.addEventListener('input', ()=>{ ui.search = el.search.value; renderDocs(); });
-      if (el.btnSave) el.btnSave.addEventListener('click', saveDriver);
-      if (el.btnAddDriver) el.btnAddDriver.addEventListener('click', addNewDriver);
-      if (el.btnAttach) el.btnAttach.addEventListener('click', attachFromDrive);
-      if (el.btnAddUrl) el.btnAddUrl.addEventListener('click', addUrl);
-      if (el.btnTelUpload) el.btnTelUpload.addEventListener('click', uploadTelemetry);
-      if (el.btnTelExample) el.btnTelExample.addEventListener('click', loadExampleTelemetry);
-      
-      // Color picker sync
-      if (el.f.color && el.f.colorText) {
-        el.f.color.addEventListener('input', (e) => {
-          el.f.colorText.value = e.target.value.toUpperCase();
-        });
-        el.f.colorText.addEventListener('input', (e) => {
-          const val = e.target.value.trim();
-          if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
-            el.f.color.value = val;
-          }
-        });
-      }
+      el.search.addEventListener('input', ()=>{ ui.search=el.search.value; renderTable(); });
+      el.statusFilter.addEventListener('change', ()=>{ ui.statusFilter=el.statusFilter.value; renderTable(); });
+      el.smartList.querySelectorAll('li').forEach(li=>li.addEventListener('click', ()=>{ ui.filter=li.dataset.filter; render(); }));
+      document.getElementById('btnAddDriver').addEventListener('click', addNewDriver);
+      document.getElementById('btnDrvSave').addEventListener('click', saveDriver);
+      document.getElementById('btnDrvDelete').addEventListener('click', ()=>{ const d=drivers.find(x=>x.id===ui.selectedId); if(d) deleteDriver(d.id,d.name); });
+      document.getElementById('btnDrvAddUrl').addEventListener('click', addUrl);
+      el.f.color.addEventListener('input', e=>{ el.f.colorText.value=e.target.value.toUpperCase(); });
+      el.f.colorText.addEventListener('input', e=>{ const v=e.target.value.trim(); if(/^#[0-9A-Fa-f]{6}$/.test(v)) el.f.color.value=v; });
+      el.f.photoUrl.addEventListener('input', e=>{ const v=e.target.value.trim(); if(v){el.photo.src=v;el.photo.style.display='block';} else el.photo.style.display='none'; });
+      const params = new URLSearchParams(window.location.search);
+      const paramDriver = params.get('driver');
+      if (paramDriver) ui.selectedId = paramDriver;
     }
 
-    function init(){
+    // ─── INIT ────────────────────────────────────────────────────
+    async function init(){
       bind();
+      await loadDrivers();
       render();
     }
+
     document.addEventListener('DOMContentLoaded', init);
   })();
   </script>

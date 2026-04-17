@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Race Team OS – Results</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="style.css" rel="stylesheet" />
+  <style>
+    body { background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%); }
+    .ev-stats-bar { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+    .ev-stat-card { background: #fff; border: 1px solid rgba(0,0,0,0.1); border-radius: 8px; padding: 10px 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.06); min-width: 100px; }
+    .ev-stat-label { font-size: 0.7rem; color: #6c757d; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+    .ev-stat-value { font-size: 1.5rem; font-weight: 700; color: #1a1d24; line-height: 1.2; }
+    #resShell.mlo-shell { background: transparent; border: none; gap: 10px; }
+    #resShell .mlo-pane-left, #resShell .mlo-pane-mid, #resShell .mlo-pane-right { background: #ffffff; border: 1px solid rgba(0,0,0,0.1); border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.06); }
+    #resShell .mlo-pane-header { background: #f8f9fa; border-bottom: 1px solid rgba(0,0,0,0.1); }
+    #resShell .mlo-title { color: #1a1d24 !important; }
+    #resShell .mlo-section-label { color: #6c757d !important; opacity: 1 !important; }
+    #resShell .mlo-pane-content { color: #1a1d24; }
+    #resShell .mlo-resizer { background: transparent; }
+    #resShell .mlo-resizer:hover { background: rgba(0,153,204,0.3); }
+    #resShell .mlo-pane-left .pastel-tree { padding: 0 !important; margin: 0 !important; }
+    #resShell .mlo-pane-left .pastel-tree li { height: 28px !important; display: flex !important; align-items: center !important; font-size: 0.83rem !important; font-weight: 500 !important; padding-left: 10px !important; margin-bottom: 2px !important; border-radius: 5px !important; border: 1px solid rgba(0,0,0,0.08) !important; box-shadow: none !important; color: #1a1d24 !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; cursor: pointer !important; }
+    #resShell .mlo-pane-left .pastel-tree li.active { background: rgba(0,153,204,0.1) !important; border-color: rgba(0,153,204,0.35) !important; color: #0072a3 !important; font-weight: 700 !important; }
+    .res-list-table { width: 100%; font-size: 0.82rem; border-collapse: separate; border-spacing: 0; }
+    .res-list-table thead { position: sticky; top: 0; background: #f8f9fa; z-index: 5; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+    .res-list-table th { padding: 8px 10px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #6c757d; border-bottom: 2px solid #dee2e6; white-space: nowrap; }
+    .res-list-table td { padding: 6px 10px; border-bottom: 1px solid rgba(0,0,0,0.05); vertical-align: middle; color: #1a1d24 !important; }
+    .res-list-table tbody tr { cursor: pointer; transition: background 0.1s; }
+    .res-list-table tbody tr:hover { background: #f8f9fa; }
+    .res-list-table tbody tr.res-row-selected { background: rgba(0,153,204,0.08) !important; outline: 2px solid #0099cc; outline-offset: -2px; }
+    #resShell #resTabs .nav-link { color: #6c757d; background: transparent; border-color: transparent; font-size: 0.8rem; padding: 7px 10px; }
+    #resShell #resTabs .nav-link.active { color: #0099cc; border-color: #dee2e6 #dee2e6 #fff; background: #fff; font-weight: 600; }
+    #resShell .form-label { color: #495057 !important; font-size: 0.78rem; font-weight: 600; margin-bottom: 2px; }
+    #resShell .form-control, #resShell .form-select { background: #fff !important; color: #1a1d24 !important; border-color: #dee2e6 !important; font-size: 0.82rem; }
+    .pos-badge { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; font-weight: 700; font-size: 0.85rem; }
+    .pos-1 { background: #ffd700; color: #000; }
+    .pos-2 { background: #c0c0c0; color: #000; }
+    .pos-3 { background: #cd7f32; color: #fff; }
+    .pos-n { background: #e9ecef; color: #495057; }
+    .standings-table { width: 100%; font-size: 0.82rem; border-collapse: collapse; }
+    .standings-table th { background: #f8f9fa; padding: 6px 10px; text-align: left; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: #6c757d; border-bottom: 2px solid #dee2e6; }
+    .standings-table td { padding: 6px 10px; border-bottom: 1px solid rgba(0,0,0,0.05); }
+  </style>
+</head>
+<body class="light-mode">
+  <div id="rtsTopNav"></div>
+  <div class="rts-version-badge">v1</div>
+  <div class="rts-main container-fluid">
+    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+      <div><h1 class="h4 mb-1">Results</h1><div class="text-secondary" style="font-size:0.85rem;">Race results, championship standings and driver performance trends.</div></div>
+    </div>
+    <div class="ev-stats-bar">
+      <div class="ev-stat-card"><div class="ev-stat-label">Total</div><div class="ev-stat-value" id="statResTotal">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Wins</div><div class="ev-stat-value" id="statResWins">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Podiums</div><div class="ev-stat-value" id="statResPodiums">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">DNFs</div><div class="ev-stat-value" id="statResDnfs">0</div></div>
+    </div>
+
+    <div class="mlo-shell" id="resShell">
+      <!-- LEFT -->
+      <section class="mlo-pane mlo-pane-left" aria-label="Results navigation">
+        <div class="mlo-pane-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="mlo-title">Results Library</div>
+            <span class="badge text-bg-secondary" id="resCountBadge">0</span>
+          </div>
+        </div>
+        <div class="mlo-pane-content">
+          <div class="mlo-section-label">Filter</div>
+          <ul class="mlo-tree pastel-tree" id="resPerspectiveList">
+            <li class="active" data-perspective="all">All results</li>
+            <li data-perspective="wins">Wins (P1)</li>
+            <li data-perspective="podiums">Podiums (P1–P3)</li>
+            <li data-perspective="dnf">DNFs</li>
+            <li data-perspective="points">Points finishes</li>
+          </ul>
+
+          <div class="mlo-section-label mt-3">Drivers</div>
+          <ul class="mlo-tree pastel-tree" id="resDriverList"></ul>
+
+          <div class="mlo-section-label mt-3">Season</div>
+          <ul class="mlo-tree pastel-tree" id="resSeasonList">
+            <li class="active" data-season="">All seasons</li>
+          </ul>
+        </div>
+      </section>
+
+      <div class="mlo-resizer" data-resize="left" title="Drag to resize"></div>
+
+      <!-- MIDDLE -->
+      <section class="mlo-pane mlo-pane-mid" aria-label="Results list">
+        <div class="mlo-pane-header">
+          <div class="d-flex flex-wrap align-items-center gap-1">
+            <input id="resSearch" type="text" class="form-control form-control-sm" placeholder="Search…" style="max-width:200px;">
+            <select id="resEventFilter" class="form-select form-select-sm" style="max-width:200px;"><option value="">All events</option></select>
+            <select id="resDriverFilter" class="form-select form-select-sm" style="max-width:170px;"><option value="">All drivers</option></select>
+            <button class="btn btn-sm btn-outline-primary ms-auto" id="btnNewRes" type="button">+ Add Result</button>
+          </div>
+        </div>
+        <div class="mlo-pane-content" style="padding:0;overflow-y:auto;">
+          <table class="res-list-table">
+            <thead>
+              <tr>
+                <th style="width:44px;">#</th>
+                <th>Driver</th>
+                <th style="width:180px;">Event</th>
+                <th style="width:80px;">Pos</th>
+                <th style="width:70px;">Grid</th>
+                <th style="width:80px;">Class</th>
+                <th style="width:70px;">Pts</th>
+                <th style="width:50px;"></th>
+              </tr>
+            </thead>
+            <tbody id="resTbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <div class="mlo-resizer" data-resize="right" title="Drag to resize"></div>
+
+      <!-- RIGHT: Inspector -->
+      <section class="mlo-pane mlo-pane-right mlo-inspector" aria-label="Result inspector">
+        <div class="mlo-pane-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="mlo-title">Inspector</div>
+            <span class="badge text-bg-secondary" id="resInspectorBadge">No selection</span>
+          </div>
+        </div>
+        <div class="mlo-pane-content">
+          <ul class="nav nav-tabs mb-2" id="resTabs" role="tablist">
+            <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#pane-res-details" type="button">Details</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#pane-res-standings" type="button">Standings</button></li>
+          </ul>
+          <div class="tab-content">
+
+            <!-- DETAILS -->
+            <div class="tab-pane fade show active" id="pane-res-details" role="tabpanel">
+              <form id="resForm" autocomplete="off" style="margin-top:6px;">
+                <div class="row g-2">
+                  <div class="col-12">
+                    <label class="form-label">Driver</label>
+                    <select id="f_rs_driver" class="form-select form-select-sm"><option value="">— Driver —</option></select>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label">Event</label>
+                    <select id="f_rs_event" class="form-select form-select-sm"><option value="">— Event —</option></select>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label">Race session</label>
+                    <select id="f_rs_session" class="form-select form-select-sm"><option value="">— Session (optional) —</option></select>
+                  </div>
+                  <div class="col-4">
+                    <label class="form-label">Finish pos.</label>
+                    <input id="f_rs_pos" class="form-control form-control-sm" type="number" min="1" placeholder="1">
+                  </div>
+                  <div class="col-4">
+                    <label class="form-label">Grid pos.</label>
+                    <input id="f_rs_grid" class="form-control form-control-sm" type="number" min="1" placeholder="1">
+                  </div>
+                  <div class="col-4">
+                    <label class="form-label">Ch. points</label>
+                    <input id="f_rs_pts" class="form-control form-control-sm" type="number" min="0" placeholder="0">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Class</label>
+                    <input id="f_rs_class" class="form-control form-control-sm" type="text" placeholder="Senior / Junior…">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Season</label>
+                    <input id="f_rs_season" class="form-control form-control-sm" type="text" placeholder="2025">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Series</label>
+                    <input id="f_rs_series" class="form-control form-control-sm" type="text" placeholder="Championship name">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Fastest lap</label>
+                    <input id="f_rs_fl" class="form-control form-control-sm" type="text" placeholder="1:23.456">
+                  </div>
+                  <div class="col-6 d-flex align-items-center gap-2 mt-1">
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" id="f_rs_dnf">
+                      <label class="form-check-label" for="f_rs_dnf" style="font-size:0.82rem;">DNF</label>
+                    </div>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">DNF reason</label>
+                    <input id="f_rs_dnf_reason" class="form-control form-control-sm" type="text" placeholder="Mechanical / Incident…">
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label">Notes</label>
+                    <textarea id="f_rs_notes" class="form-control form-control-sm" rows="3" placeholder="Race notes, key moments…"></textarea>
+                  </div>
+                  <div class="col-12 d-flex gap-1 flex-wrap mt-1">
+                    <button class="btn btn-sm btn-primary" id="btnSaveRes" type="button">Save</button>
+                    <button class="btn btn-sm btn-outline-danger" id="btnDeleteRes" type="button">Delete</button>
+                    <button class="btn btn-sm btn-outline-secondary ms-auto" id="btnViewEventRes" type="button">View Event</button>
+                  </div>
+                </div>
+              </form>
+            </div>
+
+            <!-- STANDINGS -->
+            <div class="tab-pane fade" id="pane-res-standings" role="tabpanel">
+              <div class="d-flex gap-2 align-items-center mb-2 mt-2">
+                <select id="standSeason" class="form-select form-select-sm" style="max-width:120px;"></select>
+                <select id="standSeries" class="form-select form-select-sm" style="max-width:160px;"></select>
+                <button class="btn btn-sm btn-outline-primary" id="btnLoadStandings" type="button">Load</button>
+              </div>
+              <div style="overflow-y:auto; max-height:380px;">
+                <table class="standings-table">
+                  <thead><tr><th>Pos</th><th>Driver</th><th>Class</th><th>Pts</th><th>Wins</th></tr></thead>
+                  <tbody id="standTbody"></tbody>
+                </table>
+              </div>
+            </div>
+
+          </div><!-- /tab-content -->
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="core.js?v=20260407-1700"></script>
+  <script src="topnav.js?v=20260411-2"></script>
+  <script>
+  (function(){
+    let results = [], events = [], drivers = [], sessions = [];
+    let activePerspective = 'all', activeDriverId = null, activeSeasonF = '';
+    let activeRid = null;
+
+    const $ = id => document.getElementById(id);
+
+    function posLabel(r){
+      if (r.dnf) return 'DNF';
+      return r.finish_position != null ? String(r.finish_position) : '—';
+    }
+
+    function updateStats(){
+      $('statResTotal').textContent = results.length;
+      $('statResWins').textContent = results.filter(r=>r.finish_position===1&&!r.dnf).length;
+      $('statResPodiums').textContent = results.filter(r=>r.finish_position>=1&&r.finish_position<=3&&!r.dnf).length;
+      $('statResDnfs').textContent = results.filter(r=>r.dnf).length;
+    }
+
+    function populateSelects(){
+      // Event filter
+      ['resEventFilter','f_rs_event'].forEach(id=>{
+        const el=$(id); if(!el) return;
+        const cur=el.value;
+        el.innerHTML=id==='f_rs_event'?'<option value="">— Event —</option>':'<option value="">All events</option>';
+        events.forEach(e=>{const o=document.createElement('option');o.value=e.id;o.textContent=e.name;el.appendChild(o);});
+        el.value=cur;
+      });
+      // Driver filter
+      ['resDriverFilter','f_rs_driver'].forEach(id=>{
+        const el=$(id); if(!el) return;
+        const cur=el.value;
+        el.innerHTML=id==='f_rs_driver'?'<option value="">— Driver —</option>':'<option value="">All drivers</option>';
+        drivers.forEach(d=>{const o=document.createElement('option');o.value=d.id;o.textContent=d.name;el.appendChild(o);});
+        el.value=cur;
+      });
+      // Session select
+      const ss=$('f_rs_session');
+      if(ss){
+        const cur=ss.value;
+        ss.innerHTML='<option value="">— Session (optional) —</option>';
+        sessions.forEach(s=>{const o=document.createElement('option');o.value=s.id;o.textContent=s.name;ss.appendChild(o);});
+        ss.value=cur;
+      }
+      // Driver tree
+      const dt=$('resDriverList');
+      dt.innerHTML='<li data-driver="" class="active">All drivers</li>';
+      drivers.forEach(d=>{const li=document.createElement('li');li.dataset.driver=d.id;li.textContent=d.name;dt.appendChild(li);});
+      dt.querySelectorAll('li').forEach(li=>{
+        li.addEventListener('click',()=>{
+          dt.querySelectorAll('li').forEach(x=>x.classList.remove('active'));
+          li.classList.add('active');
+          activeDriverId=li.dataset.driver||null;
+          render();
+        });
+      });
+      // Season tree
+      const seasons = [...new Set(results.map(r=>r.season).filter(Boolean))].sort().reverse();
+      const st=$('resSeasonList');
+      st.innerHTML='<li class="active" data-season="">All seasons</li>';
+      seasons.forEach(s=>{const li=document.createElement('li');li.dataset.season=s;li.textContent=s;st.appendChild(li);});
+      st.querySelectorAll('li').forEach(li=>{
+        li.addEventListener('click',()=>{
+          st.querySelectorAll('li').forEach(x=>x.classList.remove('active'));
+          li.classList.add('active');
+          activeSeasonF=li.dataset.season||'';
+          render();
+        });
+      });
+      // Standings season/series selects
+      const ssSeason=$('standSeason'), ssSeries=$('standSeries');
+      ssSeason.innerHTML='<option value="">All seasons</option>';
+      seasons.forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent=s;ssSeason.appendChild(o);});
+      const seriesList=[...new Set(results.map(r=>r.series).filter(Boolean))];
+      ssSeries.innerHTML='<option value="">All series</option>';
+      seriesList.forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent=s;ssSeries.appendChild(o);});
+    }
+
+    function filtered(){
+      const q=$('resSearch').value.toLowerCase();
+      const evF=$('resEventFilter').value;
+      const drF=$('resDriverFilter').value;
+      return results.filter(r=>{
+        if(activePerspective==='wins'&&(r.finish_position!==1||r.dnf)) return false;
+        if(activePerspective==='podiums'&&(r.finish_position>3||r.dnf)) return false;
+        if(activePerspective==='dnf'&&!r.dnf) return false;
+        if(activePerspective==='points'&&(!r.championship_points||r.championship_points<1)) return false;
+        if(activeDriverId&&String(r.driver_id)!==String(activeDriverId)) return false;
+        if(activeSeasonF&&String(r.season)!==String(activeSeasonF)) return false;
+        if(evF&&String(r.event_id)!==evF) return false;
+        if(drF&&String(r.driver_id)!==drF) return false;
+        if(q){
+          const evName=(events.find(e=>e.id==r.event_id)||{}).name||'';
+          const drName=(drivers.find(d=>d.id==r.driver_id)||{}).name||'';
+          if(!`${drName} ${evName} ${r.series||''}`.toLowerCase().includes(q)) return false;
+        }
+        return true;
+      });
+    }
+
+    function posBadge(r){
+      if(r.dnf) return '<span class="badge text-bg-danger">DNF</span>';
+      const p=r.finish_position;
+      if(p===1) return `<span class="pos-badge pos-1">1</span>`;
+      if(p===2) return `<span class="pos-badge pos-2">2</span>`;
+      if(p===3) return `<span class="pos-badge pos-3">3</span>`;
+      return `<span class="pos-badge pos-n">${p||'—'}</span>`;
+    }
+
+    function render(){
+      const rows=filtered();
+      $('resCountBadge').textContent=rows.length;
+      const tb=$('resTbody');
+      tb.innerHTML='';
+      rows.forEach((r,i)=>{
+        const evName=(events.find(e=>e.id==r.event_id)||{}).name||'—';
+        const drName=(drivers.find(d=>d.id==r.driver_id)||{}).name||'—';
+        const tr=document.createElement('tr');
+        tr.className=r.id===activeRid?'res-row-selected':'';
+        tr.innerHTML=`<td>${i+1}</td><td>${drName}</td><td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${evName}</td><td>${posBadge(r)}</td><td>${r.grid_position||'—'}</td><td style="font-size:0.75rem;">${r.race_class||'—'}</td><td>${r.championship_points!=null?r.championship_points:'—'}</td><td><button class="btn btn-sm btn-link p-0 text-danger del-res" data-id="${r.id}" title="Delete">✕</button></td>`;
+        tr.addEventListener('click',e=>{if(e.target.classList.contains('del-res'))return;selectResult(r.id);});
+        tr.querySelector('.del-res').addEventListener('click',()=>deleteResult(r.id));
+        tb.appendChild(tr);
+      });
+    }
+
+    function selectResult(id){
+      activeRid=id;
+      render();
+      hydrateInspector(results.find(r=>r.id===id));
+    }
+
+    function hydrateInspector(r){
+      if(!r){$('resInspectorBadge').textContent='No selection';return;}
+      const drName=(drivers.find(d=>d.id==r.driver_id)||{}).name||'Result';
+      $('resInspectorBadge').textContent=drName;
+      $('f_rs_driver').value=r.driver_id||'';
+      $('f_rs_event').value=r.event_id||'';
+      $('f_rs_session').value=r.race_session_id||'';
+      $('f_rs_pos').value=r.finish_position||'';
+      $('f_rs_grid').value=r.grid_position||'';
+      $('f_rs_pts').value=r.championship_points!=null?r.championship_points:'';
+      $('f_rs_class').value=r.race_class||'';
+      $('f_rs_season').value=r.season||'';
+      $('f_rs_series').value=r.series||'';
+      $('f_rs_fl').value=r.fastest_lap||'';
+      $('f_rs_dnf').checked=!!r.dnf;
+      $('f_rs_dnf_reason').value=r.dnf_reason||'';
+      $('f_rs_notes').value=r.notes||'';
+      $('btnViewEventRes').onclick=()=>{if(r.event_id)location.href=`events.html?id=${r.event_id}`;};
+    }
+
+    async function loadAll(){
+      const [res,evs,drs,sess]=await Promise.all([
+        apiFetch('/api/race-results'),
+        apiFetch('/api/events'),
+        apiFetch('/api/drivers'),
+        apiFetch('/api/race-sessions').catch(()=>[])
+      ]);
+      results=Array.isArray(res)?res:(res.data||[]);
+      events=Array.isArray(evs)?evs:(evs.data||[]);
+      drivers=Array.isArray(drs)?drs:(drs.data||[]);
+      sessions=Array.isArray(sess)?sess:(sess.data||[]);
+      populateSelects();
+      updateStats();
+      render();
+      const sp=new URLSearchParams(location.search).get('driver');
+      if(sp){
+        activeDriverId=sp;
+        $('resDriverList').querySelectorAll('li').forEach(li=>{
+          li.classList.toggle('active',li.dataset.driver===sp);
+        });
+        render();
+      }
+    }
+
+    async function createResult(){
+      const body={finish_position:null};
+      const created=await apiFetch('/api/race-results',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      await loadAll();
+      if(created&&created.id)selectResult(created.id);
+    }
+
+    async function saveResult(){
+      const r=results.find(x=>x.id===activeRid);if(!r)return;
+      const body={
+        driver_id:$('f_rs_driver').value||null,
+        event_id:$('f_rs_event').value||null,
+        race_session_id:$('f_rs_session').value||null,
+        finish_position:$('f_rs_pos').value?parseInt($('f_rs_pos').value):null,
+        grid_position:$('f_rs_grid').value?parseInt($('f_rs_grid').value):null,
+        championship_points:$('f_rs_pts').value!==''?parseFloat($('f_rs_pts').value):null,
+        race_class:$('f_rs_class').value||null,
+        season:$('f_rs_season').value||null,
+        series:$('f_rs_series').value||null,
+        fastest_lap:$('f_rs_fl').value||null,
+        dnf:$('f_rs_dnf').checked,
+        dnf_reason:$('f_rs_dnf_reason').value||null,
+        notes:$('f_rs_notes').value||null
+      };
+      await apiFetch(`/api/race-results/${r.id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      await loadAll();
+      if(activeRid)selectResult(activeRid);
+    }
+
+    async function deleteResult(id){
+      if(!confirm('Delete this result? This cannot be undone.'))return;
+      await apiFetch(`/api/race-results/${id}`,{method:'DELETE'});
+      if(activeRid===id){activeRid=null;$('resInspectorBadge').textContent='No selection';}
+      await loadAll();
+    }
+
+    async function loadStandings(){
+      const season=$('standSeason').value;
+      const series=$('standSeries').value;
+      let url='/api/race-results/standings';
+      const params=[];
+      if(season)params.push('season='+encodeURIComponent(season));
+      if(series)params.push('series='+encodeURIComponent(series));
+      if(params.length)url+='?'+params.join('&');
+      const data=await apiFetch(url).catch(()=>[]);
+      const rows=Array.isArray(data)?data:(data.standings||[]);
+      const tb=$('standTbody');
+      tb.innerHTML='';
+      rows.forEach((row,i)=>{
+        const drName=(drivers.find(d=>d.id==row.driver_id)||{}).name||row.driver_name||'—';
+        const tr=document.createElement('tr');
+        tr.innerHTML=`<td style="font-weight:700;">${i+1}</td><td>${drName}</td><td>${row.race_class||'—'}</td><td style="font-weight:700;">${row.total_points||0}</td><td>${row.wins||0}</td>`;
+        tb.appendChild(tr);
+      });
+      if(!rows.length)tb.innerHTML='<tr><td colspan="5" class="text-center text-muted py-3">No standings data for selection.</td></tr>';
+    }
+
+    // Events
+    $('resPerspectiveList').addEventListener('click',e=>{
+      const li=e.target.closest('li');if(!li)return;
+      $('resPerspectiveList').querySelectorAll('li').forEach(x=>x.classList.remove('active'));
+      li.classList.add('active');
+      activePerspective=li.dataset.perspective||'all';
+      render();
+    });
+    $('resSearch').addEventListener('input',render);
+    $('resEventFilter').addEventListener('change',render);
+    $('resDriverFilter').addEventListener('change',render);
+    $('btnNewRes').addEventListener('click',createResult);
+    $('btnSaveRes').addEventListener('click',saveResult);
+    $('btnDeleteRes').addEventListener('click',()=>{if(activeRid)deleteResult(activeRid);});
+    $('btnLoadStandings').addEventListener('click',loadStandings);
+
+    RTS.setActiveNav();
+    loadAll();
+  })();
+  </script>
+</body>
+</html>

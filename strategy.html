@@ -7,19 +7,66 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="style.css" rel="stylesheet" />
   <style>
-    /* Keep middle table single-line */
-    #strTbody td, #strTbody th { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    /* Setup/feedback panel */
-    .log-block { background:#0f1115; border:1px solid rgba(255,255,255,0.08); padding:0.6rem; border-radius:0.25rem; }
-    .log-block h6 { margin:0 0 0.35rem 0; font-size:0.85rem; letter-spacing:0.02em; color:#c7cbd2; }
-    .log-row { display:flex; align-items:center; gap:0.4rem; margin-bottom:0.35rem; }
-    .log-row input { flex:1; }
+    body { background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%); }
+    .ev-stats-bar { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+    .ev-stat-card { background: #fff; border: 1px solid rgba(0,0,0,0.1); border-radius: 8px; padding: 10px 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.06); min-width: 110px; }
+    .ev-stat-label { font-size: 0.7rem; color: #6c757d; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+    .ev-stat-value { font-size: 1.5rem; font-weight: 700; color: #1a1d24; line-height: 1.2; }
+    #strShell.mlo-shell { background: transparent; border: none; gap: 10px; }
+    #strShell .mlo-pane-left, #strShell .mlo-pane-mid, #strShell .mlo-pane-right { background: #ffffff; border: 1px solid rgba(0,0,0,0.1); border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.06); }
+    #strShell .mlo-pane-header { background: #f8f9fa; border-bottom: 1px solid rgba(0,0,0,0.1); }
+    #strShell .mlo-title { color: #1a1d24 !important; }
+    #strShell .mlo-section-label { color: #6c757d !important; opacity: 1 !important; }
+    #strShell .mlo-pane-content { color: #1a1d24; }
+    #strShell .mlo-resizer { background: transparent; }
+    #strShell .mlo-resizer:hover { background: rgba(0,153,204,0.3); }
+    #strShell .mlo-pane-left .pastel-tree { padding: 0 !important; margin: 0 !important; }
+    #strShell .mlo-pane-left .pastel-tree li { height: 28px !important; display: flex !important; align-items: center !important; font-size: 0.83rem !important; font-weight: 500 !important; padding-left: 10px !important; margin-bottom: 2px !important; border-radius: 5px !important; border: 1px solid rgba(0,0,0,0.08) !important; box-shadow: none !important; color: #1a1d24 !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; cursor: pointer !important; }
+    #strShell .mlo-pane-left .pastel-tree li.active { background: rgba(0,153,204,0.1) !important; border-color: rgba(0,153,204,0.35) !important; color: #0072a3 !important; font-weight: 700 !important; }
+    .str-list-table { width: 100%; font-size: 0.82rem; border-collapse: separate; border-spacing: 0; }
+    .str-list-table thead { position: sticky; top: 0; background: #f8f9fa; z-index: 5; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+    .str-list-table th { padding: 8px 10px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #6c757d; border-bottom: 2px solid #dee2e6; white-space: nowrap; }
+    .str-list-table td { padding: 6px 10px; border-bottom: 1px solid rgba(0,0,0,0.05); vertical-align: middle; color: #1a1d24 !important; }
+    .str-list-table tbody tr { cursor: pointer; transition: background 0.1s; }
+    .str-list-table tbody tr:hover { background: #f8f9fa; }
+    .str-list-table tbody tr.str-row-selected { background: rgba(0,153,204,0.08) !important; outline: 2px solid #0099cc; outline-offset: -2px; }
+    .str-row-del { opacity: 0; transition: opacity 0.15s; background: none; border: none; color: #dc3545; font-size: 1rem; line-height: 1; padding: 0 4px; cursor: pointer; }
+    .str-list-table tbody tr:hover .str-row-del { opacity: 1; }
+    #strShell #strTabs .nav-link { color: #6c757d; background: transparent; border-color: transparent; font-size: 0.8rem; padding: 7px 10px; }
+    #strShell #strTabs .nav-link.active { color: #0099cc; border-color: #dee2e6 #dee2e6 #fff; background: #fff; font-weight: 600; }
+    #strShell .form-label { color: #495057 !important; font-size: 0.78rem; font-weight: 600; margin-bottom: 2px; }
+    #strShell .form-control, #strShell .form-select { background: #fff !important; color: #1a1d24 !important; border-color: #dee2e6 !important; font-size: 0.82rem; }
+    .log-block { background: #f8f9fa; border: 1px solid rgba(0,0,0,0.1); padding: 0.6rem; border-radius: 0.4rem; }
+    .log-block h6 { margin: 0 0 0.35rem 0; font-size: 0.82rem; color: #495057; font-weight: 600; }
+    .log-row { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.35rem; }
+    .log-row input { flex: 1; }
+    .setup-del { background: none; border: none; color: #dc3545; cursor: pointer; font-size: 0.9rem; }
+    .lap-table { width: 100%; font-size: 0.78rem; border-collapse: collapse; }
+    .lap-table th { background: #f8f9fa; padding: 5px 8px; text-align: right; font-size: 0.68rem; color: #6c757d; font-weight: 700; text-transform: uppercase; border-bottom: 2px solid #dee2e6; }
+    .lap-table th:first-child { text-align: left; }
+    .lap-table td { padding: 4px 8px; border-bottom: 1px solid rgba(0,0,0,0.05); text-align: right; }
+    .lap-table td:first-child { text-align: left; font-weight: 600; }
+    .lap-table tr:hover td { background: #f8f9fa; }
+    .lap-fastest { color: #7c3aed; font-weight: 700; }
   </style>
 </head>
-<body>
+<body class="light-mode">
   <div id="rtsTopNav"></div>
+  <div class="rts-version-badge">v3</div>
   <div class="rts-main container-fluid">
-    <h1 class="my-3">Strategy</h1>
+    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+      <div>
+        <h1 class="h4 mb-1">Strategy</h1>
+        <div class="text-secondary" style="font-size:0.85rem;">Plan and review race sessions — tyre strategy, setup changes, driver feedback and lap times.</div>
+      </div>
+      <button class="btn btn-sm btn-primary" id="btnAddStrTop" type="button">+ Add Session</button>
+    </div>
+    <div class="ev-stats-bar">
+      <div class="ev-stat-card"><div class="ev-stat-label">Total</div><div class="ev-stat-value" id="statStrTotal">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Practice</div><div class="ev-stat-value" id="statStrPractice">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Qualifying</div><div class="ev-stat-value" id="statStrQual">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Race</div><div class="ev-stat-value" id="statStrRace">0</div></div>
+    </div>
 
     <div class="mlo-shell" id="strShell">
       <!-- LEFT -->
@@ -32,16 +79,14 @@
         </div>
         <div class="mlo-pane-content">
           <div class="mlo-section-label">Smart lists</div>
-          <ul class="mlo-tree pastel-tree" id="strPerspectiveList">
-            <li class="active" data-perspective="all">All</li>
-            <li data-perspective="upcoming">Upcoming</li>
+          <ul class="pastel-tree" id="strPerspectiveList">
+            <li class="active" data-perspective="all">All Sessions</li>
             <li data-perspective="today">Today</li>
+            <li data-perspective="upcoming">Upcoming</li>
             <li data-perspective="complete">Completed</li>
-            <li data-perspective="qa">QA/Review</li>
           </ul>
-
           <div class="mlo-section-label mt-3">Events</div>
-          <ul class="mlo-tree pastel-tree" id="strEventList"></ul>
+          <ul class="pastel-tree" id="strEventList"></ul>
         </div>
       </section>
 
@@ -51,35 +96,28 @@
       <section class="mlo-pane mlo-pane-mid" aria-label="Strategy list">
         <div class="mlo-pane-header">
           <div class="d-flex flex-wrap align-items-center gap-1">
-            <input id="strSearch" type="text" class="form-control form-control-sm" placeholder="Search…" style="max-width: 220px;">
-            <select id="strEventFilter" class="form-select form-select-sm" style="max-width: 220px;"></select>
-            <select id="strStatusFilter" class="form-select form-select-sm" style="max-width: 160px;">
-              <option value="">Status: All</option>
-              <option>Planned</option>
-              <option>In Progress</option>
-              <option>Complete</option>
+            <input id="strSearch" type="text" class="form-control form-control-sm" placeholder="Search…" style="flex:1 1 150px; min-width:120px;">
+            <select id="strEventFilter" class="form-select form-select-sm" style="flex:0 1 180px; min-width:140px;"><option value="">All events</option></select>
+            <select id="strTypeFilter" class="form-select form-select-sm" style="flex:0 1 140px; min-width:110px;">
+              <option value="">All types</option>
+              <option>Practice</option>
+              <option>Qualifying</option>
+              <option>Race</option>
+              <option>Test Day</option>
             </select>
-            <select id="strGroup" class="form-select form-select-sm" style="max-width: 180px;">
-              <option value="">Group: None</option>
-              <option value="event">Group: Event</option>
-              <option value="status">Group: Status</option>
-              <option value="type">Group: Session type</option>
-            </select>
-            <button class="btn btn-sm btn-outline-light mlo-btn" id="btnAddStr" type="button">Add Session</button>
-            <button class="btn btn-sm btn-outline-light mlo-btn" id="btnPDF" type="button">PDF View</button>
           </div>
         </div>
         <div class="mlo-pane-content" style="padding:0;">
-          <table class="table table-dark table-hover mlo-table" style="margin:0;">
+          <table class="str-list-table">
             <thead>
               <tr>
-                <th style="width:60px;">#</th>
+                <th style="width:40px;">#</th>
                 <th>Session</th>
-                <th style="width:220px;">Event</th>
-                <th style="width:140px;">Type</th>
-                <th style="width:140px;">Tyre set</th>
-                <th style="width:120px;">Status</th>
-                <th style="width:140px;">Updated</th>
+                <th style="width:130px;">Event</th>
+                <th style="width:100px;">Type</th>
+                <th style="width:80px;">Tyre set</th>
+                <th style="width:100px;">Status</th>
+                <th style="width:32px;"></th>
               </tr>
             </thead>
             <tbody id="strTbody"></tbody>
@@ -94,167 +132,86 @@
         <div class="mlo-pane-header">
           <div class="d-flex justify-content-between align-items-center">
             <div class="mlo-title">Inspector</div>
-            <span class="badge text-bg-secondary" id="strInspectorBadge">No selection</span>
+            <span class="badge text-bg-secondary" id="strInspectorBadge">—</span>
+          </div>
+          <div class="d-flex gap-1 mt-1">
+            <a class="btn btn-sm btn-outline-secondary" id="btnViewStrEvent" href="events.html" style="font-size:0.75rem;">View Event</a>
           </div>
         </div>
         <div class="mlo-pane-content">
-          <form id="strForm" autocomplete="off">
-            <ul class="nav nav-tabs nav-dark mb-2" role="tablist">
-              <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="tab-str-details" data-bs-toggle="tab" data-bs-target="#pane-str-details" type="button" role="tab" aria-controls="pane-str-details" aria-selected="true">Details</button>
-              </li>
-            </ul>
-            <div class="tab-content">
-              <div class="tab-pane fade show active" id="pane-str-details" role="tabpanel" aria-labelledby="tab-str-details">
+          <ul class="nav nav-tabs mb-2" id="strTabs" role="tablist">
+            <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#pane-str-details" type="button" role="tab">Details</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#pane-str-laps" type="button" role="tab">Lap Times</button></li>
+          </ul>
+          <div class="tab-content">
+            <div class="tab-pane fade show active" id="pane-str-details" role="tabpanel">
+              <form id="strForm" autocomplete="off">
                 <div class="row g-2">
-              <div class="col-6">
-                <label class="form-label">Session name</label>
-                <input id="f_str_name" class="form-control form-control-sm" type="text" placeholder="FP1 / Qualy / Race run">
-              </div>
-              <div class="col-6">
-                <label class="form-label">Status</label>
-                <select id="f_str_status" class="form-select form-select-sm">
-                  <option>Planned</option>
-                  <option>In Progress</option>
-                  <option>Complete</option>
-                </select>
-              </div>
-
-              <div class="col-6">
-                <label class="form-label">Event</label>
-                <select id="f_str_event" class="form-select form-select-sm"></select>
-              </div>
-              <div class="col-6">
-                <label class="form-label">Session type</label>
-                <select id="f_str_type" class="form-select form-select-sm">
-                  <option>Practice</option>
-                  <option>Qualifying</option>
-                  <option>Race</option>
-                  <option>Test Day</option>
-                </select>
-              </div>
-
-              <div class="col-6">
-                <label class="form-label">Start time</label>
-                <input id="f_str_start" class="form-control form-control-sm" type="datetime-local">
-              </div>
-              <div class="col-6">
-                <label class="form-label">End time</label>
-                <input id="f_str_end" class="form-control form-control-sm" type="datetime-local">
-              </div>
-
-              <div class="col-4">
-                <label class="form-label">Tyre set</label>
-                <input id="f_str_tyre_set" class="form-control form-control-sm" type="text" placeholder="Set ID">
-              </div>
-              <div class="col-4">
-                <label class="form-label">Compound</label>
-                <select id="f_str_compound" class="form-select form-select-sm">
-                  <option>Soft</option>
-                  <option>Medium</option>
-                  <option>Hard</option>
-                  <option>Wet</option>
-                  <option>Intermediate</option>
-                </select>
-              </div>
-              <div class="col-4">
-                <label class="form-label">Laps on set</label>
-                <input id="f_str_tyre_laps" class="form-control form-control-sm" type="number" min="0" step="1">
-              </div>
-
-              <div class="col-12">
-                <div class="log-block">
-                  <h6>Setup changes (per session)</h6>
-                  <div id="setupList"></div>
-                  <button class="btn btn-sm btn-outline-light mlo-btn" id="btnAddSetup" type="button">Add change</button>
+                  <div class="col-8"><label class="form-label">Session name</label><input id="f_str_name" class="form-control form-control-sm" type="text" placeholder="FP1 / Qualy / Race run"></div>
+                  <div class="col-4"><label class="form-label">Status</label><select id="f_str_status" class="form-select form-select-sm"><option>Planned</option><option>In Progress</option><option>Complete</option></select></div>
+                  <div class="col-7"><label class="form-label">Event</label><select id="f_str_event" class="form-select form-select-sm"><option value="">— None —</option></select></div>
+                  <div class="col-5"><label class="form-label">Session type</label><select id="f_str_type" class="form-select form-select-sm"><option>Practice</option><option>Qualifying</option><option>Race</option><option>Test Day</option></select></div>
+                  <div class="col-6"><label class="form-label">Driver</label><select id="f_str_driver" class="form-select form-select-sm"><option value="">— None —</option></select></div>
+                  <div class="col-6"><label class="form-label">Kart</label><select id="f_str_kart" class="form-select form-select-sm"><option value="">— None —</option></select></div>
+                  <div class="col-6"><label class="form-label">Start time</label><input id="f_str_start" class="form-control form-control-sm" type="datetime-local"></div>
+                  <div class="col-6"><label class="form-label">End time</label><input id="f_str_end" class="form-control form-control-sm" type="datetime-local"></div>
+                  <div class="col-4"><label class="form-label">Tyre set</label><input id="f_str_tyre_set" class="form-control form-control-sm" type="text" placeholder="Set ID"></div>
+                  <div class="col-4"><label class="form-label">Compound</label><select id="f_str_compound" class="form-select form-select-sm"><option>Soft</option><option>Medium</option><option>Hard</option><option>Wet</option><option>Intermediate</option></select></div>
+                  <div class="col-4"><label class="form-label">Laps on set</label><input id="f_str_tyre_laps" class="form-control form-control-sm" type="number" min="0" step="1"></div>
+                  <div class="col-12"><div class="log-block"><h6>Setup changes</h6><div id="setupList"></div><button class="btn btn-sm btn-outline-secondary" id="btnAddSetup" type="button">+ Add change</button></div></div>
+                  <div class="col-12"><div class="log-block"><h6>Driver feedback</h6><textarea id="f_str_feedback" class="form-control form-control-sm" rows="3" placeholder="Balance, grip, braking, traffic, instructions…"></textarea></div></div>
+                  <div class="col-12"><div class="log-block"><h6>Engineer notes / next session plan</h6><textarea id="f_str_notes" class="form-control form-control-sm" rows="3" placeholder="What to change next, fuel/tyre plan, pressures, wing, bars…"></textarea></div></div>
+                  <div class="col-12 d-flex gap-1 mt-1">
+                    <button class="btn btn-sm btn-primary" id="btnSaveStr" type="button">Save</button>
+                    <button class="btn btn-sm btn-outline-secondary" id="btnDupStr" type="button">Duplicate</button>
+                    <button class="btn btn-sm btn-outline-danger ms-auto" id="btnDelStr" type="button">Delete</button>
+                  </div>
                 </div>
-              </div>
-
-              <div class="col-12">
-                <div class="log-block">
-                  <h6>Driver feedback</h6>
-                  <textarea id="f_str_feedback" class="form-control form-control-sm" rows="3" placeholder="Balance, grip, braking, traffic, instructions…"></textarea>
-                </div>
-              </div>
-
-              <div class="col-12">
-                <div class="log-block">
-                  <h6>Engineer notes / next session plan</h6>
-                  <textarea id="f_str_notes" class="form-control form-control-sm" rows="3" placeholder="What to change next, fuel/tyre plan, pressures, wing, bars, camber/caster/toe, ride height…"></textarea>
-                </div>
-              </div>
-
-              <div class="col-12 d-flex gap-1 mt-1">
-                <button class="btn btn-sm btn-primary mlo-btn" id="btnSaveStr" type="button">Save</button>
-                <button class="btn btn-sm btn-outline-light mlo-btn" id="btnDupStr" type="button">Duplicate</button>
-                <button class="btn btn-sm btn-outline-danger mlo-btn" id="btnDelStr" type="button">Delete</button>
-              </div>
+              </form>
             </div>
-          </form>
+            <div class="tab-pane fade" id="pane-str-laps" role="tabpanel">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <small class="text-secondary">Fastest lap highlighted in purple.</small>
+                <label class="btn btn-sm btn-outline-secondary" style="font-size:0.75rem;">Import CSV <input type="file" id="lapFileInput" accept=".csv,.txt" style="display:none;"></label>
+              </div>
+              <div style="overflow-x:auto;"><table class="lap-table"><thead><tr><th>Lap</th><th>Time</th><th>S1</th><th>S2</th><th>S3</th></tr></thead><tbody id="lapTbody"></tbody></table></div>
+              <div class="mt-2"><button class="btn btn-sm btn-outline-danger" id="btnClearLaps" type="button">Clear all</button></div>
+            </div>
+          </div>
         </div>
       </section>
     </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="config.js"></script>
-  <script src="core.js"></script>
+  <script src="core.js?v=20260407-1700"></script>
   <script src="topnav.js?v=20260411-2"></script>
   <script>
   (function(){
+    'use strict';
     RTS.setActiveNav();
-    const LS = 'rts.strategy.sessions.v1';
-    const LS_UI = 'rts.strategy.ui.v1';
-    const LS_PANES = 'rts.strategy.panes.v1';
-
-    const eventsStore = RTS.safeLoadJSON('rts.events.v4', []);
-    const events = Array.isArray(eventsStore) ? eventsStore : [];
-    const EVENT_OPTIONS = events.map(e=>({ id:e.id, title:e.title || e.name || 'Event'}));
-    const EVENT_MAP = new Map(EVENT_OPTIONS.map(e=>[String(e.id), e.title]));
-
-    function eventTitle(id){ return EVENT_MAP.get(String(id)) || ''; }
-    function escapeHtml(str){ return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;').replace(/'/g,'&#39;'); }
-    function isoDate(dt){
-      if (!dt) return '';
-      const d = new Date(dt);
-      const y = d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,'0'); const da=String(d.getDate()).padStart(2,'0');
-      const hh=String(d.getHours()).padStart(2,'0'); const mm=String(d.getMinutes()).padStart(2,'0');
-      return `${y}-${m}-${da}T${hh}:${mm}`;
-    }
-    function todayISO(){
-      const d=new Date();
-      const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), da=String(d.getDate()).padStart(2,'0');
-      return `${y}-${m}-${da}`;
-    }
-
-    const defaultUI = { perspective:'all', search:'', event:'', status:'', groupBy:'', selectedId:null };
-    let sessions = RTS.safeLoadJSON(LS, null);
-    if (!Array.isArray(sessions) || sessions.length===0) sessions = seed();
-    let ui = RTS.deepMerge(defaultUI, RTS.safeLoadJSON(LS_UI, {}));
-
-    const els = {
+    const LS_PANES = 'rts.strategy.panes.v2';
+    let sessions = [], eventsData = [], drivers = [], karts = [];
+    let ui = { perspective:'all', search:'', eventFilter:'', typeFilter:'', selectedId:null };
+    const el = {
       shell: document.getElementById('strShell'),
-      count: document.getElementById('strCountBadge'),
-      perspectives: document.getElementById('strPerspectiveList'),
-      eventsTree: document.getElementById('strEventList'),
+      countBadge: document.getElementById('strCountBadge'),
+      perspList: document.getElementById('strPerspectiveList'),
+      eventTree: document.getElementById('strEventList'),
       tbody: document.getElementById('strTbody'),
       search: document.getElementById('strSearch'),
       eventFilter: document.getElementById('strEventFilter'),
-      statusFilter: document.getElementById('strStatusFilter'),
-      group: document.getElementById('strGroup'),
-      add: document.getElementById('btnAddStr'),
-      pdf: document.getElementById('btnPDF'),
-      save: document.getElementById('btnSaveStr'),
-      dup: document.getElementById('btnDupStr'),
-      del: document.getElementById('btnDelStr'),
-      inspectorBadge: document.getElementById('strInspectorBadge'),
+      typeFilter: document.getElementById('strTypeFilter'),
+      inspBadge: document.getElementById('strInspectorBadge'),
       setupList: document.getElementById('setupList'),
-      addSetup: document.getElementById('btnAddSetup'),
+      lapTbody: document.getElementById('lapTbody'),
       f: {
         name: document.getElementById('f_str_name'),
         status: document.getElementById('f_str_status'),
         event: document.getElementById('f_str_event'),
         type: document.getElementById('f_str_type'),
+        driver: document.getElementById('f_str_driver'),
+        kart: document.getElementById('f_str_kart'),
         start: document.getElementById('f_str_start'),
         end: document.getElementById('f_str_end'),
         tyreSet: document.getElementById('f_str_tyre_set'),
@@ -264,337 +221,150 @@
         notes: document.getElementById('f_str_notes')
       }
     };
-
-    RTS.initTriPaneResizers(els.shell, LS_PANES);
-
-    function seed(){
-      const today = todayISO();
-      const s = [];
-      for (let i=1;i<=8;i++){
-        const ev = EVENT_OPTIONS[i % (EVENT_OPTIONS.length||1)];
-        s.push({
-          id: i,
-          name: (i%3===0?'Qualy Sim':'Race Run') + ` #${i}`,
-          status: (i%4===0)?'Complete':(i%2===0?'In Progress':'Planned'),
-          type: (i%3===0?'Qualifying':(i%2===0?'Practice':'Race')),
-          eventId: ev ? ev.id : '',
-          start: `${today}T0${i}:00`,
-          end: `${today}T0${i}:45`,
-          tyreSet: `Set ${i}`,
-          compound: (i%4===0?'Hard':i%3===0?'Medium':'Soft'),
-          tyreLaps: i+3,
-          feedback: 'Good balance, watch rear deg mid-stint.',
-          notes: 'Next: add 0.5 psi rear, front ARB softer 1 click.',
-          setupChanges: [
-            { change:'Front wing +1', by:'Engineer' },
-            { change:'Rear bar softer', by:'Driver request' }
-          ],
-          updatedAt: new Date().toISOString()
-        });
-      }
-      return s;
+    RTS.initTriPaneResizers(el.shell, LS_PANES);
+    function escHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+    function msToTime(ms){ if(!ms) return '—'; const m=Math.floor(ms/60000); const s=((ms%60000)/1000).toFixed(3); return m+':'+s.padStart(6,'0'); }
+    function isoDatetimeLocal(s){ if(!s) return ''; const d=new Date(s); if(isNaN(d)) return ''; const pad=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes()); }
+    async function loadAll(){
+      try {
+        const [ssResp, evResp, drvResp, kdResp] = await Promise.all([
+          apiFetch('/api/race-sessions?limit=200').catch(()=>null),
+          RTS_API.getCollectionItems('events').catch(()=>null),
+          RTS_API.getCollectionItems('drivers').catch(()=>null),
+          apiFetch('/api/items?is_race_fleet=true&limit=100').catch(()=>null)
+        ]);
+        sessions = ssResp && ssResp.sessions ? ssResp.sessions : (Array.isArray(ssResp)?ssResp:[]);
+        eventsData = evResp && evResp.items ? evResp.items : [];
+        drivers = drvResp && drvResp.items ? drvResp.items : [];
+        karts = kdResp && kdResp.items ? kdResp.items : (Array.isArray(kdResp)?kdResp:[]);
+      } catch(e){ console.error('strategy loadAll:', e); }
     }
-
-    function persist(){
-      RTS.safeSaveJSON(LS, sessions);
-      RTS.safeSaveJSON(LS_UI, ui);
+    function populateSelects(){
+      function buildOpts(sel, items, lFn, vFn){ const first=sel.options[0]; sel.innerHTML=''; sel.appendChild(first.cloneNode(true)); items.forEach(it=>{ const o=document.createElement('option'); o.value=vFn(it); o.textContent=lFn(it); sel.appendChild(o); }); }
+      buildOpts(el.f.event, eventsData, e=>e.title||e.name||e.id, e=>e.id);
+      buildOpts(el.f.driver, drivers, d=>d.name||d.id, d=>d.id);
+      buildOpts(el.f.kart, karts, k=>k.name||k.barcode||k.id, k=>k.id);
+      const ef=el.eventFilter; const first2=ef.options[0]; ef.innerHTML=''; ef.appendChild(first2.cloneNode(true));
+      eventsData.forEach(e=>{ const o=document.createElement('option'); o.value=e.id; o.textContent=e.title||e.name||e.id; ef.appendChild(o); });
     }
-
-    function buildEventLists(){
-      els.eventsTree.innerHTML = '';
-      const all = document.createElement('li');
-      all.textContent = 'All events';
-      all.dataset.event = '';
-      if (!ui.event) all.classList.add('active');
-      els.eventsTree.appendChild(all);
-      EVENT_OPTIONS.forEach(ev=>{
-        const li = document.createElement('li');
-        li.textContent = ev.title;
-        li.dataset.event = ev.id;
-        if (String(ui.event)===String(ev.id)) li.classList.add('active');
-        els.eventsTree.appendChild(li);
-      });
-      const evOpts = EVENT_OPTIONS.map(ev=>`<option value="${ev.id}">${escapeHtml(ev.title)}</option>`).join('');
-      els.eventFilter.innerHTML = '<option value="">Event: All</option>' + evOpts;
-      els.f.event.innerHTML = EVENT_OPTIONS.length ? evOpts : '<option value="">Unassigned</option>';
+    function renderStats(){
+      document.getElementById('statStrTotal').textContent = sessions.length;
+      document.getElementById('statStrPractice').textContent = sessions.filter(s=>s.session_type==='Practice').length;
+      document.getElementById('statStrQual').textContent = sessions.filter(s=>s.session_type==='Qualifying').length;
+      document.getElementById('statStrRace').textContent = sessions.filter(s=>s.session_type==='Race').length;
     }
-
-    function applyFilters(list){
-      let out = list.slice();
-      const now = new Date();
-      const todayStr = todayISO();
-      if (ui.perspective==='upcoming') out = out.filter(s=> (s.status==='Planned' || s.status==='In Progress'));
-      if (ui.perspective==='today') out = out.filter(s=> (s.start||'').slice(0,10) === todayStr);
-      if (ui.perspective==='complete') out = out.filter(s=> s.status==='Complete');
-      if (ui.perspective==='qa') out = out.filter(s=> s.notes || s.feedback);
-      if (ui.event) out = out.filter(s=>String(s.eventId||'')===String(ui.event));
-      if (ui.status) out = out.filter(s=>s.status===ui.status);
-      if (ui.search){
-        const q = ui.search.toLowerCase();
-        out = out.filter(s => (`${s.name} ${eventTitle(s.eventId)} ${s.notes} ${s.feedback}`).toLowerCase().includes(q));
-      }
-      return out;
+    function renderLeftPane(){
+      el.perspList.querySelectorAll('li').forEach(li=>li.classList.toggle('active',li.dataset.perspective===ui.perspective));
+      el.eventTree.innerHTML='';
+      const allLi=document.createElement('li'); allLi.textContent='All events'; allLi.classList.toggle('active',!ui.eventFilter);
+      allLi.addEventListener('click',()=>{ ui.eventFilter=''; render(); }); el.eventTree.appendChild(allLi);
+      eventsData.forEach(e=>{ const li=document.createElement('li'); li.textContent=e.title||e.name||e.id; li.classList.toggle('active',ui.eventFilter===String(e.id)); li.addEventListener('click',()=>{ ui.eventFilter=String(e.id); render(); }); el.eventTree.appendChild(li); });
     }
-
-    function groupKey(s){
-      if (ui.groupBy==='event') return eventTitle(s.eventId) || '—';
-      if (ui.groupBy==='status') return s.status || '—';
-      if (ui.groupBy==='type') return s.type || '—';
-      return '';
-    }
-
-    function render(){
-      els.search.value = ui.search || '';
-      els.eventFilter.value = ui.event || '';
-      els.statusFilter.value = ui.status || '';
-      els.group.value = ui.groupBy || '';
-
-      const filtered = applyFilters(sessions);
-      els.count.textContent = String(filtered.length);
-
-      let rows = filtered.slice().sort((a,b)=> (b.updatedAt||'').localeCompare(a.updatedAt||''));
-      if (ui.groupBy){
-        rows.sort((a,b)=>{
-          const ga = groupKey(a), gb = groupKey(b);
-          if (ga!==gb) return ga.localeCompare(gb);
-          return (b.updatedAt||'').localeCompare(a.updatedAt||'');
-        });
-      }
-
-      els.tbody.innerHTML = '';
-      let idx=0, last=null;
-      rows.forEach(s=>{
-        const g = ui.groupBy ? groupKey(s) : '';
-        if (ui.groupBy && g!==last){
-          last=g;
-          const trG = document.createElement('tr');
-          trG.className = 'mlo-group-row';
-          trG.innerHTML = `<td colspan="7">${escapeHtml(g)}</td>`;
-          els.tbody.appendChild(trG);
-        }
-        idx++;
-        const tr = document.createElement('tr');
-        tr.dataset.id = s.id;
-        if (ui.selectedId===s.id) tr.classList.add('mlo-row-selected');
-        tr.innerHTML = `
-          <td>${idx}</td>
-          <td>${escapeHtml(s.name||'')}</td>
-          <td>${escapeHtml(eventTitle(s.eventId)||'')}</td>
-          <td>${escapeHtml(s.type||'')}</td>
-          <td>${escapeHtml(s.tyreSet||'')}</td>
-          <td>${escapeHtml(s.status||'')}</td>
-          <td>${escapeHtml((s.updatedAt||'').replace('T',' ').slice(0,16))}</td>
-        `;
-        tr.addEventListener('click', ()=>{ ui.selectedId = s.id; render(); });
-        els.tbody.appendChild(tr);
-      });
-
-      hydrate(sessions.find(s=>s.id===ui.selectedId) || null);
-      persist();
-    }
-
-    function hydrate(s){
-      if (!s){
-        els.inspectorBadge.textContent = 'No selection';
-        Object.values(els.f).forEach(f=> f.value='');
-        els.setupList.innerHTML = '';
-        return;
-      }
-      els.inspectorBadge.textContent = `#${s.id}`;
-      els.f.name.value = s.name || '';
-      els.f.status.value = s.status || 'Planned';
-      const evId = s.eventId || '';
-      const hasEv = EVENT_MAP.has(String(evId));
-      if (!hasEv && evId){
-        const opt = document.createElement('option'); opt.value = evId; opt.textContent = evId; els.f.event.appendChild(opt);
-      }
-      els.f.event.value = evId;
-      els.f.type.value = s.type || 'Practice';
-      els.f.start.value = isoDate(s.start);
-      els.f.end.value = isoDate(s.end);
-      els.f.tyreSet.value = s.tyreSet || '';
-      els.f.compound.value = s.compound || 'Soft';
-      els.f.tyreLaps.value = s.tyreLaps || '';
-      els.f.feedback.value = s.feedback || '';
-      els.f.notes.value = s.notes || '';
-      renderSetup(s.setupChanges||[]);
-    }
-
-    function renderSetup(list){
-      els.setupList.innerHTML = '';
-      list.forEach((row, idx)=>{
-        const div = document.createElement('div');
-        div.className = 'log-row';
-        div.innerHTML = `
-          <input class="form-control form-control-sm setup-change" type="text" value="${escapeHtml(row.change||'')}" placeholder="Change e.g. front wing +1">
-          <input class="form-control form-control-sm setup-by" style="max-width:140px;" type="text" value="${escapeHtml(row.by||'')}" placeholder="By">
-          <button class="btn btn-sm btn-outline-danger mlo-btn" type="button">×</button>
-        `;
-        div.querySelector('.setup-change').addEventListener('input', e=>{ row.change = e.target.value; sessionsDirty(); });
-        div.querySelector('.setup-by').addEventListener('input', e=>{ row.by = e.target.value; sessionsDirty(); });
-        div.querySelector('button').addEventListener('click', ()=>{ list.splice(idx,1); sessionsDirty(true); });
-        els.setupList.appendChild(div);
+    function getFiltered(){
+      const today=new Date().toDateString();
+      return sessions.filter(s=>{
+        if (ui.perspective==='today' && new Date(s.start_time||s.created_at||'').toDateString()!==today) return false;
+        if (ui.perspective==='upcoming'){ const d=new Date(s.start_time||''); if(isNaN(d)||d<new Date()) return false; }
+        if (ui.perspective==='complete' && s.status!=='Complete') return false;
+        if (ui.eventFilter && String(s.event_id)!==ui.eventFilter) return false;
+        if (ui.typeFilter && s.session_type!==ui.typeFilter) return false;
+        if (ui.search){ const q=ui.search.toLowerCase(); if(!((s.name||'')+' '+(s.session_type||'')).toLowerCase().includes(q)) return false; }
+        return true;
       });
     }
-
-    function sessionsDirty(refresh){
-      const s = sessions.find(x=>x.id===ui.selectedId);
-      if (!s) return;
-      s.updatedAt = new Date().toISOString();
-      persist();
-      if (refresh) render();
+    function statusBadge(s){
+      if (s==='Complete') return '<span class="badge text-bg-success" style="font-size:0.62rem;">Complete</span>';
+      if (s==='In Progress') return '<span class="badge text-bg-warning text-dark" style="font-size:0.62rem;">In Progress</span>';
+      return '<span class="badge text-bg-secondary" style="font-size:0.62rem;">Planned</span>';
     }
-
-    function addSetup(){
-      const s = sessions.find(x=>x.id===ui.selectedId);
-      if (!s) return;
-      s.setupChanges = Array.isArray(s.setupChanges)?s.setupChanges:[];
-      s.setupChanges.push({ change:'New change', by:'' });
-      sessionsDirty(true);
+    function renderTable(){
+      const filtered=getFiltered(); el.countBadge.textContent=filtered.length; el.tbody.innerHTML='';
+      const evMap=new Map(eventsData.map(e=>[String(e.id),e.title||e.name||e.id]));
+      filtered.forEach((s,idx)=>{
+        const tr=document.createElement('tr'); if(s.id===ui.selectedId) tr.classList.add('str-row-selected');
+        tr.innerHTML='<td style="color:#9aa5b4;">'+(idx+1)+'</td><td>'+escHtml(s.name||'Unnamed')+'</td>'
+          +'<td style="font-size:0.75rem;color:#6c757d;">'+escHtml(evMap.get(String(s.event_id))||'—')+'</td>'
+          +'<td><span class="badge text-bg-light border" style="font-size:0.65rem;color:#495057;">'+escHtml(s.session_type||'—')+'</span></td>'
+          +'<td style="font-size:0.75rem;">'+escHtml(s.tyre_set||'—')+'</td>'
+          +'<td>'+statusBadge(s.status)+'</td>'
+          +'<td><button class="str-row-del" title="Delete">✕</button></td>';
+        tr.addEventListener('click',e=>{ if(e.target.classList.contains('str-row-del')) return; ui.selectedId=s.id; render(); });
+        tr.querySelector('.str-row-del').addEventListener('click',()=>deleteSession(s.id));
+        el.tbody.appendChild(tr);
+      });
+      if (!ui.selectedId && filtered[0]) ui.selectedId=filtered[0].id;
     }
-
-    function readInspector(){
-      const s = sessions.find(x=>x.id===ui.selectedId);
-      if (!s) return;
-      s.name = els.f.name.value.trim() || s.name || 'Session';
-      s.status = els.f.status.value;
-      s.eventId = els.f.event.value;
-      s.type = els.f.type.value;
-      s.start = els.f.start.value;
-      s.end = els.f.end.value;
-      s.tyreSet = els.f.tyreSet.value.trim();
-      s.compound = els.f.compound.value;
-      s.tyreLaps = Number(els.f.tyreLaps.value||0);
-      s.feedback = els.f.feedback.value;
-      s.notes = els.f.notes.value;
-      s.updatedAt = new Date().toISOString();
-      persist();
-      render();
+    function renderSetupList(changes){
+      el.setupList.innerHTML='';
+      (changes||[]).forEach((c,i)=>{
+        const row=document.createElement('div'); row.className='log-row';
+        row.innerHTML='<input class="form-control form-control-sm" value="'+escHtml(c.change||'')+'" placeholder="e.g. Front wing +1"><input class="form-control form-control-sm" value="'+escHtml(c.by||'')+'" placeholder="By" style="max-width:90px;"><button class="setup-del">✕</button>';
+        el.setupList.appendChild(row);
+      });
     }
-
-    function addSession(){
-      const id = sessions.reduce((m,s)=>Math.max(m, Number(s.id)||0),0)+1;
-      const ev = EVENT_OPTIONS[0];
-      const now = new Date();
-      const s = {
-        id,
-        name:`Session ${id}`,
-        status:'Planned',
-        type:'Practice',
-        eventId: ev ? ev.id : '',
-        start: isoDate(now),
-        end: isoDate(now),
-        tyreSet:'',
-        compound:'Soft',
-        tyreLaps:0,
-        feedback:'',
-        notes:'',
-        setupChanges:[],
-        updatedAt: new Date().toISOString()
-      };
-      sessions.unshift(s);
-      ui.selectedId = id;
-      render();
+    function getSetupChanges(){
+      return [...el.setupList.querySelectorAll('.log-row')].map(row=>{ const inputs=row.querySelectorAll('input'); return { change:inputs[0].value.trim(), by:inputs[1].value.trim() }; }).filter(c=>c.change);
     }
-
-    function duplicateSession(){
-      const s = sessions.find(x=>x.id===ui.selectedId);
-      if (!s) return;
-      const id = sessions.reduce((m,s)=>Math.max(m, Number(s.id)||0),0)+1;
-      const copy = JSON.parse(JSON.stringify(s));
-      copy.id = id;
-      copy.name = `${s.name} (Copy)`;
-      copy.status = 'Planned';
-      copy.updatedAt = new Date().toISOString();
-      sessions.unshift(copy);
-      ui.selectedId = id;
-      render();
+    function hydrateInspector(){
+      const s=sessions.find(x=>x.id===ui.selectedId); el.inspBadge.textContent=s?(s.name||s.id||'—'):'—';
+      if (!s){ Object.values(el.f).forEach(f=>{ if(f&&f.tagName) f.value=''; }); return; }
+      el.f.name.value=s.name||''; el.f.status.value=s.status||'Planned'; el.f.event.value=s.event_id||'';
+      el.f.type.value=s.session_type||'Practice'; el.f.driver.value=s.driver_id||''; el.f.kart.value=s.kart_id||'';
+      el.f.start.value=isoDatetimeLocal(s.start_time); el.f.end.value=isoDatetimeLocal(s.end_time);
+      el.f.tyreSet.value=s.tyre_set||''; el.f.compound.value=s.compound||'Soft'; el.f.tyreLaps.value=s.tyre_laps||'';
+      el.f.feedback.value=s.driver_feedback||''; el.f.notes.value=s.engineer_notes||'';
+      renderSetupList(s.setup_changes||[]); renderLapTimes(s.lap_times||[]);
+      document.getElementById('btnViewStrEvent').href=s.event_id?'events.html?id='+s.event_id:'events.html';
     }
-
-    function deleteSession(){
-      const idx = sessions.findIndex(x=>x.id===ui.selectedId);
-      if (idx<0) return;
-      sessions.splice(idx,1);
-      ui.selectedId = sessions[0]?.id || null;
-      render();
+    function renderLapTimes(laps){
+      el.lapTbody.innerHTML='';
+      if (!laps||!laps.length){ el.lapTbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:#9aa5b4;padding:12px;">No lap times recorded</td></tr>'; return; }
+      const fastest=Math.min(...laps.map(l=>l.time_ms||Infinity));
+      laps.forEach(l=>{ const fast=l.time_ms===fastest; const tr=document.createElement('tr'); tr.innerHTML=(fast?'<td class="lap-fastest">':'<td>')+l.lap+'</td>'+(fast?'<td class="lap-fastest">':'<td>')+msToTime(l.time_ms)+'</td>'+'<td>'+msToTime(l.s1_ms)+'</td><td>'+msToTime(l.s2_ms)+'</td><td>'+msToTime(l.s3_ms)+'</td>'; el.lapTbody.appendChild(tr); });
     }
-
-    function printable(s){
-      const lines = (s.setupChanges||[]).map(l=>`<li>${escapeHtml(l.change||'')} <em>${escapeHtml(l.by||'')}</em></li>`).join('');
-      return `
-      <html><head><title>${escapeHtml(s.name||'Session')}</title>
-      <style>
-        body{font-family:Arial, sans-serif; color:#111; padding:24px;}
-        h1{margin:0 0 8px 0;}
-        .muted{color:#666; font-size:0.9rem;}
-      </style>
-      </head><body>
-        <h1>${escapeHtml(s.name||'Session')}</h1>
-        <div class="muted">${escapeHtml(eventTitle(s.eventId)||'')} • ${escapeHtml(s.type||'')} • Status: ${escapeHtml(s.status||'')}</div>
-        <div>Date: ${escapeHtml((s.start||'').replace('T',' '))} → ${escapeHtml((s.end||'').replace('T',' '))}</div>
-        <div>Tyres: ${escapeHtml(s.compound||'')} / ${escapeHtml(s.tyreSet||'')} (laps ${escapeHtml(s.tyreLaps||0)})</div>
-        <h3>Setup changes</h3>
-        <ul>${lines||'<li>None</li>'}</ul>
-        <h3>Driver feedback</h3>
-        <p>${escapeHtml(s.feedback||'')}</p>
-        <h3>Engineer notes / next plan</h3>
-        <p>${escapeHtml(s.notes||'')}</p>
-      </body></html>`;
+    async function patchSession(id,updates){ return apiFetch('/api/race-sessions/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(updates)}); }
+    async function saveSession(){
+      const s=sessions.find(x=>x.id===ui.selectedId); if(!s) return;
+      const updates={name:el.f.name.value.trim(),status:el.f.status.value,event_id:el.f.event.value||null,session_type:el.f.type.value,driver_id:el.f.driver.value||null,kart_id:el.f.kart.value||null,start_time:el.f.start.value||null,end_time:el.f.end.value||null,tyre_set:el.f.tyreSet.value.trim(),compound:el.f.compound.value,tyre_laps:parseInt(el.f.tyreLaps.value)||null,setup_changes:getSetupChanges(),driver_feedback:el.f.feedback.value.trim(),engineer_notes:el.f.notes.value.trim()};
+      try { const resp=await patchSession(s.id,updates); if(resp&&(resp.success||resp.id)){ Object.assign(s,updates); if(RTS.showToast) RTS.showToast('Saved','success'); renderTable(); renderStats(); } else throw new Error(); } catch(e){ if(RTS.showToast) RTS.showToast('Save failed','error'); }
     }
-
-    function openPDF(){
-      const s = sessions.find(x=>x.id===ui.selectedId);
-      if (!s) return;
-      const win = window.open('', '_blank');
-      win.document.write(printable(s));
-      win.document.close();
-      try { win.focus(); } catch(_e){}
-      setTimeout(()=>{ try{ win.print(); } catch(_e){} }, 200);
+    async function addSession(){
+      try { const resp=await apiFetch('/api/race-sessions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'New Session',session_type:'Practice',status:'Planned'})}); const ns=resp&&resp.session?resp.session:resp; if(ns&&ns.id){ sessions.unshift(ns); ui.selectedId=ns.id; if(RTS.showToast) RTS.showToast('Added','success'); render(); } } catch(e){ if(RTS.showToast) RTS.showToast('Add failed','error'); }
     }
-
+    async function deleteSession(id){
+      if(!confirm('Delete this session?')) return;
+      try { await apiFetch('/api/race-sessions/'+id,{method:'DELETE'}); sessions=sessions.filter(s=>s.id!==id); if(ui.selectedId===id) ui.selectedId=null; if(RTS.showToast) RTS.showToast('Deleted','success'); render(); } catch(e){ if(RTS.showToast) RTS.showToast('Delete failed','error'); }
+    }
+    async function duplicateSession(){
+      const s=sessions.find(x=>x.id===ui.selectedId); if(!s) return;
+      const copy=Object.assign({},s,{name:(s.name||'Session')+' (copy)'}); delete copy.id;
+      try { const resp=await apiFetch('/api/race-sessions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(copy)}); const ns=resp&&resp.session?resp.session:resp; if(ns&&ns.id){ sessions.unshift(ns); ui.selectedId=ns.id; if(RTS.showToast) RTS.showToast('Duplicated','success'); render(); } } catch(e){ if(RTS.showToast) RTS.showToast('Failed','error'); }
+    }
+    function parseLapCsv(text){
+      return text.trim().split(/\r?\n/).map((l,i)=>{ const [lap,time,s1,s2,s3]=l.split(',').map(v=>(v||'').trim()); function toMs(t){ if(!t||t==='—') return null; const p=t.split(':'); return p.length===2?Math.round((parseFloat(p[0])*60+parseFloat(p[1]))*1000):Math.round(parseFloat(t)*1000); } return {lap:parseInt(lap)||i+1,time_ms:toMs(time),s1_ms:toMs(s1),s2_ms:toMs(s2),s3_ms:toMs(s3)}; }).filter(r=>r.time_ms);
+    }
+    async function saveLapTimes(laps){
+      const s=sessions.find(x=>x.id===ui.selectedId); if(!s) return;
+      try { await patchSession(s.id,{lap_times:laps}); s.lap_times=laps; renderLapTimes(laps); if(RTS.showToast) RTS.showToast('Lap times saved','success'); } catch(e){ if(RTS.showToast) RTS.showToast('Failed','error'); }
+    }
+    function render(){ renderStats(); renderLeftPane(); renderTable(); hydrateInspector(); }
     function bind(){
-      els.perspectives.addEventListener('click', (e)=>{
-        const li = e.target.closest('li[data-perspective]');
-        if (!li) return;
-        els.perspectives.querySelectorAll('li').forEach(x=>x.classList.remove('active'));
-        li.classList.add('active');
-        ui.perspective = li.dataset.perspective || 'all';
-        render();
-      });
-      els.eventsTree.addEventListener('click', (e)=>{
-        const li = e.target.closest('li[data-event]');
-        if (!li) return;
-        els.eventsTree.querySelectorAll('li').forEach(x=>x.classList.remove('active'));
-        li.classList.add('active');
-        ui.event = li.dataset.event || '';
-        render();
-      });
-      const onInputs = ()=>{
-        ui.search = els.search.value;
-        ui.event = els.eventFilter.value;
-        ui.status = els.statusFilter.value;
-        ui.groupBy = els.group.value;
-        render();
-      };
-      els.search.addEventListener('input', onInputs);
-      els.eventFilter.addEventListener('change', onInputs);
-      els.statusFilter.addEventListener('change', onInputs);
-      els.group.addEventListener('change', onInputs);
-      els.add.addEventListener('click', addSession);
-      els.save.addEventListener('click', readInspector);
-      els.dup.addEventListener('click', duplicateSession);
-      els.del.addEventListener('click', deleteSession);
-      els.addSetup.addEventListener('click', addSetup);
-      els.pdf.addEventListener('click', openPDF);
+      el.search.addEventListener('input',()=>{ ui.search=el.search.value; renderTable(); });
+      el.eventFilter.addEventListener('change',()=>{ ui.eventFilter=el.eventFilter.value; renderTable(); });
+      el.typeFilter.addEventListener('change',()=>{ ui.typeFilter=el.typeFilter.value; renderTable(); });
+      el.perspList.querySelectorAll('li').forEach(li=>li.addEventListener('click',()=>{ ui.perspective=li.dataset.perspective; render(); }));
+      document.getElementById('btnAddStrTop').addEventListener('click',addSession);
+      document.getElementById('btnSaveStr').addEventListener('click',saveSession);
+      document.getElementById('btnDupStr').addEventListener('click',duplicateSession);
+      document.getElementById('btnDelStr').addEventListener('click',()=>{ const s=sessions.find(x=>x.id===ui.selectedId); if(s) deleteSession(s.id); });
+      document.getElementById('btnAddSetup').addEventListener('click',()=>{ const row=document.createElement('div'); row.className='log-row'; row.innerHTML='<input class="form-control form-control-sm" placeholder="e.g. Front wing +1"><input class="form-control form-control-sm" placeholder="By" style="max-width:90px;"><button class="setup-del">✕</button>'; row.querySelector('.setup-del').addEventListener('click',()=>row.remove()); el.setupList.appendChild(row); });
+      el.setupList.addEventListener('click',e=>{ if(e.target.classList.contains('setup-del')) e.target.closest('.log-row').remove(); });
+      document.getElementById('lapFileInput').addEventListener('change',async e=>{ const file=e.target.files[0]; if(!file) return; const text=await file.text(); const laps=parseLapCsv(text); if(laps.length){ await saveLapTimes(laps); } else if(RTS.showToast) RTS.showToast('No valid lap data','error'); e.target.value=''; });
+      document.getElementById('btnClearLaps').addEventListener('click',async()=>{ if(!confirm('Clear all lap times?')) return; await saveLapTimes([]); });
+      const params=new URLSearchParams(window.location.search); const p=params.get('session'); if(p) ui.selectedId=p;
     }
-
-    function init(){
-      buildEventLists();
-      bind();
-      render();
-      if (!ui.selectedId && sessions[0]) { ui.selectedId = sessions[0].id; render(); }
-    }
-    document.addEventListener('DOMContentLoaded', init);
+    async function init(){ bind(); await loadAll(); populateSelects(); render(); }
+    document.addEventListener('DOMContentLoaded',init);
   })();
   </script>
 </body>

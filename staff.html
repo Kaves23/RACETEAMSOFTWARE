@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Race Team OS – Staff &amp; Crew</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="style.css" rel="stylesheet" />
+  <style>
+    body { background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%); }
+
+    .ev-stats-bar { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+    .ev-stat-card { background: #fff; border: 1px solid rgba(0,0,0,0.1); border-radius: 8px; padding: 10px 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.06); min-width: 110px; }
+    .ev-stat-label { font-size: 0.7rem; color: #6c757d; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+    .ev-stat-value { font-size: 1.5rem; font-weight: 700; color: #1a1d24; line-height: 1.2; }
+
+    #stfShell.mlo-shell { background: transparent; border: none; gap: 10px; }
+    #stfShell .mlo-pane-left,
+    #stfShell .mlo-pane-mid,
+    #stfShell .mlo-pane-right {
+      background: #ffffff; border: 1px solid rgba(0,0,0,0.1);
+      border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+    }
+    #stfShell .mlo-pane-header { background: #f8f9fa; border-bottom: 1px solid rgba(0,0,0,0.1); }
+    #stfShell .mlo-title { color: #1a1d24 !important; }
+    #stfShell .mlo-section-label { color: #6c757d !important; opacity: 1 !important; }
+    #stfShell .mlo-pane-content { color: #1a1d24; }
+    #stfShell .mlo-resizer { background: transparent; }
+    #stfShell .mlo-resizer:hover { background: rgba(0,153,204,0.3); }
+
+    #stfShell .mlo-pane-left .pastel-tree { padding: 0 !important; margin: 0 !important; }
+    #stfShell .mlo-pane-left .pastel-tree li {
+      height: 28px !important; display: flex !important; align-items: center !important;
+      font-size: 0.83rem !important; font-weight: 500 !important; padding-left: 10px !important;
+      margin-bottom: 2px !important; border-radius: 5px !important; border: 1px solid rgba(0,0,0,0.08) !important;
+      box-shadow: none !important; color: #1a1d24 !important; white-space: nowrap !important;
+      overflow: hidden !important; text-overflow: ellipsis !important; cursor: pointer !important;
+    }
+    #stfShell .mlo-pane-left .pastel-tree li.active {
+      background: rgba(0,153,204,0.1) !important; border-color: rgba(0,153,204,0.35) !important;
+      color: #0072a3 !important; font-weight: 700 !important;
+    }
+    #stfShell .form-control, #stfShell .form-select { background: #fff; color: #1a1d24; border-color: #dee2e6; }
+    #stfShell .form-control::placeholder { color: #9aa5b4; }
+
+    .stf-list-table { width: 100%; font-size: 0.82rem; border-collapse: separate; border-spacing: 0; }
+    .stf-list-table thead { position: sticky; top: 0; background: #f8f9fa; z-index: 5; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+    .stf-list-table th { padding: 8px 10px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #6c757d; border-bottom: 2px solid #dee2e6; white-space: nowrap; }
+    .stf-list-table td { padding: 6px 10px; border-bottom: 1px solid rgba(0,0,0,0.05); vertical-align: middle; color: #1a1d24 !important; }
+    .stf-list-table tbody tr { cursor: pointer; transition: background 0.1s; }
+    .stf-list-table tbody tr:hover { background: #f8f9fa; }
+    .stf-list-table tbody tr.stf-row-selected { background: rgba(0,153,204,0.08) !important; outline: 2px solid #0099cc; outline-offset: -2px; }
+    .stf-row-del { opacity: 0; transition: opacity 0.15s; background: none; border: none; color: #dc3545; font-size: 1rem; line-height: 1; padding: 0 4px; cursor: pointer; }
+    .stf-list-table tbody tr:hover .stf-row-del { opacity: 1; }
+
+    #stfShell #stfTabs .nav-link { color: #6c757d; background: transparent; border-color: transparent; font-size: 0.8rem; padding: 7px 10px; }
+    #stfShell #stfTabs .nav-link.active { color: #0099cc; border-color: #dee2e6 #dee2e6 #fff; background: #fff; font-weight: 600; }
+    #stfShell #stfTabs .nav-link:hover:not(.active) { color: #1a1d24; }
+
+    #stfShell .mlo-pane-right .form-label { color: #495057 !important; font-size: 0.78rem; font-weight: 600; margin-bottom: 2px; }
+    #stfShell .mlo-pane-right .form-control,
+    #stfShell .mlo-pane-right .form-select { background: #fff !important; color: #1a1d24 !important; border-color: #dee2e6 !important; font-size: 0.82rem; }
+
+    .stf-sub-table { width: 100%; font-size: 0.78rem; border-collapse: collapse; }
+    .stf-sub-table th { background: #f8f9fa; color: #6c757d; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; padding: 5px 8px; border-bottom: 1px solid #dee2e6; }
+    .stf-sub-table td { padding: 4px 8px; border-bottom: 1px solid #f0f0f0; color: #1a1d24; vertical-align: middle; }
+    .stf-table-wrap { border: 1px solid #dee2e6; border-radius: 6px; overflow: hidden; }
+
+    .comp-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f0f0f0; }
+    .comp-row:last-child { border-bottom: none; }
+    .comp-lbl { font-size: 0.8rem; font-weight: 600; color: #495057; }
+    .comp-sub { font-size: 0.7rem; color: #9aa5b4; }
+
+    .badge-exp { display: inline-block; padding: 2px 7px; border-radius: 20px; font-size: 0.65rem; font-weight: 700; white-space: nowrap; }
+    .badge-ok { background: #d1fae5; color: #065f46; }
+    .badge-warn { background: #fef3c7; color: #92400e; }
+    .badge-expired { background: #fee2e2; color: #991b1b; }
+    .badge-missing { background: #f3f4f6; color: #6b7280; }
+  </style>
+</head>
+<body class="light-mode">
+  <div id="rtsTopNav"></div>
+  <div class="rts-version-badge">v3</div>
+  <div class="rts-main container-fluid">
+
+    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+      <div>
+        <h1 class="h4 mb-1">Staff &amp; Crew</h1>
+        <div class="text-secondary" style="font-size:0.85rem;">Manage mechanics, race engineers, managers and support crew. Track certifications, assignments and equipment.</div>
+      </div>
+      <button class="btn btn-sm btn-primary" id="btnAddStaff" type="button">+ Add Staff</button>
+    </div>
+
+    <!-- Stats Bar -->
+    <div class="ev-stats-bar">
+      <div class="ev-stat-card"><div class="ev-stat-label">👷 Total Staff</div><div class="ev-stat-value" id="statStfTotal">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">✅ Active</div><div class="ev-stat-value" id="statStfActive">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">📦 Items Checked Out</div><div class="ev-stat-value" id="statStfItems">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">⚠️ Cert Issues</div><div class="ev-stat-value" id="statStfIssues">0</div></div>
+    </div>
+
+    <div class="mlo-shell" id="stfShell">
+
+      <!-- LEFT PANE -->
+      <section class="mlo-pane mlo-pane-left" aria-label="Staff lists">
+        <div class="mlo-pane-header">
+          <div class="d-flex align-items-center justify-content-between">
+            <div class="mlo-title">Staff</div>
+            <span class="badge text-bg-secondary" id="stfCountBadge">0</span>
+          </div>
+        </div>
+        <div class="mlo-pane-content">
+          <div class="mlo-section-label">Smart lists</div>
+          <ul class="pastel-tree" id="stfSmartList">
+            <li class="active" data-filter="all">All Staff</li>
+            <li data-filter="active">Active</li>
+            <li data-filter="assigned">Currently Assigned</li>
+            <li data-filter="cert-issues">Cert Issues</li>
+          </ul>
+          <div class="mlo-section-label mt-3">Role</div>
+          <ul class="pastel-tree" id="stfRoleList"></ul>
+        </div>
+      </section>
+
+      <div class="mlo-resizer" data-resize="left" title="Drag to resize"></div>
+
+      <!-- MIDDLE PANE -->
+      <section class="mlo-pane mlo-pane-mid" aria-label="Staff list">
+        <div class="mlo-pane-header">
+          <div class="d-flex align-items-center flex-nowrap gap-1" style="overflow:hidden;">
+            <input id="stfSearch" type="text" class="form-control form-control-sm" placeholder="Search staff…" style="flex:1 1 180px; min-width:160px;">
+            <select id="stfRoleFilter" class="form-select form-select-sm" style="flex:0 1 160px; min-width:130px;">
+              <option value="">Role: All</option>
+              <option>Mechanic</option>
+              <option>Race Engineer</option>
+              <option>Team Manager</option>
+              <option>Data Engineer</option>
+              <option>Logistics</option>
+              <option>Medical</option>
+              <option>Other</option>
+            </select>
+          </div>
+        </div>
+        <div class="mlo-pane-content" style="padding:0;">
+          <table class="stf-list-table">
+            <thead>
+              <tr>
+                <th style="width:36px;">#</th>
+                <th>Name</th>
+                <th style="width:120px;">Role</th>
+                <th style="width:80px;">Phone</th>
+                <th style="width:80px;">Status</th>
+                <th style="width:32px;"></th>
+              </tr>
+            </thead>
+            <tbody id="stfTbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <div class="mlo-resizer" data-resize="right" title="Drag to resize"></div>
+
+      <!-- RIGHT PANE (INSPECTOR) -->
+      <section class="mlo-pane mlo-pane-right mlo-inspector" aria-label="Staff inspector">
+        <div class="mlo-pane-header">
+          <div class="d-flex align-items-center justify-content-between">
+            <div class="mlo-title">Inspector</div>
+            <span class="badge text-bg-secondary" id="stfInspBadge">—</span>
+          </div>
+        </div>
+        <div class="mlo-pane-content">
+          <ul class="nav nav-tabs mb-2" id="stfTabs" role="tablist">
+            <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#pane-stf-profile" type="button" role="tab">Profile</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#pane-stf-compliance" type="button" role="tab">Compliance</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#pane-stf-events" type="button" role="tab">Events</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#pane-stf-assets" type="button" role="tab">Assets</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#pane-stf-docs" type="button" role="tab">Docs</button></li>
+          </ul>
+
+          <div class="tab-content" id="stfTabContent">
+
+            <!-- PROFILE -->
+            <div class="tab-pane fade show active" id="pane-stf-profile" role="tabpanel">
+              <form id="stfForm" autocomplete="off">
+                <div class="row g-2">
+                  <div class="col-12">
+                    <label class="form-label">Full name</label>
+                    <input id="f_stf_name" class="form-control form-control-sm" type="text">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Role</label>
+                    <select id="f_stf_role" class="form-select form-select-sm">
+                      <option value="">—</option>
+                      <option>Mechanic</option>
+                      <option>Race Engineer</option>
+                      <option>Team Manager</option>
+                      <option>Data Engineer</option>
+                      <option>Logistics</option>
+                      <option>Medical</option>
+                      <option>Other</option>
+                    </select>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Status</label>
+                    <select id="f_stf_status" class="form-select form-select-sm">
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                    </select>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Email</label>
+                    <input id="f_stf_email" class="form-control form-control-sm" type="email">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Phone</label>
+                    <input id="f_stf_phone" class="form-control form-control-sm" type="tel">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Emergency contact</label>
+                    <input id="f_stf_ec_name" class="form-control form-control-sm" type="text">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Emergency phone</label>
+                    <input id="f_stf_ec_phone" class="form-control form-control-sm" type="tel">
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label">Notes</label>
+                    <textarea id="f_stf_notes" class="form-control form-control-sm" rows="3"></textarea>
+                  </div>
+                </div>
+                <div class="d-flex gap-1 mt-2">
+                  <button class="btn btn-sm btn-primary" id="btnStfSave" type="button">Save</button>
+                  <button class="btn btn-sm btn-outline-danger ms-auto" id="btnStfDelete" type="button">Delete</button>
+                </div>
+              </form>
+            </div>
+
+            <!-- COMPLIANCE -->
+            <div class="tab-pane fade" id="pane-stf-compliance" role="tabpanel">
+              <div id="stfComplianceContent">
+                <p class="text-secondary" style="font-size:0.8rem;">Select a staff member.</p>
+              </div>
+            </div>
+
+            <!-- EVENTS -->
+            <div class="tab-pane fade" id="pane-stf-events" role="tabpanel">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="text-secondary" style="font-size:0.78rem;">Event assignments</span>
+                <a id="btnStfEventsLink" href="events.html" class="btn btn-sm btn-outline-secondary" style="font-size:0.75rem;">Open Events →</a>
+              </div>
+              <div class="stf-table-wrap">
+                <table class="stf-sub-table">
+                  <thead><tr><th>Event</th><th style="width:100px;">Date</th><th style="width:90px;">Role</th></tr></thead>
+                  <tbody id="stfEventsTbody"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- ASSETS -->
+            <div class="tab-pane fade" id="pane-stf-assets" role="tabpanel">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="text-secondary" style="font-size:0.78rem;">Checked-out items</span>
+                <a id="btnStfAssetsLink" href="assets.html" class="btn btn-sm btn-outline-secondary" style="font-size:0.75rem;">Open Assets →</a>
+              </div>
+              <div class="stf-table-wrap">
+                <table class="stf-sub-table">
+                  <thead><tr><th>Item</th><th style="width:80px;">Type</th><th style="width:90px;">Checked out</th></tr></thead>
+                  <tbody id="stfAssetsTbody"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- DOCS -->
+            <div class="tab-pane fade" id="pane-stf-docs" role="tabpanel">
+              <div class="d-flex gap-1 mb-2">
+                <button class="btn btn-sm btn-outline-secondary" id="btnStfAddUrl" type="button">+ Add URL</button>
+              </div>
+              <div class="stf-table-wrap">
+                <table class="stf-sub-table">
+                  <thead><tr><th>Title</th><th style="width:60px;">Link</th><th style="width:50px;"></th></tr></thead>
+                  <tbody id="stfDocsTbody"></tbody>
+                </table>
+              </div>
+            </div>
+
+          </div><!-- tab-content -->
+        </div><!-- pane-content -->
+      </section>
+    </div><!-- mlo-shell -->
+  </div><!-- rts-main -->
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="core.js?v=20260407-1700"></script>
+  <script src="topnav.js?v=20260411-2"></script>
+  <script>
+  (function(){
+    'use strict';
+    RTS.setActiveNav();
+    const LS_PANES = 'rts.staff.panes.v1';
+
+    let staff = [];
+    let ui = { filter:'all', roleFilter:'', search:'', selectedId:null };
+
+    const el = {
+      shell: document.getElementById('stfShell'),
+      countBadge: document.getElementById('stfCountBadge'),
+      smartList: document.getElementById('stfSmartList'),
+      roleList: document.getElementById('stfRoleList'),
+      search: document.getElementById('stfSearch'),
+      roleFilter: document.getElementById('stfRoleFilter'),
+      tbody: document.getElementById('stfTbody'),
+      inspBadge: document.getElementById('stfInspBadge'),
+      complianceContent: document.getElementById('stfComplianceContent'),
+      eventsTbody: document.getElementById('stfEventsTbody'),
+      assetsTbody: document.getElementById('stfAssetsTbody'),
+      docsTbody: document.getElementById('stfDocsTbody'),
+      f: {
+        name: document.getElementById('f_stf_name'),
+        role: document.getElementById('f_stf_role'),
+        status: document.getElementById('f_stf_status'),
+        email: document.getElementById('f_stf_email'),
+        phone: document.getElementById('f_stf_phone'),
+        ecName: document.getElementById('f_stf_ec_name'),
+        ecPhone: document.getElementById('f_stf_ec_phone'),
+        notes: document.getElementById('f_stf_notes')
+      }
+    };
+
+    RTS.initTriPaneResizers(el.shell, LS_PANES);
+
+    // ─── HELPERS ────────────────────────────────────────────────
+    function escHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+    function fmtDate(s){ if(!s) return '—'; const d=new Date(s); return isNaN(d)?s:d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'}); }
+
+    function expiryBadge(dateStr){
+      if (!dateStr) return '<span class="badge-exp badge-missing">Missing</span>';
+      const t = new Date(dateStr).getTime();
+      if (isNaN(t)) return '<span class="badge-exp badge-missing">Invalid</span>';
+      const diff = t - Date.now();
+      if (diff < 0) return '<span class="badge-exp badge-expired">Expired</span>';
+      if (diff < 30*86400000) return `<span class="badge-exp badge-warn">Exp ${fmtDate(dateStr)}</span>`;
+      return `<span class="badge-exp badge-ok">${fmtDate(dateStr)}</span>`;
+    }
+
+    function certScore(s){
+      const dates = [s.first_aid_expiry, s.licence_expiry].filter(Boolean);
+      let expired=0, expiring=0;
+      dates.forEach(d=>{ const t=new Date(d).getTime(); if(isNaN(t)) return; if(t<Date.now()) expired++; else if((t-Date.now())<30*86400000) expiring++; });
+      return { hasIssue: expired>0, expiring: expiring>0 };
+    }
+
+    function memberMatchesFilter(s){
+      if (ui.filter==='active') return (s.status||'active')==='active';
+      if (ui.filter==='assigned') return !!s._assigned;
+      if (ui.filter==='cert-issues') return certScore(s).hasIssue;
+      return true;
+    }
+
+    function memberMatchesSearch(s){
+      if (!ui.search) return true;
+      const q = ui.search.toLowerCase();
+      return (`${s.name||''} ${s.role||''} ${s.email||''}`).toLowerCase().includes(q);
+    }
+
+    // ─── LOAD ────────────────────────────────────────────────────
+    async function loadStaff(){
+      try {
+        const resp = await RTS_API.getCollectionItems('staff');
+        staff = (resp && resp.items) ? resp.items : [];
+      } catch(e){ console.error('Load staff:', e); staff = []; }
+    }
+
+    // ─── STATS ───────────────────────────────────────────────────
+    function renderStats(){
+      document.getElementById('statStfTotal').textContent = staff.length;
+      document.getElementById('statStfActive').textContent = staff.filter(s=>(s.status||'active')==='active').length;
+      document.getElementById('statStfIssues').textContent = staff.filter(s=>certScore(s).hasIssue).length;
+      // Items checked out count — from assignments if cached
+      document.getElementById('statStfItems').textContent = staff.reduce((n,s)=>n+(s._itemCount||0),0);
+    }
+
+    // ─── LEFT PANE ───────────────────────────────────────────────
+    function renderLeftPane(){
+      el.smartList.querySelectorAll('li').forEach(li=>li.classList.toggle('active',li.dataset.filter===ui.filter));
+      const roles = [...new Set(staff.map(s=>s.role||'').filter(Boolean))].sort();
+      el.roleList.innerHTML = '';
+      const allLi = document.createElement('li');
+      allLi.textContent = 'All roles';
+      allLi.classList.toggle('active',!ui.roleFilter);
+      allLi.addEventListener('click',()=>{ ui.roleFilter=''; render(); });
+      el.roleList.appendChild(allLi);
+      roles.forEach(r=>{
+        const li = document.createElement('li');
+        li.textContent = r;
+        li.classList.toggle('active',ui.roleFilter===r);
+        li.addEventListener('click',()=>{ ui.roleFilter=r; render(); });
+        el.roleList.appendChild(li);
+      });
+    }
+
+    // ─── MIDDLE TABLE ────────────────────────────────────────────
+    function getFiltered(){
+      return staff.filter(s=>{
+        if (ui.roleFilter && (s.role||'')!==ui.roleFilter) return false;
+        if (el.roleFilter.value && (s.role||'')!==el.roleFilter.value) return false;
+        if (!memberMatchesFilter(s)) return false;
+        if (!memberMatchesSearch(s)) return false;
+        return true;
+      });
+    }
+
+    function renderTable(){
+      const filtered = getFiltered();
+      el.countBadge.textContent = filtered.length;
+      el.tbody.innerHTML = '';
+      filtered.forEach((s,i)=>{
+        const statusBadge = (s.status||'active')==='active'
+          ? '<span class="badge text-bg-success" style="font-size:0.65rem;">Active</span>'
+          : '<span class="badge text-bg-secondary" style="font-size:0.65rem;">Inactive</span>';
+        const tr = document.createElement('tr');
+        if (s.id===ui.selectedId) tr.classList.add('stf-row-selected');
+        tr.innerHTML = `
+          <td style="color:#9aa5b4;">${i+1}</td>
+          <td>${escHtml(s.name||'—')}</td>
+          <td>${escHtml(s.role||'—')}</td>
+          <td style="font-size:0.75rem;color:#6c757d;">${escHtml(s.phone||s.contact_phone||'—')}</td>
+          <td>${statusBadge}</td>
+          <td><button class="stf-row-del" data-id="${escHtml(s.id)}" title="Delete">✕</button></td>
+        `;
+        tr.addEventListener('click', e=>{ if(e.target.classList.contains('stf-row-del')) return; ui.selectedId=s.id; render(); });
+        tr.querySelector('.stf-row-del').addEventListener('click',()=>deleteStaff(s.id,s.name));
+        el.tbody.appendChild(tr);
+      });
+      if (!ui.selectedId && filtered[0]){ ui.selectedId=filtered[0].id; hydrateInspector(); }
+    }
+
+    // ─── INSPECTOR ───────────────────────────────────────────────
+    function hydrateInspector(){
+      const s = staff.find(x=>x.id===ui.selectedId);
+      el.inspBadge.textContent = s?(s.name||s.id||'—'):'—';
+      if (!s){
+        Object.values(el.f).forEach(f=>{ if(f) f.value=''; });
+        el.complianceContent.innerHTML='<p class="text-secondary" style="font-size:0.8rem;">Select a staff member.</p>';
+        return;
+      }
+      el.f.name.value = s.name||'';
+      el.f.role.value = s.role||'';
+      el.f.status.value = s.status||'active';
+      el.f.email.value = s.contact_email||s.email||'';
+      el.f.phone.value = s.contact_phone||s.phone||'';
+      el.f.ecName.value = s.emergency_contact||'';
+      el.f.ecPhone.value = s.emergency_phone||'';
+      el.f.notes.value = s.notes||'';
+      renderStaffCompliance(s);
+      renderStaffEvents(s);
+      renderStaffAssets(s);
+      renderStaffDocs(s);
+    }
+
+    // ─── COMPLIANCE TAB ─────────────────────────────────────────
+    function renderStaffCompliance(s){
+      const cs = certScore(s);
+      const statusHtml = cs.hasIssue
+        ? '<div class="alert alert-danger p-2 mb-3" style="font-size:0.8rem;">⚠️ One or more certifications expired</div>'
+        : cs.expiring
+          ? '<div class="alert alert-warning p-2 mb-3" style="font-size:0.8rem;">🕐 Certifications expiring within 30 days</div>'
+          : '<div class="alert alert-success p-2 mb-3" style="font-size:0.8rem;">✅ Certifications valid</div>';
+
+      function dateRow(label, sub, dateStr){
+        return `<div class="comp-row">
+          <div><div class="comp-lbl">${label}</div><div class="comp-sub">${sub}</div></div>
+          <div>${expiryBadge(dateStr)}</div>
+        </div>`;
+      }
+
+      function checkRow(label, sub, field){
+        const checked = s[field];
+        const dateStr = s[field+'_date'] ? fmtDate(s[field+'_date']) : '';
+        return `<div class="comp-row">
+          <div><div class="comp-lbl">${label}</div><div class="comp-sub">${sub}</div></div>
+          <div class="d-flex align-items-center gap-1">
+            <input type="checkbox" class="form-check-input stf-comp-chk" data-field="${field}" ${checked?'checked':''} style="cursor:pointer;">
+            <span style="font-size:0.7rem;color:#9aa5b4;">${dateStr}</span>
+          </div>
+        </div>`;
+      }
+
+      el.complianceContent.innerHTML = `
+        ${statusHtml}
+        <div style="border:1px solid #dee2e6;border-radius:6px;padding:0 10px;">
+          ${dateRow('First Aid Certificate','Required for trackside roles',s.first_aid_expiry)}
+          ${dateRow('Driving Licence / Race Licence','if applicable',s.licence_expiry)}
+          ${checkRow('DBS / Background check','Criminal record check',s.dbs_checked)}
+          ${checkRow('NDA / Confidentiality','Non-disclosure agreement signed',s.nda_signed)}
+          ${checkRow('GDPR consent','Data processing consent',s.gdpr_consent)}
+          ${checkRow('Contract signed','Employment / contractor agreement',s.contract_signed)}
+        </div>
+      `;
+
+      el.complianceContent.querySelectorAll('.stf-comp-chk').forEach(cb=>{
+        cb.addEventListener('change', async ()=>{
+          const field = cb.dataset.field;
+          const updates = { [field]: cb.checked, [field+'_date']: cb.checked ? new Date().toISOString().slice(0,10) : null };
+          try {
+            await RTS_API.updateCollectionItem('staff', s.id, updates);
+            Object.assign(s, updates);
+            if (RTS.showToast) RTS.showToast('Saved','success');
+          } catch(e){ if(RTS.showToast) RTS.showToast('Save failed','error'); }
+        });
+      });
+    }
+
+    // ─── EVENTS TAB ──────────────────────────────────────────────
+    async function renderStaffEvents(s){
+      el.eventsTbody.innerHTML = '<tr><td colspan="3" class="text-secondary" style="font-size:0.78rem;">Loading…</td></tr>';
+      document.getElementById('btnStfEventsLink').href = `events.html?staff=${s.id}`;
+      try {
+        const resp = await apiFetch(`/api/staff-assignments?staff_id=${s.id}&limit=20`);
+        const rows = resp && resp.items ? resp.items : (Array.isArray(resp) ? resp : []);
+        if (!rows.length){ el.eventsTbody.innerHTML='<tr><td colspan="3" class="text-secondary" style="font-size:0.78rem;">No assignments</td></tr>'; return; }
+        el.eventsTbody.innerHTML = rows.map(r=>`<tr>
+          <td><a href="events.html?id=${escHtml(r.event_id||'')}" style="color:#0099cc;text-decoration:none;">${escHtml(r.event_name||r.event_id||'—')}</a></td>
+          <td>${fmtDate(r.event_date||r.start_date||'')}</td>
+          <td>${escHtml(r.role||s.role||'—')}</td>
+        </tr>`).join('');
+      } catch(e){ el.eventsTbody.innerHTML='<tr><td colspan="3" class="text-secondary" style="font-size:0.78rem;">Could not load</td></tr>'; }
+    }
+
+    // ─── ASSETS TAB ──────────────────────────────────────────────
+    async function renderStaffAssets(s){
+      el.assetsTbody.innerHTML = '<tr><td colspan="3" class="text-secondary" style="font-size:0.78rem;">Loading…</td></tr>';
+      document.getElementById('btnStfAssetsLink').href = `assets.html?staff=${s.id}`;
+      try {
+        const resp = await apiFetch(`/api/items?assigned_to_id=${s.id}&limit=30`);
+        const rows = resp && resp.items ? resp.items : (Array.isArray(resp) ? resp : []);
+        if (!rows.length){ el.assetsTbody.innerHTML='<tr><td colspan="3" class="text-secondary" style="font-size:0.78rem;">No items checked out</td></tr>'; return; }
+        el.assetsTbody.innerHTML = rows.map(r=>`<tr>
+          <td><a href="assets.html?item=${escHtml(r.id||'')}" style="color:#0099cc;text-decoration:none;">${escHtml(r.name||'—')}</a></td>
+          <td>${escHtml(r.category||'—')}</td>
+          <td>${fmtDate(r.checked_out_at||r.updated_at||'')}</td>
+        </tr>`).join('');
+      } catch(e){ el.assetsTbody.innerHTML='<tr><td colspan="3" class="text-secondary" style="font-size:0.78rem;">Could not load</td></tr>'; }
+    }
+
+    // ─── DOCS TAB ────────────────────────────────────────────────
+    function renderStaffDocs(s){
+      const attachments = s.attachments||[];
+      if (!attachments.length){ el.docsTbody.innerHTML='<tr><td colspan="3" class="text-secondary" style="font-size:0.78rem;">No documents</td></tr>'; return; }
+      el.docsTbody.innerHTML = attachments.map((a,i)=>`<tr>
+        <td>${escHtml(a.name||'Document')}</td>
+        <td><a href="${escHtml(a.url||'#')}" target="_blank" rel="noopener" style="font-size:0.75rem;color:#0099cc;">Open</a></td>
+        <td><button class="btn btn-sm btn-outline-danger stf-doc-del" data-idx="${i}" style="padding:1px 6px;font-size:0.7rem;">✕</button></td>
+      </tr>`).join('');
+      el.docsTbody.querySelectorAll('.stf-doc-del').forEach(btn=>{
+        btn.addEventListener('click',()=>deleteDoc(s, parseInt(btn.dataset.idx)));
+      });
+    }
+
+    // ─── SAVE / DELETE ───────────────────────────────────────────
+    async function saveStaff(){
+      const s = staff.find(x=>x.id===ui.selectedId);
+      if (!s) return;
+      const updates = {
+        name: el.f.name.value.trim(),
+        role: el.f.role.value,
+        status: el.f.status.value,
+        contact_email: el.f.email.value.trim(),
+        contact_phone: el.f.phone.value.trim(),
+        emergency_contact: el.f.ecName.value.trim(),
+        emergency_phone: el.f.ecPhone.value.trim(),
+        notes: el.f.notes.value.trim()
+      };
+      try {
+        const resp = await RTS_API.updateCollectionItem('staff', s.id, updates);
+        if (resp && resp.success){ Object.assign(s, updates); if(RTS.showToast) RTS.showToast('Saved','success'); renderTable(); renderStats(); }
+        else throw new Error(resp && resp.error ? resp.error : 'Save failed');
+      } catch(e){ if(RTS.showToast) RTS.showToast('Save failed: '+e.message,'error'); }
+    }
+
+    async function deleteStaff(id, name){
+      if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+      try {
+        await RTS_API.deleteCollectionItem('staff', id);
+        staff = staff.filter(s=>s.id!==id);
+        if (ui.selectedId===id) ui.selectedId=null;
+        if(RTS.showToast) RTS.showToast('Deleted','success');
+        render();
+      } catch(e){ if(RTS.showToast) RTS.showToast('Delete failed','error'); }
+    }
+
+    async function addNewStaff(){
+      const name = prompt('Staff name:');
+      if (!name || !name.trim()) return;
+      try {
+        const resp = await RTS_API.createCollectionItem('staff', { name:name.trim(), status:'active' });
+        if (resp && resp.success && resp.item){ staff.push(resp.item); ui.selectedId=resp.item.id; if(RTS.showToast) RTS.showToast(`"${name}" added`,'success'); render(); }
+      } catch(e){ if(RTS.showToast) RTS.showToast('Add failed','error'); }
+    }
+
+    async function addUrl(){
+      const s = staff.find(x=>x.id===ui.selectedId);
+      if (!s) return;
+      const name = prompt('Document title:'); if (!name) return;
+      const url = prompt('URL (https://…):'); if (!url) return;
+      const attachments = [...(s.attachments||[]), { name, url }];
+      try { await RTS_API.updateCollectionItem('staff', s.id, { attachments }); s.attachments=attachments; renderStaffDocs(s); }
+      catch(e){ if(RTS.showToast) RTS.showToast('Failed','error'); }
+    }
+
+    async function deleteDoc(s, idx){
+      const attachments = (s.attachments||[]).filter((_,i)=>i!==idx);
+      try { await RTS_API.updateCollectionItem('staff', s.id, { attachments }); s.attachments=attachments; renderStaffDocs(s); }
+      catch(e){ if(RTS.showToast) RTS.showToast('Failed','error'); }
+    }
+
+    // ─── MAIN RENDER ────────────────────────────────────────────
+    function render(){
+      renderStats();
+      renderLeftPane();
+      renderTable();
+      hydrateInspector();
+    }
+
+    // ─── BIND ────────────────────────────────────────────────────
+    function bind(){
+      el.search.addEventListener('input',()=>{ ui.search=el.search.value; renderTable(); });
+      el.roleFilter.addEventListener('change',()=>renderTable());
+      el.smartList.querySelectorAll('li').forEach(li=>li.addEventListener('click',()=>{ ui.filter=li.dataset.filter; render(); }));
+      document.getElementById('btnAddStaff').addEventListener('click', addNewStaff);
+      document.getElementById('btnStfSave').addEventListener('click', saveStaff);
+      document.getElementById('btnStfDelete').addEventListener('click',()=>{ const s=staff.find(x=>x.id===ui.selectedId); if(s) deleteStaff(s.id,s.name); });
+      document.getElementById('btnStfAddUrl').addEventListener('click', addUrl);
+      const params = new URLSearchParams(window.location.search);
+      const p = params.get('staff');
+      if (p) ui.selectedId = p;
+    }
+
+    async function init(){
+      bind();
+      await loadStaff();
+      render();
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+  })();
+  </script>
+</body>
+</html>
