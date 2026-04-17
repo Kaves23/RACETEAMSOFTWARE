@@ -236,6 +236,7 @@ router.put('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
     const {
+      barcode,
       name,
       item_type,
       category,
@@ -296,6 +297,7 @@ router.put('/:id', async (req, res, next) => {
           parent_asset_id = CASE WHEN $16 THEN $17 ELSE parent_asset_id END,
           is_flagged = COALESCE($18, is_flagged),
           flag_reason = CASE WHEN $19 THEN $20 ELSE flag_reason END,
+          barcode = COALESCE($21, barcode),
           updated_at = NOW()
       WHERE id = $14
       RETURNING *
@@ -312,7 +314,8 @@ router.put('/:id', async (req, res, next) => {
       hasParentField ? (parent_asset_id || null) : null, // $17 value
       isFlagged,                                     // $18 COALESCE: null=no-op
       hasFlagReason,                                 // $19 bool: update flag_reason?
-      flagReason                                     // $20 new reason (or null)
+      flagReason,                                    // $20 new reason (or null)
+      barcode || null                                // $21 new barcode (null = keep existing)
     ];
     
     const result = await pool.query(query, values);
