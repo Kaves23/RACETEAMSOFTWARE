@@ -4998,14 +4998,20 @@ if (!newLocationId && !newBoxId) {
       // Get selected assets
       const assets = allAssets.filter(a => selectedAssets.has(a.id));
       
-      // Create CSV header
-      const headers = ['Name', 'Type', 'Status', 'Barcode', 'Serial Number', 'Category', 'Location', 'Box', 'Value', 'Description'];
+      // Create CSV header — serial, seal, description first as most important
+      const headers = [
+        'Name', 'Type', 'Status', 'Barcode', 'Serial Number', 'Seal Number',
+        'Description', 'Category', 'Location', 'Box',
+        'Carb Number', 'Exhaust Number', 'Airbox Number',
+        'Value (USD)', 'Weight (kg)', 'Last Maintenance', 'Next Maintenance'
+      ];
       
       // Create CSV rows
       const rows = assets.map(asset => {
         const box = boxMap.get(asset.current_box_id);
         const location = locationMap.get(asset.current_location_id);
-        const assetType = allAssetTypes.find(t => t.name.toLowerCase().replace(/\\s+/g, '_') === asset.item_type);
+        const assetType = allAssetTypes.find(t => t.name.toLowerCase().replace(/\s+/g, '_') === asset.item_type);
+        const cf = asset.custom_fields || {};
         
         return [
           asset.name || '',
@@ -5013,20 +5019,26 @@ if (!newLocationId && !newBoxId) {
           asset.status || '',
           asset.barcode || '',
           asset.serial_number || '',
+          cf.seal_number || '',
+          asset.description || '',
           asset.category || '',
           location?.name || '',
           box?.name || '',
-          asset.value || '',
-          asset.description || ''
+          cf.carb_number || '',
+          cf.exhaust_number || '',
+          cf.airbox_number || '',
+          asset.value_usd || asset.value || '',
+          asset.weight_kg || asset.weight || '',
+          asset.last_maintenance_date || '',
+          asset.next_maintenance_date || ''
         ].map(field => {
-          // Escape quotes and wrap in quotes if contains comma or newline
-          const escaped = String(field).replace(/\"/g, '\"\"');
-          return /[,\\n\"]/.test(escaped) ? `\"${escaped}\"` : escaped;
+          const escaped = String(field).replace(/"/g, '""');
+          return /[,\n"]/.test(escaped) ? `"${escaped}"` : escaped;
         });
       });
       
       // Combine header and rows
-      const csv = [headers, ...rows].map(row => row.join(',')).join('\\n');
+      const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
       
       // Create download link
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
