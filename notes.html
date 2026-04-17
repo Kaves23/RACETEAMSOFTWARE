@@ -640,6 +640,7 @@ let allNotes = [];
 let currentNote = null;
 let viewMode = 'edit';
 let saveTimer = null;
+let isPopulating = false; // suppress auto-save while loading a note
 let searchTimer = null;
 let entitySearchTimer = null;
 let currentTags = [];
@@ -735,13 +736,20 @@ function toggleFolder(header) {
 async function selectNote(id) {
   try {
     const r = await apiFetch(`${API}/${id}`);
-    if (!r.ok) throw new Error('Failed to load note');
-    currentNote = unwrap(await r.json());
-    populateEditor(currentNote);
+    if (!r.ok) {
+      const errJson = await r.json().catch(() => ({}));
+      throw new Error(errJson.error || `HTTP ${r.status}`);
+    }
+    const note = unwrap(await r.json());
+    if (!note || !note.id) throw new Error('Invalid note data returned');
+    currentNote = note;
+    isPopulating = true;
+    try { populateEditor(currentNote); } finally { isPopulating = false; }
     renderSidebar();
     showEditor();
   } catch(e) {
-    showToast('Failed to open note', 'danger');
+    console.error('selectNote failed:', e);
+    showToast('Failed to open note: ' + e.message, 'danger');
   }
 }
 
@@ -803,7 +811,7 @@ async function createNewNote() {
 
 /* ─────────────── AUTO SAVE ─────────────── */
 function scheduleAutoSave() {
-  if (!currentNote) return;
+  if (!currentNote || isPopulating) return;
   updateSaveIndicator('saving');
   clearTimeout(saveTimer);
   saveTimer = setTimeout(saveCurrentNote, 1500);
