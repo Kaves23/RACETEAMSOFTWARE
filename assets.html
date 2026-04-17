@@ -1436,6 +1436,9 @@
                           <button class="bulk-dropdown-item" onclick="exportSelected(); closeBulkDropdown()">
                             <span style="font-size: 1.1rem;">📊</span> Export to CSV
                           </button>
+                          <button class="bulk-dropdown-item" onclick="printAssetChecklist(); closeBulkDropdown()">
+                            <span style="font-size: 1.1rem;">🖨️</span> Print Checklist
+                          </button>
                           <button class="bulk-dropdown-item" onclick="bulkCheckoutAssets(); closeBulkDropdown()">
                             <span style="font-size: 1.1rem;">📋</span> Check Out
                           </button>
@@ -5052,6 +5055,176 @@ if (!newLocationId && !newBoxId) {
       document.body.removeChild(link);
       
       showToast(`Exported ${assets.length} assets to CSV`, 'success');
+    }
+
+    function printAssetChecklist() {
+      if (selectedAssets.size === 0) { showToast('No assets selected', 'warning'); return; }
+
+      const assets = allAssets.filter(a => selectedAssets.has(a.id));
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+      const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+      const docRef = `ACL-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}-${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
+
+      const esc = s => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      const na = s => s ? `<span>${esc(s)}</span>` : `<span class="no-val">—</span>`;
+
+      let rows = '';
+      assets.forEach((asset, idx) => {
+        const box = boxMap.get(asset.current_box_id);
+        const location = locationMap.get(asset.current_location_id);
+        const assetType = allAssetTypes.find(t => t.name.toLowerCase().replace(/\s+/g,'_') === asset.item_type);
+        const cf = asset.custom_fields || {};
+        const isEngine = asset.item_type && /engine/i.test(asset.item_type);
+        const engineExtra = isEngine ? `
+          <div class="detail-line"><span class="dl">Seal:</span>${na(cf.seal_number)}</div>
+          <div class="detail-line"><span class="dl">Carb:</span>${na(cf.carb_number)}</div>
+          <div class="detail-line"><span class="dl">Exhaust:</span>${na(cf.exhaust_number)}</div>
+          <div class="detail-line"><span class="dl">Airbox:</span>${na(cf.airbox_number)}</div>` : (cf.seal_number ? `<div class="detail-line"><span class="dl">Seal:</span>${na(cf.seal_number)}</div>` : '');
+        rows += `<tr class="${idx % 2 === 1 ? 'row-alt' : ''}">
+          <td class="col-check"><div class="tick-box"></div></td>
+          <td class="col-num">${idx + 1}</td>
+          <td>
+            <div class="item-name">${esc(asset.name || '—')}</div>
+            <div class="detail-line"><span class="dl">Type:</span>${na(assetType?.name || asset.item_type)}</div>
+            <div class="detail-line"><span class="dl">Category:</span>${na(asset.category)}</div>
+          </td>
+          <td>
+            <div class="mono">${esc(asset.barcode || '—')}</div>
+            <div class="detail-line" style="margin-top:2px"><span class="dl">Serial:</span><span class="mono">${esc(asset.serial_number || '—')}</span></div>
+            ${engineExtra}
+          </td>
+          <td><span class="status-badge status-${esc(asset.status)}">${esc(asset.status || '—')}</span></td>
+          <td>
+            <div>${na(location?.name)}</div>
+            <div class="detail-line" style="margin-top:2px"><span class="dl">Box:</span>${na(box?.name)}</div>
+          </td>
+          <td class="col-desc">${na(asset.description)}</td>
+          <td class="col-check"><div class="tick-box"></div></td>
+        </tr>`;
+      });
+
+      const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Asset Inspection Checklist — ${docRef}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 9pt; color: #000; background: #fff; }
+    .page { padding: 14mm 18mm 10mm; }
+
+    .doc-header { display: flex; justify-content: space-between; align-items: flex-end; padding-bottom: 8px; border-bottom: 2.5px solid #000; margin-bottom: 10px; }
+    .doc-title { font-size: 18pt; font-weight: 700; text-transform: uppercase; letter-spacing: -0.3px; line-height: 1; }
+    .doc-subtitle { font-size: 7.5pt; text-transform: uppercase; letter-spacing: 1.5px; color: #555; margin-top: 3px; }
+    .doc-ref-block { text-align: right; font-size: 8pt; color: #333; line-height: 1.7; }
+    .ref-num { font-family: 'Courier New', monospace; font-size: 9.5pt; font-weight: 700; }
+
+    .meta-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; border: 1px solid #999; margin-bottom: 14px; }
+    .meta-cell { padding: 5px 8px; border-right: 1px solid #ccc; }
+    .meta-cell:last-child { border-right: none; }
+    .meta-cell .label { font-size: 6.5pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #666; display: block; margin-bottom: 2px; }
+    .meta-cell .value { font-size: 9pt; font-weight: 600; }
+
+    .instructions { background: #f8f8f8; border: 1px solid #ddd; border-left: 3px solid #1a1a1a; padding: 6px 10px; margin-bottom: 12px; font-size: 8pt; color: #444; }
+    .instructions strong { color: #000; }
+
+    table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+    thead tr { background: #1a1a1a; color: #fff; }
+    th { font-size: 7pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; padding: 5px 7px; text-align: left; color: #fff; border-right: 1px solid #333; }
+    th:last-child { border-right: none; }
+    td { padding: 5px 7px; border-bottom: 1px solid #e0e0e0; border-right: 1px solid #e0e0e0; vertical-align: top; font-size: 8.5pt; }
+    td:last-child { border-right: none; }
+    tr.row-alt td { background: #f9f9f9; }
+
+    .col-check { width: 28px; text-align: center; }
+    .col-num { width: 22px; text-align: center; color: #888; font-size: 8pt; }
+    .col-desc { max-width: 130px; font-size: 8pt; color: #444; }
+    .tick-box { width: 18px; height: 18px; border: 2px solid #333; margin: 0 auto; }
+    .item-name { font-weight: 700; font-size: 9pt; }
+    .mono { font-family: 'Courier New', monospace; font-size: 8pt; }
+    .detail-line { font-size: 7.5pt; color: #555; margin-top: 1px; }
+    .dl { font-weight: 700; color: #333; margin-right: 3px; }
+    .no-val { color: #bbb; }
+
+    .status-badge { display: inline-block; font-size: 7pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 1px 5px; border-radius: 3px; }
+    .status-available { background: #d1fae5; color: #065f46; }
+    .status-in_use { background: #dbeafe; color: #1e40af; }
+    .status-maintenance { background: #fef3c7; color: #92400e; }
+    .status-retired { background: #f3f4f6; color: #6b7280; }
+
+    .sig-section { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 18px; }
+    .sig-box { border-top: 1px solid #555; padding-top: 4px; }
+    .sig-label { font-size: 6.5pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #555; }
+    .sig-line { margin-top: 20px; border-bottom: 1px solid #888; }
+    .sig-name { font-size: 7.5pt; color: #666; margin-top: 3px; }
+
+    .doc-footer { margin-top: 12px; border-top: 1px solid #ccc; padding-top: 5px; display: flex; justify-content: space-between; font-size: 7pt; color: #888; }
+
+    @media print {
+      .page { padding: 0; }
+      @page { margin: 12mm 15mm; size: A4 landscape; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+  <div class="doc-header">
+    <div>
+      <div class="doc-title">Asset Inspection Checklist</div>
+      <div class="doc-subtitle">Physical Verification &amp; Condition Check</div>
+    </div>
+    <div class="doc-ref-block">
+      <div class="ref-num">${docRef}</div>
+      <div>Generated: ${dateStr} at ${timeStr}</div>
+      <div>Total Items: ${assets.length}</div>
+    </div>
+  </div>
+
+  <div class="meta-strip">
+    <div class="meta-cell"><span class="label">Items to Check</span><span class="value">${assets.length}</span></div>
+    <div class="meta-cell"><span class="label">Date</span><span class="value">${dateStr}</span></div>
+    <div class="meta-cell"><span class="label">Checked By</span><span class="value" style="color:#bbb">___________________</span></div>
+    <div class="meta-cell"><span class="label">Document Ref</span><span class="value" style="font-family:monospace">${docRef}</span></div>
+  </div>
+
+  <div class="instructions"><strong>INSTRUCTIONS:</strong> Physically locate each asset. Verify serial number, seal number and condition match the records below. Tick the checkbox when confirmed. Note any discrepancies in writing.</div>
+
+  <table>
+    <thead>
+      <tr>
+        <th class="col-check">✓</th>
+        <th class="col-num">#</th>
+        <th style="min-width:130px">Asset Name / Type</th>
+        <th style="min-width:140px">Barcode / Serial / Seals</th>
+        <th style="min-width:70px">Status</th>
+        <th style="min-width:100px">Location / Box</th>
+        <th class="col-desc">Description / Notes</th>
+        <th class="col-check">✓</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>
+
+  <div class="sig-section">
+    <div class="sig-box"><div class="sig-label">Inspected By</div><div class="sig-line"></div><div class="sig-name">Name / Signature / Date</div></div>
+    <div class="sig-box"><div class="sig-label">Verified By</div><div class="sig-line"></div><div class="sig-name">Name / Signature / Date</div></div>
+    <div class="sig-box"><div class="sig-label">Authorised By</div><div class="sig-line"></div><div class="sig-name">Name / Signature / Date</div></div>
+  </div>
+
+  <div class="doc-footer">
+    <span>Ref: ${docRef}</span>
+    <span>This is a controlled inspection document. All discrepancies must be reported immediately to the Team Manager.</span>
+    <span>Page 1</span>
+  </div>
+</div>
+</body></html>`;
+
+      const win = window.open('', '_blank');
+      win.document.write(html);
+      win.document.close();
+      win.focus();
+      setTimeout(() => win.print(), 500);
     }
     
     // ============================================================================
