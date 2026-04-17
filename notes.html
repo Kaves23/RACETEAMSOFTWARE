@@ -759,8 +759,15 @@ function populateEditor(note) {
   document.getElementById('folderSelect').value = note.folder || 'General';
   document.getElementById('pinToggle').checked = !!note.is_pinned;
 
-  // Tags
-  currentTags = Array.isArray(note.tags) ? note.tags : (note.tags ? note.tags : []);
+  // Tags — DB may return a PG array string like '{"foo","bar"}' or already a JS array
+  if (Array.isArray(note.tags)) {
+    currentTags = note.tags;
+  } else if (typeof note.tags === 'string' && note.tags.startsWith('{')) {
+    const inner = note.tags.slice(1, -1);
+    currentTags = inner ? inner.split(',').map(t => t.replace(/^"|"$/g, '').trim()).filter(Boolean) : [];
+  } else {
+    currentTags = [];
+  }
   renderTags();
 
   // Entity link
