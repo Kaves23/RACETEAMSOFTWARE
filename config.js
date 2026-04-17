@@ -433,6 +433,7 @@ window.RTS_DATA = {
         next_maintenance_date: item.nextMaintenance || item.next_maintenance_date || null,
         custom_fields: item.custom_fields || undefined,
         parent_asset_id: 'parent_asset_id' in item ? item.parent_asset_id : undefined,
+        ...('is_race_fleet' in item ? { is_race_fleet: item.is_race_fleet } : {}),
         ...('is_flagged' in item ? { is_flagged: item.is_flagged } : {}),
         ...('flag_reason' in item ? { flag_reason: item.flag_reason } : {})
       };
