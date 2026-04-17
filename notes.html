@@ -8,531 +8,1336 @@
   <link href="style.css" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <style>
-    .note-tag {
-      display: inline-block;
-      padding: 2px 8px;
-      margin: 2px;
-      border-radius: 3px;
-      font-size: 0.75rem;
-      font-weight: 600;
-      background: rgba(100, 150, 200, 0.2);
-      color: #7bd7ff;
-      cursor: pointer;
-    }
-    .note-tag:hover {
-      background: rgba(100, 150, 200, 0.35);
-    }
-    .note-tag.active {
-      background: var(--rts-accent);
-      color: #0f1115;
-    }
-    .note-item-tags {
-      margin-top: 4px;
-      font-size: 0.7rem;
-      line-height: 1.2;
-    }
-    .note-item-tag-badge {
-      display: inline-block;
-      padding: 1px 6px;
-      margin-right: 4px;
-      border-radius: 2px;
-      background: rgba(100, 150, 200, 0.15);
-      color: #7bd7ff;
-      font-size: 0.7rem;
-    }
-    /* Fix note list item text overflow */
-    #notesList li {
-      line-height: 1.3;
-      padding: 8px 10px;
-      display: block;
-    }
-    #notesList li .note-filename {
-      display: block;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      margin-bottom: 2px;
-    }
-    #notesList li .note-item-tags {
-      display: block;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    /* Markdown viewer styling */
-    .notes-viewer-content h1 {
-      color: var(--rts-accent);
-      margin-top: 1.5rem;
-      margin-bottom: 1rem;
-      padding-bottom: 0.5rem;
-      border-bottom: 2px solid rgba(255,255,255,0.1);
-    }
-    .notes-viewer-content h2 {
-      color: #7bd7ff;
-      margin-top: 1.25rem;
-      margin-bottom: 0.75rem;
-    }
-    .notes-viewer-content h3 {
-      color: #a0a3a8;
-      margin-top: 1rem;
-      margin-bottom: 0.5rem;
-    }
-    .notes-viewer-content code {
-      background: #16191f;
-      padding: 2px 6px;
-      border-radius: 3px;
-      font-family: 'Courier New', monospace;
-      color: #7bd7ff;
-    }
-    .notes-viewer-content pre {
-      background: #16191f;
-      padding: 15px;
-      border-radius: 5px;
-      overflow-x: auto;
-      border: 1px solid rgba(255,255,255,0.1);
-    }
-    .notes-viewer-content pre code {
-      background: none;
-      padding: 0;
-      color: #e0e3e6;
-    }
-    .notes-viewer-content table {
-      border-collapse: collapse;
-      width: 100%;
-      margin: 20px 0;
-    }
-    .notes-viewer-content table th,
-    .notes-viewer-content table td {
-      border: 1px solid rgba(255,255,255,0.1);
-      padding: 10px;
-      text-align: left;
-    }
-    .notes-viewer-content table th {
-      background: #16191f;
-      font-weight: bold;
-      color: var(--rts-accent);
-    }
-    .notes-viewer-content blockquote {
-      border-left: 4px solid var(--rts-accent);
-      margin: 20px 0;
-      padding: 10px 20px;
-      background: rgba(100, 150, 200, 0.05);
-    }
-    .notes-viewer-content img {
-      max-width: 100%;
-      height: auto;
-      border-radius: 5px;
-      margin: 15px 0;
-    }
-    .notes-viewer-content a {
-      color: #7bd7ff;
-    }
-    .notes-viewer-content a:hover {
-      color: var(--rts-accent);
-    }
-    .tag-input-container {
-      margin-top: 8px;
+    /* ── Base ── */
+    body { background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%); min-height: 100vh; }
+
+    /* ── Shell ── */
+    .notes-shell {
       display: flex;
+      height: calc(100vh - 56px);
+      overflow: hidden;
+      gap: 0;
+    }
+
+    /* ── Left Sidebar ── */
+    .notes-sidebar {
+      width: 240px;
+      min-width: 240px;
+      background: #fff;
+      border-right: 1px solid #e9ecef;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .notes-sidebar-header {
+      padding: 14px 12px 10px;
+      border-bottom: 1px solid #e9ecef;
+      background: #f8f9fa;
+    }
+    .notes-sidebar-header .btn-new {
+      width: 100%;
+      background: #0099cc;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 7px 10px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .notes-sidebar-header .btn-new:hover { background: #0080aa; }
+    .notes-search {
+      margin-top: 8px;
+      position: relative;
+    }
+    .notes-search input {
+      width: 100%;
+      border: 1px solid #dee2e6;
+      border-radius: 5px;
+      padding: 5px 10px 5px 28px;
+      font-size: 0.78rem;
+      background: #fff;
+      color: #212529;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .notes-search input:focus { border-color: #0099cc; }
+    .notes-search .search-icon {
+      position: absolute;
+      left: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #adb5bd;
+      font-size: 0.75rem;
+      pointer-events: none;
+    }
+
+    /* Folder groups */
+    .notes-folder-list { flex: 1; overflow-y: auto; padding: 6px 0; }
+    .folder-group { margin-bottom: 2px; }
+    .folder-group-header {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 12px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #6c757d;
+      cursor: pointer;
+      user-select: none;
+      transition: color 0.15s;
+    }
+    .folder-group-header:hover { color: #0099cc; }
+    .folder-group-header .folder-arrow { transition: transform 0.2s; font-size: 0.6rem; }
+    .folder-group-header.collapsed .folder-arrow { transform: rotate(-90deg); }
+    .folder-group-header .folder-count {
+      margin-left: auto;
+      background: #e9ecef;
+      color: #6c757d;
+      border-radius: 10px;
+      padding: 1px 6px;
+      font-size: 0.65rem;
+      font-weight: 600;
+    }
+    .folder-group-notes { }
+    .folder-group-notes.d-none { display: none !important; }
+
+    /* Note list items */
+    .note-item {
+      padding: 7px 12px;
+      cursor: pointer;
+      border-left: 3px solid transparent;
+      transition: all 0.15s;
+    }
+    .note-item:hover { background: #f8f9fa; border-left-color: #dee2e6; }
+    .note-item.active { background: rgba(0,153,204,0.07); border-left-color: #0099cc; }
+    .note-item-title {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #212529;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: flex;
+      align-items: center;
       gap: 4px;
     }
-    .tag-input-container input {
+    .note-item-meta {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 2px;
+    }
+    .note-item-date { font-size: 0.65rem; color: #adb5bd; }
+    .note-entity-badge {
+      font-size: 0.6rem;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .badge-driver  { background: #d4edda; color: #155724; }
+    .badge-event   { background: #cce5ff; color: #004085; }
+    .badge-staff   { background: #ffeeba; color: #856404; }
+    .badge-asset   { background: #e2d9f3; color: #4a1f9b; }
+    .pin-icon { color: #fd7e14; font-size: 0.65rem; }
+
+    /* ── Centre Panel ── */
+    .notes-centre {
       flex: 1;
-      font-size: 0.8rem;
+      min-width: 0;
+      background: #fff;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid #e9ecef;
     }
-    .tag-input-container button {
-      font-size: 0.8rem;
+    .notes-centre-empty {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #adb5bd;
+      font-size: 0.9rem;
+      gap: 10px;
+    }
+    .notes-centre-empty .empty-icon { font-size: 3rem; }
+
+    .note-title-input {
+      border: none;
+      border-bottom: 2px solid #e9ecef;
+      border-radius: 0;
+      padding: 18px 24px 12px;
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #212529;
+      background: transparent;
+      outline: none;
+      width: 100%;
+      transition: border-color 0.2s;
+    }
+    .note-title-input:focus { border-bottom-color: #0099cc; }
+
+    /* Toolbar */
+    .note-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      padding: 6px 20px;
+      border-bottom: 1px solid #e9ecef;
+      background: #f8f9fa;
+    }
+    .toolbar-btn {
+      border: none;
+      background: transparent;
+      color: #495057;
+      padding: 4px 7px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      font-weight: 600;
+      transition: background 0.15s, color 0.15s;
+    }
+    .toolbar-btn:hover { background: #e9ecef; color: #0099cc; }
+    .toolbar-btn.active { background: #e9ecef; color: #0099cc; }
+    .toolbar-sep { width: 1px; height: 20px; background: #dee2e6; margin: 0 4px; }
+    .toolbar-view-group {
+      margin-left: auto;
+      display: flex;
+      gap: 2px;
+      background: #e9ecef;
+      border-radius: 5px;
+      padding: 2px;
+    }
+    .toolbar-view-btn {
+      border: none;
+      background: transparent;
+      color: #6c757d;
+      padding: 3px 9px;
+      border-radius: 4px;
+      font-size: 0.72rem;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.15s;
+    }
+    .toolbar-view-btn.active { background: #fff; color: #0099cc; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+
+    /* Editor area */
+    .note-editor-area {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+      position: relative;
+    }
+    .note-textarea {
+      flex: 1;
+      border: none;
+      padding: 18px 24px;
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 0.85rem;
+      line-height: 1.7;
+      color: #212529;
+      resize: none;
+      outline: none;
+      background: #fff;
+      height: 100%;
+      overflow-y: auto;
+    }
+    .note-preview {
+      flex: 1;
+      padding: 18px 24px;
+      overflow-y: auto;
+      font-size: 0.88rem;
+      line-height: 1.75;
+      color: #212529;
+      background: #fff;
+    }
+    .note-preview h1 { font-size: 1.4rem; font-weight: 700; margin-bottom: 0.6rem; color: #1a1d24; }
+    .note-preview h2 { font-size: 1.15rem; font-weight: 600; margin: 1.2rem 0 0.5rem; color: #1a1d24; border-bottom: 1px solid #e9ecef; padding-bottom: 4px; }
+    .note-preview h3 { font-size: 0.97rem; font-weight: 600; margin: 1rem 0 0.4rem; }
+    .note-preview code { background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 3px; padding: 1px 5px; font-size: 0.8rem; color: #d63384; }
+    .note-preview pre { background: #1e1e1e; color: #d4d4d4; padding: 14px 16px; border-radius: 6px; overflow-x: auto; font-size: 0.8rem; line-height: 1.5; }
+    .note-preview pre code { background: none; border: none; color: inherit; padding: 0; }
+    .note-preview blockquote { border-left: 3px solid #0099cc; padding-left: 14px; color: #6c757d; margin: 0.8rem 0; font-style: italic; }
+    .note-preview ul, .note-preview ol { padding-left: 1.5rem; margin-bottom: 0.75rem; }
+    .note-preview li { margin-bottom: 0.2rem; }
+    .note-preview a { color: #0099cc; }
+    .note-preview hr { border: none; border-top: 1px solid #e9ecef; margin: 1.2rem 0; }
+    .note-preview table { width: 100%; border-collapse: collapse; font-size: 0.82rem; margin-bottom: 1rem; }
+    .note-preview th { background: #f8f9fa; font-weight: 600; padding: 6px 10px; border: 1px solid #dee2e6; text-align: left; }
+    .note-preview td { padding: 5px 10px; border: 1px solid #e9ecef; }
+    .note-preview p { margin-bottom: 0.75rem; }
+
+    /* ── Right Panel ── */
+    .notes-right {
+      width: 260px;
+      min-width: 260px;
+      background: #f8f9fa;
+      border-left: 1px solid #e9ecef;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+    .notes-right-section {
+      padding: 14px 14px 10px;
+      border-bottom: 1px solid #e9ecef;
+    }
+    .notes-right-section:last-child { border-bottom: none; }
+    .section-label {
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #6c757d;
+      margin-bottom: 8px;
+    }
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.78rem;
+      margin-bottom: 4px;
+    }
+    .stat-label { color: #6c757d; }
+    .stat-value { font-weight: 600; color: #212529; }
+    .save-indicator {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 600;
       padding: 2px 8px;
+      border-radius: 10px;
+      margin-top: 4px;
     }
+    .save-indicator.saved { background: #d4edda; color: #155724; }
+    .save-indicator.saving { background: #fff3cd; color: #856404; }
+    .save-indicator.unsaved { background: #f8d7da; color: #721c24; }
+
+    /* Entity link */
+    .entity-type-select, .entity-search-input, .folder-select {
+      width: 100%;
+      font-size: 0.78rem;
+      border: 1px solid #dee2e6;
+      border-radius: 5px;
+      padding: 5px 8px;
+      background: #fff;
+      color: #212529;
+      margin-bottom: 5px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .entity-type-select:focus, .entity-search-input:focus, .folder-select:focus { border-color: #0099cc; }
+    .entity-results { max-height: 130px; overflow-y: auto; margin-top: 2px; }
+    .entity-result-item {
+      font-size: 0.77rem;
+      padding: 4px 8px;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: background 0.1s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .entity-result-item:hover { background: #e9ecef; }
+    .entity-linked-display {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #fff;
+      border: 1px solid #dee2e6;
+      border-radius: 5px;
+      padding: 5px 8px;
+      font-size: 0.78rem;
+      margin-top: 2px;
+    }
+    .entity-linked-display .unlink-btn {
+      background: none;
+      border: none;
+      color: #adb5bd;
+      cursor: pointer;
+      font-size: 0.7rem;
+      padding: 0;
+      line-height: 1;
+    }
+    .entity-linked-display .unlink-btn:hover { color: #dc3545; }
+
+    /* Tags */
+    .tags-area {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-bottom: 6px;
+      min-height: 24px;
+    }
+    .tag-chip {
+      background: #e9ecef;
+      color: #495057;
+      font-size: 0.68rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .tag-chip .remove-tag {
+      cursor: pointer;
+      color: #adb5bd;
+      font-size: 0.7rem;
+      line-height: 1;
+    }
+    .tag-chip .remove-tag:hover { color: #dc3545; }
+    .tags-input {
+      border: 1px solid #dee2e6;
+      border-radius: 5px;
+      padding: 5px 8px;
+      font-size: 0.78rem;
+      width: 100%;
+      background: #fff;
+      color: #212529;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .tags-input:focus { border-color: #0099cc; }
+
+    /* Pin & delete */
+    .pin-toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    .pin-toggle-label { font-size: 0.78rem; color: #495057; }
+    .btn-delete-note {
+      width: 100%;
+      background: #fff;
+      border: 1px solid #f8d7da;
+      color: #dc3545;
+      border-radius: 5px;
+      padding: 6px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      margin-top: 4px;
+    }
+    .btn-delete-note:hover { background: #dc3545; color: #fff; }
+
+    /* Backlinks */
+    .backlink-item {
+      font-size: 0.77rem;
+      padding: 4px 6px;
+      cursor: pointer;
+      border-radius: 4px;
+      color: #0099cc;
+      transition: background 0.1s;
+    }
+    .backlink-item:hover { background: #e9ecef; }
+
+    /* Templates dropdown */
+    .btn-templates {
+      background: #fff;
+      border: 1px solid #dee2e6;
+      color: #495057;
+      padding: 4px 10px;
+      border-radius: 5px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-templates:hover { border-color: #0099cc; color: #0099cc; }
+
+    /* Scrollbars */
+    .notes-folder-list::-webkit-scrollbar,
+    .note-editor-area::-webkit-scrollbar,
+    .notes-right::-webkit-scrollbar,
+    .note-textarea::-webkit-scrollbar,
+    .note-preview::-webkit-scrollbar { width: 5px; }
+    .notes-folder-list::-webkit-scrollbar-thumb,
+    .note-editor-area::-webkit-scrollbar-thumb,
+    .notes-right::-webkit-scrollbar-thumb,
+    .note-textarea::-webkit-scrollbar-thumb,
+    .note-preview::-webkit-scrollbar-thumb { background: #dee2e6; border-radius: 3px; }
+
+    /* empty state */
+    #notesEmptyState { display: flex; }
+    #notesEditorArea { display: none; }
+    #notesEditorArea.visible { display: flex; flex-direction: column; flex: 1; }
   </style>
 </head>
-<body class="page-notes">
-  <div id="rtsTopNav"></div>
-  <div class="rts-main container-fluid">
-    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
-      <div>
-        <h1 class="h4 mb-1">Notes</h1>
-        <div class="text-secondary" style="font-size:0.85rem;">
-          Documentation and knowledge base management.
-        </div>
+<body class="light-mode">
+<div id="topnav-placeholder"></div>
+
+<div class="notes-shell">
+
+  <!-- ═══════════════════════════════════════ LEFT SIDEBAR ═══ -->
+  <div class="notes-sidebar">
+    <div class="notes-sidebar-header">
+      <button class="btn-new" onclick="createNewNote()">＋ New Note</button>
+      <div class="notes-search">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="notesSearchInput" placeholder="Search notes…" oninput="debounceSearch(this.value)" />
       </div>
     </div>
-
-    <div class="mlo-shell" id="notesShell">
-      <!-- LEFT -->
-      <section class="mlo-pane mlo-pane-left" aria-label="Notes navigation">
-        <div class="mlo-pane-header">
-          <div class="d-flex justify-content-between align-items-center">
-            <div class="mlo-title">Library</div>
-            <span class="badge text-bg-secondary" id="notesCountBadge">0</span>
-          </div>
-        </div>
-        <div class="mlo-pane-content">
-          <div class="d-flex gap-2 mb-3">
-            <label for="fileInput" class="btn btn-sm btn-outline-light mlo-btn flex-grow-1" style="margin:0;">Upload MD</label>
-            <input type="file" id="fileInput" accept=".md,.markdown,.txt" multiple style="display:none;">
-            <button class="btn btn-sm btn-outline-danger" onclick="clearNotes()">Clear</button>
-          </div>
-
-          <div class="mlo-section-label">Filter by Tag</div>
-          <div id="tagFilterContainer" class="mb-3">
-            <div class="note-tag" data-tag="all">All Notes</div>
-          </div>
-
-          <div class="mlo-section-label">Notes</div>
-          <ul class="mlo-tree pastel-tree" id="notesList">
-            <!-- Notes will be populated here -->
-          </ul>
-        </div>
-      </section>
-
-      <div class="mlo-resizer" data-resize="left" title="Drag to resize"></div>
-
-      <!-- MIDDLE -->
-      <section class="mlo-pane mlo-pane-mid" aria-label="Notes viewer">
-        <div class="mlo-pane-header">
-          <div class="d-flex justify-content-between align-items-center">
-            <div class="mlo-title" id="currentNoteName">No Note Selected</div>
-            <button class="btn btn-sm btn-outline-light mlo-btn" id="btnEditTags" style="display:none;">Edit Tags</button>
-          </div>
-        </div>
-        <div class="mlo-pane-content notes-viewer-content" id="notesViewer">
-          <div class="text-center" style="padding: 60px 20px; color: rgba(255,255,255,0.5);">
-            <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="margin-bottom:20px; opacity:0.5;">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            <h2>No Note Selected</h2>
-            <p>Upload a markdown file or select a note from the sidebar to view it here.</p>
-          </div>
-        </div>
-      </section>
-
-      <div class="mlo-resizer" data-resize="right" title="Drag to resize"></div>
-
-      <!-- RIGHT -->
-      <section class="mlo-pane mlo-pane-right mlo-inspector" aria-label="Note metadata">
-        <div class="mlo-pane-header">
-          <div class="d-flex justify-content-between align-items-center">
-            <div class="mlo-title">Metadata</div>
-          </div>
-        </div>
-        <div class="mlo-pane-content">
-          <div id="noteMetadata">
-            <p class="text-muted">Select a note to view metadata</p>
-          </div>
-          
-          <div class="mlo-section-label mt-3">Tags</div>
-          <div id="noteTagsDisplay"></div>
-          
-          <div id="tagInputArea" style="display:none;">
-            <div class="tag-input-container">
-              <input type="text" id="tagInput" class="form-control form-control-sm" placeholder="Add tag...">
-              <button class="btn btn-sm btn-outline-light mlo-btn" onclick="addTag()">Add</button>
-            </div>
-          </div>
-        </div>
-      </section>
+    <div class="notes-folder-list" id="notesFolderList">
+      <!-- Rendered by JS -->
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="core.js"></script>
-  <script src="topnav.js?v=20260411-2"></script>
-  <script>
-    // Store notes in localStorage
-    const STORAGE_KEY = 'raceTeamNotes';
-    let currentNoteIndex = -1;
-    let activeTagFilter = 'all';
-    
-    // Initialize marked options
-    if (typeof marked !== 'undefined') {
-      marked.setOptions({
-        breaks: true,
-        gfm: true,
-        headerIds: true,
-        mangle: false
-      });
+  <!-- ═══════════════════════════════════════ CENTRE PANEL ═══ -->
+  <div class="notes-centre" id="notesCentre">
+
+    <!-- Empty state -->
+    <div class="notes-centre-empty" id="notesEmptyState">
+      <div class="empty-icon">📝</div>
+      <div style="font-weight:600;color:#6c757d;">Select a note or create a new one</div>
+      <button class="btn-templates mt-2" onclick="createNewNote()">＋ New Note</button>
+    </div>
+
+    <!-- Editor area (hidden until note selected) -->
+    <div id="notesEditorArea">
+      <input type="text" class="note-title-input" id="noteTitleInput"
+             placeholder="Note title…"
+             oninput="scheduleAutoSave()" />
+
+      <div class="note-toolbar">
+        <!-- Formatting -->
+        <button class="toolbar-btn" title="Bold" onclick="insertMd('**','**')"><b>B</b></button>
+        <button class="toolbar-btn" title="Italic" onclick="insertMd('_','_')"><i>I</i></button>
+        <button class="toolbar-btn" title="Heading 2" onclick="insertMd('## ','')">H2</button>
+        <button class="toolbar-btn" title="Bullet list" onclick="insertMd('- ','')">• List</button>
+        <button class="toolbar-btn" title="Code" onclick="insertMd('`','`')">{ }</button>
+        <div class="toolbar-sep"></div>
+        <!-- Templates -->
+        <div class="dropdown">
+          <button class="btn-templates dropdown-toggle" data-bs-toggle="dropdown">📋 Template</button>
+          <ul class="dropdown-menu" style="font-size:0.8rem;min-width:170px;">
+            <li><a class="dropdown-item" href="#" onclick="applyTemplate('debrief')">Driver Debrief</a></li>
+            <li><a class="dropdown-item" href="#" onclick="applyTemplate('event-report')">Event Report</a></li>
+            <li><a class="dropdown-item" href="#" onclick="applyTemplate('tech-spec')">Technical Spec</a></li>
+            <li><a class="dropdown-item" href="#" onclick="applyTemplate('supplier')">Supplier Note</a></li>
+          </ul>
+        </div>
+        <!-- View toggle -->
+        <div class="toolbar-view-group ms-2">
+          <button class="toolbar-view-btn active" id="viewBtnEdit" onclick="setViewMode('edit')">Edit</button>
+          <button class="toolbar-view-btn" id="viewBtnSplit" onclick="setViewMode('split')">Split</button>
+          <button class="toolbar-view-btn" id="viewBtnPreview" onclick="setViewMode('preview')">Preview</button>
+        </div>
+        <!-- Export -->
+        <button class="toolbar-btn ms-2" title="Export as PDF" onclick="exportPDF()">⬇ PDF</button>
+      </div>
+
+      <div class="note-editor-area" id="noteEditorArea">
+        <textarea class="note-textarea" id="noteTextarea"
+                  placeholder="Start writing… Markdown is supported."
+                  oninput="onContentInput()"></textarea>
+        <div class="note-preview" id="notePreviewDiv" style="display:none;border-left:1px solid #e9ecef;"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════════════════════════════ RIGHT PANEL ═══ -->
+  <div class="notes-right" id="notesRight">
+
+    <!-- Stats / save status -->
+    <div class="notes-right-section" id="rightStatsSection">
+      <div class="section-label">Document</div>
+      <div class="stat-row">
+        <span class="stat-label">Words</span>
+        <span class="stat-value" id="statWords">—</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Reading time</span>
+        <span class="stat-value" id="statReadTime">—</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Last saved</span>
+        <span class="stat-value" id="statLastSaved">—</span>
+      </div>
+      <span class="save-indicator saved" id="saveIndicator">✓ Saved</span>
+    </div>
+
+    <!-- Entity link -->
+    <div class="notes-right-section" id="rightEntitySection">
+      <div class="section-label">Link to Entity</div>
+      <div id="entityLinkedDisplay" style="display:none;"></div>
+      <div id="entityLinkForm">
+        <select class="entity-type-select" id="entityTypeSelect" onchange="onEntityTypeChange()">
+          <option value="">— Select type —</option>
+          <option value="driver">🏎 Driver</option>
+          <option value="event">📅 Event</option>
+          <option value="staff">👤 Staff</option>
+          <option value="asset">🔧 Asset</option>
+        </select>
+        <input type="text" class="entity-search-input" id="entitySearchInput"
+               placeholder="Search…" style="display:none"
+               oninput="debounceEntitySearch(this.value)" />
+        <div class="entity-results" id="entityResults"></div>
+      </div>
+    </div>
+
+    <!-- Tags -->
+    <div class="notes-right-section" id="rightTagsSection">
+      <div class="section-label">Tags</div>
+      <div class="tags-area" id="tagsArea"></div>
+      <input type="text" class="tags-input" id="tagsInput"
+             placeholder="Add tag, press Enter…"
+             onkeydown="onTagKeydown(event)" />
+    </div>
+
+    <!-- Folder -->
+    <div class="notes-right-section" id="rightFolderSection">
+      <div class="section-label">Folder</div>
+      <select class="folder-select" id="folderSelect" onchange="onFolderChange()">
+        <option value="General">General</option>
+        <option value="Drivers">Drivers</option>
+        <option value="Events">Events</option>
+        <option value="Technical">Technical</option>
+        <option value="Suppliers">Suppliers</option>
+      </select>
+    </div>
+
+    <!-- Pin & Delete -->
+    <div class="notes-right-section" id="rightActionsSection">
+      <div class="section-label">Actions</div>
+      <div class="pin-toggle-row">
+        <span class="pin-toggle-label">📌 Pin note</span>
+        <div class="form-check form-switch mb-0">
+          <input class="form-check-input" type="checkbox" id="pinToggle" onchange="onPinChange()" />
+        </div>
+      </div>
+      <button class="btn-delete-note" onclick="deleteCurrentNote()">🗑 Delete Note</button>
+    </div>
+
+    <!-- Backlinks -->
+    <div class="notes-right-section" id="rightBacklinksSection" style="display:none;">
+      <div class="section-label">Related Notes</div>
+      <div id="backlinksContainer"></div>
+    </div>
+
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="auth-check.js"></script>
+<script src="config.js?v=3"></script>
+<script src="core.js?v=20260407-2200"></script>
+<script src="topnav.js?v=20260411-2"></script>
+<script>
+/* ═══════════════════════════════════════════════════════
+   NOTES — Full Knowledge Base
+   API: /api/notes
+   ═══════════════════════════════════════════════════════ */
+
+const API = '/api/notes';
+let allNotes = [];
+let currentNote = null;
+let viewMode = 'edit';
+let saveTimer = null;
+let searchTimer = null;
+let entitySearchTimer = null;
+let currentTags = [];
+let currentEntityType = '';
+let currentEntityId = '';
+let currentEntityName = '';
+let entityData = {};  // cache: {type: [{id,name},…]}
+
+/* ─────────────── INIT ─────────────── */
+async function init() {
+  await loadNotes();
+}
+
+/* ─────────────── LOAD ALL NOTES ─────────────── */
+async function loadNotes(search = '') {
+  try {
+    let url = API;
+    if (search) url += `?search=${encodeURIComponent(search)}`;
+    const r = await apiFetch(url);
+    if (!r.ok) throw new Error('Failed to load notes');
+    allNotes = await r.json();
+    renderSidebar();
+    // Re-select current note if one was open
+    if (currentNote) {
+      const fresh = allNotes.find(n => n.id === currentNote.id);
+      if (fresh) currentNote = fresh;
     }
-    
-    // Load notes from localStorage
-    function loadNotes() {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      return stored ? JSON.parse(stored) : [];
-    }
-    
-    // Save notes to localStorage
-    function saveNotes(notes) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
-    }
-    
-    // Extract all unique tags from notes
-    function getAllTags() {
-      const notes = loadNotes();
-      const tagSet = new Set();
-      notes.forEach(note => {
-        if (note.tags && Array.isArray(note.tags)) {
-          note.tags.forEach(tag => tagSet.add(tag));
-        }
-      });
-      return Array.from(tagSet).sort();
-    }
-    
-    // Display tag filters
-    function displayTagFilters() {
-      const tags = getAllTags();
-      const container = document.getElementById('tagFilterContainer');
-      
-      let html = '<div class="note-tag' + (activeTagFilter === 'all' ? ' active' : '') + '" data-tag="all" onclick="filterByTag(\'all\')">All Notes</div>';
-      
-      tags.forEach(tag => {
-        html += '<div class="note-tag' + (activeTagFilter === tag ? ' active' : '') + '" data-tag="' + tag + '" onclick="filterByTag(\'' + tag + '\')">' + tag + '</div>';
-      });
-      
-      container.innerHTML = html;
-    }
-    
-    // Filter notes by tag
-    function filterByTag(tag) {
-      activeTagFilter = tag;
-      displayTagFilters();
-      displayNotesList();
-    }
-    
-    // Display notes list
-    function displayNotesList() {
-      const notes = loadNotes();
-      const notesList = document.getElementById('notesList');
-      const countBadge = document.getElementById('notesCountBadge');
-      
-      // Filter notes by active tag
-      let filteredNotes = notes;
-      if (activeTagFilter !== 'all') {
-        filteredNotes = notes.filter(note => 
-          note.tags && note.tags.includes(activeTagFilter)
-        );
-      }
-      
-      countBadge.textContent = filteredNotes.length;
-      
-      if (filteredNotes.length === 0) {
-        notesList.innerHTML = '<li style="color: rgba(255,255,255,0.5); cursor: default; background: transparent;">No notes</li>';
-        return;
-      }
-      
-      notesList.innerHTML = filteredNotes.map((note, idx) => {
-        const originalIndex = notes.indexOf(note);
-        const tags = note.tags && note.tags.length > 0 
-          ? '<div class="note-item-tags">' + note.tags.map(t => '<span class="note-item-tag-badge">' + t + '</span>').join('') + '</div>'
-          : '';
-        return '<li onclick="displayNote(' + originalIndex + ')" data-index="' + originalIndex + '" class="' + (currentNoteIndex === originalIndex ? 'active' : '') + '"><span class="note-filename">📄 ' + note.name + '</span>' + tags + '</li>';
-      }).join('');
-    }
-    
-    // Display a specific note
-    function displayNote(index) {
-      const notes = loadNotes();
-      if (index < 0 || index >= notes.length) return;
-      
-      currentNoteIndex = index;
-      const note = notes[index];
-      const viewer = document.getElementById('notesViewer');
-      const nameDisplay = document.getElementById('currentNoteName');
-      const editTagsBtn = document.getElementById('btnEditTags');
-      
-      // Update header
-      nameDisplay.textContent = note.name;
-      editTagsBtn.style.display = 'block';
-      
-      // Parse markdown and display
-      if (typeof marked !== 'undefined') {
-        viewer.innerHTML = marked.parse(note.content);
-      } else {
-        viewer.innerHTML = '<pre>' + note.content + '</pre>';
-      }
-      
-      // Update metadata panel
-      displayMetadata(note);
-      
-      // Update active state
-      displayNotesList();
-    }
-    
-    // Display note metadata
-    function displayMetadata(note) {
-      const metadataDiv = document.getElementById('noteMetadata');
-      const tagsDisplay = document.getElementById('noteTagsDisplay');
-      
-      const date = new Date(note.timestamp);
-      metadataDiv.innerHTML = `
-        <div class="mb-2"><strong>File:</strong> ${note.name}</div>
-        <div class="mb-2"><strong>Added:</strong> ${date.toLocaleString()}</div>
-        <div class="mb-2"><strong>Size:</strong> ${(note.content.length / 1024).toFixed(2)} KB</div>
-      `;
-      
-      // Display tags
-      if (note.tags && note.tags.length > 0) {
-        tagsDisplay.innerHTML = note.tags.map(tag => 
-          '<span class="note-tag" onclick="removeTag(\'' + tag + '\')" title="Click to remove">' + tag + ' ×</span>'
-        ).join('');
-      } else {
-        tagsDisplay.innerHTML = '<p class="text-muted" style="font-size:0.85rem;">No tags</p>';
-      }
-    }
-    
-    // Toggle tag input
-    document.getElementById('btnEditTags').addEventListener('click', function() {
-      const tagInputArea = document.getElementById('tagInputArea');
-      tagInputArea.style.display = tagInputArea.style.display === 'none' ? 'block' : 'none';
+  } catch(e) {
+    console.error(e);
+    showToast('Failed to load notes', 'danger');
+  }
+}
+
+/* ─────────────── RENDER SIDEBAR ─────────────── */
+function renderSidebar() {
+  const container = document.getElementById('notesFolderList');
+  // group by folder
+  const folderOrder = ['General','Drivers','Events','Technical','Suppliers'];
+  const groups = {};
+  allNotes.forEach(n => {
+    const f = n.folder || 'General';
+    if (!groups[f]) groups[f] = [];
+    groups[f].push(n);
+  });
+  // add any extra folders
+  Object.keys(groups).forEach(f => { if (!folderOrder.includes(f)) folderOrder.push(f); });
+
+  let html = '';
+  folderOrder.forEach(folder => {
+    const notes = groups[folder];
+    if (!notes || notes.length === 0) return;
+    const collapsed = '';
+    html += `<div class="folder-group">
+      <div class="folder-group-header ${collapsed}" onclick="toggleFolder(this)">
+        <span class="folder-arrow">▼</span>
+        <span>${folder}</span>
+        <span class="folder-count">${notes.length}</span>
+      </div>
+      <div class="folder-group-notes">
+        ${notes.map(n => renderNoteItem(n)).join('')}
+      </div>
+    </div>`;
+  });
+
+  if (!html) {
+    html = '<div style="padding:20px 12px;color:#adb5bd;font-size:0.8rem;text-align:center;">No notes yet</div>';
+  }
+  container.innerHTML = html;
+}
+
+function renderNoteItem(n) {
+  const isActive = currentNote && currentNote.id === n.id ? 'active' : '';
+  let badge = '';
+  if (n.linked_entity_type) {
+    badge = `<span class="note-entity-badge badge-${n.linked_entity_type}">${n.linked_entity_type}</span>`;
+  }
+  const pin = n.is_pinned ? '<span class="pin-icon">📌</span>' : '';
+  const date = formatRelativeDate(n.updated_at || n.created_at);
+  return `<div class="note-item ${isActive}" onclick="selectNote('${n.id}')">
+    <div class="note-item-title">${pin}${escHtml(n.title || 'Untitled')}</div>
+    <div class="note-item-meta"><span class="note-item-date">${date}</span>${badge}</div>
+  </div>`;
+}
+
+function toggleFolder(header) {
+  header.classList.toggle('collapsed');
+  const notesDiv = header.nextElementSibling;
+  notesDiv.classList.toggle('d-none');
+}
+
+/* ─────────────── SELECT NOTE ─────────────── */
+async function selectNote(id) {
+  try {
+    const r = await apiFetch(`${API}/${id}`);
+    if (!r.ok) throw new Error('Failed to load note');
+    currentNote = await r.json();
+    populateEditor(currentNote);
+    renderSidebar();
+    showEditor();
+  } catch(e) {
+    showToast('Failed to open note', 'danger');
+  }
+}
+
+function populateEditor(note) {
+  document.getElementById('noteTitleInput').value = note.title || '';
+  document.getElementById('noteTextarea').value = note.content || '';
+  document.getElementById('folderSelect').value = note.folder || 'General';
+  document.getElementById('pinToggle').checked = !!note.is_pinned;
+
+  // Tags
+  currentTags = Array.isArray(note.tags) ? note.tags : (note.tags ? note.tags : []);
+  renderTags();
+
+  // Entity link
+  if (note.linked_entity_type && note.linked_entity_id) {
+    currentEntityType = note.linked_entity_type;
+    currentEntityId = note.linked_entity_id;
+    currentEntityName = note.linked_entity_name || '';
+    showEntityLinked();
+  } else {
+    clearEntityLink();
+  }
+
+  updateStats();
+  updatePreview();
+  updateSaveIndicator('saved');
+
+  // Backlinks
+  loadBacklinks(note);
+}
+
+function showEditor() {
+  document.getElementById('notesEmptyState').style.display = 'none';
+  document.getElementById('notesEditorArea').classList.add('visible');
+}
+
+function hideEditor() {
+  document.getElementById('notesEmptyState').style.display = 'flex';
+  document.getElementById('notesEditorArea').classList.remove('visible');
+  currentNote = null;
+}
+
+/* ─────────────── CREATE NEW NOTE ─────────────── */
+async function createNewNote() {
+  try {
+    const body = { title: 'New Note', content: '', folder: 'General' };
+    const r = await apiFetch(API, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    if (!r.ok) throw new Error('Failed to create note');
+    const n = await r.json();
+    allNotes.unshift(n);
+    renderSidebar();
+    await selectNote(n.id);
+    document.getElementById('noteTitleInput').focus();
+    document.getElementById('noteTitleInput').select();
+  } catch(e) {
+    showToast('Failed to create note', 'danger');
+  }
+}
+
+/* ─────────────── AUTO SAVE ─────────────── */
+function scheduleAutoSave() {
+  if (!currentNote) return;
+  updateSaveIndicator('saving');
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveCurrentNote, 1500);
+}
+
+function onContentInput() {
+  updateStats();
+  if (viewMode === 'split' || viewMode === 'preview') updatePreview();
+  scheduleAutoSave();
+}
+
+async function saveCurrentNote() {
+  if (!currentNote) return;
+  const title = document.getElementById('noteTitleInput').value.trim() || 'Untitled';
+  const content = document.getElementById('noteTextarea').value;
+  const folder = document.getElementById('folderSelect').value;
+  const is_pinned = document.getElementById('pinToggle').checked;
+
+  const body = {
+    title,
+    content,
+    folder,
+    is_pinned,
+    tags: currentTags,
+    linked_entity_type: currentEntityType || null,
+    linked_entity_id: currentEntityId || null,
+    linked_entity_name: currentEntityName || null,
+  };
+
+  try {
+    const r = await apiFetch(`${API}/${currentNote.id}`, {
+      method: 'PUT',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(body)
     });
-    
-    // Add tag to current note
-    function addTag() {
-      if (currentNoteIndex === -1) return;
-      
-      const input = document.getElementById('tagInput');
-      const tag = input.value.trim();
-      
-      if (!tag) return;
-      
-      const notes = loadNotes();
-      const note = notes[currentNoteIndex];
-      
-      if (!note.tags) note.tags = [];
-      
-      if (!note.tags.includes(tag)) {
-        note.tags.push(tag);
-        saveNotes(notes);
-        displayNote(currentNoteIndex);
-        displayTagFilters();
-        input.value = '';
-      }
+    if (!r.ok) throw new Error('Save failed');
+    const saved = await r.json();
+    currentNote = saved;
+    // Update local list
+    const idx = allNotes.findIndex(n => n.id === saved.id);
+    if (idx !== -1) allNotes[idx] = saved;
+    else allNotes.unshift(saved);
+    renderSidebar();
+    updateSaveIndicator('saved', saved.updated_at);
+  } catch(e) {
+    updateSaveIndicator('unsaved');
+    showToast('Save failed', 'danger');
+  }
+}
+
+function updateSaveIndicator(state, timestamp) {
+  const el = document.getElementById('saveIndicator');
+  el.className = `save-indicator ${state}`;
+  if (state === 'saved') {
+    el.textContent = '✓ Saved';
+    if (timestamp) {
+      document.getElementById('statLastSaved').textContent = formatRelativeDate(timestamp);
     }
-    
-    // Remove tag from current note
-    function removeTag(tag) {
-      if (currentNoteIndex === -1) return;
-      
-      const notes = loadNotes();
-      const note = notes[currentNoteIndex];
-      
-      if (note.tags) {
-        note.tags = note.tags.filter(t => t !== tag);
-        saveNotes(notes);
-        displayNote(currentNoteIndex);
-        displayTagFilters();
-      }
+  } else if (state === 'saving') {
+    el.textContent = 'Saving…';
+  } else {
+    el.textContent = '⚠ Not saved';
+  }
+}
+
+/* ─────────────── VIEW MODES ─────────────── */
+function setViewMode(mode) {
+  viewMode = mode;
+  const ta = document.getElementById('noteTextarea');
+  const pv = document.getElementById('notePreviewDiv');
+  document.querySelectorAll('.toolbar-view-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`viewBtn${mode.charAt(0).toUpperCase()+mode.slice(1)}`).classList.add('active');
+
+  if (mode === 'edit') {
+    ta.style.display = 'block'; pv.style.display = 'none';
+  } else if (mode === 'preview') {
+    ta.style.display = 'none'; pv.style.display = 'block';
+    updatePreview();
+  } else { // split
+    ta.style.display = 'block'; pv.style.display = 'block';
+    updatePreview();
+  }
+}
+
+function updatePreview() {
+  const content = document.getElementById('noteTextarea').value;
+  const pv = document.getElementById('notePreviewDiv');
+  pv.innerHTML = marked.parse(content || '*Nothing to preview yet.*');
+}
+
+/* ─────────────── MARKDOWN HELPERS ─────────────── */
+function insertMd(before, after) {
+  const ta = document.getElementById('noteTextarea');
+  const start = ta.selectionStart;
+  const end = ta.selectionEnd;
+  const sel = ta.value.substring(start, end);
+  const newVal = ta.value.substring(0, start) + before + sel + after + ta.value.substring(end);
+  ta.value = newVal;
+  ta.selectionStart = start + before.length;
+  ta.selectionEnd = end + before.length;
+  ta.focus();
+  onContentInput();
+}
+
+/* ─────────────── STATS ─────────────── */
+function updateStats() {
+  const content = document.getElementById('noteTextarea').value;
+  const words = content.trim() ? content.trim().split(/\s+/).length : 0;
+  document.getElementById('statWords').textContent = words.toLocaleString();
+  const mins = Math.max(1, Math.round(words / 200));
+  document.getElementById('statReadTime').textContent = mins === 1 ? '1 min' : `${mins} mins`;
+}
+
+/* ─────────────── SEARCH ─────────────── */
+function debounceSearch(val) {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => loadNotes(val), 300);
+}
+
+/* ─────────────── ENTITY LINKING ─────────────── */
+function onEntityTypeChange() {
+  const type = document.getElementById('entityTypeSelect').value;
+  currentEntityType = type;
+  const searchInput = document.getElementById('entitySearchInput');
+  const resultsDiv = document.getElementById('entityResults');
+  if (type) {
+    searchInput.style.display = 'block';
+    searchInput.value = '';
+    searchInput.focus();
+    resultsDiv.innerHTML = '';
+    loadEntityList(type, '');
+  } else {
+    searchInput.style.display = 'none';
+    resultsDiv.innerHTML = '';
+  }
+}
+
+function debounceEntitySearch(val) {
+  clearTimeout(entitySearchTimer);
+  entitySearchTimer = setTimeout(() => loadEntityList(currentEntityType, val), 250);
+}
+
+async function loadEntityList(type, search) {
+  const endpointMap = {driver:'drivers', event:'events', staff:'staff', asset:'items'};
+  const endpoint = endpointMap[type];
+  if (!endpoint) return;
+
+  // Use cache if available and search is empty
+  if (!search && entityData[type]) {
+    renderEntityResults(type, entityData[type], search);
+    return;
+  }
+
+  try {
+    const r = await apiFetch(`/api/collections/${endpoint}`);
+    if (!r.ok) return;
+    const data = await r.json();
+    entityData[type] = data;
+    renderEntityResults(type, data, search);
+  } catch(e) { /* silent */ }
+}
+
+function renderEntityResults(type, data, search) {
+  const resultsDiv = document.getElementById('entityResults');
+  const nameField = type === 'driver' ? (r => r.name || r.driver_name || `${r.first_name||''} ${r.last_name||''}`.trim())
+                  : type === 'event'  ? (r => r.name || r.event_name || r.title || '')
+                  : type === 'staff'  ? (r => r.name || `${r.first_name||''} ${r.last_name||''}`.trim())
+                  : (r => r.name || r.item_name || r.asset_name || '');
+  const idField = r => r.id || r.driver_id || r.event_id || r.staff_id || r.item_id || '';
+
+  let filtered = data;
+  if (search) {
+    const q = search.toLowerCase();
+    filtered = data.filter(r => (nameField(r)||'').toLowerCase().includes(q));
+  }
+  filtered = filtered.slice(0, 8);
+
+  if (!filtered.length) {
+    resultsDiv.innerHTML = '<div style="font-size:0.75rem;color:#adb5bd;padding:4px 8px;">No results</div>';
+    return;
+  }
+
+  resultsDiv.innerHTML = filtered.map(r => {
+    const name = nameField(r) || 'Unknown';
+    const id = idField(r);
+    return `<div class="entity-result-item" onclick="linkEntity('${type}','${id}','${escAttr(name)}')">
+      <span class="note-entity-badge badge-${type}">${type}</span> ${escHtml(name)}
+    </div>`;
+  }).join('');
+}
+
+function linkEntity(type, id, name) {
+  currentEntityType = type;
+  currentEntityId = id;
+  currentEntityName = name;
+  showEntityLinked();
+  // Auto-add entity name as tag
+  const tagName = name.trim();
+  if (tagName && !currentTags.includes(tagName)) {
+    currentTags.push(tagName);
+    renderTags();
+  }
+  // Auto-set folder
+  const folderMap = {driver:'Drivers', event:'Events', staff:'General', asset:'Technical'};
+  if (folderMap[type]) {
+    document.getElementById('folderSelect').value = folderMap[type];
+  }
+  scheduleAutoSave();
+  // Load backlinks
+  if (currentNote) loadBacklinks(currentNote);
+}
+
+function showEntityLinked() {
+  document.getElementById('entityLinkForm').style.display = 'none';
+  const d = document.getElementById('entityLinkedDisplay');
+  d.style.display = 'flex';
+  d.innerHTML = `<div style="display:flex;align-items:center;gap:6px;font-size:0.78rem;">
+    <span class="note-entity-badge badge-${currentEntityType}">${currentEntityType}</span>
+    <span style="color:#212529;font-weight:600;">${escHtml(currentEntityName)}</span>
+  </div>
+  <button class="unlink-btn" onclick="clearEntityLink()">✕</button>`;
+}
+
+function clearEntityLink() {
+  currentEntityType = '';
+  currentEntityId = '';
+  currentEntityName = '';
+  document.getElementById('entityLinkedDisplay').style.display = 'none';
+  document.getElementById('entityLinkedDisplay').innerHTML = '';
+  document.getElementById('entityLinkForm').style.display = 'block';
+  document.getElementById('entityTypeSelect').value = '';
+  document.getElementById('entitySearchInput').style.display = 'none';
+  document.getElementById('entityResults').innerHTML = '';
+  document.getElementById('rightBacklinksSection').style.display = 'none';
+  scheduleAutoSave();
+}
+
+/* ─────────────── TAGS ─────────────── */
+function onTagKeydown(e) {
+  if (e.key === 'Enter' || e.key === ',') {
+    e.preventDefault();
+    const val = e.target.value.trim().replace(/,$/, '');
+    if (val && !currentTags.includes(val)) {
+      currentTags.push(val);
+      renderTags();
+      scheduleAutoSave();
     }
-    
-    // Handle Enter key in tag input
-    document.getElementById('tagInput').addEventListener('keypress', function(e) {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        addTag();
-      }
+    e.target.value = '';
+  }
+}
+
+function removeTag(tag) {
+  currentTags = currentTags.filter(t => t !== tag);
+  renderTags();
+  scheduleAutoSave();
+}
+
+function renderTags() {
+  const area = document.getElementById('tagsArea');
+  area.innerHTML = currentTags.map(t =>
+    `<div class="tag-chip">${escHtml(t)}<span class="remove-tag" onclick="removeTag('${escAttr(t)}')">✕</span></div>`
+  ).join('');
+}
+
+/* ─────────────── FOLDER / PIN ─────────────── */
+function onFolderChange() { scheduleAutoSave(); }
+function onPinChange() { scheduleAutoSave(); }
+
+/* ─────────────── BACKLINKS ─────────────── */
+async function loadBacklinks(note) {
+  const section = document.getElementById('rightBacklinksSection');
+  const container = document.getElementById('backlinksContainer');
+
+  if (!note.linked_entity_id) {
+    section.style.display = 'none';
+    return;
+  }
+
+  try {
+    const r = await apiFetch(`${API}?linked_entity_id=${encodeURIComponent(note.linked_entity_id)}`);
+    if (!r.ok) return;
+    const related = (await r.json()).filter(n => n.id !== note.id);
+    if (!related.length) { section.style.display = 'none'; return; }
+
+    section.style.display = 'block';
+    container.innerHTML = related.map(n =>
+      `<div class="backlink-item" onclick="selectNote('${n.id}')">${escHtml(n.title || 'Untitled')}</div>`
+    ).join('');
+  } catch(e) { section.style.display = 'none'; }
+}
+
+/* ─────────────── DELETE ─────────────── */
+async function deleteCurrentNote() {
+  if (!currentNote) return;
+  if (!confirm(`Delete "${currentNote.title || 'this note'}"? This cannot be undone.`)) return;
+  try {
+    const r = await apiFetch(`${API}/${currentNote.id}`, { method: 'DELETE' });
+    if (!r.ok) throw new Error('Delete failed');
+    allNotes = allNotes.filter(n => n.id !== currentNote.id);
+    hideEditor();
+    renderSidebar();
+    showToast('Note deleted', 'success');
+  } catch(e) {
+    showToast('Failed to delete note', 'danger');
+  }
+}
+
+/* ─────────────── TEMPLATES ─────────────── */
+const TEMPLATES = {
+  'debrief': {
+    title: 'Driver Debrief',
+    folder: 'Drivers',
+    content: `# Driver Debrief
+
+**Event:** 
+**Driver:** 
+**Date:** ${new Date().toLocaleDateString('en-GB')}
+
+## Session Summary
+
+## Setup Changes
+- 
+
+## Performance Notes
+
+## Issues / Concerns
+
+## Action Items
+- [ ] 
+- [ ] 
+
+## Driver Comments
+
+`
+  },
+  'event-report': {
+    title: 'Event Report',
+    folder: 'Events',
+    content: `# Event Report
+
+**Event:** 
+**Venue:** 
+**Date:** ${new Date().toLocaleDateString('en-GB')}
+**Weather:** 
+
+## Results
+
+| Driver | Qualifying | Race | Points |
+|--------|-----------|------|--------|
+|        |           |      |        |
+
+## Highlights
+
+## Issues
+
+## Parts Used
+
+## Next Event Prep
+- [ ] 
+- [ ] 
+
+`
+  },
+  'tech-spec': {
+    title: 'Technical Specification',
+    folder: 'Technical',
+    content: `# Technical Specification
+
+**Component:** 
+**Part Number:** 
+**Date:** ${new Date().toLocaleDateString('en-GB')}
+
+## Overview
+
+## Specifications
+
+| Property | Value |
+|----------|-------|
+|          |       |
+
+## Setup Notes
+
+## Maintenance Schedule
+
+## Notes
+
+`
+  },
+  'supplier': {
+    title: 'Supplier Note',
+    folder: 'Suppliers',
+    content: `# Supplier Note
+
+**Supplier:** 
+**Contact:** 
+**Date:** ${new Date().toLocaleDateString('en-GB')}
+
+## Products / Services
+
+## Pricing
+
+## Lead Times
+
+## Notes
+
+## Action Items
+- [ ] 
+
+`
+  }
+};
+
+function applyTemplate(key) {
+  const tpl = TEMPLATES[key];
+  if (!tpl) return;
+  if (currentNote) {
+    const hasContent = document.getElementById('noteTextarea').value.trim();
+    if (hasContent && !confirm('This will replace the current content. Continue?')) return;
+    document.getElementById('noteTitleInput').value = tpl.title;
+    document.getElementById('noteTextarea').value = tpl.content;
+    document.getElementById('folderSelect').value = tpl.folder;
+    updateStats();
+    updatePreview();
+    scheduleAutoSave();
+  } else {
+    createNewNote().then(() => {
+      document.getElementById('noteTitleInput').value = tpl.title;
+      document.getElementById('noteTextarea').value = tpl.content;
+      document.getElementById('folderSelect').value = tpl.folder;
+      updateStats();
+      updatePreview();
+      scheduleAutoSave();
     });
-    
-    // Handle file upload
-    document.getElementById('fileInput').addEventListener('change', function(e) {
-      const files = e.target.files;
-      if (!files.length) return;
-      
-      const notes = loadNotes();
-      let filesProcessed = 0;
-      
-      Array.from(files).forEach(file => {
-        const reader = new FileReader();
-        
-        reader.onload = function(event) {
-          const content = event.target.result;
-          
-          // Add note to storage
-          notes.push({
-            name: file.name,
-            content: content,
-            timestamp: new Date().toISOString(),
-            tags: []
-          });
-          
-          filesProcessed++;
-          
-          // When all files are processed
-          if (filesProcessed === files.length) {
-            saveNotes(notes);
-            displayNotesList();
-            displayTagFilters();
-            
-            // Display the first newly added note
-            displayNote(notes.length - filesProcessed);
-          }
-        };
-        
-        reader.readAsText(file);
-      });
-      
-      // Reset input
-      e.target.value = '';
-    });
-    
-    // Clear all notes
-    function clearNotes() {
-      if (confirm('Are you sure you want to clear all notes? This cannot be undone.')) {
-        localStorage.removeItem(STORAGE_KEY);
-        currentNoteIndex = -1;
-        activeTagFilter = 'all';
-        displayNotesList();
-        displayTagFilters();
-        document.getElementById('notesViewer').innerHTML = `
-          <div class="text-center" style="padding: 60px 20px; color: rgba(255,255,255,0.5);">
-            <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="margin-bottom:20px; opacity:0.5;">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            <h2>No Note Selected</h2>
-            <p>Upload a markdown file or select a note from the sidebar to view it here.</p>
-          </div>
-        `;
-        document.getElementById('currentNoteName').textContent = 'No Note Selected';
-        document.getElementById('btnEditTags').style.display = 'none';
-        document.getElementById('noteMetadata').innerHTML = '<p class="text-muted">Select a note to view metadata</p>';
-        document.getElementById('noteTagsDisplay').innerHTML = '';
-      }
-    }
-    
-    // Load existing markdown files from the workspace
-    async function loadWorkspaceMarkdown() {
-      const markdownFiles = ['README.md', 'DRIVER_PACKAGES_INVOICING.md', 'server/TELEMETRY_TSDB_README.md'];
-      
-      for (const filename of markdownFiles) {
-        try {
-          const response = await fetch(filename);
-          if (response.ok) {
-            const content = await response.text();
-            const notes = loadNotes();
-            
-            // Check if already loaded
-            if (!notes.some(n => n.name === filename)) {
-              notes.push({
-                name: filename,
-                content: content,
-                timestamp: new Date().toISOString(),
-                tags: ['workspace']
-              });
-              saveNotes(notes);
-            }
-          }
-        } catch (e) {
-          console.log(`Could not load ${filename}`);
-        }
-      }
-      
-      displayNotesList();
-      displayTagFilters();
-    }
-    
-    // Initialize on page load
-    document.addEventListener('DOMContentLoaded', function() {
-      displayNotesList();
-      displayTagFilters();
-      loadWorkspaceMarkdown();
-    });
-  </script>
+  }
+}
+
+/* ─────────────── EXPORT PDF ─────────────── */
+function exportPDF() {
+  if (!currentNote) return;
+  const title = document.getElementById('noteTitleInput').value || 'Note';
+  const content = document.getElementById('noteTextarea').value;
+  const html = marked.parse(content || '');
+
+  const w = window.open('', '_blank');
+  w.document.write(`<!DOCTYPE html><html><head>
+    <meta charset="UTF-8"/>
+    <title>${escHtml(title)}</title>
+    <style>
+      body{font-family:Georgia,serif;max-width:800px;margin:40px auto;padding:0 20px;color:#212529;font-size:13px;line-height:1.75;}
+      h1{font-size:22px;font-weight:700;margin-bottom:6px;}
+      h2{font-size:16px;font-weight:600;margin-top:20px;border-bottom:1px solid #e9ecef;padding-bottom:4px;}
+      h3{font-size:14px;font-weight:600;}
+      code{background:#f8f9fa;border:1px solid #e9ecef;border-radius:3px;padding:1px 4px;font-size:11px;}
+      pre{background:#1e1e1e;color:#d4d4d4;padding:12px;border-radius:4px;overflow-x:auto;font-size:11px;}
+      pre code{background:none;border:none;color:inherit;}
+      blockquote{border-left:3px solid #0099cc;padding-left:12px;color:#6c757d;font-style:italic;}
+      table{width:100%;border-collapse:collapse;font-size:12px;}
+      th{background:#f8f9fa;padding:5px 8px;border:1px solid #dee2e6;text-align:left;font-weight:600;}
+      td{padding:4px 8px;border:1px solid #e9ecef;}
+      .note-meta{font-size:11px;color:#6c757d;margin-bottom:20px;padding-bottom:10px;border-bottom:1px solid #e9ecef;}
+      @media print{body{margin:0;}}
+    </style>
+  </head><body>
+    <h1>${escHtml(title)}</h1>
+    <div class="note-meta">
+      ${currentNote.folder ? `📁 ${escHtml(currentNote.folder)}` : ''}
+      ${currentNote.linked_entity_name ? ` · 🔗 ${escHtml(currentNote.linked_entity_name)}` : ''}
+      · ${new Date().toLocaleDateString('en-GB')}
+    </div>
+    ${html}
+  </body></html>`);
+  w.document.close();
+  w.focus();
+  setTimeout(() => w.print(), 500);
+}
+
+/* ─────────────── UTILITIES ─────────────── */
+function apiFetch(url, opts = {}) {
+  const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken') || '';
+  opts.headers = opts.headers || {};
+  if (token) opts.headers['Authorization'] = `Bearer ${token}`;
+  return fetch(url, opts);
+}
+
+function escHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function escAttr(s) {
+  if (!s) return '';
+  return String(s).replace(/'/g,'&#39;').replace(/"/g,'&quot;');
+}
+
+function formatRelativeDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const now = new Date();
+  const diffMs = now - d;
+  const diffMins = Math.floor(diffMs / 60000);
+  if (diffMins < 1) return 'just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  const diffHrs = Math.floor(diffMins / 60);
+  if (diffHrs < 24) return `${diffHrs}h ago`;
+  const diffDays = Math.floor(diffHrs / 24);
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return d.toLocaleDateString('en-GB', {day:'numeric',month:'short'});
+}
+
+function showToast(msg, type = 'info') {
+  // Try to use global showToast from core.js if available
+  if (window.RTCore && RTCore.showToast) { RTCore.showToast(msg, type); return; }
+  // Fallback
+  const el = document.createElement('div');
+  el.className = `alert alert-${type} position-fixed bottom-0 end-0 m-3`;
+  el.style.cssText = 'z-index:9999;font-size:0.82rem;padding:8px 14px;';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+/* ─────────────── KEYBOARD SHORTCUTS ─────────────── */
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+    e.preventDefault();
+    if (currentNote) saveCurrentNote();
+  }
+  if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
+    e.preventDefault();
+    createNewNote();
+  }
+});
+
+/* ─────────────── START ─────────────── */
+document.addEventListener('DOMContentLoaded', init);
+</script>
 </body>
 </html>
