@@ -60,7 +60,8 @@ async function runMigrations() {
     '051_engine_fields_and_asset_groups.sql',
     '052_asset_flag_system.sql',
     '053_race_sessions_and_incidents.sql',
-    '054_race_results_and_driver_hr_fields.sql'
+    '054_race_results_and_driver_hr_fields.sql',
+    '055_driver_asset_assignments.sql'
   ];
   
   for (const filename of migrationFiles) {

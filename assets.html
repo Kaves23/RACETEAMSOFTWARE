@@ -212,6 +212,21 @@
       background: #c2e4f5;
       border-color: #0099cc;
     }
+    /* Driver-assigned single-line compact variant */
+    .asset-card.assigned-to-driver {
+      background: #f0fdf4;
+      border-color: #a7f3d0;
+      gap: 0;
+      padding: 5px 10px 5px 14px;
+    }
+    .asset-card.assigned-to-driver:hover {
+      background: #d1fae5;
+      border-color: #34d399;
+    }
+    .asset-card.assigned-to-driver.selected {
+      background: #a7f3d0;
+      border-color: #059669;
+    }
     .asset-card-mechanic-row {
       display: flex;
       align-items: center;
@@ -232,9 +247,22 @@
       border-radius: 3px;
       padding: 1px 6px;
     }
-    .mechanic-badge svg {
+    .mechanic-badge svg { flex-shrink: 0; }
+    .driver-badge {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
       flex-shrink: 0;
+      font-size: 0.68rem;
+      font-weight: 600;
+      color: #047857;
+      background: rgba(5,150,105,0.12);
+      border: 1px solid rgba(5,150,105,0.3);
+      border-radius: 3px;
+      padding: 1px 6px;
     }
+    .driver-badge svg { flex-shrink: 0; }
     .asset-barcode {
       font-family: 'Courier New', monospace;
       font-size: 0.75rem;
@@ -2059,6 +2087,7 @@
     let allBoxes = [];
     let allLocations = [];
     let allStaff = [];
+    let allDrivers = [];
     let boxMap = new Map();      // id → box, rebuilt after each loadData
     let locationMap = new Map(); // id → location, rebuilt after each loadData
     let allAssetTypes = [];
@@ -2273,10 +2302,11 @@
           boxMap    = new Map(allBoxes.map(b => [b.id, b]));
 
           // Reference data is tiny + server-cached — always refresh it
-          const [assetTypesResponse, locationsResponse, staffResponse] = await Promise.all([
+          const [assetTypesResponse, locationsResponse, staffResponse, driversResponse] = await Promise.all([
             window.RTS_API.getAssetTypes().catch(err => { console.error('⚠️ Failed to load asset types:', err); return { success: false, assetTypes: null }; }),
             window.RTS_API.getLocations().catch(err => { console.warn('⚠️ Failed to load locations:', err); return { success: false, items: [] }; }),
-            window.RTS_API.getCollectionItems('staff').catch(err => { console.warn('⚠️ Failed to load staff:', err); return { success: false, items: [] }; })
+            window.RTS_API.getCollectionItems('staff').catch(err => { console.warn('⚠️ Failed to load staff:', err); return { success: false, items: [] }; }),
+            window.RTS_API.getCollectionItems('drivers').catch(err => { console.warn('⚠️ Failed to load drivers:', err); return { success: false, items: [] }; })
           ]);
 
           if (locationsResponse?.items?.length > 0) {
@@ -2285,6 +2315,7 @@
           locationMap = new Map(allLocations.map(l => [l.id, l]));
 
           allStaff = staffResponse?.items ? staffResponse.items.filter(s => s.active !== false && s.status !== 'inactive') : [];
+          allDrivers = driversResponse?.items ? driversResponse.items.filter(d => d.active !== false) : [];
 
           if (assetTypesResponse?.success && assetTypesResponse.assetTypes?.length > 0) {
             allAssetTypes = assetTypesResponse.assetTypes;
@@ -2317,6 +2348,10 @@
           console.warn('⚠️ Failed to load staff from API:', err);
           return { success: false, items: [] };
         });
+        const driversP = window.RTS_API.getCollectionItems('drivers').catch(err => {
+          console.warn('⚠️ Failed to load drivers from API:', err);
+          return { success: false, items: [] };
+        });
 
         // ── Phase 1: render as soon as items + types + locations are ready ──
         const [allItems, assetTypesResponse, locationsResponse] = await Promise.all([itemsP, typesP, locsP]);
@@ -2346,12 +2381,13 @@
         populateAssetTypeDropdowns();
         renderAssets(); // Phase 1 — box indicators show once boxes arrive
 
-        // ── Phase 2: enrich with boxes + staff ──
-        const [boxesResponse, staffResponse] = await Promise.all([boxesP, staffP]);
+        // ── Phase 2: enrich with boxes + staff + drivers ──
+        const [boxesResponse, staffResponse, driversResponse] = await Promise.all([boxesP, staffP, driversP]);
 
         allBoxes = boxesResponse?.boxes || [];
         boxMap   = new Map(allBoxes.map(b => [b.id, b]));
         allStaff = staffResponse?.items ? staffResponse.items.filter(s => s.active !== false && s.status !== 'inactive') : [];
+        allDrivers = driversResponse?.items ? driversResponse.items.filter(d => d.active !== false) : [];
 
         // Populate 30-second client-side cache
         dataCache.items = { data: allAssets, timestamp: Date.now(), ttl: 30000 };
@@ -2647,6 +2683,27 @@
             <div class="mechanic-badge">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="8" r="4"/><path d="M6 20v-2a6 6 0 0 1 12 0v2"/></svg>
               ${mechanicName}
+            </div>
+          </div>
+        </div>`;
+      }
+
+      // Compact single-line layout for driver-assigned assets
+      if (asset.assigned_driver_id) {
+        const driverName = asset.assigned_driver_name || asset.assigned_driver_id;
+        return `<div class="asset-card assigned-to-driver" data-id="${asset.id}">
+          <div class="status-indicator ${statusClass}"></div>
+          <div class="card-checkbox-container">
+            <input type="checkbox" class="asset-checkbox" data-id="${asset.id}" onclick="event.stopPropagation(); toggleAssetSelection('${asset.id}', event)">
+          </div>
+          <div class="asset-card-mechanic-row">
+            <div class="asset-barcode" style="font-size:0.7rem;">${asset.barcode || asset.id}</div>
+            <div class="asset-name" title="${asset.name}" style="font-size:0.8rem;">${asset.name}</div>
+            ${locationHtml ? locationHtml : ''}
+            <div style="flex:1;min-width:0;"></div>
+            <div class="driver-badge">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="5" r="3"/><path d="M2 20c0-4 4-7 10-7s10 3 10 7"/><path d="M8 12l4 4 4-4"/></svg>
+              ${driverName}
             </div>
           </div>
         </div>`;
@@ -2991,6 +3048,38 @@
                 <div class="col-12">
                   <button type="button" class="btn btn-sm btn-primary" onclick="assignAssetToStaff()">
                     Assign to Staff
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Driver Assignment -->
+            <div class="section-card mt-2" style="border-left: 3px solid #059669;">
+              <div class="section-header">
+                <div class="section-icon"></div>
+                <span>Driver Assignment</span>
+              </div>
+              ${asset.assigned_driver_id
+                ? `<div class="alert mb-2 py-2" style="font-size:0.85rem;background:#d1fae5;border-color:#6ee7b7;color:#065f46;">
+                     <strong>Currently with:</strong> ${asset.assigned_driver_name || asset.assigned_driver_id}
+                     <button type="button" class="btn btn-sm btn-outline-danger float-end py-0 px-2" onclick="unassignAssetFromDriver()">Return</button>
+                   </div>`
+                : `<div class="text-muted mb-2" style="font-size:0.85rem;">Not assigned to any driver</div>`
+              }
+              <div class="row g-2">
+                <div class="col-12">
+                  <label class="form-label">Assign to Driver</label>
+                  <select class="form-select form-select-sm" id="panelAssignDriver">
+                    <option value="">Select driver...</option>
+                    ${allDrivers.map(d => `<option value="${d.id}" ${asset.assigned_driver_id == d.id ? 'selected' : ''}>${d.name}${d.number ? ' (#' + d.number + ')' : ''}</option>`).join('')}
+                  </select>
+                </div>
+                <div class="col-12">
+                  <input type="text" class="form-control form-control-sm" id="panelAssignDriverNote" placeholder="Optional note (e.g. Season kit)">
+                </div>
+                <div class="col-12">
+                  <button type="button" class="btn btn-sm btn-success" onclick="assignAssetToDriver()">
+                    Assign to Driver
                   </button>
                 </div>
               </div>
@@ -3615,6 +3704,9 @@ if (!newLocationId && !newBoxId) {
         const result = await window.RTS_DATA.saveItem({ id, ...data });
         if (result.success) {
           showToast('Asset updated successfully', 'success');
+          // Invalidate the 30-second client cache so loadData fetches fresh data
+          // (without this, the serial/field change would appear to revert)
+          dataCache.items = null;
           await loadData();
           const updatedAsset = allAssets.find(a => a.id === id);
           openAssetPanel(updatedAsset);
@@ -3788,6 +3880,67 @@ if (!newLocationId && !newBoxId) {
         if (updated) openAssetPanel(updated);
       } catch (err) {
         console.error('Error returning asset:', err);
+        showToast('Failed to return: ' + err.message, 'error');
+      }
+    }
+
+    async function assignAssetToDriver() {
+      const assetId = document.getElementById('panelAssetId').value;
+      const driverId = document.getElementById('panelAssignDriver').value;
+      const notes = document.getElementById('panelAssignDriverNote').value.trim();
+      if (!driverId) { showToast('Select a driver first', 'warning'); return; }
+      try {
+        const token = localStorage.getItem('auth_token') || '';
+        const res = await fetch('/api/driver-assignments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ driverId, assetId, notes })
+        });
+        if (!res.ok && res.status !== 200) {
+          const errText = await res.text();
+          let errMsg = `Server error ${res.status}`;
+          try { errMsg = JSON.parse(errText).error || errMsg; } catch(_) {}
+          throw new Error(errMsg);
+        }
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'Assignment failed');
+        showToast('Asset assigned to driver', 'success');
+        dataCache.items = null;
+        await loadData();
+        const updated = allAssets.find(a => a.id === assetId);
+        if (updated) openAssetPanel(updated);
+      } catch (err) {
+        console.error('Error assigning asset to driver:', err);
+        showToast('Failed to assign: ' + err.message, 'error');
+      }
+    }
+
+    async function unassignAssetFromDriver() {
+      const assetId = document.getElementById('panelAssetId').value;
+      if (!assetId) return;
+      const confirmed = await showConfirm('Return this asset from the driver?', 'Return Asset');
+      if (!confirmed) return;
+      try {
+        const token = localStorage.getItem('auth_token') || '';
+        const res = await fetch(`/api/driver-assignments/item/${assetId}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (!res.ok && res.status !== 200) {
+          const errText = await res.text();
+          let errMsg = `Server error ${res.status}`;
+          try { errMsg = JSON.parse(errText).error || errMsg; } catch(_) {}
+          throw new Error(errMsg);
+        }
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'Failed to return');
+        showToast('Asset returned from driver', 'success');
+        dataCache.items = null;
+        await loadData();
+        const updated = allAssets.find(a => a.id === assetId);
+        if (updated) openAssetPanel(updated);
+      } catch (err) {
+        console.error('Error returning asset from driver:', err);
         showToast('Failed to return: ' + err.message, 'error');
       }
     }

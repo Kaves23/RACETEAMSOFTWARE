@@ -12,14 +12,16 @@ router.get('/', async (req, res, next) => {
     let query = `SELECT 
       i.id, i.barcode, i.name, i.serial_number, i.category, i.item_type, 
       i.status, i.current_box_id, i.current_location_id, i.weight_kg, 
-      i.value_usd, i.description, i.assigned_staff_id, i.is_race_fleet,
+      i.value_usd, i.description, i.assigned_staff_id, i.assigned_driver_id, i.is_race_fleet,
       i.custom_fields, i.parent_asset_id,
       i.last_maintenance_date, i.next_maintenance_date,
       i.is_flagged, i.flag_reason,
       s.name AS assigned_staff_name,
+      d.name AS assigned_driver_name,
       i.created_at, i.updated_at
     FROM items i
     LEFT JOIN staff s ON i.assigned_staff_id = s.id
+    LEFT JOIN drivers d ON i.assigned_driver_id = d.id
     WHERE 1=1`;
     const params = [];
     let paramCount = 1;
