@@ -1594,7 +1594,7 @@
           </ul>
           <div class="tab-content">
             <div class="tab-pane fade show active" id="tabDetails">
-              <form id="assetForm">
+              <form id="assetForm" onsubmit="return false;">
                 <input type="hidden" id="assetId">
                 
                 <!-- Basic Information Section -->
@@ -3506,7 +3506,6 @@
         
         if (result.success) {
           showToast(id ? 'Asset updated successfully' : 'Asset created successfully', 'success');
-          bootstrap.Modal.getInstance(document.getElementById('assetModal')).hide();
           // Update local array directly — no full reload needed
           if (id) {
             const idx = allAssets.findIndex(a => a.id === id);
@@ -3516,8 +3515,12 @@
           }
           renderAssets();
           updateStats();
+          // Hide modal — null-safe in case instance was discarded
+          const modalEl = document.getElementById('assetModal');
+          const modalInstance = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+          modalInstance.hide();
         } else {
-          showToast('Error: ' + result.error, 'error');
+          showToast('Error saving: ' + (result.error || 'Unknown error'), 'error');
         }
       } catch (error) {
         console.error('Error saving asset:', error);
