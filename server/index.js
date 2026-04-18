@@ -305,10 +305,10 @@ app.get('/api/telemetry/points', requireAuth, async (req, res) => {
 
 // ===== GLOBAL ERROR HANDLER (must be last middleware) =====
 app.use((err, req, res, next) => {
-  console.error('❌ Unhandled error:', err);
+  console.error('❌ Unhandled error:', err.message, err.stack);
   res.status(err.status || 500).json({ 
     success: false, 
-    error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message 
+    error: err.message  // always return real message so client can show it
   });
 });
 

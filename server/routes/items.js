@@ -340,11 +340,10 @@ router.put('/:id', async (req, res, next) => {
     }).catch(() => {});
     res.json({ success: true, item: result.rows[0] });
   } catch (error) {
+    console.error('❌ PUT /items error:', error.message, '| code:', error.code, '| detail:', error.detail);
     next(error);
   }
 });
-
-// DELETE /api/items/:id - Delete item
 router.delete('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
