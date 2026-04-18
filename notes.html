@@ -329,7 +329,7 @@
       transition: border-color 0.15s;
     }
     .entity-type-select:focus, .entity-search-input:focus, .folder-select:focus { border-color: #0099cc; }
-    .entity-results { max-height: 130px; overflow-y: auto; margin-top: 2px; }
+    .entity-results { max-height: 200px; overflow-y: auto; margin-top: 4px; border: 1px solid #e9ecef; border-radius: 5px; background: #fff; }
     .entity-result-item {
       font-size: 0.77rem;
       padding: 4px 8px;
@@ -947,9 +947,9 @@ function onEntityTypeChange() {
   if (type) {
     searchInput.style.display = 'block';
     searchInput.value = '';
-    searchInput.focus();
-    resultsDiv.innerHTML = '';
+    resultsDiv.innerHTML = '<div style="font-size:0.75rem;color:#adb5bd;padding:4px 8px;">Loading…</div>';
     loadEntityList(type, '');
+    searchInput.focus();
   } else {
     searchInput.style.display = 'none';
     resultsDiv.innerHTML = '';
@@ -958,15 +958,16 @@ function onEntityTypeChange() {
 
 function debounceEntitySearch(val) {
   clearTimeout(entitySearchTimer);
-  entitySearchTimer = setTimeout(() => loadEntityList(currentEntityType, val), 250);
+  entitySearchTimer = setTimeout(() => loadEntityList(currentEntityType, val), 200);
 }
 
 async function loadEntityList(type, search) {
-  const endpointMap = {driver:'drivers', event:'events', staff:'staff', asset:'items'};
+  // Map entity type → collections API endpoint (must be in VALID_TABLES)
+  const endpointMap = {driver:'drivers', event:'events', staff:'staff', asset:'inventory'};
   const endpoint = endpointMap[type];
   if (!endpoint) return;
 
-  // Use cache if available and search is empty
+  // Use cache when no search term
   if (!search && entityData[type]) {
     renderEntityResults(type, entityData[type], search);
     return;
@@ -974,27 +975,34 @@ async function loadEntityList(type, search) {
 
   try {
     const r = await apiFetch(`/api/collections/${endpoint}`);
-    if (!r.ok) return;
+    if (!r.ok) {
+      document.getElementById('entityResults').innerHTML =
+        `<div style="font-size:0.75rem;color:#dc3545;padding:4px 8px;">Failed to load (${r.status})</div>`;
+      return;
+    }
     const data = unwrap(await r.json());
     entityData[type] = Array.isArray(data) ? data : [];
-    renderEntityResults(type, data, search);
-  } catch(e) { /* silent */ }
+    renderEntityResults(type, entityData[type], search);
+  } catch(e) {
+    console.error('loadEntityList error:', e);
+    document.getElementById('entityResults').innerHTML =
+      '<div style="font-size:0.75rem;color:#dc3545;padding:4px 8px;">Error loading list</div>';
+  }
 }
 
 function renderEntityResults(type, data, search) {
   const resultsDiv = document.getElementById('entityResults');
-  const nameField = type === 'driver' ? (r => r.name || r.driver_name || `${r.first_name||''} ${r.last_name||''}`.trim())
-                  : type === 'event'  ? (r => r.name || r.event_name || r.title || '')
-                  : type === 'staff'  ? (r => r.name || `${r.first_name||''} ${r.last_name||''}`.trim())
-                  : (r => r.name || r.item_name || r.asset_name || '');
-  const idField = r => r.id || r.driver_id || r.event_id || r.staff_id || r.item_id || '';
+  // All tables use a plain `name` column
+  const nameField = r => r.name || '';
+  const idField   = r => r.id || '';
 
   let filtered = data;
   if (search) {
     const q = search.toLowerCase();
     filtered = data.filter(r => (nameField(r)||'').toLowerCase().includes(q));
   }
-  filtered = filtered.slice(0, 8);
+  // Show up to 20 so the list is usable without typing
+  filtered = filtered.slice(0, 20);
 
   if (!filtered.length) {
     resultsDiv.innerHTML = '<div style="font-size:0.75rem;color:#adb5bd;padding:4px 8px;">No results</div>';
