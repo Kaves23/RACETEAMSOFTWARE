@@ -8,6 +8,40 @@
   <link href="style.css" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <style>
+    /* ── TipTap editor ── */
+    .tiptap-wrap {
+      flex: 1;
+      overflow-y: auto;
+      padding: 18px 24px;
+      background: #fff;
+    }
+    .tiptap-wrap .ProseMirror {
+      outline: none;
+      min-height: 300px;
+      font-size: 0.9rem;
+      line-height: 1.75;
+      color: #212529;
+    }
+    .tiptap-wrap .ProseMirror p { margin-bottom: 0.65rem; }
+    .tiptap-wrap .ProseMirror h1 { font-size: 1.5rem; font-weight: 700; margin: 0 0 0.5rem; color: #1a1d24; }
+    .tiptap-wrap .ProseMirror h2 { font-size: 1.15rem; font-weight: 600; margin: 1.2rem 0 0.4rem; color: #1a1d24; border-bottom: 1px solid #e9ecef; padding-bottom: 3px; }
+    .tiptap-wrap .ProseMirror h3 { font-size: 1rem; font-weight: 600; margin: 1rem 0 0.3rem; }
+    .tiptap-wrap .ProseMirror strong { font-weight: 700; }
+    .tiptap-wrap .ProseMirror em { font-style: italic; }
+    .tiptap-wrap .ProseMirror code { background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 3px; padding: 1px 5px; font-size: 0.82rem; color: #d63384; font-family: monospace; }
+    .tiptap-wrap .ProseMirror pre { background: #1e1e1e; color: #d4d4d4; padding: 14px 16px; border-radius: 6px; overflow-x: auto; font-size: 0.8rem; line-height: 1.5; margin-bottom: 0.75rem; }
+    .tiptap-wrap .ProseMirror pre code { background: none; border: none; color: inherit; padding: 0; }
+    .tiptap-wrap .ProseMirror blockquote { border-left: 3px solid #0099cc; padding-left: 14px; color: #6c757d; margin: 0.8rem 0; font-style: italic; }
+    .tiptap-wrap .ProseMirror ul, .tiptap-wrap .ProseMirror ol { padding-left: 1.5rem; margin-bottom: 0.75rem; }
+    .tiptap-wrap .ProseMirror li { margin-bottom: 0.2rem; }
+    .tiptap-wrap .ProseMirror hr { border: none; border-top: 1px solid #e9ecef; margin: 1.2rem 0; }
+    .tiptap-wrap .ProseMirror table { border-collapse: collapse; width: 100%; margin: 0.75rem 0; font-size: 0.85rem; }
+    .tiptap-wrap .ProseMirror th { background: #f8f9fa; font-weight: 600; padding: 6px 10px; border: 1px solid #dee2e6; text-align: left; }
+    .tiptap-wrap .ProseMirror td { padding: 5px 10px; border: 1px solid #e9ecef; }
+    .tiptap-wrap .ProseMirror .selectedCell:after { background: rgba(0,153,204,0.1); content: ''; left: 0; right: 0; top: 0; bottom: 0; pointer-events: none; position: absolute; }
+    .tiptap-wrap .ProseMirror .column-resize-handle { background: #0099cc; bottom: -2px; position: absolute; right: -2px; top: 0; width: 4px; pointer-events: none; }
+    .tiptap-wrap .ProseMirror p.is-editor-empty:first-child::before { color: #adb5bd; content: attr(data-placeholder); float: left; height: 0; pointer-events: none; }
+    .toolbar-btn.is-active { background: #e9ecef; color: #0099cc; }
     /* ── Base ── */
     body { background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%); min-height: 100vh; }
 
@@ -505,11 +539,18 @@
 
       <div class="note-toolbar">
         <!-- Formatting -->
-        <button class="toolbar-btn" title="Bold" onclick="insertMd('**','**')"><b>B</b></button>
-        <button class="toolbar-btn" title="Italic" onclick="insertMd('_','_')"><i>I</i></button>
-        <button class="toolbar-btn" title="Heading 2" onclick="insertMd('## ','')">H2</button>
-        <button class="toolbar-btn" title="Bullet list" onclick="insertMd('- ','')">• List</button>
-        <button class="toolbar-btn" title="Code" onclick="insertMd('`','`')">{ }</button>
+        <button class="toolbar-btn" id="tbBold"    title="Bold (Cmd+B)"     onclick="toolCmd('bold')"><b>B</b></button>
+        <button class="toolbar-btn" id="tbItalic"  title="Italic (Cmd+I)"   onclick="toolCmd('italic')"><i>I</i></button>
+        <button class="toolbar-btn" id="tbH1"      title="Heading 1"        onclick="toolCmd('h1')">H1</button>
+        <button class="toolbar-btn" id="tbH2"      title="Heading 2"        onclick="toolCmd('h2')">H2</button>
+        <button class="toolbar-btn" id="tbBullet"  title="Bullet list"      onclick="toolCmd('bullet')">• List</button>
+        <button class="toolbar-btn" id="tbOrdered" title="Numbered list"    onclick="toolCmd('ordered')">1. List</button>
+        <button class="toolbar-btn" id="tbCode"    title="Inline code"      onclick="toolCmd('code')">{ }</button>
+        <button class="toolbar-btn" id="tbQuote"   title="Blockquote"       onclick="toolCmd('quote')">❝</button>
+        <div class="toolbar-sep"></div>
+        <button class="toolbar-btn" id="tbTable"   title="Insert table"     onclick="toolCmd('table')">⊞ Table</button>
+        <button class="toolbar-btn" id="tbAddCol"  title="Add column after" onclick="toolCmd('addCol')">+Col</button>
+        <button class="toolbar-btn" id="tbAddRow"  title="Add row after"    onclick="toolCmd('addRow')">+Row</button>
         <div class="toolbar-sep"></div>
         <!-- Templates -->
         <div class="dropdown">
@@ -521,21 +562,12 @@
             <li><a class="dropdown-item" href="#" onclick="applyTemplate('supplier')">Supplier Note</a></li>
           </ul>
         </div>
-        <!-- View toggle -->
-        <div class="toolbar-view-group ms-2">
-          <button class="toolbar-view-btn active" id="viewBtnEdit" onclick="setViewMode('edit')">Edit</button>
-          <button class="toolbar-view-btn" id="viewBtnSplit" onclick="setViewMode('split')">Split</button>
-          <button class="toolbar-view-btn" id="viewBtnPreview" onclick="setViewMode('preview')">Preview</button>
-        </div>
         <!-- Export -->
         <button class="toolbar-btn ms-2" title="Export as PDF" onclick="exportPDF()">⬇ PDF</button>
       </div>
 
       <div class="note-editor-area" id="noteEditorArea">
-        <textarea class="note-textarea" id="noteTextarea"
-                  placeholder="Start writing… Markdown is supported."
-                  oninput="onContentInput()"></textarea>
-        <div class="note-preview" id="notePreviewDiv" style="display:none;border-left:1px solid #e9ecef;"></div>
+        <div class="tiptap-wrap" id="tiptapMount"></div>
       </div>
     </div>
 
@@ -629,7 +661,14 @@
 <script src="config.js?v=3"></script>
 <script src="core.js?v=20260407-2200"></script>
 <script src="topnav.js?v=20260411-2"></script>
-<script>
+<script type="module">
+import { Editor } from 'https://esm.sh/@tiptap/core@2';
+import StarterKit from 'https://esm.sh/@tiptap/starter-kit@2';
+import Table from 'https://esm.sh/@tiptap/extension-table@2';
+import TableRow from 'https://esm.sh/@tiptap/extension-table-row@2';
+import TableCell from 'https://esm.sh/@tiptap/extension-table-cell@2';
+import TableHeader from 'https://esm.sh/@tiptap/extension-table-header@2';
+import Placeholder from 'https://esm.sh/@tiptap/extension-placeholder@2';
 /* ═══════════════════════════════════════════════════════
    NOTES — Full Knowledge Base
    API: /api/notes
@@ -638,7 +677,6 @@
 const API = '/api/notes';
 let allNotes = [];
 let currentNote = null;
-let viewMode = 'edit';
 let saveTimer = null;
 let isPopulating = false; // suppress auto-save while loading a note
 let searchTimer = null;
@@ -648,9 +686,71 @@ let currentEntityType = '';
 let currentEntityId = '';
 let currentEntityName = '';
 let entityData = {};  // cache: {type: [{id,name},…]}
+let editor = null;
+
+/* ─────────────── TIPTAP INIT ─────────────── */
+function initEditor() {
+  editor = new Editor({
+    element: document.getElementById('tiptapMount'),
+    extensions: [
+      StarterKit,
+      Table.configure({ resizable: true }),
+      TableRow,
+      TableHeader,
+      TableCell,
+      Placeholder.configure({ placeholder: 'Start typing your note…' }),
+    ],
+    content: '',
+    onUpdate() {
+      updateStats();
+      scheduleAutoSave();
+    },
+    onSelectionUpdate() {
+      updateToolbarState();
+    },
+  });
+}
+
+function updateToolbarState() {
+  if (!editor) return;
+  const map = {
+    tbBold:    editor.isActive('bold'),
+    tbItalic:  editor.isActive('italic'),
+    tbH1:      editor.isActive('heading', { level: 1 }),
+    tbH2:      editor.isActive('heading', { level: 2 }),
+    tbBullet:  editor.isActive('bulletList'),
+    tbOrdered: editor.isActive('orderedList'),
+    tbCode:    editor.isActive('code'),
+    tbQuote:   editor.isActive('blockquote'),
+  };
+  Object.entries(map).forEach(([id, active]) => {
+    const btn = document.getElementById(id);
+    if (btn) btn.classList.toggle('is-active', active);
+  });
+}
+
+window.toolCmd = function toolCmd(cmd) {
+  if (!editor) return;
+  const chain = editor.chain().focus();
+  switch (cmd) {
+    case 'bold':    chain.toggleBold().run(); break;
+    case 'italic':  chain.toggleItalic().run(); break;
+    case 'h1':      chain.toggleHeading({ level: 1 }).run(); break;
+    case 'h2':      chain.toggleHeading({ level: 2 }).run(); break;
+    case 'bullet':  chain.toggleBulletList().run(); break;
+    case 'ordered': chain.toggleOrderedList().run(); break;
+    case 'code':    chain.toggleCode().run(); break;
+    case 'quote':   chain.toggleBlockquote().run(); break;
+    case 'table':   chain.insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(); break;
+    case 'addCol':  chain.addColumnAfter().run(); break;
+    case 'addRow':  chain.addRowAfter().run(); break;
+  }
+  updateToolbarState();
+};
 
 /* ─────────────── INIT ─────────────── */
 async function init() {
+  initEditor();
   await loadNotes();
 }
 
@@ -726,14 +826,14 @@ function renderNoteItem(n) {
   </div>`;
 }
 
-function toggleFolder(header) {
+window.toggleFolder = function toggleFolder(header) {
   header.classList.toggle('collapsed');
   const notesDiv = header.nextElementSibling;
   notesDiv.classList.toggle('d-none');
-}
+};
 
 /* ─────────────── SELECT NOTE ─────────────── */
-async function selectNote(id) {
+window.selectNote = async function selectNote(id) {
   try {
     const r = await apiFetch(`${API}/${id}`);
     if (!r.ok) {
@@ -753,11 +853,19 @@ async function selectNote(id) {
   }
 }
 
+function isHtml(str) {
+  return /^\s*<[a-zA-Z]/.test(str || '');
+}
+
 function populateEditor(note) {
   document.getElementById('noteTitleInput').value = note.title || '';
-  document.getElementById('noteTextarea').value = note.content || '';
   document.getElementById('folderSelect').value = note.folder || 'General';
   document.getElementById('pinToggle').checked = !!note.is_pinned;
+
+  // Set editor content — convert legacy markdown to HTML if needed
+  const raw = note.content || '';
+  const html = isHtml(raw) ? raw : (raw.trim() ? marked.parse(raw) : '');
+  editor.commands.setContent(html);
 
   // Tags — DB may return a PG array string like '{"foo","bar"}' or already a JS array
   if (Array.isArray(note.tags)) {
@@ -781,7 +889,6 @@ function populateEditor(note) {
   }
 
   updateStats();
-  updatePreview();
   updateSaveIndicator('saved');
 
   // Backlinks
@@ -800,7 +907,7 @@ function hideEditor() {
 }
 
 /* ─────────────── CREATE NEW NOTE ─────────────── */
-async function createNewNote() {
+window.createNewNote = async function createNewNote() {
   try {
     const body = { title: 'New Note', content: '', folder: 'General' };
     const r = await apiFetch(API, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
@@ -808,13 +915,13 @@ async function createNewNote() {
     const n = unwrap(await r.json());
     allNotes.unshift(n);
     renderSidebar();
-    await selectNote(n.id);
+    await window.selectNote(n.id);
     document.getElementById('noteTitleInput').focus();
     document.getElementById('noteTitleInput').select();
   } catch(e) {
     showToast('Failed to create note', 'danger');
   }
-}
+};
 
 /* ─────────────── AUTO SAVE ─────────────── */
 function scheduleAutoSave() {
@@ -823,17 +930,12 @@ function scheduleAutoSave() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(saveCurrentNote, 1500);
 }
-
-function onContentInput() {
-  updateStats();
-  if (viewMode === 'split' || viewMode === 'preview') updatePreview();
-  scheduleAutoSave();
-}
+window.scheduleAutoSave = scheduleAutoSave;
 
 async function saveCurrentNote() {
   if (!currentNote) return;
   const title = document.getElementById('noteTitleInput').value.trim() || 'Untitled';
-  const content = document.getElementById('noteTextarea').value;
+  const content = editor ? editor.getHTML() : '';
   const folder = document.getElementById('folderSelect').value;
   const is_pinned = document.getElementById('pinToggle').checked;
 
@@ -884,49 +986,11 @@ function updateSaveIndicator(state, timestamp) {
   }
 }
 
-/* ─────────────── VIEW MODES ─────────────── */
-function setViewMode(mode) {
-  viewMode = mode;
-  const ta = document.getElementById('noteTextarea');
-  const pv = document.getElementById('notePreviewDiv');
-  document.querySelectorAll('.toolbar-view-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById(`viewBtn${mode.charAt(0).toUpperCase()+mode.slice(1)}`).classList.add('active');
-
-  if (mode === 'edit') {
-    ta.style.display = 'block'; pv.style.display = 'none';
-  } else if (mode === 'preview') {
-    ta.style.display = 'none'; pv.style.display = 'block';
-    updatePreview();
-  } else { // split
-    ta.style.display = 'block'; pv.style.display = 'block';
-    updatePreview();
-  }
-}
-
-function updatePreview() {
-  const content = document.getElementById('noteTextarea').value;
-  const pv = document.getElementById('notePreviewDiv');
-  pv.innerHTML = marked.parse(content || '*Nothing to preview yet.*');
-}
-
-/* ─────────────── MARKDOWN HELPERS ─────────────── */
-function insertMd(before, after) {
-  const ta = document.getElementById('noteTextarea');
-  const start = ta.selectionStart;
-  const end = ta.selectionEnd;
-  const sel = ta.value.substring(start, end);
-  const newVal = ta.value.substring(0, start) + before + sel + after + ta.value.substring(end);
-  ta.value = newVal;
-  ta.selectionStart = start + before.length;
-  ta.selectionEnd = end + before.length;
-  ta.focus();
-  onContentInput();
-}
-
 /* ─────────────── STATS ─────────────── */
 function updateStats() {
-  const content = document.getElementById('noteTextarea').value;
-  const words = content.trim() ? content.trim().split(/\s+/).length : 0;
+  if (!editor) return;
+  const text = editor.getText();
+  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
   document.getElementById('statWords').textContent = words.toLocaleString();
   const mins = Math.max(1, Math.round(words / 200));
   document.getElementById('statReadTime').textContent = mins === 1 ? '1 min' : `${mins} mins`;
@@ -937,6 +1001,7 @@ function debounceSearch(val) {
   clearTimeout(searchTimer);
   searchTimer = setTimeout(() => loadNotes(val), 300);
 }
+window.debounceSearch = debounceSearch;
 
 /* ─────────────── ENTITY LINKING ─────────────── */
 function onEntityTypeChange() {
@@ -1139,127 +1204,77 @@ const TEMPLATES = {
   'debrief': {
     title: 'Driver Debrief',
     folder: 'Drivers',
-    content: `# Driver Debrief
-
-**Event:** 
-**Driver:** 
-**Date:** ${new Date().toLocaleDateString('en-GB')}
-
-## Session Summary
-
-## Setup Changes
-- 
-
-## Performance Notes
-
-## Issues / Concerns
-
-## Action Items
-- [ ] 
-- [ ] 
-
-## Driver Comments
-
-`
+    content: `<h1>Driver Debrief</h1>
+<p><strong>Event:</strong> </p>
+<p><strong>Driver:</strong> </p>
+<p><strong>Date:</strong> ${new Date().toLocaleDateString('en-GB')}</p>
+<h2>Session Summary</h2><p></p>
+<h2>Setup Changes</h2><ul><li></li></ul>
+<h2>Performance Notes</h2><p></p>
+<h2>Issues / Concerns</h2><p></p>
+<h2>Action Items</h2><ul><li></li><li></li></ul>
+<h2>Driver Comments</h2><p></p>`
   },
   'event-report': {
     title: 'Event Report',
     folder: 'Events',
-    content: `# Event Report
-
-**Event:** 
-**Venue:** 
-**Date:** ${new Date().toLocaleDateString('en-GB')}
-**Weather:** 
-
-## Results
-
-| Driver | Qualifying | Race | Points |
-|--------|-----------|------|--------|
-|        |           |      |        |
-
-## Highlights
-
-## Issues
-
-## Parts Used
-
-## Next Event Prep
-- [ ] 
-- [ ] 
-
-`
+    content: `<h1>Event Report</h1>
+<p><strong>Event:</strong> </p>
+<p><strong>Venue:</strong> </p>
+<p><strong>Date:</strong> ${new Date().toLocaleDateString('en-GB')}</p>
+<p><strong>Weather:</strong> </p>
+<h2>Results</h2>
+<table><thead><tr><th>Driver</th><th>Qualifying</th><th>Race</th><th>Points</th></tr></thead><tbody><tr><td></td><td></td><td></td><td></td></tr></tbody></table>
+<h2>Highlights</h2><p></p>
+<h2>Issues</h2><p></p>
+<h2>Parts Used</h2><p></p>
+<h2>Next Event Prep</h2><ul><li></li><li></li></ul>`
   },
   'tech-spec': {
     title: 'Technical Specification',
     folder: 'Technical',
-    content: `# Technical Specification
-
-**Component:** 
-**Part Number:** 
-**Date:** ${new Date().toLocaleDateString('en-GB')}
-
-## Overview
-
-## Specifications
-
-| Property | Value |
-|----------|-------|
-|          |       |
-
-## Setup Notes
-
-## Maintenance Schedule
-
-## Notes
-
-`
+    content: `<h1>Technical Specification</h1>
+<p><strong>Component:</strong> </p>
+<p><strong>Part Number:</strong> </p>
+<p><strong>Date:</strong> ${new Date().toLocaleDateString('en-GB')}</p>
+<h2>Overview</h2><p></p>
+<h2>Specifications</h2>
+<table><thead><tr><th>Property</th><th>Value</th></tr></thead><tbody><tr><td></td><td></td></tr></tbody></table>
+<h2>Setup Notes</h2><p></p>
+<h2>Maintenance Schedule</h2><p></p>
+<h2>Notes</h2><p></p>`
   },
   'supplier': {
     title: 'Supplier Note',
     folder: 'Suppliers',
-    content: `# Supplier Note
-
-**Supplier:** 
-**Contact:** 
-**Date:** ${new Date().toLocaleDateString('en-GB')}
-
-## Products / Services
-
-## Pricing
-
-## Lead Times
-
-## Notes
-
-## Action Items
-- [ ] 
-
-`
+    content: `<h1>Supplier Note</h1>
+<p><strong>Supplier:</strong> </p>
+<p><strong>Contact:</strong> </p>
+<p><strong>Date:</strong> ${new Date().toLocaleDateString('en-GB')}</p>
+<h2>Products / Services</h2><p></p>
+<h2>Pricing</h2><p></p>
+<h2>Lead Times</h2><p></p>
+<h2>Notes</h2><p></p>
+<h2>Action Items</h2><ul><li></li></ul>`
   }
 };
 
 function applyTemplate(key) {
   const tpl = TEMPLATES[key];
   if (!tpl) return;
-  if (currentNote) {
-    const hasContent = document.getElementById('noteTextarea').value.trim();
-    if (hasContent && !confirm('This will replace the current content. Continue?')) return;
+  const setTemplate = () => {
     document.getElementById('noteTitleInput').value = tpl.title;
-    document.getElementById('noteTextarea').value = tpl.content;
+    editor.commands.setContent(tpl.content);
     document.getElementById('folderSelect').value = tpl.folder;
     updateStats();
-    updatePreview();
     scheduleAutoSave();
+  };
+  if (currentNote) {
+    const hasContent = editor && editor.getText().trim();
+    if (hasContent && !confirm('This will replace the current content. Continue?')) return;
+    setTemplate();
   } else {
-    createNewNote().then(() => {
-      document.getElementById('noteTitleInput').value = tpl.title;
-      document.getElementById('noteTextarea').value = tpl.content;
-      document.getElementById('folderSelect').value = tpl.folder;
-      updateStats();
-      updatePreview();
-      scheduleAutoSave();
-    });
+    window.createNewNote().then(setTemplate);
   }
 }
 
@@ -1267,8 +1282,7 @@ function applyTemplate(key) {
 function exportPDF() {
   if (!currentNote) return;
   const title = document.getElementById('noteTitleInput').value || 'Note';
-  const content = document.getElementById('noteTextarea').value;
-  const html = marked.parse(content || '');
+  const html = editor ? editor.getHTML() : '';
 
   const w = window.open('', '_blank');
   w.document.write(`<!DOCTYPE html><html><head>
@@ -1361,9 +1375,22 @@ document.addEventListener('keydown', e => {
   }
   if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
     e.preventDefault();
-    createNewNote();
+    window.createNewNote();
   }
 });
+
+/* ─────────────── WINDOW EXPORTS (required for onclick in HTML) ─────────────── */
+window.onEntityTypeChange    = onEntityTypeChange;
+window.debounceEntitySearch  = debounceEntitySearch;
+window.linkEntity            = linkEntity;
+window.clearEntityLink       = clearEntityLink;
+window.onTagKeydown          = onTagKeydown;
+window.removeTag             = removeTag;
+window.onFolderChange        = onFolderChange;
+window.onPinChange           = onPinChange;
+window.deleteCurrentNote     = deleteCurrentNote;
+window.applyTemplate         = applyTemplate;
+window.exportPDF             = exportPDF;
 
 /* ─────────────── START ─────────────── */
 document.addEventListener('DOMContentLoaded', init);
