@@ -341,6 +341,17 @@ router.put('/:id', async (req, res, next) => {
     res.json({ success: true, item: result.rows[0] });
   } catch (error) {
     console.error('❌ PUT /items error:', error.message, '| code:', error.code, '| detail:', error.detail);
+    if (error.code === '23505') {
+      const detail = (error.detail || '').toLowerCase();
+      const constraint = (error.constraint || '').toLowerCase();
+      if (detail.includes('serial_number') || constraint.includes('serial')) {
+        return res.status(409).json({ success: false, error: 'Serial number is already in use by another asset' });
+      }
+      if (detail.includes('barcode') || constraint.includes('barcode')) {
+        return res.status(409).json({ success: false, error: 'Barcode is already in use by another asset' });
+      }
+      return res.status(409).json({ success: false, error: 'A unique field conflicts with an existing asset' });
+    }
     next(error);
   }
 });
