@@ -459,6 +459,82 @@
       z-index: 5;
     }
     
+    /* Asset Group Accordion */
+    .asset-group-header {
+      background: #f3f4f6;
+      border: 1px solid rgba(0,0,0,0.1);
+      border-left: 3px solid #0099cc;
+      border-radius: 6px;
+      padding: 6px 10px 6px 12px;
+      margin-bottom: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+      user-select: none;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .asset-group-header:hover {
+      background: #e8f4fb;
+      border-color: #0099cc;
+      transform: translateX(3px);
+    }
+    .asset-group-header.expanded {
+      background: #e8f4fb;
+      border-color: #0099cc;
+      border-bottom-left-radius: 0;
+      border-bottom-right-radius: 0;
+      margin-bottom: 0;
+    }
+    .asset-group-chevron {
+      font-size: 0.6rem;
+      color: #6c757d;
+      transition: transform 0.2s;
+      flex-shrink: 0;
+      display: inline-block;
+    }
+    .asset-group-header.expanded .asset-group-chevron {
+      transform: rotate(90deg);
+    }
+    .asset-group-name {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #1a1d24;
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .asset-group-count {
+      font-size: 0.65rem;
+      font-weight: 700;
+      color: #0099cc;
+      background: rgba(0,153,204,0.12);
+      border: 1px solid rgba(0,153,204,0.25);
+      border-radius: 10px;
+      padding: 1px 7px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .asset-group-children {
+      background: #f8fbfd;
+      border: 1px solid rgba(0,153,204,0.2);
+      border-top: none;
+      border-bottom-left-radius: 6px;
+      border-bottom-right-radius: 6px;
+      padding: 6px 6px 6px 10px;
+      margin-bottom: 6px;
+    }
+    .asset-group-children .asset-card {
+      margin-bottom: 4px;
+      box-shadow: none;
+    }
+    .asset-group-children .asset-card:last-child {
+      margin-bottom: 0;
+    }
+
    /* Bulk Actions Toolbar - Compact Racing Theme */
     #bulkActionsToolbar {
       background: linear-gradient(135deg, #1a1a1a 0%, #2d1b4e 100%);
@@ -2102,6 +2178,8 @@
     let selectedAssets = new Set(); // Track selected asset IDs for bulk operations
     let lastClickedAssetId = null; // For shift-click range selection
     let currentFilteredAssets = []; // Track currently displayed assets for range selection
+    let expandedGroups = new Set(); // Track which asset name groups are expanded
+    let groupKeyMap = []; // Maps gid (render-time index) → base name, for toggling
 
     // Simple cache to avoid redundant API calls
     let dataCache = {
@@ -2494,6 +2572,95 @@
       });
     }
 
+    // ---------- Asset grouping (accordion) ----------
+    // Detect trailing " #N" suffix to find a base name for grouping
+    function getAssetBaseName(name) {
+      const match = name.match(/^(.*?)\s+#\d+$/);
+      return match ? match[1].trim() : null;
+    }
+
+    // Render cards with same-base-name assets collapsed into accordion groups
+    function renderGroupedCards(assets) {
+      groupKeyMap = [];
+
+      // Count how many filtered assets share each base name
+      const baseCounts = {};
+      assets.forEach(asset => {
+        const base = getAssetBaseName(asset.name);
+        if (base) baseCounts[base] = (baseCounts[base] || 0) + 1;
+      });
+
+      let html = '';
+      const renderedGroups = new Set();
+
+      assets.forEach(asset => {
+        const base = getAssetBaseName(asset.name);
+        if (base && baseCounts[base] > 1) {
+          if (!renderedGroups.has(base)) {
+            renderedGroups.add(base);
+            const gid = groupKeyMap.length;
+            groupKeyMap.push(base);
+            const groupAssets = assets.filter(a => getAssetBaseName(a.name) === base);
+            html += renderGroupHeader(gid, base, groupAssets);
+          }
+        } else {
+          html += createAssetCard(asset);
+        }
+      });
+
+      return html;
+    }
+
+    function renderGroupHeader(gid, baseName, groupAssets) {
+      const first = groupAssets[0];
+      const assetItemType = (first.item_type || '').toLowerCase();
+      const assetTypeObj = allAssetTypes.find(t => t.name.toLowerCase().replace(/\s+/g, '_') === assetItemType);
+      const typeColor = assetTypeObj ? assetTypeObj.color : '#0ea5e9';
+      const typeName = assetTypeObj ? assetTypeObj.name : first.item_type;
+
+      // Show shared location if all items are in the same place
+      const locationLabels = groupAssets.map(a => {
+        const box = boxMap.get(a.current_box_id);
+        const loc = locationMap.get(a.current_location_id);
+        return box ? box.name : loc ? loc.name : null;
+      });
+      const allSame = locationLabels.every(l => l === locationLabels[0]);
+      const locationHtml = allSame && locationLabels[0]
+        ? `<span style="font-size:0.65rem;color:#6c757d;margin-left:2px;">📦 ${locationLabels[0]}</span>`
+        : '';
+
+      const isExpanded = expandedGroups.has(baseName);
+      const childrenHtml = groupAssets.map(a => createAssetCard(a)).join('');
+
+      return `<div class="asset-group-header${isExpanded ? ' expanded' : ''}" data-gid="${gid}" onclick="toggleAssetGroup(${gid})">
+        <span class="asset-group-chevron">▶</span>
+        <span class="asset-group-name">${baseName}</span>
+        <span class="asset-group-count">×${groupAssets.length}</span>
+        <span class="asset-badge" style="background:${typeColor};color:white;font-weight:500;font-size:0.65rem;padding:1px 7px;border-radius:4px;flex-shrink:0;">${typeName}</span>
+        ${locationHtml}
+      </div>
+      <div class="asset-group-children" id="asset-group-children-${gid}" style="display:${isExpanded ? 'block' : 'none'}">
+        ${childrenHtml}
+      </div>`;
+    }
+
+    function toggleAssetGroup(gid) {
+      const baseName = groupKeyMap[gid];
+      if (!baseName) return;
+      const children = document.getElementById('asset-group-children-' + gid);
+      const header = document.querySelector(`.asset-group-header[data-gid="${gid}"]`);
+      if (expandedGroups.has(baseName)) {
+        expandedGroups.delete(baseName);
+        children.style.display = 'none';
+        header.classList.remove('expanded');
+      } else {
+        expandedGroups.add(baseName);
+        children.style.display = 'block';
+        header.classList.add('expanded');
+      }
+    }
+    // ---------- End asset grouping ----------
+
     function renderAssets() {
       const search = document.getElementById('searchInput').value.toLowerCase();
       const typeFilter = document.getElementById('filterType').value;
@@ -2540,7 +2707,7 @@
         container.innerHTML = createAssetTable(filtered);
         updateSortIndicators();
       } else {
-        container.innerHTML = filtered.map(asset => createAssetCard(asset)).join('');
+        container.innerHTML = renderGroupedCards(filtered);
       }
       
       // Restore checkbox states after rendering
