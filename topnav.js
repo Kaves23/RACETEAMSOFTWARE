@@ -11,7 +11,6 @@
       { href: 'sporting-calendar.html', label: 'Calendar',         key: 'C' },
       { href: 'entries.html',           label: 'Entries',          key: 'N' },
       { href: 'regulations.html',       label: 'Regulations',      key: 'R' },
-      { href: 'project-management.html',label: 'Session Plans',    key: 'S' },
       { href: 'penalties.html',         label: 'Penalties',        key: 'P' },
       { href: 'notes.html',             label: 'Briefings',        key: 'B' },
       { href: 'incidents.html',         label: 'Incidents',        key: 'I' },
@@ -64,6 +63,12 @@
       { href: 'reliability-trends.html',     label: 'Trends',            key: 'T' },
       { href: 'risk-map.html',               label: 'Risk Map',          key: 'K' },
       { href: 'review-board.html',           label: 'Review Board',      key: 'B' }
+    ]},
+    { label: 'Projects', items: [
+      { href: 'project-management.html', label: 'Gantt Plans',     key: 'G' },
+      { href: 'tasks.html',              label: 'Tasks',            key: 'T' },
+      { href: 'milestones.html',         label: 'Milestones',       key: 'M' },
+      { href: 'runbooks.html',           label: 'Runbooks',         key: 'R' }
     ]},
     { label: 'Logistics', items: [
       { href: 'load.html',              label: 'Load Plan',        key: 'L' },
@@ -168,6 +173,7 @@
     'B': { type: 'group',   label: 'Build' },
     'P': { type: 'group',   label: 'Performance' },
     'R': { type: 'group',   label: 'Reliability' },
+    'J': { type: 'group',   label: 'Projects' },
     'L': { type: 'group',   label: 'Logistics' },
     'F': { type: 'group',   label: 'Finance' },
     'O': { type: 'group',   label: 'Procurement' },
@@ -188,8 +194,8 @@
     const singleKeyMap = { 'index.html': 'D', 'integrations.html': 'I', 'settings.html': 'S' };
   const groupKeyMap = {
     'Sporting': 'S', 'Technical': 'T', 'Build': 'B', 'Performance': 'P',
-    'Reliability': 'R', 'Logistics': 'L', 'Finance': 'F', 'Procurement': 'O',
-    'HR': 'H', 'Driver': 'V', 'Compliance': 'A', 'Executive': 'X'
+    'Reliability': 'R', 'Projects': 'J', 'Logistics': 'L', 'Finance': 'F',
+    'Procurement': 'O', 'HR': 'H', 'Driver': 'V', 'Compliance': 'A', 'Executive': 'X'
   };
 
     const liSingles = singles.map(t => {
@@ -208,31 +214,31 @@
     host.innerHTML = `
       <div class="rts-topbar">
         <div class="rts-topbar-inner">
-          <div class="rts-brand">
-            <span class="rts-brand-mark">RT</span>
-            <span class="rts-brand-text">Race Team OS</span>
+          <div class="rts-topbar-row1">
+            <div class="rts-brand">
+              <span class="rts-brand-mark">RT</span>
+              <span class="rts-brand-text">Race Team OS</span>
+            </div>
+            <div class="rts-topbar-right">
+              <div class="d-flex align-items-center me-2">
+                <input id="rtsQuickSearch" class="form-control form-control-sm" type="search" placeholder="Search… (press /)" style="min-width:160px; max-width:280px;">
+              </div>
+              <div class="btn-group" role="group" aria-label="Site actions">
+                <button id="rtsExportBtn" class="btn btn-sm btn-outline-light mlo-btn" type="button">Export</button>
+                <button id="rtsImportBtn" class="btn btn-sm btn-outline-light mlo-btn" type="button">Import</button>
+                <input id="rtsImportInput" type="file" accept=".json,application/json" style="display:none;" />
+              </div>
+              <div class="d-flex align-items-center gap-2 ms-2">
+                <span id="rtsCurrentUser" class="text-light" style="font-size: 0.85rem;"></span>
+                <button id="rtsLogoutBtn" class="btn btn-sm btn-outline-danger" type="button">Logout</button>
+              </div>
+              <span class="rts-env-badge">Prototype</span>
+            </div>
           </div>
-
           <div class="rts-topbar-tabs-wrap">
             <ul class="nav nav-tabs rts-topnav" role="tablist">
               ${li}
             </ul>
-          </div>
-
-          <div class="rts-topbar-right">
-            <div class="d-flex align-items-center me-2">
-              <input id="rtsQuickSearch" class="form-control form-control-sm" type="search" placeholder="Search… (press /)" style="min-width:220px; max-width:360px;">
-            </div>
-            <div class="btn-group" role="group" aria-label="Site actions">
-              <button id="rtsExportBtn" class="btn btn-sm btn-outline-light mlo-btn" type="button">Export</button>
-              <button id="rtsImportBtn" class="btn btn-sm btn-outline-light mlo-btn" type="button">Import</button>
-              <input id="rtsImportInput" type="file" accept=".json,application/json" style="display:none;" />
-            </div>
-            <div class="d-flex align-items-center gap-2 ms-2">
-              <span id="rtsCurrentUser" class="text-light" style="font-size: 0.85rem;"></span>
-              <button id="rtsLogoutBtn" class="btn btn-sm btn-outline-danger" type="button">Logout</button>
-            </div>
-            <span class="rts-env-badge">Prototype</span>
           </div>
         </div>
       </div>
