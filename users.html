@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Race Team OS – User Accounts</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="style.css" rel="stylesheet" />
+  <style>
+    body { background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%); }
+
+    #usrShell.mlo-shell { background: transparent; border: none; gap: 10px; }
+    #usrShell .mlo-pane-left,
+    #usrShell .mlo-pane-mid,
+    #usrShell .mlo-pane-right {
+      background: #ffffff; border: 1px solid rgba(0,0,0,0.1);
+      border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+    }
+    #usrShell .mlo-pane-header { background: #f8f9fa; border-bottom: 1px solid rgba(0,0,0,0.1); }
+    #usrShell .mlo-title { color: #1a1d24 !important; }
+    #usrShell .mlo-section-label { color: #6c757d !important; opacity: 1 !important; }
+    #usrShell .mlo-pane-content { color: #1a1d24; }
+    #usrShell .mlo-resizer { background: transparent; }
+    #usrShell .mlo-resizer:hover { background: rgba(0,153,204,0.3); }
+    #usrShell .form-control, #usrShell .form-select { background: #fff; color: #1a1d24; border-color: #dee2e6; }
+    #usrShell .form-control::placeholder { color: #9aa5b4; }
+    #usrShell .form-label { color: #374151; font-size: 0.82rem; font-weight: 600; }
+
+    .usr-table { width: 100%; font-size: 0.82rem; border-collapse: separate; border-spacing: 0; }
+    .usr-table thead { position: sticky; top: 0; background: #f8f9fa; z-index: 5; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+    .usr-table th { padding: 8px 10px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #6c757d; border-bottom: 2px solid #dee2e6; white-space: nowrap; }
+    .usr-table td { padding: 6px 10px; border-bottom: 1px solid rgba(0,0,0,0.05); vertical-align: middle; color: #1a1d24 !important; }
+    .usr-table tbody tr { cursor: pointer; transition: background 0.1s; }
+    .usr-table tbody tr:hover { background: #f0f7ff; }
+    .usr-table tbody tr.selected { background: rgba(0,153,204,0.08) !important; }
+
+    .role-badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+    .role-admin { background: rgba(139,92,246,0.12); color: #7c3aed; }
+    .role-manager { background: rgba(16,185,129,0.12); color: #065f46; }
+    .role-user { background: rgba(107,114,128,0.12); color: #374151; }
+
+    .status-active { color: #16a34a; }
+    .status-inactive { color: #dc2626; }
+
+    .inspector-section { border-top: 1px solid #e5e7eb; padding-top: 14px; margin-top: 14px; }
+    .inspector-section:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+    .inspector-section-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #9ca3af; margin-bottom: 10px; }
+
+    .left-filter-btn { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 6px; cursor: pointer; font-size: 0.83rem; font-weight: 500; color: #374151; transition: background 0.12s; border: 1px solid transparent; margin-bottom: 3px; }
+    .left-filter-btn:hover { background: #f3f4f6; }
+    .left-filter-btn.active { background: rgba(0,153,204,0.08); border-color: rgba(0,153,204,0.3); color: #0072a3; font-weight: 700; }
+    .left-filter-btn .count { margin-left: auto; font-size: 0.72rem; font-weight: 500; color: #9ca3af; }
+
+    .no-user-hint { color: #9ca3af; font-size: 0.85rem; text-align: center; padding: 30px 20px; }
+
+    #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
+    .toast-msg { background: #1a1d24; color: #fff; padding: 10px 18px; border-radius: 8px; font-size: 0.85rem; box-shadow: 0 4px 14px rgba(0,0,0,0.25); animation: fadeInUp 0.2s ease; }
+    .toast-msg.success { border-left: 3px solid #22c55e; }
+    .toast-msg.error   { border-left: 3px solid #ef4444; }
+    @keyframes fadeInUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+  </style>
+</head>
+<body>
+  <div id="rtsTopNav"></div>
+  <div class="rts-main container-fluid">
+
+    <div class="pt-3 pb-2 mb-2 border-bottom d-flex align-items-center justify-content-between">
+      <div>
+        <h1 class="h4 mb-0">User Accounts</h1>
+        <div class="text-secondary" style="font-size:0.85rem;">Manage login credentials and access roles for system users.</div>
+      </div>
+      <div id="adminNotice" class="d-none">
+        <span class="badge text-bg-warning">Admin only</span>
+      </div>
+    </div>
+
+    <div class="mlo-shell" id="usrShell">
+
+      <!-- LEFT: filters -->
+      <section class="mlo-pane mlo-pane-left" aria-label="Filters">
+        <div class="mlo-pane-header">
+          <div class="mlo-title">Filter</div>
+        </div>
+        <div class="mlo-pane-content">
+          <div class="mlo-section-label">By Status</div>
+          <div class="left-filter-btn active" data-filter="all">All Users <span class="count" id="countAll">—</span></div>
+          <div class="left-filter-btn" data-filter="active">Active <span class="count" id="countActive">—</span></div>
+          <div class="left-filter-btn" data-filter="inactive">Inactive <span class="count" id="countInactive">—</span></div>
+
+          <div class="mlo-section-label mt-3">By Role</div>
+          <div class="left-filter-btn" data-filter="admin">Admin <span class="count" id="countAdmin">—</span></div>
+          <div class="left-filter-btn" data-filter="manager">Manager <span class="count" id="countManager">—</span></div>
+          <div class="left-filter-btn" data-filter="user">User <span class="count" id="countUser">—</span></div>
+        </div>
+      </section>
+
+      <div class="mlo-resizer" data-resize="left" title="Drag to resize"></div>
+
+      <!-- MIDDLE: user list -->
+      <section class="mlo-pane mlo-pane-mid" aria-label="User list">
+        <div class="mlo-pane-header">
+          <div class="d-flex align-items-center gap-2">
+            <input id="usrSearch" type="text" class="form-control form-control-sm" placeholder="Search users…" style="max-width:220px;">
+            <button class="btn btn-sm btn-primary ms-auto" id="btnNewUser" type="button">+ New User</button>
+          </div>
+        </div>
+        <div class="mlo-pane-content" style="padding:0; overflow:auto;">
+          <table class="usr-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Username</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Last Login</th>
+              </tr>
+            </thead>
+            <tbody id="usrTbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <div class="mlo-resizer" data-resize="right" title="Drag to resize"></div>
+
+      <!-- RIGHT: inspector -->
+      <section class="mlo-pane mlo-pane-right mlo-inspector" aria-label="User inspector" id="usrInspector">
+        <div class="mlo-pane-header">
+          <div class="d-flex align-items-center justify-content-between">
+            <div class="mlo-title">Inspector</div>
+            <span class="badge text-bg-secondary" id="usrInspectorBadge">—</span>
+          </div>
+        </div>
+        <div class="mlo-pane-content" id="usrInspectorContent">
+          <div class="no-user-hint">Select a user to view details, or click <strong>+ New User</strong> to add one.</div>
+        </div>
+      </section>
+
+    </div><!-- /mlo-shell -->
+  </div>
+
+  <div id="toast-container"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="topnav.js"></script>
+  <script>
+  (() => {
+    /* ── API ──────────────────────────────────────────────────────────── */
+    function authHeaders() {
+      const token = localStorage.getItem('auth_token');
+      return { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+    }
+
+    async function apiGet(path) {
+      const r = await fetch(path, { headers: authHeaders() });
+      if (r.status === 401) { window.location.href = '/login.html'; return null; }
+      return r.json();
+    }
+    async function apiPost(path, body) {
+      const r = await fetch(path, { method: 'POST', headers: authHeaders(), body: JSON.stringify(body) });
+      return { ok: r.ok, status: r.status, data: await r.json() };
+    }
+    async function apiPatch(path, body) {
+      const r = await fetch(path, { method: 'PATCH', headers: authHeaders(), body: JSON.stringify(body) });
+      return { ok: r.ok, status: r.status, data: await r.json() };
+    }
+    async function apiDelete(path) {
+      const r = await fetch(path, { method: 'DELETE', headers: authHeaders() });
+      return { ok: r.ok, status: r.status, data: await r.json() };
+    }
+
+    /* ── State ───────────────────────────────────────────────────────── */
+    let allUsers = [];
+    let selectedUserId = null;
+    let activeFilter = 'all';
+    let searchQuery = '';
+    const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+    const isAdmin = currentUser.role === 'admin';
+
+    /* ── Toast ───────────────────────────────────────────────────────── */
+    function toast(msg, type = 'success') {
+      const el = document.createElement('div');
+      el.className = `toast-msg ${type}`;
+      el.textContent = msg;
+      document.getElementById('toast-container').appendChild(el);
+      setTimeout(() => el.remove(), 3500);
+    }
+
+    /* ── Load users ──────────────────────────────────────────────────── */
+    async function loadUsers() {
+      const data = await apiGet('/api/auth/users');
+      if (!data) return;
+      allUsers = data.users || [];
+      updateCounts();
+      renderList();
+      if (selectedUserId) openInspector(selectedUserId);
+    }
+
+    /* ── Counts ──────────────────────────────────────────────────────── */
+    function updateCounts() {
+      document.getElementById('countAll').textContent = allUsers.length;
+      document.getElementById('countActive').textContent = allUsers.filter(u => u.is_active).length;
+      document.getElementById('countInactive').textContent = allUsers.filter(u => !u.is_active).length;
+      document.getElementById('countAdmin').textContent = allUsers.filter(u => u.role === 'admin').length;
+      document.getElementById('countManager').textContent = allUsers.filter(u => u.role === 'manager').length;
+      document.getElementById('countUser').textContent = allUsers.filter(u => u.role === 'user').length;
+    }
+
+    /* ── Filter & render list ────────────────────────────────────────── */
+    function filteredUsers() {
+      let list = allUsers;
+      if (activeFilter === 'active')   list = list.filter(u => u.is_active);
+      if (activeFilter === 'inactive') list = list.filter(u => !u.is_active);
+      if (['admin','manager','user'].includes(activeFilter)) list = list.filter(u => u.role === activeFilter);
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        list = list.filter(u =>
+          (u.full_name || '').toLowerCase().includes(q) ||
+          u.username.toLowerCase().includes(q) ||
+          (u.email || '').toLowerCase().includes(q)
+        );
+      }
+      return list;
+    }
+
+    function roleClass(role) {
+      if (role === 'admin') return 'role-admin';
+      if (role === 'manager') return 'role-manager';
+      return 'role-user';
+    }
+
+    function fmtDate(d) {
+      if (!d) return '—';
+      return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+
+    function renderList() {
+      const tbody = document.getElementById('usrTbody');
+      const users = filteredUsers();
+      if (!users.length) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#9ca3af;padding:24px;">No users found</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = users.map(u => `
+        <tr data-id="${u.id}" class="${u.id === selectedUserId ? 'selected' : ''}">
+          <td><strong>${escHtml(u.full_name || u.username)}</strong></td>
+          <td style="color:#6c757d;">@${escHtml(u.username)}</td>
+          <td style="color:#6c757d;">${escHtml(u.email || '—')}</td>
+          <td><span class="role-badge ${roleClass(u.role)}">${escHtml(u.role)}</span></td>
+          <td class="${u.is_active ? 'status-active' : 'status-inactive'}">${u.is_active ? '● Active' : '○ Inactive'}</td>
+          <td style="color:#9ca3af;">${fmtDate(u.last_login)}</td>
+        </tr>
+      `).join('');
+
+      tbody.querySelectorAll('tr[data-id]').forEach(row => {
+        row.addEventListener('click', () => openInspector(row.dataset.id));
+      });
+    }
+
+    /* ── Inspector ───────────────────────────────────────────────────── */
+    function openInspector(userId) {
+      selectedUserId = userId;
+      const user = allUsers.find(u => u.id === userId);
+      renderList(); // refresh selected highlight
+
+      if (!user) return;
+
+      document.getElementById('usrInspectorBadge').textContent = user.username;
+
+      const canEdit = isAdmin || currentUser.id === userId;
+
+      document.getElementById('usrInspectorContent').innerHTML = `
+        <div class="inspector-section">
+          <div class="inspector-section-label">Identity</div>
+          <div class="mb-2">
+            <label class="form-label">Full Name</label>
+            <input class="form-control form-control-sm" id="inspFullName" value="${escAttr(user.full_name || '')}" ${canEdit ? '' : 'disabled'}>
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Username</label>
+            <input class="form-control form-control-sm" value="${escAttr(user.username)}" disabled>
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Email</label>
+            <input class="form-control form-control-sm" id="inspEmail" type="email" value="${escAttr(user.email || '')}" ${canEdit ? '' : 'disabled'}>
+          </div>
+        </div>
+
+        <div class="inspector-section">
+          <div class="inspector-section-label">Access</div>
+          <div class="mb-2">
+            <label class="form-label">Role</label>
+            <select class="form-select form-select-sm" id="inspRole" ${isAdmin ? '' : 'disabled'}>
+              <option value="user" ${user.role === 'user' ? 'selected' : ''}>User</option>
+              <option value="manager" ${user.role === 'manager' ? 'selected' : ''}>Manager</option>
+              <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Admin</option>
+            </select>
+          </div>
+          <div class="mb-2 d-flex align-items-center gap-2">
+            <label class="form-label mb-0">Active</label>
+            <div class="form-check form-switch ms-2">
+              <input class="form-check-input" type="checkbox" id="inspActive" ${user.is_active ? 'checked' : ''} ${isAdmin ? '' : 'disabled'}>
+            </div>
+          </div>
+        </div>
+
+        ${canEdit ? `
+        <div class="inspector-section">
+          <div class="inspector-section-label">Change Password</div>
+          ${!isAdmin ? `<div class="mb-2">
+            <label class="form-label">Current Password</label>
+            <input class="form-control form-control-sm" id="inspCurrPass" type="password" placeholder="Current password">
+          </div>` : ''}
+          <div class="mb-2">
+            <label class="form-label">New Password</label>
+            <input class="form-control form-control-sm" id="inspNewPass" type="password" placeholder="New password (leave blank to keep)">
+          </div>
+        </div>` : ''}
+
+        <div class="inspector-section">
+          <div class="inspector-section-label">Meta</div>
+          <div style="font-size:0.78rem; color:#9ca3af; line-height:1.8;">
+            Created: ${fmtDate(user.created_at)}<br>
+            Last login: ${user.last_login ? fmtDate(user.last_login) : 'Never'}<br>
+            ID: <code style="font-size:0.72rem;">${escHtml(user.id)}</code>
+          </div>
+        </div>
+
+        ${canEdit ? `
+        <div class="d-flex gap-2 mt-3">
+          <button class="btn btn-sm btn-primary w-100" id="btnSaveUser">Save Changes</button>
+          ${isAdmin && user.id !== 'admin-001' ? `<button class="btn btn-sm btn-outline-danger" id="btnDeleteUser">Delete</button>` : ''}
+        </div>` : ''}
+      `;
+
+      if (canEdit) {
+        document.getElementById('btnSaveUser')?.addEventListener('click', () => saveUser(user));
+        document.getElementById('btnDeleteUser')?.addEventListener('click', () => deleteUser(user));
+      }
+    }
+
+    /* ── Save user ───────────────────────────────────────────────────── */
+    async function saveUser(user) {
+      const payload = {
+        full_name: document.getElementById('inspFullName')?.value?.trim(),
+        email: document.getElementById('inspEmail')?.value?.trim() || null,
+      };
+
+      if (isAdmin) {
+        payload.role = document.getElementById('inspRole')?.value;
+        payload.is_active = document.getElementById('inspActive')?.checked;
+      }
+
+      const newPass = document.getElementById('inspNewPass')?.value;
+      if (newPass) {
+        payload.new_password = newPass;
+        const currPass = document.getElementById('inspCurrPass')?.value;
+        if (currPass) payload.password = currPass;
+      }
+
+      const res = await apiPatch(`/api/auth/users/${user.id}`, payload);
+      if (res.ok) {
+        toast('User saved');
+        await loadUsers();
+      } else {
+        toast(res.data?.error || 'Save failed', 'error');
+      }
+    }
+
+    /* ── Delete user ─────────────────────────────────────────────────── */
+    async function deleteUser(user) {
+      if (!confirm(`Delete user "${user.full_name || user.username}"? This cannot be undone.`)) return;
+      const res = await apiDelete(`/api/auth/users/${user.id}`);
+      if (res.ok) {
+        toast('User deleted');
+        selectedUserId = null;
+        document.getElementById('usrInspectorBadge').textContent = '—';
+        document.getElementById('usrInspectorContent').innerHTML = `<div class="no-user-hint">Select a user to view details.</div>`;
+        await loadUsers();
+      } else {
+        toast(res.data?.error || 'Delete failed', 'error');
+      }
+    }
+
+    /* ── New user form ───────────────────────────────────────────────── */
+    function showNewUserForm() {
+      if (!isAdmin) { toast('Admin access required', 'error'); return; }
+      selectedUserId = null;
+      document.getElementById('usrInspectorBadge').textContent = 'New User';
+      document.getElementById('usrInspectorContent').innerHTML = `
+        <div class="inspector-section">
+          <div class="inspector-section-label">New User</div>
+          <div class="mb-2">
+            <label class="form-label">Full Name</label>
+            <input class="form-control form-control-sm" id="newFullName" placeholder="John Smith">
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Username <span class="text-danger">*</span></label>
+            <input class="form-control form-control-sm" id="newUsername" placeholder="jsmith" autocomplete="off">
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Email</label>
+            <input class="form-control form-control-sm" id="newEmail" type="email" placeholder="j.smith@team.com">
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Password <span class="text-danger">*</span></label>
+            <input class="form-control form-control-sm" id="newPassword" type="password" placeholder="Initial password" autocomplete="new-password">
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Role</label>
+            <select class="form-select form-select-sm" id="newRole">
+              <option value="user" selected>User</option>
+              <option value="manager">Manager</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+        </div>
+        <div class="d-flex gap-2 mt-3">
+          <button class="btn btn-sm btn-primary w-100" id="btnCreateUser">Create User</button>
+          <button class="btn btn-sm btn-outline-secondary" id="btnCancelNew">Cancel</button>
+        </div>
+      `;
+
+      document.getElementById('btnCreateUser').addEventListener('click', createUser);
+      document.getElementById('btnCancelNew').addEventListener('click', () => {
+        document.getElementById('usrInspectorBadge').textContent = '—';
+        document.getElementById('usrInspectorContent').innerHTML = `<div class="no-user-hint">Select a user to view details, or click <strong>+ New User</strong> to add one.</div>`;
+      });
+    }
+
+    async function createUser() {
+      const username = document.getElementById('newUsername').value.trim();
+      const password = document.getElementById('newPassword').value;
+      const full_name = document.getElementById('newFullName').value.trim();
+      const email = document.getElementById('newEmail').value.trim();
+      const role = document.getElementById('newRole').value;
+
+      if (!username || !password) { toast('Username and password are required', 'error'); return; }
+
+      const res = await apiPost('/api/auth/users', { username, password, full_name, email, role });
+      if (res.ok) {
+        toast(`User "${username}" created`);
+        await loadUsers();
+        openInspector(res.data.user?.id);
+      } else {
+        toast(res.data?.error || 'Create failed', 'error');
+      }
+    }
+
+    /* ── Filter buttons ──────────────────────────────────────────────── */
+    document.querySelectorAll('.left-filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.left-filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        activeFilter = btn.dataset.filter;
+        renderList();
+      });
+    });
+
+    /* ── Search ──────────────────────────────────────────────────────── */
+    document.getElementById('usrSearch').addEventListener('input', e => {
+      searchQuery = e.target.value;
+      renderList();
+    });
+
+    /* ── New user button ─────────────────────────────────────────────── */
+    document.getElementById('btnNewUser').addEventListener('click', showNewUserForm);
+
+    /* ── Hide new user button if not admin ───────────────────────────── */
+    if (!isAdmin) {
+      document.getElementById('btnNewUser').style.display = 'none';
+      document.getElementById('adminNotice').classList.remove('d-none');
+    }
+
+    /* ── Helpers ─────────────────────────────────────────────────────── */
+    function escHtml(s) {
+      if (s == null) return '';
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+    function escAttr(s) { return escHtml(s); }
+
+    /* ── Init ─────────────────────────────────────────────────────────── */
+    loadUsers();
+  })();
+  </script>
+</body>
+</html>

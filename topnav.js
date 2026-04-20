@@ -47,7 +47,8 @@
   const singles = [
     { href: 'index.html', label: 'Dashboard' },
     { href: 'integrations.html', label: 'Integrations' },
-    { href: 'settings.html', label: 'Settings' }
+    { href: 'settings.html', label: 'Settings' },
+    { href: 'users.html', label: 'Users' }
   ];
 
   // Default top-level keybinds (letters) — only active when not typing
