@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Race Team OS – Penalties &amp; Protests</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="style.css" rel="stylesheet" />
+  <style>
+    body{background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%);}
+    .ev-stats-bar{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
+    .ev-stat-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:10px 16px;box-shadow:0 2px 4px rgba(0,0,0,.06);min-width:100px;}
+    .ev-stat-label{font-size:.7rem;color:#6c757d;font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+    .ev-stat-value{font-size:1.5rem;font-weight:700;color:#1a1d24;line-height:1.2;}
+    #penShell.mlo-shell{background:transparent;border:none;gap:10px;}
+    #penShell .mlo-pane-left,#penShell .mlo-pane-mid,#penShell .mlo-pane-right{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.06);}
+    #penShell .mlo-pane-header{background:#f8f9fa;border-bottom:1px solid rgba(0,0,0,.1);}
+    #penShell .mlo-title{color:#1a1d24!important;}
+    #penShell .mlo-section-label{color:#6c757d!important;opacity:1!important;}
+    #penShell .mlo-resizer{background:transparent;}
+    #penShell .mlo-resizer:hover{background:rgba(166,77,255,.3);}
+    .pen-table{width:100%;font-size:.82rem;border-collapse:separate;border-spacing:0;}
+    .pen-table thead{position:sticky;top:0;background:#f8f9fa;z-index:5;}
+    .pen-table th{padding:8px 10px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#6c757d;border-bottom:2px solid #dee2e6;white-space:nowrap;}
+    .pen-table td{padding:6px 10px;border-bottom:1px solid rgba(0,0,0,.05);vertical-align:middle;color:#1a1d24;}
+    .pen-table tbody tr{cursor:pointer;transition:background .1s;}
+    .pen-table tbody tr:hover{background:#f8f9fa;}
+    .pen-table tbody tr.selected{background:rgba(166,77,255,.08)!important;outline:2px solid #a64dff;outline-offset:-2px;}
+    .sev-high{background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:20px;font-size:.72rem;font-weight:600;}
+    .sev-medium{background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:20px;font-size:.72rem;font-weight:600;}
+    .sev-low{background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:20px;font-size:.72rem;font-weight:600;}
+    #penShell .form-label{color:#495057!important;font-size:.78rem;font-weight:600;margin-bottom:2px;}
+    #penShell .form-control,#penShell .form-select{background:#fff!important;color:#1a1d24!important;border-color:#dee2e6!important;font-size:.82rem;}
+    #penShell .mlo-pane-left .pastel-tree li{height:28px!important;display:flex!important;align-items:center!important;font-size:.83rem!important;font-weight:500!important;padding-left:10px!important;margin-bottom:2px!important;border-radius:5px!important;border:1px solid rgba(0,0,0,.08)!important;color:#1a1d24!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;cursor:pointer!important;}
+    #penShell .mlo-pane-left .pastel-tree li.active{background:rgba(166,77,255,.1)!important;border-color:rgba(166,77,255,.35)!important;color:#7c3aed!important;font-weight:700!important;}
+  </style>
+</head>
+<body class="light-mode">
+  <div id="rtsTopNav"></div>
+  <div class="rts-version-badge">v1</div>
+  <div class="rts-main container-fluid">
+    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+      <div>
+        <h1 class="h4 mb-1">Penalties &amp; Protests</h1>
+        <div class="text-secondary" style="font-size:.85rem;">Penalty register, protest log, appeals tracker, and steward communications.</div>
+      </div>
+      <button class="btn btn-sm btn-primary" id="btnAddPen">+ Log Penalty</button>
+    </div>
+    <div class="ev-stats-bar">
+      <div class="ev-stat-card"><div class="ev-stat-label">Total</div><div class="ev-stat-value" id="statPenTotal">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Open</div><div class="ev-stat-value" id="statPenOpen">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Under Appeal</div><div class="ev-stat-value" id="statPenAppeal">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">This Season</div><div class="ev-stat-value" id="statPenSeason">0</div></div>
+    </div>
+    <div class="mlo-shell" id="penShell">
+      <section class="mlo-pane mlo-pane-left" aria-label="Penalty filter">
+        <div class="mlo-pane-header"><div class="mlo-title">Filter</div></div>
+        <div class="mlo-pane-content">
+          <div class="mlo-section-label">By Type</div>
+          <ul class="mlo-tree pastel-tree" id="penTypeFilter">
+            <li class="active" data-filter="all">All</li>
+            <li data-filter="penalty">Penalty</li>
+            <li data-filter="protest">Protest</li>
+            <li data-filter="appeal">Appeal</li>
+            <li data-filter="warning">Warning</li>
+          </ul>
+          <div class="mlo-section-label mt-3">By Status</div>
+          <ul class="mlo-tree pastel-tree" id="penStatusFilter">
+            <li class="active" data-filter="all">All</li>
+            <li data-filter="open">Open</li>
+            <li data-filter="upheld">Upheld</li>
+            <li data-filter="dismissed">Dismissed</li>
+            <li data-filter="under_appeal">Under Appeal</li>
+          </ul>
+        </div>
+      </section>
+      <div class="mlo-resizer" id="penResizer1"></div>
+      <section class="mlo-pane mlo-pane-mid" aria-label="Penalty list">
+        <div class="mlo-pane-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="mlo-title">Penalty Register</div>
+            <span class="badge text-bg-secondary" id="penCountBadge">0</span>
+          </div>
+          <input class="form-control form-control-sm mt-2" type="search" id="penSearch" placeholder="Search…" />
+        </div>
+        <div class="mlo-pane-content p-0">
+          <table class="pen-table">
+            <thead><tr><th>Ref</th><th>Driver</th><th>Event</th><th>Session</th><th>Breach</th><th>Severity</th><th>Status</th></tr></thead>
+            <tbody id="penTableBody"><tr><td colspan="7" class="text-center text-secondary py-4">No penalties logged.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+      <div class="mlo-resizer" id="penResizer2"></div>
+      <section class="mlo-pane mlo-pane-right" aria-label="Penalty detail">
+        <div class="mlo-pane-header"><div class="mlo-title" id="penDetailTitle">Penalty Detail</div></div>
+        <div class="mlo-pane-content">
+          <div class="text-center text-secondary py-5" id="penDetailEmpty"><div style="font-size:2rem;">⚖️</div><div class="mt-2">Select a record to view details</div></div>
+          <form id="penForm" style="display:none;">
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Incident Ref</label><input class="form-control" id="penFRef" placeholder="PEN-001" /></div>
+              <div class="col"><label class="form-label">Record Type</label>
+                <select class="form-select" id="penFType"><option value="penalty">Penalty</option><option value="protest">Protest</option><option value="appeal">Appeal</option><option value="warning">Warning</option></select></div>
+            </div>
+            <div class="mb-2"><label class="form-label">Driver Involved</label><input class="form-control" id="penFDriver" /></div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Event</label><input class="form-control" id="penFEvent" /></div>
+              <div class="col"><label class="form-label">Session</label><input class="form-control" id="penFSession" placeholder="Race / Q / FP1" /></div>
+            </div>
+            <div class="mb-2"><label class="form-label">Alleged Breach</label><textarea class="form-control" id="penFBreach" rows="2"></textarea></div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Severity</label>
+                <select class="form-select" id="penFSeverity"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></div>
+              <div class="col"><label class="form-label">Time Issued</label><input class="form-control" id="penFTime" type="datetime-local" /></div>
+            </div>
+            <div class="mb-2"><label class="form-label">Decision Outcome</label><textarea class="form-control" id="penFOutcome" rows="2"></textarea></div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Status</label>
+                <select class="form-select" id="penFStatus"><option value="open">Open</option><option value="upheld">Upheld</option><option value="dismissed">Dismissed</option><option value="under_appeal">Under Appeal</option></select></div>
+              <div class="col"><label class="form-label">Appeal Status</label>
+                <select class="form-select" id="penFAppeal"><option value="">N/A</option><option value="filed">Filed</option><option value="pending">Pending</option><option value="upheld">Upheld</option><option value="dismissed">Dismissed</option></select></div>
+            </div>
+            <div class="mb-3"><label class="form-label">Notes</label><textarea class="form-control" id="penFNotes" rows="2"></textarea></div>
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-primary btn-sm" id="penBtnSave">Save</button>
+              <button type="button" class="btn btn-outline-danger btn-sm" id="penBtnDelete" style="display:none;">Delete</button>
+              <button type="button" class="btn btn-outline-secondary btn-sm" id="penBtnCancel">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </section>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="core.js"></script><script src="topnav.js"></script>
+  <script>
+    let allPens=[],selectedId=null,filterType='all',filterStatus='all';
+    function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+    async function loadPens(){try{const r=await fetch('/api/penalties');if(r.ok)allPens=await r.json();}catch(_){allPens=[];}renderList();}
+    function renderList(){
+      const q=document.getElementById('penSearch').value.trim().toLowerCase();
+      const rows=allPens.filter(e=>{
+        const mt=filterType==='all'||e.record_type===filterType;
+        const ms=filterStatus==='all'||e.status===filterStatus;
+        const mq=!q||(e.driver||'').toLowerCase().includes(q)||(e.incident_ref||'').toLowerCase().includes(q);
+        return mt&&ms&&mq;
+      });
+      document.getElementById('penCountBadge').textContent=rows.length;
+      document.getElementById('statPenTotal').textContent=allPens.length;
+      document.getElementById('statPenOpen').textContent=allPens.filter(e=>e.status==='open').length;
+      document.getElementById('statPenAppeal').textContent=allPens.filter(e=>e.status==='under_appeal').length;
+      document.getElementById('statPenSeason').textContent=allPens.filter(e=>e.created_at&&e.created_at.startsWith('2026')).length;
+      const tb=document.getElementById('penTableBody');
+      if(!rows.length){tb.innerHTML='<tr><td colspan="7" class="text-center text-secondary py-4">No records match.</td></tr>';return;}
+      tb.innerHTML=rows.map(e=>`<tr data-id="${e.id}" class="${e.id==selectedId?'selected':''}">
+        <td><code>${esc(e.incident_ref||'—')}</code></td><td>${esc(e.driver||'—')}</td>
+        <td>${esc(e.event||'—')}</td><td>${esc(e.session||'—')}</td>
+        <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(e.alleged_breach||'—')}</td>
+        <td><span class="sev-${e.severity||'low'}">${e.severity||'low'}</span></td>
+        <td>${esc(e.status||'open')}</td></tr>`).join('');
+      tb.querySelectorAll('tr').forEach(r=>r.addEventListener('click',()=>selectPen(r.dataset.id)));
+    }
+    function selectPen(id){
+      selectedId=id;const e=allPens.find(x=>x.id==id);if(!e)return;
+      document.getElementById('penDetailEmpty').style.display='none';document.getElementById('penForm').style.display='';
+      document.getElementById('penDetailTitle').textContent=e.incident_ref||'Penalty Detail';
+      document.getElementById('penFRef').value=e.incident_ref||'';document.getElementById('penFType').value=e.record_type||'penalty';
+      document.getElementById('penFDriver').value=e.driver||'';document.getElementById('penFEvent').value=e.event||'';
+      document.getElementById('penFSession').value=e.session||'';document.getElementById('penFBreach').value=e.alleged_breach||'';
+      document.getElementById('penFSeverity').value=e.severity||'low';document.getElementById('penFTime').value=e.time_issued||'';
+      document.getElementById('penFOutcome').value=e.decision_outcome||'';document.getElementById('penFStatus').value=e.status||'open';
+      document.getElementById('penFAppeal').value=e.appeal_status||'';document.getElementById('penFNotes').value=e.notes||'';
+      document.getElementById('penBtnDelete').style.display='';renderList();
+    }
+    function newPenForm(){selectedId=null;document.getElementById('penDetailEmpty').style.display='none';document.getElementById('penForm').style.display='';document.getElementById('penDetailTitle').textContent='New Record';document.getElementById('penForm').reset();document.getElementById('penBtnDelete').style.display='none';}
+    async function savePen(){
+      const body={incident_ref:document.getElementById('penFRef').value.trim(),record_type:document.getElementById('penFType').value,driver:document.getElementById('penFDriver').value.trim(),event:document.getElementById('penFEvent').value.trim(),session:document.getElementById('penFSession').value.trim(),alleged_breach:document.getElementById('penFBreach').value.trim(),severity:document.getElementById('penFSeverity').value,time_issued:document.getElementById('penFTime').value||null,decision_outcome:document.getElementById('penFOutcome').value.trim(),status:document.getElementById('penFStatus').value,appeal_status:document.getElementById('penFAppeal').value||null,notes:document.getElementById('penFNotes').value.trim()};
+      if(!body.driver){alert('Driver name is required.');return;}
+      try{const url=selectedId?`/api/penalties/${selectedId}`:'/api/penalties';const r=await fetch(url,{method:selectedId?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error(await r.text());await loadPens();}catch(e){alert('Save failed: '+e.message);}
+    }
+    async function deletePen(){if(!selectedId||!confirm('Delete this record?'))return;try{await fetch(`/api/penalties/${selectedId}`,{method:'DELETE'});selectedId=null;document.getElementById('penDetailEmpty').style.display='';document.getElementById('penForm').style.display='none';await loadPens();}catch(e){alert('Delete failed: '+e.message);}}
+    document.getElementById('btnAddPen').addEventListener('click',newPenForm);
+    document.getElementById('penBtnSave').addEventListener('click',savePen);
+    document.getElementById('penBtnDelete').addEventListener('click',deletePen);
+    document.getElementById('penBtnCancel').addEventListener('click',()=>{document.getElementById('penForm').style.display='none';document.getElementById('penDetailEmpty').style.display='';});
+    document.getElementById('penSearch').addEventListener('input',renderList);
+    document.querySelectorAll('#penTypeFilter li').forEach(li=>li.addEventListener('click',()=>{document.querySelectorAll('#penTypeFilter li').forEach(x=>x.classList.remove('active'));li.classList.add('active');filterType=li.dataset.filter;renderList();}));
+    document.querySelectorAll('#penStatusFilter li').forEach(li=>li.addEventListener('click',()=>{document.querySelectorAll('#penStatusFilter li').forEach(x=>x.classList.remove('active'));li.classList.add('active');filterStatus=li.dataset.filter;renderList();}));
+    loadPens();
+  </script>
+</body>
+</html>

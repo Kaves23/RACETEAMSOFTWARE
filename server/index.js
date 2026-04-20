@@ -161,6 +161,40 @@ app.use('/api/incidents',        requireAuth, incidentsRouter);
 app.use('/api/race-results',     requireAuth, raceResultsRouter);
 app.use('/api/notes',            requireAuth, notesRouter);
 
+// Phase 1 — Sporting
+app.use('/api/sporting-calendar', requireAuth, require('./routes/sporting-calendar'));
+app.use('/api/entries',           requireAuth, require('./routes/entries'));
+app.use('/api/regulations',       requireAuth, require('./routes/regulations'));
+app.use('/api/penalties',         requireAuth, require('./routes/penalties'));
+app.use('/api/competitor-intel',  requireAuth, require('./routes/competitor-intel'));
+// Phase 1 — Technical
+app.use('/api/cars',              requireAuth, require('./routes/cars'));
+app.use('/api/components',        requireAuth, require('./routes/components'));
+app.use('/api/allocations',       requireAuth, require('./routes/allocations'));
+app.use('/api/setups',            requireAuth, require('./routes/setups'));
+app.use('/api/homologation',      requireAuth, require('./routes/homologation'));
+app.use('/api/session-changes',   requireAuth, require('./routes/session-changes'));
+app.use('/api/tech-failures',     requireAuth, require('./routes/tech-failures'));
+app.use('/api/engineering-data',  requireAuth, require('./routes/engineering-data'));
+// Phase 1 — Build
+app.use('/api/build-status',      requireAuth, require('./routes/build-status'));
+app.use('/api/build-sheets',      requireAuth, require('./routes/build-sheets'));
+app.use('/api/assembly',          requireAuth, require('./routes/assembly'));
+app.use('/api/build-qc',          requireAuth, require('./routes/build-qc'));
+app.use('/api/repairs',           requireAuth, require('./routes/repairs'));
+app.use('/api/rebuilds',          requireAuth, require('./routes/rebuilds'));
+app.use('/api/consumables',       requireAuth, require('./routes/consumables'));
+app.use('/api/garage-prep',       requireAuth, require('./routes/garage-prep'));
+// Phase 1 — HR
+app.use('/api/staff',             requireAuth, require('./routes/staff'));
+app.use('/api/rotas',             requireAuth, require('./routes/rotas'));
+app.use('/api/leave',             requireAuth, require('./routes/leave'));
+app.use('/api/training',          requireAuth, require('./routes/training'));
+app.use('/api/recruitment',       requireAuth, require('./routes/recruitment'));
+app.use('/api/welfare',           requireAuth, require('./routes/welfare'));
+app.use('/api/medical',           requireAuth, require('./routes/medical'));
+app.use('/api/staff-reviews',     requireAuth, require('./routes/staff-reviews'));
+
 // Get settings (read-only endpoint) - PROTECTED
 app.get('/api/settings', requireAuth, async (req, res) => {
   try {

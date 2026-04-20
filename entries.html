@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Race Team OS – Entries</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="style.css" rel="stylesheet" />
+  <style>
+    body { background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%); }
+    .ev-stats-bar{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
+    .ev-stat-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:10px 16px;box-shadow:0 2px 4px rgba(0,0,0,.06);min-width:100px;}
+    .ev-stat-label{font-size:.7rem;color:#6c757d;font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+    .ev-stat-value{font-size:1.5rem;font-weight:700;color:#1a1d24;line-height:1.2;}
+    #entShell.mlo-shell{background:transparent;border:none;gap:10px;}
+    #entShell .mlo-pane-left,#entShell .mlo-pane-mid,#entShell .mlo-pane-right{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.06);}
+    #entShell .mlo-pane-header{background:#f8f9fa;border-bottom:1px solid rgba(0,0,0,.1);}
+    #entShell .mlo-title{color:#1a1d24!important;}
+    #entShell .mlo-section-label{color:#6c757d!important;opacity:1!important;}
+    #entShell .mlo-pane-content{color:#1a1d24;}
+    #entShell .mlo-resizer{background:transparent;}
+    #entShell .mlo-resizer:hover{background:rgba(166,77,255,.3);}
+    .ent-table{width:100%;font-size:.82rem;border-collapse:separate;border-spacing:0;}
+    .ent-table thead{position:sticky;top:0;background:#f8f9fa;z-index:5;}
+    .ent-table th{padding:8px 10px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#6c757d;border-bottom:2px solid #dee2e6;white-space:nowrap;}
+    .ent-table td{padding:6px 10px;border-bottom:1px solid rgba(0,0,0,.05);vertical-align:middle;color:#1a1d24;}
+    .ent-table tbody tr{cursor:pointer;transition:background .1s;}
+    .ent-table tbody tr:hover{background:#f8f9fa;}
+    .ent-table tbody tr.selected{background:rgba(166,77,255,.08)!important;outline:2px solid #a64dff;outline-offset:-2px;}
+    .status-pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:.72rem;font-weight:600;}
+    .status-submitted{background:#dbeafe;color:#1e40af;}
+    .status-confirmed{background:#d1fae5;color:#065f46;}
+    .status-pending{background:#fef3c7;color:#92400e;}
+    .status-rejected{background:#fee2e2;color:#991b1b;}
+    #entShell .form-label{color:#495057!important;font-size:.78rem;font-weight:600;margin-bottom:2px;}
+    #entShell .form-control,#entShell .form-select{background:#fff!important;color:#1a1d24!important;border-color:#dee2e6!important;font-size:.82rem;}
+    #entShell .mlo-pane-left .pastel-tree li{height:28px!important;display:flex!important;align-items:center!important;font-size:.83rem!important;font-weight:500!important;padding-left:10px!important;margin-bottom:2px!important;border-radius:5px!important;border:1px solid rgba(0,0,0,.08)!important;color:#1a1d24!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;cursor:pointer!important;}
+    #entShell .mlo-pane-left .pastel-tree li.active{background:rgba(166,77,255,.1)!important;border-color:rgba(166,77,255,.35)!important;color:#7c3aed!important;font-weight:700!important;}
+  </style>
+</head>
+<body class="light-mode">
+  <div id="rtsTopNav"></div>
+  <div class="rts-version-badge">v1</div>
+  <div class="rts-main container-fluid">
+    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+      <div>
+        <h1 class="h4 mb-1">Entries</h1>
+        <div class="text-secondary" style="font-size:.85rem;">Competition entry submissions, documentation, and confirmation tracking.</div>
+      </div>
+      <button class="btn btn-sm btn-primary" id="btnAddEntry">+ Add Entry</button>
+    </div>
+
+    <div class="ev-stats-bar">
+      <div class="ev-stat-card"><div class="ev-stat-label">Total Entries</div><div class="ev-stat-value" id="statEntTotal">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Confirmed</div><div class="ev-stat-value" id="statEntConfirmed">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Pending</div><div class="ev-stat-value" id="statEntPending">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Docs Required</div><div class="ev-stat-value" id="statEntDocs">0</div></div>
+    </div>
+
+    <div class="mlo-shell" id="entShell">
+      <!-- LEFT -->
+      <section class="mlo-pane mlo-pane-left" aria-label="Entries filter">
+        <div class="mlo-pane-header"><div class="mlo-title">Filter</div></div>
+        <div class="mlo-pane-content">
+          <div class="mlo-section-label">By Status</div>
+          <ul class="mlo-tree pastel-tree" id="entStatusFilter">
+            <li class="active" data-filter="all">All Entries</li>
+            <li data-filter="submitted">Submitted</li>
+            <li data-filter="confirmed">Confirmed</li>
+            <li data-filter="pending">Pending</li>
+            <li data-filter="rejected">Rejected</li>
+          </ul>
+        </div>
+      </section>
+
+      <div class="mlo-resizer" id="entResizer1"></div>
+
+      <!-- MIDDLE -->
+      <section class="mlo-pane mlo-pane-mid" aria-label="Entry list">
+        <div class="mlo-pane-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="mlo-title">Entry Register</div>
+            <span class="badge text-bg-secondary" id="entCountBadge">0</span>
+          </div>
+          <input class="form-control form-control-sm mt-2" type="search" id="entSearch" placeholder="Search entries…" />
+        </div>
+        <div class="mlo-pane-content p-0">
+          <table class="ent-table" id="entTable">
+            <thead><tr>
+              <th>Driver</th><th>Car #</th><th>Event</th><th>Championship</th>
+              <th>Entry Date</th><th>Status</th><th>Docs</th>
+            </tr></thead>
+            <tbody id="entTableBody">
+              <tr><td colspan="7" class="text-center text-secondary py-4">No entries found.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <div class="mlo-resizer" id="entResizer2"></div>
+
+      <!-- RIGHT -->
+      <section class="mlo-pane mlo-pane-right" aria-label="Entry detail">
+        <div class="mlo-pane-header">
+          <div class="mlo-title" id="entDetailTitle">Entry Detail</div>
+        </div>
+        <div class="mlo-pane-content" id="entDetailPanel">
+          <div class="text-center text-secondary py-5" id="entDetailEmpty">
+            <div style="font-size:2rem;">📋</div>
+            <div class="mt-2">Select an entry to view details</div>
+          </div>
+          <form id="entForm" style="display:none;">
+            <div class="mb-2">
+              <label class="form-label">Driver Name *</label>
+              <input class="form-control" id="entFDriver" />
+            </div>
+            <div class="row g-2 mb-2">
+              <div class="col">
+                <label class="form-label">Car Number</label>
+                <input class="form-control" id="entFCarNum" placeholder="#" />
+              </div>
+              <div class="col">
+                <label class="form-label">Licence Number</label>
+                <input class="form-control" id="entFLicence" />
+              </div>
+            </div>
+            <div class="mb-2">
+              <label class="form-label">Championship / Series</label>
+              <input class="form-control" id="entFChampionship" />
+            </div>
+            <div class="mb-2">
+              <label class="form-label">Event</label>
+              <input class="form-control" id="entFEvent" />
+            </div>
+            <div class="row g-2 mb-2">
+              <div class="col">
+                <label class="form-label">Entry Date</label>
+                <input class="form-control" id="entFDate" type="date" />
+              </div>
+              <div class="col">
+                <label class="form-label">Status</label>
+                <select class="form-select" id="entFStatus">
+                  <option value="pending">Pending</option>
+                  <option value="submitted">Submitted</option>
+                  <option value="confirmed">Confirmed</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+              </div>
+            </div>
+            <div class="mb-2">
+              <label class="form-label">Required Documents</label>
+              <textarea class="form-control" id="entFDocs" rows="2" placeholder="e.g. Licence copy, Medical certificate"></textarea>
+            </div>
+            <div class="mb-2">
+              <label class="form-label">Approval Status</label>
+              <select class="form-select" id="entFApproval">
+                <option value="">Not reviewed</option>
+                <option value="approved">Approved</option>
+                <option value="under_review">Under Review</option>
+                <option value="rejected">Rejected</option>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Notes</label>
+              <textarea class="form-control" id="entFNotes" rows="2"></textarea>
+            </div>
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-primary btn-sm" id="entBtnSave">Save</button>
+              <button type="button" class="btn btn-outline-danger btn-sm" id="entBtnDelete" style="display:none;">Delete</button>
+              <button type="button" class="btn btn-outline-secondary btn-sm" id="entBtnCancel">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="core.js"></script>
+  <script src="topnav.js"></script>
+  <script>
+    let allEntries = [], selectedId = null, filterStatus = 'all';
+
+    async function loadEntries() {
+      try { const r = await fetch('/api/entries'); if (r.ok) allEntries = await r.json(); } catch(_) { allEntries = []; }
+      renderList();
+    }
+
+    function renderList() {
+      const q = document.getElementById('entSearch').value.trim().toLowerCase();
+      const rows = allEntries.filter(e => {
+        const ms = filterStatus === 'all' || e.status === filterStatus;
+        const mq = !q || (e.driver_name||'').toLowerCase().includes(q) || (e.event||'').toLowerCase().includes(q);
+        return ms && mq;
+      });
+      document.getElementById('entCountBadge').textContent = rows.length;
+      document.getElementById('statEntTotal').textContent = allEntries.length;
+      document.getElementById('statEntConfirmed').textContent = allEntries.filter(e=>e.status==='confirmed').length;
+      document.getElementById('statEntPending').textContent = allEntries.filter(e=>e.status==='pending').length;
+      document.getElementById('statEntDocs').textContent = allEntries.filter(e=>e.docs_required).length;
+      const tb = document.getElementById('entTableBody');
+      if (!rows.length) { tb.innerHTML = '<tr><td colspan="7" class="text-center text-secondary py-4">No entries match.</td></tr>'; return; }
+      tb.innerHTML = rows.map(e => `<tr data-id="${e.id}" class="${e.id==selectedId?'selected':''}">
+        <td><strong>${esc(e.driver_name||'')}</strong></td>
+        <td>${esc(e.car_number||'—')}</td>
+        <td>${esc(e.event||'—')}</td>
+        <td>${esc(e.championship||'—')}</td>
+        <td>${e.entry_date||'—'}</td>
+        <td><span class="status-pill status-${e.status||'pending'}">${e.status||'pending'}</span></td>
+        <td>${e.docs_required?'<span class="badge bg-warning text-dark">Req</span>':'<span class="badge bg-success">OK</span>'}</td>
+      </tr>`).join('');
+      tb.querySelectorAll('tr').forEach(r=>r.addEventListener('click',()=>selectEntry(r.dataset.id)));
+    }
+
+    function selectEntry(id) {
+      selectedId = id;
+      const e = allEntries.find(x=>x.id==id); if(!e) return;
+      document.getElementById('entDetailEmpty').style.display='none';
+      document.getElementById('entForm').style.display='';
+      document.getElementById('entDetailTitle').textContent=e.driver_name||'Entry Detail';
+      document.getElementById('entFDriver').value=e.driver_name||'';
+      document.getElementById('entFCarNum').value=e.car_number||'';
+      document.getElementById('entFLicence').value=e.licence_number||'';
+      document.getElementById('entFChampionship').value=e.championship||'';
+      document.getElementById('entFEvent').value=e.event||'';
+      document.getElementById('entFDate').value=e.entry_date||'';
+      document.getElementById('entFStatus').value=e.status||'pending';
+      document.getElementById('entFDocs').value=e.required_documents||'';
+      document.getElementById('entFApproval').value=e.approval_status||'';
+      document.getElementById('entFNotes').value=e.notes||'';
+      document.getElementById('entBtnDelete').style.display='';
+      renderList();
+    }
+
+    function newEntryForm() {
+      selectedId=null;
+      document.getElementById('entDetailEmpty').style.display='none';
+      document.getElementById('entForm').style.display='';
+      document.getElementById('entDetailTitle').textContent='New Entry';
+      document.getElementById('entForm').reset();
+      document.getElementById('entBtnDelete').style.display='none';
+    }
+
+    async function saveEntry() {
+      const body = {
+        driver_name:document.getElementById('entFDriver').value.trim(),
+        car_number:document.getElementById('entFCarNum').value.trim(),
+        licence_number:document.getElementById('entFLicence').value.trim(),
+        championship:document.getElementById('entFChampionship').value.trim(),
+        event:document.getElementById('entFEvent').value.trim(),
+        entry_date:document.getElementById('entFDate').value||null,
+        status:document.getElementById('entFStatus').value,
+        required_documents:document.getElementById('entFDocs').value.trim(),
+        approval_status:document.getElementById('entFApproval').value||null,
+        notes:document.getElementById('entFNotes').value.trim()
+      };
+      if(!body.driver_name){alert('Driver name is required.');return;}
+      try {
+        const url=selectedId?`/api/entries/${selectedId}`:'/api/entries';
+        const method=selectedId?'PUT':'POST';
+        const r=await fetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+        if(!r.ok) throw new Error(await r.text());
+        await loadEntries();
+      } catch(e){alert('Save failed: '+e.message);}
+    }
+
+    async function deleteEntry() {
+      if(!selectedId||!confirm('Delete this entry?')) return;
+      try {
+        await fetch(`/api/entries/${selectedId}`,{method:'DELETE'});
+        selectedId=null;
+        document.getElementById('entDetailEmpty').style.display='';
+        document.getElementById('entForm').style.display='none';
+        await loadEntries();
+      } catch(e){alert('Delete failed: '+e.message);}
+    }
+
+    function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+    document.getElementById('btnAddEntry').addEventListener('click',newEntryForm);
+    document.getElementById('entBtnSave').addEventListener('click',saveEntry);
+    document.getElementById('entBtnDelete').addEventListener('click',deleteEntry);
+    document.getElementById('entBtnCancel').addEventListener('click',()=>{document.getElementById('entForm').style.display='none';document.getElementById('entDetailEmpty').style.display='';});
+    document.getElementById('entSearch').addEventListener('input',renderList);
+    document.querySelectorAll('#entStatusFilter li').forEach(li=>li.addEventListener('click',()=>{
+      document.querySelectorAll('#entStatusFilter li').forEach(x=>x.classList.remove('active'));
+      li.classList.add('active'); filterStatus=li.dataset.filter; renderList();
+    }));
+    loadEntries();
+  </script>
+</body>
+</html>

@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Race Team OS – Components</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="style.css" rel="stylesheet" />
+  <style>
+    body{background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%);}
+    .ev-stats-bar{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
+    .ev-stat-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:10px 16px;box-shadow:0 2px 4px rgba(0,0,0,.06);min-width:100px;}
+    .ev-stat-label{font-size:.7rem;color:#6c757d;font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+    .ev-stat-value{font-size:1.5rem;font-weight:700;color:#1a1d24;line-height:1.2;}
+    #compShell.mlo-shell{background:transparent;border:none;gap:10px;}
+    #compShell .mlo-pane-left,#compShell .mlo-pane-mid,#compShell .mlo-pane-right{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.06);}
+    #compShell .mlo-pane-header{background:#f8f9fa;border-bottom:1px solid rgba(0,0,0,.1);}
+    #compShell .mlo-title{color:#1a1d24!important;}
+    #compShell .mlo-section-label{color:#6c757d!important;opacity:1!important;}
+    #compShell .mlo-resizer{background:transparent;}
+    #compShell .mlo-resizer:hover{background:rgba(166,77,255,.3);}
+    .comp-table{width:100%;font-size:.82rem;border-collapse:separate;border-spacing:0;}
+    .comp-table thead{position:sticky;top:0;background:#f8f9fa;z-index:5;}
+    .comp-table th{padding:8px 10px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#6c757d;border-bottom:2px solid #dee2e6;white-space:nowrap;}
+    .comp-table td{padding:6px 10px;border-bottom:1px solid rgba(0,0,0,.05);vertical-align:middle;color:#1a1d24;}
+    .comp-table tbody tr{cursor:pointer;transition:background .1s;}
+    .comp-table tbody tr:hover{background:#f8f9fa;}
+    .comp-table tbody tr.selected{background:rgba(166,77,255,.08)!important;outline:2px solid #a64dff;outline-offset:-2px;}
+    #compShell .form-label{color:#495057!important;font-size:.78rem;font-weight:600;margin-bottom:2px;}
+    #compShell .form-control,#compShell .form-select{background:#fff!important;color:#1a1d24!important;border-color:#dee2e6!important;font-size:.82rem;}
+    #compShell .mlo-pane-left .pastel-tree li{height:28px!important;display:flex!important;align-items:center!important;font-size:.83rem!important;font-weight:500!important;padding-left:10px!important;margin-bottom:2px!important;border-radius:5px!important;border:1px solid rgba(0,0,0,.08)!important;color:#1a1d24!important;cursor:pointer!important;}
+    #compShell .mlo-pane-left .pastel-tree li.active{background:rgba(166,77,255,.1)!important;border-color:rgba(166,77,255,.35)!important;color:#7c3aed!important;font-weight:700!important;}
+  </style>
+</head>
+<body class="light-mode">
+  <div id="rtsTopNav"></div>
+  <div class="rts-version-badge">v1</div>
+  <div class="rts-main container-fluid">
+    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+      <div>
+        <h1 class="h4 mb-1">Components</h1>
+        <div class="text-secondary" style="font-size:.85rem;">Component register, serial number tracking, lifecycle status, and failure history.</div>
+      </div>
+      <div class="d-flex gap-2">
+        <input class="form-control form-control-sm" type="search" id="compSerialSearch" placeholder="Serial number lookup…" style="width:200px;" />
+        <button class="btn btn-sm btn-primary" id="btnAddComp">+ Add Component</button>
+      </div>
+    </div>
+    <div class="ev-stats-bar">
+      <div class="ev-stat-card"><div class="ev-stat-label">Total</div><div class="ev-stat-value" id="statCompTotal">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">In Service</div><div class="ev-stat-value" id="statCompInService">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Near Limit</div><div class="ev-stat-value" id="statCompNearLimit">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Retired</div><div class="ev-stat-value" id="statCompRetired">0</div></div>
+    </div>
+    <div class="mlo-shell" id="compShell">
+      <section class="mlo-pane mlo-pane-left" aria-label="Component filter">
+        <div class="mlo-pane-header"><div class="mlo-title">Filter</div></div>
+        <div class="mlo-pane-content">
+          <div class="mlo-section-label">Component Type</div>
+          <ul class="mlo-tree pastel-tree" id="compTypeFilter">
+            <li class="active" data-filter="all">All Types</li>
+            <li data-filter="power_unit">Power Unit</li>
+            <li data-filter="gearbox">Gearbox</li>
+            <li data-filter="suspension">Suspension</li>
+            <li data-filter="brakes">Brakes</li>
+            <li data-filter="aero">Aerodynamic</li>
+            <li data-filter="electronics">Electronics</li>
+            <li data-filter="driveshaft">Driveshafts</li>
+            <li data-filter="other">Other</li>
+          </ul>
+          <div class="mlo-section-label mt-3">Lifecycle Status</div>
+          <ul class="mlo-tree pastel-tree" id="compStatusFilter">
+            <li class="active" data-filter="all">All</li>
+            <li data-filter="in_service">In Service</li>
+            <li data-filter="spares">Spares</li>
+            <li data-filter="rebuild">For Rebuild</li>
+            <li data-filter="retired">Retired</li>
+            <li data-filter="failed">Failed</li>
+          </ul>
+        </div>
+      </section>
+      <div class="mlo-resizer" id="compResizer1"></div>
+      <section class="mlo-pane mlo-pane-mid" aria-label="Component list">
+        <div class="mlo-pane-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="mlo-title">Component Register</div>
+            <span class="badge text-bg-secondary" id="compCountBadge">0</span>
+          </div>
+          <input class="form-control form-control-sm mt-2" type="search" id="compSearch" placeholder="Search components…" />
+        </div>
+        <div class="mlo-pane-content p-0">
+          <table class="comp-table">
+            <thead><tr><th>Serial #</th><th>Type</th><th>Description</th><th>Car</th><th>Mileage</th><th>Last Event</th><th>Location</th><th>Status</th></tr></thead>
+            <tbody id="compTableBody"><tr><td colspan="8" class="text-center text-secondary py-4">No components registered.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+      <div class="mlo-resizer" id="compResizer2"></div>
+      <section class="mlo-pane mlo-pane-right" aria-label="Component detail">
+        <div class="mlo-pane-header"><div class="mlo-title" id="compDetailTitle">Component Detail</div></div>
+        <div class="mlo-pane-content">
+          <div class="text-center text-secondary py-5" id="compDetailEmpty"><div style="font-size:2rem;">⚙️</div><div class="mt-2">Select a component</div></div>
+          <form id="compForm" style="display:none;">
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Serial Number *</label><input class="form-control" id="compFSerial" /></div>
+              <div class="col"><label class="form-label">Component Type *</label>
+                <select class="form-select" id="compFType">
+                  <option value="power_unit">Power Unit</option><option value="gearbox">Gearbox</option>
+                  <option value="suspension">Suspension</option><option value="brakes">Brakes</option>
+                  <option value="aero">Aerodynamic</option><option value="electronics">Electronics</option>
+                  <option value="driveshaft">Driveshaft</option><option value="other">Other</option>
+                </select></div>
+            </div>
+            <div class="mb-2"><label class="form-label">Description</label><input class="form-control" id="compFDesc" /></div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Car Assignment</label><input class="form-control" id="compFCar" placeholder="#1 / #2" /></div>
+              <div class="col"><label class="form-label">Lifecycle Status</label>
+                <select class="form-select" id="compFStatus">
+                  <option value="in_service">In Service</option><option value="spares">Spares</option>
+                  <option value="rebuild">For Rebuild</option><option value="retired">Retired</option><option value="failed">Failed</option>
+                </select></div>
+            </div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Mileage / Hours</label><input class="form-control" id="compFMileage" type="number" /></div>
+              <div class="col"><label class="form-label">Last Event Used</label><input class="form-control" id="compFLastEvent" /></div>
+            </div>
+            <div class="mb-2"><label class="form-label">Current Location</label><input class="form-control" id="compFLocation" /></div>
+            <div class="mb-3"><label class="form-label">Failure History / Notes</label><textarea class="form-control" id="compFNotes" rows="3"></textarea></div>
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-primary btn-sm" id="compBtnSave">Save</button>
+              <button type="button" class="btn btn-outline-danger btn-sm" id="compBtnDelete" style="display:none;">Delete</button>
+              <button type="button" class="btn btn-outline-secondary btn-sm" id="compBtnCancel">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </section>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="core.js"></script><script src="topnav.js"></script>
+  <script>
+    let allComps=[],selectedId=null,filterType='all',filterStatus='all';
+    function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+    async function loadComps(){try{const r=await fetch('/api/components');if(r.ok)allComps=await r.json();}catch(_){allComps=[];}renderList();}
+    function renderList(){
+      const q=(document.getElementById('compSearch').value+document.getElementById('compSerialSearch').value).trim().toLowerCase();
+      const rows=allComps.filter(e=>{const mt=filterType==='all'||e.component_type===filterType;const ms=filterStatus==='all'||e.lifecycle_status===filterStatus;const mq=!q||(e.serial_number||'').toLowerCase().includes(q)||(e.description||'').toLowerCase().includes(q);return mt&&ms&&mq;});
+      document.getElementById('compCountBadge').textContent=rows.length;
+      document.getElementById('statCompTotal').textContent=allComps.length;
+      document.getElementById('statCompInService').textContent=allComps.filter(e=>e.lifecycle_status==='in_service').length;
+      document.getElementById('statCompRetired').textContent=allComps.filter(e=>e.lifecycle_status==='retired').length;
+      const tb=document.getElementById('compTableBody');
+      if(!rows.length){tb.innerHTML='<tr><td colspan="8" class="text-center text-secondary py-4">No components match.</td></tr>';return;}
+      tb.innerHTML=rows.map(e=>`<tr data-id="${e.id}" class="${e.id==selectedId?'selected':''}">
+        <td><code>${esc(e.serial_number||'—')}</code></td><td>${esc(e.component_type||'other')}</td>
+        <td>${esc(e.description||'—')}</td><td>${esc(e.car_assignment||'—')}</td>
+        <td>${e.mileage||'—'}</td><td>${esc(e.last_event||'—')}</td><td>${esc(e.location||'—')}</td>
+        <td><span class="badge ${e.lifecycle_status==='in_service'?'bg-success':e.lifecycle_status==='failed'?'bg-danger':'bg-secondary'}">${e.lifecycle_status||'in_service'}</span></td></tr>`).join('');
+      tb.querySelectorAll('tr').forEach(r=>r.addEventListener('click',()=>selectComp(r.dataset.id)));
+    }
+    function selectComp(id){
+      selectedId=id;const e=allComps.find(x=>x.id==id);if(!e)return;
+      document.getElementById('compDetailEmpty').style.display='none';document.getElementById('compForm').style.display='';
+      document.getElementById('compDetailTitle').textContent=e.serial_number||'Component';
+      document.getElementById('compFSerial').value=e.serial_number||'';document.getElementById('compFType').value=e.component_type||'other';
+      document.getElementById('compFDesc').value=e.description||'';document.getElementById('compFCar').value=e.car_assignment||'';
+      document.getElementById('compFStatus').value=e.lifecycle_status||'in_service';document.getElementById('compFMileage').value=e.mileage||'';
+      document.getElementById('compFLastEvent').value=e.last_event||'';document.getElementById('compFLocation').value=e.location||'';
+      document.getElementById('compFNotes').value=e.failure_history||'';document.getElementById('compBtnDelete').style.display='';renderList();
+    }
+    function newCompForm(){selectedId=null;document.getElementById('compDetailEmpty').style.display='none';document.getElementById('compForm').style.display='';document.getElementById('compDetailTitle').textContent='New Component';document.getElementById('compForm').reset();document.getElementById('compBtnDelete').style.display='none';}
+    async function saveComp(){
+      const body={serial_number:document.getElementById('compFSerial').value.trim(),component_type:document.getElementById('compFType').value,description:document.getElementById('compFDesc').value.trim(),car_assignment:document.getElementById('compFCar').value.trim(),lifecycle_status:document.getElementById('compFStatus').value,mileage:document.getElementById('compFMileage').value||null,last_event:document.getElementById('compFLastEvent').value.trim(),location:document.getElementById('compFLocation').value.trim(),failure_history:document.getElementById('compFNotes').value.trim()};
+      if(!body.serial_number){alert('Serial number is required.');return;}
+      try{const url=selectedId?`/api/components/${selectedId}`:'/api/components';const r=await fetch(url,{method:selectedId?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error(await r.text());await loadComps();}catch(e){alert('Save failed: '+e.message);}
+    }
+    async function deleteComp(){if(!selectedId||!confirm('Delete this component?'))return;try{await fetch(`/api/components/${selectedId}`,{method:'DELETE'});selectedId=null;document.getElementById('compDetailEmpty').style.display='';document.getElementById('compForm').style.display='none';await loadComps();}catch(e){alert('Delete failed: '+e.message);}}
+    document.getElementById('btnAddComp').addEventListener('click',newCompForm);
+    document.getElementById('compBtnSave').addEventListener('click',saveComp);
+    document.getElementById('compBtnDelete').addEventListener('click',deleteComp);
+    document.getElementById('compBtnCancel').addEventListener('click',()=>{document.getElementById('compForm').style.display='none';document.getElementById('compDetailEmpty').style.display='';});
+    document.getElementById('compSearch').addEventListener('input',renderList);
+    document.getElementById('compSerialSearch').addEventListener('input',renderList);
+    document.querySelectorAll('#compTypeFilter li').forEach(li=>li.addEventListener('click',()=>{document.querySelectorAll('#compTypeFilter li').forEach(x=>x.classList.remove('active'));li.classList.add('active');filterType=li.dataset.filter;renderList();}));
+    document.querySelectorAll('#compStatusFilter li').forEach(li=>li.addEventListener('click',()=>{document.querySelectorAll('#compStatusFilter li').forEach(x=>x.classList.remove('active'));li.classList.add('active');filterStatus=li.dataset.filter;renderList();}));
+    loadComps();
+  </script>
+</body>
+</html>

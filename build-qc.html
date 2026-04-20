@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Race Team OS – Build QC</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="style.css" rel="stylesheet" />
+  <style>
+    body{background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%);}
+    .ev-stats-bar{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
+    .ev-stat-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:10px 16px;box-shadow:0 2px 4px rgba(0,0,0,.06);min-width:100px;}
+    .ev-stat-label{font-size:.7rem;color:#6c757d;font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+    .ev-stat-value{font-size:1.5rem;font-weight:700;color:#1a1d24;line-height:1.2;}
+    #qcShell.mlo-shell{background:transparent;border:none;gap:10px;}
+    #qcShell .mlo-pane-left,#qcShell .mlo-pane-mid,#qcShell .mlo-pane-right{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.06);}
+    #qcShell .mlo-pane-header{background:#f8f9fa;border-bottom:1px solid rgba(0,0,0,.1);}
+    #qcShell .mlo-title{color:#1a1d24!important;} #qcShell .mlo-section-label{color:#6c757d!important;opacity:1!important;}
+    #qcShell .mlo-resizer{background:transparent;} #qcShell .mlo-resizer:hover{background:rgba(166,77,255,.3);}
+    .qc-table{width:100%;font-size:.82rem;border-collapse:separate;border-spacing:0;}
+    .qc-table thead{position:sticky;top:0;background:#f8f9fa;z-index:5;}
+    .qc-table th{padding:8px 10px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#6c757d;border-bottom:2px solid #dee2e6;}
+    .qc-table td{padding:6px 10px;border-bottom:1px solid rgba(0,0,0,.05);vertical-align:middle;color:#1a1d24;}
+    .qc-table tbody tr{cursor:pointer;transition:background .1s;}
+    .qc-table tbody tr:hover{background:#f8f9fa;}
+    .qc-table tbody tr.selected{background:rgba(166,77,255,.08)!important;outline:2px solid #a64dff;outline-offset:-2px;}
+    .badge-pass{background:#198754;color:#fff;border-radius:4px;font-size:.7rem;padding:2px 6px;}
+    .badge-fail{background:#dc3545;color:#fff;border-radius:4px;font-size:.7rem;padding:2px 6px;}
+    .badge-conditional{background:#ffc107;color:#000;border-radius:4px;font-size:.7rem;padding:2px 6px;}
+    .badge-pending{background:#0d6efd;color:#fff;border-radius:4px;font-size:.7rem;padding:2px 6px;}
+    #qcShell .form-label{color:#495057!important;font-size:.78rem;font-weight:600;margin-bottom:2px;}
+    #qcShell .form-control,#qcShell .form-select{background:#fff!important;color:#1a1d24!important;border-color:#dee2e6!important;font-size:.82rem;}
+    #qcShell .mlo-pane-left .pastel-tree li{height:28px!important;display:flex!important;align-items:center!important;font-size:.83rem!important;font-weight:500!important;padding-left:10px!important;margin-bottom:2px!important;border-radius:5px!important;border:1px solid rgba(0,0,0,.08)!important;color:#1a1d24!important;cursor:pointer!important;}
+    #qcShell .mlo-pane-left .pastel-tree li.active{background:rgba(166,77,255,.1)!important;border-color:rgba(166,77,255,.35)!important;color:#7c3aed!important;font-weight:700!important;}
+  </style>
+</head>
+<body class="light-mode">
+  <div id="rtsTopNav"></div>
+  <div class="rts-version-badge">v1</div>
+  <div class="rts-main container-fluid">
+    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+      <div>
+        <h1 class="h4 mb-1">Build QC</h1>
+        <div class="text-secondary" style="font-size:.85rem;">Quality control inspections, sign-off, and defect tracking.</div>
+      </div>
+      <button class="btn btn-sm btn-primary" id="btnAddQC">+ New Inspection</button>
+    </div>
+    <div class="ev-stats-bar">
+      <div class="ev-stat-card"><div class="ev-stat-label">Total Checks</div><div class="ev-stat-value" id="statQCTotal">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Pass</div><div class="ev-stat-value" id="statQCPass">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Fail</div><div class="ev-stat-value" id="statQCFail">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Pending</div><div class="ev-stat-value" id="statQCPending">0</div></div>
+    </div>
+    <div class="mlo-shell" id="qcShell">
+      <section class="mlo-pane mlo-pane-left">
+        <div class="mlo-pane-header"><div class="mlo-title">Filter</div></div>
+        <div class="mlo-pane-content">
+          <div class="mlo-section-label">Result</div>
+          <ul class="mlo-tree pastel-tree" id="qcResultFilter">
+            <li class="active" data-filter="all">All Results</li>
+            <li data-filter="pass">Pass</li>
+            <li data-filter="fail">Fail</li>
+            <li data-filter="conditional">Conditional</li>
+            <li data-filter="pending">Pending</li>
+          </ul>
+          <div class="mlo-section-label mt-3">Inspection Type</div>
+          <ul class="mlo-tree pastel-tree" id="qcTypeFilter">
+            <li class="active" data-filter="all">All Types</li>
+            <li data-filter="Pre-Event">Pre-Event</li>
+            <li data-filter="Post-Build">Post-Build</li>
+            <li data-filter="Post-Race">Post-Race</li>
+            <li data-filter="Scheduled">Scheduled</li>
+            <li data-filter="Spot Check">Spot Check</li>
+          </ul>
+        </div>
+      </section>
+      <div class="mlo-resizer" id="qcResizer1"></div>
+      <section class="mlo-pane mlo-pane-mid">
+        <div class="mlo-pane-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="mlo-title">Inspections</div>
+            <span class="badge text-bg-secondary" id="qcCountBadge">0</span>
+          </div>
+          <input class="form-control form-control-sm mt-2" type="search" id="qcSearch" placeholder="Search inspection…" />
+        </div>
+        <div class="mlo-pane-content p-0">
+          <table class="qc-table">
+            <thead><tr><th>Inspection</th><th>Car</th><th>Type</th><th>Inspector</th><th>Result</th><th>Date</th></tr></thead>
+            <tbody id="qcTableBody"><tr><td colspan="6" class="text-center text-secondary py-4">No inspections found.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+      <div class="mlo-resizer" id="qcResizer2"></div>
+      <section class="mlo-pane mlo-pane-right">
+        <div class="mlo-pane-header"><div class="mlo-title" id="qcDetailTitle">Inspection Detail</div></div>
+        <div class="mlo-pane-content">
+          <div class="text-center text-secondary py-5" id="qcDetailEmpty"><div style="font-size:2rem;">🔍</div><div class="mt-2">Select an inspection</div></div>
+          <form id="qcForm" style="display:none;">
+            <div class="mb-2"><label class="form-label">Inspection Title *</label><input class="form-control" id="qcFTitle" /></div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Car</label><input class="form-control" id="qcFCar" placeholder="#1" /></div>
+              <div class="col"><label class="form-label">Type</label>
+                <select class="form-select" id="qcFType"><option>Pre-Event</option><option>Post-Build</option><option>Post-Race</option><option>Scheduled</option><option>Spot Check</option></select></div>
+            </div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Inspector</label><input class="form-control" id="qcFInspector" /></div>
+              <div class="col"><label class="form-label">Result</label>
+                <select class="form-select" id="qcFResult"><option value="pass">Pass</option><option value="fail">Fail</option><option value="conditional">Conditional</option><option value="pending">Pending</option></select></div>
+            </div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Date</label><input class="form-control" id="qcFDate" type="date" /></div>
+              <div class="col"><label class="form-label">Linked Build Sheet</label><input class="form-control" id="qcFSheet" /></div>
+            </div>
+            <div class="mb-2"><label class="form-label">Inspection Checklist / Findings</label><textarea class="form-control" id="qcFFindings" rows="4"></textarea></div>
+            <div class="mb-2"><label class="form-label">Defects / Issues Found</label><textarea class="form-control" id="qcFDefects" rows="2"></textarea></div>
+            <div class="mb-2"><label class="form-label">Corrective Actions Required</label><textarea class="form-control" id="qcFActions" rows="2"></textarea></div>
+            <div class="mb-3"><label class="form-label">Sign-off By</label><input class="form-control" id="qcFSignOff" /></div>
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-primary btn-sm" id="qcBtnSave">Save</button>
+              <button type="button" class="btn btn-outline-danger btn-sm" id="qcBtnDelete" style="display:none;">Delete</button>
+              <button type="button" class="btn btn-outline-secondary btn-sm" id="qcBtnCancel">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </section>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="core.js"></script><script src="topnav.js"></script>
+  <script>
+    let allQC=[],selectedId=null,filterResult='all',filterType='all';
+    const resBadge=s=>({pass:'badge-pass',fail:'badge-fail',conditional:'badge-conditional',pending:'badge-pending'}[s]||'badge-pending');
+    function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+    async function load(){try{const r=await fetch('/api/build-qc');if(r.ok)allQC=await r.json();}catch(_){allQC=[];}renderList();}
+    function renderList(){
+      const q=document.getElementById('qcSearch').value.trim().toLowerCase();
+      const rows=allQC.filter(e=>{const mr=filterResult==='all'||e.result===filterResult;const mt=filterType==='all'||e.inspection_type===filterType;const mq=!q||(e.title||'').toLowerCase().includes(q)||(e.car||'').toLowerCase().includes(q)||(e.inspector||'').toLowerCase().includes(q);return mr&&mt&&mq;});
+      document.getElementById('qcCountBadge').textContent=rows.length;
+      document.getElementById('statQCTotal').textContent=allQC.length;
+      document.getElementById('statQCPass').textContent=allQC.filter(e=>e.result==='pass').length;
+      document.getElementById('statQCFail').textContent=allQC.filter(e=>e.result==='fail').length;
+      document.getElementById('statQCPending').textContent=allQC.filter(e=>e.result==='pending').length;
+      const tb=document.getElementById('qcTableBody');
+      if(!rows.length){tb.innerHTML='<tr><td colspan="6" class="text-center text-secondary py-4">No inspections match.</td></tr>';return;}
+      tb.innerHTML=rows.map(e=>`<tr data-id="${e.id}" class="${e.id==selectedId?'selected':''}">
+        <td>${esc(e.title||'—')}</td><td>${esc(e.car||'—')}</td><td>${esc(e.inspection_type||'—')}</td>
+        <td>${esc(e.inspector||'—')}</td>
+        <td><span class="${resBadge(e.result)}">${esc(e.result||'—')}</span></td>
+        <td>${e.date||'—'}</td></tr>`).join('');
+      tb.querySelectorAll('tr').forEach(r=>r.addEventListener('click',()=>selectQC(r.dataset.id)));
+    }
+    function selectQC(id){selectedId=id;const e=allQC.find(x=>x.id==id);if(!e)return;
+      document.getElementById('qcDetailEmpty').style.display='none';document.getElementById('qcForm').style.display='';
+      document.getElementById('qcDetailTitle').textContent=e.title||'Inspection';
+      document.getElementById('qcFTitle').value=e.title||'';document.getElementById('qcFCar').value=e.car||'';
+      document.getElementById('qcFType').value=e.inspection_type||'Scheduled';document.getElementById('qcFInspector').value=e.inspector||'';
+      document.getElementById('qcFResult').value=e.result||'pending';document.getElementById('qcFDate').value=e.date||'';
+      document.getElementById('qcFSheet').value=e.linked_sheet||'';document.getElementById('qcFFindings').value=e.findings||'';
+      document.getElementById('qcFDefects').value=e.defects||'';document.getElementById('qcFActions').value=e.corrective_actions||'';
+      document.getElementById('qcFSignOff').value=e.sign_off||'';document.getElementById('qcBtnDelete').style.display='';renderList();}
+    document.getElementById('btnAddQC').addEventListener('click',()=>{selectedId=null;document.getElementById('qcDetailEmpty').style.display='none';document.getElementById('qcForm').style.display='';document.getElementById('qcDetailTitle').textContent='New Inspection';document.getElementById('qcForm').reset();document.getElementById('qcBtnDelete').style.display='none';});
+    document.getElementById('qcBtnSave').addEventListener('click',async()=>{
+      const body={title:document.getElementById('qcFTitle').value.trim(),car:document.getElementById('qcFCar').value.trim(),inspection_type:document.getElementById('qcFType').value,inspector:document.getElementById('qcFInspector').value.trim(),result:document.getElementById('qcFResult').value,date:document.getElementById('qcFDate').value||null,linked_sheet:document.getElementById('qcFSheet').value.trim(),findings:document.getElementById('qcFFindings').value.trim(),defects:document.getElementById('qcFDefects').value.trim(),corrective_actions:document.getElementById('qcFActions').value.trim(),sign_off:document.getElementById('qcFSignOff').value.trim()};
+      if(!body.title){alert('Title is required.');return;}
+      try{const url=selectedId?`/api/build-qc/${selectedId}`:'/api/build-qc';const r=await fetch(url,{method:selectedId?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error(await r.text());await load();}catch(e){alert('Save failed: '+e.message);}});
+    document.getElementById('qcBtnDelete').addEventListener('click',async()=>{if(!selectedId||!confirm('Delete this inspection?'))return;try{await fetch(`/api/build-qc/${selectedId}`,{method:'DELETE'});selectedId=null;document.getElementById('qcDetailEmpty').style.display='';document.getElementById('qcForm').style.display='none';await load();}catch(e){alert('Delete failed: '+e.message);}});
+    document.getElementById('qcBtnCancel').addEventListener('click',()=>{document.getElementById('qcForm').style.display='none';document.getElementById('qcDetailEmpty').style.display='';});
+    document.getElementById('qcSearch').addEventListener('input',renderList);
+    document.querySelectorAll('#qcResultFilter li').forEach(li=>li.addEventListener('click',()=>{document.querySelectorAll('#qcResultFilter li').forEach(x=>x.classList.remove('active'));li.classList.add('active');filterResult=li.dataset.filter;renderList();}));
+    document.querySelectorAll('#qcTypeFilter li').forEach(li=>li.addEventListener('click',()=>{document.querySelectorAll('#qcTypeFilter li').forEach(x=>x.classList.remove('active'));li.classList.add('active');filterType=li.dataset.filter;renderList();}));
+    load();
+  </script>
+</body>
+</html>

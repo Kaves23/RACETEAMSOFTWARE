@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Race Team OS – Technical Failures</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="style.css" rel="stylesheet" />
+  <style>
+    body{background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%);}
+    .ev-stats-bar{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
+    .ev-stat-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:10px 16px;box-shadow:0 2px 4px rgba(0,0,0,.06);min-width:100px;}
+    .ev-stat-label{font-size:.7rem;color:#6c757d;font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+    .ev-stat-value{font-size:1.5rem;font-weight:700;color:#1a1d24;line-height:1.2;}
+    #tfShell.mlo-shell{background:transparent;border:none;gap:10px;}
+    #tfShell .mlo-pane-left,#tfShell .mlo-pane-mid,#tfShell .mlo-pane-right{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.06);}
+    #tfShell .mlo-pane-header{background:#f8f9fa;border-bottom:1px solid rgba(0,0,0,.1);}
+    #tfShell .mlo-title{color:#1a1d24!important;}
+    #tfShell .mlo-section-label{color:#6c757d!important;opacity:1!important;}
+    #tfShell .mlo-resizer{background:transparent;}
+    #tfShell .mlo-resizer:hover{background:rgba(166,77,255,.3);}
+    .tf-table{width:100%;font-size:.82rem;border-collapse:separate;border-spacing:0;}
+    .tf-table thead{position:sticky;top:0;background:#f8f9fa;z-index:5;}
+    .tf-table th{padding:8px 10px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#6c757d;border-bottom:2px solid #dee2e6;}
+    .tf-table td{padding:6px 10px;border-bottom:1px solid rgba(0,0,0,.05);vertical-align:middle;color:#1a1d24;}
+    .tf-table tbody tr{cursor:pointer;transition:background .1s;}
+    .tf-table tbody tr:hover{background:#f8f9fa;}
+    .tf-table tbody tr.selected{background:rgba(166,77,255,.08)!important;outline:2px solid #a64dff;outline-offset:-2px;}
+    .badge-critical{background:#dc3545;color:#fff;border-radius:4px;font-size:.7rem;padding:2px 6px;}
+    .badge-high{background:#fd7e14;color:#fff;border-radius:4px;font-size:.7rem;padding:2px 6px;}
+    .badge-medium{background:#ffc107;color:#000;border-radius:4px;font-size:.7rem;padding:2px 6px;}
+    .badge-low{background:#198754;color:#fff;border-radius:4px;font-size:.7rem;padding:2px 6px;}
+    .badge-open{background:#dc3545;color:#fff;border-radius:4px;font-size:.7rem;padding:2px 6px;}
+    .badge-investigating{background:#ffc107;color:#000;border-radius:4px;font-size:.7rem;padding:2px 6px;}
+    .badge-resolved{background:#198754;color:#fff;border-radius:4px;font-size:.7rem;padding:2px 6px;}
+    #tfShell .form-label{color:#495057!important;font-size:.78rem;font-weight:600;margin-bottom:2px;}
+    #tfShell .form-control,#tfShell .form-select{background:#fff!important;color:#1a1d24!important;border-color:#dee2e6!important;font-size:.82rem;}
+    #tfShell .mlo-pane-left .pastel-tree li{height:28px!important;display:flex!important;align-items:center!important;font-size:.83rem!important;font-weight:500!important;padding-left:10px!important;margin-bottom:2px!important;border-radius:5px!important;border:1px solid rgba(0,0,0,.08)!important;color:#1a1d24!important;cursor:pointer!important;}
+    #tfShell .mlo-pane-left .pastel-tree li.active{background:rgba(166,77,255,.1)!important;border-color:rgba(166,77,255,.35)!important;color:#7c3aed!important;font-weight:700!important;}
+  </style>
+</head>
+<body class="light-mode">
+  <div id="rtsTopNav"></div>
+  <div class="rts-version-badge">v1</div>
+  <div class="rts-main container-fluid">
+    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+      <div>
+        <h1 class="h4 mb-1">Technical Failures</h1>
+        <div class="text-secondary" style="font-size:.85rem;">Failure log, root cause analysis, and resolution tracking.</div>
+      </div>
+      <button class="btn btn-sm btn-primary" id="btnAddTF">+ Log Failure</button>
+    </div>
+    <div class="ev-stats-bar">
+      <div class="ev-stat-card"><div class="ev-stat-label">Total Failures</div><div class="ev-stat-value" id="statTFTotal">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Open</div><div class="ev-stat-value" id="statTFOpen">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Investigating</div><div class="ev-stat-value" id="statTFInv">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Resolved</div><div class="ev-stat-value" id="statTFResolved">0</div></div>
+    </div>
+    <div class="mlo-shell" id="tfShell">
+      <section class="mlo-pane mlo-pane-left" aria-label="Failure filter">
+        <div class="mlo-pane-header"><div class="mlo-title">Filter</div></div>
+        <div class="mlo-pane-content">
+          <div class="mlo-section-label">Status</div>
+          <ul class="mlo-tree pastel-tree" id="tfStatusFilter">
+            <li class="active" data-filter="all">All Status</li>
+            <li data-filter="open">Open</li>
+            <li data-filter="investigating">Investigating</li>
+            <li data-filter="resolved">Resolved</li>
+          </ul>
+          <div class="mlo-section-label mt-3">Severity</div>
+          <ul class="mlo-tree pastel-tree" id="tfSeverityFilter">
+            <li class="active" data-filter="all">All Severity</li>
+            <li data-filter="critical">Critical</li>
+            <li data-filter="high">High</li>
+            <li data-filter="medium">Medium</li>
+            <li data-filter="low">Low</li>
+          </ul>
+          <div class="mlo-section-label mt-3">Component Type</div>
+          <ul class="mlo-tree pastel-tree" id="tfComponentFilter">
+            <li class="active" data-filter="all">All Types</li>
+            <li data-filter="power_unit">Power Unit</li>
+            <li data-filter="gearbox">Gearbox</li>
+            <li data-filter="suspension">Suspension</li>
+            <li data-filter="brakes">Brakes</li>
+            <li data-filter="aero">Aero</li>
+            <li data-filter="electronics">Electronics</li>
+            <li data-filter="other">Other</li>
+          </ul>
+        </div>
+      </section>
+      <div class="mlo-resizer" id="tfResizer1"></div>
+      <section class="mlo-pane mlo-pane-mid" aria-label="Failure list">
+        <div class="mlo-pane-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="mlo-title">Failures</div>
+            <span class="badge text-bg-secondary" id="tfCountBadge">0</span>
+          </div>
+          <input class="form-control form-control-sm mt-2" type="search" id="tfSearch" placeholder="Search failure…" />
+        </div>
+        <div class="mlo-pane-content p-0">
+          <table class="tf-table">
+            <thead><tr><th>ID</th><th>Component</th><th>Event</th><th>Session</th><th>Severity</th><th>Status</th></tr></thead>
+            <tbody id="tfTableBody"><tr><td colspan="6" class="text-center text-secondary py-4">No failure records found.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+      <div class="mlo-resizer" id="tfResizer2"></div>
+      <section class="mlo-pane mlo-pane-right" aria-label="Failure detail">
+        <div class="mlo-pane-header"><div class="mlo-title" id="tfDetailTitle">Failure Detail</div></div>
+        <div class="mlo-pane-content">
+          <div class="text-center text-secondary py-5" id="tfDetailEmpty"><div style="font-size:2rem;">⚠️</div><div class="mt-2">Select a failure record</div></div>
+          <form id="tfForm" style="display:none;">
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Failure ID *</label><input class="form-control" id="tfFId" placeholder="TF-001" /></div>
+              <div class="col"><label class="form-label">Car Number</label><input class="form-control" id="tfFCar" placeholder="#1" /></div>
+            </div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Component Type *</label>
+                <select class="form-select" id="tfFCompType"><option value="power_unit">Power Unit</option><option value="gearbox">Gearbox</option><option value="suspension">Suspension</option><option value="brakes">Brakes</option><option value="aero">Aero</option><option value="electronics">Electronics</option><option value="other">Other</option></select></div>
+              <div class="col"><label class="form-label">Component Reference</label><input class="form-control" id="tfFCompRef" /></div>
+            </div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Event</label><input class="form-control" id="tfFEvent" /></div>
+              <div class="col"><label class="form-label">Session</label>
+                <select class="form-select" id="tfFSession"><option>FP1</option><option>FP2</option><option>FP3</option><option>Q</option><option>Race</option><option>Test</option><option>Between Events</option></select></div>
+            </div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Severity</label>
+                <select class="form-select" id="tfFSeverity"><option value="critical">Critical</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select></div>
+              <div class="col"><label class="form-label">Status</label>
+                <select class="form-select" id="tfFStatus"><option value="open">Open</option><option value="investigating">Investigating</option><option value="resolved">Resolved</option></select></div>
+            </div>
+            <div class="mb-2"><label class="form-label">Symptoms / Observations *</label><textarea class="form-control" id="tfFSymptoms" rows="2"></textarea></div>
+            <div class="mb-2"><label class="form-label">Root Cause (when known)</label><textarea class="form-control" id="tfFRootCause" rows="2"></textarea></div>
+            <div class="mb-2"><label class="form-label">Resolution / Corrective Action</label><textarea class="form-control" id="tfFResolution" rows="2"></textarea></div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Date Logged</label><input class="form-control" id="tfFDate" type="date" /></div>
+              <div class="col"><label class="form-label">Logged By</label><input class="form-control" id="tfFLoggedBy" /></div>
+            </div>
+            <div class="mb-3"><label class="form-label">Notes</label><textarea class="form-control" id="tfFNotes" rows="2"></textarea></div>
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-primary btn-sm" id="tfBtnSave">Save</button>
+              <button type="button" class="btn btn-outline-danger btn-sm" id="tfBtnDelete" style="display:none;">Delete</button>
+              <button type="button" class="btn btn-outline-secondary btn-sm" id="tfBtnCancel">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </section>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="core.js"></script><script src="topnav.js"></script>
+  <script>
+    let allTF=[],selectedId=null,filterStatus='all',filterSeverity='all',filterComp='all';
+    const sevBadge=s=>({critical:'badge-critical',high:'badge-high',medium:'badge-medium',low:'badge-low'}[s]||'badge-medium');
+    const stBadge=s=>({open:'badge-open',investigating:'badge-investigating',resolved:'badge-resolved'}[s]||'badge-open');
+    function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+    async function load(){try{const r=await fetch('/api/tech-failures');if(r.ok)allTF=await r.json();}catch(_){allTF=[];}renderList();}
+    function renderList(){
+      const q=document.getElementById('tfSearch').value.trim().toLowerCase();
+      const rows=allTF.filter(e=>{const ms=filterStatus==='all'||e.status===filterStatus;const msev=filterSeverity==='all'||e.severity===filterSeverity;const mc=filterComp==='all'||e.component_type===filterComp;const mq=!q||(e.failure_id||'').toLowerCase().includes(q)||(e.component_ref||'').toLowerCase().includes(q)||(e.event||'').toLowerCase().includes(q)||(e.symptoms||'').toLowerCase().includes(q);return ms&&msev&&mc&&mq;});
+      document.getElementById('tfCountBadge').textContent=rows.length;
+      document.getElementById('statTFTotal').textContent=allTF.length;
+      document.getElementById('statTFOpen').textContent=allTF.filter(e=>e.status==='open').length;
+      document.getElementById('statTFInv').textContent=allTF.filter(e=>e.status==='investigating').length;
+      document.getElementById('statTFResolved').textContent=allTF.filter(e=>e.status==='resolved').length;
+      const tb=document.getElementById('tfTableBody');
+      if(!rows.length){tb.innerHTML='<tr><td colspan="6" class="text-center text-secondary py-4">No failures match.</td></tr>';return;}
+      tb.innerHTML=rows.map(e=>`<tr data-id="${e.id}" class="${e.id==selectedId?'selected':''}">
+        <td><strong>${esc(e.failure_id||'—')}</strong></td><td>${esc(e.component_type?.replace('_',' ')||'—')}</td>
+        <td>${esc(e.event||'—')}</td><td>${esc(e.session||'—')}</td>
+        <td><span class="${sevBadge(e.severity)}">${esc(e.severity||'—')}</span></td>
+        <td><span class="${stBadge(e.status)}">${esc(e.status||'—')}</span></td></tr>`).join('');
+      tb.querySelectorAll('tr').forEach(r=>r.addEventListener('click',()=>selectTF(r.dataset.id)));
+    }
+    function selectTF(id){selectedId=id;const e=allTF.find(x=>x.id==id);if(!e)return;
+      document.getElementById('tfDetailEmpty').style.display='none';document.getElementById('tfForm').style.display='';
+      document.getElementById('tfDetailTitle').textContent=e.failure_id||'Failure';
+      document.getElementById('tfFId').value=e.failure_id||'';document.getElementById('tfFCar').value=e.car_number||'';
+      document.getElementById('tfFCompType').value=e.component_type||'other';document.getElementById('tfFCompRef').value=e.component_ref||'';
+      document.getElementById('tfFEvent').value=e.event||'';document.getElementById('tfFSession').value=e.session||'FP1';
+      document.getElementById('tfFSeverity').value=e.severity||'medium';document.getElementById('tfFStatus').value=e.status||'open';
+      document.getElementById('tfFSymptoms').value=e.symptoms||'';document.getElementById('tfFRootCause').value=e.root_cause||'';
+      document.getElementById('tfFResolution').value=e.resolution||'';document.getElementById('tfFDate').value=e.date_logged||'';
+      document.getElementById('tfFLoggedBy').value=e.logged_by||'';document.getElementById('tfFNotes').value=e.notes||'';
+      document.getElementById('tfBtnDelete').style.display='';renderList();}
+    document.getElementById('btnAddTF').addEventListener('click',()=>{selectedId=null;document.getElementById('tfDetailEmpty').style.display='none';document.getElementById('tfForm').style.display='';document.getElementById('tfDetailTitle').textContent='Log Failure';document.getElementById('tfForm').reset();document.getElementById('tfBtnDelete').style.display='none';});
+    document.getElementById('tfBtnSave').addEventListener('click',async()=>{
+      const body={failure_id:document.getElementById('tfFId').value.trim(),car_number:document.getElementById('tfFCar').value.trim(),component_type:document.getElementById('tfFCompType').value,component_ref:document.getElementById('tfFCompRef').value.trim(),event:document.getElementById('tfFEvent').value.trim(),session:document.getElementById('tfFSession').value,severity:document.getElementById('tfFSeverity').value,status:document.getElementById('tfFStatus').value,symptoms:document.getElementById('tfFSymptoms').value.trim(),root_cause:document.getElementById('tfFRootCause').value.trim(),resolution:document.getElementById('tfFResolution').value.trim(),date_logged:document.getElementById('tfFDate').value||null,logged_by:document.getElementById('tfFLoggedBy').value.trim(),notes:document.getElementById('tfFNotes').value.trim()};
+      if(!body.failure_id||!body.symptoms){alert('Failure ID and symptoms are required.');return;}
+      try{const url=selectedId?`/api/tech-failures/${selectedId}`:'/api/tech-failures';const r=await fetch(url,{method:selectedId?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error(await r.text());await load();}catch(e){alert('Save failed: '+e.message);}});
+    document.getElementById('tfBtnDelete').addEventListener('click',async()=>{if(!selectedId||!confirm('Delete this failure record?'))return;try{await fetch(`/api/tech-failures/${selectedId}`,{method:'DELETE'});selectedId=null;document.getElementById('tfDetailEmpty').style.display='';document.getElementById('tfForm').style.display='none';await load();}catch(e){alert('Delete failed: '+e.message);}});
+    document.getElementById('tfBtnCancel').addEventListener('click',()=>{document.getElementById('tfForm').style.display='none';document.getElementById('tfDetailEmpty').style.display='';});
+    document.getElementById('tfSearch').addEventListener('input',renderList);
+    document.querySelectorAll('#tfStatusFilter li').forEach(li=>li.addEventListener('click',()=>{document.querySelectorAll('#tfStatusFilter li').forEach(x=>x.classList.remove('active'));li.classList.add('active');filterStatus=li.dataset.filter;renderList();}));
+    document.querySelectorAll('#tfSeverityFilter li').forEach(li=>li.addEventListener('click',()=>{document.querySelectorAll('#tfSeverityFilter li').forEach(x=>x.classList.remove('active'));li.classList.add('active');filterSeverity=li.dataset.filter;renderList();}));
+    document.querySelectorAll('#tfComponentFilter li').forEach(li=>li.addEventListener('click',()=>{document.querySelectorAll('#tfComponentFilter li').forEach(x=>x.classList.remove('active'));li.classList.add('active');filterComp=li.dataset.filter;renderList();}));
+    load();
+  </script>
+</body>
+</html>

@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Race Team OS – Build Sheets</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="style.css" rel="stylesheet" />
+  <style>
+    body{background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%);}
+    .ev-stats-bar{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
+    .ev-stat-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:10px 16px;box-shadow:0 2px 4px rgba(0,0,0,.06);min-width:100px;}
+    .ev-stat-label{font-size:.7rem;color:#6c757d;font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+    .ev-stat-value{font-size:1.5rem;font-weight:700;color:#1a1d24;line-height:1.2;}
+    #bshShell.mlo-shell{background:transparent;border:none;gap:10px;}
+    #bshShell .mlo-pane-left,#bshShell .mlo-pane-mid,#bshShell .mlo-pane-right{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.06);}
+    #bshShell .mlo-pane-header{background:#f8f9fa;border-bottom:1px solid rgba(0,0,0,.1);}
+    #bshShell .mlo-title{color:#1a1d24!important;} #bshShell .mlo-section-label{color:#6c757d!important;opacity:1!important;}
+    #bshShell .mlo-resizer{background:transparent;} #bshShell .mlo-resizer:hover{background:rgba(166,77,255,.3);}
+    .bsh-table{width:100%;font-size:.82rem;border-collapse:separate;border-spacing:0;}
+    .bsh-table thead{position:sticky;top:0;background:#f8f9fa;z-index:5;}
+    .bsh-table th{padding:8px 10px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#6c757d;border-bottom:2px solid #dee2e6;}
+    .bsh-table td{padding:6px 10px;border-bottom:1px solid rgba(0,0,0,.05);vertical-align:middle;color:#1a1d24;}
+    .bsh-table tbody tr{cursor:pointer;transition:background .1s;}
+    .bsh-table tbody tr:hover{background:#f8f9fa;}
+    .bsh-table tbody tr.selected{background:rgba(166,77,255,.08)!important;outline:2px solid #a64dff;outline-offset:-2px;}
+    .badge-draft{background:#6c757d;color:#fff;border-radius:4px;font-size:.7rem;padding:2px 6px;}
+    .badge-active{background:#0d6efd;color:#fff;border-radius:4px;font-size:.7rem;padding:2px 6px;}
+    .badge-approved{background:#198754;color:#fff;border-radius:4px;font-size:.7rem;padding:2px 6px;}
+    .badge-superseded{background:#ffc107;color:#000;border-radius:4px;font-size:.7rem;padding:2px 6px;}
+    #bshShell .form-label{color:#495057!important;font-size:.78rem;font-weight:600;margin-bottom:2px;}
+    #bshShell .form-control,#bshShell .form-select{background:#fff!important;color:#1a1d24!important;border-color:#dee2e6!important;font-size:.82rem;}
+    #bshShell .mlo-pane-left .pastel-tree li{height:28px!important;display:flex!important;align-items:center!important;font-size:.83rem!important;font-weight:500!important;padding-left:10px!important;margin-bottom:2px!important;border-radius:5px!important;border:1px solid rgba(0,0,0,.08)!important;color:#1a1d24!important;cursor:pointer!important;}
+    #bshShell .mlo-pane-left .pastel-tree li.active{background:rgba(166,77,255,.1)!important;border-color:rgba(166,77,255,.35)!important;color:#7c3aed!important;font-weight:700!important;}
+  </style>
+</head>
+<body class="light-mode">
+  <div id="rtsTopNav"></div>
+  <div class="rts-version-badge">v1</div>
+  <div class="rts-main container-fluid">
+    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+      <div>
+        <h1 class="h4 mb-1">Build Sheets</h1>
+        <div class="text-secondary" style="font-size:.85rem;">Step-by-step assembly instructions and procedure library.</div>
+      </div>
+      <button class="btn btn-sm btn-primary" id="btnAddBSH">+ New Build Sheet</button>
+    </div>
+    <div class="ev-stats-bar">
+      <div class="ev-stat-card"><div class="ev-stat-label">Total Sheets</div><div class="ev-stat-value" id="statBSHTotal">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Active</div><div class="ev-stat-value" id="statBSHActive">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Approved</div><div class="ev-stat-value" id="statBSHApproved">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Draft</div><div class="ev-stat-value" id="statBSHDraft">0</div></div>
+    </div>
+    <div class="mlo-shell" id="bshShell">
+      <section class="mlo-pane mlo-pane-left">
+        <div class="mlo-pane-header"><div class="mlo-title">Filter</div></div>
+        <div class="mlo-pane-content">
+          <div class="mlo-section-label">Status</div>
+          <ul class="mlo-tree pastel-tree" id="bshStatusFilter">
+            <li class="active" data-filter="all">All Status</li>
+            <li data-filter="draft">Draft</li>
+            <li data-filter="active">Active</li>
+            <li data-filter="approved">Approved</li>
+            <li data-filter="superseded">Superseded</li>
+          </ul>
+          <div class="mlo-section-label mt-3">Assembly Area</div>
+          <ul class="mlo-tree pastel-tree" id="bshAreaFilter">
+            <li class="active" data-filter="all">All Areas</li>
+            <li data-filter="Front End">Front End</li>
+            <li data-filter="Rear End">Rear End</li>
+            <li data-filter="Gearbox">Gearbox</li>
+            <li data-filter="Suspension">Suspension</li>
+            <li data-filter="Bodywork">Bodywork</li>
+            <li data-filter="Electronics">Electronics</li>
+            <li data-filter="Other">Other</li>
+          </ul>
+        </div>
+      </section>
+      <div class="mlo-resizer" id="bshResizer1"></div>
+      <section class="mlo-pane mlo-pane-mid">
+        <div class="mlo-pane-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="mlo-title">Sheets</div>
+            <span class="badge text-bg-secondary" id="bshCountBadge">0</span>
+          </div>
+          <input class="form-control form-control-sm mt-2" type="search" id="bshSearch" placeholder="Search sheet…" />
+        </div>
+        <div class="mlo-pane-content p-0">
+          <table class="bsh-table">
+            <thead><tr><th>Sheet Title</th><th>Area</th><th>Rev.</th><th>Assigned To</th><th>Status</th></tr></thead>
+            <tbody id="bshTableBody"><tr><td colspan="5" class="text-center text-secondary py-4">No build sheets found.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+      <div class="mlo-resizer" id="bshResizer2"></div>
+      <section class="mlo-pane mlo-pane-right">
+        <div class="mlo-pane-header"><div class="mlo-title" id="bshDetailTitle">Sheet Detail</div></div>
+        <div class="mlo-pane-content">
+          <div class="text-center text-secondary py-5" id="bshDetailEmpty"><div style="font-size:2rem;">📋</div><div class="mt-2">Select a build sheet</div></div>
+          <form id="bshForm" style="display:none;">
+            <div class="mb-2"><label class="form-label">Sheet Title *</label><input class="form-control" id="bshFTitle" /></div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Assembly Area</label>
+                <select class="form-select" id="bshFArea"><option>Front End</option><option>Rear End</option><option>Gearbox</option><option>Suspension</option><option>Bodywork</option><option>Electronics</option><option>Other</option></select></div>
+              <div class="col"><label class="form-label">Revision Number</label><input class="form-control" id="bshFRev" placeholder="Rev 1.0" /></div>
+            </div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Status</label>
+                <select class="form-select" id="bshFStatus"><option value="draft">Draft</option><option value="active">Active</option><option value="approved">Approved</option><option value="superseded">Superseded</option></select></div>
+              <div class="col"><label class="form-label">Assigned To</label><input class="form-control" id="bshFAssigned" /></div>
+            </div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Est. Time (hrs)</label><input class="form-control" id="bshFEstTime" type="number" step="0.5" /></div>
+              <div class="col"><label class="form-label">Approved By</label><input class="form-control" id="bshFApprBy" /></div>
+            </div>
+            <div class="mb-2"><label class="form-label">Torque Specs & Key Figures</label><textarea class="form-control" id="bshFTorque" rows="2" placeholder="e.g. M8 bolt: 25Nm, rear wing: 35Nm…"></textarea></div>
+            <div class="mb-2"><label class="form-label">Tools Required</label><textarea class="form-control" id="bshFTools" rows="2"></textarea></div>
+            <div class="mb-2"><label class="form-label">Procedure Steps</label><textarea class="form-control" id="bshFSteps" rows="5" placeholder="1. …&#10;2. …&#10;3. …"></textarea></div>
+            <div class="mb-3"><label class="form-label">Notes / Warnings</label><textarea class="form-control" id="bshFNotes" rows="2"></textarea></div>
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-primary btn-sm" id="bshBtnSave">Save</button>
+              <button type="button" class="btn btn-outline-danger btn-sm" id="bshBtnDelete" style="display:none;">Delete</button>
+              <button type="button" class="btn btn-outline-secondary btn-sm" id="bshBtnCancel">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </section>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="core.js"></script><script src="topnav.js"></script>
+  <script>
+    let allBSH=[],selectedId=null,filterStatus='all',filterArea='all';
+    const stBadge=s=>({draft:'badge-draft',active:'badge-active',approved:'badge-approved',superseded:'badge-superseded'}[s]||'badge-draft');
+    function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+    async function load(){try{const r=await fetch('/api/build-sheets');if(r.ok)allBSH=await r.json();}catch(_){allBSH=[];}renderList();}
+    function renderList(){
+      const q=document.getElementById('bshSearch').value.trim().toLowerCase();
+      const rows=allBSH.filter(e=>{const ms=filterStatus==='all'||e.status===filterStatus;const ma=filterArea==='all'||e.assembly_area===filterArea;const mq=!q||(e.title||'').toLowerCase().includes(q)||(e.assigned_to||'').toLowerCase().includes(q);return ms&&ma&&mq;});
+      document.getElementById('bshCountBadge').textContent=rows.length;
+      document.getElementById('statBSHTotal').textContent=allBSH.length;
+      document.getElementById('statBSHActive').textContent=allBSH.filter(e=>e.status==='active').length;
+      document.getElementById('statBSHApproved').textContent=allBSH.filter(e=>e.status==='approved').length;
+      document.getElementById('statBSHDraft').textContent=allBSH.filter(e=>e.status==='draft').length;
+      const tb=document.getElementById('bshTableBody');
+      if(!rows.length){tb.innerHTML='<tr><td colspan="5" class="text-center text-secondary py-4">No sheets match.</td></tr>';return;}
+      tb.innerHTML=rows.map(e=>`<tr data-id="${e.id}" class="${e.id==selectedId?'selected':''}">
+        <td><strong>${esc(e.title||'—')}</strong></td><td>${esc(e.assembly_area||'—')}</td><td>${esc(e.revision||'—')}</td>
+        <td>${esc(e.assigned_to||'—')}</td><td><span class="${stBadge(e.status)}">${esc(e.status||'—')}</span></td></tr>`).join('');
+      tb.querySelectorAll('tr').forEach(r=>r.addEventListener('click',()=>selectBSH(r.dataset.id)));
+    }
+    function selectBSH(id){selectedId=id;const e=allBSH.find(x=>x.id==id);if(!e)return;
+      document.getElementById('bshDetailEmpty').style.display='none';document.getElementById('bshForm').style.display='';
+      document.getElementById('bshDetailTitle').textContent=e.title||'Sheet';
+      document.getElementById('bshFTitle').value=e.title||'';document.getElementById('bshFArea').value=e.assembly_area||'Other';
+      document.getElementById('bshFRev').value=e.revision||'';document.getElementById('bshFStatus').value=e.status||'draft';
+      document.getElementById('bshFAssigned').value=e.assigned_to||'';document.getElementById('bshFEstTime').value=e.est_time||'';
+      document.getElementById('bshFApprBy').value=e.approved_by||'';document.getElementById('bshFTorque').value=e.torque_specs||'';
+      document.getElementById('bshFTools').value=e.tools_required||'';document.getElementById('bshFSteps').value=e.procedure_steps||'';
+      document.getElementById('bshFNotes').value=e.notes||'';document.getElementById('bshBtnDelete').style.display='';renderList();}
+    document.getElementById('btnAddBSH').addEventListener('click',()=>{selectedId=null;document.getElementById('bshDetailEmpty').style.display='none';document.getElementById('bshForm').style.display='';document.getElementById('bshDetailTitle').textContent='New Build Sheet';document.getElementById('bshForm').reset();document.getElementById('bshBtnDelete').style.display='none';});
+    document.getElementById('bshBtnSave').addEventListener('click',async()=>{
+      const body={title:document.getElementById('bshFTitle').value.trim(),assembly_area:document.getElementById('bshFArea').value,revision:document.getElementById('bshFRev').value.trim(),status:document.getElementById('bshFStatus').value,assigned_to:document.getElementById('bshFAssigned').value.trim(),est_time:document.getElementById('bshFEstTime').value||null,approved_by:document.getElementById('bshFApprBy').value.trim(),torque_specs:document.getElementById('bshFTorque').value.trim(),tools_required:document.getElementById('bshFTools').value.trim(),procedure_steps:document.getElementById('bshFSteps').value.trim(),notes:document.getElementById('bshFNotes').value.trim()};
+      if(!body.title){alert('Title is required.');return;}
+      try{const url=selectedId?`/api/build-sheets/${selectedId}`:'/api/build-sheets';const r=await fetch(url,{method:selectedId?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error(await r.text());await load();}catch(e){alert('Save failed: '+e.message);}});
+    document.getElementById('bshBtnDelete').addEventListener('click',async()=>{if(!selectedId||!confirm('Delete this sheet?'))return;try{await fetch(`/api/build-sheets/${selectedId}`,{method:'DELETE'});selectedId=null;document.getElementById('bshDetailEmpty').style.display='';document.getElementById('bshForm').style.display='none';await load();}catch(e){alert('Delete failed: '+e.message);}});
+    document.getElementById('bshBtnCancel').addEventListener('click',()=>{document.getElementById('bshForm').style.display='none';document.getElementById('bshDetailEmpty').style.display='';});
+    document.getElementById('bshSearch').addEventListener('input',renderList);
+    document.querySelectorAll('#bshStatusFilter li').forEach(li=>li.addEventListener('click',()=>{document.querySelectorAll('#bshStatusFilter li').forEach(x=>x.classList.remove('active'));li.classList.add('active');filterStatus=li.dataset.filter;renderList();}));
+    document.querySelectorAll('#bshAreaFilter li').forEach(li=>li.addEventListener('click',()=>{document.querySelectorAll('#bshAreaFilter li').forEach(x=>x.classList.remove('active'));li.classList.add('active');filterArea=li.dataset.filter;renderList();}));
+    load();
+  </script>
+</body>
+</html>

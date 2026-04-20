@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Race Team OS – Staff Directory</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="style.css" rel="stylesheet" />
+  <style>
+    body{background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%);}
+    .ev-stats-bar{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
+    .ev-stat-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:10px 16px;box-shadow:0 2px 4px rgba(0,0,0,.06);min-width:100px;}
+    .ev-stat-label{font-size:.7rem;color:#6c757d;font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+    .ev-stat-value{font-size:1.5rem;font-weight:700;color:#1a1d24;line-height:1.2;}
+    #stfShell.mlo-shell{background:transparent;border:none;gap:10px;}
+    #stfShell .mlo-pane-left,#stfShell .mlo-pane-mid,#stfShell .mlo-pane-right{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.06);}
+    #stfShell .mlo-pane-header{background:#f8f9fa;border-bottom:1px solid rgba(0,0,0,.1);}
+    #stfShell .mlo-title{color:#1a1d24!important;} #stfShell .mlo-section-label{color:#6c757d!important;opacity:1!important;}
+    #stfShell .mlo-resizer{background:transparent;} #stfShell .mlo-resizer:hover{background:rgba(166,77,255,.3);}
+    .stf-table{width:100%;font-size:.82rem;border-collapse:separate;border-spacing:0;}
+    .stf-table thead{position:sticky;top:0;background:#f8f9fa;z-index:5;}
+    .stf-table th{padding:8px 10px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#6c757d;border-bottom:2px solid #dee2e6;}
+    .stf-table td{padding:6px 10px;border-bottom:1px solid rgba(0,0,0,.05);vertical-align:middle;color:#1a1d24;}
+    .stf-table tbody tr{cursor:pointer;transition:background .1s;}
+    .stf-table tbody tr:hover{background:#f8f9fa;}
+    .stf-table tbody tr.selected{background:rgba(166,77,255,.08)!important;outline:2px solid #a64dff;outline-offset:-2px;}
+    #stfShell .form-label{color:#495057!important;font-size:.78rem;font-weight:600;margin-bottom:2px;}
+    #stfShell .form-control,#stfShell .form-select{background:#fff!important;color:#1a1d24!important;border-color:#dee2e6!important;font-size:.82rem;}
+    #stfShell .mlo-pane-left .pastel-tree li{height:28px!important;display:flex!important;align-items:center!important;font-size:.83rem!important;font-weight:500!important;padding-left:10px!important;margin-bottom:2px!important;border-radius:5px!important;border:1px solid rgba(0,0,0,.08)!important;color:#1a1d24!important;cursor:pointer!important;}
+    #stfShell .mlo-pane-left .pastel-tree li.active{background:rgba(166,77,255,.1)!important;border-color:rgba(166,77,255,.35)!important;color:#7c3aed!important;font-weight:700!important;}
+  </style>
+</head>
+<body class="light-mode">
+  <div id="rtsTopNav"></div>
+  <div class="rts-version-badge">v1</div>
+  <div class="rts-main container-fluid">
+    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+      <div>
+        <h1 class="h4 mb-1">Staff Directory</h1>
+        <div class="text-secondary" style="font-size:.85rem;">Team org chart, roles, departments, and contact details.</div>
+      </div>
+      <button class="btn btn-sm btn-primary" id="btnAddStf">+ Add Staff</button>
+    </div>
+    <div class="ev-stats-bar">
+      <div class="ev-stat-card"><div class="ev-stat-label">Total Staff</div><div class="ev-stat-value" id="statStfTotal">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Full Time</div><div class="ev-stat-value" id="statStfFT">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Freelance / Contract</div><div class="ev-stat-value" id="statStfFC">0</div></div>
+    </div>
+    <div class="mlo-shell" id="stfShell">
+      <section class="mlo-pane mlo-pane-left">
+        <div class="mlo-pane-header"><div class="mlo-title">Filter</div></div>
+        <div class="mlo-pane-content">
+          <div class="mlo-section-label">Department</div>
+          <ul class="mlo-tree pastel-tree" id="stfDeptFilter">
+            <li class="active" data-filter="all">All</li>
+            <li data-filter="Engineering">Engineering</li>
+            <li data-filter="Operations">Operations</li>
+            <li data-filter="Sporting">Sporting</li>
+            <li data-filter="Finance">Finance</li>
+            <li data-filter="HR">HR</li>
+            <li data-filter="Driver">Driver</li>
+            <li data-filter="Management">Management</li>
+          </ul>
+          <div class="mlo-section-label mt-3">Employment</div>
+          <ul class="mlo-tree pastel-tree" id="stfEmpFilter">
+            <li class="active" data-filter="all">All</li>
+            <li data-filter="full_time">Full Time</li>
+            <li data-filter="part_time">Part Time</li>
+            <li data-filter="contract">Contract</li>
+            <li data-filter="freelance">Freelance</li>
+          </ul>
+        </div>
+      </section>
+      <div class="mlo-resizer"></div>
+      <section class="mlo-pane mlo-pane-mid">
+        <div class="mlo-pane-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="mlo-title">Staff</div>
+            <span class="badge text-bg-secondary" id="stfCountBadge">0</span>
+          </div>
+          <input class="form-control form-control-sm mt-2" type="search" id="stfSearch" placeholder="Search name or role…" />
+        </div>
+        <div class="mlo-pane-content p-0">
+          <table class="stf-table">
+            <thead><tr><th>Name</th><th>Role</th><th>Department</th><th>Reports To</th><th>Employment</th></tr></thead>
+            <tbody id="stfTableBody"><tr><td colspan="5" class="text-center text-secondary py-4">No staff found.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+      <div class="mlo-resizer"></div>
+      <section class="mlo-pane mlo-pane-right">
+        <div class="mlo-pane-header"><div class="mlo-title" id="stfDetailTitle">Staff Detail</div></div>
+        <div class="mlo-pane-content">
+          <div class="text-center text-secondary py-5" id="stfDetailEmpty"><div style="font-size:2rem;">👥</div><div class="mt-2">Select a staff member</div></div>
+          <form id="stfForm" style="display:none;">
+            <div class="mb-2"><label class="form-label">Full Name *</label><input class="form-control" id="stfFName" /></div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Role / Job Title</label><input class="form-control" id="stfFRole" /></div>
+              <div class="col"><label class="form-label">Department</label><input class="form-control" id="stfFDept" placeholder="e.g. Engineering" /></div>
+            </div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Reports To</label><input class="form-control" id="stfFReports" /></div>
+              <div class="col"><label class="form-label">Employment Type</label>
+                <select class="form-select" id="stfFEmp"><option value="full_time">Full Time</option><option value="part_time">Part Time</option><option value="contract">Contract</option><option value="freelance">Freelance</option></select></div>
+            </div>
+            <div class="mb-2"><label class="form-label">Contact (email / phone)</label><input class="form-control" id="stfFContact" /></div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Start Date</label><input class="form-control" id="stfFStart" type="date" /></div>
+              <div class="col"><label class="form-label">Nationality</label><input class="form-control" id="stfFNat" /></div>
+            </div>
+            <div class="mb-3"><label class="form-label">Notes</label><textarea class="form-control" id="stfFNotes" rows="3"></textarea></div>
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-primary btn-sm" id="stfBtnSave">Save</button>
+              <button type="button" class="btn btn-outline-danger btn-sm" id="stfBtnDelete" style="display:none;">Delete</button>
+              <button type="button" class="btn btn-outline-secondary btn-sm" id="stfBtnCancel">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </section>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="core.js"></script><script src="topnav.js"></script>
+  <script>
+    let allStf=[],selectedId=null,filterDept='all',filterEmp='all';
+    function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+    async function load(){try{const r=await fetch('/api/staff');if(r.ok)allStf=await r.json();}catch(_){allStf=[];}renderList();}
+    function renderList(){
+      const q=document.getElementById('stfSearch').value.trim().toLowerCase();
+      const rows=allStf.filter(e=>{const md=filterDept==='all'||e.department===filterDept;const me=filterEmp==='all'||e.employment_type===filterEmp;const mq=!q||(e.name||'').toLowerCase().includes(q)||(e.role||'').toLowerCase().includes(q);return md&&me&&mq;});
+      document.getElementById('stfCountBadge').textContent=rows.length;
+      document.getElementById('statStfTotal').textContent=allStf.length;
+      document.getElementById('statStfFT').textContent=allStf.filter(e=>e.employment_type==='full_time').length;
+      document.getElementById('statStfFC').textContent=allStf.filter(e=>e.employment_type==='freelance'||e.employment_type==='contract').length;
+      const tb=document.getElementById('stfTableBody');
+      if(!rows.length){tb.innerHTML='<tr><td colspan="5" class="text-center text-secondary py-4">No staff match.</td></tr>';return;}
+      tb.innerHTML=rows.map(e=>`<tr data-id="${e.id}" class="${e.id==selectedId?'selected':''}">
+        <td><strong>${esc(e.name||'—')}</strong></td><td>${esc(e.role||'—')}</td>
+        <td>${esc(e.department||'—')}</td><td>${esc(e.reports_to||'—')}</td>
+        <td><span class="badge text-bg-secondary" style="font-size:.68rem;">${esc(e.employment_type||'—')}</span></td></tr>`).join('');
+      tb.querySelectorAll('tr').forEach(r=>r.addEventListener('click',()=>selectStf(r.dataset.id)));
+    }
+    function selectStf(id){selectedId=id;const e=allStf.find(x=>x.id==id);if(!e)return;
+      document.getElementById('stfDetailEmpty').style.display='none';document.getElementById('stfForm').style.display='';
+      document.getElementById('stfDetailTitle').textContent=e.name||'Staff';
+      document.getElementById('stfFName').value=e.name||'';document.getElementById('stfFRole').value=e.role||'';
+      document.getElementById('stfFDept').value=e.department||'';document.getElementById('stfFReports').value=e.reports_to||'';
+      document.getElementById('stfFEmp').value=e.employment_type||'full_time';document.getElementById('stfFContact').value=e.contact||'';
+      document.getElementById('stfFStart').value=e.start_date||'';document.getElementById('stfFNat').value=e.nationality||'';
+      document.getElementById('stfFNotes').value=e.notes||'';
+      document.getElementById('stfBtnDelete').style.display='';renderList();}
+    document.getElementById('btnAddStf').addEventListener('click',()=>{selectedId=null;document.getElementById('stfDetailEmpty').style.display='none';document.getElementById('stfForm').style.display='';document.getElementById('stfDetailTitle').textContent='New Staff';document.getElementById('stfForm').reset();document.getElementById('stfBtnDelete').style.display='none';});
+    document.getElementById('stfBtnSave').addEventListener('click',async()=>{
+      const body={name:document.getElementById('stfFName').value.trim(),role:document.getElementById('stfFRole').value.trim(),department:document.getElementById('stfFDept').value.trim(),reports_to:document.getElementById('stfFReports').value.trim(),employment_type:document.getElementById('stfFEmp').value,contact:document.getElementById('stfFContact').value.trim(),start_date:document.getElementById('stfFStart').value||null,nationality:document.getElementById('stfFNat').value.trim(),notes:document.getElementById('stfFNotes').value.trim()};
+      if(!body.name){alert('Full name is required.');return;}
+      try{const url=selectedId?`/api/staff/${selectedId}`:'/api/staff';const r=await fetch(url,{method:selectedId?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error(await r.text());await load();}catch(e){alert('Save failed: '+e.message);}});
+    document.getElementById('stfBtnDelete').addEventListener('click',async()=>{if(!selectedId||!confirm('Remove this staff member?'))return;try{await fetch(`/api/staff/${selectedId}`,{method:'DELETE'});selectedId=null;document.getElementById('stfDetailEmpty').style.display='';document.getElementById('stfForm').style.display='none';await load();}catch(e){alert('Delete failed: '+e.message);}});
+    document.getElementById('stfBtnCancel').addEventListener('click',()=>{document.getElementById('stfForm').style.display='none';document.getElementById('stfDetailEmpty').style.display='';});
+    document.getElementById('stfSearch').addEventListener('input',renderList);
+    document.querySelectorAll('#stfDeptFilter li').forEach(li=>li.addEventListener('click',()=>{document.querySelectorAll('#stfDeptFilter li').forEach(x=>x.classList.remove('active'));li.classList.add('active');filterDept=li.dataset.filter;renderList();}));
+    document.querySelectorAll('#stfEmpFilter li').forEach(li=>li.addEventListener('click',()=>{document.querySelectorAll('#stfEmpFilter li').forEach(x=>x.classList.remove('active'));li.classList.add('active');filterEmp=li.dataset.filter;renderList();}));
+    load();
+  </script>
+</body>
+</html>

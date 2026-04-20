@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Race Team OS – Consumables</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="style.css" rel="stylesheet" />
+  <style>
+    body{background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%);}
+    .ev-stats-bar{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
+    .ev-stat-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:10px 16px;box-shadow:0 2px 4px rgba(0,0,0,.06);min-width:100px;}
+    .ev-stat-label{font-size:.7rem;color:#6c757d;font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+    .ev-stat-value{font-size:1.5rem;font-weight:700;color:#1a1d24;line-height:1.2;}
+    #conShell.mlo-shell{background:transparent;border:none;gap:10px;}
+    #conShell .mlo-pane-left,#conShell .mlo-pane-mid,#conShell .mlo-pane-right{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.06);}
+    #conShell .mlo-pane-header{background:#f8f9fa;border-bottom:1px solid rgba(0,0,0,.1);}
+    #conShell .mlo-title{color:#1a1d24!important;} #conShell .mlo-section-label{color:#6c757d!important;opacity:1!important;}
+    #conShell .mlo-resizer{background:transparent;} #conShell .mlo-resizer:hover{background:rgba(166,77,255,.3);}
+    .con-table{width:100%;font-size:.82rem;border-collapse:separate;border-spacing:0;}
+    .con-table thead{position:sticky;top:0;background:#f8f9fa;z-index:5;}
+    .con-table th{padding:8px 10px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#6c757d;border-bottom:2px solid #dee2e6;}
+    .con-table td{padding:6px 10px;border-bottom:1px solid rgba(0,0,0,.05);vertical-align:middle;color:#1a1d24;}
+    .con-table tbody tr{cursor:pointer;transition:background .1s;}
+    .con-table tbody tr:hover{background:#f8f9fa;}
+    .con-table tbody tr.selected{background:rgba(166,77,255,.08)!important;outline:2px solid #a64dff;outline-offset:-2px;}
+    .stock-ok{color:#198754;font-weight:700;}
+    .stock-low{color:#ffc107;font-weight:700;}
+    .stock-critical{color:#dc3545;font-weight:700;}
+    #conShell .form-label{color:#495057!important;font-size:.78rem;font-weight:600;margin-bottom:2px;}
+    #conShell .form-control,#conShell .form-select{background:#fff!important;color:#1a1d24!important;border-color:#dee2e6!important;font-size:.82rem;}
+    #conShell .mlo-pane-left .pastel-tree li{height:28px!important;display:flex!important;align-items:center!important;font-size:.83rem!important;font-weight:500!important;padding-left:10px!important;margin-bottom:2px!important;border-radius:5px!important;border:1px solid rgba(0,0,0,.08)!important;color:#1a1d24!important;cursor:pointer!important;}
+    #conShell .mlo-pane-left .pastel-tree li.active{background:rgba(166,77,255,.1)!important;border-color:rgba(166,77,255,.35)!important;color:#7c3aed!important;font-weight:700!important;}
+  </style>
+</head>
+<body class="light-mode">
+  <div id="rtsTopNav"></div>
+  <div class="rts-version-badge">v1</div>
+  <div class="rts-main container-fluid">
+    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+      <div>
+        <h1 class="h4 mb-1">Consumables</h1>
+        <div class="text-secondary" style="font-size:.85rem;">Build consumables stock levels, usage tracking, and reorder alerts.</div>
+      </div>
+      <button class="btn btn-sm btn-primary" id="btnAddCon">+ New Item</button>
+    </div>
+    <div class="ev-stats-bar">
+      <div class="ev-stat-card"><div class="ev-stat-label">Total Items</div><div class="ev-stat-value" id="statConTotal">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">OK</div><div class="ev-stat-value" id="statConOK">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Low Stock</div><div class="ev-stat-value" id="statConLow">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Critical</div><div class="ev-stat-value" id="statConCrit">0</div></div>
+    </div>
+    <div class="mlo-shell" id="conShell">
+      <section class="mlo-pane mlo-pane-left">
+        <div class="mlo-pane-header"><div class="mlo-title">Filter</div></div>
+        <div class="mlo-pane-content">
+          <div class="mlo-section-label">Stock Level</div>
+          <ul class="mlo-tree pastel-tree" id="conStockFilter">
+            <li class="active" data-filter="all">All Stock</li>
+            <li data-filter="ok">OK</li>
+            <li data-filter="low">Low</li>
+            <li data-filter="critical">Critical</li>
+          </ul>
+          <div class="mlo-section-label mt-3">Category</div>
+          <ul class="mlo-tree pastel-tree" id="conCatFilter">
+            <li class="active" data-filter="all">All Categories</li>
+            <li data-filter="Fasteners">Fasteners</li>
+            <li data-filter="Lubricants">Lubricants</li>
+            <li data-filter="Seals">Seals &amp; Gaskets</li>
+            <li data-filter="Bearings">Bearings</li>
+            <li data-filter="Adhesives">Adhesives</li>
+            <li data-filter="Safety">Safety Items</li>
+            <li data-filter="Other">Other</li>
+          </ul>
+        </div>
+      </section>
+      <div class="mlo-resizer"></div>
+      <section class="mlo-pane mlo-pane-mid">
+        <div class="mlo-pane-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="mlo-title">Items</div>
+            <span class="badge text-bg-secondary" id="conCountBadge">0</span>
+          </div>
+          <input class="form-control form-control-sm mt-2" type="search" id="conSearch" placeholder="Search item…" />
+        </div>
+        <div class="mlo-pane-content p-0">
+          <table class="con-table">
+            <thead><tr><th>Item</th><th>Category</th><th>Unit</th><th>Qty Available</th><th>Reorder At</th><th>Stock</th></tr></thead>
+            <tbody id="conTableBody"><tr><td colspan="6" class="text-center text-secondary py-4">No consumables found.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+      <div class="mlo-resizer"></div>
+      <section class="mlo-pane mlo-pane-right">
+        <div class="mlo-pane-header"><div class="mlo-title" id="conDetailTitle">Item Detail</div></div>
+        <div class="mlo-pane-content">
+          <div class="text-center text-secondary py-5" id="conDetailEmpty"><div style="font-size:2rem;">📦</div><div class="mt-2">Select a consumable item</div></div>
+          <form id="conForm" style="display:none;">
+            <div class="mb-2"><label class="form-label">Item Name *</label><input class="form-control" id="conFName" /></div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Category</label>
+                <select class="form-select" id="conFCat"><option>Fasteners</option><option>Lubricants</option><option>Seals</option><option>Bearings</option><option>Adhesives</option><option>Safety Items</option><option>Other</option></select></div>
+              <div class="col"><label class="form-label">Unit of Measure</label><input class="form-control" id="conFUnit" placeholder="pcs / ml / kg" /></div>
+            </div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Qty Available</label><input class="form-control" id="conFQty" type="number" step="1" />
+              </div>
+              <div class="col"><label class="form-label">Reorder At (qty)</label><input class="form-control" id="conFReorder" type="number" step="1" /></div>
+            </div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Supplier</label><input class="form-control" id="conFSupplier" /></div>
+              <div class="col"><label class="form-label">Part / SKU Reference</label><input class="form-control" id="conFRef" /></div>
+            </div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Unit Cost (£)</label><input class="form-control" id="conFCost" type="number" step="0.01" /></div>
+              <div class="col"><label class="form-label">Storage Location</label><input class="form-control" id="conFLoc" /></div>
+            </div>
+            <div class="mb-3"><label class="form-label">Notes</label><textarea class="form-control" id="conFNotes" rows="2"></textarea></div>
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-primary btn-sm" id="conBtnSave">Save</button>
+              <button type="button" class="btn btn-outline-danger btn-sm" id="conBtnDelete" style="display:none;">Delete</button>
+              <button type="button" class="btn btn-outline-secondary btn-sm" id="conBtnCancel">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </section>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="core.js"></script><script src="topnav.js"></script>
+  <script>
+    let allCon=[],selectedId=null,filterStock='all',filterCat='all';
+    function stockStatus(e){const q=Number(e.qty_available)||0;const r=Number(e.reorder_at)||0;if(q===0||q<=r/2)return'critical';if(q<=r)return'low';return'ok';}
+    function stockClass(s){return s==='ok'?'stock-ok':s==='low'?'stock-low':'stock-critical';}
+    function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+    async function load(){try{const r=await fetch('/api/consumables');if(r.ok)allCon=await r.json();}catch(_){allCon=[];}renderList();}
+    function renderList(){
+      const q=document.getElementById('conSearch').value.trim().toLowerCase();
+      const rows=allCon.filter(e=>{const st=stockStatus(e);const ms=filterStock==='all'||st===filterStock;const mc=filterCat==='all'||e.category===filterCat;const mq=!q||(e.item_name||'').toLowerCase().includes(q)||(e.sku_ref||'').toLowerCase().includes(q);return ms&&mc&&mq;});
+      document.getElementById('conCountBadge').textContent=rows.length;
+      document.getElementById('statConTotal').textContent=allCon.length;
+      document.getElementById('statConOK').textContent=allCon.filter(e=>stockStatus(e)==='ok').length;
+      document.getElementById('statConLow').textContent=allCon.filter(e=>stockStatus(e)==='low').length;
+      document.getElementById('statConCrit').textContent=allCon.filter(e=>stockStatus(e)==='critical').length;
+      const tb=document.getElementById('conTableBody');
+      if(!rows.length){tb.innerHTML='<tr><td colspan="6" class="text-center text-secondary py-4">No items match.</td></tr>';return;}
+      tb.innerHTML=rows.map(e=>{const st=stockStatus(e);return`<tr data-id="${e.id}" class="${e.id==selectedId?'selected':''}">
+        <td><strong>${esc(e.item_name||'—')}</strong></td><td>${esc(e.category||'—')}</td><td>${esc(e.unit||'—')}</td>
+        <td class="${stockClass(st)}">${e.qty_available||0}</td><td>${e.reorder_at||0}</td>
+        <td class="${stockClass(st)} text-capitalize">${st}</td></tr>`;}).join('');
+      tb.querySelectorAll('tr').forEach(r=>r.addEventListener('click',()=>selectCon(r.dataset.id)));
+    }
+    function selectCon(id){selectedId=id;const e=allCon.find(x=>x.id==id);if(!e)return;
+      document.getElementById('conDetailEmpty').style.display='none';document.getElementById('conForm').style.display='';
+      document.getElementById('conDetailTitle').textContent=e.item_name||'Item';
+      document.getElementById('conFName').value=e.item_name||'';document.getElementById('conFCat').value=e.category||'Other';
+      document.getElementById('conFUnit').value=e.unit||'';document.getElementById('conFQty').value=e.qty_available||0;
+      document.getElementById('conFReorder').value=e.reorder_at||0;document.getElementById('conFSupplier').value=e.supplier||'';
+      document.getElementById('conFRef').value=e.sku_ref||'';document.getElementById('conFCost').value=e.unit_cost||'';
+      document.getElementById('conFLoc').value=e.storage_location||'';document.getElementById('conFNotes').value=e.notes||'';
+      document.getElementById('conBtnDelete').style.display='';renderList();}
+    document.getElementById('btnAddCon').addEventListener('click',()=>{selectedId=null;document.getElementById('conDetailEmpty').style.display='none';document.getElementById('conForm').style.display='';document.getElementById('conDetailTitle').textContent='New Item';document.getElementById('conForm').reset();document.getElementById('conBtnDelete').style.display='none';});
+    document.getElementById('conBtnSave').addEventListener('click',async()=>{
+      const body={item_name:document.getElementById('conFName').value.trim(),category:document.getElementById('conFCat').value,unit:document.getElementById('conFUnit').value.trim(),qty_available:parseInt(document.getElementById('conFQty').value)||0,reorder_at:parseInt(document.getElementById('conFReorder').value)||0,supplier:document.getElementById('conFSupplier').value.trim(),sku_ref:document.getElementById('conFRef').value.trim(),unit_cost:document.getElementById('conFCost').value||null,storage_location:document.getElementById('conFLoc').value.trim(),notes:document.getElementById('conFNotes').value.trim()};
+      if(!body.item_name){alert('Item name is required.');return;}
+      try{const url=selectedId?`/api/consumables/${selectedId}`:'/api/consumables';const r=await fetch(url,{method:selectedId?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error(await r.text());await load();}catch(e){alert('Save failed: '+e.message);}});
+    document.getElementById('conBtnDelete').addEventListener('click',async()=>{if(!selectedId||!confirm('Delete this item?'))return;try{await fetch(`/api/consumables/${selectedId}`,{method:'DELETE'});selectedId=null;document.getElementById('conDetailEmpty').style.display='';document.getElementById('conForm').style.display='none';await load();}catch(e){alert('Delete failed: '+e.message);}});
+    document.getElementById('conBtnCancel').addEventListener('click',()=>{document.getElementById('conForm').style.display='none';document.getElementById('conDetailEmpty').style.display='';});
+    document.getElementById('conSearch').addEventListener('input',renderList);
+    document.querySelectorAll('#conStockFilter li').forEach(li=>li.addEventListener('click',()=>{document.querySelectorAll('#conStockFilter li').forEach(x=>x.classList.remove('active'));li.classList.add('active');filterStock=li.dataset.filter;renderList();}));
+    document.querySelectorAll('#conCatFilter li').forEach(li=>li.addEventListener('click',()=>{document.querySelectorAll('#conCatFilter li').forEach(x=>x.classList.remove('active'));li.classList.add('active');filterCat=li.dataset.filter;renderList();}));
+    load();
+  </script>
+</body>
+</html>

@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Race Team OS – HR Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="style.css" rel="stylesheet" />
+  <style>
+    body{background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%);}
+    .kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:20px;}
+    .kpi-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:14px 16px;box-shadow:0 2px 4px rgba(0,0,0,.06);}
+    .kpi-label{font-size:.7rem;color:#6c757d;font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+    .kpi-value{font-size:1.8rem;font-weight:700;color:#1a1d24;line-height:1.2;}
+    .kpi-sub{font-size:.75rem;color:#6c757d;margin-top:2px;}
+    .panel{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.06);margin-bottom:16px;}
+    .panel-header{background:#f8f9fa;border-bottom:1px solid rgba(0,0,0,.1);padding:10px 14px;border-radius:8px 8px 0 0;font-weight:700;font-size:.85rem;color:#1a1d24;}
+    .panel-body{padding:14px;}
+    .list-item{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(0,0,0,.05);font-size:.82rem;color:#1a1d24;}
+    .list-item:last-child{border-bottom:none;}
+    .quick-links{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;}
+    .quick-link-btn{display:flex;flex-direction:column;align-items:center;padding:12px 8px;background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;text-decoration:none;color:#1a1d24;font-size:.8rem;font-weight:600;transition:all .15s;box-shadow:0 1px 3px rgba(0,0,0,.06);}
+    .quick-link-btn:hover{background:#f3e8ff;border-color:rgba(166,77,255,.4);color:#7c3aed;}
+    .quick-link-btn .ql-icon{font-size:1.4rem;margin-bottom:4px;}
+  </style>
+</head>
+<body class="light-mode">
+  <div id="rtsTopNav"></div>
+  <div class="rts-version-badge">v1</div>
+  <div class="rts-main container-fluid">
+    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+      <div>
+        <h1 class="h4 mb-1">HR Dashboard</h1>
+        <div class="text-secondary" style="font-size:.85rem;">People overview — headcount, leave, training, and welfare summary.</div>
+      </div>
+      <button class="btn btn-sm btn-outline-secondary" onclick="loadAll()"><i class="bi bi-arrow-repeat"></i> Refresh</button>
+    </div>
+
+    <!-- KPI Row -->
+    <div class="kpi-grid" id="kpiGrid">
+      <div class="kpi-card"><div class="kpi-label">Total Staff</div><div class="kpi-value" id="kpiStaff">—</div></div>
+      <div class="kpi-card"><div class="kpi-label">Leave Pending</div><div class="kpi-value" id="kpiLeave">—</div></div>
+      <div class="kpi-card"><div class="kpi-label">Training Expired</div><div class="kpi-value" id="kpiTraining">—</div></div>
+      <div class="kpi-card"><div class="kpi-label">Open Vacancies</div><div class="kpi-value" id="kpiRec">—</div></div>
+      <div class="kpi-card"><div class="kpi-label">Welfare Follow-Ups</div><div class="kpi-value" id="kpiWelfare">—</div></div>
+      <div class="kpi-card"><div class="kpi-label">Active Rotas</div><div class="kpi-value" id="kpiRotas">—</div></div>
+    </div>
+
+    <div class="row g-3">
+      <!-- Pending Leave -->
+      <div class="col-12 col-md-6 col-xl-4">
+        <div class="panel">
+          <div class="panel-header">🏖️ Pending Leave Requests</div>
+          <div class="panel-body" id="panelLeave"><div class="text-secondary text-center py-3" style="font-size:.82rem;">Loading…</div></div>
+        </div>
+      </div>
+      <!-- Training Expiring -->
+      <div class="col-12 col-md-6 col-xl-4">
+        <div class="panel">
+          <div class="panel-header">🎓 Training Expiring / Overdue</div>
+          <div class="panel-body" id="panelTraining"><div class="text-secondary text-center py-3" style="font-size:.82rem;">Loading…</div></div>
+        </div>
+      </div>
+      <!-- Welfare Follow-Ups -->
+      <div class="col-12 col-md-6 col-xl-4">
+        <div class="panel">
+          <div class="panel-header">🫂 Welfare Follow-Ups Required</div>
+          <div class="panel-body" id="panelWelfare"><div class="text-secondary text-center py-3" style="font-size:.82rem;">Loading…</div></div>
+        </div>
+      </div>
+      <!-- Open Vacancies -->
+      <div class="col-12 col-md-6 col-xl-4">
+        <div class="panel">
+          <div class="panel-header">👔 Open Vacancies</div>
+          <div class="panel-body" id="panelRec"><div class="text-secondary text-center py-3" style="font-size:.82rem;">Loading…</div></div>
+        </div>
+      </div>
+      <!-- Active Rotas -->
+      <div class="col-12 col-md-6 col-xl-4">
+        <div class="panel">
+          <div class="panel-header">📅 Active Rotas</div>
+          <div class="panel-body" id="panelRotas"><div class="text-secondary text-center py-3" style="font-size:.82rem;">Loading…</div></div>
+        </div>
+      </div>
+      <!-- Quick Links -->
+      <div class="col-12 col-md-6 col-xl-4">
+        <div class="panel">
+          <div class="panel-header">⚡ Quick Links</div>
+          <div class="panel-body">
+            <div class="quick-links">
+              <a class="quick-link-btn" href="rotas.html"><span class="ql-icon">📅</span>Rotas</a>
+              <a class="quick-link-btn" href="leave.html"><span class="ql-icon">🏖️</span>Leave</a>
+              <a class="quick-link-btn" href="training.html"><span class="ql-icon">🎓</span>Training</a>
+              <a class="quick-link-btn" href="recruitment.html"><span class="ql-icon">👔</span>Recruitment</a>
+              <a class="quick-link-btn" href="welfare.html"><span class="ql-icon">🫂</span>Welfare</a>
+              <a class="quick-link-btn" href="medical-fitness.html"><span class="ql-icon">🏥</span>Medical</a>
+              <a class="quick-link-btn" href="staff-reviews.html"><span class="ql-icon">⭐</span>Reviews</a>
+              <a class="quick-link-btn" href="staff.html"><span class="ql-icon">👥</span>Staff</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="core.js"></script><script src="topnav.js"></script>
+  <script>
+    function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+    async function safeFetch(url){try{const r=await fetch(url);return r.ok?await r.json():[];}catch{return[];}}
+
+    async function loadAll(){
+      const [leave,training,welfare,rec,rotas]=await Promise.all([
+        safeFetch('/api/leave'),safeFetch('/api/training'),safeFetch('/api/welfare'),
+        safeFetch('/api/recruitment'),safeFetch('/api/rotas')
+      ]);
+
+      // KPIs
+      document.getElementById('kpiLeave').textContent=leave.filter(e=>e.status==='pending').length;
+      document.getElementById('kpiTraining').textContent=training.filter(e=>e.status==='expired'||e.status==='overdue').length;
+      document.getElementById('kpiRec').textContent=rec.filter(e=>e.status==='open').length;
+      document.getElementById('kpiWelfare').textContent=welfare.filter(e=>e.follow_up_required).length;
+      document.getElementById('kpiRotas').textContent=rotas.filter(e=>e.status==='active'||e.status==='published').length;
+      document.getElementById('kpiStaff').textContent='—';
+
+      // Panels
+      const pendLeave=leave.filter(e=>e.status==='pending').slice(0,6);
+      document.getElementById('panelLeave').innerHTML=pendLeave.length?pendLeave.map(e=>`<div class="list-item"><span><strong>${esc(e.staff_name)}</strong> – ${esc(e.leave_type)}</span><span class="text-secondary">${e.start_date||'—'}</span></div>`).join(''):'<div class="text-secondary text-center py-2" style="font-size:.82rem;">No pending requests.</div>';
+
+      const expTr=training.filter(e=>e.status==='expired'||e.status==='overdue').slice(0,6);
+      document.getElementById('panelTraining').innerHTML=expTr.length?expTr.map(e=>`<div class="list-item"><span><strong>${esc(e.staff_name)}</strong> – ${esc(e.training_title)}</span><span class="badge text-bg-danger" style="font-size:.68rem;">${esc(e.status)}</span></div>`).join(''):'<div class="text-secondary text-center py-2" style="font-size:.82rem;">All training up to date.</div>';
+
+      const fuWf=welfare.filter(e=>e.follow_up_required).slice(0,6);
+      document.getElementById('panelWelfare').innerHTML=fuWf.length?fuWf.map(e=>`<div class="list-item"><span><strong>${esc(e.staff_name)}</strong></span><span class="text-secondary">${e.follow_up_date||'No date'}</span></div>`).join(''):'<div class="text-secondary text-center py-2" style="font-size:.82rem;">No follow-ups required.</div>';
+
+      const openRec=rec.filter(e=>e.status==='open'||e.status==='interviewing').slice(0,6);
+      document.getElementById('panelRec').innerHTML=openRec.length?openRec.map(e=>`<div class="list-item"><span><strong>${esc(e.role_title)}</strong> – ${esc(e.department)}</span><span class="badge text-bg-${e.status==='open'?'success':'primary'}" style="font-size:.68rem;">${esc(e.status)}</span></div>`).join(''):'<div class="text-secondary text-center py-2" style="font-size:.82rem;">No open vacancies.</div>';
+
+      const activeRot=rotas.filter(e=>e.status==='active'||e.status==='published').slice(0,6);
+      document.getElementById('panelRotas').innerHTML=activeRot.length?activeRot.map(e=>`<div class="list-item"><span><strong>${esc(e.rota_name)}</strong> – ${esc(e.event||'—')}</span><span class="text-secondary">${e.start_date||'—'}</span></div>`).join(''):'<div class="text-secondary text-center py-2" style="font-size:.82rem;">No active rotas.</div>';
+    }
+
+    loadAll();
+  </script>
+</body>
+</html>

@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Race Team OS – Setups</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="style.css" rel="stylesheet" />
+  <style>
+    body{background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%);}
+    .ev-stats-bar{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
+    .ev-stat-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:10px 16px;box-shadow:0 2px 4px rgba(0,0,0,.06);min-width:100px;}
+    .ev-stat-label{font-size:.7rem;color:#6c757d;font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+    .ev-stat-value{font-size:1.5rem;font-weight:700;color:#1a1d24;line-height:1.2;}
+    #setupShell.mlo-shell{background:transparent;border:none;gap:10px;}
+    #setupShell .mlo-pane-left,#setupShell .mlo-pane-mid,#setupShell .mlo-pane-right{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.06);}
+    #setupShell .mlo-pane-header{background:#f8f9fa;border-bottom:1px solid rgba(0,0,0,.1);}
+    #setupShell .mlo-title{color:#1a1d24!important;}
+    #setupShell .mlo-section-label{color:#6c757d!important;opacity:1!important;}
+    #setupShell .mlo-resizer{background:transparent;}
+    #setupShell .mlo-resizer:hover{background:rgba(166,77,255,.3);}
+    .setup-table{width:100%;font-size:.82rem;border-collapse:separate;border-spacing:0;}
+    .setup-table thead{position:sticky;top:0;background:#f8f9fa;z-index:5;}
+    .setup-table th{padding:8px 10px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#6c757d;border-bottom:2px solid #dee2e6;white-space:nowrap;}
+    .setup-table td{padding:6px 10px;border-bottom:1px solid rgba(0,0,0,.05);vertical-align:middle;color:#1a1d24;}
+    .setup-table tbody tr{cursor:pointer;transition:background .1s;}
+    .setup-table tbody tr:hover{background:#f8f9fa;}
+    .setup-table tbody tr.selected{background:rgba(166,77,255,.08)!important;outline:2px solid #a64dff;outline-offset:-2px;}
+    .setup-group-label{font-size:.72rem;font-weight:700;text-transform:uppercase;color:#6c757d;letter-spacing:.05em;padding:8px 0 4px;border-top:1px solid #e9ecef;margin-top:8px;}
+    #setupShell .form-label{color:#495057!important;font-size:.78rem;font-weight:600;margin-bottom:2px;}
+    #setupShell .form-control,#setupShell .form-select{background:#fff!important;color:#1a1d24!important;border-color:#dee2e6!important;font-size:.82rem;}
+    #setupShell .mlo-pane-left .pastel-tree li{height:28px!important;display:flex!important;align-items:center!important;font-size:.83rem!important;font-weight:500!important;padding-left:10px!important;margin-bottom:2px!important;border-radius:5px!important;border:1px solid rgba(0,0,0,.08)!important;color:#1a1d24!important;cursor:pointer!important;}
+    #setupShell .mlo-pane-left .pastel-tree li.active{background:rgba(166,77,255,.1)!important;border-color:rgba(166,77,255,.35)!important;color:#7c3aed!important;font-weight:700!important;}
+  </style>
+</head>
+<body class="light-mode">
+  <div id="rtsTopNav"></div>
+  <div class="rts-version-badge">v1</div>
+  <div class="rts-main container-fluid">
+    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+      <div>
+        <h1 class="h4 mb-1">Setups</h1>
+        <div class="text-secondary" style="font-size:.85rem;">Car setup sheets, session comparisons, and configuration history.</div>
+      </div>
+      <button class="btn btn-sm btn-primary" id="btnAddSetup">+ New Setup Sheet</button>
+    </div>
+    <div class="ev-stats-bar">
+      <div class="ev-stat-card"><div class="ev-stat-label">Total Sheets</div><div class="ev-stat-value" id="statSetupTotal">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">This Event</div><div class="ev-stat-value" id="statSetupEvent">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Cars</div><div class="ev-stat-value" id="statSetupCars">0</div></div>
+    </div>
+    <div class="mlo-shell" id="setupShell">
+      <section class="mlo-pane mlo-pane-left" aria-label="Setup filter">
+        <div class="mlo-pane-header"><div class="mlo-title">Filter</div></div>
+        <div class="mlo-pane-content">
+          <div class="mlo-section-label">Car</div>
+          <ul class="mlo-tree pastel-tree" id="setupCarFilter">
+            <li class="active" data-filter="all">All Cars</li>
+            <li data-filter="1">#1</li>
+            <li data-filter="2">#2</li>
+          </ul>
+          <div class="mlo-section-label mt-3">Session Type</div>
+          <ul class="mlo-tree pastel-tree" id="setupSessionFilter">
+            <li class="active" data-filter="all">All Sessions</li>
+            <li data-filter="FP1">FP1</li><li data-filter="FP2">FP2</li>
+            <li data-filter="FP3">FP3</li><li data-filter="Q">Qualifying</li>
+            <li data-filter="Race">Race</li><li data-filter="Test">Test</li>
+          </ul>
+        </div>
+      </section>
+      <div class="mlo-resizer" id="setupResizer1"></div>
+      <section class="mlo-pane mlo-pane-mid" aria-label="Setup list">
+        <div class="mlo-pane-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="mlo-title">Setup Sheets</div>
+            <span class="badge text-bg-secondary" id="setupCountBadge">0</span>
+          </div>
+          <input class="form-control form-control-sm mt-2" type="search" id="setupSearch" placeholder="Search event or car…" />
+        </div>
+        <div class="mlo-pane-content p-0">
+          <table class="setup-table">
+            <thead><tr><th>Car #</th><th>Event</th><th>Session</th><th>Front Wing</th><th>Rear Wing</th><th>Ride Ht F</th><th>Ride Ht R</th><th>Date</th></tr></thead>
+            <tbody id="setupTableBody"><tr><td colspan="8" class="text-center text-secondary py-4">No setup sheets found.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+      <div class="mlo-resizer" id="setupResizer2"></div>
+      <section class="mlo-pane mlo-pane-right" aria-label="Setup detail">
+        <div class="mlo-pane-header"><div class="mlo-title" id="setupDetailTitle">Setup Sheet</div></div>
+        <div class="mlo-pane-content">
+          <div class="text-center text-secondary py-5" id="setupDetailEmpty"><div style="font-size:2rem;">🔧</div><div class="mt-2">Select a setup sheet</div></div>
+          <form id="setupForm" style="display:none;">
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Car Number *</label><input class="form-control" id="setupFCar" placeholder="#1" /></div>
+              <div class="col"><label class="form-label">Session *</label>
+                <select class="form-select" id="setupFSession"><option>FP1</option><option>FP2</option><option>FP3</option><option>Q</option><option>Race</option><option>Test</option></select></div>
+            </div>
+            <div class="mb-2"><label class="form-label">Event</label><input class="form-control" id="setupFEvent" /></div>
+            <div class="setup-group-label">Aerodynamics</div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Front Wing Level</label><input class="form-control" id="setupFFW" type="number" step="0.1" /></div>
+              <div class="col"><label class="form-label">Rear Wing Level</label><input class="form-control" id="setupFRW" type="number" step="0.1" /></div>
+            </div>
+            <div class="setup-group-label">Ride Heights</div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Front (mm)</label><input class="form-control" id="setupFRHF" type="number" step="0.5" /></div>
+              <div class="col"><label class="form-label">Rear (mm)</label><input class="form-control" id="setupFRHR" type="number" step="0.5" /></div>
+            </div>
+            <div class="setup-group-label">Suspension</div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Front Spring Rate</label><input class="form-control" id="setupFFSpring" /></div>
+              <div class="col"><label class="form-label">Rear Spring Rate</label><input class="form-control" id="setupFRSpring" /></div>
+            </div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Front Anti-Roll</label><input class="form-control" id="setupFFARB" /></div>
+              <div class="col"><label class="form-label">Rear Anti-Roll</label><input class="form-control" id="setupFRARB" /></div>
+            </div>
+            <div class="setup-group-label">Tyres &amp; Fuel</div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Tyre Compound</label><input class="form-control" id="setupFTyre" /></div>
+              <div class="col"><label class="form-label">Tyre Pressure F/R (psi)</label><input class="form-control" id="setupFTyrePressure" placeholder="22 / 20" /></div>
+            </div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Fuel Load (kg)</label><input class="form-control" id="setupFFuel" type="number" step="0.5" /></div>
+              <div class="col"><label class="form-label">Setup Date</label><input class="form-control" id="setupFDate" type="date" /></div>
+            </div>
+            <div class="mb-3"><label class="form-label">Engineer Comments</label><textarea class="form-control" id="setupFComments" rows="3"></textarea></div>
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-primary btn-sm" id="setupBtnSave">Save</button>
+              <button type="button" class="btn btn-outline-danger btn-sm" id="setupBtnDelete" style="display:none;">Delete</button>
+              <button type="button" class="btn btn-outline-secondary btn-sm" id="setupBtnCancel">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </section>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="core.js"></script><script src="topnav.js"></script>
+  <script>
+    let allSetups=[],selectedId=null,filterCar='all',filterSession='all';
+    function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+    async function load(){try{const r=await fetch('/api/setups');if(r.ok)allSetups=await r.json();}catch(_){allSetups=[];}renderList();}
+    function renderList(){
+      const q=document.getElementById('setupSearch').value.trim().toLowerCase();
+      const rows=allSetups.filter(e=>{const mc=filterCar==='all'||e.car_number===filterCar;const ms=filterSession==='all'||e.session===filterSession;const mq=!q||(e.event||'').toLowerCase().includes(q)||(e.car_number||'').toLowerCase().includes(q);return mc&&ms&&mq;});
+      document.getElementById('setupCountBadge').textContent=rows.length;
+      document.getElementById('statSetupTotal').textContent=allSetups.length;
+      document.getElementById('statSetupCars').textContent=new Set(allSetups.map(e=>e.car_number)).size;
+      const tb=document.getElementById('setupTableBody');
+      if(!rows.length){tb.innerHTML='<tr><td colspan="8" class="text-center text-secondary py-4">No setup sheets match.</td></tr>';return;}
+      tb.innerHTML=rows.map(e=>`<tr data-id="${e.id}" class="${e.id==selectedId?'selected':''}">
+        <td>${esc(e.car_number||'—')}</td><td>${esc(e.event||'—')}</td><td>${esc(e.session||'—')}</td>
+        <td>${e.front_wing||'—'}</td><td>${e.rear_wing||'—'}</td>
+        <td>${e.ride_height_front||'—'}</td><td>${e.ride_height_rear||'—'}</td>
+        <td>${e.setup_date||'—'}</td></tr>`).join('');
+      tb.querySelectorAll('tr').forEach(r=>r.addEventListener('click',()=>selectSetup(r.dataset.id)));
+    }
+    function selectSetup(id){
+      selectedId=id;const e=allSetups.find(x=>x.id==id);if(!e)return;
+      document.getElementById('setupDetailEmpty').style.display='none';document.getElementById('setupForm').style.display='';
+      document.getElementById('setupDetailTitle').textContent=`${e.car_number||'Car'} – ${e.session||'Session'}`;
+      document.getElementById('setupFCar').value=e.car_number||'';document.getElementById('setupFSession').value=e.session||'FP1';
+      document.getElementById('setupFEvent').value=e.event||'';document.getElementById('setupFFW').value=e.front_wing||'';
+      document.getElementById('setupFRW').value=e.rear_wing||'';document.getElementById('setupFRHF').value=e.ride_height_front||'';
+      document.getElementById('setupFRHR').value=e.ride_height_rear||'';document.getElementById('setupFFSpring').value=e.front_spring||'';
+      document.getElementById('setupFRSpring').value=e.rear_spring||'';document.getElementById('setupFFARB').value=e.front_arb||'';
+      document.getElementById('setupFRARB').value=e.rear_arb||'';document.getElementById('setupFTyre').value=e.tyre_compound||'';
+      document.getElementById('setupFTyrePressure').value=e.tyre_pressure||'';document.getElementById('setupFFuel').value=e.fuel_load||'';
+      document.getElementById('setupFDate').value=e.setup_date||'';document.getElementById('setupFComments').value=e.comments||'';
+      document.getElementById('setupBtnDelete').style.display='';renderList();
+    }
+    function newSetupForm(){selectedId=null;document.getElementById('setupDetailEmpty').style.display='none';document.getElementById('setupForm').style.display='';document.getElementById('setupDetailTitle').textContent='New Setup Sheet';document.getElementById('setupForm').reset();document.getElementById('setupBtnDelete').style.display='none';}
+    async function saveSetup(){
+      const body={car_number:document.getElementById('setupFCar').value.trim(),session:document.getElementById('setupFSession').value,event:document.getElementById('setupFEvent').value.trim(),front_wing:document.getElementById('setupFFW').value||null,rear_wing:document.getElementById('setupFRW').value||null,ride_height_front:document.getElementById('setupFRHF').value||null,ride_height_rear:document.getElementById('setupFRHR').value||null,front_spring:document.getElementById('setupFFSpring').value.trim(),rear_spring:document.getElementById('setupFRSpring').value.trim(),front_arb:document.getElementById('setupFFARB').value.trim(),rear_arb:document.getElementById('setupFRARB').value.trim(),tyre_compound:document.getElementById('setupFTyre').value.trim(),tyre_pressure:document.getElementById('setupFTyrePressure').value.trim(),fuel_load:document.getElementById('setupFFuel').value||null,setup_date:document.getElementById('setupFDate').value||null,comments:document.getElementById('setupFComments').value.trim()};
+      if(!body.car_number){alert('Car number is required.');return;}
+      try{const url=selectedId?`/api/setups/${selectedId}`:'/api/setups';const r=await fetch(url,{method:selectedId?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error(await r.text());await load();}catch(e){alert('Save failed: '+e.message);}
+    }
+    async function deleteSetup(){if(!selectedId||!confirm('Delete this sheet?'))return;try{await fetch(`/api/setups/${selectedId}`,{method:'DELETE'});selectedId=null;document.getElementById('setupDetailEmpty').style.display='';document.getElementById('setupForm').style.display='none';await load();}catch(e){alert('Delete failed: '+e.message);}}
+    document.getElementById('btnAddSetup').addEventListener('click',newSetupForm);
+    document.getElementById('setupBtnSave').addEventListener('click',saveSetup);
+    document.getElementById('setupBtnDelete').addEventListener('click',deleteSetup);
+    document.getElementById('setupBtnCancel').addEventListener('click',()=>{document.getElementById('setupForm').style.display='none';document.getElementById('setupDetailEmpty').style.display='';});
+    document.getElementById('setupSearch').addEventListener('input',renderList);
+    document.querySelectorAll('#setupCarFilter li').forEach(li=>li.addEventListener('click',()=>{document.querySelectorAll('#setupCarFilter li').forEach(x=>x.classList.remove('active'));li.classList.add('active');filterCar=li.dataset.filter;renderList();}));
+    document.querySelectorAll('#setupSessionFilter li').forEach(li=>li.addEventListener('click',()=>{document.querySelectorAll('#setupSessionFilter li').forEach(x=>x.classList.remove('active'));li.classList.add('active');filterSession=li.dataset.filter;renderList();}));
+    load();
+  </script>
+</body>
+</html>

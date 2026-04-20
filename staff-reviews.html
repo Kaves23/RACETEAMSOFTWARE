@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Race Team OS – Staff Reviews</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="style.css" rel="stylesheet" />
+  <style>
+    body{background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%);}
+    .ev-stats-bar{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
+    .ev-stat-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:10px 16px;box-shadow:0 2px 4px rgba(0,0,0,.06);min-width:100px;}
+    .ev-stat-label{font-size:.7rem;color:#6c757d;font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+    .ev-stat-value{font-size:1.5rem;font-weight:700;color:#1a1d24;line-height:1.2;}
+    #srShell.mlo-shell{background:transparent;border:none;gap:10px;}
+    #srShell .mlo-pane-left,#srShell .mlo-pane-mid,#srShell .mlo-pane-right{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.06);}
+    #srShell .mlo-pane-header{background:#f8f9fa;border-bottom:1px solid rgba(0,0,0,.1);}
+    #srShell .mlo-title{color:#1a1d24!important;} #srShell .mlo-section-label{color:#6c757d!important;opacity:1!important;}
+    #srShell .mlo-resizer{background:transparent;} #srShell .mlo-resizer:hover{background:rgba(166,77,255,.3);}
+    .sr-table{width:100%;font-size:.82rem;border-collapse:separate;border-spacing:0;}
+    .sr-table thead{position:sticky;top:0;background:#f8f9fa;z-index:5;}
+    .sr-table th{padding:8px 10px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#6c757d;border-bottom:2px solid #dee2e6;}
+    .sr-table td{padding:6px 10px;border-bottom:1px solid rgba(0,0,0,.05);vertical-align:middle;color:#1a1d24;}
+    .sr-table tbody tr{cursor:pointer;transition:background .1s;}
+    .sr-table tbody tr:hover{background:#f8f9fa;}
+    .sr-table tbody tr.selected{background:rgba(166,77,255,.08)!important;outline:2px solid #a64dff;outline-offset:-2px;}
+    #srShell .form-label{color:#495057!important;font-size:.78rem;font-weight:600;margin-bottom:2px;}
+    #srShell .form-control,#srShell .form-select{background:#fff!important;color:#1a1d24!important;border-color:#dee2e6!important;font-size:.82rem;}
+    #srShell .mlo-pane-left .pastel-tree li{height:28px!important;display:flex!important;align-items:center!important;font-size:.83rem!important;font-weight:500!important;padding-left:10px!important;margin-bottom:2px!important;border-radius:5px!important;border:1px solid rgba(0,0,0,.08)!important;color:#1a1d24!important;cursor:pointer!important;}
+    #srShell .mlo-pane-left .pastel-tree li.active{background:rgba(166,77,255,.1)!important;border-color:rgba(166,77,255,.35)!important;color:#7c3aed!important;font-weight:700!important;}
+    .star-filled{color:#f59e0b;}
+    .star-empty{color:#dee2e6;}
+  </style>
+</head>
+<body class="light-mode">
+  <div id="rtsTopNav"></div>
+  <div class="rts-version-badge">v1</div>
+  <div class="rts-main container-fluid">
+    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+      <div>
+        <h1 class="h4 mb-1">Staff Reviews</h1>
+        <div class="text-secondary" style="font-size:.85rem;">Annual and periodic performance reviews, goals, and development plans.</div>
+      </div>
+      <button class="btn btn-sm btn-primary" id="btnAddSr">+ New Review</button>
+    </div>
+    <div class="ev-stats-bar">
+      <div class="ev-stat-card"><div class="ev-stat-label">Total Reviews</div><div class="ev-stat-value" id="statSrTotal">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Avg Rating</div><div class="ev-stat-value" id="statSrAvg">—</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">This Year</div><div class="ev-stat-value" id="statSrYear">0</div></div>
+    </div>
+    <div class="mlo-shell" id="srShell">
+      <section class="mlo-pane mlo-pane-left">
+        <div class="mlo-pane-header"><div class="mlo-title">Filter</div></div>
+        <div class="mlo-pane-content">
+          <div class="mlo-section-label">Rating</div>
+          <ul class="mlo-tree pastel-tree" id="srRatingFilter">
+            <li class="active" data-filter="all">All Ratings</li>
+            <li data-filter="5">★★★★★ (5)</li>
+            <li data-filter="4">★★★★☆ (4)</li>
+            <li data-filter="3">★★★☆☆ (3)</li>
+            <li data-filter="2">★★☆☆☆ (2)</li>
+            <li data-filter="1">★☆☆☆☆ (1)</li>
+          </ul>
+        </div>
+      </section>
+      <div class="mlo-resizer"></div>
+      <section class="mlo-pane mlo-pane-mid">
+        <div class="mlo-pane-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="mlo-title">Reviews</div>
+            <span class="badge text-bg-secondary" id="srCountBadge">0</span>
+          </div>
+          <input class="form-control form-control-sm mt-2" type="search" id="srSearch" placeholder="Search staff or reviewer…" />
+        </div>
+        <div class="mlo-pane-content p-0">
+          <table class="sr-table">
+            <thead><tr><th>Staff Name</th><th>Reviewer</th><th>Period</th><th>Review Date</th><th>Rating</th></tr></thead>
+            <tbody id="srTableBody"><tr><td colspan="5" class="text-center text-secondary py-4">No reviews found.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+      <div class="mlo-resizer"></div>
+      <section class="mlo-pane mlo-pane-right">
+        <div class="mlo-pane-header"><div class="mlo-title" id="srDetailTitle">Review Detail</div></div>
+        <div class="mlo-pane-content">
+          <div class="text-center text-secondary py-5" id="srDetailEmpty"><div style="font-size:2rem;">⭐</div><div class="mt-2">Select a review</div></div>
+          <form id="srForm" style="display:none;">
+            <div class="mb-2"><label class="form-label">Staff Name *</label><input class="form-control" id="srFStaff" /></div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Reviewer</label><input class="form-control" id="srFReviewer" /></div>
+              <div class="col"><label class="form-label">Review Date</label><input class="form-control" id="srFDate" type="date" /></div>
+            </div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Review Period</label><input class="form-control" id="srFPeriod" placeholder="e.g. 2024 Annual" /></div>
+              <div class="col"><label class="form-label">Rating (1–5)</label>
+                <select class="form-select" id="srFRating"><option value="5">5 – Exceptional</option><option value="4">4 – Exceeds Expectations</option><option value="3" selected>3 – Meets Expectations</option><option value="2">2 – Needs Improvement</option><option value="1">1 – Unsatisfactory</option></select></div>
+            </div>
+            <div class="mb-2"><label class="form-label">Key Strengths</label><textarea class="form-control" id="srFStrengths" rows="3"></textarea></div>
+            <div class="mb-2"><label class="form-label">Development Areas</label><textarea class="form-control" id="srFDev" rows="3"></textarea></div>
+            <div class="mb-2"><label class="form-label">Goals Set</label><textarea class="form-control" id="srFGoals" rows="3"></textarea></div>
+            <div class="mb-3"><label class="form-label">Additional Notes</label><textarea class="form-control" id="srFNotes" rows="2"></textarea></div>
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-primary btn-sm" id="srBtnSave">Save</button>
+              <button type="button" class="btn btn-outline-danger btn-sm" id="srBtnDelete" style="display:none;">Delete</button>
+              <button type="button" class="btn btn-outline-secondary btn-sm" id="srBtnCancel">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </section>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="core.js"></script><script src="topnav.js"></script>
+  <script>
+    let allSr=[],selectedId=null,filterRating='all';
+    const thisYear=new Date().getFullYear();
+    function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+    function stars(n){return'★'.repeat(n)+'☆'.repeat(5-n);}
+    async function load(){try{const r=await fetch('/api/staff-reviews');if(r.ok)allSr=await r.json();}catch(_){allSr=[];}renderList();}
+    function renderList(){
+      const q=document.getElementById('srSearch').value.trim().toLowerCase();
+      const rows=allSr.filter(e=>{const mr=filterRating==='all'||String(e.rating)===filterRating;const mq=!q||(e.staff_name||'').toLowerCase().includes(q)||(e.reviewer||'').toLowerCase().includes(q);return mr&&mq;});
+      document.getElementById('srCountBadge').textContent=rows.length;
+      document.getElementById('statSrTotal').textContent=allSr.length;
+      const rated=allSr.filter(e=>e.rating);
+      const avg=rated.length?((rated.reduce((s,e)=>s+(+e.rating||0),0))/rated.length).toFixed(1):'—';
+      document.getElementById('statSrAvg').textContent=avg;
+      document.getElementById('statSrYear').textContent=allSr.filter(e=>e.review_date&&e.review_date.startsWith(String(thisYear))).length;
+      const tb=document.getElementById('srTableBody');
+      if(!rows.length){tb.innerHTML='<tr><td colspan="5" class="text-center text-secondary py-4">No reviews match.</td></tr>';return;}
+      tb.innerHTML=rows.map(e=>`<tr data-id="${e.id}" class="${e.id==selectedId?'selected':''}">
+        <td><strong>${esc(e.staff_name||'—')}</strong></td><td>${esc(e.reviewer||'—')}</td>
+        <td>${esc(e.period||'—')}</td><td>${e.review_date||'—'}</td>
+        <td><span style="color:#f59e0b;letter-spacing:1px;">${stars(+e.rating||0)}</span></td></tr>`).join('');
+      tb.querySelectorAll('tr').forEach(r=>r.addEventListener('click',()=>selectSr(r.dataset.id)));
+    }
+    function selectSr(id){selectedId=id;const e=allSr.find(x=>x.id==id);if(!e)return;
+      document.getElementById('srDetailEmpty').style.display='none';document.getElementById('srForm').style.display='';
+      document.getElementById('srDetailTitle').textContent=e.staff_name||'Review';
+      document.getElementById('srFStaff').value=e.staff_name||'';document.getElementById('srFReviewer').value=e.reviewer||'';
+      document.getElementById('srFDate').value=e.review_date||'';document.getElementById('srFPeriod').value=e.period||'';
+      document.getElementById('srFRating').value=e.rating||3;document.getElementById('srFStrengths').value=e.key_strengths||'';
+      document.getElementById('srFDev').value=e.development_areas||'';document.getElementById('srFGoals').value=e.goals_set||'';
+      document.getElementById('srFNotes').value=e.notes||'';
+      document.getElementById('srBtnDelete').style.display='';renderList();}
+    document.getElementById('btnAddSr').addEventListener('click',()=>{selectedId=null;document.getElementById('srDetailEmpty').style.display='none';document.getElementById('srForm').style.display='';document.getElementById('srDetailTitle').textContent='New Review';document.getElementById('srForm').reset();document.getElementById('srFRating').value=3;document.getElementById('srBtnDelete').style.display='none';});
+    document.getElementById('srBtnSave').addEventListener('click',async()=>{
+      const body={staff_name:document.getElementById('srFStaff').value.trim(),reviewer:document.getElementById('srFReviewer').value.trim(),review_date:document.getElementById('srFDate').value||null,period:document.getElementById('srFPeriod').value.trim(),rating:parseInt(document.getElementById('srFRating').value)||3,key_strengths:document.getElementById('srFStrengths').value.trim(),development_areas:document.getElementById('srFDev').value.trim(),goals_set:document.getElementById('srFGoals').value.trim(),notes:document.getElementById('srFNotes').value.trim()};
+      if(!body.staff_name){alert('Staff name is required.');return;}
+      try{const url=selectedId?`/api/staff-reviews/${selectedId}`:'/api/staff-reviews';const r=await fetch(url,{method:selectedId?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error(await r.text());await load();}catch(e){alert('Save failed: '+e.message);}});
+    document.getElementById('srBtnDelete').addEventListener('click',async()=>{if(!selectedId||!confirm('Delete this review?'))return;try{await fetch(`/api/staff-reviews/${selectedId}`,{method:'DELETE'});selectedId=null;document.getElementById('srDetailEmpty').style.display='';document.getElementById('srForm').style.display='none';await load();}catch(e){alert('Delete failed: '+e.message);}});
+    document.getElementById('srBtnCancel').addEventListener('click',()=>{document.getElementById('srForm').style.display='none';document.getElementById('srDetailEmpty').style.display='';});
+    document.getElementById('srSearch').addEventListener('input',renderList);
+    document.querySelectorAll('#srRatingFilter li').forEach(li=>li.addEventListener('click',()=>{document.querySelectorAll('#srRatingFilter li').forEach(x=>x.classList.remove('active'));li.classList.add('active');filterRating=li.dataset.filter;renderList();}));
+    load();
+  </script>
+</body>
+</html>

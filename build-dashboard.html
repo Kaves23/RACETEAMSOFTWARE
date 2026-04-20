@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Race Team OS – Build Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="style.css" rel="stylesheet" />
+  <style>
+    body{background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%);}
+    .kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:12px;margin-bottom:20px;}
+    .kpi-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:14px 16px;box-shadow:0 2px 4px rgba(0,0,0,.06);}
+    .kpi-label{font-size:.7rem;color:#6c757d;font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+    .kpi-value{font-size:1.8rem;font-weight:700;color:#1a1d24;line-height:1.2;}
+    .panel{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.06);margin-bottom:16px;}
+    .panel-header{background:#f8f9fa;border-bottom:1px solid rgba(0,0,0,.1);padding:10px 14px;border-radius:8px 8px 0 0;font-weight:700;font-size:.85rem;color:#1a1d24;}
+    .panel-body{padding:14px;}
+    .list-item{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(0,0,0,.05);font-size:.82rem;color:#1a1d24;}
+    .list-item:last-child{border-bottom:none;}
+    .prog-mini{height:6px;border-radius:3px;background:#e9ecef;overflow:hidden;width:80px;}
+    .prog-mini-fill{height:6px;border-radius:3px;background:#0d6efd;}
+    .quick-links{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;}
+    .quick-link-btn{display:flex;flex-direction:column;align-items:center;padding:12px 8px;background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;text-decoration:none;color:#1a1d24;font-size:.8rem;font-weight:600;transition:all .15s;box-shadow:0 1px 3px rgba(0,0,0,.06);}
+    .quick-link-btn:hover{background:#eff6ff;border-color:rgba(13,110,253,.4);color:#0d6efd;}
+    .quick-link-btn .ql-icon{font-size:1.4rem;margin-bottom:4px;}
+  </style>
+</head>
+<body class="light-mode">
+  <div id="rtsTopNav"></div>
+  <div class="rts-version-badge">v1</div>
+  <div class="rts-main container-fluid">
+    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+      <div>
+        <h1 class="h4 mb-1">Build Dashboard</h1>
+        <div class="text-secondary" style="font-size:.85rem;">Live overview of all build, assembly, QC, repair, and consumables activity.</div>
+      </div>
+      <button class="btn btn-sm btn-outline-secondary" onclick="loadAll()">↺ Refresh</button>
+    </div>
+
+    <!-- KPIs -->
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="kpi-label">Active Builds</div><div class="kpi-value" id="kpiBuildActive">—</div></div>
+      <div class="kpi-card"><div class="kpi-label">Blocked</div><div class="kpi-value" id="kpiBuildBlocked">—</div></div>
+      <div class="kpi-card"><div class="kpi-label">Assembly Tasks Due</div><div class="kpi-value" id="kpiAssembly">—</div></div>
+      <div class="kpi-card"><div class="kpi-label">QC Pending</div><div class="kpi-value" id="kpiQC">—</div></div>
+      <div class="kpi-card"><div class="kpi-label">Open Repairs</div><div class="kpi-value" id="kpiRepairs">—</div></div>
+      <div class="kpi-card"><div class="kpi-label">Low Stock Items</div><div class="kpi-value" id="kpiStock">—</div></div>
+    </div>
+
+    <div class="row g-3">
+      <!-- Active Builds -->
+      <div class="col-12 col-md-6 col-xl-4">
+        <div class="panel">
+          <div class="panel-header">🔧 In-Progress Builds</div>
+          <div class="panel-body" id="panelBuilds"><div class="text-secondary text-center py-3" style="font-size:.82rem;">Loading…</div></div>
+        </div>
+      </div>
+      <!-- Blocked Items -->
+      <div class="col-12 col-md-6 col-xl-4">
+        <div class="panel">
+          <div class="panel-header">⛔ Blocked / On Hold</div>
+          <div class="panel-body" id="panelBlocked"><div class="text-secondary text-center py-3" style="font-size:.82rem;">Loading…</div></div>
+        </div>
+      </div>
+      <!-- Assembly Tasks -->
+      <div class="col-12 col-md-6 col-xl-4">
+        <div class="panel">
+          <div class="panel-header">✅ Assembly — In Progress</div>
+          <div class="panel-body" id="panelAssembly"><div class="text-secondary text-center py-3" style="font-size:.82rem;">Loading…</div></div>
+        </div>
+      </div>
+      <!-- QC Pending -->
+      <div class="col-12 col-md-6 col-xl-4">
+        <div class="panel">
+          <div class="panel-header">🔍 QC — Pending Inspections</div>
+          <div class="panel-body" id="panelQC"><div class="text-secondary text-center py-3" style="font-size:.82rem;">Loading…</div></div>
+        </div>
+      </div>
+      <!-- Open Repairs -->
+      <div class="col-12 col-md-6 col-xl-4">
+        <div class="panel">
+          <div class="panel-header">🛠 Open Repairs</div>
+          <div class="panel-body" id="panelRepairs"><div class="text-secondary text-center py-3" style="font-size:.82rem;">Loading…</div></div>
+        </div>
+      </div>
+      <!-- Quick Links -->
+      <div class="col-12 col-md-6 col-xl-4">
+        <div class="panel">
+          <div class="panel-header">⚡ Quick Links</div>
+          <div class="panel-body">
+            <div class="quick-links">
+              <a class="quick-link-btn" href="build-status.html"><span class="ql-icon">📊</span>Build Status</a>
+              <a class="quick-link-btn" href="build-sheets.html"><span class="ql-icon">📋</span>Build Sheets</a>
+              <a class="quick-link-btn" href="assembly.html"><span class="ql-icon">✅</span>Assembly</a>
+              <a class="quick-link-btn" href="build-qc.html"><span class="ql-icon">🔍</span>QC</a>
+              <a class="quick-link-btn" href="build-repairs.html"><span class="ql-icon">🛠</span>Repairs</a>
+              <a class="quick-link-btn" href="rebuilds.html"><span class="ql-icon">♻️</span>Rebuilds</a>
+              <a class="quick-link-btn" href="consumables.html"><span class="ql-icon">📦</span>Consumables</a>
+              <a class="quick-link-btn" href="garage-prep.html"><span class="ql-icon">🏎</span>Garage Prep</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="core.js"></script><script src="topnav.js"></script>
+  <script>
+    function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+    async function safeFetch(url){try{const r=await fetch(url);return r.ok?await r.json():[];}catch{return[];}}
+
+    async function loadAll(){
+      const [builds,assembly,qc,repairs,consumables]=await Promise.all([
+        safeFetch('/api/build-status'),safeFetch('/api/assembly'),safeFetch('/api/build-qc'),
+        safeFetch('/api/repairs'),safeFetch('/api/consumables')
+      ]);
+
+      const active=builds.filter(e=>e.status==='in_progress');
+      const blocked=builds.filter(e=>e.status==='blocked'||e.status==='on_hold');
+      const asmActive=assembly.filter(e=>e.status==='in_progress'||e.status==='todo');
+      const qcPending=qc.filter(e=>e.result==='pending');
+      const openRepairs=repairs.filter(e=>e.status==='logged'||e.status==='in_progress');
+      const lowStock=consumables.filter(e=>{const q=+e.qty_available||0,r=+e.reorder_at||0;return r>0&&q<=r;});
+
+      document.getElementById('kpiBuildActive').textContent=active.length;
+      document.getElementById('kpiBuildBlocked').textContent=blocked.length;
+      document.getElementById('kpiAssembly').textContent=asmActive.length;
+      document.getElementById('kpiQC').textContent=qcPending.length;
+      document.getElementById('kpiRepairs').textContent=openRepairs.length;
+      document.getElementById('kpiStock').textContent=lowStock.length;
+
+      function progBar(p){const pct=Math.min(100,Math.max(0,+p||0));return`<div class="prog-mini"><div class="prog-mini-fill" style="width:${pct}%"></div></div>`;}
+
+      document.getElementById('panelBuilds').innerHTML=active.length?active.slice(0,6).map(e=>`<div class="list-item"><span><strong>${esc(e.build_name)}</strong> – ${esc(e.car||'')}</span>${progBar(e.progress)}</div>`).join(''):'<div class="text-secondary text-center py-2" style="font-size:.82rem;">No active builds.</div>';
+
+      document.getElementById('panelBlocked').innerHTML=blocked.length?blocked.slice(0,6).map(e=>`<div class="list-item"><span><strong>${esc(e.build_name)}</strong></span><span class="badge text-bg-${e.status==='blocked'?'danger':'warning'}" style="font-size:.68rem;">${esc(e.status)}</span></div>`).join(''):'<div class="text-secondary text-center py-2" style="font-size:.82rem;">Nothing blocked.</div>';
+
+      document.getElementById('panelAssembly').innerHTML=asmActive.length?asmActive.slice(0,6).map(e=>`<div class="list-item"><span>${esc(e.task_desc)}</span><span class="badge text-bg-${e.priority==='high'?'danger':e.priority==='medium'?'warning':'secondary'}" style="font-size:.68rem;">${esc(e.priority||'—')}</span></div>`).join(''):'<div class="text-secondary text-center py-2" style="font-size:.82rem;">No open tasks.</div>';
+
+      document.getElementById('panelQC').innerHTML=qcPending.length?qcPending.slice(0,6).map(e=>`<div class="list-item"><span><strong>${esc(e.title)}</strong> – ${esc(e.car||'')}</span><span class="text-secondary">${e.date||'—'}</span></div>`).join(''):'<div class="text-secondary text-center py-2" style="font-size:.82rem;">No pending inspections.</div>';
+
+      document.getElementById('panelRepairs').innerHTML=openRepairs.length?openRepairs.slice(0,6).map(e=>`<div class="list-item"><span><strong>${esc(e.component)}</strong> – ${esc(e.car||'')}</span><span class="badge text-bg-${e.status==='in_progress'?'warning':'secondary'}" style="font-size:.68rem;">${esc(e.status)}</span></div>`).join(''):'<div class="text-secondary text-center py-2" style="font-size:.82rem;">No open repairs.</div>';
+    }
+
+    loadAll();
+  </script>
+</body>
+</html>

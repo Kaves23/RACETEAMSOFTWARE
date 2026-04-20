@@ -6,42 +6,149 @@
   // Grouped navigation + singles; groups open a quick-select modal
   // Order groups so the most-used are left-most in the top bar
   const groups = [
-    { label: 'Ops', items: [
-      { href: 'events.html', label: 'Events', key: 'E' },
-      { href: 'project-management.html', label: 'Projects', key: 'P' },
-      { href: 'forecast.html', label: 'Forecast', key: 'F' },
-      { href: 'orders.html', label: 'Orders', key: 'O' },
-      { href: 'notes.html', label: 'Notes', key: 'N' }
+    { label: 'Sporting', items: [
+      { href: 'events.html',            label: 'Events',           key: 'E' },
+      { href: 'sporting-calendar.html', label: 'Calendar',         key: 'C' },
+      { href: 'entries.html',           label: 'Entries',          key: 'N' },
+      { href: 'regulations.html',       label: 'Regulations',      key: 'R' },
+      { href: 'project-management.html',label: 'Session Plans',    key: 'S' },
+      { href: 'penalties.html',         label: 'Penalties',        key: 'P' },
+      { href: 'notes.html',             label: 'Briefings',        key: 'B' },
+      { href: 'incidents.html',         label: 'Incidents',        key: 'I' },
+      { href: 'competitor-intel.html',  label: 'Competitor Intel', key: 'T' }
     ]},
-    { label: 'Finance', items: [
-      { href: 'invoice.html', label: 'Invoicing', key: 'I' },
-      { href: 'expenses.html', label: 'Expenses', key: 'E' },
-      { href: 'packages.html', label: 'Driver Packages', key: 'K' }
+    { label: 'Technical', items: [
+      { href: 'cars.html',              label: 'Cars',             key: 'C' },
+      { href: 'components.html',        label: 'Components',       key: 'O' },
+      { href: 'allocations.html',       label: 'Allocations',      key: 'A' },
+      { href: 'setups.html',            label: 'Setups',           key: 'U' },
+      { href: 'homologation.html',      label: 'Homologation',     key: 'H' },
+      { href: 'compliance.html',        label: 'Conformity',       key: 'F' },
+      { href: 'session-changes.html',   label: 'Session Changes',  key: 'G' },
+      { href: 'tech-failures.html',     label: 'Failures',         key: 'L' },
+      { href: 'engineering-data.html',  label: 'Engineering Data', key: 'E' },
+      { href: 'service.html',           label: 'Service',          key: 'V' },
+      { href: 'fuel-calcs.html',        label: 'Fuel Calcs',       key: 'I' }
+    ]},
+    { label: 'Build', items: [
+      { href: 'build-dashboard.html',   label: 'Overview',         key: 'O' },
+      { href: 'build-status.html',      label: 'Build Status',     key: 'B' },
+      { href: 'build-sheets.html',      label: 'Build Sheets',     key: 'S' },
+      { href: 'assembly.html',          label: 'Assembly',         key: 'A' },
+      { href: 'build-qc.html',          label: 'QC',               key: 'Q' },
+      { href: 'build-repairs.html',     label: 'Repairs',          key: 'R' },
+      { href: 'rebuilds.html',          label: 'Rebuilds',         key: 'E' },
+      { href: 'consumables.html',       label: 'Consumables',      key: 'C' },
+      { href: 'garage-prep.html',       label: 'Garage Prep',      key: 'G' }
+    ]},
+    { label: 'Performance', items: [
+      { href: 'performance-dashboard.html', label: 'Overview',      key: 'O' },
+      { href: 'run-plans.html',         label: 'Run Plans',        key: 'R' },
+      { href: 'performance.html',       label: 'Analysis',         key: 'A' },
+      { href: 'tyre-register.html',     label: 'Tyres',            key: 'T' },
+      { href: 'fuel-calcs.html',        label: 'Fuel',             key: 'F' },
+      { href: 'benchmarking.html',      label: 'Benchmarking',     key: 'B' },
+      { href: 'driver-trends.html',     label: 'Driver Trends',    key: 'D' },
+      { href: 'correlation.html',       label: 'Correlation',      key: 'C' },
+      { href: 'debriefs.html',          label: 'Debriefs',         key: 'E' },
+      { href: 'engineering-notes.html', label: 'Eng Notes',        key: 'N' },
+      { href: 'strategy.html',          label: 'Strategy',         key: 'S' },
+      { href: 'results.html',           label: 'Results',          key: 'L' }
+    ]},
+    { label: 'Reliability', items: [
+      { href: 'reliability-dashboard.html',  label: 'Overview',          key: 'O' },
+      { href: 'reliability-incidents.html',  label: 'Incidents',         key: 'I' },
+      { href: 'rca.html',                    label: 'RCA',               key: 'R' },
+      { href: 'corrective-actions.html',     label: 'Corrective Actions',key: 'C' },
+      { href: 'preventive-maintenance.html', label: 'Maintenance',       key: 'M' },
+      { href: 'reliability-trends.html',     label: 'Trends',            key: 'T' },
+      { href: 'risk-map.html',               label: 'Risk Map',          key: 'K' },
+      { href: 'review-board.html',           label: 'Review Board',      key: 'B' }
     ]},
     { label: 'Logistics', items: [
-      { href: 'load.html', label: 'Load Plan', key: 'L' },
-      { href: 'scan-load.html', label: 'Scan to Load', key: 'S' },
-      { href: 'box-packing.html', label: 'Box Packing', key: 'B' },
-      { href: 'vehicles.html', label: 'Vehicles', key: 'V' },
-      { href: 'race-fleet.html', label: 'Race Fleet', key: 'R' },
-      { href: 'event-notes.html', label: 'Checklists', key: 'C' },
-      { href: 'inventory.html', label: 'Inventory', key: 'I' },
-      { href: 'assets.html', label: 'Assets', key: 'A' },
-      { href: 'history.html', label: 'Activity History', key: 'H' }
+      { href: 'load.html',              label: 'Load Plan',        key: 'L' },
+      { href: 'scan-load.html',         label: 'Scan to Load',     key: 'S' },
+      { href: 'box-packing.html',       label: 'Box Packing',      key: 'B' },
+      { href: 'vehicles.html',          label: 'Vehicles',         key: 'V' },
+      { href: 'race-fleet.html',        label: 'Race Fleet',       key: 'R' },
+      { href: 'event-notes.html',       label: 'Checklists',       key: 'C' },
+      { href: 'inventory.html',         label: 'Inventory',        key: 'I' },
+      { href: 'assets.html',            label: 'Assets',           key: 'A' },
+      { href: 'history.html',           label: 'Activity History', key: 'H' }
     ]},
-    { label: 'Tech', items: [
-      { href: 'service.html', label: 'Service', key: 'S' },
-      { href: 'compliance.html', label: 'Compliance', key: 'C' },
-      { href: 'fuel-calcs.html', label: 'Fuel Calcs', key: 'F' }
+    { label: 'Finance', items: [
+      { href: 'finance-dashboard.html', label: 'Overview',         key: 'O' },
+      { href: 'budgets.html',           label: 'Budgets',          key: 'B' },
+      { href: 'cost-cap.html',          label: 'Cost Cap',         key: 'C' },
+      { href: 'requisitions.html',      label: 'Requisitions',     key: 'R' },
+      { href: 'purchase-orders.html',   label: 'Purchase Orders',  key: 'P' },
+      { href: 'invoice.html',           label: 'Invoicing',        key: 'I' },
+      { href: 'expenses.html',          label: 'Expenses',         key: 'E' },
+      { href: 'packages.html',          label: 'Driver Packages',  key: 'K' },
+      { href: 'finance-forecast.html',  label: 'Forecasting',      key: 'F' },
+      { href: 'audit-trail.html',       label: 'Audit Trail',      key: 'A' }
     ]},
-    { label: 'Team', items: [
-      { href: 'drivers.html', label: 'Drivers', key: 'D' },
-      { href: 'staff.html', label: 'Staff & Crew', key: 'C' },
-      { href: 'driver-dashboard.html', label: 'Driver Dashboard', key: 'H' },
-      { href: 'performance.html', label: 'Performance', key: 'P' },
-      { href: 'strategy.html', label: 'Strategy', key: 'S' },
-      { href: 'incidents.html', label: 'Incidents', key: 'N' },
-      { href: 'results.html', label: 'Results', key: 'R' }
+    { label: 'Procurement', items: [
+      { href: 'procurement-dashboard.html', label: 'Overview',        key: 'O' },
+      { href: 'suppliers.html',         label: 'Suppliers',        key: 'S' },
+      { href: 'rfqs.html',              label: 'RFQs',             key: 'R' },
+      { href: 'quotes.html',            label: 'Quotes',           key: 'Q' },
+      { href: 'contracts.html',         label: 'Contracts',        key: 'C' },
+      { href: 'slas.html',              label: 'SLAs',             key: 'L' },
+      { href: 'lead-times.html',        label: 'Lead Times',       key: 'T' },
+      { href: 'orders.html',            label: 'Orders',           key: 'N' },
+      { href: 'emergency-orders.html',  label: 'Emergency Orders', key: 'E' },
+      { href: 'supplier-issues.html',   label: 'Supplier Issues',  key: 'I' }
+    ]},
+    { label: 'HR', items: [
+      { href: 'staff.html',             label: 'People',           key: 'P' },
+      { href: 'org-chart.html',         label: 'Org Chart',        key: 'O' },
+      { href: 'rotas.html',             label: 'Rotas',            key: 'R' },
+      { href: 'leave.html',             label: 'Leave',            key: 'L' },
+      { href: 'training.html',          label: 'Training',         key: 'T' },
+      { href: 'recruitment.html',       label: 'Recruitment',      key: 'C' },
+      { href: 'welfare.html',           label: 'Welfare',          key: 'W' },
+      { href: 'medical-fitness.html',   label: 'Medical Fitness',  key: 'M' },
+      { href: 'staff-reviews.html',     label: 'Reviews',          key: 'V' }
+    ]},
+    { label: 'Driver', items: [
+      { href: 'drivers.html',           label: 'Profiles',         key: 'P' },
+      { href: 'driver-dashboard.html',  label: 'Driver Portal',    key: 'D' },
+      { href: 'driver-calendar.html',   label: 'Calendar',         key: 'C' },
+      { href: 'driver-contracts.html',  label: 'Contracts',        key: 'T' },
+      { href: 'simulator.html',         label: 'Simulator',        key: 'S' },
+      { href: 'driver-fitness.html',    label: 'Fitness',          key: 'F' },
+      { href: 'driver-debriefs.html',   label: 'Debriefs',         key: 'B' },
+      { href: 'media.html',             label: 'Media',            key: 'M' },
+      { href: 'licences.html',          label: 'Licences',         key: 'L' },
+      { href: 'driver-preferences.html',label: 'Preferences',      key: 'R' },
+      { href: 'junior-programme.html',  label: 'Junior Programme', key: 'J' }
+    ]},
+    { label: 'Compliance', items: [
+      { href: 'compliance-dashboard.html', label: 'Overview',       key: 'O' },
+      { href: 'compliance.html',        label: 'FIA Compliance',   key: 'F' },
+      { href: 'policies.html',          label: 'Policies',         key: 'P' },
+      { href: 'legal-contracts.html',   label: 'Legal Contracts',  key: 'L' },
+      { href: 'insurance.html',         label: 'Insurance',        key: 'I' },
+      { href: 'legal.html',             label: 'Legal',            key: 'G' },
+      { href: 'data-protection.html',   label: 'Data Protection',  key: 'D' },
+      { href: 'health-safety.html',     label: 'Health & Safety',  key: 'H' },
+      { href: 'compliance-risks.html',  label: 'Risk Register',    key: 'R' },
+      { href: 'crisis-management.html', label: 'Crisis Mgmt',      key: 'C' }
+    ]},
+    { label: 'Executive', items: [
+      { href: 'exec-dashboard.html',        label: 'Overview',         key: 'O' },
+      { href: 'live-ops.html',              label: 'Live Operations',  key: 'L' },
+      { href: 'kpi-dashboard.html',         label: 'KPI Dashboard',    key: 'K' },
+      { href: 'dept-status.html',           label: 'Dept Status',      key: 'D' },
+      { href: 'approvals.html',             label: 'Approvals',        key: 'A' },
+      { href: 'exec-actions.html',          label: 'Actions',          key: 'N' },
+      { href: 'decisions.html',             label: 'Decisions',        key: 'E' },
+      { href: 'announcements.html',         label: 'Announcements',    key: 'C' },
+      { href: 'strategic-objectives.html',  label: 'Strategy',         key: 'S' },
+      { href: 'board-reports.html',         label: 'Board Reports',    key: 'B' },
+      { href: 'doc-control.html',           label: 'Document Control', key: 'T' },
+      { href: 'export-centre.html',         label: 'Export Centre',    key: 'X' }
     ]}
   ];
   const singles = [
@@ -52,16 +159,23 @@
   ];
 
   // Default top-level keybinds (letters) — only active when not typing
-  // d: Dashboard, t: Tech, o: Ops, f: Finance, m: Team, i: Integrations, s: Settings
+  // D: Dashboard, S: Sporting, T: Technical, B: Build, P: Performance, R: Reliability
+  // L: Logistics, F: Finance, O: Procurement, H: HR, V: Driver, A: Compliance, X: Executive
   const topKeybinds = {
-    'D': { type: 'single', href: 'index.html' },
-    'T': { type: 'group', label: 'Tech' },
-    'O': { type: 'group', label: 'Ops' },
-    'F': { type: 'group', label: 'Finance' },
-    'M': { type: 'group', label: 'Team' },
-    'L': { type: 'group', label: 'Logistics' },
-    'I': { type: 'single', href: 'integrations.html' },
-    'S': { type: 'single', href: 'settings.html' }
+    'D': { type: 'single',  href: 'index.html' },
+    'S': { type: 'group',   label: 'Sporting' },
+    'T': { type: 'group',   label: 'Technical' },
+    'B': { type: 'group',   label: 'Build' },
+    'P': { type: 'group',   label: 'Performance' },
+    'R': { type: 'group',   label: 'Reliability' },
+    'L': { type: 'group',   label: 'Logistics' },
+    'F': { type: 'group',   label: 'Finance' },
+    'O': { type: 'group',   label: 'Procurement' },
+    'H': { type: 'group',   label: 'HR' },
+    'V': { type: 'group',   label: 'Driver' },
+    'A': { type: 'group',   label: 'Compliance' },
+    'X': { type: 'group',   label: 'Executive' },
+    'I': { type: 'single',  href: 'integrations.html' }
   };
 
   function esc(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -72,7 +186,11 @@
 
     // Helper maps for displaying top-level shortcut letters
     const singleKeyMap = { 'index.html': 'D', 'integrations.html': 'I', 'settings.html': 'S' };
-  const groupKeyMap = { 'Tech': 'T', 'Ops': 'O', 'Finance': 'F', 'Team': 'M', 'Logistics': 'L' };
+  const groupKeyMap = {
+    'Sporting': 'S', 'Technical': 'T', 'Build': 'B', 'Performance': 'P',
+    'Reliability': 'R', 'Logistics': 'L', 'Finance': 'F', 'Procurement': 'O',
+    'HR': 'H', 'Driver': 'V', 'Compliance': 'A', 'Executive': 'X'
+  };
 
     const liSingles = singles.map(t => {
       const k = singleKeyMap[t.href] || '';

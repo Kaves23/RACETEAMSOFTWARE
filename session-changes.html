@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Race Team OS – Session Changes</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="style.css" rel="stylesheet" />
+  <style>
+    body{background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%);}
+    .ev-stats-bar{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
+    .ev-stat-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:10px 16px;box-shadow:0 2px 4px rgba(0,0,0,.06);min-width:100px;}
+    .ev-stat-label{font-size:.7rem;color:#6c757d;font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+    .ev-stat-value{font-size:1.5rem;font-weight:700;color:#1a1d24;line-height:1.2;}
+    #scShell.mlo-shell{background:transparent;border:none;gap:10px;}
+    #scShell .mlo-pane-left,#scShell .mlo-pane-mid,#scShell .mlo-pane-right{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.06);}
+    #scShell .mlo-pane-header{background:#f8f9fa;border-bottom:1px solid rgba(0,0,0,.1);}
+    #scShell .mlo-title{color:#1a1d24!important;}
+    #scShell .mlo-section-label{color:#6c757d!important;opacity:1!important;}
+    #scShell .mlo-resizer{background:transparent;}
+    #scShell .mlo-resizer:hover{background:rgba(166,77,255,.3);}
+    .sc-table{width:100%;font-size:.82rem;border-collapse:separate;border-spacing:0;}
+    .sc-table thead{position:sticky;top:0;background:#f8f9fa;z-index:5;}
+    .sc-table th{padding:8px 10px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#6c757d;border-bottom:2px solid #dee2e6;}
+    .sc-table td{padding:6px 10px;border-bottom:1px solid rgba(0,0,0,.05);vertical-align:middle;color:#1a1d24;}
+    .sc-table tbody tr{cursor:pointer;transition:background .1s;}
+    .sc-table tbody tr:hover{background:#f8f9fa;}
+    .sc-table tbody tr.selected{background:rgba(166,77,255,.08)!important;outline:2px solid #a64dff;outline-offset:-2px;}
+    .badge-requested{background:#ffc107;color:#000;border-radius:4px;font-size:.7rem;padding:2px 6px;}
+    .badge-approved{background:#198754;color:#fff;border-radius:4px;font-size:.7rem;padding:2px 6px;}
+    .badge-completed{background:#0d6efd;color:#fff;border-radius:4px;font-size:.7rem;padding:2px 6px;}
+    .badge-rejected{background:#dc3545;color:#fff;border-radius:4px;font-size:.7rem;padding:2px 6px;}
+    #scShell .form-label{color:#495057!important;font-size:.78rem;font-weight:600;margin-bottom:2px;}
+    #scShell .form-control,#scShell .form-select{background:#fff!important;color:#1a1d24!important;border-color:#dee2e6!important;font-size:.82rem;}
+    #scShell .mlo-pane-left .pastel-tree li{height:28px!important;display:flex!important;align-items:center!important;font-size:.83rem!important;font-weight:500!important;padding-left:10px!important;margin-bottom:2px!important;border-radius:5px!important;border:1px solid rgba(0,0,0,.08)!important;color:#1a1d24!important;cursor:pointer!important;}
+    #scShell .mlo-pane-left .pastel-tree li.active{background:rgba(166,77,255,.1)!important;border-color:rgba(166,77,255,.35)!important;color:#7c3aed!important;font-weight:700!important;}
+  </style>
+</head>
+<body class="light-mode">
+  <div id="rtsTopNav"></div>
+  <div class="rts-version-badge">v1</div>
+  <div class="rts-main container-fluid">
+    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+      <div>
+        <h1 class="h4 mb-1">Session Changes</h1>
+        <div class="text-secondary" style="font-size:.85rem;">Technical change requests and approval log across all sessions.</div>
+      </div>
+      <button class="btn btn-sm btn-primary" id="btnAddSC">+ New Change</button>
+    </div>
+    <div class="ev-stats-bar">
+      <div class="ev-stat-card"><div class="ev-stat-label">Total Changes</div><div class="ev-stat-value" id="statSCTotal">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Requested</div><div class="ev-stat-value" id="statSCRequested">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Approved</div><div class="ev-stat-value" id="statSCApproved">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Completed</div><div class="ev-stat-value" id="statSCCompleted">0</div></div>
+    </div>
+    <div class="mlo-shell" id="scShell">
+      <section class="mlo-pane mlo-pane-left" aria-label="Change filter">
+        <div class="mlo-pane-header"><div class="mlo-title">Filter</div></div>
+        <div class="mlo-pane-content">
+          <div class="mlo-section-label">Status</div>
+          <ul class="mlo-tree pastel-tree" id="scStatusFilter">
+            <li class="active" data-filter="all">All Status</li>
+            <li data-filter="requested">Requested</li>
+            <li data-filter="approved">Approved</li>
+            <li data-filter="completed">Completed</li>
+            <li data-filter="rejected">Rejected</li>
+          </ul>
+          <div class="mlo-section-label mt-3">Session</div>
+          <ul class="mlo-tree pastel-tree" id="scSessionFilter">
+            <li class="active" data-filter="all">All Sessions</li>
+            <li data-filter="FP1">FP1</li><li data-filter="FP2">FP2</li>
+            <li data-filter="FP3">FP3</li><li data-filter="Q">Qualifying</li>
+            <li data-filter="Race">Race</li><li data-filter="Test">Test</li>
+          </ul>
+        </div>
+      </section>
+      <div class="mlo-resizer" id="scResizer1"></div>
+      <section class="mlo-pane mlo-pane-mid" aria-label="Change list">
+        <div class="mlo-pane-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="mlo-title">Changes</div>
+            <span class="badge text-bg-secondary" id="scCountBadge">0</span>
+          </div>
+          <input class="form-control form-control-sm mt-2" type="search" id="scSearch" placeholder="Search change…" />
+        </div>
+        <div class="mlo-pane-content p-0">
+          <table class="sc-table">
+            <thead><tr><th>Car #</th><th>Event</th><th>Session</th><th>Description</th><th>Status</th><th>Time</th></tr></thead>
+            <tbody id="scTableBody"><tr><td colspan="6" class="text-center text-secondary py-4">No changes found.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+      <div class="mlo-resizer" id="scResizer2"></div>
+      <section class="mlo-pane mlo-pane-right" aria-label="Change detail">
+        <div class="mlo-pane-header"><div class="mlo-title" id="scDetailTitle">Change Detail</div></div>
+        <div class="mlo-pane-content">
+          <div class="text-center text-secondary py-5" id="scDetailEmpty"><div style="font-size:2rem;">🔩</div><div class="mt-2">Select a change entry</div></div>
+          <form id="scForm" style="display:none;">
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Car Number *</label><input class="form-control" id="scFCar" placeholder="#1" /></div>
+              <div class="col"><label class="form-label">Session *</label>
+                <select class="form-select" id="scFSession"><option>FP1</option><option>FP2</option><option>FP3</option><option>Q</option><option>Race</option><option>Test</option></select></div>
+            </div>
+            <div class="mb-2"><label class="form-label">Event</label><input class="form-control" id="scFEvent" /></div>
+            <div class="mb-2"><label class="form-label">Change Description *</label><textarea class="form-control" id="scFDesc" rows="2"></textarea></div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Requested By</label><input class="form-control" id="scFReqBy" /></div>
+              <div class="col"><label class="form-label">Approved By</label><input class="form-control" id="scFApprBy" /></div>
+            </div>
+            <div class="mb-2"><label class="form-label">Reason / Justification</label><textarea class="form-control" id="scFReason" rows="2"></textarea></div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Status</label>
+                <select class="form-select" id="scFStatus"><option value="requested">Requested</option><option value="approved">Approved</option><option value="completed">Completed</option><option value="rejected">Rejected</option></select></div>
+              <div class="col"><label class="form-label">Time Completed</label><input class="form-control" id="scFTime" type="time" /></div>
+            </div>
+            <div class="mb-3"><label class="form-label">Notes</label><textarea class="form-control" id="scFNotes" rows="2"></textarea></div>
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-primary btn-sm" id="scBtnSave">Save</button>
+              <button type="button" class="btn btn-outline-danger btn-sm" id="scBtnDelete" style="display:none;">Delete</button>
+              <button type="button" class="btn btn-outline-secondary btn-sm" id="scBtnCancel">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </section>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="core.js"></script><script src="topnav.js"></script>
+  <script>
+    let allSC=[],selectedId=null,filterStatus='all',filterSession='all';
+    const stBadge=s=>({requested:'badge-requested',approved:'badge-approved',completed:'badge-completed',rejected:'badge-rejected'}[s]||'badge-requested');
+    function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+    async function load(){try{const r=await fetch('/api/session-changes');if(r.ok)allSC=await r.json();}catch(_){allSC=[];}renderList();}
+    function renderList(){
+      const q=document.getElementById('scSearch').value.trim().toLowerCase();
+      const rows=allSC.filter(e=>{const ms=filterStatus==='all'||e.status===filterStatus;const mse=filterSession==='all'||e.session===filterSession;const mq=!q||(e.change_description||'').toLowerCase().includes(q)||(e.car_number||'').toLowerCase().includes(q)||(e.event||'').toLowerCase().includes(q);return ms&&mse&&mq;});
+      document.getElementById('scCountBadge').textContent=rows.length;
+      document.getElementById('statSCTotal').textContent=allSC.length;
+      document.getElementById('statSCRequested').textContent=allSC.filter(e=>e.status==='requested').length;
+      document.getElementById('statSCApproved').textContent=allSC.filter(e=>e.status==='approved').length;
+      document.getElementById('statSCCompleted').textContent=allSC.filter(e=>e.status==='completed').length;
+      const tb=document.getElementById('scTableBody');
+      if(!rows.length){tb.innerHTML='<tr><td colspan="6" class="text-center text-secondary py-4">No changes match.</td></tr>';return;}
+      tb.innerHTML=rows.map(e=>`<tr data-id="${e.id}" class="${e.id==selectedId?'selected':''}">
+        <td>${esc(e.car_number||'—')}</td><td>${esc(e.event||'—')}</td><td>${esc(e.session||'—')}</td>
+        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(e.change_description||'—')}</td>
+        <td><span class="${stBadge(e.status)}">${esc(e.status||'—')}</span></td>
+        <td>${e.time_completed||'—'}</td></tr>`).join('');
+      tb.querySelectorAll('tr').forEach(r=>r.addEventListener('click',()=>selectSC(r.dataset.id)));
+    }
+    function selectSC(id){selectedId=id;const e=allSC.find(x=>x.id==id);if(!e)return;
+      document.getElementById('scDetailEmpty').style.display='none';document.getElementById('scForm').style.display='';
+      document.getElementById('scDetailTitle').textContent=`${e.car_number||'Car'} – ${e.session||'Session'}`;
+      document.getElementById('scFCar').value=e.car_number||'';document.getElementById('scFSession').value=e.session||'FP1';
+      document.getElementById('scFEvent').value=e.event||'';document.getElementById('scFDesc').value=e.change_description||'';
+      document.getElementById('scFReqBy').value=e.requested_by||'';document.getElementById('scFApprBy').value=e.approved_by||'';
+      document.getElementById('scFReason').value=e.reason||'';document.getElementById('scFStatus').value=e.status||'requested';
+      document.getElementById('scFTime').value=e.time_completed||'';document.getElementById('scFNotes').value=e.notes||'';
+      document.getElementById('scBtnDelete').style.display='';renderList();}
+    document.getElementById('btnAddSC').addEventListener('click',()=>{selectedId=null;document.getElementById('scDetailEmpty').style.display='none';document.getElementById('scForm').style.display='';document.getElementById('scDetailTitle').textContent='New Change';document.getElementById('scForm').reset();document.getElementById('scBtnDelete').style.display='none';});
+    document.getElementById('scBtnSave').addEventListener('click',async()=>{
+      const body={car_number:document.getElementById('scFCar').value.trim(),session:document.getElementById('scFSession').value,event:document.getElementById('scFEvent').value.trim(),change_description:document.getElementById('scFDesc').value.trim(),requested_by:document.getElementById('scFReqBy').value.trim(),approved_by:document.getElementById('scFApprBy').value.trim(),reason:document.getElementById('scFReason').value.trim(),status:document.getElementById('scFStatus').value,time_completed:document.getElementById('scFTime').value||null,notes:document.getElementById('scFNotes').value.trim()};
+      if(!body.car_number||!body.change_description){alert('Car number and description are required.');return;}
+      try{const url=selectedId?`/api/session-changes/${selectedId}`:'/api/session-changes';const r=await fetch(url,{method:selectedId?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error(await r.text());await load();}catch(e){alert('Save failed: '+e.message);}});
+    document.getElementById('scBtnDelete').addEventListener('click',async()=>{if(!selectedId||!confirm('Delete this change?'))return;try{await fetch(`/api/session-changes/${selectedId}`,{method:'DELETE'});selectedId=null;document.getElementById('scDetailEmpty').style.display='';document.getElementById('scForm').style.display='none';await load();}catch(e){alert('Delete failed: '+e.message);}});
+    document.getElementById('scBtnCancel').addEventListener('click',()=>{document.getElementById('scForm').style.display='none';document.getElementById('scDetailEmpty').style.display='';});
+    document.getElementById('scSearch').addEventListener('input',renderList);
+    document.querySelectorAll('#scStatusFilter li').forEach(li=>li.addEventListener('click',()=>{document.querySelectorAll('#scStatusFilter li').forEach(x=>x.classList.remove('active'));li.classList.add('active');filterStatus=li.dataset.filter;renderList();}));
+    document.querySelectorAll('#scSessionFilter li').forEach(li=>li.addEventListener('click',()=>{document.querySelectorAll('#scSessionFilter li').forEach(x=>x.classList.remove('active'));li.classList.add('active');filterSession=li.dataset.filter;renderList();}));
+    load();
+  </script>
+</body>
+</html>

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Race Team OS – Competitor Intelligence</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="style.css" rel="stylesheet" />
+  <style>
+    body{background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%);}
+    .ev-stats-bar{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
+    .ev-stat-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:10px 16px;box-shadow:0 2px 4px rgba(0,0,0,.06);min-width:100px;}
+    .ev-stat-label{font-size:.7rem;color:#6c757d;font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+    .ev-stat-value{font-size:1.5rem;font-weight:700;color:#1a1d24;line-height:1.2;}
+    #ciShell.mlo-shell{background:transparent;border:none;gap:10px;}
+    #ciShell .mlo-pane-left,#ciShell .mlo-pane-mid,#ciShell .mlo-pane-right{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.06);}
+    #ciShell .mlo-pane-header{background:#f8f9fa;border-bottom:1px solid rgba(0,0,0,.1);}
+    #ciShell .mlo-title{color:#1a1d24!important;}
+    #ciShell .mlo-section-label{color:#6c757d!important;opacity:1!important;}
+    #ciShell .mlo-resizer{background:transparent;}
+    #ciShell .mlo-resizer:hover{background:rgba(166,77,255,.3);}
+    .ci-table{width:100%;font-size:.82rem;border-collapse:separate;border-spacing:0;}
+    .ci-table thead{position:sticky;top:0;background:#f8f9fa;z-index:5;}
+    .ci-table th{padding:8px 10px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#6c757d;border-bottom:2px solid #dee2e6;white-space:nowrap;}
+    .ci-table td{padding:6px 10px;border-bottom:1px solid rgba(0,0,0,.05);vertical-align:middle;color:#1a1d24;}
+    .ci-table tbody tr{cursor:pointer;transition:background .1s;}
+    .ci-table tbody tr:hover{background:#f8f9fa;}
+    .ci-table tbody tr.selected{background:rgba(166,77,255,.08)!important;outline:2px solid #a64dff;outline-offset:-2px;}
+    .rel-high{background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:20px;font-size:.72rem;font-weight:600;}
+    .rel-medium{background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:20px;font-size:.72rem;font-weight:600;}
+    .rel-low{background:#e0e7ff;color:#3730a3;padding:2px 8px;border-radius:20px;font-size:.72rem;font-weight:600;}
+    #ciShell .form-label{color:#495057!important;font-size:.78rem;font-weight:600;margin-bottom:2px;}
+    #ciShell .form-control,#ciShell .form-select{background:#fff!important;color:#1a1d24!important;border-color:#dee2e6!important;font-size:.82rem;}
+    #ciShell .mlo-pane-left .pastel-tree li{height:28px!important;display:flex!important;align-items:center!important;font-size:.83rem!important;font-weight:500!important;padding-left:10px!important;margin-bottom:2px!important;border-radius:5px!important;border:1px solid rgba(0,0,0,.08)!important;color:#1a1d24!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;cursor:pointer!important;}
+    #ciShell .mlo-pane-left .pastel-tree li.active{background:rgba(166,77,255,.1)!important;border-color:rgba(166,77,255,.35)!important;color:#7c3aed!important;font-weight:700!important;}
+  </style>
+</head>
+<body class="light-mode">
+  <div id="rtsTopNav"></div>
+  <div class="rts-version-badge">v1</div>
+  <div class="rts-main container-fluid">
+    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+      <div>
+        <h1 class="h4 mb-1">Competitor Intelligence</h1>
+        <div class="text-secondary" style="font-size:.85rem;">Competitor observations, behaviour trends, and sporting pattern analysis.</div>
+      </div>
+      <button class="btn btn-sm btn-primary" id="btnAddCI">+ Add Note</button>
+    </div>
+    <div class="ev-stats-bar">
+      <div class="ev-stat-card"><div class="ev-stat-label">Total Notes</div><div class="ev-stat-value" id="statCITotal">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">High Relevance</div><div class="ev-stat-value" id="statCIHigh">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">This Event</div><div class="ev-stat-value" id="statCIEvent">0</div></div>
+    </div>
+    <div class="mlo-shell" id="ciShell">
+      <section class="mlo-pane mlo-pane-left" aria-label="CI filter">
+        <div class="mlo-pane-header"><div class="mlo-title">Filter</div></div>
+        <div class="mlo-pane-content">
+          <div class="mlo-section-label">Relevance</div>
+          <ul class="mlo-tree pastel-tree" id="ciRelFilter">
+            <li class="active" data-filter="all">All</li>
+            <li data-filter="high">High</li>
+            <li data-filter="medium">Medium</li>
+            <li data-filter="low">Low</li>
+          </ul>
+          <div class="mlo-section-label mt-3">Observation Type</div>
+          <ul class="mlo-tree pastel-tree" id="ciTypeFilter">
+            <li class="active" data-filter="all">All Types</li>
+            <li data-filter="strategy">Strategy</li>
+            <li data-filter="protest">Protest Behaviour</li>
+            <li data-filter="pace">Pace Pattern</li>
+            <li data-filter="tyre">Tyre Strategy</li>
+            <li data-filter="team_order">Team Orders</li>
+            <li data-filter="general">General</li>
+          </ul>
+        </div>
+      </section>
+      <div class="mlo-resizer" id="ciResizer1"></div>
+      <section class="mlo-pane mlo-pane-mid" aria-label="CI list">
+        <div class="mlo-pane-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="mlo-title">Competitor Notes</div>
+            <span class="badge text-bg-secondary" id="ciCountBadge">0</span>
+          </div>
+          <input class="form-control form-control-sm mt-2" type="search" id="ciSearch" placeholder="Search competitor or event…" />
+        </div>
+        <div class="mlo-pane-content p-0">
+          <table class="ci-table">
+            <thead><tr><th>Competitor</th><th>Event</th><th>Observation Type</th><th>Author</th><th>Relevance</th><th>Date</th></tr></thead>
+            <tbody id="ciTableBody"><tr><td colspan="6" class="text-center text-secondary py-4">No intelligence notes found.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+      <div class="mlo-resizer" id="ciResizer2"></div>
+      <section class="mlo-pane mlo-pane-right" aria-label="CI detail">
+        <div class="mlo-pane-header"><div class="mlo-title" id="ciDetailTitle">Note Detail</div></div>
+        <div class="mlo-pane-content">
+          <div class="text-center text-secondary py-5" id="ciDetailEmpty"><div style="font-size:2rem;">🔍</div><div class="mt-2">Select a note to view details</div></div>
+          <form id="ciForm" style="display:none;">
+            <div class="mb-2"><label class="form-label">Competitor Name *</label><input class="form-control" id="ciFComp" /></div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Event</label><input class="form-control" id="ciFEvent" /></div>
+              <div class="col"><label class="form-label">Date</label><input class="form-control" id="ciFDate" type="date" /></div>
+            </div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Observation Type</label>
+                <select class="form-select" id="ciFOType">
+                  <option value="strategy">Strategy</option><option value="protest">Protest Behaviour</option>
+                  <option value="pace">Pace Pattern</option><option value="tyre">Tyre Strategy</option>
+                  <option value="team_order">Team Orders</option><option value="general">General</option>
+                </select></div>
+              <div class="col"><label class="form-label">Strategic Relevance</label>
+                <select class="form-select" id="ciFRel"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></div>
+            </div>
+            <div class="mb-2"><label class="form-label">Note Author</label><input class="form-control" id="ciFAuthor" /></div>
+            <div class="mb-3"><label class="form-label">Observation *</label><textarea class="form-control" id="ciFNote" rows="5"></textarea></div>
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-primary btn-sm" id="ciBtnSave">Save</button>
+              <button type="button" class="btn btn-outline-danger btn-sm" id="ciBtnDelete" style="display:none;">Delete</button>
+              <button type="button" class="btn btn-outline-secondary btn-sm" id="ciBtnCancel">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </section>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="core.js"></script><script src="topnav.js"></script>
+  <script>
+    let allCI=[],selectedId=null,filterRel='all',filterType='all';
+    function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+    async function loadCI(){try{const r=await fetch('/api/competitor-intel');if(r.ok)allCI=await r.json();}catch(_){allCI=[];}renderList();}
+    function renderList(){
+      const q=document.getElementById('ciSearch').value.trim().toLowerCase();
+      const rows=allCI.filter(e=>{
+        const mr=filterRel==='all'||e.strategic_relevance===filterRel;
+        const mt=filterType==='all'||e.observation_type===filterType;
+        const mq=!q||(e.competitor||'').toLowerCase().includes(q)||(e.event||'').toLowerCase().includes(q);
+        return mr&&mt&&mq;
+      });
+      document.getElementById('ciCountBadge').textContent=rows.length;
+      document.getElementById('statCITotal').textContent=allCI.length;
+      document.getElementById('statCIHigh').textContent=allCI.filter(e=>e.strategic_relevance==='high').length;
+      const tb=document.getElementById('ciTableBody');
+      if(!rows.length){tb.innerHTML='<tr><td colspan="6" class="text-center text-secondary py-4">No notes match.</td></tr>';return;}
+      tb.innerHTML=rows.map(e=>`<tr data-id="${e.id}" class="${e.id==selectedId?'selected':''}">
+        <td><strong>${esc(e.competitor||'')}</strong></td><td>${esc(e.event||'—')}</td>
+        <td>${esc(e.observation_type||'general')}</td><td>${esc(e.author||'—')}</td>
+        <td><span class="rel-${e.strategic_relevance||'low'}">${e.strategic_relevance||'low'}</span></td>
+        <td>${e.note_date||'—'}</td></tr>`).join('');
+      tb.querySelectorAll('tr').forEach(r=>r.addEventListener('click',()=>selectCI(r.dataset.id)));
+    }
+    function selectCI(id){
+      selectedId=id;const e=allCI.find(x=>x.id==id);if(!e)return;
+      document.getElementById('ciDetailEmpty').style.display='none';document.getElementById('ciForm').style.display='';
+      document.getElementById('ciDetailTitle').textContent=e.competitor||'Note Detail';
+      document.getElementById('ciFComp').value=e.competitor||'';document.getElementById('ciFEvent').value=e.event||'';
+      document.getElementById('ciFDate').value=e.note_date||'';document.getElementById('ciFOType').value=e.observation_type||'general';
+      document.getElementById('ciFRel').value=e.strategic_relevance||'low';document.getElementById('ciFAuthor').value=e.author||'';
+      document.getElementById('ciFNote').value=e.observation||'';document.getElementById('ciBtnDelete').style.display='';renderList();
+    }
+    function newCIForm(){selectedId=null;document.getElementById('ciDetailEmpty').style.display='none';document.getElementById('ciForm').style.display='';document.getElementById('ciDetailTitle').textContent='New Note';document.getElementById('ciForm').reset();document.getElementById('ciBtnDelete').style.display='none';}
+    async function saveCI(){
+      const body={competitor:document.getElementById('ciFComp').value.trim(),event:document.getElementById('ciFEvent').value.trim(),note_date:document.getElementById('ciFDate').value||null,observation_type:document.getElementById('ciFOType').value,strategic_relevance:document.getElementById('ciFRel').value,author:document.getElementById('ciFAuthor').value.trim(),observation:document.getElementById('ciFNote').value.trim()};
+      if(!body.competitor||!body.observation){alert('Competitor and observation are required.');return;}
+      try{const url=selectedId?`/api/competitor-intel/${selectedId}`:'/api/competitor-intel';const r=await fetch(url,{method:selectedId?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error(await r.text());await loadCI();}catch(e){alert('Save failed: '+e.message);}
+    }
+    async function deleteCI(){if(!selectedId||!confirm('Delete this note?'))return;try{await fetch(`/api/competitor-intel/${selectedId}`,{method:'DELETE'});selectedId=null;document.getElementById('ciDetailEmpty').style.display='';document.getElementById('ciForm').style.display='none';await loadCI();}catch(e){alert('Delete failed: '+e.message);}}
+    document.getElementById('btnAddCI').addEventListener('click',newCIForm);
+    document.getElementById('ciBtnSave').addEventListener('click',saveCI);
+    document.getElementById('ciBtnDelete').addEventListener('click',deleteCI);
+    document.getElementById('ciBtnCancel').addEventListener('click',()=>{document.getElementById('ciForm').style.display='none';document.getElementById('ciDetailEmpty').style.display='';});
+    document.getElementById('ciSearch').addEventListener('input',renderList);
+    document.querySelectorAll('#ciRelFilter li').forEach(li=>li.addEventListener('click',()=>{document.querySelectorAll('#ciRelFilter li').forEach(x=>x.classList.remove('active'));li.classList.add('active');filterRel=li.dataset.filter;renderList();}));
+    document.querySelectorAll('#ciTypeFilter li').forEach(li=>li.addEventListener('click',()=>{document.querySelectorAll('#ciTypeFilter li').forEach(x=>x.classList.remove('active'));li.classList.add('active');filterType=li.dataset.filter;renderList();}));
+    loadCI();
+  </script>
+</body>
+</html>

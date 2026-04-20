@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Race Team OS – Allocations</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="style.css" rel="stylesheet" />
+  <style>
+    body{background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%);}
+    .ev-stats-bar{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
+    .ev-stat-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:10px 16px;box-shadow:0 2px 4px rgba(0,0,0,.06);min-width:100px;}
+    .ev-stat-label{font-size:.7rem;color:#6c757d;font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+    .ev-stat-value{font-size:1.5rem;font-weight:700;color:#1a1d24;line-height:1.2;}
+    #allocShell.mlo-shell{background:transparent;border:none;gap:10px;}
+    #allocShell .mlo-pane-left,#allocShell .mlo-pane-mid,#allocShell .mlo-pane-right{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.06);}
+    #allocShell .mlo-pane-header{background:#f8f9fa;border-bottom:1px solid rgba(0,0,0,.1);}
+    #allocShell .mlo-title{color:#1a1d24!important;}
+    #allocShell .mlo-section-label{color:#6c757d!important;opacity:1!important;}
+    #allocShell .mlo-resizer{background:transparent;}
+    #allocShell .mlo-resizer:hover{background:rgba(166,77,255,.3);}
+    .alloc-table{width:100%;font-size:.82rem;border-collapse:separate;border-spacing:0;}
+    .alloc-table thead{position:sticky;top:0;background:#f8f9fa;z-index:5;}
+    .alloc-table th{padding:8px 10px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#6c757d;border-bottom:2px solid #dee2e6;white-space:nowrap;}
+    .alloc-table td{padding:6px 10px;border-bottom:1px solid rgba(0,0,0,.05);vertical-align:middle;color:#1a1d24;}
+    .alloc-table tbody tr{cursor:pointer;transition:background .1s;}
+    .alloc-table tbody tr:hover{background:#f8f9fa;}
+    .alloc-table tbody tr.selected{background:rgba(166,77,255,.08)!important;outline:2px solid #a64dff;outline-offset:-2px;}
+    .penalty-flag{background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:20px;font-size:.72rem;font-weight:600;}
+    .no-penalty{background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:20px;font-size:.72rem;font-weight:600;}
+    #allocShell .form-label{color:#495057!important;font-size:.78rem;font-weight:600;margin-bottom:2px;}
+    #allocShell .form-control,#allocShell .form-select{background:#fff!important;color:#1a1d24!important;border-color:#dee2e6!important;font-size:.82rem;}
+    #allocShell .mlo-pane-left .pastel-tree li{height:28px!important;display:flex!important;align-items:center!important;font-size:.83rem!important;font-weight:500!important;padding-left:10px!important;margin-bottom:2px!important;border-radius:5px!important;border:1px solid rgba(0,0,0,.08)!important;color:#1a1d24!important;cursor:pointer!important;}
+    #allocShell .mlo-pane-left .pastel-tree li.active{background:rgba(166,77,255,.1)!important;border-color:rgba(166,77,255,.35)!important;color:#7c3aed!important;font-weight:700!important;}
+  </style>
+</head>
+<body class="light-mode">
+  <div id="rtsTopNav"></div>
+  <div class="rts-version-badge">v1</div>
+  <div class="rts-main container-fluid">
+    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+      <div>
+        <h1 class="h4 mb-1">Allocations</h1>
+        <div class="text-secondary" style="font-size:.85rem;">Chassis, power unit, gearbox, and component allocation matrix — penalty exposure tracking.</div>
+      </div>
+      <button class="btn btn-sm btn-primary" id="btnAddAlloc">+ Add Allocation</button>
+    </div>
+    <div class="ev-stats-bar">
+      <div class="ev-stat-card"><div class="ev-stat-label">Active Allocations</div><div class="ev-stat-value" id="statAllocTotal">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Penalty Exposure</div><div class="ev-stat-value" id="statAllocPenalty">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Components Tracked</div><div class="ev-stat-value" id="statAllocComps">0</div></div>
+    </div>
+    <div class="mlo-shell" id="allocShell">
+      <section class="mlo-pane mlo-pane-left" aria-label="Allocation filter">
+        <div class="mlo-pane-header"><div class="mlo-title">Filter</div></div>
+        <div class="mlo-pane-content">
+          <div class="mlo-section-label">Component Type</div>
+          <ul class="mlo-tree pastel-tree" id="allocTypeFilter">
+            <li class="active" data-filter="all">All</li>
+            <li data-filter="chassis">Chassis</li>
+            <li data-filter="power_unit">Power Unit</li>
+            <li data-filter="gearbox">Gearbox</li>
+            <li data-filter="other">Other</li>
+          </ul>
+          <div class="mlo-section-label mt-3">Car</div>
+          <ul class="mlo-tree pastel-tree" id="allocCarFilter">
+            <li class="active" data-filter="all">All Cars</li>
+            <li data-filter="1">#1</li>
+            <li data-filter="2">#2</li>
+          </ul>
+        </div>
+      </section>
+      <div class="mlo-resizer" id="allocResizer1"></div>
+      <section class="mlo-pane mlo-pane-mid" aria-label="Allocation list">
+        <div class="mlo-pane-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="mlo-title">Allocation Matrix</div>
+            <span class="badge text-bg-secondary" id="allocCountBadge">0</span>
+          </div>
+          <input class="form-control form-control-sm mt-2" type="search" id="allocSearch" placeholder="Search component ID…" />
+        </div>
+        <div class="mlo-pane-content p-0">
+          <table class="alloc-table">
+            <thead><tr><th>Component ID</th><th>Type</th><th>Car</th><th>Event</th><th>Usage Cycle</th><th>Penalty Exposure</th><th>Notes</th></tr></thead>
+            <tbody id="allocTableBody"><tr><td colspan="7" class="text-center text-secondary py-4">No allocations recorded.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+      <div class="mlo-resizer" id="allocResizer2"></div>
+      <section class="mlo-pane mlo-pane-right" aria-label="Allocation detail">
+        <div class="mlo-pane-header"><div class="mlo-title" id="allocDetailTitle">Allocation Detail</div></div>
+        <div class="mlo-pane-content">
+          <div class="text-center text-secondary py-5" id="allocDetailEmpty"><div style="font-size:2rem;">📊</div><div class="mt-2">Select an allocation</div></div>
+          <form id="allocForm" style="display:none;">
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Component ID *</label><input class="form-control" id="allocFComp" /></div>
+              <div class="col"><label class="form-label">Component Type</label>
+                <select class="form-select" id="allocFType"><option value="chassis">Chassis</option><option value="power_unit">Power Unit</option><option value="gearbox">Gearbox</option><option value="other">Other</option></select></div>
+            </div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Car Assignment</label><input class="form-control" id="allocFCar" placeholder="#1 or #2" /></div>
+              <div class="col"><label class="form-label">Event Assignment</label><input class="form-control" id="allocFEvent" /></div>
+            </div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Usage Cycle #</label><input class="form-control" id="allocFCycle" type="number" /></div>
+              <div class="col"><label class="form-label">Penalty Exposure</label>
+                <select class="form-select" id="allocFPenalty"><option value="none">None</option><option value="warning">Warning</option><option value="penalty">Grid Penalty</option></select></div>
+            </div>
+            <div class="mb-3"><label class="form-label">Allocation Notes</label><textarea class="form-control" id="allocFNotes" rows="3"></textarea></div>
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-primary btn-sm" id="allocBtnSave">Save</button>
+              <button type="button" class="btn btn-outline-danger btn-sm" id="allocBtnDelete" style="display:none;">Delete</button>
+              <button type="button" class="btn btn-outline-secondary btn-sm" id="allocBtnCancel">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </section>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="core.js"></script><script src="topnav.js"></script>
+  <script>
+    let allAllocs=[],selectedId=null,filterType='all',filterCar='all';
+    function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+    async function loadAllocs(){try{const r=await fetch('/api/allocations');if(r.ok)allAllocs=await r.json();}catch(_){allAllocs=[];}renderList();}
+    function renderList(){
+      const q=document.getElementById('allocSearch').value.trim().toLowerCase();
+      const rows=allAllocs.filter(e=>{const mt=filterType==='all'||e.component_type===filterType;const mc=filterCar==='all'||e.car_assignment===filterCar;const mq=!q||(e.component_id||'').toLowerCase().includes(q);return mt&&mc&&mq;});
+      document.getElementById('allocCountBadge').textContent=rows.length;
+      document.getElementById('statAllocTotal').textContent=allAllocs.length;
+      document.getElementById('statAllocPenalty').textContent=allAllocs.filter(e=>e.penalty_exposure&&e.penalty_exposure!=='none').length;
+      document.getElementById('statAllocComps').textContent=new Set(allAllocs.map(e=>e.component_id)).size;
+      const tb=document.getElementById('allocTableBody');
+      if(!rows.length){tb.innerHTML='<tr><td colspan="7" class="text-center text-secondary py-4">No allocations match.</td></tr>';return;}
+      tb.innerHTML=rows.map(e=>`<tr data-id="${e.id}" class="${e.id==selectedId?'selected':''}">
+        <td><code>${esc(e.component_id||'—')}</code></td><td>${esc(e.component_type||'—')}</td>
+        <td>${esc(e.car_assignment||'—')}</td><td>${esc(e.event_assignment||'—')}</td>
+        <td>${e.usage_cycle||'1'}</td>
+        <td>${e.penalty_exposure&&e.penalty_exposure!=='none'?`<span class="penalty-flag">${e.penalty_exposure}</span>`:'<span class="no-penalty">None</span>'}</td>
+        <td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(e.notes||'')}</td></tr>`).join('');
+      tb.querySelectorAll('tr').forEach(r=>r.addEventListener('click',()=>selectAlloc(r.dataset.id)));
+    }
+    function selectAlloc(id){
+      selectedId=id;const e=allAllocs.find(x=>x.id==id);if(!e)return;
+      document.getElementById('allocDetailEmpty').style.display='none';document.getElementById('allocForm').style.display='';
+      document.getElementById('allocDetailTitle').textContent=e.component_id||'Allocation';
+      document.getElementById('allocFComp').value=e.component_id||'';document.getElementById('allocFType').value=e.component_type||'other';
+      document.getElementById('allocFCar').value=e.car_assignment||'';document.getElementById('allocFEvent').value=e.event_assignment||'';
+      document.getElementById('allocFCycle').value=e.usage_cycle||'';document.getElementById('allocFPenalty').value=e.penalty_exposure||'none';
+      document.getElementById('allocFNotes').value=e.notes||'';document.getElementById('allocBtnDelete').style.display='';renderList();
+    }
+    function newAllocForm(){selectedId=null;document.getElementById('allocDetailEmpty').style.display='none';document.getElementById('allocForm').style.display='';document.getElementById('allocDetailTitle').textContent='New Allocation';document.getElementById('allocForm').reset();document.getElementById('allocBtnDelete').style.display='none';}
+    async function saveAlloc(){
+      const body={component_id:document.getElementById('allocFComp').value.trim(),component_type:document.getElementById('allocFType').value,car_assignment:document.getElementById('allocFCar').value.trim(),event_assignment:document.getElementById('allocFEvent').value.trim(),usage_cycle:document.getElementById('allocFCycle').value||1,penalty_exposure:document.getElementById('allocFPenalty').value,notes:document.getElementById('allocFNotes').value.trim()};
+      if(!body.component_id){alert('Component ID is required.');return;}
+      try{const url=selectedId?`/api/allocations/${selectedId}`:'/api/allocations';const r=await fetch(url,{method:selectedId?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error(await r.text());await loadAllocs();}catch(e){alert('Save failed: '+e.message);}
+    }
+    async function deleteAlloc(){if(!selectedId||!confirm('Delete this allocation?'))return;try{await fetch(`/api/allocations/${selectedId}`,{method:'DELETE'});selectedId=null;document.getElementById('allocDetailEmpty').style.display='';document.getElementById('allocForm').style.display='none';await loadAllocs();}catch(e){alert('Delete failed: '+e.message);}}
+    document.getElementById('btnAddAlloc').addEventListener('click',newAllocForm);
+    document.getElementById('allocBtnSave').addEventListener('click',saveAlloc);
+    document.getElementById('allocBtnDelete').addEventListener('click',deleteAlloc);
+    document.getElementById('allocBtnCancel').addEventListener('click',()=>{document.getElementById('allocForm').style.display='none';document.getElementById('allocDetailEmpty').style.display='';});
+    document.getElementById('allocSearch').addEventListener('input',renderList);
+    document.querySelectorAll('#allocTypeFilter li').forEach(li=>li.addEventListener('click',()=>{document.querySelectorAll('#allocTypeFilter li').forEach(x=>x.classList.remove('active'));li.classList.add('active');filterType=li.dataset.filter;renderList();}));
+    document.querySelectorAll('#allocCarFilter li').forEach(li=>li.addEventListener('click',()=>{document.querySelectorAll('#allocCarFilter li').forEach(x=>x.classList.remove('active'));li.classList.add('active');filterCar=li.dataset.filter;renderList();}));
+    loadAllocs();
+  </script>
+</body>
+</html>

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Race Team OS – Repairs</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="style.css" rel="stylesheet" />
+  <style>
+    body{background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%);}
+    .ev-stats-bar{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
+    .ev-stat-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:10px 16px;box-shadow:0 2px 4px rgba(0,0,0,.06);min-width:100px;}
+    .ev-stat-label{font-size:.7rem;color:#6c757d;font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+    .ev-stat-value{font-size:1.5rem;font-weight:700;color:#1a1d24;line-height:1.2;}
+    #repShell.mlo-shell{background:transparent;border:none;gap:10px;}
+    #repShell .mlo-pane-left,#repShell .mlo-pane-mid,#repShell .mlo-pane-right{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.06);}
+    #repShell .mlo-pane-header{background:#f8f9fa;border-bottom:1px solid rgba(0,0,0,.1);}
+    #repShell .mlo-title{color:#1a1d24!important;} #repShell .mlo-section-label{color:#6c757d!important;opacity:1!important;}
+    #repShell .mlo-resizer{background:transparent;} #repShell .mlo-resizer:hover{background:rgba(166,77,255,.3);}
+    .rep-table{width:100%;font-size:.82rem;border-collapse:separate;border-spacing:0;}
+    .rep-table thead{position:sticky;top:0;background:#f8f9fa;z-index:5;}
+    .rep-table th{padding:8px 10px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#6c757d;border-bottom:2px solid #dee2e6;}
+    .rep-table td{padding:6px 10px;border-bottom:1px solid rgba(0,0,0,.05);vertical-align:middle;color:#1a1d24;}
+    .rep-table tbody tr{cursor:pointer;transition:background .1s;}
+    .rep-table tbody tr:hover{background:#f8f9fa;}
+    .rep-table tbody tr.selected{background:rgba(166,77,255,.08)!important;outline:2px solid #a64dff;outline-offset:-2px;}
+    .badge-logged{background:#6c757d;color:#fff;border-radius:4px;font-size:.7rem;padding:2px 6px;}
+    .badge-in_progress{background:#ffc107;color:#000;border-radius:4px;font-size:.7rem;padding:2px 6px;}
+    .badge-repaired{background:#198754;color:#fff;border-radius:4px;font-size:.7rem;padding:2px 6px;}
+    .badge-written_off{background:#dc3545;color:#fff;border-radius:4px;font-size:.7rem;padding:2px 6px;}
+    #repShell .form-label{color:#495057!important;font-size:.78rem;font-weight:600;margin-bottom:2px;}
+    #repShell .form-control,#repShell .form-select{background:#fff!important;color:#1a1d24!important;border-color:#dee2e6!important;font-size:.82rem;}
+    #repShell .mlo-pane-left .pastel-tree li{height:28px!important;display:flex!important;align-items:center!important;font-size:.83rem!important;font-weight:500!important;padding-left:10px!important;margin-bottom:2px!important;border-radius:5px!important;border:1px solid rgba(0,0,0,.08)!important;color:#1a1d24!important;cursor:pointer!important;}
+    #repShell .mlo-pane-left .pastel-tree li.active{background:rgba(166,77,255,.1)!important;border-color:rgba(166,77,255,.35)!important;color:#7c3aed!important;font-weight:700!important;}
+  </style>
+</head>
+<body class="light-mode">
+  <div id="rtsTopNav"></div>
+  <div class="rts-version-badge">v1</div>
+  <div class="rts-main container-fluid">
+    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+      <div>
+        <h1 class="h4 mb-1">Repairs</h1>
+        <div class="text-secondary" style="font-size:.85rem;">Crash, damage, and repair job tracking for all components.</div>
+      </div>
+      <button class="btn btn-sm btn-primary" id="btnAddRep">+ Log Repair</button>
+    </div>
+    <div class="ev-stats-bar">
+      <div class="ev-stat-card"><div class="ev-stat-label">Total Repairs</div><div class="ev-stat-value" id="statRepTotal">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">In Progress</div><div class="ev-stat-value" id="statRepInProg">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Repaired</div><div class="ev-stat-value" id="statRepDone">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Written Off</div><div class="ev-stat-value" id="statRepWO">0</div></div>
+    </div>
+    <div class="mlo-shell" id="repShell">
+      <section class="mlo-pane mlo-pane-left">
+        <div class="mlo-pane-header"><div class="mlo-title">Filter</div></div>
+        <div class="mlo-pane-content">
+          <div class="mlo-section-label">Status</div>
+          <ul class="mlo-tree pastel-tree" id="repStatusFilter">
+            <li class="active" data-filter="all">All Status</li>
+            <li data-filter="logged">Logged</li>
+            <li data-filter="in_progress">In Progress</li>
+            <li data-filter="repaired">Repaired</li>
+            <li data-filter="written_off">Written Off</li>
+          </ul>
+          <div class="mlo-section-label mt-3">Component Type</div>
+          <ul class="mlo-tree pastel-tree" id="repCompFilter">
+            <li class="active" data-filter="all">All Types</li>
+            <li data-filter="Bodywork">Bodywork</li>
+            <li data-filter="Suspension">Suspension</li>
+            <li data-filter="Gearbox">Gearbox</li>
+            <li data-filter="Electronics">Electronics</li>
+            <li data-filter="Aero">Aero</li>
+            <li data-filter="Other">Other</li>
+          </ul>
+        </div>
+      </section>
+      <div class="mlo-resizer" id="repResizer1"></div>
+      <section class="mlo-pane mlo-pane-mid">
+        <div class="mlo-pane-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="mlo-title">Repairs</div>
+            <span class="badge text-bg-secondary" id="repCountBadge">0</span>
+          </div>
+          <input class="form-control form-control-sm mt-2" type="search" id="repSearch" placeholder="Search repair…" />
+        </div>
+        <div class="mlo-pane-content p-0">
+          <table class="rep-table">
+            <thead><tr><th>Component</th><th>Type</th><th>Car</th><th>Event</th><th>Mechanic</th><th>Status</th></tr></thead>
+            <tbody id="repTableBody"><tr><td colspan="6" class="text-center text-secondary py-4">No repairs found.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+      <div class="mlo-resizer" id="repResizer2"></div>
+      <section class="mlo-pane mlo-pane-right">
+        <div class="mlo-pane-header"><div class="mlo-title" id="repDetailTitle">Repair Detail</div></div>
+        <div class="mlo-pane-content">
+          <div class="text-center text-secondary py-5" id="repDetailEmpty"><div style="font-size:2rem;">🔧</div><div class="mt-2">Select a repair record</div></div>
+          <form id="repForm" style="display:none;">
+            <div class="mb-2"><label class="form-label">Component / Part *</label><input class="form-control" id="repFComp" /></div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Component Type</label>
+                <select class="form-select" id="repFCompType"><option>Bodywork</option><option>Suspension</option><option>Gearbox</option><option>Electronics</option><option>Aero</option><option>Other</option></select></div>
+              <div class="col"><label class="form-label">Car</label><input class="form-control" id="repFCar" placeholder="#1" /></div>
+            </div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Event Where Damaged</label><input class="form-control" id="repFEvent" /></div>
+              <div class="col"><label class="form-label">Mechanic</label><input class="form-control" id="repFMech" /></div>
+            </div>
+            <div class="mb-2"><label class="form-label">Damage Description *</label><textarea class="form-control" id="repFDamage" rows="2"></textarea></div>
+            <div class="mb-2"><label class="form-label">Repair Method</label><textarea class="form-control" id="repFMethod" rows="2"></textarea></div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Status</label>
+                <select class="form-select" id="repFStatus"><option value="logged">Logged</option><option value="in_progress">In Progress</option><option value="repaired">Repaired</option><option value="written_off">Written Off</option></select></div>
+              <div class="col"><label class="form-label">Est. Repair Cost (£)</label><input class="form-control" id="repFCost" type="number" step="0.01" /></div>
+            </div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Date Logged</label><input class="form-control" id="repFDateLogged" type="date" /></div>
+              <div class="col"><label class="form-label">Date Completed</label><input class="form-control" id="repFDateDone" type="date" /></div>
+            </div>
+            <div class="mb-3"><label class="form-label">Notes</label><textarea class="form-control" id="repFNotes" rows="2"></textarea></div>
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-primary btn-sm" id="repBtnSave">Save</button>
+              <button type="button" class="btn btn-outline-danger btn-sm" id="repBtnDelete" style="display:none;">Delete</button>
+              <button type="button" class="btn btn-outline-secondary btn-sm" id="repBtnCancel">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </section>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="core.js"></script><script src="topnav.js"></script>
+  <script>
+    let allRep=[],selectedId=null,filterStatus='all',filterComp='all';
+    const stBadge=s=>({logged:'badge-logged',in_progress:'badge-in_progress',repaired:'badge-repaired',written_off:'badge-written_off'}[s]||'badge-logged');
+    function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+    async function load(){try{const r=await fetch('/api/repairs');if(r.ok)allRep=await r.json();}catch(_){allRep=[];}renderList();}
+    function renderList(){
+      const q=document.getElementById('repSearch').value.trim().toLowerCase();
+      const rows=allRep.filter(e=>{const ms=filterStatus==='all'||e.status===filterStatus;const mc=filterComp==='all'||e.component_type===filterComp;const mq=!q||(e.component||'').toLowerCase().includes(q)||(e.event||'').toLowerCase().includes(q)||(e.mechanic||'').toLowerCase().includes(q);return ms&&mc&&mq;});
+      document.getElementById('repCountBadge').textContent=rows.length;
+      document.getElementById('statRepTotal').textContent=allRep.length;
+      document.getElementById('statRepInProg').textContent=allRep.filter(e=>e.status==='in_progress').length;
+      document.getElementById('statRepDone').textContent=allRep.filter(e=>e.status==='repaired').length;
+      document.getElementById('statRepWO').textContent=allRep.filter(e=>e.status==='written_off').length;
+      const tb=document.getElementById('repTableBody');
+      if(!rows.length){tb.innerHTML='<tr><td colspan="6" class="text-center text-secondary py-4">No repairs match.</td></tr>';return;}
+      tb.innerHTML=rows.map(e=>`<tr data-id="${e.id}" class="${e.id==selectedId?'selected':''}">
+        <td>${esc(e.component||'—')}</td><td>${esc(e.component_type||'—')}</td><td>${esc(e.car||'—')}</td>
+        <td>${esc(e.event||'—')}</td><td>${esc(e.mechanic||'—')}</td>
+        <td><span class="${stBadge(e.status)}">${esc((e.status||'').replace('_',' '))}</span></td></tr>`).join('');
+      tb.querySelectorAll('tr').forEach(r=>r.addEventListener('click',()=>selectRep(r.dataset.id)));
+    }
+    function selectRep(id){selectedId=id;const e=allRep.find(x=>x.id==id);if(!e)return;
+      document.getElementById('repDetailEmpty').style.display='none';document.getElementById('repForm').style.display='';
+      document.getElementById('repDetailTitle').textContent=e.component||'Repair';
+      document.getElementById('repFComp').value=e.component||'';document.getElementById('repFCompType').value=e.component_type||'Other';
+      document.getElementById('repFCar').value=e.car||'';document.getElementById('repFEvent').value=e.event||'';
+      document.getElementById('repFMech').value=e.mechanic||'';document.getElementById('repFDamage').value=e.damage_description||'';
+      document.getElementById('repFMethod').value=e.repair_method||'';document.getElementById('repFStatus').value=e.status||'logged';
+      document.getElementById('repFCost').value=e.est_cost||'';document.getElementById('repFDateLogged').value=e.date_logged||'';
+      document.getElementById('repFDateDone').value=e.date_completed||'';document.getElementById('repFNotes').value=e.notes||'';
+      document.getElementById('repBtnDelete').style.display='';renderList();}
+    document.getElementById('btnAddRep').addEventListener('click',()=>{selectedId=null;document.getElementById('repDetailEmpty').style.display='none';document.getElementById('repForm').style.display='';document.getElementById('repDetailTitle').textContent='Log Repair';document.getElementById('repForm').reset();document.getElementById('repBtnDelete').style.display='none';});
+    document.getElementById('repBtnSave').addEventListener('click',async()=>{
+      const body={component:document.getElementById('repFComp').value.trim(),component_type:document.getElementById('repFCompType').value,car:document.getElementById('repFCar').value.trim(),event:document.getElementById('repFEvent').value.trim(),mechanic:document.getElementById('repFMech').value.trim(),damage_description:document.getElementById('repFDamage').value.trim(),repair_method:document.getElementById('repFMethod').value.trim(),status:document.getElementById('repFStatus').value,est_cost:document.getElementById('repFCost').value||null,date_logged:document.getElementById('repFDateLogged').value||null,date_completed:document.getElementById('repFDateDone').value||null,notes:document.getElementById('repFNotes').value.trim()};
+      if(!body.component||!body.damage_description){alert('Component and damage description are required.');return;}
+      try{const url=selectedId?`/api/repairs/${selectedId}`:'/api/repairs';const r=await fetch(url,{method:selectedId?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error(await r.text());await load();}catch(e){alert('Save failed: '+e.message);}});
+    document.getElementById('repBtnDelete').addEventListener('click',async()=>{if(!selectedId||!confirm('Delete this repair?'))return;try{await fetch(`/api/repairs/${selectedId}`,{method:'DELETE'});selectedId=null;document.getElementById('repDetailEmpty').style.display='';document.getElementById('repForm').style.display='none';await load();}catch(e){alert('Delete failed: '+e.message);}});
+    document.getElementById('repBtnCancel').addEventListener('click',()=>{document.getElementById('repForm').style.display='none';document.getElementById('repDetailEmpty').style.display='';});
+    document.getElementById('repSearch').addEventListener('input',renderList);
+    document.querySelectorAll('#repStatusFilter li').forEach(li=>li.addEventListener('click',()=>{document.querySelectorAll('#repStatusFilter li').forEach(x=>x.classList.remove('active'));li.classList.add('active');filterStatus=li.dataset.filter;renderList();}));
+    document.querySelectorAll('#repCompFilter li').forEach(li=>li.addEventListener('click',()=>{document.querySelectorAll('#repCompFilter li').forEach(x=>x.classList.remove('active'));li.classList.add('active');filterComp=li.dataset.filter;renderList();}));
+    load();
+  </script>
+</body>
+</html>
