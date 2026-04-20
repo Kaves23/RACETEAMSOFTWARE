@@ -22,15 +22,33 @@
     .panel-body{flex:1;overflow-y:auto;padding:6px 0 6px 0}
 
     /* ── Left sidebar items ── */
-    .inv-sidebar-section { padding: 2px 0 4px; }
+    .inv-sidebar-section { padding: 2px 0 3px; }
     .inv-sidebar-hdr {
-      padding: 5px 10px 3px;
+      padding: 6px 10px 3px;
       font-size: 9px;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: .8px;
-      color: #9aa5b4;
+      color: #7a8494;
+      border-top: 1px solid #eef0f3;
+      margin-top: 2px;
     }
+    .inv-sidebar-section:first-child .inv-sidebar-hdr { border-top: none; margin-top: 0; }
+    .inv-sidebar-search{
+      padding: 5px 8px 3px;
+    }
+    .inv-sidebar-search input{
+      height: 26px;
+      font-size: .72rem;
+      padding: 2px 8px;
+      border-radius: 4px;
+      border: 1px solid #d8dce2;
+      background: #f8f9fa;
+      width: 100%;
+      color: #202124;
+      outline: none;
+    }
+    .inv-sidebar-search input:focus { border-color: #1a73e8; background: #fff; }
     .inv-sidebar-hdr.collapsible {
       cursor: pointer;
       display: flex;
@@ -93,23 +111,23 @@
     .detail-panel{flex:0 0 300px}
     
     /* Item Cards for List View */
-    .inventory-row{background:#f8f9fa;border:1px solid #d0d0d0;border-radius:4px;padding:4px 8px;margin-bottom:2px;cursor:pointer;transition:all .15s}
+    .inventory-row{background:#f8f9fa;border:1px solid #d0d0d0;border-radius:4px;padding:2px 8px;margin-bottom:1px;cursor:pointer;transition:all .15s}
     .inventory-row:hover{background:#e8f0fe;border-color:#1a73e8}
     .inventory-row.active{background:#e8f0fe;border-color:#1967d2;box-shadow:0 0 0 1px rgba(26,115,232,.2)}
     .inventory-row.selected{background:#e3f2fd;border-left:3px solid #1a73e8}
     .inventory-row.low-stock{border-left:3px solid #fbbc04}
     .inventory-row.out-of-stock{border-left:3px solid #ea4335}
     
-    .item-name{font-weight:400;font-size:.85rem;color:#202124;margin-bottom:2px}
-    .item-sku{font-family:'Courier New',monospace;font-size:.7rem;color:#1a73e8;margin-bottom:2px}
-    .item-meta{font-size:.7rem;color:#202124;display:flex;gap:8px;flex-wrap:wrap}
+    .item-name{font-weight:400;font-size:.83rem;color:#202124;margin-bottom:0}
+    .item-sku{font-family:'Courier New',monospace;font-size:.68rem;color:#1a73e8;margin-bottom:0}
+    .item-meta{font-size:.68rem;color:#202124;display:flex;gap:6px;flex-wrap:wrap;margin-top:1px}
     .item-qty{font-weight:700;color:#202124}
     .item-qty.low{color:#fbbc04}
     .item-qty.out{color:#ea4335}
     
     /* Search and filters */
-    .search-section{position:sticky;top:0;background:#fff;padding-bottom:8px;z-index:10;border-bottom:1px solid #e0e0e0;margin-bottom:8px}
-    .filter-group{display:flex;gap:6px;margin-top:6px}
+    .search-section{position:sticky;top:0;background:#fff;padding-bottom:4px;z-index:10;border-bottom:1px solid #e0e0e0;margin-bottom:6px}
+    .filter-group{display:flex;gap:4px;margin-top:4px;flex-wrap:wrap}
     
     /* Stat badges */
     .stat-badge{background:#e8f0fe;color:#1a73e8;padding:3px 8px;border-radius:8px;font-size:.75rem;font-weight:700}
@@ -318,6 +336,11 @@
           <span class="stat-badge" id="totalItemsBadge">0</span>
         </div>
         <div class="panel-body">
+          <!-- Sidebar search -->
+          <div class="inv-sidebar-search">
+            <input type="text" id="sidebarSearchInput" placeholder="🔍 Filter items…" oninput="filterSidebarItems(this.value)">
+          </div>
+
           <!-- Active filter indicator -->
           <div class="inv-active-filters" id="activeFiltersBar">
             <span id="activeFiltersLabel">🔍 Filters active</span>
@@ -325,26 +348,28 @@
           </div>
 
           <div class="inv-sidebar-section">
-            <div class="inv-sidebar-hdr">Stock Status</div>
-            <div class="inv-sidebar-item active" data-view="all">
-              <span>📋 All Items</span>
-              <span class="inv-sidebar-count" id="countAll">0</span>
+            <div class="inv-sidebar-hdr collapsible" data-sidebar-toggle="stockBody">
+              Stock Status <span class="chev">▾</span>
             </div>
-            <div class="inv-sidebar-item warning" data-view="low">
-              <span>🟡 Low Stock</span>
-              <span class="inv-sidebar-count" id="countLow">0</span>
-            </div>
-            <div class="inv-sidebar-item danger" data-view="out">
-              <span>🔴 Out of Stock</span>
-              <span class="inv-sidebar-count" id="countOut">0</span>
-            </div>
-            <div class="inv-sidebar-item" data-view="expiring">
-              <span>⏰ Expiring Soon</span>
-              <span class="inv-sidebar-count" id="countExpiring">0</span>
+            <div class="inv-sidebar-body" id="stockBody">
+              <div class="inv-sidebar-item active" data-view="all">
+                <span>📋 All Items</span>
+                <span class="inv-sidebar-count" id="countAll">0</span>
+              </div>
+              <div class="inv-sidebar-item warning" data-view="low">
+                <span>🟡 Low Stock</span>
+                <span class="inv-sidebar-count" id="countLow">0</span>
+              </div>
+              <div class="inv-sidebar-item danger" data-view="out">
+                <span>🔴 Out of Stock</span>
+                <span class="inv-sidebar-count" id="countOut">0</span>
+              </div>
+              <div class="inv-sidebar-item" data-view="expiring">
+                <span>⏰ Expiring Soon</span>
+                <span class="inv-sidebar-count" id="countExpiring">0</span>
+              </div>
             </div>
           </div>
-
-          <div class="inv-sidebar-divider"></div>
 
           <div class="inv-sidebar-section">
             <div class="inv-sidebar-hdr collapsible" data-sidebar-toggle="categoryBody">
@@ -1897,6 +1922,18 @@
       });
 
       // Clear all filters
+      // Sidebar text filter — hides non-matching items in dynamic lists
+      function filterSidebarItems(q) {
+        q = q.toLowerCase().trim();
+        ['categoryList', 'locationList', 'supplierList'].forEach(listId => {
+          const list = document.getElementById(listId);
+          if (!list) return;
+          list.querySelectorAll('.inv-sidebar-item').forEach(el => {
+            el.style.display = (!q || el.textContent.toLowerCase().includes(q)) ? '' : 'none';
+          });
+        });
+      }
+
       function clearAllFilters() {
         currentFilter.category = '';
         currentFilter.location = '';

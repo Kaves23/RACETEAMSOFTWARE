@@ -1,0 +1,578 @@
+RACE TEAM SOFTWARE V5 — PHASE 1 UPGRADE REFERENCE
+Last updated: 20 April 2026
+================================================
+
+
+TLDR — WHAT CHANGED IN PHASE 1
+================================
+
+Area             | Before                                        | After
+-----------------|-----------------------------------------------|------------------------------------------
+Modules          | Logistics only (boxes, inventory, load, assets) | 12 modules: Logistics + Sporting + Technical + Build + HR
+HTML Pages       | ~20 existing pages                            | +32 new pages (all light-mode, Bootstrap 5.3.3)
+API routes       | ~20 existing routes                           | +28 new Express routes (all requireAuth)
+Database         | Logistics tables only                         | +23 new PostgreSQL tables via migration
+Top Nav          | Single-module nav                             | Restructured topnav.js with module groupings and dropdowns
+
+To deploy: run the DB migration once, then restart the server. No other config needed.
+
+  # 1. Run migration (one-time)
+  psql $DATABASE_URL < server/migrations/phase1_new_modules.sql
+
+  # 2. Restart server
+  npm start   # or: node server/index.js
+
+Quick test: Open /sporting-calendar.html, add a record, check it appears in the list. Repeat for one page per module.
+
+
+1. ARCHITECTURE OVERVIEW
+=========================
+
+Folder structure:
+
+  RACE TEAM SOFTWARE V5/
+  ├── *.html                          All frontend pages (no build step, vanilla JS)
+  ├── topnav.js                       Shared navigation injected into every page
+  ├── style.css                       Global stylesheet
+  ├── config.js                       API base URL + auth helpers
+  └── server/
+      ├── index.js                    Express app — all routes registered here
+      ├── db.js                       PostgreSQL pool (uses DATABASE_URL env var)
+      ├── middleware/auth.js          requireAuth JWT middleware
+      ├── routes/                     One file per resource (51 files total after Phase 1)
+      └── migrations/
+          └── phase1_new_modules.sql  23 new tables (run once)
+
+Key Conventions:
+
+  Convention         | Rule
+  -------------------|--------------------------------------------------------------
+  Auth               | Every new route uses requireAuth middleware
+  Primary keys       | UUID DEFAULT gen_random_uuid() — DB generates, never JS
+  Timestamps         | All tables have created_at and updated_at TIMESTAMPTZ columns
+  updated_at         | Set via updated_at=NOW() in every UPDATE query
+  Route file         | 'use strict', Express Router, const { pool } = require('../db')
+  HTTP verbs         | GET /?filter=x, POST /, PUT /:id, DELETE /:id
+  404 guard          | PUT returns 404 if r.rows.length === 0 after UPDATE
+  Booleans           | Pass JS booleans directly — PostgreSQL BOOLEAN accepts them
+  Integers           | Cast with parseInt(val, 10) before inserting INT columns
+
+Page Layout Pattern — every new HTML page follows a strict 3-pane layout:
+
+  +------------------+------------------------------+------------------+
+  | LEFT SIDEBAR     |  CENTRE — data table         | RIGHT SIDEBAR    |
+  | Filter controls  |  sticky thead, rows          | CRUD form        |
+  | (200px wide)     |  clickable to select         | Add / Edit / Del |
+  +------------------+------------------------------+------------------+
+
+CSS classes used: .mlo-shell (flex container), .ev-stats-bar (KPI row at top).
+
+Auth — how it works:
+  - core.js includes a fetch interceptor that automatically injects
+    "Authorization: Bearer <token>" on every /api/ request
+  - Token is stored in localStorage as "auth_token"
+  - Login page (login.html) sets the token, redirects to index.html
+  - server/middleware/auth.js validates the JWT — rejects with 401 if missing/invalid
+
+
+2. NEW MODULES — FULL PAGE LIST
+================================
+
+SPORTING MODULE (5 pages)
+
+  File                      | URL path                     | What it does
+  --------------------------|------------------------------|------------------------------------------------
+  sporting-calendar.html    | /sporting-calendar.html      | Race calendar — events, venues, dates, status
+  entries.html              | /entries.html                | Championship entry submissions per event
+  regulations.html          | /regulations.html            | Regulation document library with versions
+  penalties.html            | /penalties.html              | Penalty register — driver, type, points
+  competitor-intel.html     | /competitor-intel.html       | Competitor notes, strengths, threats
+
+TECHNICAL MODULE (8 pages)
+
+  File                      | What it does
+  --------------------------|------------------------------------------------
+  cars.html                 | Car register — car number, chassis, spec
+  components.html           | Component library — part numbers, life limits
+  allocations.html          | Component to car allocation tracker
+  setups.html               | Car setup sheets per session
+  homologation.html         | Homologation document store
+  session-changes.html      | Changes made during sessions
+  tech-failures.html        | Technical failure log with root cause
+  engineering-data.html     | Test/R&D data records
+
+BUILD MODULE (9 pages including dashboard)
+
+  File                      | What it does
+  --------------------------|------------------------------------------------
+  build-dashboard.html      | Overview KPIs — active builds, blocked, QC pending
+  build-status.html         | Build progress tracker per car/item
+  build-sheets.html         | Build specification documents
+  assembly.html             | Assembly task list with due dates
+  build-qc.html             | Quality control inspections
+  build-repairs.html        | Repair jobs — component, fault, status
+  rebuilds.html             | Rebuild records with reason + cost
+  consumables.html          | Consumable stock with reorder alerting
+  garage-prep.html          | Pre-event garage preparation kits
+
+HR MODULE (10 pages including dashboard)
+
+  File                      | What it does
+  --------------------------|------------------------------------------------
+  hr-dashboard.html         | Overview — pending leave, expiring training, open vacancies
+  org-chart.html            | Staff directory with role/department/contract
+  rotas.html                | Event attendance rotas with staff assignments
+  leave.html                | Leave requests — annual/sick/compassionate etc.
+  training.html             | Training records with expiry tracking
+  recruitment.html          | Vacancy pipeline — open, interviewing, filled
+  welfare.html              | Confidential welfare log with follow-up tracking
+  medical-fitness.html      | Medical/fitness checks with expiry dates
+  staff-reviews.html        | Performance reviews with 1-5 star ratings
+
+
+3. DATABASE MIGRATION
+======================
+
+File: server/migrations/phase1_new_modules.sql
+
+HOW TO RUN IT:
+
+Option A — psql direct (recommended for Render / production):
+  psql $DATABASE_URL < server/migrations/phase1_new_modules.sql
+
+Option B — Render Shell tab:
+  1. Render dashboard -> your Web Service -> Shell
+  2. Paste contents of the SQL file and run
+
+Option C — PlanetScale / other hosted DB:
+  1. Open the DB console
+  2. Copy-paste the SQL contents and execute
+
+NOTE: All 23 statements use CREATE TABLE IF NOT EXISTS — safe to run multiple times without data loss.
+
+TABLES CREATED:
+
+  Module     | Tables
+  -----------|------------------------------------------------------------------------
+  Sporting   | sporting_calendar, sporting_entries, regulations, penalties, competitor_intel
+  Technical  | cars, components, allocations, setups, homologation, session_changes, tech_failures, engineering_data
+  Build      | build_status, build_sheets, assembly_tasks, build_qc, repairs, rebuilds, consumables, garage_prep
+  HR         | staff, rotas, leave_requests, training_records, recruitment, welfare, medical, staff_reviews
+
+TABLE NAMING NOTE — some HTML pages use a different name from the DB table:
+
+  HTML page           | API route          | DB table
+  --------------------|--------------------|-----------------
+  assembly.html       | /api/assembly      | assembly_tasks
+  leave.html          | /api/leave         | leave_requests
+  training.html       | /api/training      | training_records
+  build-repairs.html  | /api/repairs       | repairs
+
+
+4. NEW API ROUTES — FULL REFERENCE
+====================================
+
+All routes are registered in server/index.js with requireAuth middleware.
+Base URL: https://your-app.onrender.com (or http://localhost:3000 locally)
+
+SPORTING ROUTES:
+
+  Method | Endpoint                        | Query params          | Required body field
+  -------|--------------------------------|----------------------|--------------------
+  GET    | /api/sporting-calendar         | status, season        | —
+  POST   | /api/sporting-calendar         | —                    | event_name
+  PUT    | /api/sporting-calendar/:id     | —                    | —
+  DELETE | /api/sporting-calendar/:id     | —                    | —
+  GET    | /api/entries                   | status, event_name   | —
+  POST   | /api/entries                   | —                    | event_name
+  PUT    | /api/entries/:id               | —                    | —
+  DELETE | /api/entries/:id               | —                    | —
+  GET    | /api/regulations               | status, category     | —
+  POST   | /api/regulations               | —                    | title
+  PUT    | /api/regulations/:id           | —                    | —
+  DELETE | /api/regulations/:id           | —                    | —
+  GET    | /api/penalties                 | status, driver_name  | —
+  POST   | /api/penalties                 | —                    | driver_name
+  PUT    | /api/penalties/:id             | —                    | —
+  DELETE | /api/penalties/:id             | —                    | —
+  GET    | /api/competitor-intel          | competitor_name      | —
+  POST   | /api/competitor-intel          | —                    | competitor_name
+  PUT    | /api/competitor-intel/:id      | —                    | —
+  DELETE | /api/competitor-intel/:id      | —                    | —
+
+TECHNICAL ROUTES:
+
+  Method | Endpoint                        | Query params          | Required body field
+  -------|--------------------------------|----------------------|--------------------
+  GET    | /api/cars                      | status               | —
+  POST   | /api/cars                      | —                    | car_number
+  PUT    | /api/cars/:id                  | —                    | —
+  DELETE | /api/cars/:id                  | —                    | —
+  GET    | /api/components                | status, type         | —
+  POST   | /api/components                | —                    | component_name
+  GET    | /api/allocations               | car_number, status   | —
+  POST   | /api/allocations               | —                    | component_name
+  GET    | /api/setups                    | car_number, event    | —
+  POST   | /api/setups                    | —                    | car_number
+  GET    | /api/homologation              | status               | —
+  POST   | /api/homologation              | —                    | doc_title
+  GET    | /api/session-changes           | session, car_number  | —
+  POST   | /api/session-changes           | —                    | change_description
+  GET    | /api/tech-failures             | status, component_type | —
+  POST   | /api/tech-failures             | —                    | component_type
+  GET    | /api/engineering-data          | test_type            | —
+  POST   | /api/engineering-data          | —                    | component_under_test
+
+BUILD ROUTES:
+
+  Method | Endpoint                        | Query params          | Required body field
+  -------|--------------------------------|----------------------|--------------------
+  GET    | /api/build-status              | status               | —
+  POST   | /api/build-status              | —                    | build_name
+  GET    | /api/build-sheets              | status               | —
+  POST   | /api/build-sheets              | —                    | title
+  GET    | /api/assembly                  | status, assigned_to  | —
+  POST   | /api/assembly                  | —                    | task_desc
+  GET    | /api/build-qc                  | result, status       | —
+  POST   | /api/build-qc                  | —                    | title
+  GET    | /api/repairs                   | status               | —
+  POST   | /api/repairs                   | —                    | component
+  GET    | /api/rebuilds                  | status               | —
+  POST   | /api/rebuilds                  | —                    | component
+  GET    | /api/consumables               | category             | —
+  POST   | /api/consumables               | —                    | item_name
+  GET    | /api/garage-prep               | status, event        | —
+  POST   | /api/garage-prep               | —                    | kit_name
+
+HR ROUTES:
+
+  Method | Endpoint                        | Query params                | Required body field
+  -------|--------------------------------|-----------------------------|--------------------
+  GET    | /api/staff                     | department, employment_type | —
+  POST   | /api/staff                     | —                           | name
+  GET    | /api/rotas                     | status, event               | —
+  POST   | /api/rotas                     | —                           | rota_name
+  GET    | /api/leave                     | status, leave_type          | —
+  POST   | /api/leave                     | —                           | staff_name
+  GET    | /api/training                  | status, staff_name          | —
+  POST   | /api/training                  | —                           | staff_name, training_title
+  GET    | /api/recruitment               | status, department          | —
+  POST   | /api/recruitment               | —                           | role_title
+  GET    | /api/welfare                   | type, follow_up_required    | —
+  POST   | /api/welfare                   | —                           | staff_name
+  GET    | /api/medical                   | result, record_type         | —
+  POST   | /api/medical                   | —                           | staff_name
+  GET    | /api/staff-reviews             | rating, staff_name          | —
+  POST   | /api/staff-reviews             | —                           | staff_name
+
+
+5. TESTING CHECKLIST
+=====================
+
+PRE-FLIGHT:
+  - Server starts without errors: npm start — no crash
+  - All 28 new routes load: check server/index.js registration
+  - Migration ran: connect to DB and run \dt to see all 23 new tables
+  - Auth still works: login page loads, dashboard opens
+  - Existing Logistics pages unaffected: boxes, inventory, load designer all open
+
+NAVIGATION:
+  - Top nav shows all 12 module groups
+  - Each module dropdown links to the correct pages
+  - Active page is highlighted in nav
+  - Nav works on mobile (hamburger collapses)
+
+SPORTING MODULE:
+  Test                                | Expected
+  ------------------------------------|------------------------------------------
+  Open sporting-calendar.html         | Page loads, empty table, no console errors
+  Add an event (POST)                 | Row appears in centre pane
+  Click row, edit, save (PUT)         | Changes persist on reload
+  Delete a record                     | Row disappears
+  Filter by status                    | Only matching rows shown
+  Repeat for entries, regulations, penalties, competitor-intel
+
+TECHNICAL MODULE:
+  Test                                | Expected
+  ------------------------------------|------------------------------------------
+  Open cars.html                      | Page loads, CRUD works
+  Add a component with a life limit   | Component saved
+  Allocate component to a car         | Allocation record saved
+  Open tech-failures.html, add failure | Failure record with status = open
+  Open setups.html, add session setup | Setup record saved
+
+BUILD MODULE:
+  Test                                | Expected
+  ------------------------------------|------------------------------------------
+  Open build-dashboard.html           | All KPI cards load (may show 0, no errors)
+  Add build status record (In Progress) | Appears in dashboard panel
+  Add consumable with qty <= reorder_at | Appears in Low Stock panel
+  Add assembly task                   | Appears in Assembly Tasks Due panel
+  Add QC check (Fail result)          | Appears in QC Pending count
+
+HR MODULE:
+  Test                                | Expected
+  ------------------------------------|------------------------------------------
+  Open hr-dashboard.html              | All KPI cards load, no errors
+  Add staff member in org-chart.html  | Appears in directory
+  Submit leave request (status=pending) | HR dashboard Leave Pending count increments
+  Add training record (status=expired) | HR dashboard Training Expired count increments
+  Add welfare entry with follow_up=true | Welfare Follow-Ups count increments
+  Add recruitment vacancy (status=open) | Open Vacancies count increments
+  Add performance review with rating 4 | Star display shows 4 stars out of 5
+  Add medical record (result=pending) | Appears in list with correct badge colour
+
+SECURITY CHECKS:
+  - GET /api/staff without a token -> 401 Unauthorized
+  - POST /api/leave without staff_name -> 400 with error message
+  - PUT /api/cars/nonexistent-uuid -> 404 Not Found
+  - DELETE a record then GET -> record gone
+
+
+6. HOW-TO: COMMON TASKS
+=========================
+
+HOW TO ADD A NEW PAGE TO AN EXISTING MODULE:
+
+  1. Copy the closest existing page (e.g. regulations.html) as a starting template
+  2. Update the title, heading, and column names in the centre table
+  3. Update the API endpoint string (find /api/regulations and replace)
+  4. Update the form fields in the right sidebar
+  5. Create the route file in server/routes/yourroute.js (copy regulations.js as template)
+  6. Register it in server/index.js:
+       app.use('/api/yourroute', requireAuth, require('./routes/yourroute'));
+  7. Add the table to server/migrations/ or run CREATE TABLE directly
+  8. Add the link to topnav.js under the correct module section
+
+HOW TO ADD A NEW FILTER TO AN EXISTING PAGE:
+
+  1. Add a <select> to the left sidebar filter section in the HTML
+  2. Add the filter value to the fetch call URL (append ?newfilter=value)
+  3. In the route file, add:
+       if (newFilter) { p.push(newFilter); c.push('column=$' + p.length); }
+
+HOW TO ADD A NEW COLUMN TO AN EXISTING TABLE:
+
+  Run in the DB:
+    ALTER TABLE table_name ADD COLUMN new_col TEXT;
+
+  Then:
+  1. Add the column to the SELECT in the route GET handler
+  2. Add new_col to the INSERT VALUES list in POST
+  3. Add new_col=$N to the UPDATE SET clause in PUT
+  4. Add the field to the HTML form and table column
+
+HOW TO ADD A NEW MODULE (PHASE 2 PATTERN):
+
+  1. Create a module-dashboard.html page with a KPI grid
+  2. Create each sub-page using the 3-pane layout
+  3. Create route files and register them in server/index.js
+  4. Add a new migration SQL file in server/migrations/phase2_*.sql
+  5. Add the module dropdown to topnav.js
+
+HOW DASHBOARD PAGES FETCH DATA:
+
+  Dashboard pages use a safeFetch wrapper that never throws — resolves to [] on error:
+
+    async function safeFetch(url) {
+      try {
+        const r = await fetch(url);  // auth header auto-injected by core.js interceptor
+        if (!r.ok) return [];
+        return await r.json();
+      } catch { return []; }
+    }
+
+    const [leave, training, welfare] = await Promise.all([
+      safeFetch('/api/leave'),
+      safeFetch('/api/training'),
+      safeFetch('/api/welfare')
+    ]);
+
+HOW THE FETCH INTERCEPTOR WORKS (core.js):
+
+  A global fetch interceptor was added to core.js that wraps window.fetch.
+  It automatically injects Authorization: Bearer <token> on every /api/ request
+  (except /api/auth/ which handles login and does not need a token).
+  This means every HTML page gets auth for free — no need to add the header manually
+  in each page's fetch calls.
+
+  The token is stored in localStorage under the key "auth_token".
+
+
+7. CODE PATTERNS REFERENCE
+============================
+
+ROUTE FILE BOILERPLATE (server/routes/example.js):
+
+  'use strict';
+  const express = require('express');
+  const router  = express.Router();
+  const { pool } = require('../db');
+
+  // GET with optional filters
+  router.get('/', async (req, res, next) => {
+    try {
+      const { status, name } = req.query;
+      const c=[], p=[];
+      if (status) { p.push(status); c.push(`status=$${p.length}`); }
+      if (name)   { p.push(`%${name}%`); c.push(`name ILIKE $${p.length}`); }
+      const where = c.length ? 'WHERE ' + c.join(' AND ') : '';
+      const r = await pool.query(`SELECT * FROM your_table ${where} ORDER BY created_at DESC`, p);
+      res.json(r.rows);
+    } catch (e) { next(e); }
+  });
+
+  // POST with validation
+  router.post('/', async (req, res, next) => {
+    try {
+      const { required_field, optional_field } = req.body;
+      if (!required_field) return res.status(400).json({ error: 'required_field required' });
+      const r = await pool.query(
+        `INSERT INTO your_table (required_field, optional_field) VALUES ($1, $2) RETURNING *`,
+        [required_field, optional_field]
+      );
+      res.status(201).json(r.rows[0]);
+    } catch (e) { next(e); }
+  });
+
+  // PUT with 404 guard
+  router.put('/:id', async (req, res, next) => {
+    try {
+      const { required_field, optional_field } = req.body;
+      const r = await pool.query(
+        `UPDATE your_table SET required_field=$1, optional_field=$2, updated_at=NOW()
+         WHERE id=$3 RETURNING *`,
+        [required_field, optional_field, req.params.id]
+      );
+      if (!r.rows.length) return res.status(404).json({ error: 'Not found' });
+      res.json(r.rows[0]);
+    } catch (e) { next(e); }
+  });
+
+  // DELETE
+  router.delete('/:id', async (req, res, next) => {
+    try {
+      await pool.query('DELETE FROM your_table WHERE id=$1', [req.params.id]);
+      res.status(204).end();
+    } catch (e) { next(e); }
+  });
+
+  module.exports = router;
+
+MIGRATION TABLE BOILERPLATE:
+
+  CREATE TABLE IF NOT EXISTS your_table (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name        TEXT NOT NULL,
+    status      TEXT DEFAULT 'active',
+    notes       TEXT,
+    created_at  TIMESTAMPTZ DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ DEFAULT NOW()
+  );
+
+HTML PAGE FETCH PATTERN (3-pane pages):
+
+  const API = '/api/your-endpoint';
+  let records = [], selected = null;
+
+  async function load() {
+    const status = document.getElementById('filterStatus').value;
+    const url = API + (status ? '?status=' + encodeURIComponent(status) : '');
+    // No need to add Authorization header — core.js interceptor handles it
+    const r = await fetch(url);
+    records = await r.json();
+    render();
+  }
+
+  async function save() {
+    const method = selected ? 'PUT' : 'POST';
+    const url    = selected ? API + '/' + selected.id : API;
+    const body   = { name: document.getElementById('fName').value };
+    await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    selected = null;
+    load();
+  }
+
+REGISTERING A ROUTE IN server/index.js:
+
+  app.use('/api/your-endpoint', requireAuth, require('./routes/your-endpoint'));
+
+
+8. ENVIRONMENT AND DEPLOYMENT
+==============================
+
+LOCAL DEVELOPMENT:
+  cd 'RACE TEAM SOFTWARE V5'
+  npm install          # install dependencies
+  npm start            # starts server on port 3000
+  # Open http://localhost:3000 in browser
+
+ENVIRONMENT VARIABLES REQUIRED:
+
+  Variable         | Purpose
+  -----------------|---------------------------------------
+  DATABASE_URL     | PostgreSQL connection string
+  JWT_SECRET       | Secret for signing/verifying JWTs
+  PORT             | Server port (defaults to 3000)
+  SESSION_SECRET   | Express session secret
+
+RENDER DEPLOYMENT:
+  1. Push code to main branch (git push)
+  2. Render auto-deploys via render.yaml config
+  3. After deploy: open Render Shell -> run migration SQL
+  4. Verify in Render logs — no startup errors
+
+GIT WORKFLOW:
+  git add -A
+  git commit -m "feat: description of change"
+  git push
+  # Render deploys automatically
+
+IMPORTANT FIXES APPLIED (after Phase 1 commit):
+  - fix: fetch interceptor in core.js — auto-injects auth header on all /api/ calls
+    (All 32 new pages were missing Authorization headers — fixed with global interceptor)
+
+
+9. KNOWN ISSUES AND BACKLOG
+=============================
+
+ASSETS PAGE (assets.html):
+  - Export and Print buttons have white text on white background (invisible)
+  - "Asset Tracking" heading is white text on white background
+  - Device history fails to load intermittently
+  - No loaded/in-box indicator badges on asset names
+
+INVENTORY PAGE (inventory.html):
+  - Centre pane rows have too much padding — needs compacting
+  - Left pane layout is cluttered
+
+EVENT NOTES / CHECKLISTS (event-notes.html) — PLANNED UPGRADES:
+  1.  List Templates + One-Click Event Spawn
+  2.  Progress Bar per List (animated, colour-coded red/yellow/green)
+  3.  Required Items Gate (star badge, blocks 100% completion)
+  4.  Sign-Off with Initials and Timestamp
+  5.  Smart Filter Bar (Overdue / Today / My Tasks chips)
+  6.  Email Reminders to Assignees
+  7.  WhatsApp Reminder per Task (via existing Twilio integration)
+  8.  Comments Thread per Task (DB-backed, author + timestamp)
+  9.  Kanban Board View (Table <-> Board toggle)
+  10. Recurring Tasks (Daily / Weekly / Per Event)
+  11. Attachments per Task (photo/file, thumbnail in detail panel)
+  12. Printable PDF Checklist
+  13. Calendar View (monthly, tasks by due date)
+  14. Activity / Audit Log per Task
+  15. Colour-Coded Lists (6-colour picker)
+  16. Task Dependencies (Blocked By)
+  17. Multi-Assignee + Avatar Chips (up to 3)
+  18. Bulk Spawn Template to Multiple Events
+  19. 100% Complete Celebration (confetti)
+
+PHASE 2 — PLANNED MODULES:
+  TBD based on team priorities. Follow Phase 1 module creation pattern above.
+
+
+END OF DOCUMENT

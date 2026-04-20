@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Race Team OS – Budgets</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="style.css" rel="stylesheet" />
+  <style>
+    body { background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%); }
+    .ev-stats-bar{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
+    .ev-stat-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:10px 16px;box-shadow:0 2px 4px rgba(0,0,0,.06);min-width:110px;}
+    .ev-stat-label{font-size:.7rem;color:#6c757d;font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+    .ev-stat-value{font-size:1.5rem;font-weight:700;color:#1a1d24;line-height:1.2;}
+    #budShell.mlo-shell{background:transparent;border:none;gap:10px;}
+    #budShell .mlo-pane-left,#budShell .mlo-pane-mid,#budShell .mlo-pane-right{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.06);}
+    #budShell .mlo-pane-header{background:#f8f9fa;border-bottom:1px solid rgba(0,0,0,.1);}
+    #budShell .mlo-title{color:#1a1d24!important;}
+    #budShell .mlo-section-label{color:#6c757d!important;opacity:1!important;}
+    #budShell .mlo-pane-content{color:#1a1d24;}
+    #budShell .mlo-resizer{background:transparent;}
+    #budShell .mlo-resizer:hover{background:rgba(16,185,129,.3);}
+    .bud-table{width:100%;font-size:.82rem;border-collapse:separate;border-spacing:0;}
+    .bud-table thead{position:sticky;top:0;background:#f8f9fa;z-index:5;}
+    .bud-table th{padding:8px 10px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#6c757d;border-bottom:2px solid #dee2e6;white-space:nowrap;}
+    .bud-table td{padding:6px 10px;border-bottom:1px solid rgba(0,0,0,.05);vertical-align:middle;color:#1a1d24;}
+    .bud-table tbody tr{cursor:pointer;transition:background .1s;}
+    .bud-table tbody tr:hover{background:#f8f9fa;}
+    .bud-table tbody tr.selected{background:rgba(16,185,129,.08)!important;outline:2px solid #10b981;outline-offset:-2px;}
+    #budShell .form-label{color:#495057!important;font-size:.78rem;font-weight:600;margin-bottom:2px;}
+    #budShell .form-control,#budShell .form-select{background:#fff!important;color:#1a1d24!important;border-color:#dee2e6!important;font-size:.82rem;}
+    #budShell .mlo-pane-left .pastel-tree li{height:28px!important;display:flex!important;align-items:center!important;font-size:.83rem!important;font-weight:500!important;padding-left:10px!important;margin-bottom:2px!important;border-radius:5px!important;border:1px solid rgba(0,0,0,.08)!important;color:#1a1d24!important;cursor:pointer!important;}
+    #budShell .mlo-pane-left .pastel-tree li.active{background:rgba(16,185,129,.1)!important;border-color:rgba(16,185,129,.35)!important;color:#047857!important;font-weight:700!important;}
+    .pct-bar{height:6px;background:#e9ecef;border-radius:3px;overflow:hidden;}
+    .pct-bar-fill{height:100%;border-radius:3px;}
+    .pct-ok{background:#16a34a;} .pct-warn{background:#f97316;} .pct-danger{background:#dc3545;}
+  </style>
+</head>
+<body class="light-mode">
+  <div id="rtsTopNav"></div>
+  <div class="rts-main container-fluid">
+    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+      <div>
+        <h1 class="h4 mb-1">Budgets</h1>
+        <div class="text-secondary" style="font-size:.85rem;">Budget allocation, tracking and utilisation.</div>
+      </div>
+      <button class="btn btn-sm btn-primary" id="btnAddBud">+ New Budget</button>
+    </div>
+
+    <div class="ev-stats-bar">
+      <div class="ev-stat-card"><div class="ev-stat-label">Active</div><div class="ev-stat-value" id="statActive">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Total Allocated</div><div class="ev-stat-value" id="statAlloc">£0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Total Spent</div><div class="ev-stat-value" id="statSpent">£0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Over Budget</div><div class="ev-stat-value" id="statOver" style="color:#dc3545;">0</div></div>
+    </div>
+
+    <div class="mlo-shell" id="budShell">
+      <!-- LEFT -->
+      <section class="mlo-pane mlo-pane-left" aria-label="Budget filter">
+        <div class="mlo-pane-header"><div class="mlo-title">Filter</div></div>
+        <div class="mlo-pane-content">
+          <div class="mlo-section-label">Status</div>
+          <ul class="mlo-tree pastel-tree" id="statusFilter">
+            <li class="active" data-filter="">All</li>
+            <li data-filter="active">Active</li>
+            <li data-filter="closed">Closed</li>
+            <li data-filter="suspended">Suspended</li>
+          </ul>
+          <div class="mlo-section-label mt-3">Category</div>
+          <ul class="mlo-tree pastel-tree" id="catFilter"></ul>
+        </div>
+      </section>
+      <div class="mlo-resizer" data-resize="left" title="Drag to resize"></div>
+
+      <!-- MIDDLE -->
+      <section class="mlo-pane mlo-pane-mid" aria-label="Budget list">
+        <div class="mlo-pane-header">
+          <input id="budSearch" type="text" class="form-control form-control-sm" placeholder="Search budgets…" style="max-width:240px;">
+        </div>
+        <div class="mlo-pane-content" style="padding:0;">
+          <table class="bud-table">
+            <thead><tr>
+              <th>Budget Name</th>
+              <th style="width:100px;">Category</th>
+              <th style="width:90px;">Period</th>
+              <th style="width:90px;">Allocated</th>
+              <th style="width:90px;">Spent</th>
+              <th style="width:120px;">Utilisation</th>
+              <th style="width:70px;">Status</th>
+            </tr></thead>
+            <tbody id="budTbody"></tbody>
+          </table>
+        </div>
+      </section>
+      <div class="mlo-resizer" data-resize="right" title="Drag to resize"></div>
+
+      <!-- RIGHT — Inspector -->
+      <section class="mlo-pane mlo-pane-right mlo-inspector" aria-label="Budget details">
+        <div class="mlo-pane-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <span class="mlo-title">Details</span>
+            <span class="badge text-bg-secondary" id="budBadge">No selection</span>
+          </div>
+        </div>
+        <div class="mlo-pane-content" id="budInspector">
+          <div class="text-secondary text-center" style="padding:40px 0;font-size:.85rem;">Select a budget to edit</div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="topnav.js?v=20260414"></script>
+  <script src="config.js"></script>
+  <script src="core.js"></script>
+  <script>
+  (() => {
+    const API = (window.RTS_CONFIG?.api?.baseURL) || '/api';
+    let items = [], selId = null, filterStatus = '', filterCat = '', filterSearch = '';
+
+    const fmt = n => '£' + parseFloat(n||0).toLocaleString('en-GB',{minimumFractionDigits:0,maximumFractionDigits:0});
+
+    async function load() {
+      try {
+        const r = await fetch(`${API}/fin-budgets`);
+        items = await r.json();
+        render();
+        buildStats();
+        buildCatFilter();
+      } catch(e) { console.error(e); }
+    }
+
+    function buildStats() {
+      const active = items.filter(i => i.status==='active');
+      document.getElementById('statActive').textContent = active.length;
+      document.getElementById('statAlloc').textContent  = fmt(active.reduce((s,i)=>s+parseFloat(i.total_amount||0),0));
+      document.getElementById('statSpent').textContent  = fmt(active.reduce((s,i)=>s+parseFloat(i.spent_amount||0),0));
+      document.getElementById('statOver').textContent   = active.filter(i=>parseFloat(i.spent_amount||0)>parseFloat(i.total_amount||0)).length;
+    }
+
+    function buildCatFilter() {
+      const cats = [...new Set(items.map(i=>i.category).filter(Boolean))];
+      const el   = document.getElementById('catFilter');
+      el.innerHTML = `<li class="${filterCat===''?'active':''}" data-cat="">All</li>` +
+        cats.map(c=>`<li class="${filterCat===c?'active':''}" data-cat="${c}">${c}</li>`).join('');
+      el.querySelectorAll('li').forEach(li => li.addEventListener('click', () => {
+        filterCat = li.dataset.cat; el.querySelectorAll('li').forEach(l=>l.classList.remove('active'));
+        li.classList.add('active'); render();
+      }));
+    }
+
+    function filtered() {
+      return items.filter(i => {
+        if (filterStatus && i.status !== filterStatus) return false;
+        if (filterCat    && i.category !== filterCat)  return false;
+        if (filterSearch && !i.name.toLowerCase().includes(filterSearch.toLowerCase())) return false;
+        return true;
+      });
+    }
+
+    function render() {
+      const list = filtered();
+      const tbody = document.getElementById('budTbody');
+      tbody.innerHTML = list.map(b => {
+        const pct  = b.total_amount > 0 ? Math.round(b.spent_amount / b.total_amount * 100) : 0;
+        const cls  = pct>=90?'pct-danger':pct>=70?'pct-warn':'pct-ok';
+        const sBadge = b.status === 'active' ? '<span style="color:#16a34a;font-size:.7rem;font-weight:700;">ACTIVE</span>'
+                     : b.status === 'closed' ? '<span style="color:#6c757d;font-size:.7rem;">CLOSED</span>'
+                     : '<span style="color:#f97316;font-size:.7rem;">SUSPENDED</span>';
+        return `<tr data-id="${b.id}" class="${b.id===selId?'selected':''}">
+          <td><strong>${b.name}</strong></td>
+          <td>${b.category||'—'}</td>
+          <td>${b.period||'—'}</td>
+          <td>${fmt(b.total_amount)}</td>
+          <td>${fmt(b.spent_amount)}</td>
+          <td><div class="pct-bar"><div class="pct-bar-fill ${cls}" style="width:${Math.min(pct,100)}%"></div></div><span style="font-size:.7rem;color:#6c757d;">${pct}%</span></td>
+          <td>${sBadge}</td>
+        </tr>`;
+      }).join('') || '<tr><td colspan="7" class="text-secondary text-center" style="padding:20px;">No budgets found</td></tr>';
+
+      tbody.querySelectorAll('tr[data-id]').forEach(tr => tr.addEventListener('click', () => select(tr.dataset.id)));
+    }
+
+    function select(id) {
+      selId = id;
+      render();
+      const b = items.find(x=>x.id===id);
+      if (!b) return;
+      document.getElementById('budBadge').textContent = b.name;
+      document.getElementById('budInspector').innerHTML = `
+        <form id="budForm" style="padding:0;">
+          <div class="mb-2">
+            <label class="form-label">Budget Name *</label>
+            <input type="text" class="form-control form-control-sm" id="bfName" value="${b.name||''}" required>
+          </div>
+          <div class="row g-2 mb-2">
+            <div class="col-6"><label class="form-label">Category</label>
+              <input type="text" class="form-control form-control-sm" id="bfCat" value="${b.category||''}" placeholder="e.g. Travel"></div>
+            <div class="col-6"><label class="form-label">Period</label>
+              <input type="text" class="form-control form-control-sm" id="bfPeriod" value="${b.period||''}" placeholder="2026-S1"></div>
+          </div>
+          <div class="row g-2 mb-2">
+            <div class="col-6"><label class="form-label">Allocated (£)</label>
+              <input type="number" class="form-control form-control-sm" id="bfTotal" value="${b.total_amount||0}" step="0.01" min="0"></div>
+            <div class="col-6"><label class="form-label">Spent (£)</label>
+              <input type="number" class="form-control form-control-sm" id="bfSpent" value="${b.spent_amount||0}" step="0.01" min="0"></div>
+          </div>
+          <div class="mb-2"><label class="form-label">Status</label>
+            <select class="form-select form-select-sm" id="bfStatus">
+              <option value="active" ${b.status==='active'?'selected':''}>Active</option>
+              <option value="suspended" ${b.status==='suspended'?'selected':''}>Suspended</option>
+              <option value="closed" ${b.status==='closed'?'selected':''}>Closed</option>
+            </select>
+          </div>
+          <div class="mb-2"><label class="form-label">Notes</label>
+            <textarea class="form-control form-control-sm" id="bfNotes" rows="3">${b.notes||''}</textarea>
+          </div>
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-sm btn-primary flex-grow-1" onclick="saveBudget()">💾 Save</button>
+            <button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteBudget('${b.id}')">🗑</button>
+          </div>
+        </form>`;
+    }
+
+    window.saveBudget = async function() {
+      const b = items.find(x=>x.id===selId);
+      if (!b) return;
+      const payload = {
+        name:         document.getElementById('bfName').value.trim(),
+        category:     document.getElementById('bfCat').value.trim()||null,
+        period:       document.getElementById('bfPeriod').value.trim()||null,
+        total_amount: document.getElementById('bfTotal').value,
+        spent_amount: document.getElementById('bfSpent').value,
+        status:       document.getElementById('bfStatus').value,
+        notes:        document.getElementById('bfNotes').value.trim()||null
+      };
+      try {
+        const r = await fetch(`${API}/fin-budgets/${selId}`, {
+          method:'PUT', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify(payload)
+        });
+        const d = await r.json();
+        const idx = items.findIndex(x=>x.id===selId);
+        if (idx>=0) items[idx] = {...items[idx],...d};
+        render(); buildStats(); buildCatFilter();
+        if (window.RTS?.showToast) RTS.showToast('Budget saved ✅','success');
+      } catch(e) { alert('Error saving: '+e.message); }
+    };
+
+    window.deleteBudget = async function(id) {
+      if (!confirm('Delete this budget?')) return;
+      try {
+        await fetch(`${API}/fin-budgets/${id}`, { method:'DELETE' });
+        items = items.filter(x=>x.id!==id);
+        selId = null;
+        document.getElementById('budInspector').innerHTML = '<div class="text-secondary text-center" style="padding:40px 0;font-size:.85rem;">Select a budget to edit</div>';
+        render(); buildStats(); buildCatFilter();
+      } catch(e) { alert('Error: '+e.message); }
+    };
+
+    // New budget
+    document.getElementById('btnAddBud').addEventListener('click', async () => {
+      try {
+        const r = await fetch(`${API}/fin-budgets`, {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ name:'New Budget', total_amount:0, status:'active' })
+        });
+        const d = await r.json();
+        items.unshift(d);
+        render(); buildStats(); buildCatFilter();
+        select(d.id);
+      } catch(e) { alert('Error: '+e.message); }
+    });
+
+    // Filter wiring
+    document.getElementById('statusFilter').addEventListener('click', e => {
+      const li = e.target.closest('li'); if (!li) return;
+      filterStatus = li.dataset.filter;
+      document.querySelectorAll('#statusFilter li').forEach(l=>l.classList.remove('active'));
+      li.classList.add('active'); render();
+    });
+    document.getElementById('budSearch').addEventListener('input', e => { filterSearch = e.target.value; render(); });
+
+    // Resizers
+    document.addEventListener('DOMContentLoaded', () => {
+      if (window.RTS?.initTriPaneResizers) RTS.initTriPaneResizers(document.getElementById('budShell'), 'bud-panes');
+    });
+
+    load();
+  })();
+  </script>
+</body>
+</html>

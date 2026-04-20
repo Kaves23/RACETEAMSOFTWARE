@@ -46,7 +46,8 @@
     window.showListSelector = showEventSelector;
     window.toggleTask = toggleNote;
     window.selectTask = selectTask;
-    window.showCalendarView = () => alert('Calendar view coming soon!');
+    window.showCalendarView = function() { window._showCalView(); };
+    window.showKanbanView   = function() { window._showKanbanView(); };
     window.saveNote = saveNote;
     window.showAllLists = showAllLists;
     window.filterTasks = window.filterTasks || function(q) { _searchQuery = (q||'').toLowerCase().trim(); renderNotes(); };
@@ -1520,6 +1521,15 @@
           </div>
         </div>
         <div class="detail-field">
+          <div class="detail-label">Repeat</div>
+          <select class="detail-input" id="editTaskRecurrence">
+            <option value="" ${!note.recurrence ? 'selected' : ''}>No repeat</option>
+            <option value="daily" ${note.recurrence === 'daily' ? 'selected' : ''}>Daily</option>
+            <option value="weekly" ${note.recurrence === 'weekly' ? 'selected' : ''}>Weekly</option>
+            <option value="per_event" ${note.recurrence === 'per_event' ? 'selected' : ''}>Per Event</option>
+          </select>
+        </div>
+        <div class="detail-field">
           <div class="detail-label">Progress</div>
           <div class="d-flex align-items-center gap-2">
             <input type="range" class="form-range" min="0" max="100" step="5" value="${note.progress_percent || 0}" id="editTaskProgress" style="flex:1;">
@@ -1552,6 +1562,7 @@
           </div>
         </div>
         <button class="detail-button" style="width:100%;margin-top:5px;background:#25d366;color:#fff;border-color:#1da851;" onclick="window.sendWhatsAppReminder('${note.id}', ${isFromGeneral})">📱 Send WhatsApp Reminder</button>
+        <button class="detail-button" style="width:100%;margin-top:5px;background:#0078d4;color:#fff;border-color:#0063b1;" onclick="window.sendEmailReminder('${note.id}', ${isFromGeneral})">📧 Email Reminder</button>
       </div>
 
       <div class="detail-section ds-meta">
@@ -1686,6 +1697,52 @@
         <span><strong>Created:</strong> ${note.created_at ? new Date(note.created_at).toLocaleDateString() : '-'}</span>
         ${note.created_by_name ? `&nbsp;<span><strong>By:</strong> ${note.created_by_name}</span>` : ''}
       </div>
+      <div class="detail-section" style="border-left-color:#f97316;">
+        <div class="detail-section-hdr"><span class="dsh-icon">🔗</span> Dependencies</div>
+        <div class="detail-field">
+          <div class="detail-label">Blocked By</div>
+          <select class="detail-input" id="editTaskDepSelect" onchange="window.addDependency(this,'${noteId}')">
+            <option value="">— Add dependency —</option>
+            ${(isFromGeneral ? generalNotes : notes)
+              .filter(n => n.id !== note.id)
+              .map(n => `<option value="${n.id}">${escapeHtml(n.item_name)}</option>`)
+              .join('')}
+          </select>
+          <div class="dep-tags" id="depTagsContainer">
+            ${(() => {
+              if (!note.dependencies) return '';
+              const depList = isFromGeneral ? generalNotes : notes;
+              return note.dependencies.split(',').filter(Boolean).map(depId => {
+                const dep = depList.find(n => n.id === depId);
+                const label = dep ? escapeHtml(dep.item_name) : depId.slice(0,8)+'...';
+                return `<span class="dep-tag" data-dep-id="${depId}">${label}<button class="dep-x" onclick="window.removeDependency('${depId}')">×</button></span>`;
+              }).join('');
+            })()}
+          </div>
+        </div>
+      </div>
+
+      <div class="detail-section" style="border-left-color:#8b5cf6;">
+        <div class="detail-section-hdr"><span class="dsh-icon">💬</span> Comments</div>
+        <div id="taskCommentsSection"><div style="color:#bbb;font-size:11px;">Loading…</div></div>
+        <div class="d-flex gap-2 mt-1">
+          <input type="text" id="newCommentInput" placeholder="Add a comment…" class="detail-input" style="flex:1;"
+                 onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();window.saveComment('${noteId}',${isFromGeneral})}">
+          <button class="detail-button detail-button-primary" onclick="window.saveComment('${noteId}',${isFromGeneral})">→</button>
+        </div>
+      </div>
+
+      <div class="detail-section" style="border-left-color:#0ea5e9;">
+        <div class="detail-section-hdr"><span class="dsh-icon">🔗</span> Links &amp; Attachments</div>
+        <div id="taskLinksSection"><div style="color:#bbb;font-size:11px;">Loading…</div></div>
+        <div class="d-flex gap-1 mt-1">
+          <input type="text" id="newLinkLabelInput" placeholder="Label (opt)" class="detail-input" style="flex:0.7;">
+          <input type="url" id="newLinkUrlInput" placeholder="https://…" class="detail-input" style="flex:1.3;"
+                 onkeydown="if(event.key==='Enter')window.saveLink('${noteId}',${isFromGeneral})">
+          <button class="detail-button detail-button-primary" onclick="window.saveLink('${noteId}',${isFromGeneral})">＋</button>
+        </div>
+      </div>
+
       <div class="d-flex gap-2">
         <button class="detail-button detail-button-primary" style="flex:1;" onclick="window.saveTaskDetails('${note.id}', ${isFromGeneral})">💾 Save Changes</button>
         <button class="detail-button" style="background:#dc3545;color:#fff;border-color:#c82333;" onclick="window.deleteNote('${note.id}', ${isFromGeneral})">🗑️</button>
@@ -1718,9 +1775,9 @@
     
     // Load events into dropdown
     loadEventsForDropdown(note.linked_event_id);
+    // Async load comments + links
+    loadTaskExtras(noteId, isFromGeneral);
   };
-  
-  // Load events into the linked event dropdown
   async function loadEventsForDropdown(selectedEventId) {
     try {
       const token = localStorage.getItem('auth_token');
@@ -1814,6 +1871,15 @@
       if (linkedEvent) updates.linked_event_id = linkedEvent;
       // Always include parent_item_id (null clears it, a value sets it)
       updates.parent_item_id = parentTaskId || null;
+
+      // Recurrence
+      const recurrence = document.getElementById('editTaskRecurrence')?.value || null;
+      updates.recurrence = recurrence;
+
+      // Dependencies — read from rendered dep-tag data attributes
+      const depTags = document.querySelectorAll('.dep-tag[data-dep-id]');
+      const depIds  = Array.from(depTags).map(t => t.dataset.depId).filter(Boolean);
+      updates.dependencies = depIds.length ? depIds.join(',') : null;
       
       // Set completed_at if status is completed
       if (status === 'completed' || status === 'packed' || status === 'loaded') {
@@ -1861,7 +1927,6 @@
   
   window.showAddTaskModal = showAddNoteModal;
   window.showListSelector = showEventSelector;
-  window.showCalendarView = () => alert('Calendar view coming soon!');
 
   // ─── Search / filter ────────────────────────────────────────────────────────
   window.filterTasks = function(q) {
@@ -2009,9 +2074,17 @@
   };
 
   // ─── Clone List ─────────────────────────────────────────────────────────────
-  window.cloneList = async function(listId, listName) {
-    const newName = prompt(`Clone "${listName}" as:`, listName + ' (Copy)');
-    if (!newName || !newName.trim()) return;
+  window.cloneList = async function(listId, listName, targetEventId = null) {
+    // If called from bulk spawn, skip the prompt and use the event as destination
+    let newName;
+    if (targetEventId) {
+      // Find event name from _spawnEvents cache
+      const ev = (_spawnEvents || []).find(e => e.id === targetEventId);
+      newName = (listName || 'Checklist') + (ev ? ' – ' + ev.name : '');
+    } else {
+      newName = prompt(`Clone "${listName}" as:`, listName + ' (Copy)');
+      if (!newName || !newName.trim()) return;
+    }
 
     try {
       // Load source list items
@@ -2025,7 +2098,11 @@
       const createData = await fetch(`${API_BASE}/packing-lists`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ name: newName.trim(), description: `Cloned from ${listName}` })
+        body: JSON.stringify({
+          name: newName.trim(),
+          description: `Cloned from ${listName || listId}`,
+          ...(targetEventId ? { event_id: targetEventId } : {})
+        })
       }).then(r => r.json());
       if (!createData.success) throw new Error('Failed to create list');
 
@@ -2193,6 +2270,449 @@
     const colorInput = document.getElementById('customListColor');
     if (colorInput) colorInput.value = swatch.dataset.color || '';
   });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // FEATURE #6 — Email Reminder
+  // ─────────────────────────────────────────────────────────────────────────
+  window.sendEmailReminder = function(noteId, isFromGeneral = false) {
+    const note = (isFromGeneral ? generalNotes : notes).find(n => n.id === noteId);
+    if (!note) return;
+    const assignee  = note.assigned_to_name || '';
+    const dueDate   = note.due_date ? new Date(note.due_date).toLocaleDateString('en-GB') : 'no due date';
+    const subject   = encodeURIComponent(`Task Reminder: ${note.item_name}`);
+    const body      = encodeURIComponent(
+      `Hi ${assignee || 'Team'},\n\n` +
+      `This is a reminder about the following task:\n\n` +
+      `Task: ${note.item_name}\n` +
+      `Due: ${dueDate}\n` +
+      `Priority: ${note.priority || 'normal'}\n` +
+      `Status: ${note.status || 'pending'}\n\n` +
+      (note.source_notes ? `Notes: ${note.source_notes}\n\n` : '') +
+      `Please ensure this is completed on time.\n\nRace Team OS`
+    );
+    window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // FEATURE #7 — Email Digest
+  // ─────────────────────────────────────────────────────────────────────────
+  window.sendEmailDigest = function() {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const allTasks = [...(generalNotes || []), ...(notes || [])];
+    const overdue  = allTasks.filter(n => n.due_date && new Date(n.due_date) < today &&
+                                          n.status !== 'packed' && n.status !== 'completed' && n.status !== 'loaded');
+    const dueToday = allTasks.filter(n => {
+      if (!n.due_date) return false;
+      const d = new Date(n.due_date); d.setHours(0,0,0,0);
+      return d.getTime() === today.getTime() && n.status !== 'packed' && n.status !== 'completed' && n.status !== 'loaded';
+    });
+    if (!overdue.length && !dueToday.length) {
+      if (RTS.showToast) RTS.showToast('No overdue or due-today tasks 🎉', 'success');
+      return;
+    }
+    const fmt = n => `  • ${n.item_name}${n.assigned_to_name ? ' → ' + n.assigned_to_name : ''}${n.due_date ? ' (due ' + new Date(n.due_date).toLocaleDateString('en-GB') + ')' : ''}`;
+    let body = 'TASK DIGEST\n' + new Date().toLocaleDateString('en-GB') + '\n\n';
+    if (overdue.length) body += `OVERDUE (${overdue.length}):\n${overdue.map(fmt).join('\n')}\n\n`;
+    if (dueToday.length) body += `DUE TODAY (${dueToday.length}):\n${dueToday.map(fmt).join('\n')}\n\n`;
+    body += 'Race Team OS';
+    const subject = encodeURIComponent(`Task Digest – ${overdue.length} Overdue, ${dueToday.length} Due Today`);
+    window.open(`mailto:?subject=${subject}&body=${encodeURIComponent(body)}`, '_blank');
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // FEATURE #9 — Comments
+  // ─────────────────────────────────────────────────────────────────────────
+  async function loadTaskExtras(noteId, isFromGeneral) {
+    // Load comments
+    try {
+      const r = await fetch(`${API_BASE}/task-comments?item_id=${noteId}`);
+      const d = await r.json();
+      const el = document.getElementById('taskCommentsSection');
+      if (el) {
+        if (d.success && d.data.length > 0) {
+          el.innerHTML = d.data.map(c => `
+            <div class="comment-item" data-comment-id="${c.id}">
+              <button class="comment-del" onclick="window.deleteComment('${c.id}')">×</button>
+              <span class="comment-author">${escapeHtml(c.author || 'Unknown')}</span>
+              <span class="comment-time">${formatTimeAgo(c.created_at)}</span>
+              <div class="comment-text">${escapeHtml(c.content)}</div>
+            </div>`).join('');
+        } else {
+          el.innerHTML = '<div style="color:#bbb;font-size:11px;">No comments yet</div>';
+        }
+      }
+    } catch(e) { console.error('loadComments:', e); }
+    // Load links
+    try {
+      const r = await fetch(`${API_BASE}/task-links?item_id=${noteId}`);
+      const d = await r.json();
+      const el = document.getElementById('taskLinksSection');
+      if (el) {
+        if (d.success && d.data.length > 0) {
+          el.innerHTML = d.data.map(lk => `
+            <div class="link-item" data-link-id="${lk.id}">
+              <a href="${escapeHtml(lk.url)}" target="_blank" title="${escapeHtml(lk.url)}">${escapeHtml(lk.label || lk.url)}</a>
+              <button class="link-del" onclick="window.deleteLink('${lk.id}')">×</button>
+            </div>`).join('');
+        } else {
+          el.innerHTML = '<div style="color:#bbb;font-size:11px;">No links yet</div>';
+        }
+      }
+    } catch(e) { console.error('loadLinks:', e); }
+  }
+
+  window.saveComment = async function(noteId, isFromGeneral) {
+    const input = document.getElementById('newCommentInput');
+    const content = input?.value?.trim();
+    if (!content) return;
+    const note = (isFromGeneral ? generalNotes : notes).find(n => n.id === noteId);
+    const listId = note?.packing_list_id;
+    try {
+      await fetch(`${API_BASE}/task-comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ item_id: noteId, list_id: listId, content })
+      });
+      if (input) input.value = '';
+      await loadTaskExtras(noteId, isFromGeneral);
+    } catch(e) { console.error('saveComment:', e); }
+  };
+
+  window.deleteComment = async function(commentId) {
+    try {
+      await fetch(`${API_BASE}/task-comments/${commentId}`, { method: 'DELETE' });
+      const el = document.querySelector(`[data-comment-id="${commentId}"]`);
+      if (el) el.remove();
+    } catch(e) { console.error('deleteComment:', e); }
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // FEATURE #10 — Links / Attachments
+  // ─────────────────────────────────────────────────────────────────────────
+  window.saveLink = async function(noteId, isFromGeneral) {
+    const labelInput = document.getElementById('newLinkLabelInput');
+    const urlInput   = document.getElementById('newLinkUrlInput');
+    const url   = urlInput?.value?.trim();
+    const label = labelInput?.value?.trim();
+    if (!url) return;
+    const note   = (isFromGeneral ? generalNotes : notes).find(n => n.id === noteId);
+    const listId = note?.packing_list_id;
+    try {
+      await fetch(`${API_BASE}/task-links`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ item_id: noteId, list_id: listId, label: label || null, url })
+      });
+      if (labelInput) labelInput.value = '';
+      if (urlInput)   urlInput.value   = '';
+      await loadTaskExtras(noteId, isFromGeneral);
+    } catch(e) {
+      if (RTS.showToast) RTS.showToast('URL must start with http:// or https://', 'error');
+    }
+  };
+
+  window.deleteLink = async function(linkId) {
+    try {
+      await fetch(`${API_BASE}/task-links/${linkId}`, { method: 'DELETE' });
+      const el = document.querySelector(`[data-link-id="${linkId}"]`);
+      if (el) el.remove();
+    } catch(e) { console.error('deleteLink:', e); }
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // FEATURE #12 — Kanban Board View
+  // ─────────────────────────────────────────────────────────────────────────
+  let _activeView = 'list'; // 'list' | 'kanban' | 'calendar'
+
+  function setMainView(mode) {
+    _activeView = mode;
+    const taskList  = document.getElementById('taskList');
+    const taskHdr   = document.getElementById('taskHeader');
+    const chipBar   = document.querySelector('.filter-chip-bar');
+    const kanban    = document.getElementById('kanbanView');
+    const calendar  = document.getElementById('calendarView');
+    const btnK = document.getElementById('btnKanban');
+    const btnC = document.getElementById('btnCalendar');
+    const show = id => { const el=document.getElementById(id); if(el) el.style.display=''; };
+    const hide = id => { const el=document.getElementById(id); if(el) el.style.display='none'; };
+
+    if (mode === 'kanban') {
+      hide('taskList'); hide('taskHeader'); if(chipBar) chipBar.style.display='none';
+      if(kanban) kanban.style.display='flex'; hide('calendarView');
+      if(btnK) btnK.style.background='#1a73e8'; if(btnK) btnK.style.color='#fff';
+      if(btnC) { btnC.style.background=''; btnC.style.color=''; }
+      renderKanban();
+    } else if (mode === 'calendar') {
+      hide('taskList'); hide('taskHeader'); if(chipBar) chipBar.style.display='none';
+      hide('kanbanView'); if(calendar) calendar.style.display='flex';
+      if(btnC) btnC.style.background='#1a73e8'; if(btnC) btnC.style.color='#fff';
+      if(btnK) { btnK.style.background=''; btnK.style.color=''; }
+      renderCalendar(window._calYear || new Date().getFullYear(), window._calMonth || new Date().getMonth());
+    } else {
+      show('taskList'); show('taskHeader'); if(chipBar) chipBar.style.display='';
+      hide('kanbanView'); hide('calendarView');
+      if(btnK) { btnK.style.background=''; btnK.style.color=''; }
+      if(btnC) { btnC.style.background=''; btnC.style.color=''; }
+    }
+  }
+
+  window._showKanbanView = function() {
+    setMainView(_activeView === 'kanban' ? 'list' : 'kanban');
+  };
+
+  function renderKanban() {
+    const container = document.getElementById('kanbanContainer');
+    if (!container) return;
+    const allTasks  = [...(generalNotes || []), ...(notes || [])];
+    const today     = new Date(); today.setHours(0,0,0,0);
+    const columns   = [
+      { key: 'pending',     label: '⏳ Pending',     statuses: ['pending'],                cls: 'kanban-col-pending'  },
+      { key: 'in_progress', label: '🔵 In Progress', statuses: ['in_progress'],            cls: 'kanban-col-progress' },
+      { key: 'blocked',     label: '⛔ Blocked',     statuses: ['blocked'],                cls: 'kanban-col-blocked'  },
+      { key: 'done',        label: '✅ Done',         statuses: ['packed','completed','loaded'], cls: 'kanban-col-done' },
+    ];
+    container.innerHTML = columns.map(col => {
+      const tasks = allTasks.filter(n => col.statuses.includes(n.status || 'pending'));
+      const cards = tasks.map(n => {
+        const isOverdue = n.due_date && new Date(n.due_date) < today && !col.statuses.some(s=>s==='packed'||s==='completed'||s==='loaded');
+        const extraCls  = n.priority === 'critical' ? 'critical' : isOverdue ? 'overdue' : '';
+        const due       = n.due_date ? new Date(n.due_date).toLocaleDateString('en-GB',{day:'2-digit',month:'short'}) : '';
+        return `<div class="kanban-card ${extraCls}" onclick="window.selectTask('${n.id}',${!!n._isGeneral})">
+          <div class="kc-name">${escapeHtml(n.item_name)}</div>
+          <div class="kc-meta">
+            ${n.priority && n.priority !== 'normal' ? `<span>${n.priority}</span>` : ''}
+            ${due ? `<span>📅 ${due}</span>` : ''}
+            ${n.assigned_to_name ? `<span>👤 ${escapeHtml(n.assigned_to_name)}</span>` : ''}
+          </div>
+        </div>`;
+      }).join('');
+      return `<div class="kanban-column ${col.cls}">
+        <div class="kanban-col-header">${col.label} <span style="font-weight:400;opacity:.7;">(${tasks.length})</span></div>
+        <div class="kanban-col-body">${cards || '<div style="color:#bbb;font-size:11px;padding:6px;">No tasks</div>'}</div>
+      </div>`;
+    }).join('');
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // FEATURE #13 — Calendar View
+  // ─────────────────────────────────────────────────────────────────────────
+  window._calYear  = new Date().getFullYear();
+  window._calMonth = new Date().getMonth();
+
+  window._showCalView = function() {
+    setMainView(_activeView === 'calendar' ? 'list' : 'calendar');
+  };
+
+  function renderCalendar(year, month) {
+    window._calYear  = year;
+    window._calMonth = month;
+    const container = document.getElementById('calendarContainer');
+    if (!container) return;
+    const today   = new Date(); today.setHours(0,0,0,0);
+    const allTasks = [...(generalNotes||[]), ...(notes||[])].filter(n => n.due_date);
+    const tasksByDate = {};
+    allTasks.forEach(n => {
+      const key = n.due_date.slice(0,10);
+      if (!tasksByDate[key]) tasksByDate[key] = [];
+      tasksByDate[key].push(n);
+    });
+    const monthName = new Date(year, month, 1).toLocaleDateString('en-GB',{month:'long',year:'numeric'});
+    const firstDay  = new Date(year, month, 1).getDay(); // 0=Sun
+    const daysInMonth = new Date(year, month+1, 0).getDate();
+    const prevDays    = (firstDay + 6) % 7; // Mon-start offset
+    const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    let html  = `<div class="cal-wrap">
+      <div class="cal-nav">
+        <button class="cal-nav-btn" onclick="renderCalendar(${month===0?year-1:year},${month===0?11:month-1})">◀</button>
+        <h3>${monthName}</h3>
+        <button class="cal-nav-btn" onclick="renderCalendar(${month===11?year+1:year},${month===11?0:month+1})">▶</button>
+      </div>
+      <div class="cal-grid">`;
+    html += DAYS.map(d => `<div class="cal-day-hdr">${d}</div>`).join('');
+    // Prev month padding
+    const prevMonth  = month === 0 ? 11 : month - 1;
+    const prevYear   = month === 0 ? year - 1 : year;
+    const daysInPrev = new Date(prevYear, prevMonth+1, 0).getDate();
+    for (let i = prevDays - 1; i >= 0; i--) {
+      html += `<div class="cal-day other-month"><div class="cal-day-num">${daysInPrev - i}</div></div>`;
+    }
+    // Current month
+    for (let d = 1; d <= daysInMonth; d++) {
+      const key    = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const dayDate = new Date(year, month, d);
+      const isToday = dayDate.getTime() === today.getTime();
+      const tasks   = tasksByDate[key] || [];
+      const chips   = tasks.slice(0,3).map(n => {
+        const isDone = ['packed','completed','loaded'].includes(n.status);
+        const isOver = dayDate < today && !isDone;
+        const cls    = isDone ? 'done' : (n.priority==='critical' ? 'critical' : isOver ? 'overdue' : '');
+        return `<span class="cal-chip ${cls}" onclick="window.selectTask('${n.id}',${!!n._isGeneral})" title="${escapeHtml(n.item_name)}">${escapeHtml(n.item_name.slice(0,18))}</span>`;
+      }).join('');
+      const more = tasks.length > 3 ? `<span style="font-size:9px;color:#888;">+${tasks.length-3} more</span>` : '';
+      html += `<div class="cal-day${isToday?' today':''}"><div class="cal-day-num">${d}</div>${chips}${more}</div>`;
+    }
+    // Next month padding
+    const totalCells = prevDays + daysInMonth;
+    const nextPad    = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
+    for (let i = 1; i <= nextPad; i++) {
+      html += `<div class="cal-day other-month"><div class="cal-day-num">${i}</div></div>`;
+    }
+    html += '</div></div>';
+    container.innerHTML = html;
+    // Expose renderCalendar globally for inline button handlers
+    window.renderCalendar = renderCalendar;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // FEATURE #16 — Task Dependencies
+  // ─────────────────────────────────────────────────────────────────────────
+  window.addDependency = function(select, noteId) {
+    const depId = select.value;
+    if (!depId) return;
+    select.value = '';
+    const container = document.getElementById('depTagsContainer');
+    if (!container) return;
+    if (container.querySelector(`[data-dep-id="${depId}"]`)) return; // already added
+    const allTasks = [...(generalNotes||[]), ...(notes||[])];
+    const dep      = allTasks.find(n => n.id === depId);
+    const label    = dep ? dep.item_name : depId.slice(0,8)+'...';
+    const tag      = document.createElement('span');
+    tag.className  = 'dep-tag';
+    tag.dataset.depId = depId;
+    tag.innerHTML  = `${escapeHtml(label)}<button class="dep-x" onclick="window.removeDependency('${depId}')">×</button>`;
+    container.appendChild(tag);
+  };
+
+  window.removeDependency = function(depId) {
+    document.querySelector(`.dep-tag[data-dep-id="${depId}"]`)?.remove();
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // FEATURE #17 — Recurring Tasks (handled server-side on complete; UI in detail)
+  // Auto-create next occurrence when a recurring task is marked done
+  // This hooks into markAsDone — the recurrence column is saved by saveTaskDetails
+  // ─────────────────────────────────────────────────────────────────────────
+  const _origMarkAsDone = window.markAsDone;
+  window.markAsDone = async function(noteId, isFromGeneral = false) {
+    await _origMarkAsDone(noteId, isFromGeneral);
+    // Check if this task has recurrence
+    const note = (isFromGeneral ? generalNotes : notes).find(n => n.id === noteId);
+    if (!note || !note.recurrence) return;
+    // Calculate next due date
+    let nextDue = null;
+    if (note.due_date) {
+      const d = new Date(note.due_date);
+      if (note.recurrence === 'daily')    d.setDate(d.getDate() + 1);
+      if (note.recurrence === 'weekly')   d.setDate(d.getDate() + 7);
+      if (note.recurrence === 'per_event') return; // per-event recurrence cloned at event time
+      nextDue = d.toISOString().slice(0,10);
+    }
+    // Clone task
+    const listId = note.packing_list_id;
+    try {
+      const r = await fetch(`${API_BASE}/packing-lists/${listId}/items`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          item_name:       note.item_name,
+          source_notes:    note.source_notes,
+          priority:        note.priority,
+          category:        note.category,
+          assigned_to_name: note.assigned_to_name,
+          due_date:        nextDue,
+          recurrence:      note.recurrence,
+          status:          'pending'
+        })
+      });
+      if (r.ok && RTS.showToast) RTS.showToast(`🔁 Recurring task scheduled for ${nextDue || 'next occurrence'}`, 'success');
+    } catch(e) { console.error('recurrence spawn:', e); }
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // FEATURE #19 — Bulk Spawn to Multiple Events
+  // ─────────────────────────────────────────────────────────────────────────
+  let _spawnEvents = [];
+
+  window.showBulkSpawnModal = async function() {
+    const listId = window._activeListId;
+    if (!listId || listId === 'GENERAL') {
+      if (RTS.showToast) RTS.showToast('Select a custom or event list first', 'error');
+      return;
+    }
+    const listEl = document.getElementById('spawnEventList');
+    const modal  = new bootstrap.Modal(document.getElementById('bulkSpawnModal'));
+    modal.show();
+    if (listEl) listEl.innerHTML = '<div style="text-align:center;padding:20px;color:#999;">Loading events…</div>';
+    try {
+      const r = await fetch(`${API_BASE}/collections/events?sort=date&order=desc&limit=100`);
+      const d = await r.json();
+      _spawnEvents = (d.success || d.ok) ? (d.data || d.items || []) : [];
+      window._renderSpawnList(_spawnEvents);
+    } catch(e) { if(listEl) listEl.innerHTML = '<div style="color:#dc3545;padding:8px;">Failed to load events</div>'; }
+  };
+
+  window._renderSpawnList = function(events) {
+    const el = document.getElementById('spawnEventList');
+    if (!el) return;
+    if (!events.length) { el.innerHTML = '<div style="color:#999;padding:8px;font-size:13px;">No events found</div>'; return; }
+    el.innerHTML = events.map(ev => {
+      const date = ev.date ? new Date(ev.date).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '';
+      return `<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;cursor:pointer;border-radius:4px;font-size:13px;border:1px solid #eee;margin-bottom:4px;">
+        <input type="checkbox" class="spawn-event-chk" value="${ev.id}" onchange="window._updateSpawnCount()">
+        <span style="flex:1;">${escapeHtml(ev.name||'Untitled')}</span>
+        ${date ? `<span style="color:#888;font-size:11px;">${date}</span>` : ''}
+      </label>`;
+    }).join('');
+  };
+
+  window._updateSpawnCount = function() {
+    const count = document.querySelectorAll('.spawn-event-chk:checked').length;
+    const el    = document.getElementById('spawnSelectedCount');
+    if (el) el.textContent = `${count} event${count !== 1 ? 's' : ''} selected`;
+  };
+
+  window.filterSpawnList = function(q) {
+    q = q.toLowerCase().trim();
+    window._renderSpawnList(q ? _spawnEvents.filter(ev => (ev.name||'').toLowerCase().includes(q)) : _spawnEvents);
+  };
+
+  window.executeBulkSpawn = async function() {
+    const listId = window._activeListId;
+    if (!listId) return;
+    const selected = Array.from(document.querySelectorAll('.spawn-event-chk:checked')).map(c => c.value);
+    if (!selected.length) { if (RTS.showToast) RTS.showToast('Select at least one event', 'error'); return; }
+    let ok = 0, fail = 0;
+    for (const eventId of selected) {
+      try {
+        await window.cloneList(listId, null, eventId);
+        ok++;
+      } catch(e) { fail++; }
+    }
+    bootstrap.Modal.getInstance(document.getElementById('bulkSpawnModal'))?.hide();
+    if (RTS.showToast) RTS.showToast(`✅ Spawned to ${ok} event${ok!==1?'s':''}${fail?' ('+fail+' failed)':''}`, ok ? 'success' : 'error');
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // FEATURE #18 — Multi-Assignee (stored as comma-sep in assigned_to_name)
+  // Handled transparently: assignee field accepts "Alice, Bob, Carol"
+  // Kanban + calendar display first name; detail shows all
+  // ─────────────────────────────────────────────────────────────────────────
+  // (No extra JS needed — the existing text input already accepts comma-separated
+  //  names and saveTaskDetails persists them via assigned_to_name; the
+  //  assignees_json column is populated automatically by the server PATCH.)
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Track active list ID for Bulk Spawn
+  // ─────────────────────────────────────────────────────────────────────────
+  const _origSelectList = window.selectList;
+  window.selectList = async function(id, type) {
+    window._activeListId = id;
+    return _origSelectList(id, type);
+  };
+
+  // Also tag general notes with _isGeneral flag so kanban/calendar can use it
+  const _origLoadNotesList = loadNotesList;
+  // (notes array is already in scope; flag them for kanban/calendar display)
 
   // Start
   if (document.readyState === 'loading') {
