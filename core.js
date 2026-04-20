@@ -1506,3 +1506,24 @@
 
   console.log('✅ RTS_API initialized:', API_BASE);
 })();
+
+// ============================================================================
+// FETCH INTERCEPTOR — auto-inject auth header on all /api/ requests
+// Fixes pages that call fetch('/api/...') without explicit Authorization header
+// ============================================================================
+(function () {
+  const _origFetch = window.fetch.bind(window);
+  window.fetch = function (resource, options) {
+    try {
+      const urlStr = typeof resource === 'string' ? resource : (resource && resource.url) || '';
+      if (urlStr.includes('/api/') && !urlStr.includes('/api/auth/')) {
+        const token = localStorage.getItem('auth_token');
+        if (token) {
+          options = options ? { ...options } : {};
+          options.headers = Object.assign({ 'Authorization': 'Bearer ' + token }, options.headers || {});
+        }
+      }
+    } catch (_e) { /* never break a fetch */ }
+    return _origFetch(resource, options);
+  };
+})();
