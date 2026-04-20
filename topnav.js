@@ -95,10 +95,10 @@
     ]},
     { label: 'Procurement', items: [
       { href: 'procurement-dashboard.html', label: 'Overview',        key: 'O' },
-      { href: 'suppliers.html',         label: 'Suppliers',        key: 'S' },
+      { href: 'proc-suppliers.html',    label: 'Suppliers',        key: 'S' },
       { href: 'rfqs.html',              label: 'RFQs',             key: 'R' },
       { href: 'quotes.html',            label: 'Quotes',           key: 'Q' },
-      { href: 'contracts.html',         label: 'Contracts',        key: 'C' },
+      { href: 'proc-contracts.html',    label: 'Contracts',        key: 'C' },
       { href: 'slas.html',              label: 'SLAs',             key: 'L' },
       { href: 'lead-times.html',        label: 'Lead Times',       key: 'T' },
       { href: 'orders.html',            label: 'Orders',           key: 'N' },
@@ -126,7 +126,7 @@
       { href: 'driver-debriefs.html',   label: 'Debriefs',         key: 'B' },
       { href: 'media.html',             label: 'Media',            key: 'M' },
       { href: 'licences.html',          label: 'Licences',         key: 'L' },
-      { href: 'driver-preferences.html',label: 'Preferences',      key: 'R' },
+      { href: 'driver-prefs.html',      label: 'Preferences',      key: 'R' },
       { href: 'junior-programme.html',  label: 'Junior Programme', key: 'J' }
     ]},
     { label: 'Compliance', items: [

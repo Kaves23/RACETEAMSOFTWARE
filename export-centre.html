@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Race Team OS – Export Centre</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="style.css?v=20260420" rel="stylesheet" />
+  <style>
+    body { background: linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%); min-height:100vh; }
+    .export-section { background:#fff; border:1px solid rgba(0,0,0,0.1); border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,0.06); padding:20px; margin-bottom:20px; }
+    .export-section-title { font-size:0.78rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#6c757d; margin-bottom:14px; padding-bottom:8px; border-bottom:2px solid #e9ecef; }
+    .export-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:10px; }
+    .export-card { background:#f8f9fa; border:1px solid rgba(0,0,0,0.08); border-radius:8px; padding:14px 16px; display:flex; flex-direction:column; gap:10px; }
+    .export-card-title { font-size:0.85rem; font-weight:600; color:#1a1d24; }
+    .export-card-desc { font-size:0.73rem; color:#6c757d; margin-top:-4px; }
+    .export-btns { display:flex; gap:6px; flex-wrap:wrap; }
+    .btn-csv { background:#1e40af; color:#fff; border:none; font-size:0.73rem; font-weight:600; padding:4px 12px; border-radius:5px; cursor:pointer; }
+    .btn-csv:hover { background:#1d3a9e; }
+    .btn-json { background:#fff; color:#1e40af; border:1px solid #1e40af; font-size:0.73rem; font-weight:600; padding:4px 12px; border-radius:5px; cursor:pointer; }
+    .btn-json:hover { background:#eff2ff; }
+    .full-export-card { background:linear-gradient(135deg,#1e40af 0%,#1e3a8a 100%); color:#fff; border-radius:10px; padding:28px 32px; display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; box-shadow:0 4px 12px rgba(30,64,175,0.25); }
+    .full-export-card h2 { font-size:1.2rem; font-weight:700; margin:0 0 6px; }
+    .full-export-card p { font-size:0.83rem; opacity:0.85; margin:0; max-width:480px; }
+    .btn-full-export { background:#fff; color:#1e40af; font-weight:700; font-size:0.85rem; border:none; padding:10px 24px; border-radius:6px; cursor:pointer; white-space:nowrap; box-shadow:0 2px 6px rgba(0,0,0,0.15); }
+    .btn-full-export:hover { background:#f1f5ff; }
+    .toast-msg { position:fixed; bottom:24px; right:24px; z-index:9999; background:#1e40af; color:#fff; padding:10px 20px; border-radius:6px; font-size:0.82rem; font-weight:600; box-shadow:0 2px 8px rgba(0,0,0,0.2); opacity:0; pointer-events:none; transition:opacity 0.3s; }
+    .toast-msg.show { opacity:1; }
+  </style>
+</head>
+<body class="light-mode">
+  <div id="rtsTopNav"></div>
+  <div class="rts-main container-fluid">
+    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+      <div>
+        <h1 class="h4 mb-1">Export Centre</h1>
+        <div class="text-secondary" style="font-size:0.85rem;">Download data from any module as CSV or JSON for reporting and analysis.</div>
+      </div>
+    </div>
+
+    <!-- Full Database Export -->
+    <div class="full-export-card">
+      <div>
+        <h2>Full Database Export</h2>
+        <p>Download a complete snapshot of all modules in a single JSON file. Use for backups, migrations or external analysis.</p>
+      </div>
+      <button class="btn-full-export" id="btnFullExport">⬇ Download Full Export</button>
+    </div>
+
+    <!-- Events & Racing -->
+    <div class="export-section">
+      <div class="export-section-title">Events &amp; Racing</div>
+      <div class="export-grid" id="gridEvents"></div>
+    </div>
+
+    <!-- Assets & Inventory -->
+    <div class="export-section">
+      <div class="export-section-title">Assets &amp; Inventory</div>
+      <div class="export-grid" id="gridAssets"></div>
+    </div>
+
+    <!-- HR & People -->
+    <div class="export-section">
+      <div class="export-section-title">HR &amp; People</div>
+      <div class="export-grid" id="gridHr"></div>
+    </div>
+
+    <!-- Finance -->
+    <div class="export-section">
+      <div class="export-section-title">Finance</div>
+      <div class="export-grid" id="gridFinance"></div>
+    </div>
+
+    <!-- Performance & Engineering -->
+    <div class="export-section">
+      <div class="export-section-title">Performance &amp; Engineering</div>
+      <div class="export-grid" id="gridPerf"></div>
+    </div>
+
+    <!-- Compliance & Executive -->
+    <div class="export-section">
+      <div class="export-section-title">Compliance &amp; Executive</div>
+      <div class="export-grid" id="gridCompliance"></div>
+    </div>
+
+    <!-- Operations & Logistics -->
+    <div class="export-section">
+      <div class="export-section-title">Operations &amp; Logistics</div>
+      <div class="export-grid" id="gridOps"></div>
+    </div>
+  </div>
+
+  <div class="toast-msg" id="toastMsg"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="topnav.js?v=20260420"></script>
+  <script src="core.js?v=20260420"></script>
+  <script>
+  // Module definitions
+  const MODULES = {
+    gridEvents: [
+      { title:'Events', desc:'All race calendar events', api:'/api/events' },
+      { title:'Entries', desc:'Championship entry records', api:'/api/entries' },
+      { title:'Incidents', desc:'Race & practice incidents', api:'/api/incidents' },
+      { title:'Debriefs', desc:'Post-event debrief records', api:'/api/debriefs' },
+      { title:'Event Notes', desc:'Session notes and comments', api:'/api/event-notes' },
+      { title:'Fuel Calculations', desc:'Fuel strategy data', api:'/api/fuel-calcs' },
+    ],
+    gridAssets: [
+      { title:'Assets', desc:'All tracked team assets', api:'/api/assets' },
+      { title:'Components', desc:'Car & build components', api:'/api/components' },
+      { title:'Inventory', desc:'Stock items and quantities', api:'/api/inventory' },
+      { title:'Consumables', desc:'Consumable usage records', api:'/api/consumables' },
+      { title:'Homologation', desc:'Homologation certificates', api:'/api/homologation' },
+      { title:'Lead Times', desc:'Supplier lead time data', api:'/api/lead-times' },
+    ],
+    gridHr: [
+      { title:'Drivers', desc:'All driver profiles', api:'/api/drivers' },
+      { title:'Driver Contracts', desc:'Driver contract records', api:'/api/driver-contracts' },
+      { title:'Driver Fitness', desc:'Fitness and medical data', api:'/api/driver-fitness' },
+      { title:'Licences', desc:'FIA & national licences', api:'/api/licences' },
+      { title:'Leave Records', desc:'Leave requests and approvals', api:'/api/leave' },
+      { title:'Medical Fitness', desc:'Team medical records', api:'/api/medical-fitness' },
+      { title:'Org Chart', desc:'Team structure data', api:'/api/org-chart' },
+    ],
+    gridFinance: [
+      { title:'Budgets', desc:'Annual budget allocations', api:'/api/budgets' },
+      { title:'Expenses', desc:'Expense claims and spend', api:'/api/expenses' },
+      { title:'Invoices', desc:'Invoice register', api:'/api/invoices' },
+      { title:'Orders', desc:'Purchase orders', api:'/api/orders' },
+      { title:'Payments', desc:'Payment records', api:'/api/payments' },
+      { title:'Cost Cap', desc:'Cost cap tracking data', api:'/api/cost-cap' },
+    ],
+    gridPerf: [
+      { title:'Engineering Data', desc:'Telemetry and setup data', api:'/api/engineering-data' },
+      { title:'Engineering Notes', desc:'Technical notes', api:'/api/engineering-notes' },
+      { title:'Benchmarking', desc:'Competitor benchmarking', api:'/api/benchmarking' },
+      { title:'Correlation', desc:'Simulation vs reality data', api:'/api/correlation' },
+      { title:'Driver Trends', desc:'Driver performance trends', api:'/api/driver-trends' },
+      { title:'Corrective Actions', desc:'Engineering corrective actions', api:'/api/corrective-actions' },
+    ],
+    gridCompliance: [
+      { title:'Policies', desc:'Compliance policy register', api:'/api/policies' },
+      { title:'Legal Contracts', desc:'Legal contract records', api:'/api/legal-contracts' },
+      { title:'Insurance', desc:'Insurance policy records', api:'/api/insurance' },
+      { title:'Data Protection', desc:'GDPR & data records', api:'/api/data-protection' },
+      { title:'Health & Safety', desc:'H&S records', api:'/api/health-safety' },
+      { title:'Compliance Risks', desc:'Risk register', api:'/api/compliance-risks' },
+      { title:'Crisis Management', desc:'Crisis response records', api:'/api/crisis-management' },
+      { title:'Approvals', desc:'Executive approvals', api:'/api/approvals' },
+      { title:'Decisions', desc:'Decision register', api:'/api/decisions' },
+      { title:'Announcements', desc:'Team announcements', api:'/api/announcements' },
+      { title:'Strategic Objectives', desc:'Strategic KPIs', api:'/api/strategic-objectives' },
+      { title:'Board Reports', desc:'Board & exec reports', api:'/api/board-reports' },
+      { title:'Document Control', desc:'Controlled documents', api:'/api/doc-control' },
+    ],
+    gridOps: [
+      { title:'Cars', desc:'Car configurations', api:'/api/cars' },
+      { title:'Trucks & Logistics', desc:'Transport & logistics', api:'/api/trucks' },
+      { title:'Packages', desc:'Driver packages', api:'/api/packages' },
+      { title:'Emergency Orders', desc:'Emergency procurement', api:'/api/emergency-orders' },
+      { title:'Allocations', desc:'Resource allocations', api:'/api/allocations' },
+      { title:'Garage Prep', desc:'Garage preparation records', api:'/api/garage-prep' },
+    ]
+  };
+
+  function objToCSV(arr){
+    if(!arr||!arr.length) return '';
+    const keys=Object.keys(arr[0]);
+    const esc=v=>{ const s=String(v??''); return s.includes(',')||s.includes('"')||s.includes('\n') ? `"${s.replace(/"/g,'""')}"` : s; };
+    return [keys.join(','), ...arr.map(r=>keys.map(k=>esc(r[k])).join(','))].join('\r\n');
+  }
+  function download(filename, content, type='text/csv'){
+    const blob=new Blob([content],{type});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download=filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(a.href); document.body.removeChild(a); },100);
+  }
+  function showToast(msg){ const t=document.getElementById('toastMsg'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2500); }
+
+  async function exportCSV(api, title){
+    try{
+      showToast(`Fetching ${title}…`);
+      const data=await apiFetch(api).catch(()=>[]);
+      if(!data||!data.length){ showToast('No data to export'); return; }
+      download(`${title.replace(/\s+/g,'-').toLowerCase()}-export.csv`, objToCSV(data));
+      showToast(`${title}: ${data.length} rows exported`);
+    } catch(e){ showToast('Export failed: '+e.message); }
+  }
+  async function exportJSON(api, title){
+    try{
+      showToast(`Fetching ${title}…`);
+      const data=await apiFetch(api).catch(()=>[]);
+      if(!data||!data.length){ showToast('No data to export'); return; }
+      download(`${title.replace(/\s+/g,'-').toLowerCase()}-export.json`, JSON.stringify(data,null,2), 'application/json');
+      showToast(`${title}: ${data.length} records exported`);
+    } catch(e){ showToast('Export failed: '+e.message); }
+  }
+
+  function renderGrid(gridId, items){
+    const grid=document.getElementById(gridId);
+    grid.innerHTML=items.map(mod=>`
+      <div class="export-card">
+        <div>
+          <div class="export-card-title">${mod.title}</div>
+          <div class="export-card-desc">${mod.desc}</div>
+        </div>
+        <div class="export-btns">
+          <button class="btn-csv" data-api="${mod.api}" data-title="${mod.title}" data-fmt="csv">CSV</button>
+          <button class="btn-json" data-api="${mod.api}" data-title="${mod.title}" data-fmt="json">JSON</button>
+        </div>
+      </div>`).join('');
+    grid.querySelectorAll('button[data-api]').forEach(b=>b.addEventListener('click',()=>{
+      if(b.dataset.fmt==='csv') exportCSV(b.dataset.api, b.dataset.title);
+      else exportJSON(b.dataset.api, b.dataset.title);
+    }));
+  }
+
+  async function fullExport(){
+    showToast('Preparing full export…');
+    const allApis=[].concat(...Object.values(MODULES));
+    const result={};
+    await Promise.allSettled(allApis.map(async mod=>{
+      try{ result[mod.api.replace('/api/','')]=await apiFetch(mod.api).catch(()=>[]); }
+      catch(e){ result[mod.api.replace('/api/','')]=[]; }
+    }));
+    result._exported_at=new Date().toISOString();
+    download('race-team-full-export.json', JSON.stringify(result,null,2), 'application/json');
+    showToast('Full export ready!');
+  }
+
+  document.addEventListener('DOMContentLoaded',()=>{
+    Object.entries(MODULES).forEach(([id,items])=>renderGrid(id,items));
+    document.getElementById('btnFullExport').addEventListener('click',fullExport);
+  });
+  </script>
+</body>
+</html>

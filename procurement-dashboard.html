@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Race Team OS – Procurement</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="style.css?v=20260420" rel="stylesheet"/>
+  <style>
+    body{background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%);}
+    .ev-stats-bar{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;}
+    .ev-stat-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:10px 16px;min-width:120px;}
+    .ev-stat-label{font-size:.7rem;color:#6c757d;font-weight:600;text-transform:uppercase;}
+    .ev-stat-value{font-size:1.5rem;font-weight:700;color:#1a1d24;}
+    .module-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:24px;}
+    .mod-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:18px 12px;text-align:center;text-decoration:none;color:#1a1d24;transition:all .15s;display:block;}
+    .mod-card:hover{box-shadow:0 4px 16px rgba(14,165,233,.2);border-color:#0ea5e9;color:#0ea5e9;}
+    .mod-card .ic{font-size:1.8rem;margin-bottom:6px;}
+    .mod-card .lb{font-size:.8rem;font-weight:600;}
+    .recent-panel{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:16px;}
+    .data-table{width:100%;font-size:.82rem;border-collapse:collapse;}
+    .data-table th{padding:8px 10px;font-size:.7rem;font-weight:700;text-transform:uppercase;color:#6c757d;border-bottom:2px solid #dee2e6;background:#f8f9fa;}
+    .data-table td{padding:6px 10px;border-bottom:1px solid rgba(0,0,0,.05);}
+  </style>
+</head>
+<body class="light-mode">
+  <div id="rtsTopNav"></div>
+  <div class="rts-main container-fluid py-3">
+    <div class="pb-2 mb-3 border-bottom">
+      <h1 class="h4 mb-1">Procurement</h1>
+      <p class="text-secondary mb-0" style="font-size:.85rem;">Supplier management, RFQs, contracts and supply chain</p>
+    </div>
+    <div class="ev-stats-bar">
+      <div class="ev-stat-card"><div class="ev-stat-label">Total Suppliers</div><div class="ev-stat-value" id="kpiSuppliers">—</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Open RFQs</div><div class="ev-stat-value" id="kpiRFQs">—</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Active Contracts</div><div class="ev-stat-value" id="kpiContracts">—</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Supplier Issues</div><div class="ev-stat-value" id="kpiIssues">—</div></div>
+    </div>
+    <div class="module-grid">
+      <a href="proc-suppliers.html" class="mod-card"><div class="ic">🏭</div><div class="lb">Suppliers</div></a>
+      <a href="rfqs.html" class="mod-card"><div class="ic">📋</div><div class="lb">RFQs</div></a>
+      <a href="quotes.html" class="mod-card"><div class="ic">💬</div><div class="lb">Quotes</div></a>
+      <a href="proc-contracts.html" class="mod-card"><div class="ic">📄</div><div class="lb">Contracts</div></a>
+      <a href="slas.html" class="mod-card"><div class="ic">🎯</div><div class="lb">SLAs</div></a>
+      <a href="lead-times.html" class="mod-card"><div class="ic">⏱</div><div class="lb">Lead Times</div></a>
+      <a href="emergency-orders.html" class="mod-card"><div class="ic">🚨</div><div class="lb">Emergency Orders</div></a>
+      <a href="supplier-issues.html" class="mod-card"><div class="ic">⚠️</div><div class="lb">Issues</div></a>
+    </div>
+    <div class="recent-panel">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="fw-bold mb-0">Recent Emergency Orders</h6>
+        <a href="emergency-orders.html" class="btn btn-sm btn-outline-secondary" style="font-size:.75rem">View All →</a>
+      </div>
+      <table class="data-table">
+        <thead><tr><th>Title</th><th>Part</th><th>Qty</th><th>Required By</th><th>Priority</th><th>Status</th></tr></thead>
+        <tbody id="recentOrders"><tr><td colspan="6" class="text-center text-muted py-3">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="topnav.js?v=20260420"></script>
+  <script src="core.js?v=20260420"></script>
+  <script>
+  const PRI_B={critical:'danger',high:'warning',normal:'secondary',low:'info'};
+  const STA_B={requested:'primary',approved:'success',ordered:'info',received:'success',cancelled:'secondary'};
+  async function go(url){try{const r=await fetch(url);const j=await r.json();return Array.isArray(j)?j:(j.data||[]);}catch{return[];}}
+  async function load(){
+    const [sup,rfq,con,iss,ord]=await Promise.all([
+      go('/api/proc-suppliers'),go('/api/rfqs'),go('/api/proc-contracts'),
+      go('/api/supplier-issues'),go('/api/emergency-orders')
+    ]);
+    document.getElementById('kpiSuppliers').textContent=sup.length;
+    document.getElementById('kpiRFQs').textContent=rfq.filter(x=>['draft','sent'].includes(x.status)).length;
+    document.getElementById('kpiContracts').textContent=con.filter(x=>x.status==='active').length;
+    document.getElementById('kpiIssues').textContent=iss.filter(x=>x.status==='open').length;
+    const rows=ord.slice().reverse().slice(0,15);
+    document.getElementById('recentOrders').innerHTML=rows.length
+      ?rows.map(o=>`<tr>
+          <td class="fw-semibold">${o.title||'—'}</td><td>${o.part_name||'—'}</td><td>${o.quantity||'—'}</td>
+          <td>${o.required_by||'—'}</td>
+          <td><span class="badge bg-${PRI_B[o.priority]||'secondary'}">${o.priority||'—'}</span></td>
+          <td><span class="badge bg-${STA_B[o.status]||'secondary'}">${o.status||'—'}</span></td>
+        </tr>`).join('')
+      :'<tr><td colspan="6" class="text-center text-muted py-3">No emergency orders found</td></tr>';
+  }
+  load();
+  </script>
+</body>
+</html>

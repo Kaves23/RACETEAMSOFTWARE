@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Race Team OS – Department Status</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="style.css?v=20260420" rel="stylesheet" />
+  <style>
+    body { background: linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%); min-height:100vh; }
+    .dept-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:16px; margin-bottom:24px; }
+    .dept-card { background:#fff; border:1px solid rgba(0,0,0,0.1); border-radius:10px; padding:18px; box-shadow:0 2px 6px rgba(0,0,0,0.05); }
+    .dept-card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+    .dept-name { font-weight:700; font-size:1rem; color:#1a1d24; display:flex; align-items:center; gap:8px; }
+    .dept-icon { font-size:1.2rem; }
+    .status-dot { width:12px; height:12px; border-radius:50%; flex-shrink:0; }
+    .dot-green { background:#10b981; }
+    .dot-amber { background:#f59e0b; }
+    .dot-red { background:#ef4444; }
+    .dot-grey { background:#9ca3af; }
+    .status-label { font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; }
+    .sl-green { color:#059669; }
+    .sl-amber { color:#d97706; }
+    .sl-red { color:#dc2626; }
+    .sl-grey { color:#6b7280; }
+    .dept-notes { font-size:0.78rem; color:#6c757d; margin-top:6px; min-height:20px; }
+    .dept-updated { font-size:0.68rem; color:#9ca3af; margin-top:4px; }
+    .edit-btn { background:none; border:1px solid #dee2e6; border-radius:5px; padding:3px 8px; font-size:0.72rem; color:#6c757d; cursor:pointer; transition:all 0.1s; }
+    .edit-btn:hover { border-color:#1e40af; color:#1e40af; }
+    .edit-controls { display:none; margin-top:10px; }
+    .dept-card.editing .edit-controls { display:block; }
+    .dept-card.editing .view-controls { display:none; }
+    .section-title { font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#6c757d; margin-bottom:10px; }
+    .summary-bar { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:20px; }
+    .sum-card { background:#fff; border:1px solid rgba(0,0,0,0.1); border-radius:8px; padding:10px 16px; box-shadow:0 2px 4px rgba(0,0,0,0.06); min-width:100px; }
+    .sum-label { font-size:0.68rem; color:#6c757d; font-weight:600; text-transform:uppercase; }
+    .sum-value { font-size:1.4rem; font-weight:800; color:#1a1d24; }
+  </style>
+</head>
+<body class="light-mode">
+  <div id="rtsTopNav"></div>
+  <div class="rts-main container-fluid py-3">
+    <div class="d-flex justify-content-between align-items-end mb-3">
+      <div>
+        <h1 class="h4 mb-1" style="color:#1a1d24;">Department Status</h1>
+        <div class="text-secondary" style="font-size:0.85rem;">Current health and status of all team departments.</div>
+      </div>
+      <button class="btn btn-sm" style="background:#1e40af;color:#fff;border:none;" id="btnRefresh">↻ Refresh</button>
+    </div>
+
+    <!-- SUMMARY -->
+    <div class="summary-bar">
+      <div class="sum-card"><div class="sum-label">🟢 Green</div><div class="sum-value" id="sumGreen">0</div></div>
+      <div class="sum-card"><div class="sum-label">🟡 Amber</div><div class="sum-value" id="sumAmber">0</div></div>
+      <div class="sum-card"><div class="sum-label">🔴 Red</div><div class="sum-value" id="sumRed">0</div></div>
+      <div class="sum-card"><div class="sum-label">⚪ Unknown</div><div class="sum-value" id="sumGrey">0</div></div>
+    </div>
+
+    <div class="section-title">All Departments</div>
+    <div class="dept-grid" id="deptGrid"></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="topnav.js?v=20260420"></script>
+  <script src="core.js?v=20260420"></script>
+  <script>
+  const DEPTS = [
+    { key:'sporting',      icon:'🏁', name:'Sporting' },
+    { key:'technical',     icon:'🔧', name:'Technical' },
+    { key:'build',         icon:'🛠️', name:'Build' },
+    { key:'logistics',     icon:'🚚', name:'Logistics' },
+    { key:'hr',            icon:'👥', name:'HR' },
+    { key:'finance',       icon:'💰', name:'Finance' },
+    { key:'compliance',    icon:'📋', name:'Compliance' },
+    { key:'performance',   icon:'📊', name:'Performance' },
+    { key:'reliability',   icon:'⚙️', name:'Reliability' },
+    { key:'procurement',   icon:'🛒', name:'Procurement' }
+  ];
+
+  const API = '/api/kpi-metrics';
+  let deptData = {}; // key -> { status, notes, updated_at }
+
+  async function load(){
+    const data = await apiFetch(`${API}?category=department`).catch(()=>[]);
+    deptData = {};
+    (data||[]).forEach(d=>{ deptData[d.name?.toLowerCase?.()] = d; });
+    render();
+  }
+
+  function statusMeta(s){
+    if(s==='green') return {dot:'dot-green',lbl:'sl-green',label:'Green'};
+    if(s==='amber') return {dot:'dot-amber',lbl:'sl-amber',label:'Amber'};
+    if(s==='red') return {dot:'dot-red',lbl:'sl-red',label:'Red'};
+    return {dot:'dot-grey',lbl:'sl-grey',label:'Unknown'};
+  }
+
+  function render(){
+    const grid=document.getElementById('deptGrid');
+    let g=0,a=0,r=0,u=0;
+    grid.innerHTML=DEPTS.map(dept=>{
+      const d=deptData[dept.key]||{};
+      const status=d.status||d.actual_value||'unknown';
+      const m=statusMeta(status);
+      if(status==='green') g++; else if(status==='amber') a++; else if(status==='red') r++; else u++;
+      const updated=d.updated_at||d.created_at?new Date(d.updated_at||d.created_at).toLocaleString('en-GB'):'—';
+      return `<div class="dept-card" data-key="${dept.key}">
+        <div class="dept-card-header">
+          <div class="dept-name"><span class="dept-icon">${dept.icon}</span>${dept.name}</div>
+          <div class="d-flex align-items-center gap-2">
+            <div class="status-dot ${m.dot}"></div>
+            <span class="status-label ${m.lbl}">${m.label}</span>
+          </div>
+        </div>
+        <div class="dept-notes view-controls">${d.notes||d.description||'<em class="text-muted">No notes</em>'}</div>
+        <div class="dept-updated view-controls">Updated: ${updated}</div>
+        <div class="d-flex justify-content-end view-controls mt-2">
+          <button class="edit-btn" data-key="${dept.key}">Edit Status</button>
+        </div>
+        <div class="edit-controls">
+          <label class="form-label fw-semibold mb-1" style="font-size:0.78rem;">Status</label>
+          <select class="form-select form-select-sm mb-2 edit-status">
+            <option value="green" ${status==='green'?'selected':''}>🟢 Green</option>
+            <option value="amber" ${status==='amber'?'selected':''}>🟡 Amber</option>
+            <option value="red" ${status==='red'?'selected':''}>🔴 Red</option>
+            <option value="unknown" ${status==='unknown'?'selected':''}>⚪ Unknown</option>
+          </select>
+          <label class="form-label fw-semibold mb-1" style="font-size:0.78rem;">Notes</label>
+          <textarea class="form-control form-control-sm mb-2 edit-notes" rows="2">${d.notes||d.description||''}</textarea>
+          <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-primary save-btn" data-key="${dept.key}" data-id="${d.id||''}" style="background:#1e40af;border-color:#1e40af;font-size:0.75rem;">Save</button>
+            <button class="btn btn-sm btn-outline-secondary cancel-btn" style="font-size:0.75rem;">Cancel</button>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+
+    document.getElementById('sumGreen').textContent=g;
+    document.getElementById('sumAmber').textContent=a;
+    document.getElementById('sumRed').textContent=r;
+    document.getElementById('sumGrey').textContent=u;
+
+    grid.querySelectorAll('.edit-btn').forEach(b=>b.addEventListener('click',()=>{
+      const card=b.closest('.dept-card'); card.classList.add('editing');
+    }));
+    grid.querySelectorAll('.cancel-btn').forEach(b=>b.addEventListener('click',()=>{
+      const card=b.closest('.dept-card'); card.classList.remove('editing');
+    }));
+    grid.querySelectorAll('.save-btn').forEach(b=>b.addEventListener('click',async()=>{
+      const card=b.closest('.dept-card');
+      const dept=DEPTS.find(d=>d.key===b.dataset.key);
+      const status=card.querySelector('.edit-status').value;
+      const notes=card.querySelector('.edit-notes').value;
+      const body={ name:dept.name, category:'department', status, notes, description:notes,
+        actual_value:status, owner:'System', period:'monthly' };
+      if(b.dataset.id){
+        await apiFetch(`${API}/${b.dataset.id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      } else {
+        await apiFetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      }
+      await load();
+    }));
+  }
+
+  document.addEventListener('DOMContentLoaded',()=>{
+    load();
+    document.getElementById('btnRefresh').addEventListener('click',load);
+  });
+  </script>
+</body>
+</html>

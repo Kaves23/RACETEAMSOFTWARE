@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Race Team OS – Compliance Risks</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="style.css?v=20260420" rel="stylesheet" />
+  <style>
+    body { background: linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%); min-height:100vh; }
+    .kpi-bar { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+    .kpi-card { background:#fff; border:1px solid rgba(0,0,0,0.1); border-radius:8px; padding:10px 16px; box-shadow:0 2px 4px rgba(0,0,0,0.06); min-width:120px; }
+    .kpi-label { font-size:0.7rem; color:#6c757d; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; }
+    .kpi-value { font-size:1.5rem; font-weight:700; color:#1a1d24; line-height:1.2; }
+    #crShell.mlo-shell { background:transparent; border:none; gap:10px; }
+    #crShell .mlo-pane-left,#crShell .mlo-pane-mid,#crShell .mlo-pane-right { background:#fff; border:1px solid rgba(0,0,0,0.1); border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,0.06); }
+    #crShell .mlo-pane-header { background:#f8f9fa; border-bottom:1px solid rgba(0,0,0,0.1); }
+    #crShell .mlo-title { color:#1a1d24 !important; }
+    #crShell .mlo-section-label { color:#6c757d !important; opacity:1 !important; }
+    #crShell .mlo-resizer:hover { background:rgba(16,185,129,0.3); }
+    #crShell .pastel-tree { padding:0 !important; margin:0 !important; }
+    #crShell .pastel-tree li { height:28px !important; display:flex !important; align-items:center !important; font-size:0.83rem !important; font-weight:500 !important; padding-left:10px !important; margin-bottom:2px !important; border-radius:5px !important; border:1px solid rgba(0,0,0,0.08) !important; color:#1a1d24 !important; white-space:nowrap !important; overflow:hidden !important; text-overflow:ellipsis !important; cursor:pointer !important; list-style:none; }
+    #crShell .pastel-tree li.active { background:rgba(16,185,129,0.1) !important; border-color:rgba(16,185,129,0.35) !important; color:#059669 !important; font-weight:700 !important; }
+    .cr-table { width:100%; font-size:0.82rem; border-collapse:separate; border-spacing:0; }
+    .cr-table thead { position:sticky; top:0; background:#f8f9fa; z-index:5; }
+    .cr-table th { padding:8px 10px; font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:#6c757d; border-bottom:2px solid #dee2e6; white-space:nowrap; }
+    .cr-table td { padding:6px 10px; border-bottom:1px solid rgba(0,0,0,0.05); vertical-align:middle; color:#1a1d24; }
+    .cr-table tbody tr { cursor:pointer; transition:background 0.1s; }
+    .cr-table tbody tr:hover { background:#f8f9fa; }
+    .cr-table tbody tr.selected { background:rgba(16,185,129,0.08) !important; outline:2px solid #10b981; outline-offset:-2px; }
+    .del-btn { opacity:0; background:none; border:none; color:#dc3545; font-size:1rem; padding:0 4px; cursor:pointer; }
+    .cr-table tbody tr:hover .del-btn { opacity:1; }
+    .risk-pill { display:inline-block; padding:2px 8px; border-radius:20px; font-size:0.65rem; font-weight:700; }
+    .rp-low { background:#d1fae5; color:#065f46; }
+    .rp-medium { background:#fef3c7; color:#92400e; }
+    .rp-high { background:#fee2e2; color:#991b1b; }
+    .rp-critical { background:#dc3545; color:#fff; }
+    .score-badge { display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:50%; font-weight:800; font-size:0.8rem; }
+    .score-1 { background:#d1fae5; color:#065f46; }
+    .score-2 { background:#d1fae5; color:#065f46; }
+    .score-3 { background:#d1fae5; color:#065f46; }
+    .score-4 { background:#fef3c7; color:#92400e; }
+    .score-5 { background:#fef3c7; color:#92400e; }
+    .score-6 { background:#fef3c7; color:#92400e; }
+    .score-high { background:#fee2e2; color:#991b1b; }
+    .score-crit { background:#dc3545; color:#fff; }
+    #crShell .form-label { color:#495057 !important; font-size:0.78rem; font-weight:600; margin-bottom:2px; }
+    #crShell .form-control,#crShell .form-select { font-size:0.82rem; }
+  </style>
+</head>
+<body class="light-mode">
+  <div id="rtsTopNav"></div>
+  <div class="rts-main container-fluid">
+    <div class="pt-3 pb-2 mb-2 border-bottom d-flex justify-content-between align-items-end">
+      <div>
+        <h1 class="h4 mb-1">Compliance Risks</h1>
+        <div class="text-secondary" style="font-size:0.85rem;">Track and mitigate regulatory, financial, operational and legal compliance risks.</div>
+      </div>
+      <button class="btn btn-sm" style="background:#10b981;color:#fff;border:none;" id="btnAddCR" type="button">+ Add Risk</button>
+    </div>
+    <div class="kpi-bar">
+      <div class="kpi-card"><div class="kpi-label">Critical</div><div class="kpi-value" id="kpiCritical" style="color:#dc3545;">0</div></div>
+      <div class="kpi-card"><div class="kpi-label">High</div><div class="kpi-value" id="kpiHigh" style="color:#b45309;">0</div></div>
+      <div class="kpi-card"><div class="kpi-label">Medium</div><div class="kpi-value" id="kpiMedium" style="color:#d97706;">0</div></div>
+      <div class="kpi-card"><div class="kpi-label">Low</div><div class="kpi-value" id="kpiLow" style="color:#059669;">0</div></div>
+    </div>
+    <div class="mlo-shell" id="crShell">
+      <!-- LEFT -->
+      <section class="mlo-pane mlo-pane-left" aria-label="Risk filters">
+        <div class="mlo-pane-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="mlo-title">Filter</div>
+            <span class="badge text-bg-secondary" id="crCountBadge">0</span>
+          </div>
+        </div>
+        <div class="mlo-pane-content">
+          <div class="mlo-section-label">Risk Level</div>
+          <ul class="pastel-tree" id="crFilterList">
+            <li class="active" data-v="all">All Risks</li>
+            <li data-v="critical">Critical</li>
+            <li data-v="high">High</li>
+            <li data-v="medium">Medium</li>
+            <li data-v="low">Low</li>
+          </ul>
+          <div class="mlo-section-label mt-3">Category</div>
+          <ul class="pastel-tree" id="crCatList">
+            <li class="active" data-v="all">All Categories</li>
+            <li data-v="regulatory">Regulatory</li>
+            <li data-v="financial">Financial</li>
+            <li data-v="operational">Operational</li>
+            <li data-v="legal">Legal</li>
+            <li data-v="reputational">Reputational</li>
+            <li data-v="safety">Safety</li>
+          </ul>
+        </div>
+      </section>
+      <div class="mlo-resizer" data-resize="left"></div>
+      <!-- MIDDLE -->
+      <section class="mlo-pane mlo-pane-mid" aria-label="Risks list">
+        <div class="mlo-pane-header">
+          <div class="d-flex gap-1 align-items-center flex-wrap">
+            <input id="crSearch" type="text" class="form-control form-control-sm" placeholder="Search…" style="max-width:220px;">
+            <select id="crStatusFilter" class="form-select form-select-sm" style="max-width:160px;">
+              <option value="">Status: All</option>
+              <option value="open">Open</option>
+              <option value="mitigated">Mitigated</option>
+              <option value="accepted">Accepted</option>
+              <option value="closed">Closed</option>
+            </select>
+          </div>
+        </div>
+        <div class="mlo-pane-content" style="padding:0;">
+          <table class="cr-table">
+            <thead><tr><th>#</th><th>Title</th><th>Category</th><th>Likelihood</th><th>Impact</th><th>Score</th><th>Level</th><th>Owner</th><th></th></tr></thead>
+            <tbody id="crTbody"></tbody>
+          </table>
+        </div>
+      </section>
+      <div class="mlo-resizer" data-resize="right"></div>
+      <!-- RIGHT -->
+      <section class="mlo-pane mlo-pane-right mlo-inspector" aria-label="Risk inspector">
+        <div class="mlo-pane-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="mlo-title">Inspector</div>
+            <span class="badge text-bg-secondary" id="crInspBadge">—</span>
+          </div>
+          <div class="d-flex gap-1 mt-1">
+            <button class="btn btn-sm" style="background:#10b981;color:#fff;border:none;font-size:0.75rem;" id="btnSaveCR">Save</button>
+            <button class="btn btn-sm btn-outline-danger" style="font-size:0.75rem;" id="btnDelCR">Delete</button>
+          </div>
+        </div>
+        <div class="mlo-pane-content">
+          <form id="crForm" autocomplete="off">
+            <div class="row g-2">
+              <div class="col-12"><label class="form-label">Title *</label><input id="f_cr_title" class="form-control form-control-sm" type="text" required></div>
+              <div class="col-12"><label class="form-label">Description</label><textarea id="f_cr_desc" class="form-control form-control-sm" rows="2"></textarea></div>
+              <div class="col-6"><label class="form-label">Category</label>
+                <select id="f_cr_cat" class="form-select form-select-sm">
+                  <option value="regulatory">Regulatory</option><option value="financial">Financial</option>
+                  <option value="operational">Operational</option><option value="legal">Legal</option>
+                  <option value="reputational">Reputational</option><option value="safety">Safety</option>
+                </select>
+              </div>
+              <div class="col-6"><label class="form-label">Status</label>
+                <select id="f_cr_status" class="form-select form-select-sm">
+                  <option value="open">Open</option><option value="mitigated">Mitigated</option>
+                  <option value="accepted">Accepted</option><option value="closed">Closed</option>
+                </select>
+              </div>
+              <div class="col-4"><label class="form-label">Likelihood (1–5)</label>
+                <select id="f_cr_likelihood" class="form-select form-select-sm">
+                  <option value="1">1 – Rare</option><option value="2">2 – Unlikely</option>
+                  <option value="3">3 – Possible</option><option value="4">4 – Likely</option><option value="5">5 – Almost Certain</option>
+                </select>
+              </div>
+              <div class="col-4"><label class="form-label">Impact (1–5)</label>
+                <select id="f_cr_impact" class="form-select form-select-sm">
+                  <option value="1">1 – Negligible</option><option value="2">2 – Minor</option>
+                  <option value="3">3 – Moderate</option><option value="4">4 – Major</option><option value="5">5 – Critical</option>
+                </select>
+              </div>
+              <div class="col-4">
+                <label class="form-label">Risk Score</label>
+                <input id="f_cr_score" class="form-control form-control-sm" type="text" readonly style="background:#f8f9fa;font-weight:700;text-align:center;">
+              </div>
+              <div class="col-12">
+                <label class="form-label">Suggested Level</label>
+                <div id="crLevelSuggest" class="alert py-1 px-2 mb-0" style="font-size:0.8rem;"></div>
+              </div>
+              <div class="col-12"><label class="form-label">Risk Level</label>
+                <select id="f_cr_level" class="form-select form-select-sm">
+                  <option value="low">Low</option><option value="medium">Medium</option>
+                  <option value="high">High</option><option value="critical">Critical</option>
+                </select>
+              </div>
+              <div class="col-12"><label class="form-label">Mitigation Plan</label><textarea id="f_cr_mitigation" class="form-control form-control-sm" rows="3"></textarea></div>
+              <div class="col-6"><label class="form-label">Owner</label><input id="f_cr_owner" class="form-control form-control-sm" type="text"></div>
+              <div class="col-6"><label class="form-label">Review Date</label><input id="f_cr_review" class="form-control form-control-sm" type="date"></div>
+            </div>
+          </form>
+        </div>
+      </section>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="topnav.js?v=20260420"></script>
+  <script src="core.js?v=20260420"></script>
+  <script>
+  const API = '/api/compliance-risks';
+  let allData = [], current = null, filterLevel = 'all', filterCat = 'all';
+  function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  function computeScore(){
+    const l=parseInt(document.getElementById('f_cr_likelihood').value)||1;
+    const i=parseInt(document.getElementById('f_cr_impact').value)||1;
+    const score=l*i;
+    document.getElementById('f_cr_score').value=score;
+    let level='low', cls='success', msg='Low Risk';
+    if(score>=16){ level='critical'; cls='danger'; msg='Critical Risk'; }
+    else if(score>=10){ level='high'; cls='warning'; msg='High Risk'; }
+    else if(score>=5){ level='medium'; cls='warning'; msg='Medium Risk'; }
+    document.getElementById('f_cr_level').value=level;
+    const el=document.getElementById('crLevelSuggest');
+    el.className=`alert alert-${cls} py-1 px-2 mb-0`;
+    el.textContent=`Suggested: ${msg} (score ${score})`;
+  }
+
+  async function loadAll(){ const data=await apiFetch(API).catch(()=>[]); allData=data||[]; renderStats(); renderTable(); }
+  function renderStats(){
+    document.getElementById('kpiCritical').textContent=allData.filter(r=>r.risk_level==='critical').length;
+    document.getElementById('kpiHigh').textContent=allData.filter(r=>r.risk_level==='high').length;
+    document.getElementById('kpiMedium').textContent=allData.filter(r=>r.risk_level==='medium').length;
+    document.getElementById('kpiLow').textContent=allData.filter(r=>r.risk_level==='low').length;
+  }
+  function renderTable(){
+    const q=document.getElementById('crSearch').value.toLowerCase();
+    const sf=document.getElementById('crStatusFilter').value;
+    let rows=allData;
+    if(filterLevel!=='all') rows=rows.filter(r=>r.risk_level===filterLevel);
+    if(filterCat!=='all') rows=rows.filter(r=>r.category===filterCat);
+    if(sf) rows=rows.filter(r=>r.status===sf);
+    if(q) rows=rows.filter(r=>JSON.stringify(r).toLowerCase().includes(q));
+    document.getElementById('crCountBadge').textContent=rows.length;
+    const tbody=document.getElementById('crTbody');
+    if(!rows.length){ tbody.innerHTML='<tr><td colspan="9" class="text-center text-muted py-3">No risks found</td></tr>'; return; }
+    tbody.innerHTML=rows.map((r,i)=>`
+      <tr data-id="${r.id}" class="${current&&current.id===r.id?'selected':''}">
+        <td>${i+1}</td>
+        <td>${esc(r.title)}</td>
+        <td style="text-transform:capitalize;">${esc(r.category||'—')}</td>
+        <td style="text-align:center;">${r.likelihood||'—'}</td>
+        <td style="text-align:center;">${r.impact||'—'}</td>
+        <td style="text-align:center;font-weight:700;">${r.risk_score||'—'}</td>
+        <td><span class="risk-pill rp-${r.risk_level||'low'}">${r.risk_level||'—'}</span></td>
+        <td>${esc(r.owner||'—')}</td>
+        <td><button class="del-btn" data-id="${r.id}">✕</button></td>
+      </tr>`).join('');
+    tbody.querySelectorAll('tr[data-id]').forEach(tr=>tr.addEventListener('click',e=>{ if(e.target.classList.contains('del-btn')) return; selectRow(tr.dataset.id); }));
+    tbody.querySelectorAll('.del-btn').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation(); deleteById(b.dataset.id); }));
+  }
+  function selectRow(id){
+    current=allData.find(r=>String(r.id)===String(id)); if(!current) return;
+    document.getElementById('crInspBadge').textContent='#'+current.id;
+    const F=f=>document.getElementById(f);
+    F('f_cr_title').value=current.title||'';
+    F('f_cr_desc').value=current.description||'';
+    F('f_cr_cat').value=current.category||'regulatory';
+    F('f_cr_status').value=current.status||'open';
+    F('f_cr_likelihood').value=String(current.likelihood||1);
+    F('f_cr_impact').value=String(current.impact||1);
+    F('f_cr_score').value=current.risk_score||'';
+    F('f_cr_level').value=current.risk_level||'low';
+    F('f_cr_mitigation').value=current.mitigation||'';
+    F('f_cr_owner').value=current.owner||'';
+    F('f_cr_review').value=current.review_date?current.review_date.slice(0,10):'';
+    computeScore();
+    renderTable();
+  }
+  function clearForm(){
+    current=null; document.getElementById('crInspBadge').textContent='—';
+    document.getElementById('crForm').reset();
+    document.getElementById('f_cr_score').value='1';
+    document.getElementById('crLevelSuggest').textContent='';
+    renderTable();
+  }
+  async function saveRecord(){
+    const F=f=>document.getElementById(f).value.trim();
+    if(!F('f_cr_title')){ alert('Title is required'); return; }
+    const body={ title:F('f_cr_title'), description:F('f_cr_desc'), category:F('f_cr_cat'),
+      risk_level:F('f_cr_level'), likelihood:parseInt(F('f_cr_likelihood')), impact:parseInt(F('f_cr_impact')),
+      risk_score:parseInt(F('f_cr_score')), mitigation:F('f_cr_mitigation'), owner:F('f_cr_owner'),
+      review_date:F('f_cr_review')||null, status:F('f_cr_status') };
+    if(current){ await apiFetch(`${API}/${current.id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); }
+    else { await apiFetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); }
+    await loadAll();
+  }
+  async function deleteById(id){
+    if(!confirm('Delete this risk?')) return;
+    await apiFetch(`${API}/${id}`,{method:'DELETE'});
+    if(current&&String(current.id)===String(id)){ current=null; document.getElementById('crForm').reset(); }
+    await loadAll();
+  }
+  document.addEventListener('DOMContentLoaded',()=>{
+    loadAll();
+    document.getElementById('btnAddCR').addEventListener('click',clearForm);
+    document.getElementById('btnSaveCR').addEventListener('click',saveRecord);
+    document.getElementById('btnDelCR').addEventListener('click',()=>{ if(current) deleteById(current.id); });
+    document.getElementById('crSearch').addEventListener('input',renderTable);
+    document.getElementById('crStatusFilter').addEventListener('change',renderTable);
+    document.getElementById('f_cr_likelihood').addEventListener('change',computeScore);
+    document.getElementById('f_cr_impact').addEventListener('change',computeScore);
+    document.querySelectorAll('#crFilterList li').forEach(li=>li.addEventListener('click',()=>{
+      document.querySelectorAll('#crFilterList li').forEach(x=>x.classList.remove('active'));
+      li.classList.add('active'); filterLevel=li.dataset.v; renderTable();
+    }));
+    document.querySelectorAll('#crCatList li').forEach(li=>li.addEventListener('click',()=>{
+      document.querySelectorAll('#crCatList li').forEach(x=>x.classList.remove('active'));
+      li.classList.add('active'); filterCat=li.dataset.v; renderTable();
+    }));
+  });
+  </script>
+</body>
+</html>

@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Race Team OS – Reliability Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="style.css?v=20260420" rel="stylesheet"/>
+  <style>
+    body{background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%);}
+    .ev-stats-bar{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;}
+    .ev-stat-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:12px 18px;box-shadow:0 2px 4px rgba(0,0,0,.06);min-width:130px;}
+    .ev-stat-label{font-size:.7rem;color:#6c757d;font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+    .ev-stat-value{font-size:1.6rem;font-weight:700;color:#1a1d24;line-height:1.2;}
+    .ev-stat-sub{font-size:.72rem;color:#6c757d;}
+    .dash-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:10px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.06);}
+    .module-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;}
+    .module-link{display:flex;flex-direction:column;align-items:flex-start;padding:16px 18px;background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;text-decoration:none;color:#1a1d24;box-shadow:0 2px 4px rgba(0,0,0,.04);transition:all .15s;}
+    .module-link:hover{border-color:#ef4444;box-shadow:0 4px 12px rgba(239,68,68,.15);transform:translateY(-2px);color:#ef4444;}
+    .module-link .icon{font-size:1.6rem;margin-bottom:8px;}
+    .module-link .name{font-weight:700;font-size:.9rem;}
+    .module-link .desc{font-size:.75rem;color:#6c757d;margin-top:2px;}
+    .recent-table{width:100%;font-size:.83rem;border-collapse:separate;border-spacing:0;}
+    .recent-table th{padding:8px 10px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#6c757d;border-bottom:2px solid #dee2e6;}
+    .recent-table td{padding:7px 10px;border-bottom:1px solid rgba(0,0,0,.05);color:#1a1d24;}
+    .badge-sev{padding:2px 8px;border-radius:999px;font-size:.7rem;font-weight:600;}
+    .sev-low{background:#d1fae5;color:#065f46;}
+    .sev-medium{background:#fef3c7;color:#92400e;}
+    .sev-high{background:#fee2e2;color:#991b1b;}
+    .sev-critical{background:#7f1d1d;color:#fff;}
+    .stat-overdue{color:#ef4444;}
+  </style>
+</head>
+<body class="light-mode">
+  <div id="rtsTopNav"></div>
+  <div class="rts-main container-fluid">
+    <div class="pt-3 pb-2 mb-3 border-bottom">
+      <h1 class="h4 mb-1">Reliability</h1>
+      <div class="text-secondary" style="font-size:.85rem;">Incidents, root cause analysis, corrective actions and preventive maintenance.</div>
+    </div>
+
+    <div class="ev-stats-bar">
+      <div class="ev-stat-card">
+        <div class="ev-stat-label">Total Incidents</div>
+        <div class="ev-stat-value" id="cntIncidents">–</div>
+        <div class="ev-stat-sub">all time</div>
+      </div>
+      <div class="ev-stat-card">
+        <div class="ev-stat-label">Open RCAs</div>
+        <div class="ev-stat-value" id="cntRCAs">–</div>
+      </div>
+      <div class="ev-stat-card">
+        <div class="ev-stat-label">Overdue Actions</div>
+        <div class="ev-stat-value stat-overdue" id="cntOverdue">–</div>
+      </div>
+      <div class="ev-stat-card">
+        <div class="ev-stat-label">Open Risks</div>
+        <div class="ev-stat-value" id="cntRisks">–</div>
+      </div>
+    </div>
+
+    <!-- Module links -->
+    <div class="module-grid mb-4">
+      <a href="reliability-incidents.html" class="module-link"><span class="icon">⚠️</span><span class="name">Incidents</span><span class="desc">Log & track reliability incidents</span></a>
+      <a href="rca.html" class="module-link"><span class="icon">🔍</span><span class="name">Root Cause Analysis</span><span class="desc">5-Why and RCA records</span></a>
+      <a href="corrective-actions.html" class="module-link"><span class="icon">✅</span><span class="name">Corrective Actions</span><span class="desc">Actions & preventive measures</span></a>
+      <a href="preventive-maintenance.html" class="module-link"><span class="icon">🔧</span><span class="name">Preventive Maintenance</span><span class="desc">Schedules & due dates</span></a>
+      <a href="risk-map.html" class="module-link"><span class="icon">🗺️</span><span class="name">Risk Map</span><span class="desc">Risk register & scoring</span></a>
+      <a href="review-board.html" class="module-link"><span class="icon">📋</span><span class="name">Review Board</span><span class="desc">Reliability review meetings</span></a>
+    </div>
+
+    <!-- Recent incidents -->
+    <div class="row g-3">
+      <div class="col-lg-8">
+        <div class="dash-card">
+          <h6 class="fw-bold mb-3">Recent Incidents</h6>
+          <div style="overflow-x:auto;">
+            <table class="recent-table">
+              <thead><tr><th>Title</th><th>Car #</th><th>Component</th><th>Severity</th><th>Status</th><th>Date</th></tr></thead>
+              <tbody id="tblIncidents"><tr><td colspan="6" class="text-center text-muted py-3">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-4">
+        <div class="dash-card">
+          <h6 class="fw-bold mb-3">Overdue Actions</h6>
+          <div style="overflow-x:auto;">
+            <table class="recent-table">
+              <thead><tr><th>Title</th><th>Owner</th><th>Due</th></tr></thead>
+              <tbody id="tblActions"><tr><td colspan="3" class="text-center text-muted py-3">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="topnav.js?v=20260420"></script>
+  <script src="core.js?v=20260420"></script>
+  <script>
+    function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+    const sevClass={low:'sev-low',medium:'sev-medium',high:'sev-high',critical:'sev-critical'};
+    async function load(){
+      try{
+        const [ri,rca,ca,risks]=await Promise.all([
+          fetch('/api/reliability-incidents').then(r=>r.ok?r.json():[]),
+          fetch('/api/rca').then(r=>r.ok?r.json():[]),
+          fetch('/api/corrective-actions').then(r=>r.ok?r.json():[]),
+          fetch('/api/risk-map').then(r=>r.ok?r.json():[])
+        ]);
+        document.getElementById('cntIncidents').textContent=ri.length;
+        document.getElementById('cntRCAs').textContent=rca.filter(r=>r.status==='in_progress').length;
+        const today=new Date().toISOString().slice(0,10);
+        document.getElementById('cntOverdue').textContent=ca.filter(a=>a.status==='overdue'||(a.due_date&&a.due_date<today&&a.status!=='complete'&&a.status!=='verified')).length;
+        document.getElementById('cntRisks').textContent=risks.filter(r=>r.status==='open').length;
+        // recent incidents table
+        const tb=document.getElementById('tblIncidents');
+        const recent=ri.slice(0,10);
+        tb.innerHTML=recent.length?recent.map(e=>`<tr>
+          <td>${esc(e.title||'—')}</td><td>${esc(e.car_number||'—')}</td>
+          <td>${esc(e.component||'—')}</td>
+          <td><span class="badge-sev ${sevClass[e.severity]||''}">${esc(e.severity||'—')}</span></td>
+          <td class="text-capitalize">${esc(e.status||'—')}</td>
+          <td>${e.occurred_at?new Date(e.occurred_at).toLocaleDateString():'—'}</td></tr>`).join('')
+          :'<tr><td colspan="6" class="text-center text-muted py-3">No incidents.</td></tr>';
+        // overdue actions
+        const tb2=document.getElementById('tblActions');
+        const overdue=ca.filter(a=>a.status==='overdue'||(a.due_date&&a.due_date<today&&a.status!=='complete'&&a.status!=='verified')).slice(0,10);
+        tb2.innerHTML=overdue.length?overdue.map(a=>`<tr>
+          <td>${esc(a.title||'—')}</td><td>${esc(a.owner||'—')}</td>
+          <td style="color:#ef4444;font-weight:600;">${a.due_date||'—'}</td></tr>`).join('')
+          :'<tr><td colspan="3" class="text-center text-muted py-3">No overdue actions.</td></tr>';
+      }catch(e){console.error(e);}
+    }
+    load();
+  </script>
+</body>
+</html>

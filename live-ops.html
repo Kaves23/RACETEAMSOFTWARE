@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Race Team OS – Live Operations</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="style.css?v=20260420" rel="stylesheet" />
+  <style>
+    body { background: linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%); min-height:100vh; }
+    .live-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+    .live-pulse { display:inline-flex; align-items:center; gap:6px; font-size:0.8rem; color:#059669; font-weight:600; }
+    .live-dot { width:8px; height:8px; background:#10b981; border-radius:50%; animation:pulse 1.5s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+    .section-title { font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#6c757d; margin-bottom:10px; }
+    .live-card { background:#fff; border:1px solid rgba(0,0,0,0.1); border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,0.05); padding:16px; margin-bottom:16px; }
+    .live-card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+    .live-card-title { font-weight:700; font-size:0.95rem; color:#1a1d24; }
+    .item-row { display:flex; justify-content:space-between; align-items:center; padding:7px 10px; border-radius:6px; background:#f8f9fa; margin-bottom:5px; font-size:0.82rem; }
+    .item-row .item-title { font-weight:600; color:#1a1d24; flex:1; }
+    .item-row .item-meta { color:#6c757d; font-size:0.77rem; margin-left:8px; white-space:nowrap; }
+    .pill { display:inline-block; padding:2px 8px; border-radius:20px; font-size:0.65rem; font-weight:700; margin-left:8px; }
+    .pill-red { background:#fee2e2; color:#991b1b; }
+    .pill-amber { background:#fef3c7; color:#92400e; }
+    .pill-green { background:#d1fae5; color:#065f46; }
+    .pill-blue { background:#dbeafe; color:#1e40af; }
+    .pill-purple { background:#ede9fe; color:#5b21b6; }
+    .refresh-info { font-size:0.75rem; color:#9ca3af; }
+    .empty-state { text-align:center; color:#9ca3af; font-size:0.82rem; padding:20px 0; }
+    .kpi-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:10px; margin-bottom:16px; }
+    .mini-kpi { background:#fff; border:1px solid rgba(0,0,0,0.1); border-radius:8px; padding:10px 14px; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
+    .mini-kpi-label { font-size:0.68rem; color:#6c757d; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; }
+    .mini-kpi-value { font-size:1.4rem; font-weight:800; color:#1a1d24; }
+  </style>
+</head>
+<body class="light-mode">
+  <div id="rtsTopNav"></div>
+  <div class="rts-main container-fluid py-3">
+    <div class="live-header">
+      <div>
+        <h1 class="h4 mb-1" style="color:#1a1d24;">Live Operations</h1>
+        <div class="text-secondary" style="font-size:0.85rem;">Real-time overview of team operations. Auto-refreshes every 30 seconds.</div>
+      </div>
+      <div class="d-flex align-items-center gap-3">
+        <span class="live-pulse"><span class="live-dot"></span> LIVE</span>
+        <span class="refresh-info" id="lastRefresh">Last updated: —</span>
+        <button class="btn btn-sm btn-outline-secondary" id="btnRefresh">↻ Refresh</button>
+      </div>
+    </div>
+
+    <!-- TOP KPIs -->
+    <div class="kpi-grid" id="topKpis">
+      <div class="mini-kpi"><div class="mini-kpi-label">Upcoming Events</div><div class="mini-kpi-value" id="kpiEvents">—</div></div>
+      <div class="mini-kpi"><div class="mini-kpi-label">Open Tasks</div><div class="mini-kpi-value" id="kpiTasks">—</div></div>
+      <div class="mini-kpi"><div class="mini-kpi-label">Open Incidents</div><div class="mini-kpi-value" id="kpiInc">—</div></div>
+      <div class="mini-kpi"><div class="mini-kpi-label">Pending Approvals</div><div class="mini-kpi-value" id="kpiApp">—</div></div>
+      <div class="mini-kpi"><div class="mini-kpi-label">Active Announcements</div><div class="mini-kpi-value" id="kpiAnn">—</div></div>
+    </div>
+
+    <div class="row g-3">
+      <!-- UPCOMING EVENTS -->
+      <div class="col-lg-6">
+        <div class="live-card">
+          <div class="live-card-header">
+            <div class="live-card-title">📅 Upcoming Events</div>
+            <a href="events.html" style="font-size:0.75rem;color:#1e40af;">View all →</a>
+          </div>
+          <div id="eventsPanel"><div class="empty-state">Loading…</div></div>
+        </div>
+      </div>
+      <!-- PENDING APPROVALS -->
+      <div class="col-lg-6">
+        <div class="live-card">
+          <div class="live-card-header">
+            <div class="live-card-title">✅ Pending Approvals</div>
+            <a href="approvals.html" style="font-size:0.75rem;color:#1e40af;">View all →</a>
+          </div>
+          <div id="approvalsPanel"><div class="empty-state">Loading…</div></div>
+        </div>
+      </div>
+      <!-- OPEN TASKS -->
+      <div class="col-lg-4">
+        <div class="live-card">
+          <div class="live-card-header">
+            <div class="live-card-title">⚡ Open Exec Actions</div>
+            <a href="exec-actions.html" style="font-size:0.75rem;color:#1e40af;">View all →</a>
+          </div>
+          <div id="tasksPanel"><div class="empty-state">Loading…</div></div>
+        </div>
+      </div>
+      <!-- OPEN INCIDENTS -->
+      <div class="col-lg-4">
+        <div class="live-card">
+          <div class="live-card-header">
+            <div class="live-card-title">🔴 Open Incidents</div>
+            <a href="incidents.html" style="font-size:0.75rem;color:#1e40af;">View all →</a>
+          </div>
+          <div id="incPanel"><div class="empty-state">Loading…</div></div>
+        </div>
+      </div>
+      <!-- ANNOUNCEMENTS -->
+      <div class="col-lg-4">
+        <div class="live-card">
+          <div class="live-card-header">
+            <div class="live-card-title">📢 Active Announcements</div>
+            <a href="announcements.html" style="font-size:0.75rem;color:#1e40af;">View all →</a>
+          </div>
+          <div id="announcePanel"><div class="empty-state">Loading…</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="topnav.js?v=20260420"></script>
+  <script src="core.js?v=20260420"></script>
+  <script>
+  function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function fmt(d){ return d ? new Date(d).toLocaleDateString('en-GB') : '—'; }
+
+  function renderItems(containerId, items, renderFn, emptyMsg='No items'){
+    const el = document.getElementById(containerId);
+    if(!items||!items.length){ el.innerHTML=`<div class="empty-state">${emptyMsg}</div>`; return; }
+    el.innerHTML = items.slice(0,6).map(renderFn).join('');
+  }
+
+  async function refresh(){
+    document.getElementById('lastRefresh').textContent = 'Last updated: ' + new Date().toLocaleTimeString('en-GB');
+    const [events, actions, incidents, approvals, announcements] = await Promise.all([
+      apiFetch('/api/events').catch(()=>[]),
+      apiFetch('/api/exec-actions').catch(()=>[]),
+      apiFetch('/api/incidents').catch(()=>[]),
+      apiFetch('/api/approvals').catch(()=>[]),
+      apiFetch('/api/announcements').catch(()=>[])
+    ]);
+
+    const now = new Date();
+    const upcoming = (events||[]).filter(e=>{ try{ return new Date(e.start_date||e.date)>=now; }catch(e){ return false; } }).slice(0,6);
+    const openActions = (actions||[]).filter(a=>a.status==='open'||a.status==='in_progress');
+    const openInc = (incidents||[]).filter(i=>i.status==='Open'||i.status==='Monitoring');
+    const pendingApp = (approvals||[]).filter(a=>a.status==='pending');
+    const activeAnn = (announcements||[]).filter(a=>a.status==='published');
+
+    document.getElementById('kpiEvents').textContent = upcoming.length;
+    document.getElementById('kpiTasks').textContent = openActions.length;
+    document.getElementById('kpiInc').textContent = openInc.length;
+    document.getElementById('kpiApp').textContent = pendingApp.length;
+    document.getElementById('kpiAnn').textContent = activeAnn.length;
+
+    renderItems('eventsPanel', upcoming, e=>`
+      <div class="item-row">
+        <div class="item-title">${esc(e.name||e.title||'Event')}</div>
+        <div class="item-meta">${fmt(e.start_date||e.date)}</div>
+        <span class="pill pill-blue">${esc(e.status||e.type||'')}</span>
+      </div>`, 'No upcoming events');
+
+    renderItems('approvalsPanel', pendingApp, a=>`
+      <div class="item-row">
+        <div class="item-title">${esc(a.title||'Approval')}</div>
+        <div class="item-meta">${esc(a.requested_by||'—')}</div>
+        <span class="pill pill-amber">${esc(a.priority||'normal')}</span>
+      </div>`, 'No pending approvals');
+
+    renderItems('tasksPanel', openActions.slice(0,5), a=>`
+      <div class="item-row">
+        <div class="item-title">${esc(a.title||'Action')}</div>
+        <span class="pill pill-${a.priority==='critical'?'red':a.priority==='high'?'amber':'blue'}">${esc(a.priority||'normal')}</span>
+      </div>`, 'No open actions');
+
+    renderItems('incPanel', openInc.slice(0,5), i=>`
+      <div class="item-row">
+        <div class="item-title">${esc(i.title||'Incident')}</div>
+        <span class="pill pill-${i.severity==='Critical'||i.severity==='critical'?'red':i.severity==='High'||i.severity==='high'?'amber':'blue'}">${esc(i.severity||'—')}</span>
+      </div>`, 'No open incidents');
+
+    renderItems('announcePanel', activeAnn.slice(0,5), a=>`
+      <div class="item-row">
+        <div class="item-title">${esc(a.title||'Announcement')}</div>
+        <span class="pill pill-${a.priority==='urgent'?'red':a.priority==='high'?'amber':'green'}">${esc(a.audience||'all')}</span>
+      </div>`, 'No active announcements');
+  }
+
+  let refreshTimer;
+  document.addEventListener('DOMContentLoaded',()=>{
+    refresh();
+    refreshTimer = setInterval(refresh, 30000);
+    document.getElementById('btnRefresh').addEventListener('click', refresh);
+  });
+  </script>
+</body>
+</html>

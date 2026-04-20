@@ -203,6 +203,59 @@ app.use('/api/welfare',           requireAuth, require('./routes/welfare'));
 app.use('/api/medical',           requireAuth, require('./routes/medical'));
 app.use('/api/staff-reviews',     requireAuth, require('./routes/staff-reviews'));
 
+// Phase 3 — Performance
+app.use('/api/run-plans',           requireAuth, require('./routes/run-plans'));
+app.use('/api/tyre-register',       requireAuth, require('./routes/tyre-register'));
+app.use('/api/benchmarking',        requireAuth, require('./routes/benchmarking'));
+app.use('/api/driver-trends',       requireAuth, require('./routes/driver-trends'));
+app.use('/api/correlation',         requireAuth, require('./routes/correlation'));
+app.use('/api/debriefs',            requireAuth, require('./routes/debriefs'));
+app.use('/api/engineering-notes',   requireAuth, require('./routes/engineering-notes'));
+// Phase 3 — Reliability
+app.use('/api/reliability-incidents', requireAuth, require('./routes/reliability-incidents'));
+app.use('/api/rca',                   requireAuth, require('./routes/rca'));
+app.use('/api/corrective-actions',    requireAuth, require('./routes/corrective-actions'));
+app.use('/api/preventive-maintenance',requireAuth, require('./routes/preventive-maintenance'));
+app.use('/api/risk-map',             requireAuth, require('./routes/risk-map'));
+app.use('/api/review-board',         requireAuth, require('./routes/review-board'));
+// Phase 3 — Procurement
+app.use('/api/proc-suppliers',       requireAuth, require('./routes/proc-suppliers'));
+app.use('/api/rfqs',                 requireAuth, require('./routes/rfqs'));
+app.use('/api/quotes',               requireAuth, require('./routes/quotes'));
+app.use('/api/proc-contracts',       requireAuth, require('./routes/contracts'));
+app.use('/api/slas',                 requireAuth, require('./routes/slas'));
+app.use('/api/lead-times',          requireAuth, require('./routes/lead-times'));
+app.use('/api/emergency-orders',     requireAuth, require('./routes/emergency-orders'));
+app.use('/api/supplier-issues',      requireAuth, require('./routes/supplier-issues'));
+// Phase 3 — Driver
+app.use('/api/driver-calendar',      requireAuth, require('./routes/driver-calendar'));
+app.use('/api/driver-contracts',     requireAuth, require('./routes/driver-contracts'));
+app.use('/api/simulator-sessions',   requireAuth, require('./routes/simulator-sessions'));
+app.use('/api/driver-fitness',       requireAuth, require('./routes/driver-fitness'));
+app.use('/api/driver-debriefs',      requireAuth, require('./routes/driver-debriefs'));
+app.use('/api/driver-media',         requireAuth, require('./routes/driver-media'));
+app.use('/api/driver-licences',      requireAuth, require('./routes/driver-licences'));
+app.use('/api/driver-preferences',   requireAuth, require('./routes/driver-preferences'));
+app.use('/api/junior-programme',     requireAuth, require('./routes/junior-programme'));
+// Phase 3 — Compliance
+app.use('/api/policies',             requireAuth, require('./routes/policies'));
+app.use('/api/legal-contracts',      requireAuth, require('./routes/legal-contracts'));
+app.use('/api/insurance',            requireAuth, require('./routes/insurance'));
+app.use('/api/legal-matters',        requireAuth, require('./routes/legal-matters'));
+app.use('/api/data-protection',      requireAuth, require('./routes/data-protection'));
+app.use('/api/health-safety',        requireAuth, require('./routes/health-safety'));
+app.use('/api/compliance-risks',     requireAuth, require('./routes/compliance-risks'));
+app.use('/api/crisis-management',    requireAuth, require('./routes/crisis-management'));
+// Phase 3 — Executive
+app.use('/api/approvals',            requireAuth, require('./routes/approvals'));
+app.use('/api/exec-actions',         requireAuth, require('./routes/exec-actions'));
+app.use('/api/decisions',            requireAuth, require('./routes/decisions'));
+app.use('/api/announcements',        requireAuth, require('./routes/announcements'));
+app.use('/api/strategic-objectives', requireAuth, require('./routes/strategic-objectives'));
+app.use('/api/board-reports',        requireAuth, require('./routes/board-reports'));
+app.use('/api/doc-control',          requireAuth, require('./routes/doc-control'));
+app.use('/api/kpi-metrics',          requireAuth, require('./routes/kpi-metrics'));
+
 // Get settings (read-only endpoint) - PROTECTED
 app.get('/api/settings', requireAuth, async (req, res) => {
   try {

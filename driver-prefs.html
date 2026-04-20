@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Race Team OS – Driver Preferences</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="style.css?v=20260420" rel="stylesheet"/>
+  <style>
+    body{background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%);}
+    .ev-stats-bar{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
+    .ev-stat-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:10px 16px;min-width:110px;}
+    .ev-stat-label{font-size:.7rem;color:#6c757d;font-weight:600;text-transform:uppercase;}
+    .ev-stat-value{font-size:1.5rem;font-weight:700;color:#1a1d24;}
+    #mainShell.mlo-shell{background:transparent;border:none;gap:10px;}
+    #mainShell .mlo-pane-left,#mainShell .mlo-pane-mid,#mainShell .mlo-pane-right{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;}
+    .data-table{width:100%;font-size:.82rem;border-collapse:separate;border-spacing:0;}
+    .data-table thead{position:sticky;top:0;background:#f8f9fa;z-index:5;}
+    .data-table th{padding:8px 10px;font-size:.7rem;font-weight:700;text-transform:uppercase;color:#6c757d;border-bottom:2px solid #dee2e6;}
+    .data-table td{padding:6px 10px;border-bottom:1px solid rgba(0,0,0,.05);}
+    .data-table tbody tr{cursor:pointer;}
+    .data-table tbody tr:hover{background:#f8f9fa;}
+    .data-table tbody tr.selected{background:rgba(236,72,153,.08);outline:2px solid #ec4899;outline-offset:-2px;}
+    .filter-item{padding:5px 8px;border-radius:4px;cursor:pointer;font-size:.8rem;margin-bottom:2px;display:block;color:#495057;text-decoration:none;}
+    .filter-item:hover{background:#fdf2f8;color:#ec4899;}
+    .filter-item.active{background:rgba(236,72,153,.12);color:#ec4899;font-weight:600;}
+  </style>
+</head>
+<body class="light-mode">
+  <div id="rtsTopNav"></div>
+  <div class="rts-main container-fluid">
+    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+      <div>
+        <h1 class="h4 mb-1">Driver Preferences</h1>
+        <p class="text-secondary mb-0" style="font-size:.85rem;">Ergonomics, setup preferences, communication style and debrief preferences</p>
+      </div>
+      <button class="btn btn-sm" id="btnAdd" style="background:#ec4899;border-color:#ec4899;color:#fff">+ New Profile</button>
+    </div>
+    <div class="ev-stats-bar">
+      <div class="ev-stat-card"><div class="ev-stat-label">Drivers Profiled</div><div class="ev-stat-value" id="kpi0">—</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Understeery</div><div class="ev-stat-value" id="kpi1">—</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Neutral</div><div class="ev-stat-value" id="kpi2">—</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Oversteery</div><div class="ev-stat-value" id="kpi3">—</div></div>
+    </div>
+    <div class="mlo-shell" id="mainShell">
+      <div class="mlo-pane mlo-pane-left" style="width:180px;min-width:140px;">
+        <div class="mlo-pane-header p-2 border-bottom"><small class="fw-bold text-muted">DRIVERS</small></div>
+        <div class="mlo-pane-content p-2" id="filterList"></div>
+      </div>
+      <div class="mlo-resizer"></div>
+      <div class="mlo-pane mlo-pane-mid" style="flex:1 1 0;min-width:200px;">
+        <div class="mlo-pane-header p-2 border-bottom d-flex justify-content-between align-items-center">
+          <small class="fw-bold text-muted">PREFERENCES LIST</small>
+          <input type="search" class="form-control form-control-sm" id="searchBox" placeholder="Search…" style="width:160px"/>
+        </div>
+        <div class="mlo-pane-content p-0" style="overflow-y:auto;max-height:calc(100vh - 260px);">
+          <table class="data-table">
+            <thead><tr><th>Driver</th><th>Seat Position</th><th>Brake Bias</th><th>Balance Preference</th></tr></thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="mlo-resizer"></div>
+      <div class="mlo-pane mlo-pane-right" style="width:340px;min-width:260px;">
+        <div class="mlo-pane-header p-2 border-bottom d-flex justify-content-between align-items-center">
+          <small class="fw-bold text-muted">INSPECTOR</small>
+          <button class="btn btn-sm btn-danger" id="btnDel" style="display:none">Delete</button>
+        </div>
+        <div class="mlo-pane-content p-3" style="overflow-y:auto;max-height:calc(100vh - 260px);">
+          <form id="form" class="vstack gap-2" onsubmit="return false">
+            <div><label class="form-label small fw-semibold mb-1">Driver Name *</label><input class="form-control form-control-sm" id="fDriver"/></div>
+            <div><label class="form-label small fw-semibold mb-1">Driver ID</label><input class="form-control form-control-sm" id="fDriverId"/></div>
+            <hr class="my-1"/>
+            <p class="fw-bold small text-muted mb-0">Ergonomics</p>
+            <div><label class="form-label small fw-semibold mb-1">Seat Position</label><input class="form-control form-control-sm" id="fSeat" placeholder="e.g. +5mm forward, -3mm height"/></div>
+            <div><label class="form-label small fw-semibold mb-1">Steering Position</label><input class="form-control form-control-sm" id="fSteering"/></div>
+            <div><label class="form-label small fw-semibold mb-1">Mirror Settings</label><input class="form-control form-control-sm" id="fMirrors"/></div>
+            <div><label class="form-label small fw-semibold mb-1">Pedal Spacing</label><input class="form-control form-control-sm" id="fPedals"/></div>
+            <hr class="my-1"/>
+            <p class="fw-bold small text-muted mb-0">Setup Preferences</p>
+            <div><label class="form-label small fw-semibold mb-1">Brake Bias Preference</label><input class="form-control form-control-sm" id="fBrakeBias" placeholder="e.g. 60 front"/></div>
+            <div><label class="form-label small fw-semibold mb-1">Differential Preference</label><input class="form-control form-control-sm" id="fDiff"/></div>
+            <div><label class="form-label small fw-semibold mb-1">Balance Preference</label>
+              <select class="form-select form-select-sm" id="fBalance">
+                <option value="">— Select —</option>
+                <option value="understeery">Understeery</option><option value="neutral">Neutral</option><option value="oversteery">Oversteery</option>
+              </select>
+            </div>
+            <hr class="my-1"/>
+            <p class="fw-bold small text-muted mb-0">Communication</p>
+            <div><label class="form-label small fw-semibold mb-1">Communication Style</label><input class="form-control form-control-sm" id="fComms" placeholder="e.g. Detailed / High level"/></div>
+            <div><label class="form-label small fw-semibold mb-1">Debrief Preference</label><input class="form-control form-control-sm" id="fDebrief" placeholder="e.g. Data-led, 1-on-1"/></div>
+            <div><label class="form-label small fw-semibold mb-1">Notes</label><textarea class="form-control form-control-sm" id="fNotes" rows="3"></textarea></div>
+          </form>
+          <button class="btn btn-sm mt-2 w-100" id="btnSave" style="background:#ec4899;color:#fff">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="topnav.js?v=20260420"></script>
+  <script src="core.js?v=20260420"></script>
+  <script>
+  const API='/api/driver-preferences';
+  let all=[],sel=null,filt='all';
+  const gv=id=>(document.getElementById(id)||{}).value||'';
+  const sv=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v??'';};
+
+  async function load(){
+    try{const r=await fetch(API);const j=await r.json();all=Array.isArray(j)?j:(j.data||[]);updateKPIs();buildFilters();render();}
+    catch(e){console.error(e);}
+  }
+
+  function updateKPIs(){
+    document.getElementById('kpi0').textContent=all.length;
+    document.getElementById('kpi1').textContent=all.filter(x=>x.balance_preference==='understeery').length;
+    document.getElementById('kpi2').textContent=all.filter(x=>x.balance_preference==='neutral').length;
+    document.getElementById('kpi3').textContent=all.filter(x=>x.balance_preference==='oversteery').length;
+  }
+
+  function buildFilters(){
+    const drivers=[...new Set(all.map(x=>x.driver_name).filter(Boolean))].sort();
+    document.getElementById('filterList').innerHTML=
+      [['all','All Drivers'],...drivers.map(d=>[d,d])].map(([v,l])=>
+        `<a class="filter-item${filt===v?' active':''}" data-val="${v}" href="#">${l}</a>`
+      ).join('');
+    document.querySelectorAll('#filterList .filter-item').forEach(a=>a.onclick=e=>{e.preventDefault();filt=a.dataset.val;buildFilters();render();});
+  }
+
+  function render(){
+    const q=document.getElementById('searchBox').value.toLowerCase();
+    let d=filt==='all'?[...all]:all.filter(x=>x.driver_name===filt);
+    if(q)d=d.filter(x=>JSON.stringify(x).toLowerCase().includes(q));
+    const BalColors={understeery:'info',neutral:'success',oversteery:'warning'};
+    document.getElementById('tbody').innerHTML=d.length
+      ?d.map(row=>`<tr data-id="${row.id}" class="${sel&&String(sel.id)===String(row.id)?'selected':''}">
+          <td class="fw-semibold">${row.driver_name||'—'}</td>
+          <td>${row.seat_position||'—'}</td><td>${row.brake_bias_preference||'—'}</td>
+          <td>${row.balance_preference?`<span class="badge bg-${BalColors[row.balance_preference]||'secondary'}">${row.balance_preference}</span>`:'—'}</td>
+        </tr>`).join('')
+      :'<tr><td colspan="4" class="text-center text-muted py-4">No preference profiles found</td></tr>';
+    document.querySelectorAll('#tbody tr[data-id]').forEach(tr=>tr.onclick=()=>{
+      const item=all.find(x=>String(x.id)===tr.dataset.id);if(item)pick(item);
+    });
+  }
+
+  function pick(item){
+    sel=item;
+    sv('fDriver',item.driver_name);sv('fDriverId',item.driver_id);
+    sv('fSeat',item.seat_position);sv('fSteering',item.steering_position);
+    sv('fMirrors',item.mirror_settings);sv('fPedals',item.pedal_spacing);
+    sv('fBrakeBias',item.brake_bias_preference);sv('fDiff',item.diff_preference);
+    sv('fBalance',item.balance_preference);sv('fComms',item.communication_style);
+    sv('fDebrief',item.debriefs_preference);sv('fNotes',item.notes);
+    document.getElementById('btnDel').style.display='';render();
+  }
+
+  function clearForm(){
+    sel=null;document.getElementById('form').reset();
+    document.getElementById('btnDel').style.display='none';render();
+  }
+
+  async function save(){
+    const body={driver_name:gv('fDriver'),driver_id:gv('fDriverId')||null,
+      seat_position:gv('fSeat'),steering_position:gv('fSteering'),mirror_settings:gv('fMirrors'),
+      pedal_spacing:gv('fPedals'),brake_bias_preference:gv('fBrakeBias'),diff_preference:gv('fDiff'),
+      balance_preference:gv('fBalance')||null,communication_style:gv('fComms'),
+      debriefs_preference:gv('fDebrief'),notes:gv('fNotes')};
+    if(!body.driver_name){alert('Driver name is required');return;}
+    try{
+      const url=sel?`${API}/${sel.id}`:API;const method=sel?'PUT':'POST';
+      const r=await fetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      if(r.ok){const saved=await r.json();if(!sel){sel=saved.data||saved;}await load();}
+      else alert('Save failed');
+    }catch(e){console.error(e);alert('Save failed');}
+  }
+
+  async function del(){
+    if(!sel||!confirm('Delete this preference profile? This cannot be undone.'))return;
+    try{const r=await fetch(`${API}/${sel.id}`,{method:'DELETE'});if(r.ok){clearForm();await load();}else alert('Delete failed');}
+    catch(e){console.error(e);}
+  }
+
+  document.getElementById('btnAdd').onclick=clearForm;
+  document.getElementById('btnSave').onclick=save;
+  document.getElementById('btnDel').onclick=del;
+  document.getElementById('searchBox').addEventListener('input',render);
+  load();
+  </script>
+</body>
+</html>

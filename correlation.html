@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Race Team OS – Sim Correlation</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="style.css?v=20260420" rel="stylesheet"/>
+  <style>
+    body{background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%);}
+    .ev-stats-bar{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
+    .ev-stat-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:10px 16px;min-width:110px;}
+    .ev-stat-label{font-size:.7rem;color:#6c757d;font-weight:600;text-transform:uppercase;}
+    .ev-stat-value{font-size:1.5rem;font-weight:700;color:#1a1d24;}
+    #mainShell.mlo-shell{background:transparent;border:none;gap:10px;}
+    #mainShell .mlo-pane-left,#mainShell .mlo-pane-mid,#mainShell .mlo-pane-right{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;}
+    #mainShell .mlo-pane-header{background:#f8f9fa;border-bottom:1px solid rgba(0,0,0,.1);}
+    #mainShell .mlo-title{color:#1a1d24!important;}
+    #mainShell .mlo-section-label{color:#6c757d!important;opacity:1!important;}
+    #mainShell .mlo-resizer{background:transparent;}
+    #mainShell .mlo-resizer:hover{background:rgba(99,102,241,.3);}
+    #mainShell .form-label{color:#495057!important;font-size:.78rem;font-weight:600;margin-bottom:2px;}
+    #mainShell .form-control,#mainShell .form-select{background:#fff!important;color:#1a1d24!important;border-color:#dee2e6!important;font-size:.82rem;}
+    #mainShell .mlo-pane-left .pastel-tree li{height:28px!important;display:flex!important;align-items:center!important;font-size:.83rem!important;font-weight:500!important;padding-left:10px!important;margin-bottom:2px!important;border-radius:5px!important;border:1px solid rgba(0,0,0,.08)!important;color:#1a1d24!important;cursor:pointer!important;}
+    #mainShell .mlo-pane-left .pastel-tree li.active{background:rgba(99,102,241,.1)!important;border-color:rgba(99,102,241,.4)!important;color:#4338ca!important;font-weight:700!important;}
+    .data-table{width:100%;font-size:.82rem;border-collapse:separate;border-spacing:0;}
+    .data-table thead{position:sticky;top:0;background:#f8f9fa;z-index:5;}
+    .data-table th{padding:8px 10px;font-size:.7rem;font-weight:700;text-transform:uppercase;color:#6c757d;border-bottom:2px solid #dee2e6;}
+    .data-table td{padding:6px 10px;border-bottom:1px solid rgba(0,0,0,.05);vertical-align:middle;color:#1a1d24;}
+    .data-table tbody tr{cursor:pointer;transition:background .1s;}
+    .data-table tbody tr:hover{background:#f8f9fa;}
+    .data-table tbody tr.selected{background:rgba(99,102,241,.08)!important;outline:2px solid #6366f1;outline-offset:-2px;}
+    .corr-high{color:#059669;font-weight:700;}
+    .corr-med{color:#d97706;font-weight:600;}
+    .corr-low{color:#dc2626;font-weight:700;}
+  </style>
+</head>
+<body class="light-mode">
+  <div id="rtsTopNav"></div>
+  <div class="rts-main container-fluid">
+    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+      <div><h1 class="h4 mb-1">Sim Correlation</h1><div class="text-secondary" style="font-size:.85rem;">Simulator vs on-track lap time comparison and correlation tracking.</div></div>
+      <button class="btn btn-sm btn-primary" id="btnAdd" style="background:#6366f1;border-color:#6366f1;">+ New Entry</button>
+    </div>
+    <div class="ev-stats-bar">
+      <div class="ev-stat-card"><div class="ev-stat-label">Sessions</div><div class="ev-stat-value" id="statSessions">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Avg Corr%</div><div class="ev-stat-value" id="statAvgCorr">—</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Best Delta</div><div class="ev-stat-value" id="statBest">—</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Worst Delta</div><div class="ev-stat-value" id="statWorst">—</div></div>
+    </div>
+    <div class="mlo-shell" id="mainShell">
+      <section class="mlo-pane mlo-pane-left" aria-label="Event filter">
+        <div class="mlo-pane-header"><div class="mlo-title">Filter</div></div>
+        <div class="mlo-pane-content">
+          <div class="mlo-section-label">Event</div>
+          <ul class="mlo-tree pastel-tree" id="eventFilter">
+            <li class="active" data-filter="all">All Events</li>
+          </ul>
+        </div>
+      </section>
+      <div class="mlo-resizer" id="resizer1"></div>
+      <section class="mlo-pane mlo-pane-mid" aria-label="Correlation list">
+        <div class="mlo-pane-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="mlo-title">Correlation Records</div>
+            <span class="badge text-bg-secondary" id="countBadge">0</span>
+          </div>
+          <input class="form-control form-control-sm mt-2" type="search" id="searchInput" placeholder="Search event or session…"/>
+        </div>
+        <div class="mlo-pane-content p-0">
+          <table class="data-table">
+            <thead><tr><th>Event</th><th>Car #</th><th>Session</th><th>Sim Lap</th><th>Actual Lap</th><th>Delta (s)</th><th>Corr%</th></tr></thead>
+            <tbody id="tableBody"><tr><td colspan="7" class="text-center text-secondary py-4">No correlation records found.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+      <div class="mlo-resizer" id="resizer2"></div>
+      <section class="mlo-pane mlo-pane-right" aria-label="Correlation detail">
+        <div class="mlo-pane-header"><div class="mlo-title" id="detailTitle">Correlation</div></div>
+        <div class="mlo-pane-content">
+          <div class="text-center text-secondary py-5" id="detailEmpty"><div style="font-size:2rem;">🔗</div><div class="mt-2">Select a record to view or edit</div></div>
+          <form id="detailForm" style="display:none;">
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Event ID</label><input class="form-control" id="fEventId"/></div>
+              <div class="col"><label class="form-label">Car #</label><input class="form-control" id="fCarNumber"/></div>
+            </div>
+            <div class="mb-2"><label class="form-label">Session Name</label><input class="form-control" id="fSession"/></div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Sim Lap Time</label><input class="form-control" id="fSimLap" placeholder="e.g. 1:23.456"/></div>
+              <div class="col"><label class="form-label">Actual Lap Time</label><input class="form-control" id="fActualLap" placeholder="e.g. 1:23.456"/></div>
+            </div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Delta (s)</label><input class="form-control" id="fDelta" type="number" step="0.001"/></div>
+              <div class="col"><label class="form-label">Correlation %</label><input class="form-control" id="fCorrPct" type="number" step="0.1" min="0" max="100"/></div>
+            </div>
+            <div class="mb-2"><label class="form-label">Setup Changes</label><textarea class="form-control" id="fSetup" rows="2"></textarea></div>
+            <div class="mb-3"><label class="form-label">Notes</label><textarea class="form-control" id="fNotes" rows="2"></textarea></div>
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-sm btn-primary" id="btnSave" style="background:#6366f1;border-color:#6366f1;">Save</button>
+              <button type="button" class="btn btn-sm btn-outline-danger" id="btnDelete" style="display:none;">Delete</button>
+              <button type="button" class="btn btn-sm btn-outline-secondary" id="btnCancel">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </section>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="topnav.js?v=20260420"></script>
+  <script src="core.js?v=20260420"></script>
+  <script>
+    let all=[],selectedId=null,filterEvent='all';
+    function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+    function corrClass(v){if(v>=95)return'corr-high';if(v>=80)return'corr-med';return'corr-low';}
+    async function load(){try{const r=await fetch('/api/correlation');if(r.ok)all=await r.json();}catch(_){all=[];}buildEventFilter();renderList();}
+    function buildEventFilter(){
+      const events=[...new Set(all.map(e=>e.event_id).filter(Boolean))];
+      const ul=document.getElementById('eventFilter');
+      ul.innerHTML='<li class="active" data-filter="all">All Events</li>'+events.map(ev=>`<li data-filter="${esc(ev)}">${esc(ev)}</li>`).join('');
+      ul.querySelectorAll('li').forEach(li=>li.addEventListener('click',()=>{ul.querySelectorAll('li').forEach(x=>x.classList.remove('active'));li.classList.add('active');filterEvent=li.dataset.filter;renderList();}));
+    }
+    function renderList(){
+      const q=document.getElementById('searchInput').value.trim().toLowerCase();
+      const rows=all.filter(e=>{
+        const me=filterEvent==='all'||e.event_id===filterEvent;
+        const mq=!q||(e.event_id||'').toLowerCase().includes(q)||(e.session_name||'').toLowerCase().includes(q);
+        return me&&mq;
+      });
+      document.getElementById('countBadge').textContent=rows.length;
+      const sessions=new Set(all.map(e=>e.session_name).filter(Boolean));
+      document.getElementById('statSessions').textContent=sessions.size;
+      const corrs=all.map(e=>parseFloat(e.correlation_pct)).filter(n=>!isNaN(n));
+      document.getElementById('statAvgCorr').textContent=corrs.length?(corrs.reduce((a,b)=>a+b,0)/corrs.length).toFixed(1)+'%':'—';
+      const deltas=all.map(e=>Math.abs(parseFloat(e.delta_seconds))).filter(n=>!isNaN(n));
+      document.getElementById('statBest').textContent=deltas.length?Math.min(...deltas).toFixed(3)+'s':'—';
+      document.getElementById('statWorst').textContent=deltas.length?Math.max(...deltas).toFixed(3)+'s':'—';
+      const tb=document.getElementById('tableBody');
+      if(!rows.length){tb.innerHTML='<tr><td colspan="7" class="text-center text-secondary py-4">No records match.</td></tr>';return;}
+      tb.innerHTML=rows.map(e=>{
+        const c=parseFloat(e.correlation_pct);
+        return`<tr data-id="${e.id}" class="${e.id==selectedId?'selected':''}">
+          <td>${esc(e.event_id||'—')}</td><td>${esc(e.car_number||'—')}</td>
+          <td>${esc(e.session_name||'—')}</td><td>${esc(e.sim_lap_time||'—')}</td>
+          <td>${esc(e.actual_lap_time||'—')}</td>
+          <td>${e.delta_seconds!=null?parseFloat(e.delta_seconds).toFixed(3)+'s':'—'}</td>
+          <td class="${corrClass(c)}">${isNaN(c)?'—':c.toFixed(1)+'%'}</td></tr>`;
+      }).join('');
+      tb.querySelectorAll('tr').forEach(r=>r.addEventListener('click',()=>selectRow(r.dataset.id)));
+    }
+    function selectRow(id){
+      selectedId=id;const e=all.find(x=>x.id==id);if(!e)return;
+      document.getElementById('detailEmpty').style.display='none';
+      document.getElementById('detailForm').style.display='';
+      document.getElementById('detailTitle').textContent=`${e.event_id||'Event'} — ${e.session_name||'Session'}`;
+      document.getElementById('fEventId').value=e.event_id||'';
+      document.getElementById('fCarNumber').value=e.car_number||'';
+      document.getElementById('fSession').value=e.session_name||'';
+      document.getElementById('fSimLap').value=e.sim_lap_time||'';
+      document.getElementById('fActualLap').value=e.actual_lap_time||'';
+      document.getElementById('fDelta').value=e.delta_seconds??'';
+      document.getElementById('fCorrPct').value=e.correlation_pct??'';
+      document.getElementById('fSetup').value=e.setup_changes||'';
+      document.getElementById('fNotes').value=e.notes||'';
+      document.getElementById('btnDelete').style.display='';
+      renderList();
+    }
+    document.getElementById('btnAdd').addEventListener('click',()=>{
+      selectedId=null;document.getElementById('detailEmpty').style.display='none';
+      document.getElementById('detailForm').style.display='';document.getElementById('detailTitle').textContent='New Correlation Entry';
+      document.getElementById('detailForm').reset();document.getElementById('btnDelete').style.display='none';
+    });
+    document.getElementById('btnSave').addEventListener('click',async()=>{
+      const body={event_id:document.getElementById('fEventId').value.trim()||null,car_number:document.getElementById('fCarNumber').value.trim()||null,session_name:document.getElementById('fSession').value.trim()||null,sim_lap_time:document.getElementById('fSimLap').value.trim()||null,actual_lap_time:document.getElementById('fActualLap').value.trim()||null,delta_seconds:document.getElementById('fDelta').value||null,correlation_pct:document.getElementById('fCorrPct').value||null,setup_changes:document.getElementById('fSetup').value.trim()||null,notes:document.getElementById('fNotes').value.trim()||null};
+      try{const url=selectedId?`/api/correlation/${selectedId}`:'/api/correlation';const r=await fetch(url,{method:selectedId?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error(await r.text());await load();}catch(e){alert('Save failed: '+e.message);}
+    });
+    document.getElementById('btnDelete').addEventListener('click',async()=>{
+      if(!selectedId||!confirm('Delete this correlation record?'))return;
+      try{await fetch(`/api/correlation/${selectedId}`,{method:'DELETE'});selectedId=null;document.getElementById('detailForm').style.display='none';document.getElementById('detailEmpty').style.display='';await load();}catch(e){alert('Delete failed: '+e.message);}
+    });
+    document.getElementById('btnCancel').addEventListener('click',()=>{document.getElementById('detailForm').style.display='none';document.getElementById('detailEmpty').style.display='';});
+    document.getElementById('searchInput').addEventListener('input',renderList);
+    load();
+  </script>
+</body>
+</html>

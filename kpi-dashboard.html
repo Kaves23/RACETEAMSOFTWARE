@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Race Team OS – KPI Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="style.css?v=20260420" rel="stylesheet" />
+  <style>
+    body { background: linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%); min-height:100vh; }
+    .section-title { font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#6c757d; margin-bottom:10px; }
+    .kpi-cards-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px; margin-bottom:24px; }
+    .kpi-tile { background:#fff; border:1px solid rgba(0,0,0,0.1); border-radius:10px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.05); }
+    .kpi-tile-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px; }
+    .kpi-tile-name { font-weight:700; font-size:0.9rem; color:#1a1d24; }
+    .kpi-tile-cat { font-size:0.68rem; background:#e0e7ff; color:#3730a3; padding:2px 7px; border-radius:20px; font-weight:600; text-transform:capitalize; }
+    .kpi-values { display:flex; align-items:baseline; gap:8px; margin-bottom:8px; }
+    .kpi-actual { font-size:1.8rem; font-weight:800; color:#1a1d24; }
+    .kpi-target { font-size:0.85rem; color:#6c757d; }
+    .kpi-unit { font-size:0.8rem; color:#6c757d; }
+    .kpi-trend { font-size:1rem; }
+    .trend-up { color:#059669; }
+    .trend-down { color:#dc3545; }
+    .trend-flat { color:#6c757d; }
+    .kpi-progress { height:6px; border-radius:3px; background:#e5e7eb; overflow:hidden; margin-bottom:8px; }
+    .kpi-progress-bar { height:100%; border-radius:3px; transition:width 0.4s; }
+    .bar-green { background:#10b981; }
+    .bar-amber { background:#f59e0b; }
+    .bar-red { background:#ef4444; }
+    .kpi-footer { display:flex; justify-content:space-between; align-items:center; }
+    .kpi-owner { font-size:0.72rem; color:#9ca3af; }
+    .status-badge { font-size:0.65rem; font-weight:700; padding:2px 8px; border-radius:20px; }
+    .sb-on_track { background:#d1fae5; color:#065f46; }
+    .sb-at_risk { background:#fef3c7; color:#92400e; }
+    .sb-off_track { background:#fee2e2; color:#991b1b; }
+    .cat-filter-bar { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; }
+    .cat-btn { background:#f1f5f9; border:1px solid #dee2e6; border-radius:20px; padding:4px 14px; font-size:0.78rem; font-weight:600; cursor:pointer; color:#374151; transition:all 0.15s; }
+    .cat-btn.active { background:#1e40af; border-color:#1e40af; color:#fff; }
+    .kpi-list-table { width:100%; font-size:0.82rem; border-collapse:separate; border-spacing:0; }
+    .kpi-list-table thead { position:sticky; top:0; background:#f8f9fa; z-index:5; }
+    .kpi-list-table th { padding:8px 12px; font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:#6c757d; border-bottom:2px solid #dee2e6; white-space:nowrap; }
+    .kpi-list-table td { padding:7px 12px; border-bottom:1px solid rgba(0,0,0,0.05); color:#1a1d24; vertical-align:middle; }
+    .kpi-list-table tbody tr:hover { background:#f8f9fa; }
+    .card-panel { background:#fff; border:1px solid rgba(0,0,0,0.1); border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,0.05); }
+  </style>
+</head>
+<body class="light-mode">
+  <div id="rtsTopNav"></div>
+  <div class="rts-main container-fluid py-3">
+    <div class="d-flex justify-content-between align-items-end mb-3">
+      <div>
+        <h1 class="h4 mb-1" style="color:#1a1d24;">KPI Dashboard</h1>
+        <div class="text-secondary" style="font-size:0.85rem;">Track team performance indicators across all departments.</div>
+      </div>
+      <button class="btn btn-sm" style="background:#1e40af;color:#fff;border:none;" id="btnAddKpi" data-bs-toggle="modal" data-bs-target="#kpiModal">+ Add KPI</button>
+    </div>
+
+    <!-- CATEGORY FILTER -->
+    <div class="cat-filter-bar" id="catFilterBar">
+      <button class="cat-btn active" data-cat="all">All</button>
+    </div>
+
+    <!-- KPI CARDS -->
+    <div id="kpiCardsContainer" class="kpi-cards-grid"></div>
+
+    <!-- TABLE VIEW -->
+    <div class="card-panel p-3">
+      <div class="section-title">All KPIs — Detail Table</div>
+      <div style="overflow-x:auto;">
+        <table class="kpi-list-table">
+          <thead><tr><th>Name</th><th>Category</th><th>Actual</th><th>Target</th><th>Unit</th><th>Period</th><th>Status</th><th>Owner</th></tr></thead>
+          <tbody id="kpiTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADD KPI MODAL -->
+  <div class="modal fade" id="kpiModal" tabindex="-1" aria-labelledby="kpiModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="kpiModalLabel">Add / Edit KPI</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <form id="kpiForm" autocomplete="off">
+            <input type="hidden" id="f_kpi_id">
+            <div class="row g-2">
+              <div class="col-8"><label class="form-label fw-semibold">Name *</label><input id="f_kpi_name" class="form-control" type="text" required></div>
+              <div class="col-4"><label class="form-label fw-semibold">Category *</label><input id="f_kpi_cat" class="form-control" type="text" placeholder="e.g. Performance" required></div>
+              <div class="col-12"><label class="form-label fw-semibold">Description</label><textarea id="f_kpi_desc" class="form-control" rows="2"></textarea></div>
+              <div class="col-3"><label class="form-label fw-semibold">Target Value</label><input id="f_kpi_target" class="form-control" type="number" step="any"></div>
+              <div class="col-3"><label class="form-label fw-semibold">Actual Value</label><input id="f_kpi_actual" class="form-control" type="number" step="any"></div>
+              <div class="col-3"><label class="form-label fw-semibold">Unit</label><input id="f_kpi_unit" class="form-control" type="text" placeholder="e.g. %, ms, £"></div>
+              <div class="col-3"><label class="form-label fw-semibold">Period</label>
+                <select id="f_kpi_period" class="form-select">
+                  <option value="weekly">Weekly</option><option value="monthly" selected>Monthly</option>
+                  <option value="quarterly">Quarterly</option><option value="annual">Annual</option>
+                </select>
+              </div>
+              <div class="col-4"><label class="form-label fw-semibold">Status</label>
+                <select id="f_kpi_status" class="form-select">
+                  <option value="on_track">On Track</option><option value="at_risk">At Risk</option>
+                  <option value="off_track">Off Track</option>
+                </select>
+              </div>
+              <div class="col-4"><label class="form-label fw-semibold">Owner</label><input id="f_kpi_owner" class="form-control" type="text"></div>
+              <div class="col-4"><label class="form-label fw-semibold">Notes</label><input id="f_kpi_notes" class="form-control" type="text"></div>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" id="btnSaveKpi" style="background:#1e40af;border-color:#1e40af;">Save KPI</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="topnav.js?v=20260420"></script>
+  <script src="core.js?v=20260420"></script>
+  <script>
+  const API = '/api/kpi-metrics';
+  let allKpis = [], currentCat = 'all';
+  function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  async function loadAll(){ const data=await apiFetch(API).catch(()=>[]); allKpis=data||[]; renderCatFilter(); renderCards(); renderTable(); }
+
+  function renderCatFilter(){
+    const cats=['all',...new Set((allKpis||[]).map(k=>k.category).filter(Boolean))];
+    const bar=document.getElementById('catFilterBar');
+    bar.innerHTML=cats.map(c=>`<button class="cat-btn${currentCat===c?' active':''}" data-cat="${esc(c)}">${c==='all'?'All':esc(c)}</button>`).join('');
+    bar.querySelectorAll('.cat-btn').forEach(b=>b.addEventListener('click',()=>{ currentCat=b.dataset.cat; renderCatFilter(); renderCards(); }));
+  }
+
+  function renderCards(){
+    const rows = currentCat==='all' ? allKpis : allKpis.filter(k=>k.category===currentCat);
+    const container = document.getElementById('kpiCardsContainer');
+    if(!rows.length){ container.innerHTML='<div class="text-muted" style="font-size:0.85rem;">No KPIs found for this category.</div>'; return; }
+    container.innerHTML = rows.map(k=>renderCard(k)).join('');
+    container.querySelectorAll('.kpi-tile').forEach(el=>{
+      el.style.cursor='pointer';
+      el.addEventListener('click',()=>openEditModal(el.dataset.id));
+    });
+  }
+
+  function renderCard(k){
+    const actual=parseFloat(k.actual_value)||0;
+    const target=parseFloat(k.target_value)||1;
+    const pct=Math.min(Math.round((actual/target)*100),100);
+    const barCls = k.status==='on_track'?'bar-green':k.status==='at_risk'?'bar-amber':'bar-red';
+    const trend = pct>=100?'▲':'trend_flat'===k.trend?'→':pct>50?'→':'▼';
+    const trendCls = pct>=100?'trend-up':pct>50?'trend-flat':'trend-down';
+    return `<div class="kpi-tile" data-id="${k.id}">
+      <div class="kpi-tile-header">
+        <div class="kpi-tile-name">${esc(k.name)}</div>
+        <span class="kpi-tile-cat">${esc(k.category||'')}</span>
+      </div>
+      <div class="kpi-values">
+        <span class="kpi-actual">${actual}</span>
+        <span class="kpi-unit">${esc(k.unit||'')}</span>
+        <span class="kpi-trend ${trendCls}">${trend}</span>
+        <span class="kpi-target">/ ${target}${esc(k.unit||'')} target</span>
+      </div>
+      <div class="kpi-progress"><div class="kpi-progress-bar ${barCls}" style="width:${pct}%"></div></div>
+      <div class="kpi-footer">
+        <span class="kpi-owner">${esc(k.owner||'Unassigned')} · ${esc(k.period||'monthly')}</span>
+        <span class="status-badge sb-${k.status||'on_track'}">${(k.status||'on_track').replace('_',' ')}</span>
+      </div>
+    </div>`;
+  }
+
+  function renderTable(){
+    const tbody=document.getElementById('kpiTableBody');
+    if(!allKpis.length){ tbody.innerHTML='<tr><td colspan="8" class="text-center text-muted py-3">No KPIs found</td></tr>'; return; }
+    tbody.innerHTML=allKpis.map(k=>`
+      <tr>
+        <td><strong>${esc(k.name)}</strong></td>
+        <td style="text-transform:capitalize;">${esc(k.category||'—')}</td>
+        <td>${k.actual_value??'—'}</td>
+        <td>${k.target_value??'—'}</td>
+        <td>${esc(k.unit||'—')}</td>
+        <td style="text-transform:capitalize;">${esc(k.period||'—')}</td>
+        <td><span class="status-badge sb-${k.status||'on_track'}">${(k.status||'on_track').replace('_',' ')}</span></td>
+        <td>${esc(k.owner||'—')}</td>
+      </tr>`).join('');
+  }
+
+  function openEditModal(id){
+    const k=allKpis.find(x=>String(x.id)===String(id)); if(!k) return;
+    document.getElementById('f_kpi_id').value=k.id;
+    document.getElementById('f_kpi_name').value=k.name||'';
+    document.getElementById('f_kpi_cat').value=k.category||'';
+    document.getElementById('f_kpi_desc').value=k.description||'';
+    document.getElementById('f_kpi_target').value=k.target_value??'';
+    document.getElementById('f_kpi_actual').value=k.actual_value??'';
+    document.getElementById('f_kpi_unit').value=k.unit||'';
+    document.getElementById('f_kpi_period').value=k.period||'monthly';
+    document.getElementById('f_kpi_status').value=k.status||'on_track';
+    document.getElementById('f_kpi_owner').value=k.owner||'';
+    document.getElementById('f_kpi_notes').value=k.notes||'';
+    document.getElementById('kpiModalLabel').textContent='Edit KPI';
+    new bootstrap.Modal(document.getElementById('kpiModal')).show();
+  }
+
+  document.addEventListener('DOMContentLoaded',()=>{
+    loadAll();
+    document.getElementById('btnAddKpi').addEventListener('click',()=>{
+      document.getElementById('kpiForm').reset();
+      document.getElementById('f_kpi_id').value='';
+      document.getElementById('kpiModalLabel').textContent='Add KPI';
+    });
+    document.getElementById('btnSaveKpi').addEventListener('click', async ()=>{
+      const F=f=>document.getElementById(f).value.trim();
+      if(!F('f_kpi_name')||!F('f_kpi_cat')){ alert('Name and Category are required'); return; }
+      const body={ name:F('f_kpi_name'), category:F('f_kpi_cat'), description:F('f_kpi_desc'),
+        target_value:parseFloat(F('f_kpi_target'))||null, actual_value:parseFloat(F('f_kpi_actual'))||null,
+        unit:F('f_kpi_unit'), period:F('f_kpi_period'), status:F('f_kpi_status'),
+        owner:F('f_kpi_owner'), notes:F('f_kpi_notes') };
+      const id=document.getElementById('f_kpi_id').value;
+      if(id){ await apiFetch(`${API}/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); }
+      else { await apiFetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); }
+      bootstrap.Modal.getInstance(document.getElementById('kpiModal')).hide();
+      await loadAll();
+    });
+  });
+  </script>
+</body>
+</html>

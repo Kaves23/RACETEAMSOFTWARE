@@ -1,91 +1,49 @@
+'use strict';
 const express = require('express');
-const router = express.Router();
-const db = require('../db');
+const router  = express.Router();
+const { pool } = require('../db');
 
-// GET /api/suppliers
-router.get('/', async (req, res) => {
+router.get('/', async (req, res, next) => {
   try {
-    const result = await db.query(
-      'SELECT * FROM suppliers WHERE is_active = TRUE ORDER BY name ASC'
-    );
-    res.set('Cache-Control', 'private, max-age=30');
-    res.json({ success: true, suppliers: result.rows });
-  } catch (err) {
-    console.error('GET /api/suppliers error:', err.message);
-    res.status(500).json({ success: false, error: err.message });
-  }
+    const { is_active } = req.query;
+    const c=[], p=[];
+    if (is_active !== undefined){ p.push(is_active === 'true'); c.push(`is_active=$${p.length}`); }
+    const where = c.length ? 'WHERE '+c.join(' AND ') : '';
+    const r = await pool.query(`SELECT * FROM suppliers ${where} ORDER BY name ASC`, p);
+    res.json(r.rows);
+  } catch(e){ next(e); }
 });
 
-// GET /api/suppliers/:id
-router.get('/:id', async (req, res) => {
-  try {
-    const result = await db.query('SELECT * FROM suppliers WHERE id = $1', [req.params.id]);
-    if (result.rows.length === 0) return res.status(404).json({ success: false, error: 'Not found' });
-    res.json({ success: true, supplier: result.rows[0] });
-  } catch (err) {
-    console.error('GET /api/suppliers/:id error:', err.message);
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// POST /api/suppliers
-router.post('/', async (req, res) => {
+router.post('/', async (req, res, next) => {
   try {
     const { id, name, email, phone, lead_time_days, vat_number, account_number, notes } = req.body;
-    if (!name || !name.trim()) {
-      return res.status(400).json({ success: false, error: 'name is required' });
-    }
-    const suppId = id || require('crypto').randomUUID();
-    const result = await db.query(
-      `INSERT INTO suppliers (id, name, email, phone, lead_time_days, vat_number, account_number, notes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-      [suppId, name.trim(), email||'', phone||'', lead_time_days||0, vat_number||'', account_number||'', notes||'']
+    if (!name) return res.status(400).json({ error: 'name required' });
+    const r = await pool.query(
+      `INSERT INTO suppliers (id,name,email,phone,lead_time_days,vat_number,account_number,notes)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+       ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name,email=EXCLUDED.email,phone=EXCLUDED.phone,lead_time_days=EXCLUDED.lead_time_days,vat_number=EXCLUDED.vat_number,account_number=EXCLUDED.account_number,notes=EXCLUDED.notes,updated_at=NOW()
+       RETURNING *`,
+      [id||require('crypto').randomUUID(),name,email||'',phone||'',lead_time_days||0,vat_number||'',account_number||'',notes||'']
     );
-    res.status(201).json({ success: true, supplier: result.rows[0] });
-  } catch (err) {
-    if (err.code === '23505') {
-      return res.status(409).json({ success: false, error: 'A supplier with that ID already exists' });
-    }
-    console.error('POST /api/suppliers error:', err.message);
-    res.status(500).json({ success: false, error: err.message });
-  }
+    res.status(201).json(r.rows[0]);
+  } catch(e){ next(e); }
 });
 
-// PUT /api/suppliers/:id
-router.put('/:id', async (req, res) => {
+router.put('/:id', async (req, res, next) => {
   try {
-    const { id } = req.params;
-    const { name, email, phone, lead_time_days, vat_number, account_number, notes } = req.body;
-    if (!name || !name.trim()) {
-      return res.status(400).json({ success: false, error: 'name is required' });
-    }
-    const result = await db.query(
-      `UPDATE suppliers SET name=$1, email=$2, phone=$3, lead_time_days=$4,
-       vat_number=$5, account_number=$6, notes=$7, updated_at=NOW()
-       WHERE id=$8 RETURNING *`,
-      [name.trim(), email||'', phone||'', lead_time_days||0, vat_number||'', account_number||'', notes||'', id]
+    const { name, email, phone, lead_time_days, vat_number, account_number, notes, is_active } = req.body;
+    const r = await pool.query(
+      `UPDATE suppliers SET name=$1,email=$2,phone=$3,lead_time_days=$4,vat_number=$5,account_number=$6,notes=$7,is_active=$8,updated_at=NOW() WHERE id=$9 RETURNING *`,
+      [name,email||'',phone||'',lead_time_days||0,vat_number||'',account_number||'',notes||'',is_active!==false,req.params.id]
     );
-    if (result.rows.length === 0) return res.status(404).json({ success: false, error: 'Not found' });
-    res.json({ success: true, supplier: result.rows[0] });
-  } catch (err) {
-    console.error('PUT /api/suppliers/:id error:', err.message);
-    res.status(500).json({ success: false, error: err.message });
-  }
+    if (!r.rows.length) return res.status(404).json({ error: 'Not found' });
+    res.json(r.rows[0]);
+  } catch(e){ next(e); }
 });
 
-// DELETE /api/suppliers/:id  (soft delete)
-router.delete('/:id', async (req, res) => {
-  try {
-    const result = await db.query(
-      'UPDATE suppliers SET is_active=FALSE, updated_at=NOW() WHERE id=$1 RETURNING id',
-      [req.params.id]
-    );
-    if (result.rows.length === 0) return res.status(404).json({ success: false, error: 'Not found' });
-    res.json({ success: true });
-  } catch (err) {
-    console.error('DELETE /api/suppliers/:id error:', err.message);
-    res.status(500).json({ success: false, error: err.message });
-  }
+router.delete('/:id', async (req, res, next) => {
+  try { await pool.query('DELETE FROM suppliers WHERE id=$1', [req.params.id]); res.status(204).end(); }
+  catch(e){ next(e); }
 });
 
 module.exports = router;

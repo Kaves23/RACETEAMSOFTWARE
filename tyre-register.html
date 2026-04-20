@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Race Team OS – Tyre Register</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="style.css?v=20260420" rel="stylesheet"/>
+  <style>
+    body{background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%);}
+    .ev-stats-bar{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
+    .ev-stat-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:10px 16px;min-width:110px;}
+    .ev-stat-label{font-size:.7rem;color:#6c757d;font-weight:600;text-transform:uppercase;}
+    .ev-stat-value{font-size:1.5rem;font-weight:700;color:#1a1d24;}
+    #mainShell.mlo-shell{background:transparent;border:none;gap:10px;}
+    #mainShell .mlo-pane-left,#mainShell .mlo-pane-mid,#mainShell .mlo-pane-right{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;}
+    #mainShell .mlo-pane-header{background:#f8f9fa;border-bottom:1px solid rgba(0,0,0,.1);}
+    #mainShell .mlo-title{color:#1a1d24!important;}
+    #mainShell .mlo-section-label{color:#6c757d!important;opacity:1!important;}
+    #mainShell .mlo-resizer{background:transparent;}
+    #mainShell .mlo-resizer:hover{background:rgba(245,158,11,.3);}
+    #mainShell .form-label{color:#495057!important;font-size:.78rem;font-weight:600;margin-bottom:2px;}
+    #mainShell .form-control,#mainShell .form-select{background:#fff!important;color:#1a1d24!important;border-color:#dee2e6!important;font-size:.82rem;}
+    #mainShell .mlo-pane-left .pastel-tree li{height:28px!important;display:flex!important;align-items:center!important;font-size:.83rem!important;font-weight:500!important;padding-left:10px!important;margin-bottom:2px!important;border-radius:5px!important;border:1px solid rgba(0,0,0,.08)!important;color:#1a1d24!important;cursor:pointer!important;}
+    #mainShell .mlo-pane-left .pastel-tree li.active{background:rgba(245,158,11,.1)!important;border-color:rgba(245,158,11,.4)!important;color:#b45309!important;font-weight:700!important;}
+    .data-table{width:100%;font-size:.82rem;border-collapse:separate;border-spacing:0;}
+    .data-table thead{position:sticky;top:0;background:#f8f9fa;z-index:5;}
+    .data-table th{padding:8px 10px;font-size:.7rem;font-weight:700;text-transform:uppercase;color:#6c757d;border-bottom:2px solid #dee2e6;}
+    .data-table td{padding:6px 10px;border-bottom:1px solid rgba(0,0,0,.05);vertical-align:middle;color:#1a1d24;}
+    .data-table tbody tr{cursor:pointer;transition:background .1s;}
+    .data-table tbody tr:hover{background:#f8f9fa;}
+    .data-table tbody tr.selected{background:rgba(245,158,11,.08)!important;outline:2px solid #f59e0b;outline-offset:-2px;}
+    .badge-cond{padding:2px 8px;border-radius:999px;font-size:.7rem;font-weight:600;}
+    .c-new{background:#d1fae5;color:#065f46;}
+    .c-good{background:#dbeafe;color:#1e40af;}
+    .c-worn{background:#fef3c7;color:#92400e;}
+    .c-scrapped{background:#fee2e2;color:#991b1b;}
+  </style>
+</head>
+<body class="light-mode">
+  <div id="rtsTopNav"></div>
+  <div class="rts-main container-fluid">
+    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+      <div><h1 class="h4 mb-1">Tyre Register</h1><div class="text-secondary" style="font-size:.85rem;">Track tyre sets, laps used, temperatures and pressures.</div></div>
+      <button class="btn btn-sm btn-primary" id="btnAdd" style="background:#f59e0b;border-color:#f59e0b;color:#000;">+ New Tyre Set</button>
+    </div>
+    <div class="ev-stats-bar">
+      <div class="ev-stat-card"><div class="ev-stat-label">Total Sets</div><div class="ev-stat-value" id="statTotal">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">New</div><div class="ev-stat-value" id="statNew">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Good</div><div class="ev-stat-value" id="statGood">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Worn</div><div class="ev-stat-value" id="statWorn">0</div></div>
+    </div>
+    <div class="mlo-shell" id="mainShell">
+      <section class="mlo-pane mlo-pane-left" aria-label="Compound filter">
+        <div class="mlo-pane-header"><div class="mlo-title">Filter</div></div>
+        <div class="mlo-pane-content">
+          <div class="mlo-section-label">Compound</div>
+          <ul class="mlo-tree pastel-tree" id="compoundFilter">
+            <li class="active" data-filter="all">All</li>
+          </ul>
+          <div class="mlo-section-label mt-3">Condition</div>
+          <ul class="mlo-tree pastel-tree" id="conditionFilter">
+            <li class="active" data-filter="all">All</li>
+            <li data-filter="new">New</li>
+            <li data-filter="good">Good</li>
+            <li data-filter="worn">Worn</li>
+            <li data-filter="scrapped">Scrapped</li>
+          </ul>
+        </div>
+      </section>
+      <div class="mlo-resizer" id="resizer1"></div>
+      <section class="mlo-pane mlo-pane-mid" aria-label="Tyre list">
+        <div class="mlo-pane-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="mlo-title">Tyre Sets</div>
+            <span class="badge text-bg-secondary" id="countBadge">0</span>
+          </div>
+          <input class="form-control form-control-sm mt-2" type="search" id="searchInput" placeholder="Search set # or driver…"/>
+        </div>
+        <div class="mlo-pane-content p-0">
+          <table class="data-table">
+            <thead><tr><th>Set #</th><th>Compound</th><th>Car #</th><th>Driver</th><th>Laps Used</th><th>Condition</th></tr></thead>
+            <tbody id="tableBody"><tr><td colspan="6" class="text-center text-secondary py-4">No tyre sets found.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+      <div class="mlo-resizer" id="resizer2"></div>
+      <section class="mlo-pane mlo-pane-right" aria-label="Tyre detail">
+        <div class="mlo-pane-header"><div class="mlo-title" id="detailTitle">Tyre Set</div></div>
+        <div class="mlo-pane-content">
+          <div class="text-center text-secondary py-5" id="detailEmpty"><div style="font-size:2rem;">🏎️</div><div class="mt-2">Select a tyre set to view or edit</div></div>
+          <form id="detailForm" style="display:none;">
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Set # *</label><input class="form-control" id="fSetNumber" required/></div>
+              <div class="col"><label class="form-label">Compound *</label><input class="form-control" id="fCompound" required/></div>
+            </div>
+            <div class="mb-2"><label class="form-label">Specification</label><input class="form-control" id="fSpec"/></div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Car #</label><input class="form-control" id="fCarNumber"/></div>
+              <div class="col"><label class="form-label">Driver</label><input class="form-control" id="fDriverName"/></div>
+            </div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Session Fitted</label><input class="form-control" id="fSessionFitted"/></div>
+              <div class="col"><label class="form-label">Laps Used</label><input class="form-control" id="fLapsUsed" type="number" min="0"/></div>
+            </div>
+            <div class="mb-2"><label class="form-label">Condition</label>
+              <select class="form-select" id="fCondition">
+                <option value="new">New</option>
+                <option value="good">Good</option>
+                <option value="worn">Worn</option>
+                <option value="scrapped">Scrapped</option>
+              </select>
+            </div>
+            <div class="mlo-section-label mb-1">Temperatures (°C)</div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Inner</label><input class="form-control" id="fTempInner" type="number" step="0.1"/></div>
+              <div class="col"><label class="form-label">Middle</label><input class="form-control" id="fTempMiddle" type="number" step="0.1"/></div>
+              <div class="col"><label class="form-label">Outer</label><input class="form-control" id="fTempOuter" type="number" step="0.1"/></div>
+            </div>
+            <div class="mlo-section-label mb-1">Pressures (bar)</div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Hot</label><input class="form-control" id="fPressureHot" type="number" step="0.01"/></div>
+              <div class="col"><label class="form-label">Cold</label><input class="form-control" id="fPressureCold" type="number" step="0.01"/></div>
+            </div>
+            <div class="mb-3"><label class="form-label">Notes</label><textarea class="form-control" id="fNotes" rows="2"></textarea></div>
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-sm btn-primary" id="btnSave" style="background:#f59e0b;border-color:#f59e0b;color:#000;">Save</button>
+              <button type="button" class="btn btn-sm btn-outline-danger" id="btnDelete" style="display:none;">Delete</button>
+              <button type="button" class="btn btn-sm btn-outline-secondary" id="btnCancel">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </section>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="topnav.js?v=20260420"></script>
+  <script src="core.js?v=20260420"></script>
+  <script>
+    let all=[],selectedId=null,filterCompound='all',filterCondition='all';
+    function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+    const condClass={new:'c-new',good:'c-good',worn:'c-worn',scrapped:'c-scrapped'};
+    async function load(){try{const r=await fetch('/api/tyre-register');if(r.ok)all=await r.json();}catch(_){all=[];}buildCompoundFilter();renderList();}
+    function buildCompoundFilter(){
+      const compounds=[...new Set(all.map(e=>e.compound).filter(Boolean))];
+      const ul=document.getElementById('compoundFilter');
+      ul.innerHTML='<li class="active" data-filter="all">All</li>'+compounds.map(c=>`<li data-filter="${esc(c)}">${esc(c)}</li>`).join('');
+      ul.querySelectorAll('li').forEach(li=>li.addEventListener('click',()=>{ul.querySelectorAll('li').forEach(x=>x.classList.remove('active'));li.classList.add('active');filterCompound=li.dataset.filter;renderList();}));
+    }
+    function renderList(){
+      const q=document.getElementById('searchInput').value.trim().toLowerCase();
+      const rows=all.filter(e=>{
+        const mc=filterCompound==='all'||e.compound===filterCompound;
+        const md=filterCondition==='all'||e.condition===filterCondition;
+        const mq=!q||(e.set_number||'').toLowerCase().includes(q)||(e.driver_name||'').toLowerCase().includes(q);
+        return mc&&md&&mq;
+      });
+      document.getElementById('countBadge').textContent=rows.length;
+      document.getElementById('statTotal').textContent=all.length;
+      document.getElementById('statNew').textContent=all.filter(e=>e.condition==='new').length;
+      document.getElementById('statGood').textContent=all.filter(e=>e.condition==='good').length;
+      document.getElementById('statWorn').textContent=all.filter(e=>e.condition==='worn').length;
+      const tb=document.getElementById('tableBody');
+      if(!rows.length){tb.innerHTML='<tr><td colspan="6" class="text-center text-secondary py-4">No tyre sets match.</td></tr>';return;}
+      tb.innerHTML=rows.map(e=>`<tr data-id="${e.id}" class="${e.id==selectedId?'selected':''}">
+        <td>${esc(e.set_number||'—')}</td><td>${esc(e.compound||'—')}</td>
+        <td>${esc(e.car_number||'—')}</td><td>${esc(e.driver_name||'—')}</td>
+        <td>${e.laps_used??'—'}</td>
+        <td><span class="badge-cond ${condClass[e.condition]||''}">${esc(e.condition||'—')}</span></td></tr>`).join('');
+      tb.querySelectorAll('tr').forEach(r=>r.addEventListener('click',()=>selectRow(r.dataset.id)));
+    }
+    function selectRow(id){
+      selectedId=id;const e=all.find(x=>x.id==id);if(!e)return;
+      document.getElementById('detailEmpty').style.display='none';
+      document.getElementById('detailForm').style.display='';
+      document.getElementById('detailTitle').textContent=`Set ${e.set_number||''}`;
+      document.getElementById('fSetNumber').value=e.set_number||'';
+      document.getElementById('fCompound').value=e.compound||'';
+      document.getElementById('fSpec').value=e.specification||'';
+      document.getElementById('fCarNumber').value=e.car_number||'';
+      document.getElementById('fDriverName').value=e.driver_name||'';
+      document.getElementById('fSessionFitted').value=e.session_fitted||'';
+      document.getElementById('fLapsUsed').value=e.laps_used??'';
+      document.getElementById('fCondition').value=e.condition||'new';
+      document.getElementById('fTempInner').value=e.temperature_inner??'';
+      document.getElementById('fTempMiddle').value=e.temperature_middle??'';
+      document.getElementById('fTempOuter').value=e.temperature_outer??'';
+      document.getElementById('fPressureHot').value=e.pressure_hot??'';
+      document.getElementById('fPressureCold').value=e.pressure_cold??'';
+      document.getElementById('fNotes').value=e.notes||'';
+      document.getElementById('btnDelete').style.display='';
+      renderList();
+    }
+    document.getElementById('btnAdd').addEventListener('click',()=>{
+      selectedId=null;document.getElementById('detailEmpty').style.display='none';
+      document.getElementById('detailForm').style.display='';document.getElementById('detailTitle').textContent='New Tyre Set';
+      document.getElementById('detailForm').reset();document.getElementById('btnDelete').style.display='none';
+    });
+    document.getElementById('btnSave').addEventListener('click',async()=>{
+      const sn=document.getElementById('fSetNumber').value.trim();
+      const cp=document.getElementById('fCompound').value.trim();
+      if(!sn||!cp){alert('Set number and compound are required.');return;}
+      const body={set_number:sn,compound:cp,specification:document.getElementById('fSpec').value.trim()||null,car_number:document.getElementById('fCarNumber').value.trim()||null,driver_name:document.getElementById('fDriverName').value.trim()||null,session_fitted:document.getElementById('fSessionFitted').value.trim()||null,laps_used:document.getElementById('fLapsUsed').value||null,condition:document.getElementById('fCondition').value,temperature_inner:document.getElementById('fTempInner').value||null,temperature_middle:document.getElementById('fTempMiddle').value||null,temperature_outer:document.getElementById('fTempOuter').value||null,pressure_hot:document.getElementById('fPressureHot').value||null,pressure_cold:document.getElementById('fPressureCold').value||null,notes:document.getElementById('fNotes').value.trim()||null};
+      try{const url=selectedId?`/api/tyre-register/${selectedId}`:'/api/tyre-register';const r=await fetch(url,{method:selectedId?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error(await r.text());await load();}catch(e){alert('Save failed: '+e.message);}
+    });
+    document.getElementById('btnDelete').addEventListener('click',async()=>{
+      if(!selectedId||!confirm('Delete this tyre set?'))return;
+      try{await fetch(`/api/tyre-register/${selectedId}`,{method:'DELETE'});selectedId=null;document.getElementById('detailForm').style.display='none';document.getElementById('detailEmpty').style.display='';await load();}catch(e){alert('Delete failed: '+e.message);}
+    });
+    document.getElementById('btnCancel').addEventListener('click',()=>{document.getElementById('detailForm').style.display='none';document.getElementById('detailEmpty').style.display='';});
+    document.getElementById('searchInput').addEventListener('input',renderList);
+    document.querySelectorAll('#conditionFilter li').forEach(li=>li.addEventListener('click',()=>{document.querySelectorAll('#conditionFilter li').forEach(x=>x.classList.remove('active'));li.classList.add('active');filterCondition=li.dataset.filter;renderList();}));
+    load();
+  </script>
+</body>
+</html>

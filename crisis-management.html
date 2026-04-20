@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Race Team OS – Crisis Management</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="style.css?v=20260420" rel="stylesheet" />
+  <style>
+    body { background: linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%); min-height:100vh; }
+    .kpi-bar { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+    .kpi-card { background:#fff; border:1px solid rgba(0,0,0,0.1); border-radius:8px; padding:10px 16px; box-shadow:0 2px 4px rgba(0,0,0,0.06); min-width:120px; }
+    .kpi-label { font-size:0.7rem; color:#6c757d; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; }
+    .kpi-value { font-size:1.5rem; font-weight:700; color:#1a1d24; line-height:1.2; }
+    #cmShell.mlo-shell { background:transparent; border:none; gap:10px; }
+    #cmShell .mlo-pane-left,#cmShell .mlo-pane-mid,#cmShell .mlo-pane-right { background:#fff; border:1px solid rgba(0,0,0,0.1); border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,0.06); }
+    #cmShell .mlo-pane-header { background:#f8f9fa; border-bottom:1px solid rgba(0,0,0,0.1); }
+    #cmShell .mlo-title { color:#1a1d24 !important; }
+    #cmShell .mlo-section-label { color:#6c757d !important; opacity:1 !important; }
+    #cmShell .mlo-resizer:hover { background:rgba(16,185,129,0.3); }
+    #cmShell .pastel-tree { padding:0 !important; margin:0 !important; }
+    #cmShell .pastel-tree li { height:28px !important; display:flex !important; align-items:center !important; font-size:0.83rem !important; font-weight:500 !important; padding-left:10px !important; margin-bottom:2px !important; border-radius:5px !important; border:1px solid rgba(0,0,0,0.08) !important; color:#1a1d24 !important; white-space:nowrap !important; overflow:hidden !important; text-overflow:ellipsis !important; cursor:pointer !important; list-style:none; }
+    #cmShell .pastel-tree li.active { background:rgba(16,185,129,0.1) !important; border-color:rgba(16,185,129,0.35) !important; color:#059669 !important; font-weight:700 !important; }
+    .cm-table { width:100%; font-size:0.82rem; border-collapse:separate; border-spacing:0; }
+    .cm-table thead { position:sticky; top:0; background:#f8f9fa; z-index:5; }
+    .cm-table th { padding:8px 10px; font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:#6c757d; border-bottom:2px solid #dee2e6; white-space:nowrap; }
+    .cm-table td { padding:6px 10px; border-bottom:1px solid rgba(0,0,0,0.05); vertical-align:middle; color:#1a1d24; }
+    .cm-table tbody tr { cursor:pointer; transition:background 0.1s; }
+    .cm-table tbody tr:hover { background:#f8f9fa; }
+    .cm-table tbody tr.selected { background:rgba(16,185,129,0.08) !important; outline:2px solid #10b981; outline-offset:-2px; }
+    .del-btn { opacity:0; background:none; border:none; color:#dc3545; font-size:1rem; padding:0 4px; cursor:pointer; }
+    .cm-table tbody tr:hover .del-btn { opacity:1; }
+    .sev-pill { display:inline-block; padding:2px 8px; border-radius:20px; font-size:0.65rem; font-weight:700; }
+    .sv-low { background:#d1fae5; color:#065f46; }
+    .sv-medium { background:#fef3c7; color:#92400e; }
+    .sv-high { background:#fee2e2; color:#991b1b; }
+    .sv-critical { background:#dc3545; color:#fff; }
+    .status-pill { display:inline-block; padding:2px 8px; border-radius:20px; font-size:0.65rem; font-weight:700; }
+    .sp-active { background:#fee2e2; color:#991b1b; }
+    .sp-contained { background:#fef3c7; color:#92400e; }
+    .sp-resolved { background:#d1fae5; color:#065f46; }
+    .sp-closed { background:#f1f5f9; color:#64748b; }
+    #cmShell .form-label { color:#495057 !important; font-size:0.78rem; font-weight:600; margin-bottom:2px; }
+    #cmShell .form-control,#cmShell .form-select { font-size:0.82rem; }
+  </style>
+</head>
+<body class="light-mode">
+  <div id="rtsTopNav"></div>
+  <div class="rts-main container-fluid">
+    <div class="pt-3 pb-2 mb-2 border-bottom d-flex justify-content-between align-items-end">
+      <div>
+        <h1 class="h4 mb-1">Crisis Management</h1>
+        <div class="text-secondary" style="font-size:0.85rem;">Log crises, manage response actions, track resolution and capture lessons learned.</div>
+      </div>
+      <button class="btn btn-sm" style="background:#10b981;color:#fff;border:none;" id="btnAddCM" type="button">+ Log Crisis</button>
+    </div>
+    <div class="kpi-bar">
+      <div class="kpi-card"><div class="kpi-label">Total</div><div class="kpi-value" id="kpiTotal">0</div></div>
+      <div class="kpi-card"><div class="kpi-label">Active</div><div class="kpi-value" id="kpiActive" style="color:#dc3545;">0</div></div>
+      <div class="kpi-card"><div class="kpi-label">Resolved</div><div class="kpi-value" id="kpiResolved" style="color:#059669;">0</div></div>
+      <div class="kpi-card"><div class="kpi-label">Avg Response (hrs)</div><div class="kpi-value" id="kpiAvgResp">—</div></div>
+    </div>
+    <div class="mlo-shell" id="cmShell">
+      <!-- LEFT -->
+      <section class="mlo-pane mlo-pane-left" aria-label="Crisis filters">
+        <div class="mlo-pane-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="mlo-title">Filter</div>
+            <span class="badge text-bg-secondary" id="cmCountBadge">0</span>
+          </div>
+        </div>
+        <div class="mlo-pane-content">
+          <div class="mlo-section-label">Status</div>
+          <ul class="pastel-tree" id="cmFilterList">
+            <li class="active" data-v="all">All Crises</li>
+            <li data-v="active">Active</li>
+            <li data-v="contained">Contained</li>
+            <li data-v="resolved">Resolved</li>
+            <li data-v="closed">Closed</li>
+          </ul>
+          <div class="mlo-section-label mt-3">Type</div>
+          <ul class="pastel-tree" id="cmTypeList">
+            <li class="active" data-v="all">All Types</li>
+            <li data-v="pr">PR</li>
+            <li data-v="legal">Legal</li>
+            <li data-v="operational">Operational</li>
+            <li data-v="safety">Safety</li>
+            <li data-v="financial">Financial</li>
+            <li data-v="regulatory">Regulatory</li>
+            <li data-v="other">Other</li>
+          </ul>
+        </div>
+      </section>
+      <div class="mlo-resizer" data-resize="left"></div>
+      <!-- MIDDLE -->
+      <section class="mlo-pane mlo-pane-mid" aria-label="Crises list">
+        <div class="mlo-pane-header">
+          <input id="cmSearch" type="text" class="form-control form-control-sm" placeholder="Search…" style="max-width:260px;">
+        </div>
+        <div class="mlo-pane-content" style="padding:0;">
+          <table class="cm-table">
+            <thead><tr><th>#</th><th>Title</th><th>Type</th><th>Severity</th><th>Response Lead</th><th>Status</th><th>Date</th><th></th></tr></thead>
+            <tbody id="cmTbody"></tbody>
+          </table>
+        </div>
+      </section>
+      <div class="mlo-resizer" data-resize="right"></div>
+      <!-- RIGHT -->
+      <section class="mlo-pane mlo-pane-right mlo-inspector" aria-label="Crisis inspector">
+        <div class="mlo-pane-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="mlo-title">Inspector</div>
+            <span class="badge text-bg-secondary" id="cmInspBadge">—</span>
+          </div>
+          <div class="d-flex gap-1 mt-1">
+            <button class="btn btn-sm" style="background:#10b981;color:#fff;border:none;font-size:0.75rem;" id="btnSaveCM">Save</button>
+            <button class="btn btn-sm btn-outline-danger" style="font-size:0.75rem;" id="btnDelCM">Delete</button>
+          </div>
+        </div>
+        <div class="mlo-pane-content">
+          <form id="cmForm" autocomplete="off">
+            <div class="row g-2">
+              <div class="col-12"><label class="form-label">Title *</label><input id="f_cm_title" class="form-control form-control-sm" type="text" required></div>
+              <div class="col-12"><label class="form-label">Description</label><textarea id="f_cm_desc" class="form-control form-control-sm" rows="2"></textarea></div>
+              <div class="col-6"><label class="form-label">Crisis Type</label>
+                <select id="f_cm_type" class="form-select form-select-sm">
+                  <option value="pr">PR</option><option value="legal">Legal</option>
+                  <option value="operational">Operational</option><option value="safety">Safety</option>
+                  <option value="financial">Financial</option><option value="regulatory">Regulatory</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div class="col-6"><label class="form-label">Severity</label>
+                <select id="f_cm_severity" class="form-select form-select-sm">
+                  <option value="low">Low</option><option value="medium">Medium</option>
+                  <option value="high">High</option><option value="critical">Critical</option>
+                </select>
+              </div>
+              <div class="col-6"><label class="form-label">Response Lead</label><input id="f_cm_lead" class="form-control form-control-sm" type="text"></div>
+              <div class="col-6"><label class="form-label">Status</label>
+                <select id="f_cm_status" class="form-select form-select-sm">
+                  <option value="active">Active</option><option value="contained">Contained</option>
+                  <option value="resolved">Resolved</option><option value="closed">Closed</option>
+                </select>
+              </div>
+              <div class="col-12"><label class="form-label">Team Members</label><textarea id="f_cm_team" class="form-control form-control-sm" rows="1" placeholder="Comma-separated names"></textarea></div>
+              <div class="col-12"><label class="form-label">Immediate Actions</label><textarea id="f_cm_actions" class="form-control form-control-sm" rows="2"></textarea></div>
+              <div class="col-12"><label class="form-label">Communications</label><textarea id="f_cm_comms" class="form-control form-control-sm" rows="2"></textarea></div>
+              <div class="col-12"><label class="form-label">Resolution</label><textarea id="f_cm_resolution" class="form-control form-control-sm" rows="2"></textarea></div>
+              <div class="col-6"><label class="form-label">Occurred At</label><input id="f_cm_occurred" class="form-control form-control-sm" type="datetime-local"></div>
+              <div class="col-6"><label class="form-label">Resolved At</label><input id="f_cm_resolved_at" class="form-control form-control-sm" type="datetime-local"></div>
+              <div class="col-12"><label class="form-label">Lessons Learned</label><textarea id="f_cm_lessons" class="form-control form-control-sm" rows="2"></textarea></div>
+            </div>
+          </form>
+        </div>
+      </section>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="topnav.js?v=20260420"></script>
+  <script src="core.js?v=20260420"></script>
+  <script>
+  const API = '/api/crisis-management';
+  let allData = [], current = null, filterStatus = 'all', filterType = 'all';
+  function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function fmt(d){ return d ? new Date(d).toLocaleDateString('en-GB') : '—'; }
+
+  async function loadAll(){ const data=await apiFetch(API).catch(()=>[]); allData=data||[]; renderStats(); renderTable(); }
+  function renderStats(){
+    const total=allData.length;
+    const active=allData.filter(r=>r.status==='active').length;
+    const resolved=allData.filter(r=>r.status==='resolved'||r.status==='closed').length;
+    const withResp=allData.filter(r=>r.occurred_at&&r.resolved_at);
+    const avgHrs=withResp.length ? Math.round(withResp.reduce((acc,r)=>{
+      return acc+(new Date(r.resolved_at)-new Date(r.occurred_at))/(1000*3600);
+    },0)/withResp.length) : null;
+    document.getElementById('kpiTotal').textContent=total;
+    document.getElementById('kpiActive').textContent=active;
+    document.getElementById('kpiResolved').textContent=resolved;
+    document.getElementById('kpiAvgResp').textContent=avgHrs!==null?avgHrs+'h':'—';
+  }
+  function renderTable(){
+    const q=document.getElementById('cmSearch').value.toLowerCase();
+    let rows=allData;
+    if(filterStatus!=='all') rows=rows.filter(r=>r.status===filterStatus);
+    if(filterType!=='all') rows=rows.filter(r=>r.crisis_type===filterType);
+    if(q) rows=rows.filter(r=>JSON.stringify(r).toLowerCase().includes(q));
+    document.getElementById('cmCountBadge').textContent=rows.length;
+    const tbody=document.getElementById('cmTbody');
+    if(!rows.length){ tbody.innerHTML='<tr><td colspan="8" class="text-center text-muted py-3">No crises found</td></tr>'; return; }
+    tbody.innerHTML=rows.map((r,i)=>`
+      <tr data-id="${r.id}" class="${current&&current.id===r.id?'selected':''}">
+        <td>${i+1}</td>
+        <td>${esc(r.title)}</td>
+        <td style="text-transform:capitalize;">${esc(r.crisis_type||'—')}</td>
+        <td><span class="sev-pill sv-${r.severity||'medium'}">${r.severity||'—'}</span></td>
+        <td>${esc(r.response_lead||'—')}</td>
+        <td><span class="status-pill sp-${r.status||'active'}">${r.status||'—'}</span></td>
+        <td>${fmt(r.occurred_at)}</td>
+        <td><button class="del-btn" data-id="${r.id}">✕</button></td>
+      </tr>`).join('');
+    tbody.querySelectorAll('tr[data-id]').forEach(tr=>tr.addEventListener('click',e=>{ if(e.target.classList.contains('del-btn')) return; selectRow(tr.dataset.id); }));
+    tbody.querySelectorAll('.del-btn').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation(); deleteById(b.dataset.id); }));
+  }
+  function fmtDT(d){ return d ? d.slice(0,16) : ''; }
+  function selectRow(id){
+    current=allData.find(r=>String(r.id)===String(id)); if(!current) return;
+    document.getElementById('cmInspBadge').textContent='#'+current.id;
+    const F=f=>document.getElementById(f);
+    F('f_cm_title').value=current.title||'';
+    F('f_cm_desc').value=current.description||'';
+    F('f_cm_type').value=current.crisis_type||'other';
+    F('f_cm_severity').value=current.severity||'medium';
+    F('f_cm_lead').value=current.response_lead||'';
+    F('f_cm_status').value=current.status||'active';
+    F('f_cm_team').value=current.team_members||'';
+    F('f_cm_actions').value=current.immediate_actions||'';
+    F('f_cm_comms').value=current.communications||'';
+    F('f_cm_resolution').value=current.resolution||'';
+    F('f_cm_occurred').value=fmtDT(current.occurred_at);
+    F('f_cm_resolved_at').value=fmtDT(current.resolved_at);
+    F('f_cm_lessons').value=current.lessons_learned||'';
+    renderTable();
+  }
+  function clearForm(){ current=null; document.getElementById('cmInspBadge').textContent='—'; document.getElementById('cmForm').reset(); renderTable(); }
+  async function saveRecord(){
+    const F=f=>document.getElementById(f).value.trim();
+    if(!F('f_cm_title')){ alert('Title is required'); return; }
+    const body={ title:F('f_cm_title'), description:F('f_cm_desc'), crisis_type:F('f_cm_type'),
+      severity:F('f_cm_severity'), response_lead:F('f_cm_lead'), team_members:F('f_cm_team'),
+      immediate_actions:F('f_cm_actions'), communications:F('f_cm_comms'), resolution:F('f_cm_resolution'),
+      occurred_at:F('f_cm_occurred')||null, resolved_at:F('f_cm_resolved_at')||null,
+      status:F('f_cm_status'), lessons_learned:F('f_cm_lessons') };
+    if(current){ await apiFetch(`${API}/${current.id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); }
+    else { await apiFetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); }
+    await loadAll();
+  }
+  async function deleteById(id){
+    if(!confirm('Delete this crisis record?')) return;
+    await apiFetch(`${API}/${id}`,{method:'DELETE'});
+    if(current&&String(current.id)===String(id)){ current=null; document.getElementById('cmForm').reset(); }
+    await loadAll();
+  }
+  document.addEventListener('DOMContentLoaded',()=>{
+    loadAll();
+    document.getElementById('btnAddCM').addEventListener('click',clearForm);
+    document.getElementById('btnSaveCM').addEventListener('click',saveRecord);
+    document.getElementById('btnDelCM').addEventListener('click',()=>{ if(current) deleteById(current.id); });
+    document.getElementById('cmSearch').addEventListener('input',renderTable);
+    document.querySelectorAll('#cmFilterList li').forEach(li=>li.addEventListener('click',()=>{
+      document.querySelectorAll('#cmFilterList li').forEach(x=>x.classList.remove('active'));
+      li.classList.add('active'); filterStatus=li.dataset.v; renderTable();
+    }));
+    document.querySelectorAll('#cmTypeList li').forEach(li=>li.addEventListener('click',()=>{
+      document.querySelectorAll('#cmTypeList li').forEach(x=>x.classList.remove('active'));
+      li.classList.add('active'); filterType=li.dataset.v; renderTable();
+    }));
+  });
+  </script>
+</body>
+</html>
