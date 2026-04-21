@@ -10,7 +10,7 @@ router.get('/', async (req, res, next) => {
     if (is_active !== undefined){ p.push(is_active === 'true'); c.push(`is_active=$${p.length}`); }
     const where = c.length ? 'WHERE '+c.join(' AND ') : '';
     const r = await pool.query(`SELECT * FROM suppliers ${where} ORDER BY name ASC`, p);
-    res.json(r.rows);
+    res.json({ success: true, suppliers: r.rows });
   } catch(e){ next(e); }
 });
 
