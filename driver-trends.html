@@ -1,189 +1,312 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Race Team OS – Driver Trends</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
-  <link href="style.css?v=20260420" rel="stylesheet"/>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Driver Trends</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="style.css?v=20260420">
   <style>
-    body{background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%);}
-    .ev-stats-bar{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
-    .ev-stat-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:10px 16px;min-width:110px;}
-    .ev-stat-label{font-size:.7rem;color:#6c757d;font-weight:600;text-transform:uppercase;}
-    .ev-stat-value{font-size:1.5rem;font-weight:700;color:#1a1d24;}
-    #mainShell.mlo-shell{background:transparent;border:none;gap:10px;}
-    #mainShell .mlo-pane-left,#mainShell .mlo-pane-mid,#mainShell .mlo-pane-right{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;}
-    #mainShell .mlo-pane-header{background:#f8f9fa;border-bottom:1px solid rgba(0,0,0,.1);}
-    #mainShell .mlo-title{color:#1a1d24!important;}
-    #mainShell .mlo-section-label{color:#6c757d!important;opacity:1!important;}
-    #mainShell .mlo-resizer{background:transparent;}
-    #mainShell .mlo-resizer:hover{background:rgba(16,185,129,.3);}
-    #mainShell .form-label{color:#495057!important;font-size:.78rem;font-weight:600;margin-bottom:2px;}
-    #mainShell .form-control,#mainShell .form-select{background:#fff!important;color:#1a1d24!important;border-color:#dee2e6!important;font-size:.82rem;}
-    #mainShell .mlo-pane-left .pastel-tree li{height:28px!important;display:flex!important;align-items:center!important;font-size:.83rem!important;font-weight:500!important;padding-left:10px!important;margin-bottom:2px!important;border-radius:5px!important;border:1px solid rgba(0,0,0,.08)!important;color:#1a1d24!important;cursor:pointer!important;}
-    #mainShell .mlo-pane-left .pastel-tree li.active{background:rgba(16,185,129,.1)!important;border-color:rgba(16,185,129,.4)!important;color:#065f46!important;font-weight:700!important;}
-    .data-table{width:100%;font-size:.82rem;border-collapse:separate;border-spacing:0;}
-    .data-table thead{position:sticky;top:0;background:#f8f9fa;z-index:5;}
-    .data-table th{padding:8px 10px;font-size:.7rem;font-weight:700;text-transform:uppercase;color:#6c757d;border-bottom:2px solid #dee2e6;}
-    .data-table td{padding:6px 10px;border-bottom:1px solid rgba(0,0,0,.05);vertical-align:middle;color:#1a1d24;}
-    .data-table tbody tr{cursor:pointer;transition:background .1s;}
-    .data-table tbody tr:hover{background:#f8f9fa;}
-    .data-table tbody tr.selected{background:rgba(16,185,129,.08)!important;outline:2px solid #10b981;outline-offset:-2px;}
-    .trend-improving{color:#059669;font-weight:700;}
-    .trend-stable{color:#6c757d;font-weight:600;}
-    .trend-declining{color:#dc2626;font-weight:700;}
+    body { background: linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%); min-height:100vh; }
+    .rts-main { padding:1.5rem; }
+    .ev-stats-bar { display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:1.5rem; }
+    .ev-stat-card { background:#fff; border-radius:10px; padding:1rem 1.5rem; box-shadow:0 2px 8px rgba(0,0,0,.08); min-width:130px; border-top:4px solid #10b981; }
+    .ev-stat-label { font-size:.72rem; text-transform:uppercase; color:#6b7280; font-weight:600; letter-spacing:.05em; }
+    .ev-stat-value { font-size:1.8rem; font-weight:800; color:#1f2937; line-height:1.1; }
+
+    .page-body { display:flex; gap:1.25rem; align-items:flex-start; }
+    .driver-sidebar { width:200px; flex-shrink:0; background:#fff; border-radius:10px; padding:1rem; box-shadow:0 2px 8px rgba(0,0,0,.08); position:sticky; top:1rem; }
+    .driver-sidebar h6 { font-weight:700; color:#374151; margin-bottom:.75rem; font-size:.85rem; text-transform:uppercase; letter-spacing:.05em; }
+    .driver-list-item { padding:.45rem .65rem; border-radius:6px; cursor:pointer; font-size:.875rem; transition:background .15s; color:#374151; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .driver-list-item:hover { background:#d1fae5; }
+    .driver-list-item.active { background:#10b981; color:#fff; font-weight:600; }
+
+    .main-content { flex:1; min-width:0; }
+    .top-bar { display:flex; align-items:center; gap:.75rem; margin-bottom:1rem; flex-wrap:wrap; }
+
+    .table-wrapper { background:#fff; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,.08); overflow:hidden; }
+    .table { margin:0; }
+    .table thead th { background:#10b981; color:#fff; font-size:.75rem; text-transform:uppercase; letter-spacing:.05em; border:none; padding:.7rem 1rem; white-space:nowrap; }
+    .table tbody tr { cursor:pointer; transition:background .15s; }
+    .table tbody tr:hover { background:#ecfdf5; }
+    .table tbody tr.selected { background:#d1fae5 !important; }
+    .table tbody td { padding:.6rem 1rem; vertical-align:middle; font-size:.875rem; border-color:#f3f4f6; }
+
+    .trend-improving { color:#16a34a; font-weight:700; font-size:1.1em; }
+    .trend-stable    { color:#9ca3af; font-weight:600; }
+    .trend-declining { color:#dc2626; font-weight:700; font-size:1.1em; }
+
+    .page-title { font-weight:800; color:#10b981; letter-spacing:-.01em; }
   </style>
 </head>
-<body class="light-mode">
-  <div id="rtsTopNav"></div>
-  <div class="rts-main container-fluid">
-    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
-      <div><h1 class="h4 mb-1">Driver Trends</h1><div class="text-secondary" style="font-size:.85rem;">Track performance metrics for each driver over time.</div></div>
-      <button class="btn btn-sm btn-primary" id="btnAdd" style="background:#10b981;border-color:#10b981;">+ New Metric Entry</button>
+<body>
+<div id="rtsTopNav"></div>
+<div class="rts-main container-fluid">
+
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <h2 class="page-title mb-0">Driver Trends</h2>
+    <button class="btn btn-sm fw-semibold" style="background:#10b981;color:#fff;padding:.4rem 1rem" onclick="openModal()">+ Add Metric</button>
+  </div>
+
+  <div class="ev-stats-bar">
+    <div class="ev-stat-card"><div class="ev-stat-label">Drivers Tracked</div><div class="ev-stat-value" id="kpiDrivers">—</div></div>
+    <div class="ev-stat-card"><div class="ev-stat-label">Metrics</div><div class="ev-stat-value" id="kpiMetrics">—</div></div>
+    <div class="ev-stat-card"><div class="ev-stat-label">Improving</div><div class="ev-stat-value" id="kpiImproving">—</div></div>
+    <div class="ev-stat-card"><div class="ev-stat-label">Declining</div><div class="ev-stat-value" id="kpiDeclining">—</div></div>
+  </div>
+
+  <div class="page-body">
+    <aside class="driver-sidebar">
+      <h6>Drivers</h6>
+      <div id="driverList"></div>
+    </aside>
+
+    <div class="main-content">
+      <div class="top-bar">
+        <span class="text-muted small" id="filterLabel">All Drivers</span>
+        <div class="ms-auto d-flex gap-2">
+          <input type="text" class="form-control form-control-sm" id="searchBox" placeholder="Search metric…" oninput="applyFilters()" style="width:200px">
+        </div>
+      </div>
+      <div class="table-wrapper">
+        <table class="table table-hover" id="mainTable">
+          <thead>
+            <tr>
+              <th>Driver</th>
+              <th>Event / Session</th>
+              <th>Metric</th>
+              <th>Value</th>
+              <th>Target</th>
+              <th>Trend</th>
+              <th>Recorded</th>
+              <th style="width:60px"></th>
+            </tr>
+          </thead>
+          <tbody id="mainTbody">
+            <tr><td colspan="8" class="text-center text-muted py-5">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
-    <div class="ev-stats-bar">
-      <div class="ev-stat-card"><div class="ev-stat-label">Drivers</div><div class="ev-stat-value" id="statDrivers">0</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">Improving</div><div class="ev-stat-value" id="statImproving">0</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">Stable</div><div class="ev-stat-value" id="statStable">0</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">Declining</div><div class="ev-stat-value" id="statDeclining">0</div></div>
-    </div>
-    <div class="mlo-shell" id="mainShell">
-      <section class="mlo-pane mlo-pane-left" aria-label="Driver filter">
-        <div class="mlo-pane-header"><div class="mlo-title">Drivers</div></div>
-        <div class="mlo-pane-content">
-          <div class="mlo-section-label">Filter by Driver</div>
-          <ul class="mlo-tree pastel-tree" id="driverFilter">
-            <li class="active" data-filter="all">All Drivers</li>
-          </ul>
-        </div>
-      </section>
-      <div class="mlo-resizer" id="resizer1"></div>
-      <section class="mlo-pane mlo-pane-mid" aria-label="Trends list">
-        <div class="mlo-pane-header">
-          <div class="d-flex justify-content-between align-items-center">
-            <div class="mlo-title">Trend Entries</div>
-            <span class="badge text-bg-secondary" id="countBadge">0</span>
-          </div>
-          <input class="form-control form-control-sm mt-2" type="search" id="searchInput" placeholder="Search driver or metric…"/>
-        </div>
-        <div class="mlo-pane-content p-0">
-          <table class="data-table">
-            <thead><tr><th>Driver</th><th>Metric</th><th>Value</th><th>Target</th><th>Trend</th><th>Date</th></tr></thead>
-            <tbody id="tableBody"><tr><td colspan="6" class="text-center text-secondary py-4">No trend entries found.</td></tr></tbody>
-          </table>
-        </div>
-      </section>
-      <div class="mlo-resizer" id="resizer2"></div>
-      <section class="mlo-pane mlo-pane-right" aria-label="Trend detail">
-        <div class="mlo-pane-header"><div class="mlo-title" id="detailTitle">Trend Entry</div></div>
-        <div class="mlo-pane-content">
-          <div class="text-center text-secondary py-5" id="detailEmpty"><div style="font-size:2rem;">📈</div><div class="mt-2">Select an entry to view or edit</div></div>
-          <form id="detailForm" style="display:none;">
-            <div class="row g-2 mb-2">
-              <div class="col"><label class="form-label">Driver Name *</label><input class="form-control" id="fDriverName" required/></div>
-              <div class="col"><label class="form-label">Driver ID</label><input class="form-control" id="fDriverId"/></div>
+  </div>
+
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="trendModal" tabindex="-1" aria-labelledby="trendModalTitle" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header" style="background:#10b981">
+        <h5 class="modal-title text-white fw-bold" id="trendModalTitle">Add Metric</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="trendForm" onsubmit="return false">
+          <input type="hidden" id="fId">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Driver Name <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" id="fDriverName" required>
             </div>
-            <div class="row g-2 mb-2">
-              <div class="col"><label class="form-label">Event ID</label><input class="form-control" id="fEventId"/></div>
-              <div class="col"><label class="form-label">Session</label><input class="form-control" id="fSession"/></div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Metric Name <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" id="fMetricName" required placeholder="e.g. Lap Time, Braking Point">
             </div>
-            <div class="mb-2"><label class="form-label">Metric Name *</label><input class="form-control" id="fMetricName" required/></div>
-            <div class="row g-2 mb-2">
-              <div class="col"><label class="form-label">Value</label><input class="form-control" id="fValue" type="number" step="any"/></div>
-              <div class="col"><label class="form-label">Target</label><input class="form-control" id="fTarget" type="number" step="any"/></div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Event ID</label>
+              <input type="text" class="form-control" id="fEventId" placeholder="e.g. EVT-001">
             </div>
-            <div class="mb-2"><label class="form-label">Trend Direction</label>
-              <select class="form-select" id="fTrend">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Session Name</label>
+              <input type="text" class="form-control" id="fSessionName" placeholder="e.g. FP1">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Metric Value</label>
+              <input type="number" class="form-control" id="fMetricValue" step="0.0001">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Target Value</label>
+              <input type="number" class="form-control" id="fTargetValue" step="0.0001">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Trend Direction</label>
+              <select class="form-select" id="fTrendDirection">
                 <option value="improving">Improving</option>
                 <option value="stable">Stable</option>
                 <option value="declining">Declining</option>
               </select>
             </div>
-            <div class="mb-3"><label class="form-label">Notes</label><textarea class="form-control" id="fNotes" rows="3"></textarea></div>
-            <div class="d-flex gap-2">
-              <button type="button" class="btn btn-sm btn-primary" id="btnSave" style="background:#10b981;border-color:#10b981;">Save</button>
-              <button type="button" class="btn btn-sm btn-outline-danger" id="btnDelete" style="display:none;">Delete</button>
-              <button type="button" class="btn btn-sm btn-outline-secondary" id="btnCancel">Cancel</button>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Recorded At</label>
+              <input type="datetime-local" class="form-control" id="fRecordedAt">
             </div>
-          </form>
-        </div>
-      </section>
+            <div class="col-12">
+              <label class="form-label fw-semibold">Notes</label>
+              <textarea class="form-control" id="fNotes" rows="3"></textarea>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline-danger btn-sm d-none me-auto" id="btnDelete" onclick="deleteRecord()">Delete</button>
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-sm fw-semibold" style="background:#10b981;color:#fff" onclick="saveRecord()">Save</button>
+      </div>
     </div>
   </div>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="topnav.js?v=20260420"></script>
-  <script src="core.js?v=20260420"></script>
-  <script>
-    let all=[],selectedId=null,filterDriver='all';
-    function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-    const trendClass={improving:'trend-improving',stable:'trend-stable',declining:'trend-declining'};
-    const trendIcon={improving:'↑',stable:'→',declining:'↓'};
-    async function load(){try{const r=await fetch('/api/driver-trends');if(r.ok)all=await r.json();}catch(_){all=[];}buildDriverFilter();renderList();}
-    function buildDriverFilter(){
-      const drivers=[...new Set(all.map(e=>e.driver_name).filter(Boolean))];
-      const ul=document.getElementById('driverFilter');
-      ul.innerHTML='<li class="active" data-filter="all">All Drivers</li>'+drivers.map(d=>`<li data-filter="${esc(d)}">${esc(d)}</li>`).join('');
-      ul.querySelectorAll('li').forEach(li=>li.addEventListener('click',()=>{ul.querySelectorAll('li').forEach(x=>x.classList.remove('active'));li.classList.add('active');filterDriver=li.dataset.filter;renderList();}));
-    }
-    function renderList(){
-      const q=document.getElementById('searchInput').value.trim().toLowerCase();
-      const rows=all.filter(e=>{
-        const md=filterDriver==='all'||e.driver_name===filterDriver;
-        const mq=!q||(e.driver_name||'').toLowerCase().includes(q)||(e.metric_name||'').toLowerCase().includes(q);
-        return md&&mq;
-      });
-      document.getElementById('countBadge').textContent=rows.length;
-      const drivers=new Set(all.map(e=>e.driver_name).filter(Boolean));
-      document.getElementById('statDrivers').textContent=drivers.size;
-      document.getElementById('statImproving').textContent=all.filter(e=>e.trend_direction==='improving').length;
-      document.getElementById('statStable').textContent=all.filter(e=>e.trend_direction==='stable').length;
-      document.getElementById('statDeclining').textContent=all.filter(e=>e.trend_direction==='declining').length;
-      const tb=document.getElementById('tableBody');
-      if(!rows.length){tb.innerHTML='<tr><td colspan="6" class="text-center text-secondary py-4">No entries match.</td></tr>';return;}
-      tb.innerHTML=rows.map(e=>`<tr data-id="${e.id}" class="${e.id==selectedId?'selected':''}">
-        <td>${esc(e.driver_name||'—')}</td><td>${esc(e.metric_name||'—')}</td>
-        <td>${e.metric_value??'—'}</td><td>${e.target_value??'—'}</td>
-        <td class="${trendClass[e.trend_direction]||''}">${trendIcon[e.trend_direction]||''} ${esc(e.trend_direction||'—')}</td>
-        <td>${e.created_at?new Date(e.created_at).toLocaleDateString():'—'}</td></tr>`).join('');
-      tb.querySelectorAll('tr').forEach(r=>r.addEventListener('click',()=>selectRow(r.dataset.id)));
-    }
-    function selectRow(id){
-      selectedId=id;const e=all.find(x=>x.id==id);if(!e)return;
-      document.getElementById('detailEmpty').style.display='none';
-      document.getElementById('detailForm').style.display='';
-      document.getElementById('detailTitle').textContent=`${e.driver_name||'Driver'} — ${e.metric_name||'Metric'}`;
-      document.getElementById('fDriverName').value=e.driver_name||'';
-      document.getElementById('fDriverId').value=e.driver_id||'';
-      document.getElementById('fEventId').value=e.event_id||'';
-      document.getElementById('fSession').value=e.session_name||'';
-      document.getElementById('fMetricName').value=e.metric_name||'';
-      document.getElementById('fValue').value=e.metric_value??'';
-      document.getElementById('fTarget').value=e.target_value??'';
-      document.getElementById('fTrend').value=e.trend_direction||'stable';
-      document.getElementById('fNotes').value=e.notes||'';
-      document.getElementById('btnDelete').style.display='';
-      renderList();
-    }
-    document.getElementById('btnAdd').addEventListener('click',()=>{
-      selectedId=null;document.getElementById('detailEmpty').style.display='none';
-      document.getElementById('detailForm').style.display='';document.getElementById('detailTitle').textContent='New Metric Entry';
-      document.getElementById('detailForm').reset();document.getElementById('btnDelete').style.display='none';
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="core.js?v=20260420"></script>
+<script src="topnav.js?v=20260420"></script>
+<script>
+let allData       = [];
+let activeDriver  = null;
+let bsModal;
+
+window.addEventListener('DOMContentLoaded', () => {
+  bsModal = new bootstrap.Modal(document.getElementById('trendModal'));
+  loadData();
+});
+
+async function loadData() {
+  try {
+    const res = await fetch('/api/driver-trends');
+    if (!res.ok) throw new Error(res.status);
+    allData = await res.json();
+  } catch(e) { allData = []; }
+  buildDriverSidebar();
+  updateKPIs();
+  applyFilters();
+}
+
+function buildDriverSidebar() {
+  const drivers = [...new Set(allData.map(r => r.driver_name).filter(Boolean))].sort();
+  const list    = document.getElementById('driverList');
+  list.innerHTML =
+    `<div class="driver-list-item ${activeDriver === null ? 'active' : ''}" onclick="selectDriver(null)">All Drivers</div>` +
+    drivers.map(d => `<div class="driver-list-item ${activeDriver === d ? 'active' : ''}" onclick="selectDriver('${escAttr(d)}')" title="${escAttr(d)}">${esc(d)}</div>`).join('');
+}
+
+function selectDriver(name) {
+  activeDriver = name;
+  buildDriverSidebar();
+  applyFilters();
+  document.getElementById('filterLabel').textContent = name ? name : 'All Drivers';
+}
+
+function updateKPIs() {
+  document.getElementById('kpiDrivers').textContent   = new Set(allData.map(r => r.driver_name).filter(Boolean)).size;
+  document.getElementById('kpiMetrics').textContent   = allData.length;
+  document.getElementById('kpiImproving').textContent = allData.filter(r => r.trend_direction === 'improving').length;
+  document.getElementById('kpiDeclining').textContent = allData.filter(r => r.trend_direction === 'declining').length;
+}
+
+function applyFilters() {
+  const search = (document.getElementById('searchBox').value || '').toLowerCase();
+  const filtered = allData.filter(r =>
+    (!activeDriver || r.driver_name === activeDriver) &&
+    (!search || (r.metric_name || '').toLowerCase().includes(search) ||
+                (r.driver_name || '').toLowerCase().includes(search))
+  );
+  renderTable(filtered);
+}
+
+function trendIcon(t) {
+  if (t === 'improving') return '<span class="trend-improving" title="Improving">↑ Improving</span>';
+  if (t === 'declining') return '<span class="trend-declining" title="Declining">↓ Declining</span>';
+  return '<span class="trend-stable" title="Stable">→ Stable</span>';
+}
+
+function fmtDate(v) {
+  if (!v) return '—';
+  try {
+    return new Date(v).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+  } catch(e) { return v; }
+}
+
+function renderTable(data) {
+  const tbody = document.getElementById('mainTbody');
+  if (!data.length) {
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-5">No records found</td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.map(r => `
+    <tr onclick="openModal(${r.id})">
+      <td class="fw-semibold">${esc(r.driver_name)}</td>
+      <td>${esc(r.event_id)}${r.session_name ? ' / ' + esc(r.session_name) : ''}</td>
+      <td>${esc(r.metric_name)}</td>
+      <td>${r.metric_value != null ? Number(r.metric_value).toFixed(4) : '—'}</td>
+      <td>${r.target_value != null ? Number(r.target_value).toFixed(4) : '—'}</td>
+      <td>${trendIcon(r.trend_direction)}</td>
+      <td>${fmtDate(r.recorded_at)}</td>
+      <td><button class="btn btn-sm btn-outline-secondary py-0 px-1" style="font-size:.7rem" onclick="event.stopPropagation();openModal(${r.id})">Edit</button></td>
+    </tr>`).join('');
+}
+
+function esc(v)     { return v ? String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '—'; }
+function escAttr(v) { return v ? String(v).replace(/'/g,"&#39;").replace(/"/g,'&quot;') : ''; }
+function numOrNull(id) { const v = document.getElementById(id).value; return v !== '' ? Number(v) : null; }
+
+function openModal(id = null) {
+  const rec = id ? allData.find(r => r.id === id) : null;
+  document.getElementById('trendModalTitle').textContent = rec ? 'Edit Metric' : 'Add Metric';
+  document.getElementById('btnDelete').classList.toggle('d-none', !rec);
+  document.getElementById('fId').value             = rec ? rec.id : '';
+  document.getElementById('fDriverName').value     = rec ? (rec.driver_name      || '') : (activeDriver || '');
+  document.getElementById('fMetricName').value     = rec ? (rec.metric_name      || '') : '';
+  document.getElementById('fEventId').value        = rec ? (rec.event_id         || '') : '';
+  document.getElementById('fSessionName').value    = rec ? (rec.session_name     || '') : '';
+  document.getElementById('fMetricValue').value    = rec ? (rec.metric_value  ?? '') : '';
+  document.getElementById('fTargetValue').value    = rec ? (rec.target_value  ?? '') : '';
+  document.getElementById('fTrendDirection').value = rec ? (rec.trend_direction  || 'stable') : 'stable';
+  document.getElementById('fNotes').value          = rec ? (rec.notes            || '') : '';
+  if (rec && rec.recorded_at) {
+    const d = new Date(rec.recorded_at);
+    const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0,16);
+    document.getElementById('fRecordedAt').value = local;
+  } else {
+    document.getElementById('fRecordedAt').value = '';
+  }
+  bsModal.show();
+}
+
+async function saveRecord() {
+  const payload = {
+    driver_name     : document.getElementById('fDriverName').value.trim(),
+    metric_name     : document.getElementById('fMetricName').value.trim(),
+    event_id        : document.getElementById('fEventId').value.trim(),
+    session_name    : document.getElementById('fSessionName').value.trim(),
+    metric_value    : numOrNull('fMetricValue'),
+    target_value    : numOrNull('fTargetValue'),
+    trend_direction : document.getElementById('fTrendDirection').value,
+    notes           : document.getElementById('fNotes').value.trim(),
+    recorded_at     : document.getElementById('fRecordedAt').value || null
+  };
+  if (!payload.driver_name || !payload.metric_name) { alert('Driver Name and Metric Name are required'); return; }
+  const id = document.getElementById('fId').value;
+  try {
+    const res = await fetch(id ? `/api/driver-trends/${id}` : '/api/driver-trends', {
+      method : id ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body   : JSON.stringify(payload)
     });
-    document.getElementById('btnSave').addEventListener('click',async()=>{
-      const dn=document.getElementById('fDriverName').value.trim();
-      const mn=document.getElementById('fMetricName').value.trim();
-      if(!dn||!mn){alert('Driver name and metric name are required.');return;}
-      const body={driver_name:dn,driver_id:document.getElementById('fDriverId').value.trim()||null,event_id:document.getElementById('fEventId').value.trim()||null,session_name:document.getElementById('fSession').value.trim()||null,metric_name:mn,metric_value:document.getElementById('fValue').value||null,target_value:document.getElementById('fTarget').value||null,trend_direction:document.getElementById('fTrend').value,notes:document.getElementById('fNotes').value.trim()||null};
-      try{const url=selectedId?`/api/driver-trends/${selectedId}`:'/api/driver-trends';const r=await fetch(url,{method:selectedId?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error(await r.text());await load();}catch(e){alert('Save failed: '+e.message);}
-    });
-    document.getElementById('btnDelete').addEventListener('click',async()=>{
-      if(!selectedId||!confirm('Delete this trend entry?'))return;
-      try{await fetch(`/api/driver-trends/${selectedId}`,{method:'DELETE'});selectedId=null;document.getElementById('detailForm').style.display='none';document.getElementById('detailEmpty').style.display='';await load();}catch(e){alert('Delete failed: '+e.message);}
-    });
-    document.getElementById('btnCancel').addEventListener('click',()=>{document.getElementById('detailForm').style.display='none';document.getElementById('detailEmpty').style.display='';});
-    document.getElementById('searchInput').addEventListener('input',renderList);
-    load();
-  </script>
+    if (!res.ok) throw new Error(await res.text());
+    bsModal.hide();
+    await loadData();
+  } catch(e) { alert('Save failed: ' + e.message); }
+}
+
+async function deleteRecord() {
+  const id = document.getElementById('fId').value;
+  if (!id || !confirm('Delete this trend record?')) return;
+  try {
+    const res = await fetch(`/api/driver-trends/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error(await res.text());
+    bsModal.hide();
+    await loadData();
+  } catch(e) { alert('Delete failed: ' + e.message); }
+}
+</script>
 </body>
 </html>

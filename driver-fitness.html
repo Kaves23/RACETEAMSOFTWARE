@@ -2,184 +2,325 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Race Team OS – Driver Fitness</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
   <link href="style.css?v=20260420" rel="stylesheet"/>
   <style>
-    body{background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%);}
+    body{background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%);min-height:100vh;}
     .ev-stats-bar{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
-    .ev-stat-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:10px 16px;min-width:110px;}
-    .ev-stat-label{font-size:.7rem;color:#6c757d;font-weight:600;text-transform:uppercase;}
-    .ev-stat-value{font-size:1.5rem;font-weight:700;color:#1a1d24;}
-    #mainShell.mlo-shell{background:transparent;border:none;gap:10px;}
-    #mainShell .mlo-pane-left,#mainShell .mlo-pane-mid,#mainShell .mlo-pane-right{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;}
+    .ev-stat-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:10px 16px;box-shadow:0 2px 4px rgba(0,0,0,.06);min-width:110px;}
+    .ev-stat-label{font-size:.7rem;color:#6c757d;font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+    .ev-stat-value{font-size:1.5rem;font-weight:700;color:#1a1d24;line-height:1.2;}
+
+    .driver-cards{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;}
+    .drv-fit-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:10px;padding:14px 16px;min-width:180px;max-width:220px;box-shadow:0 2px 6px rgba(0,0,0,.06);}
+    .drv-fit-name{font-size:.9rem;font-weight:700;color:#1a1d24;margin-bottom:8px;}
+    .drv-fit-metric{font-size:.75rem;color:#6c757d;margin-bottom:2px;}
+    .drv-fit-metric span{color:#1a1d24;font-weight:600;}
+
+    .badge-result{display:inline-block;padding:3px 9px;border-radius:12px;font-size:.7rem;font-weight:700;}
+    .br-pass{background:#d1fae5;color:#065f46;}
+    .br-conditional{background:#fef3c7;color:#92400e;}
+    .br-fail{background:#fee2e2;color:#991b1b;}
+    .br-pending{background:#f3f4f6;color:#6b7280;}
+
+    .history-wrap{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.06);overflow:hidden;}
+    .history-header{padding:10px 16px;background:#f8f9fa;border-bottom:1px solid #dee2e6;display:flex;align-items:center;justify-content:space-between;}
     .data-table{width:100%;font-size:.82rem;border-collapse:separate;border-spacing:0;}
-    .data-table thead{position:sticky;top:0;background:#f8f9fa;z-index:5;}
-    .data-table th{padding:8px 10px;font-size:.7rem;font-weight:700;text-transform:uppercase;color:#6c757d;border-bottom:2px solid #dee2e6;}
-    .data-table td{padding:6px 10px;border-bottom:1px solid rgba(0,0,0,.05);}
-    .data-table tbody tr{cursor:pointer;}
-    .data-table tbody tr:hover{background:#f8f9fa;}
-    .data-table tbody tr.selected{background:rgba(236,72,153,.08);outline:2px solid #ec4899;outline-offset:-2px;}
-    .filter-item{padding:5px 8px;border-radius:4px;cursor:pointer;font-size:.8rem;margin-bottom:2px;display:block;color:#495057;text-decoration:none;}
-    .filter-item:hover{background:#fdf2f8;color:#ec4899;}
-    .filter-item.active{background:rgba(236,72,153,.12);color:#ec4899;font-weight:600;}
+    .data-table thead{position:sticky;top:0;background:#f8f9fa;z-index:5;box-shadow:0 1px 3px rgba(0,0,0,.06);}
+    .data-table th{padding:8px 10px;font-size:.7rem;font-weight:700;text-transform:uppercase;color:#6c757d;border-bottom:2px solid #dee2e6;white-space:nowrap;}
+    .data-table td{padding:7px 10px;border-bottom:1px solid rgba(0,0,0,.05);vertical-align:middle;color:#1a1d24;}
+    .data-table tbody tr{cursor:pointer;transition:background .1s;}
+    .data-table tbody tr:hover{background:#f0fdf4;}
+    .table-scroll{overflow-y:auto;max-height:calc(100vh - 480px);}
   </style>
 </head>
 <body class="light-mode">
-  <div id="rtsTopNav"></div>
-  <div class="rts-main container-fluid">
-    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
-      <div>
-        <h1 class="h4 mb-1">Driver Fitness</h1>
-        <p class="text-secondary mb-0" style="font-size:.85rem;">Physical metrics, targets and performance tracking</p>
-      </div>
-      <button class="btn btn-sm" id="btnAdd" style="background:#ec4899;border-color:#ec4899;color:#fff">+ New Entry</button>
+<div id="rtsTopNav"></div>
+<div class="rts-main container-fluid">
+  <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+    <div>
+      <h1 class="h4 mb-1">Driver Fitness</h1>
+      <p class="text-secondary mb-0" style="font-size:.85rem;">Physical assessments, medical and nutrition records</p>
     </div>
-    <div class="ev-stats-bar">
-      <div class="ev-stat-card"><div class="ev-stat-label">Drivers</div><div class="ev-stat-value" id="kpi0">—</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">Entries</div><div class="ev-stat-value" id="kpi1">—</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">Above Target</div><div class="ev-stat-value" id="kpi2">—</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">Below Target</div><div class="ev-stat-value" id="kpi3">—</div></div>
+    <button class="btn btn-sm text-white" id="btnAdd" style="background:#10b981;border-color:#10b981;">+ New Assessment</button>
+  </div>
+
+  <div class="ev-stats-bar">
+    <div class="ev-stat-card"><div class="ev-stat-label">Drivers</div><div class="ev-stat-value" id="kpiDrivers">—</div></div>
+    <div class="ev-stat-card"><div class="ev-stat-label">Pass</div><div class="ev-stat-value" id="kpiPass">—</div></div>
+    <div class="ev-stat-card"><div class="ev-stat-label">Conditional</div><div class="ev-stat-value" id="kpiCond">—</div></div>
+    <div class="ev-stat-card"><div class="ev-stat-label">Fail</div><div class="ev-stat-value" id="kpiFail">—</div></div>
+  </div>
+
+  <!-- Per-driver summary cards -->
+  <div class="fw-bold mb-2" style="font-size:.8rem;color:#6c757d;text-transform:uppercase;letter-spacing:.05em;">Latest Assessment Per Driver</div>
+  <div class="driver-cards" id="driverCards"></div>
+
+  <!-- History table -->
+  <div class="history-wrap">
+    <div class="history-header">
+      <span style="font-size:.8rem;font-weight:700;color:#6c757d;text-transform:uppercase;letter-spacing:.04em;">Full Assessment History</span>
+      <div class="d-flex gap-2">
+        <input type="search" id="fSearch" class="form-control form-control-sm" placeholder="Search driver…" style="width:180px;"/>
+        <select id="fType" class="form-select form-select-sm" style="width:160px;">
+          <option value="">All Types</option>
+          <option value="fitness">Fitness</option>
+          <option value="medical">Medical</option>
+          <option value="nutrition">Nutrition</option>
+          <option value="mental">Mental</option>
+          <option value="recovery">Recovery</option>
+        </select>
+      </div>
     </div>
-    <div class="mlo-shell" id="mainShell">
-      <div class="mlo-pane mlo-pane-left" style="width:180px;min-width:140px;">
-        <div class="mlo-pane-header p-2 border-bottom"><small class="fw-bold text-muted">METRIC</small></div>
-        <div class="mlo-pane-content p-2" id="filterList"></div>
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead><tr><th>Driver</th><th>Date</th><th>Type</th><th>Conducted By</th><th>VO₂ Max</th><th>Resting HR</th><th>Body Fat %</th><th>Weight (kg)</th><th>Neck Str (kg)</th><th>Result</th><th>Next Assessment</th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="fModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header py-2" style="background:#10b981;">
+        <h6 class="modal-title text-white fw-bold" id="modalTitle">New Assessment</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
-      <div class="mlo-resizer"></div>
-      <div class="mlo-pane mlo-pane-mid" style="flex:1 1 0;min-width:200px;">
-        <div class="mlo-pane-header p-2 border-bottom d-flex justify-content-between align-items-center">
-          <small class="fw-bold text-muted">FITNESS LOG</small>
-          <input type="search" class="form-control form-control-sm" id="searchBox" placeholder="Search…" style="width:160px"/>
-        </div>
-        <div class="mlo-pane-content p-0" style="overflow-y:auto;max-height:calc(100vh - 260px);">
-          <table class="data-table">
-            <thead><tr><th>Driver</th><th>Metric</th><th>Value</th><th>Unit</th><th>Target</th><th>Date</th></tr></thead>
-            <tbody id="tbody"></tbody>
-          </table>
-        </div>
-      </div>
-      <div class="mlo-resizer"></div>
-      <div class="mlo-pane mlo-pane-right" style="width:320px;min-width:260px;">
-        <div class="mlo-pane-header p-2 border-bottom d-flex justify-content-between align-items-center">
-          <small class="fw-bold text-muted">INSPECTOR</small>
-          <button class="btn btn-sm btn-danger" id="btnDel" style="display:none">Delete</button>
-        </div>
-        <div class="mlo-pane-content p-3" style="overflow-y:auto;max-height:calc(100vh - 260px);">
-          <form id="form" class="vstack gap-2" onsubmit="return false">
-            <div><label class="form-label small fw-semibold mb-1">Driver Name *</label><input class="form-control form-control-sm" id="fDriver"/></div>
-            <div><label class="form-label small fw-semibold mb-1">Driver ID</label><input class="form-control form-control-sm" id="fDriverId"/></div>
-            <div><label class="form-label small fw-semibold mb-1">Metric Type</label>
-              <select class="form-select form-select-sm" id="fMetric">
-                <option value="VO2max">VO2max</option><option value="reaction_time">Reaction Time</option>
-                <option value="neck_strength">Neck Strength</option><option value="grip_strength">Grip Strength</option>
-                <option value="body_weight">Body Weight</option><option value="body_fat">Body Fat %</option>
-                <option value="blood_pressure">Blood Pressure</option><option value="custom">Custom</option>
+      <div class="modal-body">
+        <form id="fForm" novalidate>
+          <input type="hidden" id="fId"/>
+          <div class="row g-2">
+            <div class="col-6">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Driver Name *</label>
+              <input type="text" class="form-control form-control-sm" id="fDriverName" required/>
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Driver ID</label>
+              <input type="text" class="form-control form-control-sm" id="fDriverId"/>
+            </div>
+            <div class="col-4">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Assessment Date *</label>
+              <input type="date" class="form-control form-control-sm" id="fAssessmentDate" required/>
+            </div>
+            <div class="col-4">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Assessment Type</label>
+              <select class="form-select form-select-sm" id="fAssessmentType">
+                <option value="fitness">Fitness</option>
+                <option value="medical">Medical</option>
+                <option value="nutrition">Nutrition</option>
+                <option value="mental">Mental</option>
+                <option value="recovery">Recovery</option>
               </select>
             </div>
-            <div class="row g-2">
-              <div class="col-6"><label class="form-label small fw-semibold mb-1">Value</label><input type="number" class="form-control form-control-sm" id="fValue" step="0.01"/></div>
-              <div class="col-6"><label class="form-label small fw-semibold mb-1">Unit</label><input class="form-control form-control-sm" id="fUnit" placeholder="kg, ms, Nm…"/></div>
+            <div class="col-4">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Conducted By</label>
+              <input type="text" class="form-control form-control-sm" id="fConductedBy"/>
             </div>
-            <div><label class="form-label small fw-semibold mb-1">Target Value</label><input type="number" class="form-control form-control-sm" id="fTarget" step="0.01"/></div>
-            <div><label class="form-label small fw-semibold mb-1">Recorded Date</label><input type="date" class="form-control form-control-sm" id="fDate"/></div>
-            <div><label class="form-label small fw-semibold mb-1">Notes</label><textarea class="form-control form-control-sm" id="fNotes" rows="3"></textarea></div>
-          </form>
-          <button class="btn btn-sm mt-2 w-100" id="btnSave" style="background:#ec4899;color:#fff">Save</button>
-        </div>
+            <div class="col-3">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">VO₂ Max</label>
+              <input type="number" step="0.1" class="form-control form-control-sm" id="fVo2Max"/>
+            </div>
+            <div class="col-3">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Resting HR</label>
+              <input type="number" class="form-control form-control-sm" id="fRestingHr"/>
+            </div>
+            <div class="col-3">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Body Fat %</label>
+              <input type="number" step="0.1" class="form-control form-control-sm" id="fBodyFatPct"/>
+            </div>
+            <div class="col-3">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Weight (kg)</label>
+              <input type="number" step="0.1" class="form-control form-control-sm" id="fWeightKg"/>
+            </div>
+            <div class="col-3">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Neck Strength (kg)</label>
+              <input type="number" step="0.1" class="form-control form-control-sm" id="fNeckStrengthKg"/>
+            </div>
+            <div class="col-3">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Result</label>
+              <select class="form-select form-select-sm" id="fResult">
+                <option value="pending">Pending</option>
+                <option value="pass">Pass</option>
+                <option value="conditional">Conditional</option>
+                <option value="fail">Fail</option>
+              </select>
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Next Assessment</label>
+              <input type="date" class="form-control form-control-sm" id="fNextAssessment"/>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Recommendations</label>
+              <textarea class="form-control form-control-sm" id="fRecommendations" rows="2"></textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Notes</label>
+              <textarea class="form-control form-control-sm" id="fNotes" rows="2"></textarea>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-sm btn-danger me-auto d-none" id="btnDel">Delete</button>
+        <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-sm text-white" id="btnSave" style="background:#10b981;border-color:#10b981;">Save</button>
       </div>
     </div>
   </div>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="topnav.js?v=20260420"></script>
-  <script src="core.js?v=20260420"></script>
-  <script>
-  const API='/api/driver-fitness';
-  const METRICS=['VO2max','reaction_time','neck_strength','grip_strength','body_weight','body_fat','blood_pressure','custom'];
-  let all=[],sel=null,filt='all';
-  const gv=id=>(document.getElementById(id)||{}).value||'';
-  const sv=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v??'';};
+</div>
 
-  async function load(){
-    try{const r=await fetch(API);const j=await r.json();all=Array.isArray(j)?j:(j.data||[]);updateKPIs();buildFilters();render();}
-    catch(e){console.error(e);}
-  }
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="topnav.js?v=20260420"></script>
+<script src="core.js?v=20260420"></script>
+<script>
+const API='/api/driver-fitness';
+let allRecords=[],editId=null;
+const modal=new bootstrap.Modal(document.getElementById('fModal'));
 
-  function updateKPIs(){
-    const withTarget=all.filter(x=>x.value!=null&&x.target_value!=null);
-    document.getElementById('kpi0').textContent=new Set(all.map(x=>x.driver_name).filter(Boolean)).size;
-    document.getElementById('kpi1').textContent=all.length;
-    document.getElementById('kpi2').textContent=withTarget.filter(x=>Number(x.value)>=Number(x.target_value)).length;
-    document.getElementById('kpi3').textContent=withTarget.filter(x=>Number(x.value)<Number(x.target_value)).length;
-  }
+function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function fmtDate(s){if(!s)return'—';return new Date(s).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});}
+function resultBadge(r){const m={pass:'br-pass',conditional:'br-conditional',fail:'br-fail',pending:'br-pending'};return`<span class="badge-result ${m[r]||'br-pending'}">${esc(r||'pending')}</span>`;}
+function num(v,d=1){return v!=null&&v!==''?Number(v).toFixed(d):'—';}
 
-  function buildFilters(){
-    const labels={VO2max:'VO2max',reaction_time:'Reaction Time',neck_strength:'Neck Strength',grip_strength:'Grip Strength',body_weight:'Body Weight',body_fat:'Body Fat %',blood_pressure:'Blood Pressure',custom:'Custom'};
-    document.getElementById('filterList').innerHTML=
-      [['all','All'],...METRICS.map(m=>[m,labels[m]||m])].map(([v,l])=>
-        `<a class="filter-item${filt===v?' active':''}" data-val="${v}" href="#">${l} <small class="text-muted">(${v==='all'?all.length:all.filter(x=>x.metric_type===v).length})</small></a>`
-      ).join('');
-    document.querySelectorAll('#filterList .filter-item').forEach(a=>a.onclick=e=>{e.preventDefault();filt=a.dataset.val;buildFilters();render();});
-  }
+async function load(){
+  try{const r=await fetch(API);if(r.ok)allRecords=await r.json();}catch(e){allRecords=[];}
+  renderKPIs();
+  renderDriverCards();
+  renderTable();
+}
 
-  function render(){
-    const q=document.getElementById('searchBox').value.toLowerCase();
-    let d=filt==='all'?[...all]:all.filter(x=>x.metric_type===filt);
-    if(q)d=d.filter(x=>JSON.stringify(x).toLowerCase().includes(q));
-    d.sort((a,b)=>(b.recorded_at||'').localeCompare(a.recorded_at||''));
-    document.getElementById('tbody').innerHTML=d.length
-      ?d.map(row=>{
-        const onTarget=row.value!=null&&row.target_value!=null;
-        const pass=onTarget&&Number(row.value)>=Number(row.target_value);
-        return `<tr data-id="${row.id}" class="${sel&&String(sel.id)===String(row.id)?'selected':''}">
-          <td class="fw-semibold">${row.driver_name||'—'}</td>
-          <td>${(row.metric_type||'').replace('_',' ')}</td>
-          <td class="fw-bold ${onTarget?(pass?'text-success':'text-danger'):''}">${row.value??'—'}</td>
-          <td>${row.unit||'—'}</td><td>${row.target_value??'—'}</td><td>${row.recorded_at||'—'}</td>
-        </tr>`;}).join('')
-      :'<tr><td colspan="6" class="text-center text-muted py-4">No fitness data found</td></tr>';
-    document.querySelectorAll('#tbody tr[data-id]').forEach(tr=>tr.onclick=()=>{
-      const item=all.find(x=>String(x.id)===tr.dataset.id);if(item)pick(item);
-    });
-  }
+function renderKPIs(){
+  const drivers=[...new Set(allRecords.map(r=>r.driver_name).filter(Boolean))];
+  // Latest result per driver
+  const latest=drivers.map(n=>{
+    const recs=allRecords.filter(r=>r.driver_name===n).sort((a,b)=>new Date(b.assessment_date)-new Date(a.assessment_date));
+    return recs[0];
+  }).filter(Boolean);
+  document.getElementById('kpiDrivers').textContent=drivers.length;
+  document.getElementById('kpiPass').textContent=latest.filter(r=>r.result==='pass').length;
+  document.getElementById('kpiCond').textContent=latest.filter(r=>r.result==='conditional').length;
+  document.getElementById('kpiFail').textContent=latest.filter(r=>r.result==='fail').length;
+}
 
-  function pick(item){
-    sel=item;
-    sv('fDriver',item.driver_name);sv('fDriverId',item.driver_id);sv('fMetric',item.metric_type||'VO2max');
-    sv('fValue',item.value);sv('fUnit',item.unit);sv('fTarget',item.target_value);
-    sv('fDate',item.recorded_at);sv('fNotes',item.notes);
-    document.getElementById('btnDel').style.display='';render();
-  }
+function renderDriverCards(){
+  const drivers=[...new Set(allRecords.map(r=>r.driver_name).filter(Boolean))].sort();
+  document.getElementById('driverCards').innerHTML=drivers.map(n=>{
+    const recs=allRecords.filter(r=>r.driver_name===n).sort((a,b)=>new Date(b.assessment_date)-new Date(a.assessment_date));
+    const latest=recs[0]||{};
+    return `<div class="drv-fit-card">
+      <div class="drv-fit-name">${esc(n)}</div>
+      <div class="mb-2">${resultBadge(latest.result)}</div>
+      <div class="drv-fit-metric">Date: <span>${fmtDate(latest.assessment_date)}</span></div>
+      <div class="drv-fit-metric">Body Fat: <span>${num(latest.body_fat_pct)}%</span></div>
+      <div class="drv-fit-metric">Weight: <span>${num(latest.weight_kg)} kg</span></div>
+      <div class="drv-fit-metric">Next: <span>${fmtDate(latest.next_assessment)}</span></div>
+    </div>`;
+  }).join('');
+}
 
-  function clearForm(){
-    sel=null;document.getElementById('form').reset();sv('fMetric','VO2max');
-    document.getElementById('btnDel').style.display='none';render();
-  }
+function filtered(){
+  const q=document.getElementById('fSearch').value.toLowerCase();
+  const t=document.getElementById('fType').value;
+  return allRecords.filter(r=>{
+    if(t&&r.assessment_type!==t)return false;
+    if(q&&!(r.driver_name||'').toLowerCase().includes(q))return false;
+    return true;
+  }).sort((a,b)=>new Date(b.assessment_date)-new Date(a.assessment_date));
+}
 
-  async function save(){
-    const body={driver_name:gv('fDriver'),driver_id:gv('fDriverId')||null,metric_type:gv('fMetric'),
-      value:gv('fValue')||null,unit:gv('fUnit'),target_value:gv('fTarget')||null,
-      recorded_at:gv('fDate')||null,notes:gv('fNotes')};
-    if(!body.driver_name){alert('Driver name is required');return;}
-    try{
-      const url=sel?`${API}/${sel.id}`:API;const method=sel?'PUT':'POST';
-      const r=await fetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-      if(r.ok){const saved=await r.json();if(!sel){sel=saved.data||saved;}await load();}
-      else alert('Save failed');
-    }catch(e){console.error(e);alert('Save failed');}
-  }
+function renderTable(){
+  const data=filtered();
+  document.getElementById('tbody').innerHTML=data.length?data.map(r=>`
+    <tr onclick="openEdit(${r.id})">
+      <td class="fw-semibold">${esc(r.driver_name||'')}</td>
+      <td>${fmtDate(r.assessment_date)}</td>
+      <td>${esc(r.assessment_type||'')}</td>
+      <td>${esc(r.conducted_by||'')}</td>
+      <td>${num(r.vo2_max)}</td>
+      <td>${num(r.resting_hr,0)}</td>
+      <td>${num(r.body_fat_pct)}%</td>
+      <td>${num(r.weight_kg)} kg</td>
+      <td>${num(r.neck_strength_kg)} kg</td>
+      <td>${resultBadge(r.result)}</td>
+      <td>${fmtDate(r.next_assessment)}</td>
+    </tr>`).join(''):'<tr><td colspan="11" class="text-center text-secondary py-4">No records found</td></tr>';
+}
 
-  async function del(){
-    if(!sel||!confirm('Delete this fitness entry? This cannot be undone.'))return;
-    try{const r=await fetch(`${API}/${sel.id}`,{method:'DELETE'});if(r.ok){clearForm();await load();}else alert('Delete failed');}
-    catch(e){console.error(e);}
-  }
+function openNew(){
+  document.getElementById('fForm').reset();
+  document.getElementById('fId').value='';
+  editId=null;
+  document.getElementById('modalTitle').textContent='New Assessment';
+  document.getElementById('btnDel').classList.add('d-none');
+  modal.show();
+}
 
-  document.getElementById('btnAdd').onclick=clearForm;
-  document.getElementById('btnSave').onclick=save;
-  document.getElementById('btnDel').onclick=del;
-  document.getElementById('searchBox').addEventListener('input',render);
-  load();
-  </script>
+function openEdit(id){
+  const r=allRecords.find(x=>x.id===id);if(!r)return;
+  editId=id;
+  document.getElementById('fId').value=r.id;
+  document.getElementById('fDriverName').value=r.driver_name||'';
+  document.getElementById('fDriverId').value=r.driver_id||'';
+  document.getElementById('fAssessmentDate').value=r.assessment_date?r.assessment_date.slice(0,10):'';
+  document.getElementById('fAssessmentType').value=r.assessment_type||'fitness';
+  document.getElementById('fConductedBy').value=r.conducted_by||'';
+  document.getElementById('fVo2Max').value=r.vo2_max??'';
+  document.getElementById('fRestingHr').value=r.resting_hr??'';
+  document.getElementById('fBodyFatPct').value=r.body_fat_pct??'';
+  document.getElementById('fWeightKg').value=r.weight_kg??'';
+  document.getElementById('fNeckStrengthKg').value=r.neck_strength_kg??'';
+  document.getElementById('fResult').value=r.result||'pending';
+  document.getElementById('fNextAssessment').value=r.next_assessment?r.next_assessment.slice(0,10):'';
+  document.getElementById('fRecommendations').value=r.recommendations||'';
+  document.getElementById('fNotes').value=r.notes||'';
+  document.getElementById('modalTitle').textContent='Edit Assessment';
+  document.getElementById('btnDel').classList.remove('d-none');
+  modal.show();
+}
+
+async function save(){
+  const id=document.getElementById('fId').value;
+  const body={
+    driver_name:document.getElementById('fDriverName').value.trim(),
+    driver_id:document.getElementById('fDriverId').value.trim(),
+    assessment_date:document.getElementById('fAssessmentDate').value||null,
+    assessment_type:document.getElementById('fAssessmentType').value,
+    conducted_by:document.getElementById('fConductedBy').value.trim(),
+    vo2_max:document.getElementById('fVo2Max').value||null,
+    resting_hr:document.getElementById('fRestingHr').value||null,
+    body_fat_pct:document.getElementById('fBodyFatPct').value||null,
+    weight_kg:document.getElementById('fWeightKg').value||null,
+    neck_strength_kg:document.getElementById('fNeckStrengthKg').value||null,
+    result:document.getElementById('fResult').value,
+    next_assessment:document.getElementById('fNextAssessment').value||null,
+    recommendations:document.getElementById('fRecommendations').value.trim(),
+    notes:document.getElementById('fNotes').value.trim()
+  };
+  if(!body.driver_name||!body.assessment_date){alert('Driver Name and Assessment Date are required');return;}
+  const r=await fetch(id?`${API}/${id}`:API,{method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(!r.ok){alert('Save failed');return;}
+  modal.hide();load();
+}
+
+async function del(){
+  const id=document.getElementById('fId').value;if(!id)return;
+  if(!confirm('Delete this assessment?'))return;
+  const r=await fetch(`${API}/${id}`,{method:'DELETE'});
+  if(!r.ok){alert('Delete failed');return;}
+  modal.hide();load();
+}
+
+document.getElementById('btnAdd').addEventListener('click',openNew);
+document.getElementById('btnSave').addEventListener('click',save);
+document.getElementById('btnDel').addEventListener('click',del);
+document.getElementById('fSearch').addEventListener('input',renderTable);
+document.getElementById('fType').addEventListener('change',renderTable);
+load();
+</script>
 </body>
 </html>

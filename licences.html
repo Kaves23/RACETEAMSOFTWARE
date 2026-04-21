@@ -2,188 +2,339 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Race Team OS – Driver Licences</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
   <link href="style.css?v=20260420" rel="stylesheet"/>
   <style>
-    body{background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%);}
+    body{background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%);min-height:100vh;}
     .ev-stats-bar{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
-    .ev-stat-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:10px 16px;min-width:110px;}
-    .ev-stat-label{font-size:.7rem;color:#6c757d;font-weight:600;text-transform:uppercase;}
-    .ev-stat-value{font-size:1.5rem;font-weight:700;color:#1a1d24;}
-    #mainShell.mlo-shell{background:transparent;border:none;gap:10px;}
-    #mainShell .mlo-pane-left,#mainShell .mlo-pane-mid,#mainShell .mlo-pane-right{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;}
-    .data-table{width:100%;font-size:.82rem;border-collapse:separate;border-spacing:0;}
-    .data-table thead{position:sticky;top:0;background:#f8f9fa;z-index:5;}
-    .data-table th{padding:8px 10px;font-size:.7rem;font-weight:700;text-transform:uppercase;color:#6c757d;border-bottom:2px solid #dee2e6;}
-    .data-table td{padding:6px 10px;border-bottom:1px solid rgba(0,0,0,.05);}
-    .data-table tbody tr{cursor:pointer;}
-    .data-table tbody tr:hover{background:#f8f9fa;}
-    .data-table tbody tr.selected{background:rgba(236,72,153,.08);outline:2px solid #ec4899;outline-offset:-2px;}
-    .filter-item{padding:5px 8px;border-radius:4px;cursor:pointer;font-size:.8rem;margin-bottom:2px;display:block;color:#495057;text-decoration:none;}
-    .filter-item:hover{background:#fdf2f8;color:#ec4899;}
-    .filter-item.active{background:rgba(236,72,153,.12);color:#ec4899;font-weight:600;}
+    .ev-stat-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:10px 16px;box-shadow:0 2px 4px rgba(0,0,0,.06);min-width:110px;}
+    .ev-stat-label{font-size:.7rem;color:#6c757d;font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+    .ev-stat-value{font-size:1.5rem;font-weight:700;color:#1a1d24;line-height:1.2;}
+
+    .filter-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center;}
+    .filter-bar select,.filter-bar input{font-size:.8rem;padding:4px 8px;border:1px solid #dee2e6;border-radius:6px;background:#fff;color:#1a1d24;}
+
+    .licences-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;}
+    .lic-card{background:#fff;border-radius:10px;padding:16px;box-shadow:0 2px 6px rgba(0,0,0,.08);border:2px solid transparent;cursor:pointer;transition:all .15s;position:relative;}
+    .lic-card:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.12);}
+    .lic-card.valid{border-color:#10b981;}
+    .lic-card.expiring_soon{border-color:#f59e0b;}
+    .lic-card.expired,.lic-card.suspended{border-color:#ef4444;}
+    .lic-card.pending{border-color:#9ca3af;}
+
+    .lic-driver{font-size:1rem;font-weight:700;color:#1a1d24;margin-bottom:6px;}
+    .lic-type-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.65rem;font-weight:700;margin-bottom:10px;}
+    .lt-competition{background:#dbeafe;color:#1d4ed8;}
+    .lt-international{background:#ede9fe;color:#5b21b6;}
+    .lt-superlicence{background:#fef3c7;color:#92400e;}
+    .lt-national{background:#d1fae5;color:#065f46;}
+    .lt-medical{background:#fee2e2;color:#991b1b;}
+    .lt-other{background:#f3f4f6;color:#6b7280;}
+
+    .lic-meta{font-size:.75rem;color:#6c757d;margin-bottom:3px;}
+    .lic-meta span{color:#1a1d24;font-weight:600;}
+
+    .lic-expiry{font-size:1.4rem;font-weight:800;margin:10px 0 4px;}
+    .lic-expiry.valid{color:#10b981;}
+    .lic-expiry.expiring_soon{color:#f59e0b;}
+    .lic-expiry.expired,.lic-expiry.suspended{color:#ef4444;}
+    .lic-expiry.pending{color:#9ca3af;}
+
+    .lic-countdown{font-size:.72rem;font-weight:600;margin-bottom:8px;}
+
+    .lic-status-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.65rem;font-weight:700;}
+    .ls-valid{background:#d1fae5;color:#065f46;}
+    .ls-expiring_soon{background:#fef3c7;color:#92400e;}
+    .ls-expired{background:#fee2e2;color:#991b1b;}
+    .ls-suspended{background:#fee2e2;color:#991b1b;}
+    .ls-pending{background:#f3f4f6;color:#6b7280;}
+
+    .sp-badge{background:#fef3c7;color:#92400e;display:inline-block;padding:2px 7px;border-radius:10px;font-size:.65rem;font-weight:700;margin-left:4px;}
+    .edit-btn{position:absolute;top:10px;right:10px;opacity:0;transition:opacity .15s;}
+    .lic-card:hover .edit-btn{opacity:1;}
   </style>
 </head>
 <body class="light-mode">
-  <div id="rtsTopNav"></div>
-  <div class="rts-main container-fluid">
-    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
-      <div>
-        <h1 class="h4 mb-1">Driver Licences</h1>
-        <p class="text-secondary mb-0" style="font-size:.85rem;">ASN, FIA, national and medical licence tracking with expiry alerts</p>
-      </div>
-      <button class="btn btn-sm" id="btnAdd" style="background:#ec4899;border-color:#ec4899;color:#fff">+ New Licence</button>
+<div id="rtsTopNav"></div>
+<div class="rts-main container-fluid">
+  <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+    <div>
+      <h1 class="h4 mb-1">Driver Licences</h1>
+      <p class="text-secondary mb-0" style="font-size:.85rem;">Competition licences, superlicences and medical certificates</p>
     </div>
-    <div class="ev-stats-bar">
-      <div class="ev-stat-card"><div class="ev-stat-label">Total</div><div class="ev-stat-value" id="kpi0">—</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">Active</div><div class="ev-stat-value" id="kpi1">—</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">Expiring &lt;30d</div><div class="ev-stat-value" id="kpi2">—</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">Expired</div><div class="ev-stat-value" id="kpi3">—</div></div>
-    </div>
-    <div class="mlo-shell" id="mainShell">
-      <div class="mlo-pane mlo-pane-left" style="width:180px;min-width:140px;">
-        <div class="mlo-pane-header p-2 border-bottom"><small class="fw-bold text-muted">STATUS</small></div>
-        <div class="mlo-pane-content p-2" id="filterList"></div>
+    <button class="btn btn-sm text-white" id="btnAdd" style="background:#f59e0b;border-color:#f59e0b;">+ New Licence</button>
+  </div>
+
+  <div class="ev-stats-bar">
+    <div class="ev-stat-card"><div class="ev-stat-label">Total</div><div class="ev-stat-value" id="kpiTotal">—</div></div>
+    <div class="ev-stat-card"><div class="ev-stat-label">Valid</div><div class="ev-stat-value" id="kpiValid">—</div></div>
+    <div class="ev-stat-card"><div class="ev-stat-label">Expiring &lt;60d</div><div class="ev-stat-value" id="kpiExpiring">—</div></div>
+    <div class="ev-stat-card"><div class="ev-stat-label">Expired / Suspended</div><div class="ev-stat-value" id="kpiExpired">—</div></div>
+  </div>
+
+  <div class="filter-bar">
+    <label class="fw-semibold me-1" style="font-size:.8rem;color:#6c757d;">Filter:</label>
+    <input type="search" id="fSearch" placeholder="Search driver…" style="width:180px;"/>
+    <select id="fType">
+      <option value="">All Types</option>
+      <option value="competition">Competition</option>
+      <option value="international">International</option>
+      <option value="superlicence">Superlicence</option>
+      <option value="national">National</option>
+      <option value="medical">Medical</option>
+      <option value="other">Other</option>
+    </select>
+    <select id="fStatus">
+      <option value="">All Status</option>
+      <option value="valid">Valid</option>
+      <option value="expiring_soon">Expiring Soon</option>
+      <option value="expired">Expired</option>
+      <option value="suspended">Suspended</option>
+      <option value="pending">Pending</option>
+    </select>
+  </div>
+
+  <div class="licences-grid" id="licGrid"></div>
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="lModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header py-2" style="background:#f59e0b;">
+        <h6 class="modal-title text-white fw-bold" id="modalTitle">New Licence</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
-      <div class="mlo-resizer"></div>
-      <div class="mlo-pane mlo-pane-mid" style="flex:1 1 0;min-width:200px;">
-        <div class="mlo-pane-header p-2 border-bottom d-flex justify-content-between align-items-center">
-          <small class="fw-bold text-muted">LICENCES LIST</small>
-          <input type="search" class="form-control form-control-sm" id="searchBox" placeholder="Search…" style="width:160px"/>
-        </div>
-        <div class="mlo-pane-content p-0" style="overflow-y:auto;max-height:calc(100vh - 260px);">
-          <table class="data-table">
-            <thead><tr><th>Driver</th><th>Type</th><th>Issuing Body</th><th>Licence #</th><th>Expiry</th><th>Status</th></tr></thead>
-            <tbody id="tbody"></tbody>
-          </table>
-        </div>
-      </div>
-      <div class="mlo-resizer"></div>
-      <div class="mlo-pane mlo-pane-right" style="width:320px;min-width:260px;">
-        <div class="mlo-pane-header p-2 border-bottom d-flex justify-content-between align-items-center">
-          <small class="fw-bold text-muted">INSPECTOR</small>
-          <button class="btn btn-sm btn-danger" id="btnDel" style="display:none">Delete</button>
-        </div>
-        <div class="mlo-pane-content p-3" style="overflow-y:auto;max-height:calc(100vh - 260px);">
-          <form id="form" class="vstack gap-2" onsubmit="return false">
-            <div><label class="form-label small fw-semibold mb-1">Driver Name *</label><input class="form-control form-control-sm" id="fDriver"/></div>
-            <div><label class="form-label small fw-semibold mb-1">Driver ID</label><input class="form-control form-control-sm" id="fDriverId"/></div>
-            <div><label class="form-label small fw-semibold mb-1">Licence Type</label>
-              <select class="form-select form-select-sm" id="fType">
-                <option value="ASN">ASN</option><option value="FIA">FIA</option>
-                <option value="national">National</option><option value="medical">Medical</option><option value="other">Other</option>
+      <div class="modal-body">
+        <form id="lForm" novalidate>
+          <input type="hidden" id="fId"/>
+          <div class="row g-2">
+            <div class="col-6">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Driver Name *</label>
+              <input type="text" class="form-control form-control-sm" id="fDriverName" required/>
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Driver ID</label>
+              <input type="text" class="form-control form-control-sm" id="fDriverId"/>
+            </div>
+            <div class="col-4">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Licence Type</label>
+              <select class="form-select form-select-sm" id="fLicenceType">
+                <option value="competition">Competition</option>
+                <option value="international">International</option>
+                <option value="superlicence">Superlicence</option>
+                <option value="national">National</option>
+                <option value="medical">Medical</option>
+                <option value="other">Other</option>
               </select>
             </div>
-            <div><label class="form-label small fw-semibold mb-1">Issuing Body</label><input class="form-control form-control-sm" id="fIssuingBody" placeholder="e.g. MSA, FIA, DMSB…"/></div>
-            <div><label class="form-label small fw-semibold mb-1">Licence Number</label><input class="form-control form-control-sm" id="fLicenceNum"/></div>
-            <div class="row g-2">
-              <div class="col-6"><label class="form-label small fw-semibold mb-1">Issue Date</label><input type="date" class="form-control form-control-sm" id="fIssueDate"/></div>
-              <div class="col-6"><label class="form-label small fw-semibold mb-1">Expiry Date</label><input type="date" class="form-control form-control-sm" id="fExpiry"/></div>
+            <div class="col-4">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Issuing Body *</label>
+              <input type="text" class="form-control form-control-sm" id="fIssuingBody" required placeholder="e.g. FIA, MSA"/>
             </div>
-            <div><label class="form-label small fw-semibold mb-1">Status</label>
-              <select class="form-select form-select-sm" id="fStatus">
-                <option value="active">Active</option><option value="expired">Expired</option>
-                <option value="suspended">Suspended</option><option value="pending">Pending</option>
+            <div class="col-4">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Licence Number</label>
+              <input type="text" class="form-control form-control-sm" id="fLicenceNumber"/>
+            </div>
+            <div class="col-4">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Issue Date</label>
+              <input type="date" class="form-control form-control-sm" id="fIssueDate"/>
+            </div>
+            <div class="col-4">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Expiry Date *</label>
+              <input type="date" class="form-control form-control-sm" id="fExpiryDate" required/>
+            </div>
+            <div class="col-4">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Grade</label>
+              <input type="text" class="form-control form-control-sm" id="fGrade"/>
+            </div>
+            <div class="col-4">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Superlicence Points</label>
+              <input type="number" class="form-control form-control-sm" id="fSuperlicencePoints" value="0"/>
+            </div>
+            <div class="col-4">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Status</label>
+              <select class="form-select form-select-sm" id="fStatus2">
+                <option value="valid">Valid</option>
+                <option value="expiring_soon">Expiring Soon</option>
+                <option value="expired">Expired</option>
+                <option value="suspended">Suspended</option>
+                <option value="pending">Pending</option>
               </select>
             </div>
-          </form>
-          <button class="btn btn-sm mt-2 w-100" id="btnSave" style="background:#ec4899;color:#fff">Save</button>
-        </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Document URL</label>
+              <input type="url" class="form-control form-control-sm" id="fDocumentUrl" placeholder="https://…"/>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Notes</label>
+              <textarea class="form-control form-control-sm" id="fNotes" rows="2"></textarea>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-sm btn-danger me-auto d-none" id="btnDel">Delete</button>
+        <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-sm text-white" id="btnSave" style="background:#f59e0b;border-color:#f59e0b;">Save</button>
       </div>
     </div>
   </div>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="topnav.js?v=20260420"></script>
-  <script src="core.js?v=20260420"></script>
-  <script>
-  const API='/api/driver-licences';
-  const STATUSES=['active','expired','suspended','pending'];
-  let all=[],sel=null,filt='all';
-  const gv=id=>(document.getElementById(id)||{}).value||'';
-  const sv=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v??'';};
+</div>
 
-  async function load(){
-    try{const r=await fetch(API);const j=await r.json();all=Array.isArray(j)?j:(j.data||[]);updateKPIs();buildFilters();render();}
-    catch(e){console.error(e);}
-  }
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="topnav.js?v=20260420"></script>
+<script src="core.js?v=20260420"></script>
+<script>
+const API='/api/driver-licences';
+let allLicences=[];
+const modal=new bootstrap.Modal(document.getElementById('lModal'));
 
-  function updateKPIs(){
-    const now=new Date();const soon=new Date();soon.setDate(soon.getDate()+30);
-    document.getElementById('kpi0').textContent=all.length;
-    document.getElementById('kpi1').textContent=all.filter(x=>x.status==='active').length;
-    document.getElementById('kpi2').textContent=all.filter(x=>x.status==='active'&&x.expiry_date&&new Date(x.expiry_date)<=soon&&new Date(x.expiry_date)>=now).length;
-    document.getElementById('kpi3').textContent=all.filter(x=>x.status==='expired'||(x.expiry_date&&new Date(x.expiry_date)<now)).length;
-  }
+function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function fmtDate(s){if(!s)return'—';return new Date(s).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});}
+function daysUntil(s){if(!s)return null;return Math.ceil((new Date(s)-new Date())/86400000);}
 
-  function buildFilters(){
-    document.getElementById('filterList').innerHTML=
-      [['all','All'],...STATUSES.map(s=>[s,s.charAt(0).toUpperCase()+s.slice(1)])].map(([v,l])=>
-        `<a class="filter-item${filt===v?' active':''}" data-val="${v}" href="#">${l} <small class="text-muted">(${v==='all'?all.length:all.filter(x=>x.status===v).length})</small></a>`
-      ).join('');
-    document.querySelectorAll('#filterList .filter-item').forEach(a=>a.onclick=e=>{e.preventDefault();filt=a.dataset.val;buildFilters();render();});
-  }
+function licTypeClass(t){return({competition:'lt-competition',international:'lt-international',superlicence:'lt-superlicence',national:'lt-national',medical:'lt-medical'})[t]||'lt-other';}
+function statusClass(s){return({valid:'ls-valid',expiring_soon:'ls-expiring_soon',expired:'ls-expired',suspended:'ls-suspended',pending:'ls-pending'})[s]||'ls-pending';}
+function cardClass(s){return({valid:'valid',expiring_soon:'expiring_soon',expired:'expired',suspended:'suspended',pending:'pending'})[s]||'pending';}
 
-  function render(){
-    const now=new Date();const soon=new Date();soon.setDate(soon.getDate()+30);
-    const q=document.getElementById('searchBox').value.toLowerCase();
-    let d=filt==='all'?[...all]:all.filter(x=>x.status===filt);
-    if(q)d=d.filter(x=>JSON.stringify(x).toLowerCase().includes(q));
-    const SB={active:'success',expired:'dark',suspended:'danger',pending:'warning'};
-    document.getElementById('tbody').innerHTML=d.length
-      ?d.map(row=>{
-        const expiring=row.status==='active'&&row.expiry_date&&new Date(row.expiry_date)<=soon&&new Date(row.expiry_date)>=now;
-        return `<tr data-id="${row.id}" class="${sel&&String(sel.id)===String(row.id)?'selected':''}">
-          <td class="fw-semibold">${row.driver_name||'—'}</td>
-          <td><span class="badge bg-light text-dark border">${row.licence_type||'—'}</span></td>
-          <td>${row.issuing_body||'—'}</td>
-          <td class="font-monospace" style="font-size:.75rem">${row.licence_number||'—'}</td>
-          <td class="${expiring?'text-warning fw-bold':''}">${row.expiry_date||'—'}</td>
-          <td><span class="badge bg-${SB[row.status]||'secondary'}">${row.status||'—'}</span></td>
-        </tr>`;}).join('')
-      :'<tr><td colspan="6" class="text-center text-muted py-4">No licences found</td></tr>';
-    document.querySelectorAll('#tbody tr[data-id]').forEach(tr=>tr.onclick=()=>{
-      const item=all.find(x=>String(x.id)===tr.dataset.id);if(item)pick(item);
-    });
-  }
+function computeStatus(lic){
+  if(lic.status&&lic.status!=='valid') return lic.status;
+  if(!lic.expiry_date) return lic.status||'pending';
+  const d=daysUntil(lic.expiry_date);
+  if(d<0) return 'expired';
+  if(d<=60) return 'expiring_soon';
+  return 'valid';
+}
 
-  function pick(item){
-    sel=item;
-    sv('fDriver',item.driver_name);sv('fDriverId',item.driver_id);sv('fType',item.licence_type||'ASN');
-    sv('fIssuingBody',item.issuing_body);sv('fLicenceNum',item.licence_number);
-    sv('fIssueDate',item.issue_date);sv('fExpiry',item.expiry_date);sv('fStatus',item.status||'active');
-    document.getElementById('btnDel').style.display='';render();
-  }
+async function load(){
+  try{const r=await fetch(API);if(r.ok)allLicences=await r.json();}catch(e){allLicences=[];}
+  renderKPIs();
+  renderGrid();
+}
 
-  function clearForm(){
-    sel=null;document.getElementById('form').reset();sv('fType','ASN');sv('fStatus','active');
-    document.getElementById('btnDel').style.display='none';render();
-  }
+function renderKPIs(){
+  const statuses=allLicences.map(l=>computeStatus(l));
+  document.getElementById('kpiTotal').textContent=allLicences.length;
+  document.getElementById('kpiValid').textContent=statuses.filter(s=>s==='valid').length;
+  document.getElementById('kpiExpiring').textContent=statuses.filter(s=>s==='expiring_soon').length;
+  document.getElementById('kpiExpired').textContent=statuses.filter(s=>s==='expired'||s==='suspended').length;
+}
 
-  async function save(){
-    const body={driver_name:gv('fDriver'),driver_id:gv('fDriverId')||null,licence_type:gv('fType'),
-      issuing_body:gv('fIssuingBody'),licence_number:gv('fLicenceNum'),
-      issue_date:gv('fIssueDate')||null,expiry_date:gv('fExpiry')||null,status:gv('fStatus')};
-    if(!body.driver_name){alert('Driver name is required');return;}
-    try{
-      const url=sel?`${API}/${sel.id}`:API;const method=sel?'PUT':'POST';
-      const r=await fetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-      if(r.ok){const saved=await r.json();if(!sel){sel=saved.data||saved;}await load();}
-      else alert('Save failed');
-    }catch(e){console.error(e);alert('Save failed');}
-  }
+function filtered(){
+  const q=document.getElementById('fSearch').value.toLowerCase();
+  const t=document.getElementById('fType').value;
+  const s=document.getElementById('fStatus').value;
+  return allLicences.filter(l=>{
+    const cs=computeStatus(l);
+    if(t&&l.licence_type!==t)return false;
+    if(s&&cs!==s)return false;
+    if(q&&!(l.driver_name||'').toLowerCase().includes(q))return false;
+    return true;
+  });
+}
 
-  async function del(){
-    if(!sel||!confirm('Delete this licence? This cannot be undone.'))return;
-    try{const r=await fetch(`${API}/${sel.id}`,{method:'DELETE'});if(r.ok){clearForm();await load();}else alert('Delete failed');}
-    catch(e){console.error(e);}
-  }
+function renderGrid(){
+  const data=filtered();
+  const grid=document.getElementById('licGrid');
+  if(!data.length){grid.innerHTML='<div class="text-secondary" style="font-size:.85rem;">No licences found.</div>';return;}
+  grid.innerHTML=data.map(l=>{
+    const cs=computeStatus(l);
+    const d=daysUntil(l.expiry_date);
+    let countdown='';
+    if(d!==null){
+      if(d<0) countdown=`<div class="lic-countdown" style="color:#ef4444;">Expired ${Math.abs(d)} days ago</div>`;
+      else if(d===0) countdown=`<div class="lic-countdown" style="color:#ef4444;">Expires TODAY</div>`;
+      else countdown=`<div class="lic-countdown" style="color:${d<=60?'#f59e0b':'#6c757d'};">${d} days remaining</div>`;
+    }
+    const sp=parseInt(l.superlicence_points)||0;
+    return `<div class="lic-card ${cardClass(cs)}" onclick="openEdit(${l.id})">
+      <button class="edit-btn btn btn-sm btn-outline-secondary" style="font-size:.7rem;padding:1px 7px;" onclick="event.stopPropagation();openEdit(${l.id})">Edit</button>
+      <div class="lic-driver">${esc(l.driver_name||'')}</div>
+      <div><span class="lic-type-badge ${licTypeClass(l.licence_type)}">${esc(l.licence_type||'')}</span></div>
+      <div class="lic-meta">Issuing Body: <span>${esc(l.issuing_body||'')}</span></div>
+      ${l.licence_number?`<div class="lic-meta">Licence No: <span>${esc(l.licence_number)}</span></div>`:''}
+      ${l.grade?`<div class="lic-meta">Grade: <span>${esc(l.grade)}</span></div>`:''}
+      <div class="lic-expiry ${cardClass(cs)}">${fmtDate(l.expiry_date)}</div>
+      ${countdown}
+      <div class="d-flex align-items-center gap-2">
+        <span class="lic-status-badge ${statusClass(cs)}">${cs.replace('_',' ')}</span>
+        ${sp>0?`<span class="sp-badge">${sp} SL pts</span>`:''}
+        ${l.document_url?`<a href="${esc(l.document_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="ms-auto" style="font-size:.72rem;color:#0ea5e9;">Doc ↗</a>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
 
-  document.getElementById('btnAdd').onclick=clearForm;
-  document.getElementById('btnSave').onclick=save;
-  document.getElementById('btnDel').onclick=del;
-  document.getElementById('searchBox').addEventListener('input',render);
-  load();
-  </script>
+function openNew(){
+  document.getElementById('lForm').reset();
+  document.getElementById('fId').value='';
+  document.getElementById('fSuperlicencePoints').value='0';
+  document.getElementById('fStatus2').value='valid';
+  document.getElementById('modalTitle').textContent='New Licence';
+  document.getElementById('btnDel').classList.add('d-none');
+  modal.show();
+}
+
+function openEdit(id){
+  const l=allLicences.find(x=>x.id===id);if(!l)return;
+  document.getElementById('fId').value=l.id;
+  document.getElementById('fDriverName').value=l.driver_name||'';
+  document.getElementById('fDriverId').value=l.driver_id||'';
+  document.getElementById('fLicenceType').value=l.licence_type||'competition';
+  document.getElementById('fIssuingBody').value=l.issuing_body||'';
+  document.getElementById('fLicenceNumber').value=l.licence_number||'';
+  document.getElementById('fIssueDate').value=l.issue_date?l.issue_date.slice(0,10):'';
+  document.getElementById('fExpiryDate').value=l.expiry_date?l.expiry_date.slice(0,10):'';
+  document.getElementById('fGrade').value=l.grade||'';
+  document.getElementById('fSuperlicencePoints').value=l.superlicence_points??0;
+  document.getElementById('fStatus2').value=l.status||'valid';
+  document.getElementById('fDocumentUrl').value=l.document_url||'';
+  document.getElementById('fNotes').value=l.notes||'';
+  document.getElementById('modalTitle').textContent='Edit Licence';
+  document.getElementById('btnDel').classList.remove('d-none');
+  modal.show();
+}
+
+async function save(){
+  const id=document.getElementById('fId').value;
+  const body={
+    driver_name:document.getElementById('fDriverName').value.trim(),
+    driver_id:document.getElementById('fDriverId').value.trim(),
+    licence_type:document.getElementById('fLicenceType').value,
+    issuing_body:document.getElementById('fIssuingBody').value.trim(),
+    licence_number:document.getElementById('fLicenceNumber').value.trim(),
+    issue_date:document.getElementById('fIssueDate').value||null,
+    expiry_date:document.getElementById('fExpiryDate').value||null,
+    grade:document.getElementById('fGrade').value.trim(),
+    superlicence_points:document.getElementById('fSuperlicencePoints').value||0,
+    status:document.getElementById('fStatus2').value,
+    document_url:document.getElementById('fDocumentUrl').value.trim(),
+    notes:document.getElementById('fNotes').value.trim()
+  };
+  if(!body.driver_name||!body.issuing_body||!body.expiry_date){alert('Driver Name, Issuing Body and Expiry Date are required');return;}
+  const r=await fetch(id?`${API}/${id}`:API,{method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(!r.ok){alert('Save failed');return;}
+  modal.hide();load();
+}
+
+async function del(){
+  const id=document.getElementById('fId').value;if(!id)return;
+  if(!confirm('Delete this licence?'))return;
+  const r=await fetch(`${API}/${id}`,{method:'DELETE'});
+  if(!r.ok){alert('Delete failed');return;}
+  modal.hide();load();
+}
+
+document.getElementById('btnAdd').addEventListener('click',openNew);
+document.getElementById('btnSave').addEventListener('click',save);
+document.getElementById('btnDel').addEventListener('click',del);
+document.getElementById('fSearch').addEventListener('input',renderGrid);
+document.getElementById('fType').addEventListener('change',renderGrid);
+document.getElementById('fStatus').addEventListener('change',renderGrid);
+load();
+</script>
 </body>
 </html>

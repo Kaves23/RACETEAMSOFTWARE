@@ -7,196 +7,380 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
   <link href="style.css?v=20260420" rel="stylesheet"/>
   <style>
-    body{background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%);}
-    .ev-stats-bar{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
-    .ev-stat-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:10px 16px;min-width:110px;}
-    .ev-stat-label{font-size:.7rem;color:#6c757d;font-weight:600;text-transform:uppercase;}
-    .ev-stat-value{font-size:1.5rem;font-weight:700;color:#1a1d24;}
-    #mainShell.mlo-shell{background:transparent;border:none;gap:10px;}
-    #mainShell .mlo-pane-left,#mainShell .mlo-pane-mid,#mainShell .mlo-pane-right{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;}
-    #mainShell .mlo-pane-header{background:#f8f9fa;border-bottom:1px solid rgba(0,0,0,.1);}
-    #mainShell .mlo-title{color:#1a1d24!important;}
-    #mainShell .mlo-section-label{color:#6c757d!important;opacity:1!important;}
-    #mainShell .mlo-resizer{background:transparent;}
-    #mainShell .mlo-resizer:hover{background:rgba(71,85,105,.3);}
-    #mainShell .form-label{color:#495057!important;font-size:.78rem;font-weight:600;margin-bottom:2px;}
-    #mainShell .form-control,#mainShell .form-select{background:#fff!important;color:#1a1d24!important;border-color:#dee2e6!important;font-size:.82rem;}
-    #mainShell .mlo-pane-left .pastel-tree li{height:28px!important;display:flex!important;align-items:center!important;font-size:.83rem!important;font-weight:500!important;padding-left:10px!important;margin-bottom:2px!important;border-radius:5px!important;border:1px solid rgba(0,0,0,.08)!important;color:#1a1d24!important;cursor:pointer!important;}
-    #mainShell .mlo-pane-left .pastel-tree li.active{background:rgba(71,85,105,.1)!important;border-color:rgba(71,85,105,.4)!important;color:#1e293b!important;font-weight:700!important;}
-    .data-table{width:100%;font-size:.82rem;border-collapse:separate;border-spacing:0;}
-    .data-table thead{position:sticky;top:0;background:#f8f9fa;z-index:5;}
-    .data-table th{padding:8px 10px;font-size:.7rem;font-weight:700;text-transform:uppercase;color:#6c757d;border-bottom:2px solid #dee2e6;}
-    .data-table td{padding:6px 10px;border-bottom:1px solid rgba(0,0,0,.05);vertical-align:middle;color:#1a1d24;}
-    .data-table tbody tr{cursor:pointer;transition:background .1s;}
-    .data-table tbody tr:hover{background:#f8f9fa;}
-    .data-table tbody tr.selected{background:rgba(71,85,105,.08)!important;outline:2px solid #475569;outline-offset:-2px;}
-    .badge-r{padding:2px 8px;border-radius:999px;font-size:.7rem;font-weight:600;}
-    .st-scheduled{background:#dbeafe;color:#1e40af;}
-    .st-completed{background:#d1fae5;color:#065f46;}
+    body{background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%);min-height:100vh;}
+    .rts-main{padding:1.5rem;}
+    .ev-stats-bar{display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem;}
+    .ev-stat-card{background:#fff;border-radius:10px;padding:1rem 1.5rem;box-shadow:0 2px 8px rgba(0,0,0,.08);min-width:120px;border-top:4px solid #14b8a6;}
+    .ev-stat-label{font-size:.72rem;text-transform:uppercase;color:#6b7280;font-weight:600;letter-spacing:.05em;}
+    .ev-stat-value{font-size:1.8rem;font-weight:800;color:#1f2937;line-height:1.1;}
+    .filter-bar{background:#fff;border-radius:10px;padding:.75rem 1rem;box-shadow:0 2px 8px rgba(0,0,0,.08);margin-bottom:1.25rem;display:flex;gap:.75rem;flex-wrap:wrap;align-items:flex-end;}
+    .filter-bar .flabel{font-size:.7rem;font-weight:700;color:#6b7280;text-transform:uppercase;display:block;margin-bottom:.2rem;}
+    .timeline{display:flex;flex-direction:column;gap:.75rem;}
+    .review-card{background:#fff;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.08);border-left:4px solid #14b8a6;overflow:hidden;transition:box-shadow .15s;}
+    .review-card.complete{border-left-color:#10b981;opacity:.88;}
+    .review-card.cancelled{border-left-color:#d1d5db;opacity:.65;}
+    .review-card.cancelled .card-title{text-decoration:line-through;color:#9ca3af;}
+    .card-summary{padding:.9rem 1.1rem;cursor:pointer;display:flex;align-items:center;gap:1rem;justify-content:space-between;}
+    .card-summary:hover{background:#f0fdfa;}
+    .card-left{display:flex;align-items:center;gap:.75rem;flex:1;min-width:0;}
+    .card-date-block{flex-shrink:0;text-align:center;background:#f0fdfa;border:1px solid #99f6e4;border-radius:8px;padding:.35rem .6rem;min-width:52px;}
+    .card-date-block .date-day{font-size:1.2rem;font-weight:800;color:#0d9488;line-height:1;}
+    .card-date-block .date-mon{font-size:.65rem;font-weight:700;color:#6b7280;text-transform:uppercase;}
+    .card-info{flex:1;min-width:0;}
+    .card-title{font-size:.92rem;font-weight:700;color:#1f2937;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .card-meta{display:flex;gap:.5rem;margin-top:.25rem;flex-wrap:wrap;align-items:center;}
+    .card-attendees{font-size:.78rem;color:#6b7280;}
+    .card-right{flex-shrink:0;display:flex;align-items:center;gap:.5rem;}
+    .toggle-icon{font-size:.9rem;color:#6b7280;transition:transform .2s;}
+    .toggle-icon.open{transform:rotate(180deg);}
+    .card-expanded{border-top:1px solid #f0fdfa;padding:1.1rem;background:#fafffe;}
+    .frow{margin-bottom:.9rem;}
+    .frow label{font-size:.68rem;font-weight:700;text-transform:uppercase;color:#9ca3af;letter-spacing:.06em;display:block;margin-bottom:.2rem;}
+    .frow .fv{font-size:.88rem;color:#1f2937;white-space:pre-wrap;word-break:break-word;}
+    .frow .fv.empty{color:#d1d5db;font-style:italic;}
+    .minutes-block{background:#f0fdfa;border:1.5px solid #99f6e4;border-radius:8px;padding:1rem;font-size:.85rem;white-space:pre-wrap;word-break:break-word;color:#134e4a;font-family:monospace;}
+    .action-item{padding:.3rem 0;border-bottom:1px solid #f0fdfa;font-size:.85rem;color:#1f2937;}
+    .action-item:last-child{border-bottom:none;}
+    .action-item::before{content:'•';color:#14b8a6;font-weight:700;margin-right:.5rem;}
+    .bp{display:inline-block;padding:.2rem .65rem;border-radius:20px;font-size:.7rem;font-weight:700;white-space:nowrap;}
+    .rt-daily{background:#cffafe;color:#0e7490;}
+    .rt-weekly{background:#dbeafe;color:#1d4ed8;}
+    .rt-post_event{background:#ede9fe;color:#5b21b6;}
+    .rt-monthly{background:#fce7f3;color:#9d174d;}
+    .rt-quarterly{background:#fef3c7;color:#92400e;}
+    .st-scheduled{background:#e0f2fe;color:#0369a1;}
+    .st-complete{background:#d1fae5;color:#065f46;}
     .st-cancelled{background:#f3f4f6;color:#6b7280;}
-    .type-badge{padding:2px 8px;border-radius:4px;font-size:.7rem;font-weight:600;background:#f1f5f9;color:#475569;text-transform:capitalize;}
+    .date-past{opacity:.7;}
+    .page-title{font-weight:800;color:#14b8a6;letter-spacing:-.01em;}
+    .modal-header-accent{background:#14b8a6;color:#fff;}
+    .modal-header-accent .btn-close{filter:invert(1);}
+    .empty-state{text-align:center;padding:3rem;color:#9ca3af;}
   </style>
 </head>
 <body class="light-mode">
-  <div id="rtsTopNav"></div>
-  <div class="rts-main container-fluid">
-    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
-      <div><h1 class="h4 mb-1">Review Board</h1><div class="text-secondary" style="font-size:.85rem;">Scheduled and completed team review meetings — agendas, findings, and agreed actions.</div></div>
-      <button class="btn btn-sm btn-primary" id="btnAdd" style="background:#475569;border-color:#475569;">+ New Review</button>
+<div id="rtsTopNav"></div>
+<div class="rts-main container-fluid">
+
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <div>
+      <h2 class="page-title mb-0">Review Board</h2>
+      <div class="text-secondary small mt-1">Scheduled reviews, minutes and action tracking.</div>
     </div>
-    <div class="ev-stats-bar">
-      <div class="ev-stat-card"><div class="ev-stat-label">Total</div><div class="ev-stat-value" id="statTotal">0</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">Scheduled</div><div class="ev-stat-value" style="color:#3b82f6;" id="statScheduled">0</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">Completed</div><div class="ev-stat-value" style="color:#22c55e;" id="statCompleted">0</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">With Actions</div><div class="ev-stat-value" style="color:#f59e0b;" id="statActions">0</div></div>
+    <button class="btn btn-sm fw-semibold" style="background:#14b8a6;color:#fff;padding:.4rem 1.1rem" onclick="openModal()">+ New Review</button>
+  </div>
+
+  <div class="ev-stats-bar">
+    <div class="ev-stat-card"><div class="ev-stat-label">Total</div><div class="ev-stat-value" id="kpiTotal">—</div></div>
+    <div class="ev-stat-card"><div class="ev-stat-label">Scheduled</div><div class="ev-stat-value" style="color:#0ea5e9" id="kpiScheduled">—</div></div>
+    <div class="ev-stat-card"><div class="ev-stat-label">Complete</div><div class="ev-stat-value" style="color:#10b981" id="kpiComplete">—</div></div>
+    <div class="ev-stat-card"><div class="ev-stat-label">Cancelled</div><div class="ev-stat-value" style="color:#6b7280" id="kpiCancelled">—</div></div>
+  </div>
+
+  <div class="filter-bar">
+    <div>
+      <span class="flabel">Type</span>
+      <select class="form-select form-select-sm" id="fltType" onchange="applyFilters()">
+        <option value="">All Types</option>
+        <option value="daily">Daily</option>
+        <option value="weekly">Weekly</option>
+        <option value="post_event">Post Event</option>
+        <option value="monthly">Monthly</option>
+        <option value="quarterly">Quarterly</option>
+      </select>
     </div>
-    <div class="mlo-shell" id="mainShell">
-      <section class="mlo-pane mlo-pane-left" aria-label="Review type filter">
-        <div class="mlo-pane-header"><div class="mlo-title">Filter</div></div>
-        <div class="mlo-pane-content">
-          <div class="mlo-section-label">Review Type</div>
-          <ul class="mlo-tree pastel-tree" id="typeFilter">
-            <li class="active" data-filter="all">All</li>
-            <li data-filter="monthly">Monthly</li>
-            <li data-filter="quarterly">Quarterly</li>
-            <li data-filter="annual">Annual</li>
-            <li data-filter="incident">Incident</li>
-            <li data-filter="special">Special</li>
-          </ul>
-          <div class="mlo-section-label mt-3">Status</div>
-          <ul class="mlo-tree pastel-tree" id="statFilter">
-            <li class="active" data-filter="all">All</li>
-            <li data-filter="scheduled">Scheduled</li>
-            <li data-filter="completed">Completed</li>
-            <li data-filter="cancelled">Cancelled</li>
-          </ul>
-        </div>
-      </section>
-      <div class="mlo-resizer" id="resizer1"></div>
-      <section class="mlo-pane mlo-pane-mid" aria-label="Reviews list">
-        <div class="mlo-pane-header">
-          <div class="d-flex justify-content-between align-items-center">
-            <div class="mlo-title">Reviews</div>
-            <span class="badge text-bg-secondary" id="countBadge">0</span>
-          </div>
-          <input class="form-control form-control-sm mt-2" type="search" id="searchInput" placeholder="Search title…"/>
-        </div>
-        <div class="mlo-pane-content p-0">
-          <table class="data-table">
-            <thead><tr><th>Title</th><th>Type</th><th>Date</th><th>Status</th></tr></thead>
-            <tbody id="tableBody"><tr><td colspan="4" class="text-center text-secondary py-4">No reviews found.</td></tr></tbody>
-          </table>
-        </div>
-      </section>
-      <div class="mlo-resizer" id="resizer2"></div>
-      <section class="mlo-pane mlo-pane-right" aria-label="Review detail">
-        <div class="mlo-pane-header"><div class="mlo-title" id="detailTitle">Review</div></div>
-        <div class="mlo-pane-content">
-          <div class="text-center text-secondary py-5" id="detailEmpty"><div style="font-size:2rem;">📋</div><div class="mt-2">Select a review to view or edit</div></div>
-          <form id="detailForm" style="display:none;">
-            <div class="mb-2"><label class="form-label">Title *</label><input class="form-control" id="fTitle" required/></div>
-            <div class="row g-2 mb-2">
-              <div class="col"><label class="form-label">Review Type</label>
-                <select class="form-select" id="fType">
-                  <option value="monthly">Monthly</option>
-                  <option value="quarterly">Quarterly</option>
-                  <option value="annual">Annual</option>
-                  <option value="incident">Incident</option>
-                  <option value="special">Special</option>
-                </select>
-              </div>
-              <div class="col"><label class="form-label">Review Date</label><input class="form-control" id="fDate" type="date"/></div>
+    <div>
+      <span class="flabel">Status</span>
+      <select class="form-select form-select-sm" id="fltStatus" onchange="applyFilters()">
+        <option value="">All</option>
+        <option value="scheduled">Scheduled</option>
+        <option value="complete">Complete</option>
+        <option value="cancelled">Cancelled</option>
+      </select>
+    </div>
+    <div>
+      <span class="flabel">Search</span>
+      <input type="text" class="form-control form-control-sm" id="fltSearch" placeholder="Title…" oninput="applyFilters()" style="min-width:160px;">
+    </div>
+    <div style="margin-top:auto;">
+      <button class="btn btn-sm btn-outline-secondary" onclick="clearFilters()">Clear</button>
+    </div>
+  </div>
+
+  <div class="timeline" id="timeline">
+    <div class="empty-state">Loading…</div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="crudModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header modal-header-accent">
+        <h5 class="modal-title" id="modalTitle">New Review</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="crudForm" novalidate>
+          <input type="hidden" id="fId"/>
+          <div class="row g-3">
+            <div class="col-md-8">
+              <label class="form-label fw-semibold small">Title <span class="text-danger">*</span></label>
+              <input type="text" class="form-control form-control-sm" id="fTitle" required/>
             </div>
-            <div class="mb-2"><label class="form-label">Attendees</label><textarea class="form-control" id="fAttendees" rows="2" placeholder="Names or roles…"></textarea></div>
-            <div class="mb-2"><label class="form-label">Agenda</label><textarea class="form-control" id="fAgenda" rows="3" placeholder="Agenda items…"></textarea></div>
-            <div class="mb-2"><label class="form-label">Findings</label><textarea class="form-control" id="fFindings" rows="3" placeholder="Key findings from review…"></textarea></div>
-            <div class="mb-2"><label class="form-label">Recommendations</label><textarea class="form-control" id="fRecommendations" rows="2" placeholder="Recommendations made…"></textarea></div>
-            <div class="mb-2"><label class="form-label">Actions Agreed</label><textarea class="form-control" id="fActions" rows="3" placeholder="Actions agreed upon…"></textarea></div>
-            <div class="mb-3"><label class="form-label">Status</label>
-              <select class="form-select" id="fStatus">
+            <div class="col-md-4">
+              <label class="form-label fw-semibold small">Review Type</label>
+              <select class="form-select form-select-sm" id="fReviewType">
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="post_event">Post Event</option>
+                <option value="monthly">Monthly</option>
+                <option value="quarterly">Quarterly</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold small">Scheduled Date <span class="text-danger">*</span></label>
+              <input type="date" class="form-control form-control-sm" id="fScheduledDate" required/>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold small">Event ID</label>
+              <input type="text" class="form-control form-control-sm" id="fEventId"/>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold small">Status</label>
+              <select class="form-select form-select-sm" id="fStatus">
                 <option value="scheduled">Scheduled</option>
-                <option value="completed">Completed</option>
+                <option value="complete">Complete</option>
                 <option value="cancelled">Cancelled</option>
               </select>
             </div>
-            <div class="d-flex gap-2">
-              <button type="button" class="btn btn-sm btn-primary" id="btnSave" style="background:#475569;border-color:#475569;">Save</button>
-              <button type="button" class="btn btn-sm btn-outline-danger" id="btnDelete" style="display:none;">Delete</button>
-              <button type="button" class="btn btn-sm btn-outline-secondary" id="btnCancel">Cancel</button>
+            <div class="col-12">
+              <label class="form-label fw-semibold small">Attendees</label>
+              <textarea class="form-control form-control-sm" id="fAttendees" rows="2"></textarea>
             </div>
-          </form>
-        </div>
-      </section>
+            <div class="col-12">
+              <label class="form-label fw-semibold small">Agenda</label>
+              <textarea class="form-control form-control-sm" id="fAgenda" rows="3"></textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold small">Minutes</label>
+              <textarea class="form-control form-control-sm" id="fMinutes" rows="5"></textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold small">Action Items <span class="text-muted">(one per line)</span></label>
+              <textarea class="form-control form-control-sm" id="fActionItems" rows="4" placeholder="One per line…"></textarea>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold small">Created By</label>
+              <input type="text" class="form-control form-control-sm" id="fCreatedBy"/>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-sm fw-semibold" style="background:#14b8a6;color:#fff" onclick="saveRecord()">Save</button>
+      </div>
     </div>
   </div>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="topnav.js?v=20260420"></script>
-  <script src="core.js?v=20260420"></script>
-  <script>
-    let all=[],selectedId=null,filterType='all',filterStat='all';
-    function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-    function fmtDate(d){if(!d)return'—';const p=d.split('-');return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:d;}
-    const stC={scheduled:'st-scheduled',completed:'st-completed',cancelled:'st-cancelled'};
-    async function load(){try{const r=await fetch('/api/review-board');if(r.ok)all=await r.json();}catch(_){all=[];}renderList();}
-    function renderList(){
-      const q=document.getElementById('searchInput').value.trim().toLowerCase();
-      const rows=all.filter(e=>{
-        const mt=filterType==='all'||e.review_type===filterType;
-        const ms=filterStat==='all'||e.status===filterStat;
-        const mq=!q||(e.title||'').toLowerCase().includes(q);
-        return mt&&ms&&mq;
-      });
-      document.getElementById('countBadge').textContent=rows.length;
-      document.getElementById('statTotal').textContent=all.length;
-      document.getElementById('statScheduled').textContent=all.filter(e=>e.status==='scheduled').length;
-      document.getElementById('statCompleted').textContent=all.filter(e=>e.status==='completed').length;
-      document.getElementById('statActions').textContent=all.filter(e=>e.actions_agreed&&e.actions_agreed.trim()).length;
-      const tb=document.getElementById('tableBody');
-      if(!rows.length){tb.innerHTML='<tr><td colspan="4" class="text-center text-secondary py-4">No reviews match.</td></tr>';return;}
-      tb.innerHTML=rows.map(e=>`<tr data-id="${e.id}" class="${e.id==selectedId?'selected':''}">
-        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(e.title||'—')}</td>
-        <td><span class="type-badge">${esc(e.review_type||'—')}</span></td>
-        <td>${fmtDate(e.review_date)}</td>
-        <td><span class="badge-r ${stC[e.status]||''}">${esc(e.status||'—')}</span></td></tr>`).join('');
-      tb.querySelectorAll('tr').forEach(r=>r.addEventListener('click',()=>selectRow(r.dataset.id)));
-    }
-    function selectRow(id){
-      selectedId=id;const e=all.find(x=>x.id==id);if(!e)return;
-      document.getElementById('detailEmpty').style.display='none';
-      document.getElementById('detailForm').style.display='';
-      document.getElementById('detailTitle').textContent=e.title||'Review';
-      document.getElementById('fTitle').value=e.title||'';
-      document.getElementById('fType').value=e.review_type||'monthly';
-      document.getElementById('fDate').value=e.review_date||'';
-      document.getElementById('fAttendees').value=e.attendees||'';
-      document.getElementById('fAgenda').value=e.agenda||'';
-      document.getElementById('fFindings').value=e.findings||'';
-      document.getElementById('fRecommendations').value=e.recommendations||'';
-      document.getElementById('fActions').value=e.actions_agreed||'';
-      document.getElementById('fStatus').value=e.status||'scheduled';
-      document.getElementById('btnDelete').style.display='';
-      renderList();
-    }
-    document.getElementById('btnAdd').addEventListener('click',()=>{
-      selectedId=null;document.getElementById('detailEmpty').style.display='none';
-      document.getElementById('detailForm').style.display='';document.getElementById('detailTitle').textContent='New Review';
-      document.getElementById('detailForm').reset();document.getElementById('btnDelete').style.display='none';
-    });
-    document.getElementById('btnSave').addEventListener('click',async()=>{
-      const t=document.getElementById('fTitle').value.trim();
-      if(!t){alert('Title is required.');return;}
-      const body={title:t,review_type:document.getElementById('fType').value,review_date:document.getElementById('fDate').value||null,attendees:document.getElementById('fAttendees').value.trim()||null,agenda:document.getElementById('fAgenda').value.trim()||null,findings:document.getElementById('fFindings').value.trim()||null,recommendations:document.getElementById('fRecommendations').value.trim()||null,actions_agreed:document.getElementById('fActions').value.trim()||null,status:document.getElementById('fStatus').value};
-      try{const url=selectedId?`/api/review-board/${selectedId}`:'/api/review-board';const r=await fetch(url,{method:selectedId?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error(await r.text());await load();}catch(e){alert('Save failed: '+e.message);}
-    });
-    document.getElementById('btnDelete').addEventListener('click',async()=>{
-      if(!selectedId||!confirm('Delete this review?'))return;
-      try{await fetch(`/api/review-board/${selectedId}`,{method:'DELETE'});selectedId=null;document.getElementById('detailForm').style.display='none';document.getElementById('detailEmpty').style.display='';await load();}catch(e){alert('Delete failed: '+e.message);}
-    });
-    document.getElementById('btnCancel').addEventListener('click',()=>{document.getElementById('detailForm').style.display='none';document.getElementById('detailEmpty').style.display='';});
-    document.getElementById('searchInput').addEventListener('input',renderList);
-    document.querySelectorAll('#typeFilter li').forEach(li=>li.addEventListener('click',()=>{document.querySelectorAll('#typeFilter li').forEach(x=>x.classList.remove('active'));li.classList.add('active');filterType=li.dataset.filter;renderList();}));
-    document.querySelectorAll('#statFilter li').forEach(li=>li.addEventListener('click',()=>{document.querySelectorAll('#statFilter li').forEach(x=>x.classList.remove('active'));li.classList.add('active');filterStat=li.dataset.filter;renderList();}));
-    load();
-  </script>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="topnav.js?v=20260420"></script>
+<script src="core.js?v=20260420"></script>
+<script>
+const API = '/api/review-board';
+let allData = [], expandedIds = new Set();
+const bsModal = new bootstrap.Modal(document.getElementById('crudModal'));
+
+async function load() {
+  try { const r = await fetch(API); allData = await r.json(); } catch(e) { allData = []; }
+  updateKPIs(); applyFilters();
+}
+
+function updateKPIs() {
+  document.getElementById('kpiTotal').textContent = allData.length;
+  document.getElementById('kpiScheduled').textContent = allData.filter(x=>x.status==='scheduled').length;
+  document.getElementById('kpiComplete').textContent = allData.filter(x=>x.status==='complete').length;
+  document.getElementById('kpiCancelled').textContent = allData.filter(x=>x.status==='cancelled').length;
+}
+
+function applyFilters() {
+  const type = document.getElementById('fltType').value;
+  const st = document.getElementById('fltStatus').value;
+  const q = document.getElementById('fltSearch').value.toLowerCase();
+  let filtered = allData.filter(r => {
+    if (type && r.review_type !== type) return false;
+    if (st && r.status !== st) return false;
+    if (q && !(r.title||'').toLowerCase().includes(q)) return false;
+    return true;
+  });
+  filtered.sort((a,b) => {
+    const da = a.scheduled_date||'9999';
+    const db = b.scheduled_date||'9999';
+    return da.localeCompare(db);
+  });
+  renderTimeline(filtered);
+}
+
+function clearFilters() {
+  ['fltType','fltStatus','fltSearch'].forEach(id=>{document.getElementById(id).value='';});
+  applyFilters();
+}
+
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function fmtDate(d){if(!d)return '—';return String(d).split('T')[0];}
+function parseDateParts(d){
+  if(!d) return {day:'?',mon:'?'};
+  const dt = new Date(d.split('T')[0]+'T00:00:00');
+  return {day:dt.getDate(),mon:dt.toLocaleString('default',{month:'short'}).toUpperCase()};
+}
+
+function typeBadge(s){
+  const m={daily:'rt-daily',weekly:'rt-weekly',post_event:'rt-post_event',monthly:'rt-monthly',quarterly:'rt-quarterly'};
+  const l={daily:'Daily',weekly:'Weekly',post_event:'Post Event',monthly:'Monthly',quarterly:'Quarterly'};
+  return `<span class="bp ${m[s]||'rt-weekly'}">${l[s]||esc(s)||'—'}</span>`;
+}
+function stBadge(s){
+  const m={scheduled:'st-scheduled',complete:'st-complete',cancelled:'st-cancelled'};
+  const l={scheduled:'Scheduled',complete:'Complete',cancelled:'Cancelled'};
+  return `<span class="bp ${m[s]||'st-scheduled'}">${l[s]||esc(s)||'—'}</span>`;
+}
+
+function renderTimeline(filtered) {
+  const tl = document.getElementById('timeline');
+  if (!filtered.length) {
+    tl.innerHTML = '<div class="empty-state">No reviews match your filters.</div>';
+    return;
+  }
+  const TODAY = new Date().toISOString().split('T')[0];
+  tl.innerHTML = filtered.map(r => {
+    const {day,mon} = parseDateParts(r.scheduled_date);
+    const expanded = expandedIds.has(r.id);
+    const isPast = r.scheduled_date && r.scheduled_date.split('T')[0] < TODAY;
+    const actionList = r.action_items ? r.action_items.split('\n').filter(x=>x.trim()) : [];
+    const expandedHtml = expanded ? `
+      <div class="card-expanded">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <div class="frow"><label>Scheduled Date</label><div class="fv">${fmtDate(r.scheduled_date)}</div></div>
+            <div class="frow"><label>Review Type</label><div class="fv">${typeBadge(r.review_type)}</div></div>
+            <div class="frow"><label>Status</label><div class="fv">${stBadge(r.status)}</div></div>
+            <div class="frow"><label>Event ID</label><div class="fv">${esc(r.event_id)||'—'}</div></div>
+            <div class="frow"><label>Created By</label><div class="fv">${esc(r.created_by)||'—'}</div></div>
+          </div>
+          <div class="col-md-6">
+            <div class="frow"><label>Attendees</label><div class="fv ${r.attendees?'':'empty'}">${esc(r.attendees)||'None listed.'}</div></div>
+            <div class="frow"><label>Agenda</label><div class="fv ${r.agenda?'':'empty'}">${esc(r.agenda)||'No agenda recorded.'}</div></div>
+          </div>
+          <div class="col-12">
+            <div class="frow"><label>Minutes</label>
+              <div class="minutes-block ${r.minutes?'':'empty'}">${esc(r.minutes)||'No minutes recorded yet.'}</div>
+            </div>
+          </div>
+          ${actionList.length ? `<div class="col-12">
+            <div class="frow"><label>Action Items</label>
+              <div>${actionList.map(a=>`<div class="action-item">${esc(a.trim())}</div>`).join('')}</div>
+            </div>
+          </div>` : ''}
+        </div>
+        <div class="d-flex gap-2 mt-2">
+          <button class="btn btn-sm btn-outline-danger" onclick="event.stopPropagation();deleteRecord(${r.id})">Delete</button>
+          <button class="btn btn-sm fw-semibold" style="background:#14b8a6;color:#fff" onclick="event.stopPropagation();editById(${r.id})">Edit</button>
+        </div>
+      </div>` : '';
+    return `<div class="review-card ${r.status||''}" id="rc-${r.id}">
+      <div class="card-summary" onclick="toggleExpand(${r.id})">
+        <div class="card-left">
+          <div class="card-date-block ${isPast?'date-past':''}">
+            <div class="date-day">${day}</div>
+            <div class="date-mon">${mon}</div>
+          </div>
+          <div class="card-info">
+            <div class="card-title">${esc(r.title)||'Untitled Review'}</div>
+            <div class="card-meta">
+              ${typeBadge(r.review_type)}
+              ${stBadge(r.status)}
+              ${r.attendees?`<span class="card-attendees">${esc(r.attendees.split(',').length)} attendee(s)</span>`:''}
+            </div>
+          </div>
+        </div>
+        <div class="card-right">
+          <span class="toggle-icon ${expanded?'open'}">▼</span>
+        </div>
+      </div>
+      ${expandedHtml}
+    </div>`;
+  }).join('');
+}
+
+function toggleExpand(id) {
+  if (expandedIds.has(id)) { expandedIds.delete(id); } else { expandedIds.add(id); }
+  applyFilters();
+}
+
+function editById(id) { const r=allData.find(x=>x.id===id); if(r) openModal(r); }
+
+function openModal(r) {
+  document.getElementById('crudForm').reset();
+  document.getElementById('fId').value='';
+  document.getElementById('modalTitle').textContent = r?'Edit Review':'New Review';
+  if(r){
+    document.getElementById('fId').value=r.id||'';
+    document.getElementById('fTitle').value=r.title||'';
+    document.getElementById('fReviewType').value=r.review_type||'weekly';
+    document.getElementById('fEventId').value=r.event_id||'';
+    document.getElementById('fScheduledDate').value=r.scheduled_date?r.scheduled_date.split('T')[0]:'';
+    document.getElementById('fAttendees').value=r.attendees||'';
+    document.getElementById('fAgenda').value=r.agenda||'';
+    document.getElementById('fMinutes').value=r.minutes||'';
+    document.getElementById('fActionItems').value=r.action_items||'';
+    document.getElementById('fStatus').value=r.status||'scheduled';
+    document.getElementById('fCreatedBy').value=r.created_by||'';
+  }
+  bsModal.show();
+}
+
+async function saveRecord() {
+  const title=document.getElementById('fTitle');
+  const date=document.getElementById('fScheduledDate');
+  if(!title.value.trim()){title.classList.add('is-invalid');title.focus();return;}
+  if(!date.value){date.classList.add('is-invalid');date.focus();return;}
+  [title,date].forEach(el=>el.classList.remove('is-invalid'));
+  const id=document.getElementById('fId').value;
+  const body={
+    title:title.value.trim(),
+    review_type:document.getElementById('fReviewType').value,
+    event_id:document.getElementById('fEventId').value||null,
+    scheduled_date:date.value,
+    attendees:document.getElementById('fAttendees').value||null,
+    agenda:document.getElementById('fAgenda').value||null,
+    minutes:document.getElementById('fMinutes').value||null,
+    action_items:document.getElementById('fActionItems').value||null,
+    status:document.getElementById('fStatus').value,
+    created_by:document.getElementById('fCreatedBy').value||null
+  };
+  try{
+    const r=await fetch(id?`${API}/${id}`:API,{method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!r.ok) throw new Error(await r.text());
+    bsModal.hide();
+    const saved=await r.json();
+    if(saved.id) expandedIds.add(saved.id);
+    await load();
+  }catch(e){alert('Save failed: '+e.message);}
+}
+
+async function deleteRecord(id) {
+  if(!confirm('Delete this review?')) return;
+  try{
+    const r=await fetch(`${API}/${id}`,{method:'DELETE'});
+    if(!r.ok) throw new Error();
+    expandedIds.delete(id);
+    await load();
+  }catch(e){alert('Delete failed.');}
+}
+
+load();
+</script>
 </body>
 </html>

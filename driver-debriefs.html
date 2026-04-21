@@ -2,201 +2,354 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Race Team OS – Driver Debriefs</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
   <link href="style.css?v=20260420" rel="stylesheet"/>
   <style>
-    body{background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%);}
+    body{background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%);min-height:100vh;}
     .ev-stats-bar{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
-    .ev-stat-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:10px 16px;min-width:110px;}
-    .ev-stat-label{font-size:.7rem;color:#6c757d;font-weight:600;text-transform:uppercase;}
-    .ev-stat-value{font-size:1.5rem;font-weight:700;color:#1a1d24;}
-    #mainShell.mlo-shell{background:transparent;border:none;gap:10px;}
-    #mainShell .mlo-pane-left,#mainShell .mlo-pane-mid,#mainShell .mlo-pane-right{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;}
-    .data-table{width:100%;font-size:.82rem;border-collapse:separate;border-spacing:0;}
-    .data-table thead{position:sticky;top:0;background:#f8f9fa;z-index:5;}
-    .data-table th{padding:8px 10px;font-size:.7rem;font-weight:700;text-transform:uppercase;color:#6c757d;border-bottom:2px solid #dee2e6;}
-    .data-table td{padding:6px 10px;border-bottom:1px solid rgba(0,0,0,.05);}
-    .data-table tbody tr{cursor:pointer;}
-    .data-table tbody tr:hover{background:#f8f9fa;}
-    .data-table tbody tr.selected{background:rgba(236,72,153,.08);outline:2px solid #ec4899;outline-offset:-2px;}
-    .filter-item{padding:5px 8px;border-radius:4px;cursor:pointer;font-size:.8rem;margin-bottom:2px;display:block;color:#495057;text-decoration:none;}
-    .filter-item:hover{background:#fdf2f8;color:#ec4899;}
-    .filter-item.active{background:rgba(236,72,153,.12);color:#ec4899;font-weight:600;}
-    .star-rating{color:#f59e0b;font-size:.9rem;}
+    .ev-stat-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:10px 16px;box-shadow:0 2px 4px rgba(0,0,0,.06);min-width:110px;}
+    .ev-stat-label{font-size:.7rem;color:#6c757d;font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+    .ev-stat-value{font-size:1.5rem;font-weight:700;color:#1a1d24;line-height:1.2;}
+
+    .main-shell{display:flex;gap:12px;}
+    .sidebar{width:200px;min-width:170px;background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.06);}
+    .sidebar-header{padding:10px 14px;background:#f8f9fa;border-bottom:1px solid #dee2e6;}
+    .sidebar-body{padding:8px;}
+    .drv-item{display:block;padding:7px 10px;border-radius:6px;font-size:.82rem;color:#1a1d24;cursor:pointer;margin-bottom:2px;border:1px solid transparent;transition:all .1s;}
+    .drv-item:hover{background:#fff0f3;color:#f43f5e;}
+    .drv-item.active{background:rgba(244,63,94,.1);border-color:rgba(244,63,94,.3);color:#f43f5e;font-weight:700;}
+
+    .main-content{flex:1 1 0;min-width:0;}
+    .content-header{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px 8px 0 0;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 4px rgba(0,0,0,.06);}
+    .debriefs-list{display:flex;flex-direction:column;gap:10px;}
+
+    .debrief-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.05);overflow:hidden;}
+    .debrief-card-header{padding:12px 16px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:12px;transition:background .1s;}
+    .debrief-card-header:hover{background:#fdf2f5;}
+    .debrief-title{font-size:.9rem;font-weight:700;color:#1a1d24;}
+    .debrief-meta{font-size:.75rem;color:#6c757d;}
+    .ratings-row{display:flex;gap:8px;align-items:center;}
+    .rating-circle{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;color:#fff;flex-shrink:0;}
+    .rc-balance{background:#3b82f6;}
+    .rc-traction{background:#10b981;}
+    .rc-braking{background:#ef4444;}
+    .rating-label{font-size:.6rem;text-align:center;margin-top:2px;color:#6c757d;}
+
+    .debrief-card-body{padding:16px;border-top:1px solid #f0f0f0;background:#fafafa;display:none;}
+    .debrief-card-body.show{display:block;}
+    .section-label{font-size:.7rem;font-weight:700;text-transform:uppercase;color:#6c757d;letter-spacing:.05em;margin-bottom:4px;}
+    .section-text{font-size:.82rem;color:#1a1d24;margin-bottom:12px;line-height:1.5;}
+
+    .badge-ms{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.65rem;font-weight:700;}
+    .ms-positive{background:#d1fae5;color:#065f46;}
+    .ms-neutral{background:#f3f4f6;color:#374151;}
+    .ms-frustrated{background:#fee2e2;color:#991b1b;}
+    .ms-confident{background:#dbeafe;color:#1d4ed8;}
+    .ms-struggling{background:#fef3c7;color:#92400e;}
+
+    .chevron{transition:transform .2s;display:inline-block;}
+    .chevron.open{transform:rotate(90deg);}
   </style>
 </head>
 <body class="light-mode">
-  <div id="rtsTopNav"></div>
-  <div class="rts-main container-fluid">
-    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
-      <div>
-        <h1 class="h4 mb-1">Driver Debriefs</h1>
-        <p class="text-secondary mb-0" style="font-size:.85rem;">Post-session driver feedback, tyre feeling and performance analysis</p>
-      </div>
-      <button class="btn btn-sm" id="btnAdd" style="background:#ec4899;border-color:#ec4899;color:#fff">+ New Debrief</button>
+<div id="rtsTopNav"></div>
+<div class="rts-main container-fluid">
+  <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+    <div>
+      <h1 class="h4 mb-1">Driver Debriefs</h1>
+      <p class="text-secondary mb-0" style="font-size:.85rem;">Post-session driver feedback — balance, traction and braking ratings</p>
     </div>
-    <div class="ev-stats-bar">
-      <div class="ev-stat-card"><div class="ev-stat-label">Total</div><div class="ev-stat-value" id="kpi0">—</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">Race Debriefs</div><div class="ev-stat-value" id="kpi1">—</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">Avg Confidence</div><div class="ev-stat-value" id="kpi2">—</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">Avg Pace</div><div class="ev-stat-value" id="kpi3">—</div></div>
+    <button class="btn btn-sm text-white" id="btnAdd" style="background:#f43f5e;border-color:#f43f5e;">+ New Debrief</button>
+  </div>
+
+  <div class="ev-stats-bar">
+    <div class="ev-stat-card"><div class="ev-stat-label">Total</div><div class="ev-stat-value" id="kpiTotal">—</div></div>
+    <div class="ev-stat-card"><div class="ev-stat-label">Avg Balance</div><div class="ev-stat-value" id="kpiBalance">—</div></div>
+    <div class="ev-stat-card"><div class="ev-stat-label">Avg Traction</div><div class="ev-stat-value" id="kpiTraction">—</div></div>
+    <div class="ev-stat-card"><div class="ev-stat-label">Avg Braking</div><div class="ev-stat-value" id="kpiBraking">—</div></div>
+  </div>
+
+  <div class="main-shell">
+    <div class="sidebar">
+      <div class="sidebar-header"><span style="font-size:.75rem;font-weight:700;color:#6c757d;text-transform:uppercase;">Drivers</span></div>
+      <div class="sidebar-body" id="driverList"></div>
     </div>
-    <div class="mlo-shell" id="mainShell">
-      <div class="mlo-pane mlo-pane-left" style="width:180px;min-width:140px;">
-        <div class="mlo-pane-header p-2 border-bottom"><small class="fw-bold text-muted">SESSION TYPE</small></div>
-        <div class="mlo-pane-content p-2" id="filterList"></div>
+    <div class="main-content">
+      <div class="content-header">
+        <div>
+          <div class="fw-bold" id="contentTitle" style="font-size:.95rem;">All Drivers</div>
+          <div class="text-secondary" id="contentSub" style="font-size:.78rem;"></div>
+        </div>
+        <input type="search" id="fSearch" class="form-control form-control-sm" placeholder="Search session…" style="width:180px;"/>
       </div>
-      <div class="mlo-resizer"></div>
-      <div class="mlo-pane mlo-pane-mid" style="flex:1 1 0;min-width:200px;">
-        <div class="mlo-pane-header p-2 border-bottom d-flex justify-content-between align-items-center">
-          <small class="fw-bold text-muted">DEBRIEFS LIST</small>
-          <input type="search" class="form-control form-control-sm" id="searchBox" placeholder="Search…" style="width:160px"/>
-        </div>
-        <div class="mlo-pane-content p-0" style="overflow-y:auto;max-height:calc(100vh - 260px);">
-          <table class="data-table">
-            <thead><tr><th>Driver</th><th>Event</th><th>Session</th><th>Confidence</th><th>Pace</th><th>Created</th></tr></thead>
-            <tbody id="tbody"></tbody>
-          </table>
-        </div>
-      </div>
-      <div class="mlo-resizer"></div>
-      <div class="mlo-pane mlo-pane-right" style="width:340px;min-width:260px;">
-        <div class="mlo-pane-header p-2 border-bottom d-flex justify-content-between align-items-center">
-          <small class="fw-bold text-muted">INSPECTOR</small>
-          <button class="btn btn-sm btn-danger" id="btnDel" style="display:none">Delete</button>
-        </div>
-        <div class="mlo-pane-content p-3" style="overflow-y:auto;max-height:calc(100vh - 260px);">
-          <form id="form" class="vstack gap-2" onsubmit="return false">
-            <div><label class="form-label small fw-semibold mb-1">Driver Name *</label><input class="form-control form-control-sm" id="fDriver"/></div>
-            <div><label class="form-label small fw-semibold mb-1">Driver ID</label><input class="form-control form-control-sm" id="fDriverId"/></div>
-            <div><label class="form-label small fw-semibold mb-1">Event ID</label><input class="form-control form-control-sm" id="fEventId"/></div>
-            <div><label class="form-label small fw-semibold mb-1">Session Type</label>
-              <select class="form-select form-select-sm" id="fSessionType">
-                <option value="practice">Practice</option><option value="qualifying">Qualifying</option>
-                <option value="race">Race</option><option value="test">Test</option>
-              </select>
-            </div>
-            <div><label class="form-label small fw-semibold mb-1">Tyre Feeling</label><textarea class="form-control form-control-sm" id="fTyre" rows="2"></textarea></div>
-            <div><label class="form-label small fw-semibold mb-1">Balance Feeling</label><textarea class="form-control form-control-sm" id="fBalance" rows="2"></textarea></div>
-            <div class="row g-2">
-              <div class="col-6"><label class="form-label small fw-semibold mb-1">Confidence (1–5)</label>
-                <select class="form-select form-select-sm" id="fConfidence">
-                  <option value="">—</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
-                </select>
-              </div>
-              <div class="col-6"><label class="form-label small fw-semibold mb-1">Pace Rating (1–5)</label>
-                <select class="form-select form-select-sm" id="fPace">
-                  <option value="">—</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
-                </select>
-              </div>
-            </div>
-            <div><label class="form-label small fw-semibold mb-1">Key Moments</label><textarea class="form-control form-control-sm" id="fMoments" rows="2"></textarea></div>
-            <div><label class="form-label small fw-semibold mb-1">Areas for Improvement</label><textarea class="form-control form-control-sm" id="fImprovements" rows="2"></textarea></div>
-            <div><label class="form-label small fw-semibold mb-1">Coach Notes</label><textarea class="form-control form-control-sm" id="fCoach" rows="2"></textarea></div>
-            <div><label class="form-label small fw-semibold mb-1">Created By</label><input class="form-control form-control-sm" id="fCreatedBy"/></div>
-          </form>
-          <button class="btn btn-sm mt-2 w-100" id="btnSave" style="background:#ec4899;color:#fff">Save</button>
-        </div>
+      <div class="mt-2 debriefs-list" id="debriefsContainer">
+        <div class="p-4 text-center text-secondary" style="font-size:.85rem;">No debriefs found.</div>
       </div>
     </div>
   </div>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="topnav.js?v=20260420"></script>
-  <script src="core.js?v=20260420"></script>
-  <script>
-  const API='/api/driver-debriefs';
-  const TYPES=['practice','qualifying','race','test'];
-  let all=[],sel=null,filt='all';
-  const gv=id=>(document.getElementById(id)||{}).value||'';
-  const sv=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v??'';};
+</div>
 
-  async function load(){
-    try{const r=await fetch(API);const j=await r.json();all=Array.isArray(j)?j:(j.data||[]);updateKPIs();buildFilters();render();}
-    catch(e){console.error(e);}
-  }
+<!-- Modal -->
+<div class="modal fade" id="dbModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header py-2" style="background:#f43f5e;">
+        <h6 class="modal-title text-white fw-bold" id="modalTitle">New Debrief</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="dbForm" novalidate>
+          <input type="hidden" id="fId"/>
+          <div class="row g-2">
+            <div class="col-6">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Driver Name *</label>
+              <input type="text" class="form-control form-control-sm" id="fDriverName" required/>
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Driver ID</label>
+              <input type="text" class="form-control form-control-sm" id="fDriverId"/>
+            </div>
+            <div class="col-4">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Session Name *</label>
+              <input type="text" class="form-control form-control-sm" id="fSessionName" required/>
+            </div>
+            <div class="col-4">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Debrief Date *</label>
+              <input type="date" class="form-control form-control-sm" id="fDebriefDate" required/>
+            </div>
+            <div class="col-4">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Event ID</label>
+              <input type="text" class="form-control form-control-sm" id="fEventId"/>
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Engineer Name</label>
+              <input type="text" class="form-control form-control-sm" id="fEngineerName"/>
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Mental State</label>
+              <select class="form-select form-select-sm" id="fMentalState">
+                <option value="">Select…</option>
+                <option value="positive">Positive</option>
+                <option value="neutral">Neutral</option>
+                <option value="frustrated">Frustrated</option>
+                <option value="confident">Confident</option>
+                <option value="struggling">Struggling</option>
+              </select>
+            </div>
+            <div class="col-4">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Balance Rating (1-10)</label>
+              <input type="number" min="1" max="10" class="form-control form-control-sm" id="fBalanceRating"/>
+            </div>
+            <div class="col-4">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Traction Rating (1-10)</label>
+              <input type="number" min="1" max="10" class="form-control form-control-sm" id="fTractionRating"/>
+            </div>
+            <div class="col-4">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Braking Rating (1-10)</label>
+              <input type="number" min="1" max="10" class="form-control form-control-sm" id="fBrakingRating"/>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Overall Feeling</label>
+              <textarea class="form-control form-control-sm" id="fOverallFeeling" rows="2"></textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Key Issues</label>
+              <textarea class="form-control form-control-sm" id="fKeyIssues" rows="2"></textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Setup Requests</label>
+              <textarea class="form-control form-control-sm" id="fSetupRequests" rows="2"></textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Action Items</label>
+              <textarea class="form-control form-control-sm" id="fActionItems" rows="2"></textarea>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-sm btn-danger me-auto d-none" id="btnDel">Delete</button>
+        <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-sm text-white" id="btnSave" style="background:#f43f5e;border-color:#f43f5e;">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
 
-  function updateKPIs(){
-    document.getElementById('kpi0').textContent=all.length;
-    document.getElementById('kpi1').textContent=all.filter(x=>x.session_type==='race').length;
-    const withConf=all.filter(x=>x.confidence_level);
-    document.getElementById('kpi2').textContent=withConf.length
-      ?(withConf.reduce((a,x)=>a+Number(x.confidence_level),0)/withConf.length).toFixed(1):'—';
-    const withPace=all.filter(x=>x.pace_rating);
-    document.getElementById('kpi3').textContent=withPace.length
-      ?(withPace.reduce((a,x)=>a+Number(x.pace_rating),0)/withPace.length).toFixed(1):'—';
-  }
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="topnav.js?v=20260420"></script>
+<script src="core.js?v=20260420"></script>
+<script>
+const API='/api/driver-debriefs';
+let allDebriefs=[],selDriver='',editId=null;
+const modal=new bootstrap.Modal(document.getElementById('dbModal'));
 
-  function buildFilters(){
-    document.getElementById('filterList').innerHTML=
-      [['all','All'],...TYPES.map(t=>[t,t.charAt(0).toUpperCase()+t.slice(1)])].map(([v,l])=>
-        `<a class="filter-item${filt===v?' active':''}" data-val="${v}" href="#">${l} <small class="text-muted">(${v==='all'?all.length:all.filter(x=>x.session_type===v).length})</small></a>`
-      ).join('');
-    document.querySelectorAll('#filterList .filter-item').forEach(a=>a.onclick=e=>{e.preventDefault();filt=a.dataset.val;buildFilters();render();});
-  }
+function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function fmtDate(s){if(!s)return'—';return new Date(s).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});}
+function avg(arr,key){const vs=arr.map(x=>parseFloat(x[key])).filter(v=>!isNaN(v));return vs.length?( vs.reduce((a,b)=>a+b,0)/vs.length).toFixed(1):'—';}
 
-  function stars(n){return n?'★'.repeat(Number(n))+'☆'.repeat(5-Number(n)):'—';}
+function msBadge(s){const m={positive:'ms-positive',neutral:'ms-neutral',frustrated:'ms-frustrated',confident:'ms-confident',struggling:'ms-struggling'};return s?`<span class="badge-ms ${m[s]||'ms-neutral'}">${esc(s)}</span>`:'';;}
 
-  function render(){
-    const q=document.getElementById('searchBox').value.toLowerCase();
-    let d=filt==='all'?[...all]:all.filter(x=>x.session_type===filt);
-    if(q)d=d.filter(x=>JSON.stringify(x).toLowerCase().includes(q));
-    d.sort((a,b)=>(b.created_at||b.id||0)-(a.created_at||a.id||0));
-    const SB={practice:'secondary',qualifying:'warning',race:'danger',test:'primary'};
-    document.getElementById('tbody').innerHTML=d.length
-      ?d.map(row=>`<tr data-id="${row.id}" class="${sel&&String(sel.id)===String(row.id)?'selected':''}">
-          <td class="fw-semibold">${row.driver_name||'—'}</td><td>${row.event_id||'—'}</td>
-          <td><span class="badge bg-${SB[row.session_type]||'secondary'}">${row.session_type||'—'}</span></td>
-          <td class="star-rating" style="font-size:.75rem">${stars(row.confidence_level)}</td>
-          <td class="star-rating" style="font-size:.75rem">${stars(row.pace_rating)}</td>
-          <td>${row.created_at?row.created_at.split('T')[0]:row.id||'—'}</td>
-        </tr>`).join('')
-      :'<tr><td colspan="6" class="text-center text-muted py-4">No debriefs found</td></tr>';
-    document.querySelectorAll('#tbody tr[data-id]').forEach(tr=>tr.onclick=()=>{
-      const item=all.find(x=>String(x.id)===tr.dataset.id);if(item)pick(item);
-    });
-  }
+async function load(){
+  try{const r=await fetch(API);if(r.ok)allDebriefs=await r.json();}catch(e){allDebriefs=[];}
+  renderKPIs();
+  renderSidebar();
+  renderDebriefs();
+}
 
-  function pick(item){
-    sel=item;
-    sv('fDriver',item.driver_name);sv('fDriverId',item.driver_id);sv('fEventId',item.event_id);
-    sv('fSessionType',item.session_type||'practice');sv('fTyre',item.tyre_feeling);
-    sv('fBalance',item.balance_feeling);sv('fConfidence',item.confidence_level);sv('fPace',item.pace_rating);
-    sv('fMoments',item.key_moments);sv('fImprovements',item.improvements);
-    sv('fCoach',item.coach_notes);sv('fCreatedBy',item.created_by);
-    document.getElementById('btnDel').style.display='';render();
-  }
+function renderKPIs(){
+  document.getElementById('kpiTotal').textContent=allDebriefs.length;
+  document.getElementById('kpiBalance').textContent=avg(allDebriefs,'balance_rating');
+  document.getElementById('kpiTraction').textContent=avg(allDebriefs,'traction_rating');
+  document.getElementById('kpiBraking').textContent=avg(allDebriefs,'braking_rating');
+}
 
-  function clearForm(){
-    sel=null;document.getElementById('form').reset();sv('fSessionType','practice');
-    document.getElementById('btnDel').style.display='none';render();
-  }
+function renderSidebar(){
+  const drivers=[...new Set(allDebriefs.map(d=>d.driver_name).filter(Boolean))].sort();
+  document.getElementById('driverList').innerHTML=
+    `<span class="drv-item${selDriver===''?' active':''}" onclick="selectDriver('')">All Drivers</span>`+
+    drivers.map(n=>`<span class="drv-item${selDriver===n?' active':''}" onclick="selectDriver('${esc(n)}')">${esc(n)}</span>`).join('');
+}
 
-  async function save(){
-    const body={driver_name:gv('fDriver'),driver_id:gv('fDriverId')||null,event_id:gv('fEventId')||null,
-      session_type:gv('fSessionType'),tyre_feeling:gv('fTyre'),balance_feeling:gv('fBalance'),
-      confidence_level:gv('fConfidence')||null,pace_rating:gv('fPace')||null,key_moments:gv('fMoments'),
-      improvements:gv('fImprovements'),coach_notes:gv('fCoach'),created_by:gv('fCreatedBy')};
-    if(!body.driver_name){alert('Driver name is required');return;}
-    try{
-      const url=sel?`${API}/${sel.id}`:API;const method=sel?'PUT':'POST';
-      const r=await fetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-      if(r.ok){const saved=await r.json();if(!sel){sel=saved.data||saved;}await load();}
-      else alert('Save failed');
-    }catch(e){console.error(e);alert('Save failed');}
-  }
+function selectDriver(name){
+  selDriver=allDebriefs.find(d=>d.driver_name===name)?name:(name===''?'':selDriver);
+  selDriver=name;
+  renderSidebar();
+  renderDebriefs();
+}
 
-  async function del(){
-    if(!sel||!confirm('Delete this debrief? This cannot be undone.'))return;
-    try{const r=await fetch(`${API}/${sel.id}`,{method:'DELETE'});if(r.ok){clearForm();await load();}else alert('Delete failed');}
-    catch(e){console.error(e);}
-  }
+function filtered(){
+  const q=document.getElementById('fSearch').value.toLowerCase();
+  return allDebriefs.filter(d=>{
+    if(selDriver&&d.driver_name!==selDriver)return false;
+    if(q&&!`${d.session_name} ${d.driver_name}`.toLowerCase().includes(q))return false;
+    return true;
+  }).sort((a,b)=>new Date(b.debrief_date)-new Date(a.debrief_date));
+}
 
-  document.getElementById('btnAdd').onclick=clearForm;
-  document.getElementById('btnSave').onclick=save;
-  document.getElementById('btnDel').onclick=del;
-  document.getElementById('searchBox').addEventListener('input',render);
-  load();
-  </script>
+function renderDebriefs(){
+  const data=filtered();
+  const ct=document.getElementById('debriefsContainer');
+  document.getElementById('contentTitle').textContent=selDriver||'All Drivers';
+  document.getElementById('contentSub').textContent=`${data.length} debrief${data.length!==1?'s':''}`;
+  if(!data.length){ct.innerHTML='<div class="bg-white border rounded p-4 text-center text-secondary" style="font-size:.85rem;">No debriefs found.</div>';return;}
+  ct.innerHTML=data.map(d=>`
+    <div class="debrief-card">
+      <div class="debrief-card-header" onclick="toggleCard(this)">
+        <div>
+          <div class="debrief-title">${esc(d.session_name||'')} <small class="text-secondary fw-normal ms-2" style="font-size:.75rem;">${fmtDate(d.debrief_date)}</small></div>
+          <div class="debrief-meta">${esc(d.driver_name||'')}${d.engineer_name?` · Engineer: ${esc(d.engineer_name)}`:''}</div>
+          <div class="mt-1">${msBadge(d.mental_state)}</div>
+        </div>
+        <div class="d-flex align-items-center gap-3">
+          <div class="ratings-row">
+            <div class="text-center">
+              <div class="rating-circle rc-balance">${d.balance_rating??'—'}</div>
+              <div class="rating-label">Balance</div>
+            </div>
+            <div class="text-center">
+              <div class="rating-circle rc-traction">${d.traction_rating??'—'}</div>
+              <div class="rating-label">Traction</div>
+            </div>
+            <div class="text-center">
+              <div class="rating-circle rc-braking">${d.braking_rating??'—'}</div>
+              <div class="rating-label">Braking</div>
+            </div>
+          </div>
+          <div class="d-flex gap-1">
+            <button class="btn btn-outline-secondary" style="font-size:.7rem;padding:2px 8px;" onclick="event.stopPropagation();openEdit(${d.id})">Edit</button>
+          </div>
+          <span class="chevron" style="font-size:.85rem;color:#6c757d;">&#9654;</span>
+        </div>
+      </div>
+      <div class="debrief-card-body">
+        ${d.overall_feeling?`<div class="section-label">Overall Feeling</div><div class="section-text">${esc(d.overall_feeling)}</div>`:''}
+        ${d.key_issues?`<div class="section-label">Key Issues</div><div class="section-text">${esc(d.key_issues)}</div>`:''}
+        ${d.setup_requests?`<div class="section-label">Setup Requests</div><div class="section-text">${esc(d.setup_requests)}</div>`:''}
+        ${d.action_items?`<div class="section-label">Action Items</div><div class="section-text">${esc(d.action_items)}</div>`:''}
+      </div>
+    </div>`).join('');
+}
+
+function toggleCard(header){
+  const body=header.nextElementSibling;
+  const chevron=header.querySelector('.chevron');
+  body.classList.toggle('show');
+  chevron.classList.toggle('open');
+}
+
+function openNew(){
+  document.getElementById('dbForm').reset();
+  document.getElementById('fId').value='';
+  editId=null;
+  document.getElementById('modalTitle').textContent='New Debrief';
+  document.getElementById('btnDel').classList.add('d-none');
+  if(selDriver) document.getElementById('fDriverName').value=selDriver;
+  modal.show();
+}
+
+function openEdit(id){
+  const d=allDebriefs.find(x=>x.id===id);if(!d)return;
+  editId=id;
+  document.getElementById('fId').value=d.id;
+  document.getElementById('fDriverName').value=d.driver_name||'';
+  document.getElementById('fDriverId').value=d.driver_id||'';
+  document.getElementById('fEventId').value=d.event_id||'';
+  document.getElementById('fSessionName').value=d.session_name||'';
+  document.getElementById('fDebriefDate').value=d.debrief_date?d.debrief_date.slice(0,10):'';
+  document.getElementById('fEngineerName').value=d.engineer_name||'';
+  document.getElementById('fBalanceRating').value=d.balance_rating??'';
+  document.getElementById('fTractionRating').value=d.traction_rating??'';
+  document.getElementById('fBrakingRating').value=d.braking_rating??'';
+  document.getElementById('fOverallFeeling').value=d.overall_feeling||'';
+  document.getElementById('fKeyIssues').value=d.key_issues||'';
+  document.getElementById('fSetupRequests').value=d.setup_requests||'';
+  document.getElementById('fMentalState').value=d.mental_state||'';
+  document.getElementById('fActionItems').value=d.action_items||'';
+  document.getElementById('modalTitle').textContent='Edit Debrief';
+  document.getElementById('btnDel').classList.remove('d-none');
+  modal.show();
+}
+
+async function save(){
+  const id=document.getElementById('fId').value;
+  const body={
+    driver_name:document.getElementById('fDriverName').value.trim(),
+    driver_id:document.getElementById('fDriverId').value.trim(),
+    event_id:document.getElementById('fEventId').value.trim(),
+    session_name:document.getElementById('fSessionName').value.trim(),
+    debrief_date:document.getElementById('fDebriefDate').value||null,
+    engineer_name:document.getElementById('fEngineerName').value.trim(),
+    balance_rating:document.getElementById('fBalanceRating').value||null,
+    traction_rating:document.getElementById('fTractionRating').value||null,
+    braking_rating:document.getElementById('fBrakingRating').value||null,
+    overall_feeling:document.getElementById('fOverallFeeling').value.trim(),
+    key_issues:document.getElementById('fKeyIssues').value.trim(),
+    setup_requests:document.getElementById('fSetupRequests').value.trim(),
+    mental_state:document.getElementById('fMentalState').value,
+    action_items:document.getElementById('fActionItems').value.trim()
+  };
+  if(!body.driver_name||!body.session_name||!body.debrief_date){alert('Driver Name, Session Name and Date are required');return;}
+  const r=await fetch(id?`${API}/${id}`:API,{method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(!r.ok){alert('Save failed');return;}
+  modal.hide();load();
+}
+
+async function del(){
+  const id=document.getElementById('fId').value;if(!id)return;
+  if(!confirm('Delete this debrief?'))return;
+  const r=await fetch(`${API}/${id}`,{method:'DELETE'});
+  if(!r.ok){alert('Delete failed');return;}
+  modal.hide();load();
+}
+
+document.getElementById('btnAdd').addEventListener('click',openNew);
+document.getElementById('btnSave').addEventListener('click',save);
+document.getElementById('btnDel').addEventListener('click',del);
+document.getElementById('fSearch').addEventListener('input',renderDebriefs);
+load();
+</script>
 </body>
 </html>

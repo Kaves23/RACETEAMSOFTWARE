@@ -1,213 +1,405 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Race Team OS – Engineering Notes</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
-  <link href="style.css?v=20260420" rel="stylesheet"/>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Engineering Notes</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="style.css?v=20260420">
   <style>
-    body{background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%);}
-    .ev-stats-bar{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
-    .ev-stat-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:10px 16px;min-width:110px;}
-    .ev-stat-label{font-size:.7rem;color:#6c757d;font-weight:600;text-transform:uppercase;}
-    .ev-stat-value{font-size:1.5rem;font-weight:700;color:#1a1d24;}
-    #mainShell.mlo-shell{background:transparent;border:none;gap:10px;}
-    #mainShell .mlo-pane-left,#mainShell .mlo-pane-mid,#mainShell .mlo-pane-right{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;}
-    #mainShell .mlo-pane-header{background:#f8f9fa;border-bottom:1px solid rgba(0,0,0,.1);}
-    #mainShell .mlo-title{color:#1a1d24!important;}
-    #mainShell .mlo-section-label{color:#6c757d!important;opacity:1!important;}
-    #mainShell .mlo-resizer{background:transparent;}
-    #mainShell .mlo-resizer:hover{background:rgba(249,115,22,.3);}
-    #mainShell .form-label{color:#495057!important;font-size:.78rem;font-weight:600;margin-bottom:2px;}
-    #mainShell .form-control,#mainShell .form-select{background:#fff!important;color:#1a1d24!important;border-color:#dee2e6!important;font-size:.82rem;}
-    #mainShell .mlo-pane-left .pastel-tree li{height:28px!important;display:flex!important;align-items:center!important;font-size:.83rem!important;font-weight:500!important;padding-left:10px!important;margin-bottom:2px!important;border-radius:5px!important;border:1px solid rgba(0,0,0,.08)!important;color:#1a1d24!important;cursor:pointer!important;}
-    #mainShell .mlo-pane-left .pastel-tree li.active{background:rgba(249,115,22,.1)!important;border-color:rgba(249,115,22,.4)!important;color:#c2410c!important;font-weight:700!important;}
-    .data-table{width:100%;font-size:.82rem;border-collapse:separate;border-spacing:0;}
-    .data-table thead{position:sticky;top:0;background:#f8f9fa;z-index:5;}
-    .data-table th{padding:8px 10px;font-size:.7rem;font-weight:700;text-transform:uppercase;color:#6c757d;border-bottom:2px solid #dee2e6;}
-    .data-table td{padding:6px 10px;border-bottom:1px solid rgba(0,0,0,.05);vertical-align:middle;color:#1a1d24;}
-    .data-table tbody tr{cursor:pointer;transition:background .1s;}
-    .data-table tbody tr:hover{background:#f8f9fa;}
-    .data-table tbody tr.selected{background:rgba(249,115,22,.08)!important;outline:2px solid #f97316;outline-offset:-2px;}
-    .badge-p{padding:2px 8px;border-radius:999px;font-size:.7rem;font-weight:600;}
-    .p-low{background:#f0fdf4;color:#166534;}
-    .p-normal{background:#eff6ff;color:#1d4ed8;}
-    .p-high{background:#fef3c7;color:#92400e;}
-    .p-critical{background:#fee2e2;color:#991b1b;}
-    .s-open{background:#fee2e2;color:#991b1b;}
-    .s-in_progress{background:#fef3c7;color:#92400e;}
-    .s-resolved{background:#d1fae5;color:#065f46;}
+    body { background: linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%); min-height:100vh; }
+    .rts-main { padding:1.5rem; }
+    .ev-stats-bar { display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:1.25rem; }
+    .ev-stat-card { background:#fff; border-radius:10px; padding:1rem 1.5rem; box-shadow:0 2px 8px rgba(0,0,0,.08); min-width:120px; border-top:4px solid #f97316; }
+    .ev-stat-label { font-size:.72rem; text-transform:uppercase; color:#6b7280; font-weight:600; letter-spacing:.05em; }
+    .ev-stat-value { font-size:1.8rem; font-weight:800; color:#1f2937; line-height:1.1; }
+
+    /* Critical banner */
+    .critical-banner { background:#fff7ed; border:1.5px solid #fed7aa; border-radius:10px; padding:.75rem 1rem; margin-bottom:1.25rem; }
+    .critical-banner-header { display:flex; align-items:center; gap:.5rem; margin-bottom:.6rem; }
+    .critical-banner-header span { font-size:.8rem; font-weight:700; color:#c2410c; text-transform:uppercase; letter-spacing:.06em; }
+    .critical-banner-scroll { display:flex; gap:.75rem; overflow-x:auto; padding-bottom:.25rem; }
+    .critical-banner-scroll::-webkit-scrollbar { height:4px; }
+    .critical-banner-scroll::-webkit-scrollbar-thumb { background:#fed7aa; border-radius:4px; }
+    .critical-mini-card { min-width:200px; max-width:220px; background:#fff; border-radius:8px; border:1.5px solid #fca5a5; padding:.7rem .9rem; cursor:pointer; transition:box-shadow .15s; flex-shrink:0; }
+    .critical-mini-card:hover { box-shadow:0 4px 12px rgba(239,68,68,.2); }
+    .critical-mini-card .cmini-title { font-weight:700; font-size:.82rem; color:#1f2937; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .critical-mini-card .cmini-meta { font-size:.72rem; color:#9ca3af; margin-top:.2rem; }
+    .critical-empty { font-size:.82rem; color:#d1d5db; font-style:italic; padding:.25rem 0; }
+
+    /* Kanban */
+    .kanban-board { display:grid; grid-template-columns:repeat(3,1fr); gap:1.25rem; align-items:start; }
+    @media(max-width:900px) { .kanban-board { grid-template-columns:1fr; } }
+    .kanban-col { background:#fff; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,.08); overflow:hidden; min-height:300px; display:flex; flex-direction:column; transition:box-shadow .2s; }
+    .kanban-col.drag-over { box-shadow:0 0 0 2px #f97316, 0 4px 20px rgba(249,115,22,.2); }
+    .kanban-col-head { padding:.85rem 1rem; display:flex; align-items:center; justify-content:space-between; border-bottom:2px solid #f3f4f6; }
+    .kanban-col-head h6 { margin:0; font-weight:800; font-size:.85rem; text-transform:uppercase; letter-spacing:.06em; }
+    .col-open .kanban-col-head     { border-bottom-color:#3b82f6; }
+    .col-actioned .kanban-col-head { border-bottom-color:#f59e0b; }
+    .col-closed .kanban-col-head   { border-bottom-color:#10b981; }
+    .col-open h6     { color:#1d4ed8; }
+    .col-actioned h6 { color:#b45309; }
+    .col-closed h6   { color:#065f46; }
+    .col-count { font-size:.72rem; font-weight:700; color:#9ca3af; background:#f3f4f6; border-radius:20px; padding:.1rem .5rem; }
+    .kanban-cards { padding:.75rem; flex:1; min-height:100px; }
+
+    .note-card { background:#fff; border-radius:9px; border:1px solid #e5e7eb; padding:.85rem 1rem; margin-bottom:.65rem; cursor:pointer; transition:box-shadow .15s, transform .15s; border-left:4px solid #e5e7eb; user-select:none; }
+    .note-card:hover { box-shadow:0 4px 14px rgba(0,0,0,.1); transform:translateY(-1px); }
+    .note-card.dragging { opacity:.5; transform:scale(.97); }
+    .note-card[draggable="true"] { cursor:grab; }
+    .note-card:active { cursor:grabbing; }
+    .note-card .card-title { font-weight:700; font-size:.875rem; color:#1f2937; margin-bottom:.35rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .note-card .card-badges { display:flex; gap:.3rem; flex-wrap:wrap; margin-bottom:.4rem; }
+    .note-card .card-footer-meta { font-size:.75rem; color:#9ca3af; }
+
+    /* Priority left border colours */
+    .priority-critical { border-left-color:#ef4444; }
+    .priority-high     { border-left-color:#f97316; }
+    .priority-normal   { border-left-color:#3b82f6; }
+    .priority-low      { border-left-color:#d1d5db; }
+
+    /* Type badges */
+    .bp { display:inline-block; padding:.15rem .5rem; border-radius:20px; font-size:.68rem; font-weight:700; white-space:nowrap; }
+    .bp-setup    { background:#e0e7ff; color:#3730a3; }
+    .bp-tyre     { background:#fef3c7; color:#b45309; }
+    .bp-fuel     { background:#d1fae5; color:#065f46; }
+    .bp-strategy { background:#dbeafe; color:#1d4ed8; }
+    .bp-data     { background:#f3e8ff; color:#7e22ce; }
+    .bp-general  { background:#f3f4f6; color:#6b7280; }
+    /* Priority badges */
+    .bp-critical { background:#fee2e2; color:#dc2626; }
+    .bp-high     { background:#ffedd5; color:#c2410c; }
+    .bp-normal   { background:#dbeafe; color:#1d4ed8; }
+    .bp-low      { background:#f3f4f6; color:#6b7280; }
+
+    .page-title { font-weight:800; color:#f97316; letter-spacing:-.01em; }
+
+    .drop-zone-placeholder { border:2px dashed #e5e7eb; border-radius:8px; padding:1.5rem; text-align:center; font-size:.8rem; color:#d1d5db; margin:.25rem 0; }
   </style>
 </head>
-<body class="light-mode">
-  <div id="rtsTopNav"></div>
-  <div class="rts-main container-fluid">
-    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
-      <div><h1 class="h4 mb-1">Engineering Notes</h1><div class="text-secondary" style="font-size:.85rem;">Technical observations, setup notes and engineering actions.</div></div>
-      <button class="btn btn-sm btn-primary" id="btnAdd" style="background:#f97316;border-color:#f97316;">+ New Note</button>
+<body>
+<div id="rtsTopNav"></div>
+<div class="rts-main container-fluid">
+
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <h2 class="page-title mb-0">Engineering Notes</h2>
+    <button class="btn btn-sm fw-semibold" style="background:#f97316;color:#fff;padding:.4rem 1rem" onclick="openModal()">+ New Note</button>
+  </div>
+
+  <div class="ev-stats-bar">
+    <div class="ev-stat-card"><div class="ev-stat-label">Total</div><div class="ev-stat-value" id="kpiTotal">—</div></div>
+    <div class="ev-stat-card"><div class="ev-stat-label">Critical</div><div class="ev-stat-value" id="kpiCritical">—</div></div>
+    <div class="ev-stat-card"><div class="ev-stat-label">High Priority</div><div class="ev-stat-value" id="kpiHigh">—</div></div>
+    <div class="ev-stat-card"><div class="ev-stat-label">Open</div><div class="ev-stat-value" id="kpiOpen">—</div></div>
+  </div>
+
+  <!-- Critical banner -->
+  <div class="critical-banner">
+    <div class="critical-banner-header">
+      <svg width="16" height="16" fill="#c2410c" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-5a1 1 0 00-1 1v2a1 1 0 102 0V9a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+      <span>Critical Notes</span>
     </div>
-    <div class="ev-stats-bar">
-      <div class="ev-stat-card"><div class="ev-stat-label">Total</div><div class="ev-stat-value" id="statTotal">0</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">Open</div><div class="ev-stat-value" id="statOpen">0</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">High Priority</div><div class="ev-stat-value" id="statHigh">0</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">Resolved</div><div class="ev-stat-value" id="statResolved">0</div></div>
+    <div class="critical-banner-scroll" id="criticalBanner">
+      <div class="critical-empty">No critical notes</div>
     </div>
-    <div class="mlo-shell" id="mainShell">
-      <section class="mlo-pane mlo-pane-left" aria-label="Type filter">
-        <div class="mlo-pane-header"><div class="mlo-title">Filter</div></div>
-        <div class="mlo-pane-content">
-          <div class="mlo-section-label">Note Type</div>
-          <ul class="mlo-tree pastel-tree" id="typeFilter">
-            <li class="active" data-filter="all">All Types</li>
-            <li data-filter="general">General</li>
-            <li data-filter="setup">Setup</li>
-            <li data-filter="reliability">Reliability</li>
-            <li data-filter="performance">Performance</li>
-            <li data-filter="data">Data</li>
-          </ul>
-          <div class="mlo-section-label mt-3">Status</div>
-          <ul class="mlo-tree pastel-tree" id="statusFilter">
-            <li class="active" data-filter="all">All</li>
-            <li data-filter="open">Open</li>
-            <li data-filter="in_progress">In Progress</li>
-            <li data-filter="resolved">Resolved</li>
-          </ul>
-        </div>
-      </section>
-      <div class="mlo-resizer" id="resizer1"></div>
-      <section class="mlo-pane mlo-pane-mid" aria-label="Notes list">
-        <div class="mlo-pane-header">
-          <div class="d-flex justify-content-between align-items-center">
-            <div class="mlo-title">Engineering Notes</div>
-            <span class="badge text-bg-secondary" id="countBadge">0</span>
-          </div>
-          <input class="form-control form-control-sm mt-2" type="search" id="searchInput" placeholder="Search title or engineer…"/>
-        </div>
-        <div class="mlo-pane-content p-0">
-          <table class="data-table">
-            <thead><tr><th>Title</th><th>Car #</th><th>Engineer</th><th>Type</th><th>Priority</th><th>Status</th></tr></thead>
-            <tbody id="tableBody"><tr><td colspan="6" class="text-center text-secondary py-4">No engineering notes found.</td></tr></tbody>
-          </table>
-        </div>
-      </section>
-      <div class="mlo-resizer" id="resizer2"></div>
-      <section class="mlo-pane mlo-pane-right" aria-label="Note detail">
-        <div class="mlo-pane-header"><div class="mlo-title" id="detailTitle">Engineering Note</div></div>
-        <div class="mlo-pane-content">
-          <div class="text-center text-secondary py-5" id="detailEmpty"><div style="font-size:2rem;">🔧</div><div class="mt-2">Select a note to view or edit</div></div>
-          <form id="detailForm" style="display:none;">
-            <div class="row g-2 mb-2">
-              <div class="col"><label class="form-label">Event ID</label><input class="form-control" id="fEventId"/></div>
-              <div class="col"><label class="form-label">Car #</label><input class="form-control" id="fCar"/></div>
+  </div>
+
+  <!-- Kanban -->
+  <div class="kanban-board">
+    <div class="kanban-col col-open"
+         ondragover="onDragOver(event)" ondrop="onDrop(event,'open')" ondragenter="onDragEnter(event)" ondragleave="onDragLeave(event)">
+      <div class="kanban-col-head">
+        <h6>Open</h6>
+        <span class="col-count" id="countOpen">0</span>
+      </div>
+      <div class="kanban-cards" id="colOpen"></div>
+    </div>
+    <div class="kanban-col col-actioned"
+         ondragover="onDragOver(event)" ondrop="onDrop(event,'actioned')" ondragenter="onDragEnter(event)" ondragleave="onDragLeave(event)">
+      <div class="kanban-col-head">
+        <h6>Actioned</h6>
+        <span class="col-count" id="countActioned">0</span>
+      </div>
+      <div class="kanban-cards" id="colActioned"></div>
+    </div>
+    <div class="kanban-col col-closed"
+         ondragover="onDragOver(event)" ondrop="onDrop(event,'closed')" ondragenter="onDragEnter(event)" ondragleave="onDragLeave(event)">
+      <div class="kanban-col-head">
+        <h6>Closed</h6>
+        <span class="col-count" id="countClosed">0</span>
+      </div>
+      <div class="kanban-cards" id="colClosed"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="noteModal" tabindex="-1" aria-labelledby="noteModalTitle" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header" style="background:#f97316">
+        <h5 class="modal-title text-white fw-bold" id="noteModalTitle">New Note</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="noteForm" onsubmit="return false">
+          <input type="hidden" id="fId">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Engineer Name</label>
+              <input type="text" class="form-control" id="fEngineerName">
             </div>
-            <div class="mb-2"><label class="form-label">Engineer</label><input class="form-control" id="fEngineer"/></div>
-            <div class="mb-2"><label class="form-label">Note Type</label>
-              <select class="form-select" id="fType">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Car #</label>
+              <input type="text" class="form-control" id="fCarNumber">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Note Type</label>
+              <select class="form-select" id="fNoteType">
                 <option value="general">General</option>
                 <option value="setup">Setup</option>
-                <option value="reliability">Reliability</option>
-                <option value="performance">Performance</option>
+                <option value="tyre">Tyre</option>
+                <option value="fuel">Fuel</option>
+                <option value="strategy">Strategy</option>
                 <option value="data">Data</option>
               </select>
             </div>
-            <div class="mb-2"><label class="form-label">Title *</label><input class="form-control" id="fTitle" required/></div>
-            <div class="mb-2"><label class="form-label">Content</label><textarea class="form-control" id="fContent" rows="4"></textarea></div>
-            <div class="row g-2 mb-3">
-              <div class="col"><label class="form-label">Priority</label>
-                <select class="form-select" id="fPriority">
-                  <option value="low">Low</option>
-                  <option value="normal" selected>Normal</option>
-                  <option value="high">High</option>
-                  <option value="critical">Critical</option>
-                </select>
-              </div>
-              <div class="col"><label class="form-label">Status</label>
-                <select class="form-select" id="fStatus">
-                  <option value="open">Open</option>
-                  <option value="in_progress">In Progress</option>
-                  <option value="resolved">Resolved</option>
-                </select>
-              </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Priority</label>
+              <select class="form-select" id="fPriority">
+                <option value="low">Low</option>
+                <option value="normal">Normal</option>
+                <option value="high">High</option>
+                <option value="critical">Critical</option>
+              </select>
             </div>
-            <div class="d-flex gap-2">
-              <button type="button" class="btn btn-sm btn-primary" id="btnSave" style="background:#f97316;border-color:#f97316;">Save</button>
-              <button type="button" class="btn btn-sm btn-outline-danger" id="btnDelete" style="display:none;">Delete</button>
-              <button type="button" class="btn btn-sm btn-outline-secondary" id="btnCancel">Cancel</button>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Status</label>
+              <select class="form-select" id="fStatus">
+                <option value="open">Open</option>
+                <option value="actioned">Actioned</option>
+                <option value="closed">Closed</option>
+              </select>
             </div>
-          </form>
-        </div>
-      </section>
+            <div class="col-12">
+              <label class="form-label fw-semibold">Title <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" id="fTitle" required>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold">Content</label>
+              <textarea class="form-control" id="fContent" rows="5"></textarea>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline-danger btn-sm d-none me-auto" id="btnDelete" onclick="deleteRecord()">Delete</button>
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-sm fw-semibold" style="background:#f97316;color:#fff" onclick="saveRecord()">Save</button>
+      </div>
     </div>
   </div>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="topnav.js?v=20260420"></script>
-  <script src="core.js?v=20260420"></script>
-  <script>
-    let all=[],selectedId=null,filterType='all',filterStatus='all';
-    function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-    const prioClass={low:'p-low',normal:'p-normal',high:'p-high',critical:'p-critical'};
-    const statClass={open:'s-open',in_progress:'s-in_progress',resolved:'s-resolved'};
-    async function load(){try{const r=await fetch('/api/engineering-notes');if(r.ok)all=await r.json();}catch(_){all=[];}renderList();}
-    function renderList(){
-      const q=document.getElementById('searchInput').value.trim().toLowerCase();
-      const rows=all.filter(e=>{
-        const mt=filterType==='all'||e.note_type===filterType;
-        const ms=filterStatus==='all'||e.status===filterStatus;
-        const mq=!q||(e.title||'').toLowerCase().includes(q)||(e.engineer_name||'').toLowerCase().includes(q);
-        return mt&&ms&&mq;
-      });
-      document.getElementById('countBadge').textContent=rows.length;
-      document.getElementById('statTotal').textContent=all.length;
-      document.getElementById('statOpen').textContent=all.filter(e=>e.status==='open').length;
-      document.getElementById('statHigh').textContent=all.filter(e=>e.priority==='high'||e.priority==='critical').length;
-      document.getElementById('statResolved').textContent=all.filter(e=>e.status==='resolved').length;
-      const tb=document.getElementById('tableBody');
-      if(!rows.length){tb.innerHTML='<tr><td colspan="6" class="text-center text-secondary py-4">No notes match.</td></tr>';return;}
-      tb.innerHTML=rows.map(e=>`<tr data-id="${e.id}" class="${e.id==selectedId?'selected':''}">
-        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(e.title||'—')}</td>
-        <td>${esc(e.car_number||'—')}</td><td>${esc(e.engineer_name||'—')}</td>
-        <td class="text-capitalize">${esc(e.note_type||'—')}</td>
-        <td><span class="badge-p ${prioClass[e.priority]||''}">${esc(e.priority||'—')}</span></td>
-        <td><span class="badge-p ${statClass[e.status]||''}">${esc(e.status||'—')}</span></td></tr>`).join('');
-      tb.querySelectorAll('tr').forEach(r=>r.addEventListener('click',()=>selectRow(r.dataset.id)));
-    }
-    function selectRow(id){
-      selectedId=id;const e=all.find(x=>x.id==id);if(!e)return;
-      document.getElementById('detailEmpty').style.display='none';
-      document.getElementById('detailForm').style.display='';
-      document.getElementById('detailTitle').textContent=e.title||'Engineering Note';
-      document.getElementById('fEventId').value=e.event_id||'';
-      document.getElementById('fCar').value=e.car_number||'';
-      document.getElementById('fEngineer').value=e.engineer_name||'';
-      document.getElementById('fType').value=e.note_type||'general';
-      document.getElementById('fTitle').value=e.title||'';
-      document.getElementById('fContent').value=e.content||'';
-      document.getElementById('fPriority').value=e.priority||'normal';
-      document.getElementById('fStatus').value=e.status||'open';
-      document.getElementById('btnDelete').style.display='';
-      renderList();
-    }
-    document.getElementById('btnAdd').addEventListener('click',()=>{
-      selectedId=null;document.getElementById('detailEmpty').style.display='none';
-      document.getElementById('detailForm').style.display='';document.getElementById('detailTitle').textContent='New Engineering Note';
-      document.getElementById('detailForm').reset();document.getElementById('btnDelete').style.display='none';
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="core.js?v=20260420"></script>
+<script src="topnav.js?v=20260420"></script>
+<script>
+let allData   = [];
+let dragId    = null;
+let bsModal;
+
+window.addEventListener('DOMContentLoaded', () => {
+  bsModal = new bootstrap.Modal(document.getElementById('noteModal'));
+  loadData();
+});
+
+async function loadData() {
+  try {
+    const res = await fetch('/api/engineering-notes');
+    if (!res.ok) throw new Error(res.status);
+    allData = await res.json();
+  } catch(e) { allData = []; }
+  updateKPIs();
+  renderCriticalBanner();
+  renderKanban();
+}
+
+function updateKPIs() {
+  document.getElementById('kpiTotal').textContent    = allData.length;
+  document.getElementById('kpiCritical').textContent = allData.filter(r => r.priority === 'critical').length;
+  document.getElementById('kpiHigh').textContent     = allData.filter(r => r.priority === 'high').length;
+  document.getElementById('kpiOpen').textContent     = allData.filter(r => r.status   === 'open').length;
+}
+
+function renderCriticalBanner() {
+  const crits = allData.filter(r => r.priority === 'critical');
+  const banner = document.getElementById('criticalBanner');
+  if (!crits.length) {
+    banner.innerHTML = '<div class="critical-empty">No critical notes</div>';
+    return;
+  }
+  banner.innerHTML = crits.map(r => `
+    <div class="critical-mini-card" onclick="openModal(${r.id})">
+      <div class="cmini-title">${esc(r.title)}</div>
+      <div class="cmini-meta">
+        ${typeBadge(r.note_type)}
+        <span class="ms-1">${r.car_number ? 'Car ' + esc(r.car_number) : ''}</span>
+        ${r.engineer_name ? '· ' + esc(r.engineer_name) : ''}
+      </div>
+    </div>`).join('');
+}
+
+function renderKanban() {
+  const cols = { open: [], actioned: [], closed: [] };
+  allData.forEach(r => {
+    const s = r.status || 'open';
+    if (cols[s]) cols[s].push(r);
+  });
+
+  document.getElementById('countOpen').textContent     = cols.open.length;
+  document.getElementById('countActioned').textContent = cols.actioned.length;
+  document.getElementById('countClosed').textContent   = cols.closed.length;
+
+  document.getElementById('colOpen').innerHTML     = renderCards(cols.open);
+  document.getElementById('colActioned').innerHTML = renderCards(cols.actioned);
+  document.getElementById('colClosed').innerHTML   = renderCards(cols.closed);
+}
+
+function renderCards(records) {
+  if (!records.length) {
+    return '<div class="drop-zone-placeholder">Drop cards here</div>';
+  }
+  return records.map(r => `
+    <div class="note-card priority-${r.priority || 'normal'}"
+         draggable="true"
+         ondragstart="onDragStart(event, ${r.id})"
+         ondragend="onDragEnd(event)"
+         onclick="openModal(${r.id})">
+      <div class="card-title">${esc(r.title)}</div>
+      <div class="card-badges">
+        ${typeBadge(r.note_type)}
+        ${priorityBadge(r.priority)}
+      </div>
+      <div class="card-footer-meta">
+        ${r.engineer_name ? esc(r.engineer_name) : ''}
+        ${r.car_number    ? (r.engineer_name ? ' · ' : '') + 'Car ' + esc(r.car_number) : ''}
+      </div>
+    </div>`).join('');
+}
+
+function typeBadge(t) {
+  const map = { setup:'bp-setup', tyre:'bp-tyre', fuel:'bp-fuel', strategy:'bp-strategy', data:'bp-data', general:'bp-general' };
+  return `<span class="bp ${map[t] || 'bp-general'}">${t || 'general'}</span>`;
+}
+
+function priorityBadge(p) {
+  const map = { critical:'bp-critical', high:'bp-high', normal:'bp-normal', low:'bp-low' };
+  return `<span class="bp ${map[p] || 'bp-normal'}">${p || 'normal'}</span>`;
+}
+
+function esc(v) { return v ? String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : ''; }
+
+/* ── Drag and Drop ── */
+function onDragStart(e, id) {
+  dragId = id;
+  e.dataTransfer.effectAllowed = 'move';
+  e.currentTarget.classList.add('dragging');
+}
+
+function onDragEnd(e) {
+  e.currentTarget.classList.remove('dragging');
+}
+
+function onDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+}
+
+function onDragEnter(e) {
+  e.preventDefault();
+  const col = e.currentTarget.closest('.kanban-col');
+  if (col) col.classList.add('drag-over');
+}
+
+function onDragLeave(e) {
+  const col = e.currentTarget.closest('.kanban-col');
+  if (col && !col.contains(e.relatedTarget)) col.classList.remove('drag-over');
+}
+
+async function onDrop(e, newStatus) {
+  e.preventDefault();
+  const col = e.currentTarget.closest('.kanban-col');
+  if (col) col.classList.remove('drag-over');
+  if (dragId === null) return;
+
+  const rec = allData.find(r => r.id === dragId);
+  dragId = null;
+  if (!rec || rec.status === newStatus) return;
+
+  const patch = { ...rec, status: newStatus };
+  try {
+    const res = await fetch(`/api/engineering-notes/${rec.id}`, {
+      method : 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body   : JSON.stringify(patch)
     });
-    document.getElementById('btnSave').addEventListener('click',async()=>{
-      const t=document.getElementById('fTitle').value.trim();
-      if(!t){alert('Title is required.');return;}
-      const body={event_id:document.getElementById('fEventId').value.trim()||null,car_number:document.getElementById('fCar').value.trim()||null,engineer_name:document.getElementById('fEngineer').value.trim()||null,note_type:document.getElementById('fType').value,title:t,content:document.getElementById('fContent').value.trim()||null,priority:document.getElementById('fPriority').value,status:document.getElementById('fStatus').value};
-      try{const url=selectedId?`/api/engineering-notes/${selectedId}`:'/api/engineering-notes';const r=await fetch(url,{method:selectedId?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error(await r.text());await load();}catch(e){alert('Save failed: '+e.message);}
+    if (!res.ok) throw new Error(await res.text());
+    await loadData();
+  } catch(err) { alert('Move failed: ' + err.message); }
+}
+
+/* ── CRUD ── */
+function openModal(id = null) {
+  const rec = id ? allData.find(r => r.id === id) : null;
+  document.getElementById('noteModalTitle').textContent = rec ? 'Edit Note' : 'New Note';
+  document.getElementById('btnDelete').classList.toggle('d-none', !rec);
+  document.getElementById('fId').value           = rec ? rec.id : '';
+  document.getElementById('fEngineerName').value = rec ? (rec.engineer_name || '') : '';
+  document.getElementById('fCarNumber').value    = rec ? (rec.car_number    || '') : '';
+  document.getElementById('fNoteType').value     = rec ? (rec.note_type     || 'general') : 'general';
+  document.getElementById('fPriority').value     = rec ? (rec.priority      || 'normal')  : 'normal';
+  document.getElementById('fStatus').value       = rec ? (rec.status        || 'open')    : 'open';
+  document.getElementById('fTitle').value        = rec ? (rec.title         || '') : '';
+  document.getElementById('fContent').value      = rec ? (rec.content       || '') : '';
+  bsModal.show();
+}
+
+async function saveRecord() {
+  const payload = {
+    engineer_name : document.getElementById('fEngineerName').value.trim(),
+    car_number    : document.getElementById('fCarNumber').value.trim(),
+    note_type     : document.getElementById('fNoteType').value,
+    priority      : document.getElementById('fPriority').value,
+    status        : document.getElementById('fStatus').value,
+    title         : document.getElementById('fTitle').value.trim(),
+    content       : document.getElementById('fContent').value.trim()
+  };
+  if (!payload.title) { alert('Title is required'); return; }
+  const id = document.getElementById('fId').value;
+  try {
+    const res = await fetch(id ? `/api/engineering-notes/${id}` : '/api/engineering-notes', {
+      method : id ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body   : JSON.stringify(payload)
     });
-    document.getElementById('btnDelete').addEventListener('click',async()=>{
-      if(!selectedId||!confirm('Delete this engineering note?'))return;
-      try{await fetch(`/api/engineering-notes/${selectedId}`,{method:'DELETE'});selectedId=null;document.getElementById('detailForm').style.display='none';document.getElementById('detailEmpty').style.display='';await load();}catch(e){alert('Delete failed: '+e.message);}
-    });
-    document.getElementById('btnCancel').addEventListener('click',()=>{document.getElementById('detailForm').style.display='none';document.getElementById('detailEmpty').style.display='';});
-    document.getElementById('searchInput').addEventListener('input',renderList);
-    document.querySelectorAll('#typeFilter li').forEach(li=>li.addEventListener('click',()=>{document.querySelectorAll('#typeFilter li').forEach(x=>x.classList.remove('active'));li.classList.add('active');filterType=li.dataset.filter;renderList();}));
-    document.querySelectorAll('#statusFilter li').forEach(li=>li.addEventListener('click',()=>{document.querySelectorAll('#statusFilter li').forEach(x=>x.classList.remove('active'));li.classList.add('active');filterStatus=li.dataset.filter;renderList();}));
-    load();
-  </script>
+    if (!res.ok) throw new Error(await res.text());
+    bsModal.hide();
+    await loadData();
+  } catch(e) { alert('Save failed: ' + e.message); }
+}
+
+async function deleteRecord() {
+  const id = document.getElementById('fId').value;
+  if (!id || !confirm('Delete this note?')) return;
+  try {
+    const res = await fetch(`/api/engineering-notes/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error(await res.text());
+    bsModal.hide();
+    await loadData();
+  } catch(e) { alert('Delete failed: ' + e.message); }
+}
+</script>
 </body>
 </html>

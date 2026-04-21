@@ -2,196 +2,236 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
-  <title>Race Team OS – Suppliers</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Race Team OS – Procurement Suppliers</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet"/>
   <link href="style.css?v=20260420" rel="stylesheet"/>
   <style>
-    body{background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%);}
+    body{background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%);min-height:100vh;}
     .ev-stats-bar{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
-    .ev-stat-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:10px 16px;min-width:110px;}
-    .ev-stat-label{font-size:.7rem;color:#6c757d;font-weight:600;text-transform:uppercase;}
-    .ev-stat-value{font-size:1.5rem;font-weight:700;color:#1a1d24;}
-    #mainShell.mlo-shell{background:transparent;border:none;gap:10px;}
-    #mainShell .mlo-pane-left,#mainShell .mlo-pane-mid,#mainShell .mlo-pane-right{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;}
+    .ev-stat-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:10px 18px;min-width:120px;}
+    .ev-stat-label{font-size:.7rem;color:#6c757d;font-weight:600;text-transform:uppercase;letter-spacing:.4px;}
+    .ev-stat-value{font-size:1.6rem;font-weight:700;color:#1a1d24;}
+    .shell{display:flex;gap:10px;height:calc(100vh - 220px);}
+    .pane{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;display:flex;flex-direction:column;overflow:hidden;}
+    .pane-hdr{padding:8px 12px;background:#f8f9fa;border-bottom:1px solid #dee2e6;display:flex;justify-content:space-between;align-items:center;}
+    .pane-hdr small{font-size:.7rem;font-weight:700;text-transform:uppercase;color:#6c757d;letter-spacing:.5px;}
     .data-table{width:100%;font-size:.82rem;border-collapse:separate;border-spacing:0;}
     .data-table thead{position:sticky;top:0;background:#f8f9fa;z-index:5;}
-    .data-table th{padding:8px 10px;font-size:.7rem;font-weight:700;text-transform:uppercase;color:#6c757d;border-bottom:2px solid #dee2e6;}
-    .data-table td{padding:6px 10px;border-bottom:1px solid rgba(0,0,0,.05);}
-    .data-table tbody tr{cursor:pointer;}
-    .data-table tbody tr:hover{background:#f8f9fa;}
-    .data-table tbody tr.selected{background:rgba(14,165,233,.08);outline:2px solid #0ea5e9;outline-offset:-2px;}
-    .filter-item{padding:5px 8px;border-radius:4px;cursor:pointer;font-size:.8rem;margin-bottom:2px;display:block;color:#495057;text-decoration:none;}
-    .filter-item:hover{background:#f0f9ff;color:#0ea5e9;}
-    .filter-item.active{background:rgba(14,165,233,.12);color:#0ea5e9;font-weight:600;}
+    .data-table th{padding:8px 10px;font-size:.7rem;font-weight:700;text-transform:uppercase;color:#6c757d;border-bottom:2px solid #dee2e6;white-space:nowrap;}
+    .data-table td{padding:7px 10px;border-bottom:1px solid rgba(0,0,0,.05);vertical-align:middle;}
+    .data-table tbody tr{cursor:pointer;transition:background .1s;}
+    .data-table tbody tr:hover{background:#f0f9ff;}
+    .data-table tbody tr.selected{background:rgba(14,165,233,.1);outline:2px solid #0ea5e9;outline-offset:-2px;}
+    .stars{color:#f59e0b;font-size:.9rem;letter-spacing:1px;}
+    .detail-pane{width:360px;min-width:300px;}
+    .detail-pane form label{font-size:.78rem;font-weight:600;color:#374151;margin-bottom:2px;}
+    .detail-pane .form-control,.detail-pane .form-select{font-size:.82rem;}
+    .empty-detail{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:#adb5bd;}
+    .empty-detail i{font-size:2.5rem;margin-bottom:8px;}
   </style>
 </head>
 <body class="light-mode">
-  <div id="rtsTopNav"></div>
-  <div class="rts-main container-fluid">
-    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
-      <div>
-        <h1 class="h4 mb-1">Suppliers</h1>
-        <p class="text-secondary mb-0" style="font-size:.85rem;">Supplier directory, contacts and performance ratings</p>
-      </div>
-      <button class="btn btn-sm" id="btnAdd" style="background:#0ea5e9;border-color:#0ea5e9;color:#fff">+ New Supplier</button>
+<div id="rtsTopNav"></div>
+<div class="rts-main container-fluid">
+  <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+    <div>
+      <h1 class="h4 mb-1">Procurement Suppliers</h1>
+      <p class="text-secondary mb-0" style="font-size:.85rem;">Manage approved supplier registry, ratings and status</p>
     </div>
-    <div class="ev-stats-bar">
-      <div class="ev-stat-card"><div class="ev-stat-label">Total</div><div class="ev-stat-value" id="kpi0">—</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">Active</div><div class="ev-stat-value" id="kpi1">—</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">Blacklisted</div><div class="ev-stat-value" id="kpi2">—</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">Avg Rating</div><div class="ev-stat-value" id="kpi3">—</div></div>
+    <button class="btn btn-sm text-white" id="btnAdd" style="background:#0ea5e9;border-color:#0ea5e9;">+ New Supplier</button>
+  </div>
+
+  <div class="ev-stats-bar">
+    <div class="ev-stat-card"><div class="ev-stat-label">Total</div><div class="ev-stat-value" id="kpiTotal">—</div></div>
+    <div class="ev-stat-card" style="border-left:3px solid #10b981;"><div class="ev-stat-label">Active</div><div class="ev-stat-value" id="kpiActive">—</div></div>
+    <div class="ev-stat-card" style="border-left:3px solid #9ca3af;"><div class="ev-stat-label">Inactive</div><div class="ev-stat-value" id="kpiInactive">—</div></div>
+    <div class="ev-stat-card" style="border-left:3px solid #ef4444;"><div class="ev-stat-label">Blacklisted</div><div class="ev-stat-value" id="kpiBlacklisted">—</div></div>
+  </div>
+
+  <div class="shell">
+    <!-- LEFT: table -->
+    <div class="pane" style="flex:1 1 0;min-width:0;">
+      <div class="pane-hdr">
+        <small>Suppliers</small>
+        <div class="d-flex gap-2 align-items-center">
+          <input type="search" class="form-control form-control-sm" id="searchBox" placeholder="Search…" style="width:180px;"/>
+          <select class="form-select form-select-sm" id="filterStatus" style="width:140px;">
+            <option value="">All Status</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+            <option value="blacklisted">Blacklisted</option>
+          </select>
+        </div>
+      </div>
+      <div style="overflow-y:auto;flex:1;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Name</th><th>Category</th><th>Contact</th><th>Email</th><th>Phone</th>
+              <th>Lead Time</th><th>Rating</th><th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
     </div>
-    <div class="mlo-shell" id="mainShell">
-      <div class="mlo-pane mlo-pane-left" style="width:180px;min-width:140px;">
-        <div class="mlo-pane-header p-2 border-bottom"><small class="fw-bold text-muted">CATEGORY</small></div>
-        <div class="mlo-pane-content p-2" id="filterList"></div>
-      </div>
-      <div class="mlo-resizer"></div>
-      <div class="mlo-pane mlo-pane-mid" style="flex:1 1 0;min-width:200px;">
-        <div class="mlo-pane-header p-2 border-bottom d-flex justify-content-between align-items-center">
-          <small class="fw-bold text-muted">SUPPLIERS LIST</small>
-          <input type="search" class="form-control form-control-sm" id="searchBox" placeholder="Search…" style="width:160px"/>
-        </div>
-        <div class="mlo-pane-content p-0" style="overflow-y:auto;max-height:calc(100vh - 260px);">
-          <table class="data-table">
-            <thead><tr><th>Name</th><th>Category</th><th>Contact</th><th>Email</th><th>Rating</th><th>Status</th></tr></thead>
-            <tbody id="tbody"></tbody>
-          </table>
+
+    <!-- RIGHT: detail panel -->
+    <div class="pane detail-pane" id="detailPane">
+      <div class="pane-hdr">
+        <small id="detailTitle">Detail</small>
+        <div class="d-flex gap-1">
+          <button class="btn btn-sm btn-danger" id="btnDel" style="display:none;font-size:.75rem;">Delete</button>
         </div>
       </div>
-      <div class="mlo-resizer"></div>
-      <div class="mlo-pane mlo-pane-right" style="width:320px;min-width:260px;">
-        <div class="mlo-pane-header p-2 border-bottom d-flex justify-content-between align-items-center">
-          <small class="fw-bold text-muted">INSPECTOR</small>
-          <button class="btn btn-sm btn-danger" id="btnDel" style="display:none">Delete</button>
-        </div>
-        <div class="mlo-pane-content p-3" style="overflow-y:auto;max-height:calc(100vh - 260px);">
-          <form id="form" class="vstack gap-2" onsubmit="return false">
-            <div><label class="form-label small fw-semibold mb-1">Name *</label><input class="form-control form-control-sm" id="fName"/></div>
-            <div><label class="form-label small fw-semibold mb-1">Category *</label>
-              <select class="form-select form-select-sm" id="fCategory">
-                <option value="components">Components</option><option value="tyres">Tyres</option>
-                <option value="fuel">Fuel</option><option value="safety">Safety</option>
-                <option value="tools">Tools</option><option value="services">Services</option><option value="general">General</option>
-              </select>
-            </div>
-            <div><label class="form-label small fw-semibold mb-1">Contact Name</label><input class="form-control form-control-sm" id="fContact"/></div>
-            <div><label class="form-label small fw-semibold mb-1">Email</label><input type="email" class="form-control form-control-sm" id="fEmail"/></div>
-            <div><label class="form-label small fw-semibold mb-1">Phone</label><input class="form-control form-control-sm" id="fPhone"/></div>
-            <div><label class="form-label small fw-semibold mb-1">Address</label><textarea class="form-control form-control-sm" id="fAddress" rows="2"></textarea></div>
-            <div><label class="form-label small fw-semibold mb-1">Payment Terms</label><input class="form-control form-control-sm" id="fPayTerms" placeholder="e.g. Net 30"/></div>
-            <div><label class="form-label small fw-semibold mb-1">Currency</label><input class="form-control form-control-sm" id="fCurrency" value="GBP"/></div>
-            <div><label class="form-label small fw-semibold mb-1">Rating</label>
-              <select class="form-select form-select-sm" id="fRating">
-                <option value="">— Select —</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
-              </select>
-            </div>
-            <div><label class="form-label small fw-semibold mb-1">Status</label>
-              <select class="form-select form-select-sm" id="fStatus">
-                <option value="active">Active</option><option value="inactive">Inactive</option><option value="blacklisted">Blacklisted</option>
-              </select>
-            </div>
-            <div><label class="form-label small fw-semibold mb-1">Notes</label><textarea class="form-control form-control-sm" id="fNotes" rows="3"></textarea></div>
-          </form>
-          <button class="btn btn-sm mt-2 w-100" id="btnSave" style="background:#0ea5e9;color:#fff">Save</button>
-        </div>
+      <div style="overflow-y:auto;flex:1;padding:14px;" id="detailBody">
+        <div class="empty-detail"><i class="bi bi-building"></i><span>Select a supplier to view details</span></div>
       </div>
     </div>
   </div>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="topnav.js?v=20260420"></script>
-  <script src="core.js?v=20260420"></script>
-  <script>
-  const API='/api/proc-suppliers';
-  const CATS=['components','tyres','fuel','safety','tools','services','general'];
-  let all=[],sel=null,filt='all';
-  const gv=id=>(document.getElementById(id)||{}).value||'';
-  const sv=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v??'';};
+</div>
 
-  async function load(){
-    try{
-      const r=await fetch(API);const j=await r.json();
-      all=Array.isArray(j)?j:(j.data||[]);
-      updateKPIs();buildFilters();render();
-    }catch(e){console.error(e);}
-  }
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="topnav.js?v=20260420"></script>
+<script src="core.js?v=20260420"></script>
+<script>
+const API = '/api/proc-suppliers';
+let all = [], sel = null;
 
-  function updateKPIs(){
-    document.getElementById('kpi0').textContent=all.length;
-    document.getElementById('kpi1').textContent=all.filter(x=>x.status==='active').length;
-    document.getElementById('kpi2').textContent=all.filter(x=>x.status==='blacklisted').length;
-    const rated=all.filter(x=>x.rating);
-    document.getElementById('kpi3').textContent=rated.length
-      ?(rated.reduce((a,x)=>a+Number(x.rating),0)/rated.length).toFixed(1):'—';
-  }
+const gv = id => (document.getElementById(id)||{}).value||'';
+const sv = (id,v) => { const el=document.getElementById(id); if(el) el.value=v??''; };
+const stars = n => { n=parseInt(n)||0; return '<span class="stars">'+'★'.repeat(Math.min(n,5))+'<span style="color:#d1d5db;">'+'★'.repeat(Math.max(0,5-n))+'</span></span>'; };
+const statusBadge = s => {
+  const m = {active:'success',inactive:'secondary',blacklisted:'danger'};
+  return `<span class="badge bg-${m[s]||'secondary'}">${s||'—'}</span>`;
+};
 
-  function buildFilters(){
-    document.getElementById('filterList').innerHTML=
-      [['all','All'],...CATS.map(c=>[c,c.charAt(0).toUpperCase()+c.slice(1)])].map(([v,l])=>
-        `<a class="filter-item${filt===v?' active':''}" data-val="${v}" href="#">${l} <small class="text-muted">(${v==='all'?all.length:all.filter(x=>x.category===v).length})</small></a>`
-      ).join('');
-    document.querySelectorAll('#filterList .filter-item').forEach(a=>a.onclick=e=>{e.preventDefault();filt=a.dataset.val;buildFilters();render();});
-  }
+async function load(){
+  try{
+    const r=await fetch(API); const j=await r.json();
+    all=Array.isArray(j)?j:(j.data||[]);
+    updateKPIs(); render();
+  }catch(e){console.error(e);}
+}
 
-  function render(){
-    const q=document.getElementById('searchBox').value.toLowerCase();
-    let d=filt==='all'?[...all]:all.filter(x=>x.category===filt);
-    if(q)d=d.filter(x=>JSON.stringify(x).toLowerCase().includes(q));
-    const SB={active:'success',inactive:'secondary',blacklisted:'danger'};
-    document.getElementById('tbody').innerHTML=d.length
-      ?d.map(row=>`<tr data-id="${row.id}" class="${sel&&String(sel.id)===String(row.id)?'selected':''}">
-          <td class="fw-semibold">${row.name||'—'}</td><td>${row.category||'—'}</td>
-          <td>${row.contact_name||'—'}</td><td>${row.email||'—'}</td>
-          <td>${row.rating?'★'.repeat(Number(row.rating)):'—'}</td>
-          <td><span class="badge bg-${SB[row.status]||'secondary'}">${row.status||'—'}</span></td>
-        </tr>`).join('')
-      :'<tr><td colspan="6" class="text-center text-muted py-4">No suppliers found</td></tr>';
-    document.querySelectorAll('#tbody tr[data-id]').forEach(tr=>tr.onclick=()=>{
-      const item=all.find(x=>String(x.id)===tr.dataset.id);if(item)pick(item);
-    });
-  }
+function updateKPIs(){
+  document.getElementById('kpiTotal').textContent=all.length;
+  document.getElementById('kpiActive').textContent=all.filter(x=>x.status==='active').length;
+  document.getElementById('kpiInactive').textContent=all.filter(x=>x.status==='inactive').length;
+  document.getElementById('kpiBlacklisted').textContent=all.filter(x=>x.status==='blacklisted').length;
+}
 
-  function pick(item){
-    sel=item;
-    sv('fName',item.name);sv('fCategory',item.category);sv('fContact',item.contact_name);
-    sv('fEmail',item.email);sv('fPhone',item.phone);sv('fAddress',item.address);
-    sv('fPayTerms',item.payment_terms);sv('fCurrency',item.currency||'GBP');
-    sv('fRating',item.rating);sv('fStatus',item.status||'active');sv('fNotes',item.notes);
-    document.getElementById('btnDel').style.display='';render();
-  }
+function render(){
+  const q=document.getElementById('searchBox').value.toLowerCase();
+  const fs=document.getElementById('filterStatus').value;
+  let d=[...all];
+  if(fs) d=d.filter(x=>x.status===fs);
+  if(q) d=d.filter(x=>JSON.stringify(x).toLowerCase().includes(q));
+  document.getElementById('tbody').innerHTML=d.length
+    ?d.map(row=>`<tr data-id="${row.id}" class="${sel&&String(sel.id)===String(row.id)?'selected':''}">
+        <td class="fw-semibold">${row.name||'—'}</td>
+        <td>${row.category||'—'}</td>
+        <td>${row.contact_name||'—'}</td>
+        <td>${row.email||'—'}</td>
+        <td>${row.phone||'—'}</td>
+        <td>${row.lead_time_days!=null?row.lead_time_days+'d':'—'}</td>
+        <td>${stars(row.rating)}</td>
+        <td>${statusBadge(row.status)}</td>
+      </tr>`).join('')
+    :'<tr><td colspan="8" class="text-center text-muted py-4">No suppliers found</td></tr>';
+  document.querySelectorAll('#tbody tr[data-id]').forEach(tr=>tr.onclick=()=>{
+    const item=all.find(x=>String(x.id)===tr.dataset.id); if(item) pick(item);
+  });
+}
 
-  function clearForm(){
-    sel=null;document.getElementById('form').reset();
-    sv('fCurrency','GBP');sv('fStatus','active');sv('fCategory','components');
-    document.getElementById('btnDel').style.display='none';render();
-  }
+function pick(item){
+  sel=item;
+  document.getElementById('btnDel').style.display='';
+  document.getElementById('detailTitle').textContent=item.name||'Detail';
+  document.getElementById('detailBody').innerHTML=buildForm(item);
+  wireForm();
+  render();
+}
 
-  async function save(){
-    const body={name:gv('fName'),category:gv('fCategory'),contact_name:gv('fContact'),
-      email:gv('fEmail'),phone:gv('fPhone'),address:gv('fAddress'),payment_terms:gv('fPayTerms'),
-      currency:gv('fCurrency')||'GBP',rating:gv('fRating')||null,status:gv('fStatus'),notes:gv('fNotes')};
-    if(!body.name){alert('Name is required');return;}
-    try{
-      const url=sel?`${API}/${sel.id}`:API;const method=sel?'PUT':'POST';
-      const r=await fetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-      if(r.ok){const saved=await r.json();if(!sel){sel=saved.data||saved;}await load();}
-      else alert('Save failed');
-    }catch(e){console.error(e);alert('Save failed');}
-  }
+function buildForm(item){
+  const i=item||{};
+  return `<form id="detailForm" class="vstack gap-2" onsubmit="return false">
+    <div><label class="form-label">Name *</label><input class="form-control form-control-sm" id="fName" value="${esc(i.name)}"/></div>
+    <div><label class="form-label">Category</label><input class="form-control form-control-sm" id="fCategory" value="${esc(i.category)}"/></div>
+    <div><label class="form-label">Contact Name</label><input class="form-control form-control-sm" id="fContactName" value="${esc(i.contact_name)}"/></div>
+    <div><label class="form-label">Email</label><input type="email" class="form-control form-control-sm" id="fEmail" value="${esc(i.email)}"/></div>
+    <div><label class="form-label">Phone</label><input class="form-control form-control-sm" id="fPhone" value="${esc(i.phone)}"/></div>
+    <div><label class="form-label">Address</label><textarea class="form-control form-control-sm" id="fAddress" rows="2">${esc(i.address)}</textarea></div>
+    <div><label class="form-label">Website</label><input class="form-control form-control-sm" id="fWebsite" value="${esc(i.website)}"/></div>
+    <div><label class="form-label">Account Number</label><input class="form-control form-control-sm" id="fAccountNumber" value="${esc(i.account_number)}"/></div>
+    <div><label class="form-label">Payment Terms</label><input class="form-control form-control-sm" id="fPaymentTerms" value="${esc(i.payment_terms)}"/></div>
+    <div><label class="form-label">Lead Time (days)</label><input type="number" class="form-control form-control-sm" id="fLeadTimeDays" value="${esc(i.lead_time_days)}" min="0"/></div>
+    <div><label class="form-label">Rating</label>
+      <select class="form-select form-select-sm" id="fRating">
+        ${[1,2,3,4,5].map(n=>`<option value="${n}"${parseInt(i.rating)===n?' selected':''}>${n} Star${n>1?'s':''}</option>`).join('')}
+      </select>
+    </div>
+    <div><label class="form-label">Status</label>
+      <select class="form-select form-select-sm" id="fStatus">
+        <option value="active"${i.status==='active'?' selected':''}>Active</option>
+        <option value="inactive"${i.status==='inactive'?' selected':''}>Inactive</option>
+        <option value="blacklisted"${i.status==='blacklisted'?' selected':''}>Blacklisted</option>
+      </select>
+    </div>
+    <div><label class="form-label">Notes</label><textarea class="form-control form-control-sm" id="fNotes" rows="3">${esc(i.notes)}</textarea></div>
+    <button class="btn btn-sm text-white mt-1" style="background:#0ea5e9;border-color:#0ea5e9;" id="btnSave">Save Changes</button>
+  </form>`;
+}
 
-  async function del(){
-    if(!sel||!confirm('Delete this supplier? This cannot be undone.'))return;
-    try{
-      const r=await fetch(`${API}/${sel.id}`,{method:'DELETE'});
-      if(r.ok){clearForm();await load();}else alert('Delete failed');
-    }catch(e){console.error(e);}
-  }
+function esc(v){ return String(v??'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
 
-  document.getElementById('btnAdd').onclick=clearForm;
+function wireForm(){
   document.getElementById('btnSave').onclick=save;
-  document.getElementById('btnDel').onclick=del;
-  document.getElementById('searchBox').addEventListener('input',render);
-  load();
-  </script>
+}
+
+function newSupplier(){
+  sel=null;
+  document.getElementById('btnDel').style.display='none';
+  document.getElementById('detailTitle').textContent='New Supplier';
+  document.getElementById('detailBody').innerHTML=buildForm({status:'active',rating:3});
+  wireForm();
+  render();
+}
+
+async function save(){
+  const body={
+    name:gv('fName'),category:gv('fCategory'),contact_name:gv('fContactName'),
+    email:gv('fEmail')||null,phone:gv('fPhone'),address:gv('fAddress'),
+    website:gv('fWebsite'),account_number:gv('fAccountNumber'),payment_terms:gv('fPaymentTerms'),
+    lead_time_days:gv('fLeadTimeDays')||null,rating:gv('fRating')||null,
+    status:gv('fStatus')||'active',notes:gv('fNotes')
+  };
+  if(!body.name){alert('Name is required');return;}
+  try{
+    const url=sel?`${API}/${sel.id}`:API;
+    const method=sel?'PUT':'POST';
+    const r=await fetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(r.ok){const saved=await r.json();sel=saved.data||saved;await load();pick(sel);}
+    else alert('Save failed: '+(await r.text()));
+  }catch(e){console.error(e);alert('Save failed');}
+}
+
+async function del(){
+  if(!sel||!confirm(`Delete supplier "${sel.name}"? This cannot be undone.`))return;
+  try{
+    const r=await fetch(`${API}/${sel.id}`,{method:'DELETE'});
+    if(r.ok){sel=null;document.getElementById('detailBody').innerHTML='<div class="empty-detail"><i class="bi bi-building"></i><span>Select a supplier</span></div>';document.getElementById('btnDel').style.display='none';await load();}
+    else alert('Delete failed');
+  }catch(e){console.error(e);}
+}
+
+document.getElementById('btnAdd').onclick=newSupplier;
+document.getElementById('btnDel').onclick=del;
+document.getElementById('searchBox').addEventListener('input',render);
+document.getElementById('filterStatus').addEventListener('change',render);
+load();
+</script>
 </body>
 </html>

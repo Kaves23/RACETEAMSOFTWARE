@@ -8,245 +8,352 @@
   <link href="style.css?v=20260420" rel="stylesheet" />
   <style>
     body { background: linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%); min-height:100vh; }
-    .kpi-bar { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
-    .kpi-card { background:#fff; border:1px solid rgba(0,0,0,0.1); border-radius:8px; padding:10px 16px; box-shadow:0 2px 4px rgba(0,0,0,0.06); min-width:120px; }
-    .kpi-label { font-size:0.7rem; color:#6c757d; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; }
-    .kpi-value { font-size:1.5rem; font-weight:700; color:#1a1d24; line-height:1.2; }
-    #insShell.mlo-shell { background:transparent; border:none; gap:10px; }
-    #insShell .mlo-pane-left,#insShell .mlo-pane-mid,#insShell .mlo-pane-right { background:#fff; border:1px solid rgba(0,0,0,0.1); border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,0.06); }
-    #insShell .mlo-pane-header { background:#f8f9fa; border-bottom:1px solid rgba(0,0,0,0.1); }
-    #insShell .mlo-title { color:#1a1d24 !important; }
-    #insShell .mlo-section-label { color:#6c757d !important; opacity:1 !important; }
-    #insShell .mlo-resizer:hover { background:rgba(16,185,129,0.3); }
-    #insShell .pastel-tree { padding:0 !important; margin:0 !important; }
-    #insShell .pastel-tree li { height:28px !important; display:flex !important; align-items:center !important; font-size:0.83rem !important; font-weight:500 !important; padding-left:10px !important; margin-bottom:2px !important; border-radius:5px !important; border:1px solid rgba(0,0,0,0.08) !important; color:#1a1d24 !important; white-space:nowrap !important; overflow:hidden !important; text-overflow:ellipsis !important; cursor:pointer !important; list-style:none; }
-    #insShell .pastel-tree li.active { background:rgba(16,185,129,0.1) !important; border-color:rgba(16,185,129,0.35) !important; color:#059669 !important; font-weight:700 !important; }
-    .ins-table { width:100%; font-size:0.82rem; border-collapse:separate; border-spacing:0; }
-    .ins-table thead { position:sticky; top:0; background:#f8f9fa; z-index:5; }
-    .ins-table th { padding:8px 10px; font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:#6c757d; border-bottom:2px solid #dee2e6; white-space:nowrap; }
-    .ins-table td { padding:6px 10px; border-bottom:1px solid rgba(0,0,0,0.05); vertical-align:middle; color:#1a1d24; }
-    .ins-table tbody tr { cursor:pointer; transition:background 0.1s; }
-    .ins-table tbody tr:hover { background:#f8f9fa; }
-    .ins-table tbody tr.selected { background:rgba(16,185,129,0.08) !important; outline:2px solid #10b981; outline-offset:-2px; }
-    .del-btn { opacity:0; background:none; border:none; color:#dc3545; font-size:1rem; padding:0 4px; cursor:pointer; }
-    .ins-table tbody tr:hover .del-btn { opacity:1; }
-    .renew-warn { color:#d97706; font-weight:700; }
-    .status-pill { display:inline-block; padding:2px 8px; border-radius:20px; font-size:0.65rem; font-weight:700; }
+    .ev-stats-bar { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+    .ev-stat-card { background:#fff; border:1px solid rgba(0,0,0,0.1); border-radius:8px; padding:10px 16px; box-shadow:0 2px 4px rgba(0,0,0,0.06); min-width:120px; }
+    .ev-stat-label { font-size:0.7rem; color:#6c757d; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; }
+    .ev-stat-value { font-size:1.5rem; font-weight:700; color:#1a1d24; line-height:1.2; }
+    .ins-toolbar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:14px; }
+    .ins-grid { display:grid; grid-template-columns: repeat(3, 1fr); gap:14px; }
+    @media (max-width:900px) { .ins-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width:600px) { .ins-grid { grid-template-columns: 1fr; } }
+    .ins-card { background:#fff; border-radius:10px; border:1px solid rgba(0,0,0,0.1); border-left-width:4px; box-shadow:0 2px 6px rgba(0,0,0,0.06); padding:16px; cursor:pointer; transition:box-shadow 0.15s; position:relative; }
+    .ins-card:hover { box-shadow:0 4px 12px rgba(0,0,0,0.1); }
+    .ins-card.border-active { border-left-color:#10b981; }
+    .ins-card.border-expiring { border-left-color:#f59e0b; }
+    .ins-card.border-expired, .ins-card.border-claim { border-left-color:#dc2626; }
+    .ins-card.border-cancelled { border-left-color:#94a3b8; }
+    .ins-card-title { font-size:1rem; font-weight:700; color:#1a1d24; margin-bottom:4px; }
+    .ins-type-badge { display:inline-block; padding:2px 8px; border-radius:20px; font-size:0.63rem; font-weight:700; background:#e0f2fe; color:#0369a1; margin-bottom:10px; }
+    .ins-card-row { display:flex; justify-content:space-between; font-size:0.8rem; color:#6c757d; margin-bottom:3px; }
+    .ins-card-row span:last-child { color:#1a1d24; font-weight:500; }
+    .ins-expiry-big { font-size:1.05rem; font-weight:800; margin-top:8px; margin-bottom:4px; }
+    .ins-expiry-big.exp-ok { color:#10b981; }
+    .ins-expiry-big.exp-warn { color:#f59e0b; }
+    .ins-expiry-big.exp-danger { color:#dc2626; }
+    .ins-expiry-big.exp-grey { color:#94a3b8; }
+    .ins-countdown { font-size:0.72rem; color:#6c757d; margin-bottom:8px; }
+    .ins-footer { display:flex; justify-content:space-between; align-items:center; margin-top:10px; border-top:1px solid rgba(0,0,0,0.07); padding-top:8px; }
+    .sp { display:inline-block; padding:2px 8px; border-radius:20px; font-size:0.64rem; font-weight:700; white-space:nowrap; }
     .sp-active { background:#d1fae5; color:#065f46; }
+    .sp-expiring_soon { background:#fef3c7; color:#92400e; }
     .sp-expired { background:#fee2e2; color:#991b1b; }
-    .sp-lapsed { background:#fef3c7; color:#92400e; }
+    .sp-claim_open { background:#fee2e2; color:#7f1d1d; }
     .sp-cancelled { background:#f1f5f9; color:#64748b; }
-    #insShell .form-label { color:#495057 !important; font-size:0.78rem; font-weight:600; margin-bottom:2px; }
-    #insShell .form-control,#insShell .form-select { font-size:0.82rem; }
+    .ins-del-btn { background:none; border:none; color:#dc3545; font-size:0.85rem; padding:0; opacity:0.5; cursor:pointer; }
+    .ins-card:hover .ins-del-btn { opacity:1; }
+    /* Modal */
+    .modal-label { color:#495057; font-size:0.78rem; font-weight:600; margin-bottom:2px; }
   </style>
 </head>
 <body class="light-mode">
   <div id="rtsTopNav"></div>
   <div class="rts-main container-fluid">
+
     <div class="pt-3 pb-2 mb-2 border-bottom d-flex justify-content-between align-items-end">
       <div>
         <h1 class="h4 mb-1">Insurance</h1>
-        <div class="text-secondary" style="font-size:0.85rem;">Track insurance policies, premiums, renewals and coverage.</div>
+        <div class="text-secondary" style="font-size:0.85rem;">Track insurance policies, premiums, renewals and coverage amounts.</div>
       </div>
-      <button class="btn btn-sm" style="background:#10b981;color:#fff;border:none;" id="btnAddIns" type="button">+ Add Policy</button>
+      <button class="btn btn-sm" style="background:#10b981;color:#fff;border:none;" id="btnAdd">+ Add Policy</button>
     </div>
-    <div class="kpi-bar">
-      <div class="kpi-card"><div class="kpi-label">Total</div><div class="kpi-value" id="kpiTotal">0</div></div>
-      <div class="kpi-card"><div class="kpi-label">Active</div><div class="kpi-value" id="kpiActive">0</div></div>
-      <div class="kpi-card"><div class="kpi-label">Renewing &lt;30d</div><div class="kpi-value" id="kpiRenewing">0</div></div>
-      <div class="kpi-card"><div class="kpi-label">Expired</div><div class="kpi-value" id="kpiExpired">0</div></div>
+
+    <div class="ev-stats-bar">
+      <div class="ev-stat-card"><div class="ev-stat-label">Total</div><div class="ev-stat-value" id="kpiTotal">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Active</div><div class="ev-stat-value" id="kpiActive" style="color:#10b981;">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Expiring &lt;60d</div><div class="ev-stat-value" id="kpiExpiring" style="color:#f59e0b;">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Total Premium/yr</div><div class="ev-stat-value" id="kpiPremium" style="color:#0ea5e9;font-size:1.2rem;">—</div></div>
     </div>
-    <div class="mlo-shell" id="insShell">
-      <!-- LEFT -->
-      <section class="mlo-pane mlo-pane-left" aria-label="Insurance filters">
-        <div class="mlo-pane-header">
-          <div class="d-flex justify-content-between align-items-center">
-            <div class="mlo-title">Filter</div>
-            <span class="badge text-bg-secondary" id="insCountBadge">0</span>
-          </div>
+
+    <div class="ins-toolbar">
+      <input id="srch" type="text" class="form-control form-control-sm" placeholder="Search…" style="max-width:200px;">
+      <select id="fType" class="form-select form-select-sm" style="max-width:180px;">
+        <option value="">Type: All</option>
+        <option value="public_liability">Public Liability</option>
+        <option value="product_liability">Product Liability</option>
+        <option value="employer">Employer</option>
+        <option value="event">Event</option>
+        <option value="vehicle">Vehicle</option>
+        <option value="travel">Travel</option>
+        <option value="equipment">Equipment</option>
+        <option value="other">Other</option>
+      </select>
+      <select id="fStatus" class="form-select form-select-sm" style="max-width:150px;">
+        <option value="">Status: All</option>
+        <option value="active">Active</option>
+        <option value="expiring_soon">Expiring Soon</option>
+        <option value="expired">Expired</option>
+        <option value="claim_open">Claim Open</option>
+        <option value="cancelled">Cancelled</option>
+      </select>
+      <span class="badge bg-secondary ms-auto" id="cntBadge">0</span>
+    </div>
+
+    <div class="ins-grid" id="cardGrid"></div>
+
+  </div>
+
+  <!-- ADD / EDIT MODAL -->
+  <div class="modal fade" id="insModal" tabindex="-1" aria-labelledby="insModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header" style="background:#f8f9fa;">
+          <h5 class="modal-title" id="insModalLabel">Insurance Policy</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
-        <div class="mlo-pane-content">
-          <div class="mlo-section-label">Policy Type</div>
-          <ul class="pastel-tree" id="insFilterList">
-            <li class="active" data-v="all">All Types</li>
-            <li data-v="liability">Liability</li>
-            <li data-v="property">Property</li>
-            <li data-v="vehicle">Vehicle</li>
-            <li data-v="travel">Travel</li>
-            <li data-v="event">Event</li>
-            <li data-v="life">Life</li>
-            <li data-v="other">Other</li>
-          </ul>
-        </div>
-      </section>
-      <div class="mlo-resizer" data-resize="left"></div>
-      <!-- MIDDLE -->
-      <section class="mlo-pane mlo-pane-mid" aria-label="Insurance list">
-        <div class="mlo-pane-header">
-          <div class="d-flex gap-1 align-items-center flex-wrap">
-            <input id="insSearch" type="text" class="form-control form-control-sm" placeholder="Search…" style="max-width:220px;">
-            <select id="insStatusFilter" class="form-select form-select-sm" style="max-width:160px;">
-              <option value="">Status: All</option>
-              <option value="active">Active</option>
-              <option value="expired">Expired</option>
-              <option value="lapsed">Lapsed</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
-          </div>
-        </div>
-        <div class="mlo-pane-content" style="padding:0;">
-          <table class="ins-table">
-            <thead><tr><th>#</th><th>Policy #</th><th>Type</th><th>Insurer</th><th>Coverage</th><th>Premium</th><th>Renewal</th><th>Status</th><th></th></tr></thead>
-            <tbody id="insTbody"></tbody>
-          </table>
-        </div>
-      </section>
-      <div class="mlo-resizer" data-resize="right"></div>
-      <!-- RIGHT -->
-      <section class="mlo-pane mlo-pane-right mlo-inspector" aria-label="Insurance inspector">
-        <div class="mlo-pane-header">
-          <div class="d-flex justify-content-between align-items-center">
-            <div class="mlo-title">Inspector</div>
-            <span class="badge text-bg-secondary" id="insInspBadge">—</span>
-          </div>
-          <div class="d-flex gap-1 mt-1">
-            <button class="btn btn-sm" style="background:#10b981;color:#fff;border:none;font-size:0.75rem;" id="btnSaveIns">Save</button>
-            <button class="btn btn-sm btn-outline-danger" style="font-size:0.75rem;" id="btnDelIns">Delete</button>
-          </div>
-        </div>
-        <div class="mlo-pane-content">
+        <div class="modal-body">
           <form id="insForm" autocomplete="off">
             <div class="row g-2">
-              <div class="col-6"><label class="form-label">Policy Number *</label><input id="f_ins_polno" class="form-control form-control-sm" type="text" required></div>
-              <div class="col-6"><label class="form-label">Policy Type</label>
-                <select id="f_ins_type" class="form-select form-select-sm">
-                  <option value="liability">Liability</option><option value="property">Property</option>
-                  <option value="vehicle">Vehicle</option><option value="travel">Travel</option>
-                  <option value="event">Event</option><option value="life">Life</option><option value="other">Other</option>
+              <div class="col-12">
+                <label class="modal-label">Policy Name *</label>
+                <input id="f_policy_name" class="form-control form-control-sm" type="text" required>
+              </div>
+              <div class="col-6">
+                <label class="modal-label">Insurance Type</label>
+                <select id="f_insurance_type" class="form-select form-select-sm">
+                  <option value="public_liability">Public Liability</option>
+                  <option value="product_liability">Product Liability</option>
+                  <option value="employer">Employer</option>
+                  <option value="event">Event</option>
+                  <option value="vehicle">Vehicle</option>
+                  <option value="travel">Travel</option>
+                  <option value="equipment">Equipment</option>
+                  <option value="other">Other</option>
                 </select>
               </div>
-              <div class="col-12"><label class="form-label">Insurer *</label><input id="f_ins_insurer" class="form-control form-control-sm" type="text" required></div>
-              <div class="col-12"><label class="form-label">Description</label><textarea id="f_ins_desc" class="form-control form-control-sm" rows="2"></textarea></div>
-              <div class="col-5"><label class="form-label">Coverage Amount</label><input id="f_ins_coverage" class="form-control form-control-sm" type="number" step="0.01" min="0"></div>
-              <div class="col-3"><label class="form-label">Currency</label><input id="f_ins_currency" class="form-control form-control-sm" type="text" placeholder="GBP"></div>
-              <div class="col-4"><label class="form-label">Premium</label><input id="f_ins_premium" class="form-control form-control-sm" type="number" step="0.01" min="0"></div>
-              <div class="col-4"><label class="form-label">Start Date</label><input id="f_ins_start" class="form-control form-control-sm" type="date"></div>
-              <div class="col-4"><label class="form-label">Renewal Date</label><input id="f_ins_renewal" class="form-control form-control-sm" type="date"></div>
-              <div class="col-4"><label class="form-label">Status</label>
-                <select id="f_ins_status" class="form-select form-select-sm">
-                  <option value="active">Active</option><option value="expired">Expired</option>
-                  <option value="lapsed">Lapsed</option><option value="cancelled">Cancelled</option>
+              <div class="col-6">
+                <label class="modal-label">Status</label>
+                <select id="f_status" class="form-select form-select-sm">
+                  <option value="active">Active</option>
+                  <option value="expiring_soon">Expiring Soon</option>
+                  <option value="expired">Expired</option>
+                  <option value="claim_open">Claim Open</option>
+                  <option value="cancelled">Cancelled</option>
                 </select>
               </div>
-              <div class="col-12"><label class="form-label">Broker</label><input id="f_ins_broker" class="form-control form-control-sm" type="text"></div>
-              <div class="col-12"><label class="form-label">Notes</label><textarea id="f_ins_notes" class="form-control form-control-sm" rows="2"></textarea></div>
+              <div class="col-6">
+                <label class="modal-label">Insurer *</label>
+                <input id="f_insurer" class="form-control form-control-sm" type="text" required>
+              </div>
+              <div class="col-6">
+                <label class="modal-label">Broker</label>
+                <input id="f_broker" class="form-control form-control-sm" type="text">
+              </div>
+              <div class="col-6">
+                <label class="modal-label">Policy Number</label>
+                <input id="f_policy_number" class="form-control form-control-sm" type="text">
+              </div>
+              <div class="col-3">
+                <label class="modal-label">Coverage Amount</label>
+                <input id="f_coverage_amount" class="form-control form-control-sm" type="number" step="0.01" min="0">
+              </div>
+              <div class="col-3">
+                <label class="modal-label">Currency</label>
+                <input id="f_currency" class="form-control form-control-sm" type="text" placeholder="GBP" maxlength="5">
+              </div>
+              <div class="col-6">
+                <label class="modal-label">Annual Premium</label>
+                <input id="f_premium_annual" class="form-control form-control-sm" type="number" step="0.01" min="0">
+              </div>
+              <div class="col-6">
+                <label class="modal-label">Excess</label>
+                <input id="f_excess" class="form-control form-control-sm" type="number" step="0.01" min="0">
+              </div>
+              <div class="col-6">
+                <label class="modal-label">Start Date *</label>
+                <input id="f_start_date" class="form-control form-control-sm" type="date" required>
+              </div>
+              <div class="col-6">
+                <label class="modal-label">Expiry Date *</label>
+                <input id="f_expiry_date" class="form-control form-control-sm" type="date" required>
+              </div>
+              <div class="col-12">
+                <label class="modal-label">Document URL</label>
+                <input id="f_document_url" class="form-control form-control-sm" type="url" placeholder="https://…">
+              </div>
+              <div class="col-12">
+                <label class="modal-label">Notes</label>
+                <textarea id="f_notes" class="form-control form-control-sm" rows="3"></textarea>
+              </div>
             </div>
           </form>
         </div>
-      </section>
+        <div class="modal-footer">
+          <button class="btn btn-sm btn-outline-danger me-auto" id="btnDelModal">Delete</button>
+          <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-sm" style="background:#10b981;color:#fff;border:none;" id="btnSave">Save</button>
+        </div>
+      </div>
     </div>
   </div>
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="topnav.js?v=20260420"></script>
   <script src="core.js?v=20260420"></script>
   <script>
   const API = '/api/insurance';
-  let allData = [], current = null, filterType = 'all';
-  function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-  function fmt(d){ return d ? new Date(d).toLocaleDateString('en-GB') : '—'; }
-  function fmtVal(v){ return v ? '£'+Number(v).toLocaleString('en-GB') : '—'; }
+  let allData = [], current = null;
+  let modal;
+  const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const fmt = s => (s||'').replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+  const fmtD = s => { if(!s) return '—'; try { return new Date(s).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}); } catch(e){ return s; }};
+  const fmtMoney = (v, c) => v != null ? `${Number(v).toLocaleString('en-GB',{minimumFractionDigits:0,maximumFractionDigits:0})} ${c||'GBP'}` : '—';
 
-  async function loadAll(){ const data=await apiFetch(API).catch(()=>[]); allData=data||[]; renderStats(); renderTable(); }
-
-  function renderStats(){
-    const now=new Date(); const in30=new Date(now.getTime()+30*24*60*60*1000);
-    document.getElementById('kpiTotal').textContent=allData.length;
-    document.getElementById('kpiActive').textContent=allData.filter(r=>r.status==='active').length;
-    document.getElementById('kpiRenewing').textContent=allData.filter(r=>{ if(!r.renewal_date) return false; const d=new Date(r.renewal_date); return d>=now&&d<=in30; }).length;
-    document.getElementById('kpiExpired').textContent=allData.filter(r=>r.status==='expired'||r.status==='lapsed').length;
+  function daysTo(dateStr) {
+    if (!dateStr) return null;
+    return Math.round((new Date(dateStr) - new Date()) / 864e5);
   }
 
-  function renderTable(){
-    const q=document.getElementById('insSearch').value.toLowerCase();
-    const sf=document.getElementById('insStatusFilter').value;
-    const now=new Date(); const in30=new Date(now.getTime()+30*24*60*60*1000);
-    let rows=filterType==='all'?allData:allData.filter(r=>r.policy_type===filterType);
-    if(sf) rows=rows.filter(r=>r.status===sf);
-    if(q) rows=rows.filter(r=>JSON.stringify(r).toLowerCase().includes(q));
-    document.getElementById('insCountBadge').textContent=rows.length;
-    const tbody=document.getElementById('insTbody');
-    if(!rows.length){ tbody.innerHTML='<tr><td colspan="9" class="text-center text-muted py-3">No policies found</td></tr>'; return; }
-    tbody.innerHTML=rows.map((r,i)=>{
-      const renDate=r.renewal_date?new Date(r.renewal_date):null;
-      const soonWarn=renDate&&renDate>=now&&renDate<=in30;
-      return `<tr data-id="${r.id}" class="${current&&current.id===r.id?'selected':''}">
-        <td>${i+1}</td>
-        <td>${esc(r.policy_number||'—')}</td>
-        <td style="text-transform:capitalize;">${esc(r.policy_type||'—')}</td>
-        <td>${esc(r.insurer||'—')}</td>
-        <td>${fmtVal(r.coverage_amount)}</td>
-        <td>${fmtVal(r.premium)}</td>
-        <td class="${soonWarn?'renew-warn':''}">${fmt(r.renewal_date)}</td>
-        <td><span class="status-pill sp-${r.status||'active'}">${r.status||'active'}</span></td>
-        <td><button class="del-btn" data-id="${r.id}">✕</button></td>
-      </tr>`;
-    }).join('');
-    tbody.querySelectorAll('tr[data-id]').forEach(tr=>tr.addEventListener('click',e=>{ if(e.target.classList.contains('del-btn')) return; selectRow(tr.dataset.id); }));
-    tbody.querySelectorAll('.del-btn').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation(); deleteById(b.dataset.id); }));
+  function cardBorderClass(r) {
+    if (r.status === 'expired' || r.status === 'claim_open') return 'border-expired';
+    if (r.status === 'expiring_soon') return 'border-expiring';
+    const d = daysTo(r.expiry_date);
+    if (d !== null && d >= 0 && d <= 60) return 'border-expiring';
+    if (r.status === 'active') return 'border-active';
+    return 'border-cancelled';
   }
 
-  function selectRow(id){
-    current=allData.find(r=>String(r.id)===String(id)); if(!current) return;
-    document.getElementById('insInspBadge').textContent='#'+current.id;
-    const F=f=>document.getElementById(f);
-    F('f_ins_polno').value=current.policy_number||'';
-    F('f_ins_type').value=current.policy_type||'other';
-    F('f_ins_insurer').value=current.insurer||'';
-    F('f_ins_desc').value=current.description||'';
-    F('f_ins_coverage').value=current.coverage_amount||'';
-    F('f_ins_currency').value=current.currency||'GBP';
-    F('f_ins_premium').value=current.premium||'';
-    F('f_ins_start').value=current.start_date?current.start_date.slice(0,10):'';
-    F('f_ins_renewal').value=current.renewal_date?current.renewal_date.slice(0,10):'';
-    F('f_ins_status').value=current.status||'active';
-    F('f_ins_broker').value=current.broker||'';
-    F('f_ins_notes').value=current.notes||'';
-    renderTable();
+  function expiryColorClass(r) {
+    if (r.status === 'expired' || (daysTo(r.expiry_date) !== null && daysTo(r.expiry_date) < 0)) return 'exp-danger';
+    const d = daysTo(r.expiry_date);
+    if (d !== null && d <= 60) return 'exp-warn';
+    if (r.status === 'active') return 'exp-ok';
+    return 'exp-grey';
   }
 
-  function clearForm(){ current=null; document.getElementById('insInspBadge').textContent='—'; document.getElementById('insForm').reset(); document.getElementById('f_ins_currency').value='GBP'; renderTable(); }
-
-  async function saveRecord(){
-    const F=f=>document.getElementById(f).value.trim();
-    if(!F('f_ins_polno')){ alert('Policy number is required'); return; }
-    if(!F('f_ins_insurer')){ alert('Insurer is required'); return; }
-    const body={ policy_number:F('f_ins_polno'), policy_type:F('f_ins_type'), insurer:F('f_ins_insurer'),
-      description:F('f_ins_desc'), coverage_amount:parseFloat(F('f_ins_coverage'))||null, currency:F('f_ins_currency')||'GBP',
-      premium:parseFloat(F('f_ins_premium'))||null, start_date:F('f_ins_start')||null, renewal_date:F('f_ins_renewal')||null,
-      status:F('f_ins_status'), broker:F('f_ins_broker'), notes:F('f_ins_notes') };
-    if(current){ await apiFetch(`${API}/${current.id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); }
-    else { await apiFetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); }
-    await loadAll();
+  function countdownText(r) {
+    const d = daysTo(r.expiry_date);
+    if (d === null) return '';
+    if (d < 0) return `Expired ${Math.abs(d)} days ago`;
+    if (d === 0) return 'Expires today';
+    return `${d} days remaining`;
   }
 
-  async function deleteById(id){
-    if(!confirm('Delete this insurance policy?')) return;
-    await apiFetch(`${API}/${id}`,{method:'DELETE'});
-    if(current&&String(current.id)===String(id)){ current=null; document.getElementById('insForm').reset(); }
-    await loadAll();
+  async function loadAll() {
+    const data = await apiFetch(API).catch(() => []);
+    allData = data || [];
+    renderStats(); renderCards();
   }
 
-  document.addEventListener('DOMContentLoaded',()=>{
-    loadAll();
-    document.getElementById('btnAddIns').addEventListener('click',clearForm);
-    document.getElementById('btnSaveIns').addEventListener('click',saveRecord);
-    document.getElementById('btnDelIns').addEventListener('click',()=>{ if(current) deleteById(current.id); });
-    document.getElementById('insSearch').addEventListener('input',renderTable);
-    document.getElementById('insStatusFilter').addEventListener('change',renderTable);
-    document.querySelectorAll('#insFilterList li').forEach(li=>li.addEventListener('click',()=>{
-      document.querySelectorAll('#insFilterList li').forEach(x=>x.classList.remove('active'));
-      li.classList.add('active'); filterType=li.dataset.v; renderTable();
+  function renderStats() {
+    document.getElementById('kpiTotal').textContent = allData.length;
+    document.getElementById('kpiActive').textContent = allData.filter(r => r.status === 'active').length;
+    document.getElementById('kpiExpiring').textContent = allData.filter(r => {
+      const d = daysTo(r.expiry_date);
+      return d !== null && d >= 0 && d <= 60;
+    }).length;
+    const total = allData.reduce((sum, r) => sum + (r.premium_annual ? +r.premium_annual : 0), 0);
+    document.getElementById('kpiPremium').textContent = total > 0 ? `£${total.toLocaleString('en-GB',{minimumFractionDigits:0})}` : '£0';
+  }
+
+  function renderCards() {
+    const q = document.getElementById('srch').value.toLowerCase();
+    const tf = document.getElementById('fType').value;
+    const sf = document.getElementById('fStatus').value;
+    let rows = allData;
+    if (tf) rows = rows.filter(r => r.insurance_type === tf);
+    if (sf) rows = rows.filter(r => r.status === sf);
+    if (q) rows = rows.filter(r => JSON.stringify(r).toLowerCase().includes(q));
+    document.getElementById('cntBadge').textContent = rows.length;
+    const grid = document.getElementById('cardGrid');
+    if (!rows.length) {
+      grid.innerHTML = '<div class="col-span-3 text-center text-muted py-5" style="grid-column:1/-1;">No insurance policies found</div>';
+      return;
+    }
+    grid.innerHTML = rows.map(r => `
+      <div class="ins-card ${cardBorderClass(r)}" data-id="${r.id}">
+        <div class="d-flex justify-content-between align-items-start">
+          <div class="ins-card-title">${esc(r.policy_name)}</div>
+          <button class="ins-del-btn" data-id="${r.id}" title="Delete">✕</button>
+        </div>
+        <span class="ins-type-badge">${fmt(r.insurance_type||'')}</span>
+        <div class="ins-card-row"><span>Insurer</span><span>${esc(r.insurer||'—')}</span></div>
+        <div class="ins-card-row"><span>Policy No.</span><span>${esc(r.policy_number||'—')}</span></div>
+        <div class="ins-card-row"><span>Coverage</span><span>${fmtMoney(r.coverage_amount, r.currency)}</span></div>
+        <div class="ins-card-row"><span>Premium/yr</span><span>${fmtMoney(r.premium_annual, r.currency)}</span></div>
+        <div class="ins-expiry-big ${expiryColorClass(r)}">${fmtD(r.expiry_date)}</div>
+        <div class="ins-countdown">${countdownText(r)}</div>
+        <div class="ins-footer">
+          <span class="sp sp-${r.status||'active'}">${fmt(r.status||'active')}</span>
+          <span style="font-size:0.75rem;color:#6c757d;">Click to edit</span>
+        </div>
+      </div>
+    `).join('');
+    grid.querySelectorAll('.ins-card[data-id]').forEach(c => c.addEventListener('click', e => {
+      if (e.target.classList.contains('ins-del-btn')) return;
+      openEdit(c.dataset.id);
     }));
+    grid.querySelectorAll('.ins-del-btn').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); delById(b.dataset.id); }));
+  }
+
+  function openEdit(id) {
+    current = allData.find(r => String(r.id) === String(id));
+    if (!current) return;
+    document.getElementById('insModalLabel').textContent = current.policy_name || 'Insurance Policy';
+    document.getElementById('f_policy_name').value = current.policy_name || '';
+    document.getElementById('f_insurance_type').value = current.insurance_type || 'public_liability';
+    document.getElementById('f_status').value = current.status || 'active';
+    document.getElementById('f_insurer').value = current.insurer || '';
+    document.getElementById('f_broker').value = current.broker || '';
+    document.getElementById('f_policy_number').value = current.policy_number || '';
+    document.getElementById('f_coverage_amount').value = current.coverage_amount != null ? current.coverage_amount : '';
+    document.getElementById('f_currency').value = current.currency || 'GBP';
+    document.getElementById('f_premium_annual').value = current.premium_annual != null ? current.premium_annual : '';
+    document.getElementById('f_excess').value = current.excess != null ? current.excess : '';
+    document.getElementById('f_start_date').value = (current.start_date||'').slice(0,10);
+    document.getElementById('f_expiry_date').value = (current.expiry_date||'').slice(0,10);
+    document.getElementById('f_document_url').value = current.document_url || '';
+    document.getElementById('f_notes').value = current.notes || '';
+    modal.show();
+  }
+
+  function openNew() {
+    current = null;
+    document.getElementById('insModalLabel').textContent = 'New Insurance Policy';
+    document.getElementById('insForm').reset();
+    document.getElementById('f_currency').value = 'GBP';
+    modal.show();
+  }
+
+  async function saveRecord() {
+    const v = id => document.getElementById(id).value.trim();
+    if (!v('f_policy_name')) { alert('Policy name is required'); return; }
+    if (!v('f_insurer')) { alert('Insurer is required'); return; }
+    if (!v('f_start_date') || !v('f_expiry_date')) { alert('Start and expiry dates are required'); return; }
+    const body = {
+      policy_name: v('f_policy_name'), insurance_type: v('f_insurance_type'),
+      insurer: v('f_insurer'), broker: v('f_broker'), policy_number: v('f_policy_number'),
+      coverage_amount: v('f_coverage_amount') ? parseFloat(v('f_coverage_amount')) : null,
+      currency: v('f_currency') || 'GBP',
+      premium_annual: v('f_premium_annual') ? parseFloat(v('f_premium_annual')) : null,
+      excess: v('f_excess') ? parseFloat(v('f_excess')) : null,
+      start_date: v('f_start_date'), expiry_date: v('f_expiry_date'),
+      document_url: v('f_document_url') || null, status: v('f_status'), notes: v('f_notes')
+    };
+    if (current) {
+      await apiFetch(`${API}/${current.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+    } else {
+      await apiFetch(API, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+    }
+    modal.hide();
+    await loadAll();
+  }
+
+  async function delById(id) {
+    if (!confirm('Delete this insurance policy?')) return;
+    await apiFetch(`${API}/${id}`, { method:'DELETE' });
+    modal.hide();
+    await loadAll();
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    modal = new bootstrap.Modal(document.getElementById('insModal'));
+    loadAll();
+    document.getElementById('btnAdd').addEventListener('click', openNew);
+    document.getElementById('btnSave').addEventListener('click', saveRecord);
+    document.getElementById('btnDelModal').addEventListener('click', () => { if (current) delById(current.id); });
+    document.getElementById('srch').addEventListener('input', renderCards);
+    document.getElementById('fType').addEventListener('change', renderCards);
+    document.getElementById('fStatus').addEventListener('change', renderCards);
   });
   </script>
 </body>

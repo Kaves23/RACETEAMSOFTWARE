@@ -2,184 +2,261 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Race Team OS – Quotes</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet"/>
   <link href="style.css?v=20260420" rel="stylesheet"/>
   <style>
-    body{background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%);}
+    body{background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%);min-height:100vh;}
     .ev-stats-bar{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
-    .ev-stat-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:10px 16px;min-width:110px;}
-    .ev-stat-label{font-size:.7rem;color:#6c757d;font-weight:600;text-transform:uppercase;}
-    .ev-stat-value{font-size:1.5rem;font-weight:700;color:#1a1d24;}
-    #mainShell.mlo-shell{background:transparent;border:none;gap:10px;}
-    #mainShell .mlo-pane-left,#mainShell .mlo-pane-mid,#mainShell .mlo-pane-right{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;}
+    .ev-stat-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:10px 18px;min-width:120px;}
+    .ev-stat-label{font-size:.7rem;color:#6c757d;font-weight:600;text-transform:uppercase;letter-spacing:.4px;}
+    .ev-stat-value{font-size:1.6rem;font-weight:700;color:#1a1d24;}
+    .main-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;overflow:hidden;}
+    .main-card-hdr{padding:10px 14px;background:#f8f9fa;border-bottom:1px solid #dee2e6;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;}
     .data-table{width:100%;font-size:.82rem;border-collapse:separate;border-spacing:0;}
     .data-table thead{position:sticky;top:0;background:#f8f9fa;z-index:5;}
-    .data-table th{padding:8px 10px;font-size:.7rem;font-weight:700;text-transform:uppercase;color:#6c757d;border-bottom:2px solid #dee2e6;}
-    .data-table td{padding:6px 10px;border-bottom:1px solid rgba(0,0,0,.05);}
-    .data-table tbody tr{cursor:pointer;}
-    .data-table tbody tr:hover{background:#f8f9fa;}
-    .data-table tbody tr.selected{background:rgba(14,165,233,.08);outline:2px solid #0ea5e9;outline-offset:-2px;}
-    .filter-item{padding:5px 8px;border-radius:4px;cursor:pointer;font-size:.8rem;margin-bottom:2px;display:block;color:#495057;text-decoration:none;}
-    .filter-item:hover{background:#f0f9ff;color:#0ea5e9;}
-    .filter-item.active{background:rgba(14,165,233,.12);color:#0ea5e9;font-weight:600;}
+    .data-table th{padding:8px 10px;font-size:.7rem;font-weight:700;text-transform:uppercase;color:#6c757d;border-bottom:2px solid #dee2e6;white-space:nowrap;}
+    .data-table td{padding:7px 10px;border-bottom:1px solid rgba(0,0,0,.05);vertical-align:middle;}
+    .data-table tbody tr:hover{background:#faf5ff;}
+    .compare-row{display:flex;gap:12px;overflow-x:auto;padding:12px;background:#faf5ff;border-bottom:2px solid #8b5cf6;}
+    .quote-card{min-width:200px;max-width:240px;background:#fff;border:2px solid #e9d5ff;border-radius:8px;padding:12px;position:relative;flex-shrink:0;}
+    .quote-card.accepted{border-color:#8b5cf6;box-shadow:0 0 0 3px rgba(139,92,246,.15);}
+    .quote-card .qc-supplier{font-weight:700;font-size:.85rem;margin-bottom:4px;}
+    .quote-card .qc-price{font-size:1.3rem;font-weight:700;color:#8b5cf6;}
+    .quote-card .qc-lead{font-size:.75rem;color:#6c757d;}
+    .quote-card .accepted-badge{position:absolute;top:6px;right:6px;font-size:.65rem;background:#8b5cf6;color:#fff;padding:2px 6px;border-radius:10px;}
+    .filter-pill{padding:4px 12px;border-radius:20px;font-size:.75rem;cursor:pointer;border:1px solid #dee2e6;background:#fff;color:#495057;transition:all .15s;}
+    .filter-pill.active{background:#8b5cf6;border-color:#8b5cf6;color:#fff;font-weight:600;}
   </style>
 </head>
 <body class="light-mode">
-  <div id="rtsTopNav"></div>
-  <div class="rts-main container-fluid">
-    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
-      <div>
-        <h1 class="h4 mb-1">Supplier Quotes</h1>
-        <p class="text-secondary mb-0" style="font-size:.85rem;">Review and manage supplier quotations received against RFQs</p>
-      </div>
-      <button class="btn btn-sm" id="btnAdd" style="background:#0ea5e9;border-color:#0ea5e9;color:#fff">+ New Quote</button>
+<div id="rtsTopNav"></div>
+<div class="rts-main container-fluid">
+  <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+    <div>
+      <h1 class="h4 mb-1">Supplier Quotes</h1>
+      <p class="text-secondary mb-0" style="font-size:.85rem;">Compare and manage supplier quotations</p>
     </div>
-    <div class="ev-stats-bar">
-      <div class="ev-stat-card"><div class="ev-stat-label">Total</div><div class="ev-stat-value" id="kpi0">—</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">Under Review</div><div class="ev-stat-value" id="kpi1">—</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">Accepted</div><div class="ev-stat-value" id="kpi2">—</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">Rejected</div><div class="ev-stat-value" id="kpi3">—</div></div>
+    <button class="btn btn-sm text-white" id="btnAdd" style="background:#8b5cf6;border-color:#8b5cf6;">+ New Quote</button>
+  </div>
+
+  <div class="ev-stats-bar">
+    <div class="ev-stat-card"><div class="ev-stat-label">Total</div><div class="ev-stat-value" id="kpiTotal">—</div></div>
+    <div class="ev-stat-card" style="border-left:3px solid #f59e0b;"><div class="ev-stat-label">Under Review</div><div class="ev-stat-value" id="kpiReview">—</div></div>
+    <div class="ev-stat-card" style="border-left:3px solid #8b5cf6;"><div class="ev-stat-label">Accepted</div><div class="ev-stat-value" id="kpiAccepted">—</div></div>
+    <div class="ev-stat-card" style="border-left:3px solid #10b981;"><div class="ev-stat-label">Total Value (Accepted)</div><div class="ev-stat-value" id="kpiValue">—</div></div>
+  </div>
+
+  <div class="d-flex gap-2 mb-3 flex-wrap align-items-center">
+    <span class="filter-pill active" data-val="">All Status</span>
+    <span class="filter-pill" data-val="received">Received</span>
+    <span class="filter-pill" data-val="under_review">Under Review</span>
+    <span class="filter-pill" data-val="accepted">Accepted</span>
+    <span class="filter-pill" data-val="rejected">Rejected</span>
+    <span class="filter-pill" data-val="expired">Expired</span>
+    <input type="search" class="form-control form-control-sm" id="searchBox" placeholder="Search quotes…" style="width:200px;"/>
+    <div class="d-flex gap-1 align-items-center ms-2">
+      <label class="form-label mb-0 small fw-semibold text-muted">RFQ ID:</label>
+      <input type="text" class="form-control form-control-sm" id="rfqFilter" placeholder="Filter by RFQ ID" style="width:150px;"/>
+      <button class="btn btn-sm btn-outline-secondary" id="btnClearRfq">×</button>
     </div>
-    <div class="mlo-shell" id="mainShell">
-      <div class="mlo-pane mlo-pane-left" style="width:180px;min-width:140px;">
-        <div class="mlo-pane-header p-2 border-bottom"><small class="fw-bold text-muted">STATUS</small></div>
-        <div class="mlo-pane-content p-2" id="filterList"></div>
+  </div>
+
+  <!-- Comparison cards (shown when RFQ filter active) -->
+  <div id="compareSection" style="display:none;" class="mb-3">
+    <div class="d-flex align-items-center gap-2 mb-2">
+      <span style="font-size:.75rem;font-weight:700;text-transform:uppercase;color:#8b5cf6;letter-spacing:.5px;">RFQ Comparison</span>
+      <span id="compareRfqLabel" class="badge" style="background:#e9d5ff;color:#7c3aed;font-size:.72rem;"></span>
+    </div>
+    <div class="compare-row" id="compareRow"></div>
+  </div>
+
+  <div class="main-card">
+    <div class="main-card-hdr">
+      <small style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:#6c757d;letter-spacing:.5px;">All Quotes</small>
+      <small id="rowCount" class="text-muted" style="font-size:.75rem;">0 records</small>
+    </div>
+    <div style="overflow-y:auto;max-height:calc(100vh - 420px);">
+      <table class="data-table">
+        <thead><tr><th>Supplier</th><th>Quote #</th><th>Description</th><th>Unit Price</th><th>Qty</th><th>Total Price</th><th>Currency</th><th>Valid Until</th><th>Lead Days</th><th>Status</th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="quoteModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header" style="background:#8b5cf6;color:#fff;">
+        <h5 class="modal-title" id="modalTitle">New Quote</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
-      <div class="mlo-resizer"></div>
-      <div class="mlo-pane mlo-pane-mid" style="flex:1 1 0;min-width:200px;">
-        <div class="mlo-pane-header p-2 border-bottom d-flex justify-content-between align-items-center">
-          <small class="fw-bold text-muted">QUOTES LIST</small>
-          <input type="search" class="form-control form-control-sm" id="searchBox" placeholder="Search…" style="width:160px"/>
-        </div>
-        <div class="mlo-pane-content p-0" style="overflow-y:auto;max-height:calc(100vh - 260px);">
-          <table class="data-table">
-            <thead><tr><th>Supplier</th><th>Quote #</th><th>Total</th><th>Currency</th><th>Valid Until</th><th>Status</th></tr></thead>
-            <tbody id="tbody"></tbody>
-          </table>
-        </div>
+      <div class="modal-body">
+        <form id="quoteForm" class="row g-3" onsubmit="return false">
+          <div class="col-md-6"><label class="form-label small fw-semibold">RFQ ID</label><input class="form-control form-control-sm" id="fRfqId"/></div>
+          <div class="col-md-6"><label class="form-label small fw-semibold">Supplier ID</label><input class="form-control form-control-sm" id="fSupplierId"/></div>
+          <div class="col-md-6"><label class="form-label small fw-semibold">Supplier Name *</label><input class="form-control form-control-sm" id="fSupplierName"/></div>
+          <div class="col-md-6"><label class="form-label small fw-semibold">Quote Number</label><input class="form-control form-control-sm" id="fQuoteNumber"/></div>
+          <div class="col-12"><label class="form-label small fw-semibold">Description</label><input class="form-control form-control-sm" id="fDescription"/></div>
+          <div class="col-md-4"><label class="form-label small fw-semibold">Unit Price</label><input type="number" class="form-control form-control-sm" id="fUnitPrice" step="0.01" min="0"/></div>
+          <div class="col-md-4"><label class="form-label small fw-semibold">Quantity</label><input type="number" class="form-control form-control-sm" id="fQuantity" min="0"/></div>
+          <div class="col-md-4"><label class="form-label small fw-semibold">Total Price <span class="text-muted fw-normal">(auto)</span></label><input type="number" class="form-control form-control-sm" id="fTotalPrice" step="0.01" min="0"/></div>
+          <div class="col-md-4"><label class="form-label small fw-semibold">Currency</label><input class="form-control form-control-sm" id="fCurrency" value="GBP"/></div>
+          <div class="col-md-4"><label class="form-label small fw-semibold">Valid Until</label><input type="date" class="form-control form-control-sm" id="fValidUntil"/></div>
+          <div class="col-md-4"><label class="form-label small fw-semibold">Lead Time (days)</label><input type="number" class="form-control form-control-sm" id="fLeadTimeDays" min="0"/></div>
+          <div class="col-md-6"><label class="form-label small fw-semibold">Status</label>
+            <select class="form-select form-select-sm" id="fStatus">
+              <option value="received">Received</option><option value="under_review">Under Review</option>
+              <option value="accepted">Accepted</option><option value="rejected">Rejected</option>
+              <option value="expired">Expired</option>
+            </select>
+          </div>
+          <div class="col-12"><label class="form-label small fw-semibold">Notes</label><textarea class="form-control form-control-sm" id="fNotes" rows="3"></textarea></div>
+        </form>
       </div>
-      <div class="mlo-resizer"></div>
-      <div class="mlo-pane mlo-pane-right" style="width:340px;min-width:260px;">
-        <div class="mlo-pane-header p-2 border-bottom d-flex justify-content-between align-items-center">
-          <small class="fw-bold text-muted">INSPECTOR</small>
-          <button class="btn btn-sm btn-danger" id="btnDel" style="display:none">Delete</button>
-        </div>
-        <div class="mlo-pane-content p-3" style="overflow-y:auto;max-height:calc(100vh - 260px);">
-          <form id="form" class="vstack gap-2" onsubmit="return false">
-            <div><label class="form-label small fw-semibold mb-1">RFQ ID</label><input class="form-control form-control-sm" id="fRfqId" placeholder="Linked RFQ ID"/></div>
-            <div><label class="form-label small fw-semibold mb-1">Supplier ID</label><input class="form-control form-control-sm" id="fSupplierId"/></div>
-            <div><label class="form-label small fw-semibold mb-1">Quote Number</label><input class="form-control form-control-sm" id="fQuoteNum"/></div>
-            <div class="row g-2">
-              <div class="col-8"><label class="form-label small fw-semibold mb-1">Total Value *</label><input type="number" class="form-control form-control-sm" id="fTotal" min="0" step="0.01"/></div>
-              <div class="col-4"><label class="form-label small fw-semibold mb-1">Currency</label><input class="form-control form-control-sm" id="fCurrency" value="GBP"/></div>
-            </div>
-            <div><label class="form-label small fw-semibold mb-1">Valid Until</label><input type="date" class="form-control form-control-sm" id="fValidUntil"/></div>
-            <div><label class="form-label small fw-semibold mb-1">Lead Time (days)</label><input type="number" class="form-control form-control-sm" id="fLeadDays" min="0"/></div>
-            <div><label class="form-label small fw-semibold mb-1">Status</label>
-              <select class="form-select form-select-sm" id="fStatus">
-                <option value="received">Received</option><option value="under_review">Under Review</option>
-                <option value="accepted">Accepted</option><option value="rejected">Rejected</option><option value="expired">Expired</option>
-              </select>
-            </div>
-            <div><label class="form-label small fw-semibold mb-1">Items</label><textarea class="form-control form-control-sm" id="fItems" rows="3" placeholder="Items quoted…"></textarea></div>
-            <div><label class="form-label small fw-semibold mb-1">Terms</label><textarea class="form-control form-control-sm" id="fTerms" rows="2"></textarea></div>
-            <div><label class="form-label small fw-semibold mb-1">Notes</label><textarea class="form-control form-control-sm" id="fNotes" rows="2"></textarea></div>
-          </form>
-          <button class="btn btn-sm mt-2 w-100" id="btnSave" style="background:#0ea5e9;color:#fff">Save</button>
-        </div>
+      <div class="modal-footer">
+        <button class="btn btn-sm btn-danger me-auto" id="btnDel" style="display:none;">Delete</button>
+        <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-sm text-white" id="btnSave" style="background:#8b5cf6;border-color:#8b5cf6;">Save Quote</button>
       </div>
     </div>
   </div>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="topnav.js?v=20260420"></script>
-  <script src="core.js?v=20260420"></script>
-  <script>
-  const API='/api/quotes';
-  const STATUSES=['received','under_review','accepted','rejected','expired'];
-  let all=[],sel=null,filt='all';
-  const gv=id=>(document.getElementById(id)||{}).value||'';
-  const sv=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v??'';};
+</div>
 
-  async function load(){
-    try{const r=await fetch(API);const j=await r.json();all=Array.isArray(j)?j:(j.data||[]);updateKPIs();buildFilters();render();}
-    catch(e){console.error(e);}
-  }
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="topnav.js?v=20260420"></script>
+<script src="core.js?v=20260420"></script>
+<script>
+const API='/api/quotes';
+let all=[],sel=null,filtStatus='',filtRfq='';
+const modal=new bootstrap.Modal(document.getElementById('quoteModal'));
+const gv=id=>(document.getElementById(id)||{}).value||'';
+const sv=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v??'';};
+const fmt=v=>v!=null?parseFloat(v).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2}):'—';
+const statusBadge=s=>{const m={received:'secondary',under_review:'warning',accepted:'success',rejected:'danger',expired:'light'};const tc=s==='expired'?'text-muted':'';return`<span class="badge bg-${m[s]||'secondary'} ${tc}">${(s||'').replace('_',' ')||'—'}</span>`;};
 
-  function updateKPIs(){
-    document.getElementById('kpi0').textContent=all.length;
-    document.getElementById('kpi1').textContent=all.filter(x=>x.status==='under_review').length;
-    document.getElementById('kpi2').textContent=all.filter(x=>x.status==='accepted').length;
-    document.getElementById('kpi3').textContent=all.filter(x=>x.status==='rejected').length;
-  }
+async function load(){
+  try{const r=await fetch(API);const j=await r.json();all=Array.isArray(j)?j:(j.data||[]);updateKPIs();renderCompare();render();}
+  catch(e){console.error(e);}
+}
 
-  function buildFilters(){
-    const labels={received:'Received',under_review:'Under Review',accepted:'Accepted',rejected:'Rejected',expired:'Expired'};
-    document.getElementById('filterList').innerHTML=
-      [['all','All'],...STATUSES.map(s=>[s,labels[s]||s])].map(([v,l])=>
-        `<a class="filter-item${filt===v?' active':''}" data-val="${v}" href="#">${l} <small class="text-muted">(${v==='all'?all.length:all.filter(x=>x.status===v).length})</small></a>`
-      ).join('');
-    document.querySelectorAll('#filterList .filter-item').forEach(a=>a.onclick=e=>{e.preventDefault();filt=a.dataset.val;buildFilters();render();});
-  }
+function updateKPIs(){
+  document.getElementById('kpiTotal').textContent=all.length;
+  document.getElementById('kpiReview').textContent=all.filter(x=>x.status==='under_review').length;
+  document.getElementById('kpiAccepted').textContent=all.filter(x=>x.status==='accepted').length;
+  const val=all.filter(x=>x.status==='accepted').reduce((a,x)=>a+Number(x.total_price||0),0);
+  document.getElementById('kpiValue').textContent='£'+fmt(val);
+}
 
-  function render(){
-    const q=document.getElementById('searchBox').value.toLowerCase();
-    let d=filt==='all'?[...all]:all.filter(x=>x.status===filt);
-    if(q)d=d.filter(x=>JSON.stringify(x).toLowerCase().includes(q));
-    const SB={received:'primary',under_review:'warning',accepted:'success',rejected:'danger',expired:'dark'};
-    document.getElementById('tbody').innerHTML=d.length
-      ?d.map(row=>`<tr data-id="${row.id}" class="${sel&&String(sel.id)===String(row.id)?'selected':''}">
-          <td>${row.supplier_id||'—'}</td>
-          <td class="fw-semibold text-muted" style="font-size:.75rem">${row.quote_number||'—'}</td>
-          <td class="fw-semibold">${row.total_value!=null?Number(row.total_value).toLocaleString():'—'}</td>
-          <td>${row.currency||'—'}</td><td>${row.valid_until||'—'}</td>
-          <td><span class="badge bg-${SB[row.status]||'secondary'}">${(row.status||'').replace('_',' ')}</span></td>
-        </tr>`).join('')
-      :'<tr><td colspan="6" class="text-center text-muted py-4">No quotes found</td></tr>';
-    document.querySelectorAll('#tbody tr[data-id]').forEach(tr=>tr.onclick=()=>{
-      const item=all.find(x=>String(x.id)===tr.dataset.id);if(item)pick(item);
-    });
-  }
+function renderCompare(){
+  if(!filtRfq){document.getElementById('compareSection').style.display='none';return;}
+  const rfqQuotes=all.filter(x=>String(x.rfq_id)===filtRfq);
+  if(!rfqQuotes.length){document.getElementById('compareSection').style.display='none';return;}
+  document.getElementById('compareSection').style.display='';
+  document.getElementById('compareRfqLabel').textContent='RFQ: '+filtRfq;
+  document.getElementById('compareRow').innerHTML=rfqQuotes.map(q=>`
+    <div class="quote-card${q.status==='accepted'?' accepted':''}">
+      ${q.status==='accepted'?'<div class="accepted-badge">Accepted</div>':''}
+      <div class="qc-supplier">${q.supplier_name||'—'}</div>
+      <div class="qc-price">${q.currency||'GBP'} ${fmt(q.total_price)}</div>
+      <div class="qc-lead">${q.lead_time_days!=null?q.lead_time_days+'d lead':''}</div>
+      <div style="font-size:.72rem;color:#9ca3af;margin-top:4px;">${(q.status||'').replace('_',' ')}</div>
+    </div>`).join('');
+}
 
-  function pick(item){
-    sel=item;
-    sv('fRfqId',item.rfq_id);sv('fSupplierId',item.supplier_id);sv('fQuoteNum',item.quote_number);
-    sv('fTotal',item.total_value);sv('fCurrency',item.currency||'GBP');
-    sv('fValidUntil',item.valid_until);sv('fLeadDays',item.lead_time_days);
-    sv('fStatus',item.status||'received');sv('fItems',item.items);sv('fTerms',item.terms);sv('fNotes',item.notes);
-    document.getElementById('btnDel').style.display='';render();
-  }
+function render(){
+  const q=document.getElementById('searchBox').value.toLowerCase();
+  let d=[...all];
+  if(filtStatus) d=d.filter(x=>x.status===filtStatus);
+  if(filtRfq) d=d.filter(x=>String(x.rfq_id)===filtRfq);
+  if(q) d=d.filter(x=>JSON.stringify(x).toLowerCase().includes(q));
+  document.getElementById('rowCount').textContent=d.length+' records';
+  document.getElementById('tbody').innerHTML=d.length
+    ?d.map(row=>`<tr data-id="${row.id}" style="cursor:pointer;">
+        <td class="fw-semibold">${row.supplier_name||'—'}</td>
+        <td>${row.quote_number||'—'}</td>
+        <td>${row.description||'—'}</td>
+        <td>${row.unit_price!=null?'£'+fmt(row.unit_price):'—'}</td>
+        <td>${row.quantity??'—'}</td>
+        <td>${row.total_price!=null?'£'+fmt(row.total_price):'—'}</td>
+        <td>${row.currency||'—'}</td>
+        <td>${row.valid_until||'—'}</td>
+        <td>${row.lead_time_days!=null?row.lead_time_days+'d':'—'}</td>
+        <td>${statusBadge(row.status)}</td>
+      </tr>`).join('')
+    :'<tr><td colspan="10" class="text-center text-muted py-4">No quotes found</td></tr>';
+  document.querySelectorAll('#tbody tr[data-id]').forEach(tr=>tr.onclick=()=>{
+    const item=all.find(x=>String(x.id)===tr.dataset.id);if(item)openEdit(item);
+  });
+}
 
-  function clearForm(){
-    sel=null;document.getElementById('form').reset();
-    sv('fStatus','received');sv('fCurrency','GBP');
-    document.getElementById('btnDel').style.display='none';render();
-  }
+function openNew(){
+  sel=null;document.getElementById('quoteForm').reset();
+  sv('fCurrency','GBP');sv('fStatus','received');
+  if(filtRfq) sv('fRfqId',filtRfq);
+  document.getElementById('modalTitle').textContent='New Quote';
+  document.getElementById('btnDel').style.display='none';
+  modal.show();
+}
 
-  async function save(){
-    const body={rfq_id:gv('fRfqId')||null,supplier_id:gv('fSupplierId')||null,quote_number:gv('fQuoteNum'),
-      total_value:gv('fTotal')||null,currency:gv('fCurrency')||'GBP',valid_until:gv('fValidUntil')||null,
-      lead_time_days:gv('fLeadDays')||null,status:gv('fStatus'),items:gv('fItems'),terms:gv('fTerms'),notes:gv('fNotes')};
-    if(!body.total_value){alert('Total value is required');return;}
-    try{
-      const url=sel?`${API}/${sel.id}`:API;const method=sel?'PUT':'POST';
-      const r=await fetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-      if(r.ok){const saved=await r.json();if(!sel){sel=saved.data||saved;}await load();}
-      else alert('Save failed');
-    }catch(e){console.error(e);alert('Save failed');}
-  }
+function openEdit(item){
+  sel=item;
+  document.getElementById('modalTitle').textContent='Edit Quote';
+  document.getElementById('btnDel').style.display='';
+  sv('fRfqId',item.rfq_id);sv('fSupplierId',item.supplier_id);sv('fSupplierName',item.supplier_name);
+  sv('fQuoteNumber',item.quote_number);sv('fDescription',item.description);
+  sv('fUnitPrice',item.unit_price);sv('fQuantity',item.quantity);sv('fTotalPrice',item.total_price);
+  sv('fCurrency',item.currency||'GBP');sv('fValidUntil',item.valid_until);
+  sv('fLeadTimeDays',item.lead_time_days);sv('fStatus',item.status||'received');sv('fNotes',item.notes);
+  modal.show();
+}
 
-  async function del(){
-    if(!sel||!confirm('Delete this quote? This cannot be undone.'))return;
-    try{const r=await fetch(`${API}/${sel.id}`,{method:'DELETE'});if(r.ok){clearForm();await load();}else alert('Delete failed');}
-    catch(e){console.error(e);}
-  }
+function autoCalcTotal(){
+  const u=parseFloat(gv('fUnitPrice'))||0;const q=parseFloat(gv('fQuantity'))||0;
+  if(u&&q) sv('fTotalPrice',(u*q).toFixed(2));
+}
 
-  document.getElementById('btnAdd').onclick=clearForm;
-  document.getElementById('btnSave').onclick=save;
-  document.getElementById('btnDel').onclick=del;
-  document.getElementById('searchBox').addEventListener('input',render);
-  load();
-  </script>
+async function save(){
+  const body={rfq_id:gv('fRfqId')||null,supplier_id:gv('fSupplierId')||null,supplier_name:gv('fSupplierName'),
+    quote_number:gv('fQuoteNumber'),description:gv('fDescription'),unit_price:gv('fUnitPrice')||null,
+    quantity:gv('fQuantity')||null,total_price:gv('fTotalPrice')||null,currency:gv('fCurrency')||'GBP',
+    valid_until:gv('fValidUntil')||null,lead_time_days:gv('fLeadTimeDays')||null,
+    status:gv('fStatus')||'received',notes:gv('fNotes')};
+  if(!body.supplier_name){alert('Supplier Name is required');return;}
+  try{
+    const url=sel?`${API}/${sel.id}`:API;const method=sel?'PUT':'POST';
+    const r=await fetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(r.ok){modal.hide();await load();}else alert('Save failed');
+  }catch(e){console.error(e);alert('Save failed');}
+}
+
+async function del(){
+  if(!sel||!confirm('Delete this quote?'))return;
+  try{const r=await fetch(`${API}/${sel.id}`,{method:'DELETE'});if(r.ok){modal.hide();await load();}else alert('Delete failed');}
+  catch(e){console.error(e);}
+}
+
+document.getElementById('btnAdd').onclick=openNew;
+document.getElementById('btnSave').onclick=save;
+document.getElementById('btnDel').onclick=del;
+document.getElementById('searchBox').addEventListener('input',render);
+document.getElementById('fUnitPrice').addEventListener('input',autoCalcTotal);
+document.getElementById('fQuantity').addEventListener('input',autoCalcTotal);
+document.querySelectorAll('.filter-pill').forEach(p=>p.onclick=()=>{
+  document.querySelectorAll('.filter-pill').forEach(x=>x.classList.remove('active'));
+  p.classList.add('active');filtStatus=p.dataset.val;render();
+});
+document.getElementById('rfqFilter').addEventListener('input',e=>{
+  filtRfq=e.target.value.trim();renderCompare();render();
+});
+document.getElementById('btnClearRfq').onclick=()=>{
+  filtRfq='';document.getElementById('rfqFilter').value='';renderCompare();render();
+};
+load();
+</script>
 </body>
 </html>

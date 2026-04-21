@@ -1,198 +1,346 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Race Team OS – Run Plans</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
-  <link href="style.css?v=20260420" rel="stylesheet"/>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Run Plans</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="style.css?v=20260420">
   <style>
-    body{background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%);}
-    .ev-stats-bar{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
-    .ev-stat-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:10px 16px;min-width:110px;}
-    .ev-stat-label{font-size:.7rem;color:#6c757d;font-weight:600;text-transform:uppercase;}
-    .ev-stat-value{font-size:1.5rem;font-weight:700;color:#1a1d24;}
-    #mainShell.mlo-shell{background:transparent;border:none;gap:10px;}
-    #mainShell .mlo-pane-left,#mainShell .mlo-pane-mid,#mainShell .mlo-pane-right{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;}
-    #mainShell .mlo-pane-header{background:#f8f9fa;border-bottom:1px solid rgba(0,0,0,.1);}
-    #mainShell .mlo-title{color:#1a1d24!important;}
-    #mainShell .mlo-section-label{color:#6c757d!important;opacity:1!important;}
-    #mainShell .mlo-resizer{background:transparent;}
-    #mainShell .mlo-resizer:hover{background:rgba(139,92,246,.3);}
-    #mainShell .form-label{color:#495057!important;font-size:.78rem;font-weight:600;margin-bottom:2px;}
-    #mainShell .form-control,#mainShell .form-select{background:#fff!important;color:#1a1d24!important;border-color:#dee2e6!important;font-size:.82rem;}
-    #mainShell .mlo-pane-left .pastel-tree li{height:28px!important;display:flex!important;align-items:center!important;font-size:.83rem!important;font-weight:500!important;padding-left:10px!important;margin-bottom:2px!important;border-radius:5px!important;border:1px solid rgba(0,0,0,.08)!important;color:#1a1d24!important;cursor:pointer!important;}
-    #mainShell .mlo-pane-left .pastel-tree li.active{background:rgba(139,92,246,.1)!important;border-color:rgba(139,92,246,.35)!important;color:#7c3aed!important;font-weight:700!important;}
-    .data-table{width:100%;font-size:.82rem;border-collapse:separate;border-spacing:0;}
-    .data-table thead{position:sticky;top:0;background:#f8f9fa;z-index:5;}
-    .data-table th{padding:8px 10px;font-size:.7rem;font-weight:700;text-transform:uppercase;color:#6c757d;border-bottom:2px solid #dee2e6;}
-    .data-table td{padding:6px 10px;border-bottom:1px solid rgba(0,0,0,.05);vertical-align:middle;color:#1a1d24;}
-    .data-table tbody tr{cursor:pointer;transition:background .1s;}
-    .data-table tbody tr:hover{background:#f8f9fa;}
-    .data-table tbody tr.selected{background:rgba(139,92,246,.08)!important;outline:2px solid #8b5cf6;outline-offset:-2px;}
-    .badge-status{padding:2px 8px;border-radius:999px;font-size:.7rem;font-weight:600;}
-    .s-planned{background:#e0e7ff;color:#4338ca;}
-    .s-active{background:#d1fae5;color:#065f46;}
-    .s-complete{background:#bbf7d0;color:#14532d;}
-    .s-cancelled{background:#fee2e2;color:#991b1b;}
+    body { background: linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%); min-height:100vh; }
+    .rts-main { padding:1.5rem; }
+    .ev-stats-bar { display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:1.5rem; }
+    .ev-stat-card { background:#fff; border-radius:10px; padding:1rem 1.5rem; box-shadow:0 2px 8px rgba(0,0,0,.08); min-width:130px; border-top:4px solid #7c3aed; }
+    .ev-stat-label { font-size:.72rem; text-transform:uppercase; color:#6b7280; font-weight:600; letter-spacing:.05em; }
+    .ev-stat-value { font-size:1.8rem; font-weight:800; color:#1f2937; line-height:1.1; }
+    .page-body { display:flex; gap:1.25rem; align-items:flex-start; }
+    .filter-sidebar { width:210px; flex-shrink:0; background:#fff; border-radius:10px; padding:1.1rem; box-shadow:0 2px 8px rgba(0,0,0,.08); position:sticky; top:1rem; }
+    .filter-sidebar h6 { font-weight:700; color:#374151; margin-bottom:1rem; font-size:.85rem; text-transform:uppercase; letter-spacing:.05em; }
+    .main-content { flex:1; min-width:0; }
+    .table-wrapper { background:#fff; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,.08); overflow:hidden; }
+    .table { margin:0; }
+    .table thead th { background:#7c3aed; color:#fff; font-size:.75rem; text-transform:uppercase; letter-spacing:.05em; border:none; padding:.7rem 1rem; white-space:nowrap; }
+    .table tbody tr { cursor:pointer; transition:background .15s; }
+    .table tbody tr:hover { background:#f5f3ff; }
+    .table tbody tr.selected { background:#ede9fe !important; }
+    .table tbody td { padding:.6rem 1rem; vertical-align:middle; font-size:.875rem; border-color:#f3f4f6; }
+    .bp { display:inline-block; padding:.25rem .65rem; border-radius:20px; font-size:.75rem; font-weight:600; white-space:nowrap; }
+    .bp-planned    { background:#dbeafe; color:#1d4ed8; }
+    .bp-in_progress{ background:#fef3c7; color:#b45309; }
+    .bp-completed  { background:#d1fae5; color:#065f46; }
+    .bp-cancelled  { background:#f3f4f6; color:#6b7280; }
+    /* Drawer */
+    .drawer-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:1040; }
+    .drawer-overlay.open { display:block; }
+    .drawer { position:fixed; top:0; right:-520px; width:480px; height:100vh; background:#fff; z-index:1050; box-shadow:-6px 0 30px rgba(0,0,0,.15); transition:right .28s ease; overflow-y:auto; display:flex; flex-direction:column; }
+    .drawer.open { right:0; }
+    .drawer-head { padding:1.2rem 1.5rem; border-bottom:1px solid #e5e7eb; background:#7c3aed; color:#fff; display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
+    .drawer-head h5 { margin:0; font-weight:700; font-size:1rem; }
+    .drawer-body { padding:1.5rem; flex:1; overflow-y:auto; }
+    .drawer-foot { padding:1rem 1.5rem; border-top:1px solid #e5e7eb; display:flex; gap:.5rem; justify-content:flex-end; flex-shrink:0; }
+    .section-label { font-size:.7rem; font-weight:700; text-transform:uppercase; color:#9ca3af; letter-spacing:.06em; margin:1.1rem 0 .55rem; }
+    .page-title { font-weight:800; color:#7c3aed; letter-spacing:-.01em; }
   </style>
 </head>
-<body class="light-mode">
-  <div id="rtsTopNav"></div>
-  <div class="rts-main container-fluid">
-    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
-      <div><h1 class="h4 mb-1">Run Plans</h1><div class="text-secondary" style="font-size:.85rem;">Session-by-session run planning, lap targets and actuals.</div></div>
-      <button class="btn btn-sm btn-primary" id="btnAdd" style="background:#8b5cf6;border-color:#8b5cf6;">+ New Run Plan</button>
-    </div>
-    <div class="ev-stats-bar">
-      <div class="ev-stat-card"><div class="ev-stat-label">Total</div><div class="ev-stat-value" id="statTotal">0</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">Planned</div><div class="ev-stat-value" id="statPlanned">0</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">Active</div><div class="ev-stat-value" id="statActive">0</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">Complete</div><div class="ev-stat-value" id="statComplete">0</div></div>
-    </div>
-    <div class="mlo-shell" id="mainShell">
-      <section class="mlo-pane mlo-pane-left" aria-label="Status filter">
-        <div class="mlo-pane-header"><div class="mlo-title">Filter</div></div>
-        <div class="mlo-pane-content">
-          <div class="mlo-section-label">Status</div>
-          <ul class="mlo-tree pastel-tree" id="statusFilter">
-            <li class="active" data-filter="all">All</li>
-            <li data-filter="planned">Planned</li>
-            <li data-filter="active">Active</li>
-            <li data-filter="complete">Complete</li>
-            <li data-filter="cancelled">Cancelled</li>
-          </ul>
-        </div>
-      </section>
-      <div class="mlo-resizer" id="resizer1"></div>
-      <section class="mlo-pane mlo-pane-mid" aria-label="Run plans list">
-        <div class="mlo-pane-header">
-          <div class="d-flex justify-content-between align-items-center">
-            <div class="mlo-title">Run Plans</div>
-            <span class="badge text-bg-secondary" id="countBadge">0</span>
-          </div>
-          <input class="form-control form-control-sm mt-2" type="search" id="searchInput" placeholder="Search session or driver…"/>
-        </div>
-        <div class="mlo-pane-content p-0">
-          <table class="data-table">
-            <thead><tr><th>Session</th><th>Car #</th><th>Driver</th><th>Pl. Laps</th><th>Act. Laps</th><th>Tyre</th><th>Status</th></tr></thead>
-            <tbody id="tableBody"><tr><td colspan="7" class="text-center text-secondary py-4">No run plans found.</td></tr></tbody>
-          </table>
-        </div>
-      </section>
-      <div class="mlo-resizer" id="resizer2"></div>
-      <section class="mlo-pane mlo-pane-right" aria-label="Run plan detail">
-        <div class="mlo-pane-header"><div class="mlo-title" id="detailTitle">Run Plan</div></div>
-        <div class="mlo-pane-content">
-          <div class="text-center text-secondary py-5" id="detailEmpty"><div style="font-size:2rem;">📋</div><div class="mt-2">Select a run plan to view or edit</div></div>
-          <form id="detailForm" style="display:none;">
-            <div class="row g-2 mb-2">
-              <div class="col"><label class="form-label">Event ID</label><input class="form-control" id="fEventId"/></div>
-              <div class="col"><label class="form-label">Session Name *</label><input class="form-control" id="fSessionName" required/></div>
-            </div>
-            <div class="row g-2 mb-2">
-              <div class="col"><label class="form-label">Car #</label><input class="form-control" id="fCarNumber"/></div>
-              <div class="col"><label class="form-label">Driver</label><input class="form-control" id="fDriverName"/></div>
-            </div>
-            <div class="row g-2 mb-2">
-              <div class="col"><label class="form-label">Planned Laps</label><input class="form-control" id="fPlannedLaps" type="number" min="0"/></div>
-              <div class="col"><label class="form-label">Actual Laps</label><input class="form-control" id="fActualLaps" type="number" min="0"/></div>
-            </div>
-            <div class="row g-2 mb-2">
-              <div class="col"><label class="form-label">Fuel Load (kg)</label><input class="form-control" id="fFuelLoad" type="number" step="0.1"/></div>
-              <div class="col"><label class="form-label">Tyre Compound</label><input class="form-control" id="fTyreCompound"/></div>
-            </div>
-            <div class="mb-2"><label class="form-label">Objectives</label><textarea class="form-control" id="fObjectives" rows="2"></textarea></div>
-            <div class="mb-2"><label class="form-label">Notes</label><textarea class="form-control" id="fNotes" rows="2"></textarea></div>
-            <div class="mb-3"><label class="form-label">Status</label>
-              <select class="form-select" id="fStatus">
-                <option value="planned">Planned</option>
-                <option value="active">Active</option>
-                <option value="complete">Complete</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
-            </div>
-            <div class="d-flex gap-2">
-              <button type="button" class="btn btn-sm btn-primary" id="btnSave" style="background:#8b5cf6;border-color:#8b5cf6;">Save</button>
-              <button type="button" class="btn btn-sm btn-outline-danger" id="btnDelete" style="display:none;">Delete</button>
-              <button type="button" class="btn btn-sm btn-outline-secondary" id="btnCancel">Cancel</button>
-            </div>
-          </form>
-        </div>
-      </section>
+<body>
+<div id="rtsTopNav"></div>
+<div class="rts-main container-fluid">
+
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <h2 class="page-title mb-0">Run Plans</h2>
+    <button class="btn btn-sm fw-semibold" style="background:#7c3aed;color:#fff;padding:.4rem 1rem" onclick="openDrawer()">+ New Run Plan</button>
+  </div>
+
+  <div class="ev-stats-bar">
+    <div class="ev-stat-card"><div class="ev-stat-label">Total</div><div class="ev-stat-value" id="kpiTotal">—</div></div>
+    <div class="ev-stat-card"><div class="ev-stat-label">Planned</div><div class="ev-stat-value" id="kpiPlanned">—</div></div>
+    <div class="ev-stat-card"><div class="ev-stat-label">In Progress</div><div class="ev-stat-value" id="kpiInProgress">—</div></div>
+    <div class="ev-stat-card"><div class="ev-stat-label">Completed</div><div class="ev-stat-value" id="kpiCompleted">—</div></div>
+  </div>
+
+  <div class="page-body">
+    <aside class="filter-sidebar">
+      <h6>Filters</h6>
+      <label class="form-label small fw-semibold mb-1">Status</label>
+      <select class="form-select form-select-sm mb-3" id="filterStatus" onchange="applyFilters()">
+        <option value="">All</option>
+        <option value="planned">Planned</option>
+        <option value="in_progress">In Progress</option>
+        <option value="completed">Completed</option>
+        <option value="cancelled">Cancelled</option>
+      </select>
+      <label class="form-label small fw-semibold mb-1">Car #</label>
+      <select class="form-select form-select-sm" id="filterCar" onchange="applyFilters()">
+        <option value="">All</option>
+      </select>
+      <button class="btn btn-outline-secondary btn-sm mt-3 w-100" onclick="clearFilters()">Clear Filters</button>
+    </aside>
+
+    <div class="main-content">
+      <div class="table-wrapper">
+        <table class="table table-hover" id="mainTable">
+          <thead>
+            <tr>
+              <th>Session Name</th>
+              <th>Car #</th>
+              <th>Driver</th>
+              <th>Planned Laps</th>
+              <th>Actual Laps</th>
+              <th>Fuel Load (L)</th>
+              <th>Compound</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="mainTbody">
+            <tr><td colspan="8" class="text-center text-muted py-5">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="topnav.js?v=20260420"></script>
-  <script src="core.js?v=20260420"></script>
-  <script>
-    let all=[],selectedId=null,filterStatus='all';
-    const ACCENT='#8b5cf6';
-    const statusClass={planned:'s-planned',active:'s-active',complete:'s-complete',cancelled:'s-cancelled'};
-    function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-    async function load(){try{const r=await fetch('/api/run-plans');if(r.ok)all=await r.json();}catch(_){all=[];}renderList();}
-    function renderList(){
-      const q=document.getElementById('searchInput').value.trim().toLowerCase();
-      const rows=all.filter(e=>{
-        const ms=filterStatus==='all'||e.status===filterStatus;
-        const mq=!q||(e.session_name||'').toLowerCase().includes(q)||(e.driver_name||'').toLowerCase().includes(q);
-        return ms&&mq;
-      });
-      document.getElementById('countBadge').textContent=rows.length;
-      document.getElementById('statTotal').textContent=all.length;
-      document.getElementById('statPlanned').textContent=all.filter(e=>e.status==='planned').length;
-      document.getElementById('statActive').textContent=all.filter(e=>e.status==='active').length;
-      document.getElementById('statComplete').textContent=all.filter(e=>e.status==='complete').length;
-      const tb=document.getElementById('tableBody');
-      if(!rows.length){tb.innerHTML='<tr><td colspan="7" class="text-center text-secondary py-4">No run plans match.</td></tr>';return;}
-      tb.innerHTML=rows.map(e=>`<tr data-id="${e.id}" class="${e.id==selectedId?'selected':''}">
-        <td>${esc(e.session_name||'—')}</td><td>${esc(e.car_number||'—')}</td>
-        <td>${esc(e.driver_name||'—')}</td><td>${e.planned_laps??'—'}</td>
-        <td>${e.actual_laps??'—'}</td><td>${esc(e.tyre_compound||'—')}</td>
-        <td><span class="badge-status ${statusClass[e.status]||''}">${esc(e.status||'—')}</span></td></tr>`).join('');
-      tb.querySelectorAll('tr').forEach(r=>r.addEventListener('click',()=>selectRow(r.dataset.id)));
-    }
-    function selectRow(id){
-      selectedId=id;const e=all.find(x=>x.id==id);if(!e)return;
-      document.getElementById('detailEmpty').style.display='none';
-      document.getElementById('detailForm').style.display='';
-      document.getElementById('detailTitle').textContent=e.session_name||'Run Plan';
-      document.getElementById('fEventId').value=e.event_id||'';
-      document.getElementById('fSessionName').value=e.session_name||'';
-      document.getElementById('fCarNumber').value=e.car_number||'';
-      document.getElementById('fDriverName').value=e.driver_name||'';
-      document.getElementById('fPlannedLaps').value=e.planned_laps??'';
-      document.getElementById('fActualLaps').value=e.actual_laps??'';
-      document.getElementById('fFuelLoad').value=e.fuel_load??'';
-      document.getElementById('fTyreCompound').value=e.tyre_compound||'';
-      document.getElementById('fObjectives').value=e.objectives||'';
-      document.getElementById('fNotes').value=e.notes||'';
-      document.getElementById('fStatus').value=e.status||'planned';
-      document.getElementById('btnDelete').style.display='';
-      renderList();
-    }
-    document.getElementById('btnAdd').addEventListener('click',()=>{
-      selectedId=null;
-      document.getElementById('detailEmpty').style.display='none';
-      document.getElementById('detailForm').style.display='';
-      document.getElementById('detailTitle').textContent='New Run Plan';
-      document.getElementById('detailForm').reset();
-      document.getElementById('btnDelete').style.display='none';
+
+</div>
+
+<!-- Drawer overlay -->
+<div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
+
+<!-- Slide-in drawer -->
+<div class="drawer" id="drawer">
+  <div class="drawer-head">
+    <h5 id="drawerTitle">New Run Plan</h5>
+    <button type="button" class="btn-close btn-close-white" onclick="closeDrawer()"></button>
+  </div>
+  <div class="drawer-body">
+    <form id="runPlanForm" onsubmit="return false">
+      <input type="hidden" id="fId">
+      <div class="mb-3">
+        <label class="form-label fw-semibold">Session Name <span class="text-danger">*</span></label>
+        <input type="text" class="form-control" id="fSessionName" required placeholder="e.g. FP1, Q1, Race">
+      </div>
+      <div class="row g-2 mb-3">
+        <div class="col">
+          <label class="form-label fw-semibold">Car #</label>
+          <input type="text" class="form-control" id="fCarNumber" placeholder="e.g. 7">
+        </div>
+        <div class="col">
+          <label class="form-label fw-semibold">Driver Name</label>
+          <input type="text" class="form-control" id="fDriverName">
+        </div>
+      </div>
+      <div class="section-label">Lap &amp; Fuel Data</div>
+      <div class="row g-2 mb-3">
+        <div class="col">
+          <label class="form-label fw-semibold">Planned Laps</label>
+          <input type="number" class="form-control" id="fPlannedLaps" min="0" placeholder="0">
+        </div>
+        <div class="col">
+          <label class="form-label fw-semibold">Actual Laps</label>
+          <input type="number" class="form-control" id="fActualLaps" min="0" placeholder="0">
+        </div>
+      </div>
+      <div class="row g-2 mb-3">
+        <div class="col">
+          <label class="form-label fw-semibold">Fuel Load (L)</label>
+          <input type="number" class="form-control" id="fFuelLoad" step="0.01" min="0" placeholder="0.00">
+        </div>
+        <div class="col">
+          <label class="form-label fw-semibold">Tyre Compound</label>
+          <input type="text" class="form-control" id="fTyreCompound" placeholder="e.g. Soft">
+        </div>
+      </div>
+      <div class="section-label">Plan Details</div>
+      <div class="mb-3">
+        <label class="form-label fw-semibold">Objectives</label>
+        <textarea class="form-control" id="fObjectives" rows="3" placeholder="Session objectives…"></textarea>
+      </div>
+      <div class="mb-3">
+        <label class="form-label fw-semibold">Notes</label>
+        <textarea class="form-control" id="fNotes" rows="3"></textarea>
+      </div>
+      <div class="row g-2 mb-3">
+        <div class="col">
+          <label class="form-label fw-semibold">Status</label>
+          <select class="form-select" id="fStatus">
+            <option value="planned">Planned</option>
+            <option value="in_progress">In Progress</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="form-label fw-semibold">Created By</label>
+          <input type="text" class="form-control" id="fCreatedBy">
+        </div>
+      </div>
+    </form>
+  </div>
+  <div class="drawer-foot">
+    <button class="btn btn-outline-danger btn-sm d-none me-auto" id="btnDelete" onclick="deleteRecord()">Delete</button>
+    <button class="btn btn-secondary btn-sm" onclick="closeDrawer()">Cancel</button>
+    <button class="btn btn-sm fw-semibold" style="background:#7c3aed;color:#fff" onclick="saveRecord()">Save</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="core.js?v=20260420"></script>
+<script src="topnav.js?v=20260420"></script>
+<script>
+let allData = [];
+let currentId = null;
+
+async function loadData() {
+  try {
+    const res = await fetch('/api/run-plans');
+    if (!res.ok) throw new Error(res.status);
+    allData = await res.json();
+  } catch(e) { allData = []; }
+  populateCarFilter();
+  updateKPIs();
+  applyFilters();
+}
+
+function populateCarFilter() {
+  const cars = [...new Set(allData.map(r => r.car_number).filter(Boolean))].sort();
+  const sel = document.getElementById('filterCar');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">All</option>' + cars.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  sel.value = cur;
+}
+
+function updateKPIs() {
+  document.getElementById('kpiTotal').textContent      = allData.length;
+  document.getElementById('kpiPlanned').textContent    = allData.filter(r => r.status === 'planned').length;
+  document.getElementById('kpiInProgress').textContent = allData.filter(r => r.status === 'in_progress').length;
+  document.getElementById('kpiCompleted').textContent  = allData.filter(r => r.status === 'completed').length;
+}
+
+function statusBadge(s) {
+  const map = { planned:'bp-planned', in_progress:'bp-in_progress', completed:'bp-completed', cancelled:'bp-cancelled' };
+  return `<span class="bp ${map[s] || 'bp-cancelled'}">${(s||'—').replace('_',' ')}</span>`;
+}
+
+function applyFilters() {
+  const st  = document.getElementById('filterStatus').value;
+  const car = document.getElementById('filterCar').value;
+  const filtered = allData.filter(r =>
+    (!st  || r.status === st) &&
+    (!car || r.car_number === car)
+  );
+  renderTable(filtered);
+}
+
+function clearFilters() {
+  document.getElementById('filterStatus').value = '';
+  document.getElementById('filterCar').value    = '';
+  applyFilters();
+}
+
+function renderTable(data) {
+  const tbody = document.getElementById('mainTbody');
+  if (!data.length) {
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-5">No records found</td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.map(r => `
+    <tr onclick="selectRow(${r.id})" class="${currentId === r.id ? 'selected' : ''}">
+      <td class="fw-semibold">${esc(r.session_name)}</td>
+      <td>${esc(r.car_number)}</td>
+      <td>${esc(r.driver_name)}</td>
+      <td>${r.planned_laps ?? '—'}</td>
+      <td>${r.actual_laps ?? '—'}</td>
+      <td>${r.fuel_load != null ? Number(r.fuel_load).toFixed(2) : '—'}</td>
+      <td>${esc(r.tyre_compound)}</td>
+      <td>${statusBadge(r.status)}</td>
+    </tr>`).join('');
+}
+
+function esc(v) {
+  return v ? String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '—';
+}
+
+function selectRow(id) {
+  const rec = allData.find(r => r.id === id);
+  if (!rec) return;
+  currentId = id;
+  applyFilters();
+  openDrawer(rec);
+}
+
+function openDrawer(rec = null) {
+  document.getElementById('drawerTitle').textContent = rec ? 'Edit Run Plan' : 'New Run Plan';
+  document.getElementById('btnDelete').classList.toggle('d-none', !rec);
+  document.getElementById('fId').value          = rec ? rec.id : '';
+  document.getElementById('fSessionName').value = rec ? (rec.session_name || '') : '';
+  document.getElementById('fCarNumber').value   = rec ? (rec.car_number   || '') : '';
+  document.getElementById('fDriverName').value  = rec ? (rec.driver_name  || '') : '';
+  document.getElementById('fPlannedLaps').value = rec ? (rec.planned_laps ?? '') : '';
+  document.getElementById('fActualLaps').value  = rec ? (rec.actual_laps  ?? '') : '';
+  document.getElementById('fFuelLoad').value    = rec ? (rec.fuel_load    ?? '') : '';
+  document.getElementById('fTyreCompound').value= rec ? (rec.tyre_compound|| '') : '';
+  document.getElementById('fObjectives').value  = rec ? (rec.objectives   || '') : '';
+  document.getElementById('fNotes').value       = rec ? (rec.notes        || '') : '';
+  document.getElementById('fStatus').value      = rec ? (rec.status || 'planned') : 'planned';
+  document.getElementById('fCreatedBy').value   = rec ? (rec.created_by   || '') : '';
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('drawerOverlay').classList.add('open');
+}
+
+function closeDrawer() {
+  currentId = null;
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawerOverlay').classList.remove('open');
+  applyFilters();
+}
+
+function buildPayload() {
+  return {
+    session_name : document.getElementById('fSessionName').value.trim(),
+    car_number   : document.getElementById('fCarNumber').value.trim(),
+    driver_name  : document.getElementById('fDriverName').value.trim(),
+    planned_laps : numOrNull('fPlannedLaps'),
+    actual_laps  : numOrNull('fActualLaps'),
+    fuel_load    : numOrNull('fFuelLoad'),
+    tyre_compound: document.getElementById('fTyreCompound').value.trim(),
+    objectives   : document.getElementById('fObjectives').value.trim(),
+    notes        : document.getElementById('fNotes').value.trim(),
+    status       : document.getElementById('fStatus').value,
+    created_by   : document.getElementById('fCreatedBy').value.trim()
+  };
+}
+
+function numOrNull(id) {
+  const v = document.getElementById(id).value;
+  return v !== '' ? Number(v) : null;
+}
+
+async function saveRecord() {
+  const payload = buildPayload();
+  if (!payload.session_name) { alert('Session Name is required'); return; }
+  const id = document.getElementById('fId').value;
+  try {
+    const res = await fetch(id ? `/api/run-plans/${id}` : '/api/run-plans', {
+      method : id ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body   : JSON.stringify(payload)
     });
-    document.getElementById('btnSave').addEventListener('click',async()=>{
-      const sn=document.getElementById('fSessionName').value.trim();
-      if(!sn){alert('Session name is required.');return;}
-      const body={event_id:document.getElementById('fEventId').value.trim()||null,session_name:sn,car_number:document.getElementById('fCarNumber').value.trim()||null,driver_name:document.getElementById('fDriverName').value.trim()||null,planned_laps:document.getElementById('fPlannedLaps').value||null,actual_laps:document.getElementById('fActualLaps').value||null,fuel_load:document.getElementById('fFuelLoad').value||null,tyre_compound:document.getElementById('fTyreCompound').value.trim()||null,objectives:document.getElementById('fObjectives').value.trim()||null,notes:document.getElementById('fNotes').value.trim()||null,status:document.getElementById('fStatus').value};
-      try{const url=selectedId?`/api/run-plans/${selectedId}`:'/api/run-plans';const r=await fetch(url,{method:selectedId?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error(await r.text());await load();}catch(e){alert('Save failed: '+e.message);}
-    });
-    document.getElementById('btnDelete').addEventListener('click',async()=>{
-      if(!selectedId||!confirm('Delete this run plan?'))return;
-      try{await fetch(`/api/run-plans/${selectedId}`,{method:'DELETE'});selectedId=null;document.getElementById('detailForm').style.display='none';document.getElementById('detailEmpty').style.display='';await load();}catch(e){alert('Delete failed: '+e.message);}
-    });
-    document.getElementById('btnCancel').addEventListener('click',()=>{document.getElementById('detailForm').style.display='none';document.getElementById('detailEmpty').style.display='';});
-    document.getElementById('searchInput').addEventListener('input',renderList);
-    document.querySelectorAll('#statusFilter li').forEach(li=>li.addEventListener('click',()=>{document.querySelectorAll('#statusFilter li').forEach(x=>x.classList.remove('active'));li.classList.add('active');filterStatus=li.dataset.filter;renderList();}));
-    load();
-  </script>
+    if (!res.ok) throw new Error(await res.text());
+    closeDrawer();
+    await loadData();
+  } catch(e) { alert('Save failed: ' + e.message); }
+}
+
+async function deleteRecord() {
+  const id = document.getElementById('fId').value;
+  if (!id || !confirm('Delete this run plan? This cannot be undone.')) return;
+  try {
+    const res = await fetch(`/api/run-plans/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error(await res.text());
+    closeDrawer();
+    await loadData();
+  } catch(e) { alert('Delete failed: ' + e.message); }
+}
+
+loadData();
+</script>
 </body>
 </html>

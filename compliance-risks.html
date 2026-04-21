@@ -8,295 +8,436 @@
   <link href="style.css?v=20260420" rel="stylesheet" />
   <style>
     body { background: linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%); min-height:100vh; }
-    .kpi-bar { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
-    .kpi-card { background:#fff; border:1px solid rgba(0,0,0,0.1); border-radius:8px; padding:10px 16px; box-shadow:0 2px 4px rgba(0,0,0,0.06); min-width:120px; }
-    .kpi-label { font-size:0.7rem; color:#6c757d; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; }
-    .kpi-value { font-size:1.5rem; font-weight:700; color:#1a1d24; line-height:1.2; }
-    #crShell.mlo-shell { background:transparent; border:none; gap:10px; }
-    #crShell .mlo-pane-left,#crShell .mlo-pane-mid,#crShell .mlo-pane-right { background:#fff; border:1px solid rgba(0,0,0,0.1); border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,0.06); }
-    #crShell .mlo-pane-header { background:#f8f9fa; border-bottom:1px solid rgba(0,0,0,0.1); }
-    #crShell .mlo-title { color:#1a1d24 !important; }
-    #crShell .mlo-section-label { color:#6c757d !important; opacity:1 !important; }
-    #crShell .mlo-resizer:hover { background:rgba(16,185,129,0.3); }
-    #crShell .pastel-tree { padding:0 !important; margin:0 !important; }
-    #crShell .pastel-tree li { height:28px !important; display:flex !important; align-items:center !important; font-size:0.83rem !important; font-weight:500 !important; padding-left:10px !important; margin-bottom:2px !important; border-radius:5px !important; border:1px solid rgba(0,0,0,0.08) !important; color:#1a1d24 !important; white-space:nowrap !important; overflow:hidden !important; text-overflow:ellipsis !important; cursor:pointer !important; list-style:none; }
-    #crShell .pastel-tree li.active { background:rgba(16,185,129,0.1) !important; border-color:rgba(16,185,129,0.35) !important; color:#059669 !important; font-weight:700 !important; }
-    .cr-table { width:100%; font-size:0.82rem; border-collapse:separate; border-spacing:0; }
-    .cr-table thead { position:sticky; top:0; background:#f8f9fa; z-index:5; }
-    .cr-table th { padding:8px 10px; font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:#6c757d; border-bottom:2px solid #dee2e6; white-space:nowrap; }
-    .cr-table td { padding:6px 10px; border-bottom:1px solid rgba(0,0,0,0.05); vertical-align:middle; color:#1a1d24; }
-    .cr-table tbody tr { cursor:pointer; transition:background 0.1s; }
-    .cr-table tbody tr:hover { background:#f8f9fa; }
-    .cr-table tbody tr.selected { background:rgba(16,185,129,0.08) !important; outline:2px solid #10b981; outline-offset:-2px; }
-    .del-btn { opacity:0; background:none; border:none; color:#dc3545; font-size:1rem; padding:0 4px; cursor:pointer; }
-    .cr-table tbody tr:hover .del-btn { opacity:1; }
-    .risk-pill { display:inline-block; padding:2px 8px; border-radius:20px; font-size:0.65rem; font-weight:700; }
-    .rp-low { background:#d1fae5; color:#065f46; }
-    .rp-medium { background:#fef3c7; color:#92400e; }
-    .rp-high { background:#fee2e2; color:#991b1b; }
-    .rp-critical { background:#dc3545; color:#fff; }
-    .score-badge { display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:50%; font-weight:800; font-size:0.8rem; }
-    .score-1 { background:#d1fae5; color:#065f46; }
-    .score-2 { background:#d1fae5; color:#065f46; }
-    .score-3 { background:#d1fae5; color:#065f46; }
-    .score-4 { background:#fef3c7; color:#92400e; }
-    .score-5 { background:#fef3c7; color:#92400e; }
-    .score-6 { background:#fef3c7; color:#92400e; }
-    .score-high { background:#fee2e2; color:#991b1b; }
-    .score-crit { background:#dc3545; color:#fff; }
-    #crShell .form-label { color:#495057 !important; font-size:0.78rem; font-weight:600; margin-bottom:2px; }
-    #crShell .form-control,#crShell .form-select { font-size:0.82rem; }
+    .ev-stats-bar { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+    .ev-stat-card { background:#fff; border:1px solid rgba(0,0,0,0.1); border-radius:8px; padding:10px 16px; box-shadow:0 2px 4px rgba(0,0,0,0.06); min-width:120px; }
+    .ev-stat-label { font-size:0.7rem; color:#6c757d; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; }
+    .ev-stat-value { font-size:1.5rem; font-weight:700; color:#1a1d24; line-height:1.2; }
+
+    /* === RISK MATRIX === */
+    .matrix-wrap { background:#fff; border:1px solid rgba(0,0,0,0.1); border-radius:8px; padding:16px; box-shadow:0 2px 4px rgba(0,0,0,0.06); margin-bottom:14px; }
+    .matrix-title { font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:#6c757d; margin-bottom:10px; }
+    .matrix-layout { display:flex; gap:10px; align-items:flex-end; }
+    .matrix-yaxis { display:flex; flex-direction:column-reverse; gap:2px; padding-bottom:26px; }
+    .matrix-yaxis-label { font-size:0.65rem; color:#6c757d; text-align:right; width:80px; height:42px; display:flex; align-items:center; justify-content:flex-end; padding-right:6px; font-weight:600; }
+    .matrix-right { display:flex; flex-direction:column; gap:2px; }
+    .matrix-grid { display:flex; flex-direction:column-reverse; gap:2px; }
+    .matrix-row { display:flex; gap:2px; }
+    .matrix-cell { width:72px; height:42px; border-radius:4px; display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative; transition:opacity 0.15s; cursor:default; }
+    .matrix-cell .score-label { font-size:0.68rem; font-weight:700; color:rgba(0,0,0,0.45); }
+    .matrix-cell .dot-count { font-size:0.75rem; font-weight:800; }
+    .mc-green { background:#bbf7d0; }
+    .mc-amber { background:#fde68a; }
+    .mc-red { background:#fecaca; }
+    .mc-red-dark { background:#f87171; }
+    .matrix-xaxis { display:flex; gap:2px; padding-left:0; }
+    .matrix-xaxis-label { width:72px; font-size:0.65rem; color:#6c757d; text-align:center; font-weight:600; padding-top:4px; }
+    .axis-title { font-size:0.68rem; color:#6c757d; text-align:center; margin-top:4px; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; }
+    .axis-title-vert { font-size:0.68rem; color:#6c757d; writing-mode:vertical-rl; transform:rotate(180deg); text-align:center; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; margin-right:4px; padding-bottom:26px; }
+
+    /* === TABLE + INSPECTOR === */
+    .cr-shell { display:flex; gap:10px; height:calc(100vh - 430px); min-height:260px; }
+    .cr-table-pane { flex:1; min-width:0; background:#fff; border:1px solid rgba(0,0,0,0.1); border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,0.06); display:flex; flex-direction:column; overflow:hidden; }
+    .cr-insp-pane { width:360px; flex-shrink:0; background:#fff; border:1px solid rgba(0,0,0,0.1); border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,0.06); display:flex; flex-direction:column; overflow:hidden; }
+    .pane-hd { background:#f8f9fa; border-bottom:1px solid rgba(0,0,0,0.1); padding:8px 12px; }
+    .pane-title { font-size:0.75rem; font-weight:700; color:#1a1d24; text-transform:uppercase; letter-spacing:0.05em; }
+    .pane-scroll { flex:1; overflow-y:auto; }
+    .pane-pad { padding:12px; }
+    .cr-tbl { width:100%; font-size:0.81rem; border-collapse:separate; border-spacing:0; }
+    .cr-tbl thead { position:sticky; top:0; background:#f8f9fa; z-index:5; }
+    .cr-tbl th { padding:8px 10px; font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:#6c757d; border-bottom:2px solid #dee2e6; white-space:nowrap; }
+    .cr-tbl td { padding:6px 10px; border-bottom:1px solid rgba(0,0,0,0.05); vertical-align:middle; color:#1a1d24; }
+    .cr-tbl tbody tr { cursor:pointer; transition:background 0.1s; }
+    .cr-tbl tbody tr:hover { background:#f8f9fa; }
+    .cr-tbl tbody tr.selected { background:rgba(220,38,38,0.07) !important; outline:2px solid #dc2626; outline-offset:-2px; }
+    .del-btn { opacity:0; background:none; border:none; color:#dc3545; padding:0 4px; cursor:pointer; }
+    .cr-tbl tbody tr:hover .del-btn { opacity:1; }
+    .score-badge { display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:50%; font-weight:800; font-size:0.82rem; }
+    .sb-green { background:#bbf7d0; color:#065f46; }
+    .sb-amber { background:#fde68a; color:#78350f; }
+    .sb-red { background:#fecaca; color:#991b1b; }
+    .sb-redark { background:#ef4444; color:#fff; }
+    .sp { display:inline-block; padding:2px 8px; border-radius:20px; font-size:0.64rem; font-weight:700; white-space:nowrap; }
+    .sp-open { background:#fee2e2; color:#991b1b; }
+    .sp-mitigated { background:#fef3c7; color:#92400e; }
+    .sp-accepted { background:#e0e7ff; color:#3730a3; }
+    .sp-closed { background:#d1fae5; color:#065f46; }
+    .cat-pill { display:inline-block; padding:2px 8px; border-radius:20px; font-size:0.64rem; font-weight:700; background:#f1f5f9; color:#475569; }
+    .form-label { color:#495057 !important; font-size:0.78rem !important; font-weight:600 !important; margin-bottom:2px !important; }
+    .form-control,.form-select { font-size:0.82rem; }
+    .score-display { background:#f8f9fa; border:1px solid #dee2e6; border-radius:6px; padding:8px 12px; text-align:center; }
+    .score-display .score-num { font-size:2rem; font-weight:900; line-height:1; }
+    .score-display .score-lbl { font-size:0.7rem; color:#6c757d; text-transform:uppercase; letter-spacing:0.04em; }
   </style>
 </head>
 <body class="light-mode">
   <div id="rtsTopNav"></div>
   <div class="rts-main container-fluid">
+
     <div class="pt-3 pb-2 mb-2 border-bottom d-flex justify-content-between align-items-end">
       <div>
         <h1 class="h4 mb-1">Compliance Risks</h1>
-        <div class="text-secondary" style="font-size:0.85rem;">Track and mitigate regulatory, financial, operational and legal compliance risks.</div>
+        <div class="text-secondary" style="font-size:0.85rem;">Risk register with likelihood × impact matrix for regulatory, legal, financial and operational risks.</div>
       </div>
-      <button class="btn btn-sm" style="background:#10b981;color:#fff;border:none;" id="btnAddCR" type="button">+ Add Risk</button>
+      <button class="btn btn-sm" style="background:#dc2626;color:#fff;border:none;" id="btnAdd">+ Add Risk</button>
     </div>
-    <div class="kpi-bar">
-      <div class="kpi-card"><div class="kpi-label">Critical</div><div class="kpi-value" id="kpiCritical" style="color:#dc3545;">0</div></div>
-      <div class="kpi-card"><div class="kpi-label">High</div><div class="kpi-value" id="kpiHigh" style="color:#b45309;">0</div></div>
-      <div class="kpi-card"><div class="kpi-label">Medium</div><div class="kpi-value" id="kpiMedium" style="color:#d97706;">0</div></div>
-      <div class="kpi-card"><div class="kpi-label">Low</div><div class="kpi-value" id="kpiLow" style="color:#059669;">0</div></div>
+
+    <div class="ev-stats-bar">
+      <div class="ev-stat-card"><div class="ev-stat-label">Critical (≥15)</div><div class="ev-stat-value" id="kpiCritical" style="color:#dc2626;">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">High (8–14)</div><div class="ev-stat-value" id="kpiHigh" style="color:#f97316;">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Medium (4–7)</div><div class="ev-stat-value" id="kpiMedium" style="color:#f59e0b;">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Low (1–3)</div><div class="ev-stat-value" id="kpiLow" style="color:#10b981;">0</div></div>
     </div>
-    <div class="mlo-shell" id="crShell">
-      <!-- LEFT -->
-      <section class="mlo-pane mlo-pane-left" aria-label="Risk filters">
-        <div class="mlo-pane-header">
-          <div class="d-flex justify-content-between align-items-center">
-            <div class="mlo-title">Filter</div>
-            <span class="badge text-bg-secondary" id="crCountBadge">0</span>
+
+    <!-- RISK MATRIX -->
+    <div class="matrix-wrap">
+      <div class="matrix-title">Risk Matrix — Likelihood × Impact</div>
+      <div class="matrix-layout">
+        <div class="axis-title-vert">Likelihood →</div>
+        <div>
+          <div class="matrix-yaxis" id="matrixYAxis">
+            <!-- filled by JS -->
           </div>
         </div>
-        <div class="mlo-pane-content">
-          <div class="mlo-section-label">Risk Level</div>
-          <ul class="pastel-tree" id="crFilterList">
-            <li class="active" data-v="all">All Risks</li>
-            <li data-v="critical">Critical</li>
-            <li data-v="high">High</li>
-            <li data-v="medium">Medium</li>
-            <li data-v="low">Low</li>
-          </ul>
-          <div class="mlo-section-label mt-3">Category</div>
-          <ul class="pastel-tree" id="crCatList">
-            <li class="active" data-v="all">All Categories</li>
-            <li data-v="regulatory">Regulatory</li>
-            <li data-v="financial">Financial</li>
-            <li data-v="operational">Operational</li>
-            <li data-v="legal">Legal</li>
-            <li data-v="reputational">Reputational</li>
-            <li data-v="safety">Safety</li>
-          </ul>
-        </div>
-      </section>
-      <div class="mlo-resizer" data-resize="left"></div>
-      <!-- MIDDLE -->
-      <section class="mlo-pane mlo-pane-mid" aria-label="Risks list">
-        <div class="mlo-pane-header">
-          <div class="d-flex gap-1 align-items-center flex-wrap">
-            <input id="crSearch" type="text" class="form-control form-control-sm" placeholder="Search…" style="max-width:220px;">
-            <select id="crStatusFilter" class="form-select form-select-sm" style="max-width:160px;">
-              <option value="">Status: All</option>
-              <option value="open">Open</option>
-              <option value="mitigated">Mitigated</option>
-              <option value="accepted">Accepted</option>
-              <option value="closed">Closed</option>
-            </select>
+        <div class="matrix-right">
+          <div class="matrix-grid" id="matrixGrid">
+            <!-- filled by JS: rows = likelihood 1-5 (bottom=1), cols = impact 1-5 (left=1) -->
           </div>
+          <div class="matrix-xaxis" id="matrixXAxis">
+            <!-- filled by JS -->
+          </div>
+          <div class="axis-title">Impact →</div>
         </div>
-        <div class="mlo-pane-content" style="padding:0;">
-          <table class="cr-table">
-            <thead><tr><th>#</th><th>Title</th><th>Category</th><th>Likelihood</th><th>Impact</th><th>Score</th><th>Level</th><th>Owner</th><th></th></tr></thead>
-            <tbody id="crTbody"></tbody>
+      </div>
+    </div>
+
+    <!-- TABLE + INSPECTOR -->
+    <div class="cr-shell">
+      <div class="cr-table-pane">
+        <div class="pane-hd d-flex gap-2 align-items-center flex-wrap">
+          <input id="srch" type="text" class="form-control form-control-sm" placeholder="Search…" style="max-width:190px;">
+          <select id="fCat" class="form-select form-select-sm" style="max-width:155px;">
+            <option value="">Category: All</option>
+            <option value="regulatory">Regulatory</option>
+            <option value="legal">Legal</option>
+            <option value="financial">Financial</option>
+            <option value="reputational">Reputational</option>
+            <option value="operational">Operational</option>
+            <option value="data">Data</option>
+            <option value="other">Other</option>
+          </select>
+          <select id="fStatus" class="form-select form-select-sm" style="max-width:135px;">
+            <option value="">Status: All</option>
+            <option value="open">Open</option>
+            <option value="mitigated">Mitigated</option>
+            <option value="accepted">Accepted</option>
+            <option value="closed">Closed</option>
+          </select>
+          <span class="badge bg-secondary ms-auto" id="cntBadge">0</span>
+        </div>
+        <div class="pane-scroll">
+          <table class="cr-tbl">
+            <thead>
+              <tr>
+                <th>Risk Title</th><th>Category</th><th>Reg. Ref</th>
+                <th>Likelihood</th><th>Impact</th><th>Score</th>
+                <th>Owner</th><th>Status</th><th>Review Date</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="tBody"></tbody>
           </table>
         </div>
-      </section>
-      <div class="mlo-resizer" data-resize="right"></div>
-      <!-- RIGHT -->
-      <section class="mlo-pane mlo-pane-right mlo-inspector" aria-label="Risk inspector">
-        <div class="mlo-pane-header">
+      </div>
+
+      <!-- INSPECTOR PANE -->
+      <div class="cr-insp-pane">
+        <div class="pane-hd">
           <div class="d-flex justify-content-between align-items-center">
-            <div class="mlo-title">Inspector</div>
-            <span class="badge text-bg-secondary" id="crInspBadge">—</span>
+            <span class="pane-title">Risk Detail</span>
+            <span class="badge text-bg-secondary" id="inspBadge">—</span>
           </div>
-          <div class="d-flex gap-1 mt-1">
-            <button class="btn btn-sm" style="background:#10b981;color:#fff;border:none;font-size:0.75rem;" id="btnSaveCR">Save</button>
-            <button class="btn btn-sm btn-outline-danger" style="font-size:0.75rem;" id="btnDelCR">Delete</button>
+          <div class="d-flex gap-1 mt-2">
+            <button class="btn btn-sm" style="background:#dc2626;color:#fff;border:none;font-size:0.75rem;" id="btnSave">Save</button>
+            <button class="btn btn-sm btn-outline-danger" style="font-size:0.75rem;" id="btnDel">Delete</button>
           </div>
         </div>
-        <div class="mlo-pane-content">
+        <div class="pane-scroll pane-pad">
           <form id="crForm" autocomplete="off">
             <div class="row g-2">
-              <div class="col-12"><label class="form-label">Title *</label><input id="f_cr_title" class="form-control form-control-sm" type="text" required></div>
-              <div class="col-12"><label class="form-label">Description</label><textarea id="f_cr_desc" class="form-control form-control-sm" rows="2"></textarea></div>
-              <div class="col-6"><label class="form-label">Category</label>
-                <select id="f_cr_cat" class="form-select form-select-sm">
-                  <option value="regulatory">Regulatory</option><option value="financial">Financial</option>
-                  <option value="operational">Operational</option><option value="legal">Legal</option>
-                  <option value="reputational">Reputational</option><option value="safety">Safety</option>
+              <div class="col-12">
+                <label class="form-label">Risk Title *</label>
+                <input id="f_risk_title" class="form-control form-control-sm" type="text" required>
+              </div>
+              <div class="col-6">
+                <label class="form-label">Risk Category</label>
+                <select id="f_risk_category" class="form-select form-select-sm">
+                  <option value="regulatory">Regulatory</option>
+                  <option value="legal">Legal</option>
+                  <option value="financial">Financial</option>
+                  <option value="reputational">Reputational</option>
+                  <option value="operational">Operational</option>
+                  <option value="data">Data</option>
+                  <option value="other">Other</option>
                 </select>
               </div>
-              <div class="col-6"><label class="form-label">Status</label>
-                <select id="f_cr_status" class="form-select form-select-sm">
-                  <option value="open">Open</option><option value="mitigated">Mitigated</option>
-                  <option value="accepted">Accepted</option><option value="closed">Closed</option>
+              <div class="col-6">
+                <label class="form-label">Status</label>
+                <select id="f_status" class="form-select form-select-sm">
+                  <option value="open">Open</option>
+                  <option value="mitigated">Mitigated</option>
+                  <option value="accepted">Accepted</option>
+                  <option value="closed">Closed</option>
                 </select>
-              </div>
-              <div class="col-4"><label class="form-label">Likelihood (1–5)</label>
-                <select id="f_cr_likelihood" class="form-select form-select-sm">
-                  <option value="1">1 – Rare</option><option value="2">2 – Unlikely</option>
-                  <option value="3">3 – Possible</option><option value="4">4 – Likely</option><option value="5">5 – Almost Certain</option>
-                </select>
-              </div>
-              <div class="col-4"><label class="form-label">Impact (1–5)</label>
-                <select id="f_cr_impact" class="form-select form-select-sm">
-                  <option value="1">1 – Negligible</option><option value="2">2 – Minor</option>
-                  <option value="3">3 – Moderate</option><option value="4">4 – Major</option><option value="5">5 – Critical</option>
-                </select>
-              </div>
-              <div class="col-4">
-                <label class="form-label">Risk Score</label>
-                <input id="f_cr_score" class="form-control form-control-sm" type="text" readonly style="background:#f8f9fa;font-weight:700;text-align:center;">
               </div>
               <div class="col-12">
-                <label class="form-label">Suggested Level</label>
-                <div id="crLevelSuggest" class="alert py-1 px-2 mb-0" style="font-size:0.8rem;"></div>
+                <label class="form-label">Regulation Reference</label>
+                <input id="f_regulation_reference" class="form-control form-control-sm" type="text" placeholder="e.g. FIA Technical Reg. Art. 3.1">
               </div>
-              <div class="col-12"><label class="form-label">Risk Level</label>
-                <select id="f_cr_level" class="form-select form-select-sm">
-                  <option value="low">Low</option><option value="medium">Medium</option>
-                  <option value="high">High</option><option value="critical">Critical</option>
-                </select>
+              <div class="col-12">
+                <label class="form-label">Description</label>
+                <textarea id="f_description" class="form-control form-control-sm" rows="3"></textarea>
               </div>
-              <div class="col-12"><label class="form-label">Mitigation Plan</label><textarea id="f_cr_mitigation" class="form-control form-control-sm" rows="3"></textarea></div>
-              <div class="col-6"><label class="form-label">Owner</label><input id="f_cr_owner" class="form-control form-control-sm" type="text"></div>
-              <div class="col-6"><label class="form-label">Review Date</label><input id="f_cr_review" class="form-control form-control-sm" type="date"></div>
+              <div class="col-4">
+                <label class="form-label">Likelihood (1–5)</label>
+                <input id="f_likelihood" class="form-control form-control-sm" type="number" min="1" max="5" value="1">
+              </div>
+              <div class="col-4">
+                <label class="form-label">Impact (1–5)</label>
+                <input id="f_impact" class="form-control form-control-sm" type="number" min="1" max="5" value="1">
+              </div>
+              <div class="col-4">
+                <div class="score-display mt-auto">
+                  <div class="score-num" id="scoreDisplay" style="color:#dc2626;">—</div>
+                  <div class="score-lbl">Score</div>
+                </div>
+              </div>
+              <div class="col-12 d-flex align-items-center gap-2" id="scoreLevel" style="font-size:0.8rem;"></div>
+              <div class="col-12">
+                <label class="form-label">Mitigation</label>
+                <textarea id="f_mitigation" class="form-control form-control-sm" rows="3"></textarea>
+              </div>
+              <div class="col-6">
+                <label class="form-label">Owner</label>
+                <input id="f_owner" class="form-control form-control-sm" type="text">
+              </div>
+              <div class="col-6">
+                <label class="form-label">Review Date</label>
+                <input id="f_review_date" class="form-control form-control-sm" type="date">
+              </div>
             </div>
           </form>
         </div>
-      </section>
+      </div>
     </div>
+
   </div>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="topnav.js?v=20260420"></script>
   <script src="core.js?v=20260420"></script>
   <script>
   const API = '/api/compliance-risks';
-  let allData = [], current = null, filterLevel = 'all', filterCat = 'all';
-  function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  let allData = [], current = null;
+  const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const fmt = s => (s||'').replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase());
+  const fmtD = s => { if(!s) return '—'; try { return new Date(s).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}); } catch(e){ return s; }};
 
-  function computeScore(){
-    const l=parseInt(document.getElementById('f_cr_likelihood').value)||1;
-    const i=parseInt(document.getElementById('f_cr_impact').value)||1;
-    const score=l*i;
-    document.getElementById('f_cr_score').value=score;
-    let level='low', cls='success', msg='Low Risk';
-    if(score>=16){ level='critical'; cls='danger'; msg='Critical Risk'; }
-    else if(score>=10){ level='high'; cls='warning'; msg='High Risk'; }
-    else if(score>=5){ level='medium'; cls='warning'; msg='Medium Risk'; }
-    document.getElementById('f_cr_level').value=level;
-    const el=document.getElementById('crLevelSuggest');
-    el.className=`alert alert-${cls} py-1 px-2 mb-0`;
-    el.textContent=`Suggested: ${msg} (score ${score})`;
+  const LIKELIHOOD_LABELS = ['','Rare','Unlikely','Possible','Likely','Almost Certain'];
+  const IMPACT_LABELS = ['','Negligible','Minor','Moderate','Major','Critical'];
+
+  function scoreLevel(score) {
+    if (score >= 15) return { label:'Critical', cls:'sb-redark', color:'#dc2626' };
+    if (score >= 8)  return { label:'High',     cls:'sb-red',    color:'#f97316' };
+    if (score >= 4)  return { label:'Medium',   cls:'sb-amber',  color:'#f59e0b' };
+    return                   { label:'Low',     cls:'sb-green',  color:'#10b981' };
   }
 
-  async function loadAll(){ const data=await apiFetch(API).catch(()=>[]); allData=data||[]; renderStats(); renderTable(); }
-  function renderStats(){
-    document.getElementById('kpiCritical').textContent=allData.filter(r=>r.risk_level==='critical').length;
-    document.getElementById('kpiHigh').textContent=allData.filter(r=>r.risk_level==='high').length;
-    document.getElementById('kpiMedium').textContent=allData.filter(r=>r.risk_level==='medium').length;
-    document.getElementById('kpiLow').textContent=allData.filter(r=>r.risk_level==='low').length;
+  function cellColor(score) {
+    if (score >= 15) return 'mc-red-dark';
+    if (score >= 6)  return 'mc-amber';
+    return 'mc-green';
   }
-  function renderTable(){
-    const q=document.getElementById('crSearch').value.toLowerCase();
-    const sf=document.getElementById('crStatusFilter').value;
-    let rows=allData;
-    if(filterLevel!=='all') rows=rows.filter(r=>r.risk_level===filterLevel);
-    if(filterCat!=='all') rows=rows.filter(r=>r.category===filterCat);
-    if(sf) rows=rows.filter(r=>r.status===sf);
-    if(q) rows=rows.filter(r=>JSON.stringify(r).toLowerCase().includes(q));
-    document.getElementById('crCountBadge').textContent=rows.length;
-    const tbody=document.getElementById('crTbody');
-    if(!rows.length){ tbody.innerHTML='<tr><td colspan="9" class="text-center text-muted py-3">No risks found</td></tr>'; return; }
-    tbody.innerHTML=rows.map((r,i)=>`
-      <tr data-id="${r.id}" class="${current&&current.id===r.id?'selected':''}">
-        <td>${i+1}</td>
-        <td>${esc(r.title)}</td>
-        <td style="text-transform:capitalize;">${esc(r.category||'—')}</td>
+
+  function buildMatrix() {
+    // Count risks per cell [likelihood][impact]
+    const counts = {};
+    allData.forEach(r => {
+      const l = parseInt(r.likelihood) || 0;
+      const i = parseInt(r.impact) || 0;
+      if (l >= 1 && l <= 5 && i >= 1 && i <= 5) {
+        const k = `${l}_${i}`;
+        counts[k] = (counts[k] || 0) + 1;
+      }
+    });
+
+    // Y-axis labels (likelihood 5 → 1 = top → bottom, visually)
+    const yAxis = document.getElementById('matrixYAxis');
+    yAxis.innerHTML = '';
+    for (let l = 5; l >= 1; l--) {
+      const div = document.createElement('div');
+      div.className = 'matrix-yaxis-label';
+      div.textContent = `${l} – ${LIKELIHOOD_LABELS[l]}`;
+      yAxis.appendChild(div);
+    }
+
+    // Grid rows
+    const grid = document.getElementById('matrixGrid');
+    grid.innerHTML = '';
+    for (let l = 5; l >= 1; l--) {
+      const row = document.createElement('div');
+      row.className = 'matrix-row';
+      for (let imp = 1; imp <= 5; imp++) {
+        const score = l * imp;
+        const cnt = counts[`${l}_${imp}`] || 0;
+        const cell = document.createElement('div');
+        cell.className = `matrix-cell ${cellColor(score)}`;
+        cell.title = `Likelihood ${l} × Impact ${imp} = Score ${score}`;
+        cell.innerHTML = `<span class="score-label">${score}</span>${cnt > 0 ? `<span class="dot-count" style="color:${scoreLevel(score).color};">${cnt}</span>` : ''}`;
+        row.appendChild(cell);
+      }
+      grid.appendChild(row);
+    }
+
+    // X-axis labels
+    const xAxis = document.getElementById('matrixXAxis');
+    xAxis.innerHTML = '';
+    for (let imp = 1; imp <= 5; imp++) {
+      const div = document.createElement('div');
+      div.className = 'matrix-xaxis-label';
+      div.textContent = `${imp}`;
+      xAxis.appendChild(div);
+    }
+  }
+
+  async function loadAll() {
+    const data = await apiFetch(API).catch(() => []);
+    allData = data || [];
+    renderStats(); buildMatrix(); renderTable();
+  }
+
+  function renderStats() {
+    const getScore = r => parseInt(r.risk_score) || (parseInt(r.likelihood)||1) * (parseInt(r.impact)||1);
+    document.getElementById('kpiCritical').textContent = allData.filter(r => getScore(r) >= 15).length;
+    document.getElementById('kpiHigh').textContent = allData.filter(r => { const s=getScore(r); return s>=8 && s<=14; }).length;
+    document.getElementById('kpiMedium').textContent = allData.filter(r => { const s=getScore(r); return s>=4 && s<=7; }).length;
+    document.getElementById('kpiLow').textContent = allData.filter(r => getScore(r) <= 3).length;
+  }
+
+  function renderTable() {
+    const q = document.getElementById('srch').value.toLowerCase();
+    const cf = document.getElementById('fCat').value;
+    const sf = document.getElementById('fStatus').value;
+    let rows = allData;
+    if (cf) rows = rows.filter(r => r.risk_category === cf);
+    if (sf) rows = rows.filter(r => r.status === sf);
+    if (q) rows = rows.filter(r => JSON.stringify(r).toLowerCase().includes(q));
+    // Sort by score desc
+    rows = [...rows].sort((a, b) => {
+      const sa = parseInt(a.risk_score)||(parseInt(a.likelihood)||1)*(parseInt(a.impact)||1);
+      const sb = parseInt(b.risk_score)||(parseInt(b.likelihood)||1)*(parseInt(b.impact)||1);
+      return sb - sa;
+    });
+    document.getElementById('cntBadge').textContent = rows.length;
+    const tb = document.getElementById('tBody');
+    if (!rows.length) { tb.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-4">No risks found</td></tr>'; return; }
+    tb.innerHTML = rows.map(r => {
+      const score = parseInt(r.risk_score) || (parseInt(r.likelihood)||1) * (parseInt(r.impact)||1);
+      const lvl = scoreLevel(score);
+      const sel = current && current.id === r.id;
+      return `<tr data-id="${r.id}" class="${sel?'selected':''}">
+        <td>${esc(r.risk_title)}</td>
+        <td><span class="cat-pill">${fmt(r.risk_category||'')}</span></td>
+        <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(r.regulation_reference||'')}">${esc(r.regulation_reference||'—')}</td>
         <td style="text-align:center;">${r.likelihood||'—'}</td>
         <td style="text-align:center;">${r.impact||'—'}</td>
-        <td style="text-align:center;font-weight:700;">${r.risk_score||'—'}</td>
-        <td><span class="risk-pill rp-${r.risk_level||'low'}">${r.risk_level||'—'}</span></td>
+        <td style="text-align:center;"><span class="score-badge ${lvl.cls}">${score}</span></td>
         <td>${esc(r.owner||'—')}</td>
+        <td><span class="sp sp-${r.status||'open'}">${fmt(r.status||'open')}</span></td>
+        <td>${fmtD(r.review_date)}</td>
         <td><button class="del-btn" data-id="${r.id}">✕</button></td>
-      </tr>`).join('');
-    tbody.querySelectorAll('tr[data-id]').forEach(tr=>tr.addEventListener('click',e=>{ if(e.target.classList.contains('del-btn')) return; selectRow(tr.dataset.id); }));
-    tbody.querySelectorAll('.del-btn').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation(); deleteById(b.dataset.id); }));
+      </tr>`;
+    }).join('');
+    tb.querySelectorAll('tr[data-id]').forEach(tr => tr.addEventListener('click', e => { if (e.target.classList.contains('del-btn')) return; selRow(tr.dataset.id); }));
+    tb.querySelectorAll('.del-btn').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); delById(b.dataset.id); }));
   }
-  function selectRow(id){
-    current=allData.find(r=>String(r.id)===String(id)); if(!current) return;
-    document.getElementById('crInspBadge').textContent='#'+current.id;
-    const F=f=>document.getElementById(f);
-    F('f_cr_title').value=current.title||'';
-    F('f_cr_desc').value=current.description||'';
-    F('f_cr_cat').value=current.category||'regulatory';
-    F('f_cr_status').value=current.status||'open';
-    F('f_cr_likelihood').value=String(current.likelihood||1);
-    F('f_cr_impact').value=String(current.impact||1);
-    F('f_cr_score').value=current.risk_score||'';
-    F('f_cr_level').value=current.risk_level||'low';
-    F('f_cr_mitigation').value=current.mitigation||'';
-    F('f_cr_owner').value=current.owner||'';
-    F('f_cr_review').value=current.review_date?current.review_date.slice(0,10):'';
-    computeScore();
+
+  function updateScoreDisplay() {
+    const l = parseInt(document.getElementById('f_likelihood').value) || 1;
+    const i = parseInt(document.getElementById('f_impact').value) || 1;
+    const s = Math.max(1, Math.min(5,l)) * Math.max(1, Math.min(5,i));
+    const lvl = scoreLevel(s);
+    const el = document.getElementById('scoreDisplay');
+    el.textContent = s;
+    el.style.color = lvl.color;
+    document.getElementById('scoreLevel').innerHTML =
+      `<span class="score-badge ${lvl.cls}" style="font-size:0.75rem;width:auto;padding:2px 10px;border-radius:20px;">${lvl.label} Risk</span>`;
+  }
+
+  function selRow(id) {
+    current = allData.find(r => String(r.id) === String(id));
+    if (!current) return;
+    document.getElementById('inspBadge').textContent = '#' + current.id;
+    document.getElementById('f_risk_title').value = current.risk_title || '';
+    document.getElementById('f_risk_category').value = current.risk_category || 'regulatory';
+    document.getElementById('f_status').value = current.status || 'open';
+    document.getElementById('f_regulation_reference').value = current.regulation_reference || '';
+    document.getElementById('f_description').value = current.description || '';
+    document.getElementById('f_likelihood').value = current.likelihood != null ? current.likelihood : 1;
+    document.getElementById('f_impact').value = current.impact != null ? current.impact : 1;
+    document.getElementById('f_mitigation').value = current.mitigation || '';
+    document.getElementById('f_owner').value = current.owner || '';
+    document.getElementById('f_review_date').value = (current.review_date||'').slice(0,10);
+    updateScoreDisplay();
     renderTable();
   }
-  function clearForm(){
-    current=null; document.getElementById('crInspBadge').textContent='—';
+
+  function clearForm() {
+    current = null;
+    document.getElementById('inspBadge').textContent = '—';
     document.getElementById('crForm').reset();
-    document.getElementById('f_cr_score').value='1';
-    document.getElementById('crLevelSuggest').textContent='';
+    document.getElementById('f_likelihood').value = 1;
+    document.getElementById('f_impact').value = 1;
+    updateScoreDisplay();
     renderTable();
   }
-  async function saveRecord(){
-    const F=f=>document.getElementById(f).value.trim();
-    if(!F('f_cr_title')){ alert('Title is required'); return; }
-    const body={ title:F('f_cr_title'), description:F('f_cr_desc'), category:F('f_cr_cat'),
-      risk_level:F('f_cr_level'), likelihood:parseInt(F('f_cr_likelihood')), impact:parseInt(F('f_cr_impact')),
-      risk_score:parseInt(F('f_cr_score')), mitigation:F('f_cr_mitigation'), owner:F('f_cr_owner'),
-      review_date:F('f_cr_review')||null, status:F('f_cr_status') };
-    if(current){ await apiFetch(`${API}/${current.id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); }
-    else { await apiFetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); }
+
+  async function saveRecord() {
+    const v = id => document.getElementById(id).value.trim();
+    if (!v('f_risk_title')) { alert('Risk Title is required'); return; }
+    const likelihood = Math.max(1, Math.min(5, parseInt(v('f_likelihood'))||1));
+    const impact = Math.max(1, Math.min(5, parseInt(v('f_impact'))||1));
+    const body = {
+      risk_title: v('f_risk_title'), risk_category: v('f_risk_category'),
+      regulation_reference: v('f_regulation_reference'), description: v('f_description'),
+      likelihood, impact,
+      mitigation: v('f_mitigation'), owner: v('f_owner'),
+      review_date: v('f_review_date') || null, status: v('f_status')
+      // risk_score is GENERATED by DB — not sent
+    };
+    if (current) {
+      await apiFetch(`${API}/${current.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+    } else {
+      await apiFetch(API, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+    }
     await loadAll();
   }
-  async function deleteById(id){
-    if(!confirm('Delete this risk?')) return;
-    await apiFetch(`${API}/${id}`,{method:'DELETE'});
-    if(current&&String(current.id)===String(id)){ current=null; document.getElementById('crForm').reset(); }
+
+  async function delById(id) {
+    if (!confirm('Delete this risk?')) return;
+    await apiFetch(`${API}/${id}`, { method:'DELETE' });
+    if (current && String(current.id) === String(id)) { current = null; document.getElementById('crForm').reset(); updateScoreDisplay(); }
     await loadAll();
   }
-  document.addEventListener('DOMContentLoaded',()=>{
+
+  document.addEventListener('DOMContentLoaded', () => {
     loadAll();
-    document.getElementById('btnAddCR').addEventListener('click',clearForm);
-    document.getElementById('btnSaveCR').addEventListener('click',saveRecord);
-    document.getElementById('btnDelCR').addEventListener('click',()=>{ if(current) deleteById(current.id); });
-    document.getElementById('crSearch').addEventListener('input',renderTable);
-    document.getElementById('crStatusFilter').addEventListener('change',renderTable);
-    document.getElementById('f_cr_likelihood').addEventListener('change',computeScore);
-    document.getElementById('f_cr_impact').addEventListener('change',computeScore);
-    document.querySelectorAll('#crFilterList li').forEach(li=>li.addEventListener('click',()=>{
-      document.querySelectorAll('#crFilterList li').forEach(x=>x.classList.remove('active'));
-      li.classList.add('active'); filterLevel=li.dataset.v; renderTable();
-    }));
-    document.querySelectorAll('#crCatList li').forEach(li=>li.addEventListener('click',()=>{
-      document.querySelectorAll('#crCatList li').forEach(x=>x.classList.remove('active'));
-      li.classList.add('active'); filterCat=li.dataset.v; renderTable();
-    }));
+    updateScoreDisplay();
+    document.getElementById('btnAdd').addEventListener('click', clearForm);
+    document.getElementById('btnSave').addEventListener('click', saveRecord);
+    document.getElementById('btnDel').addEventListener('click', () => { if (current) delById(current.id); });
+    document.getElementById('srch').addEventListener('input', renderTable);
+    document.getElementById('fCat').addEventListener('change', renderTable);
+    document.getElementById('fStatus').addEventListener('change', renderTable);
+    document.getElementById('f_likelihood').addEventListener('input', updateScoreDisplay);
+    document.getElementById('f_impact').addEventListener('input', updateScoreDisplay);
   });
   </script>
 </body>

@@ -8,253 +8,335 @@
   <link href="style.css?v=20260420" rel="stylesheet" />
   <style>
     body { background: linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%); min-height:100vh; }
-    .kpi-bar { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
-    .kpi-card { background:#fff; border:1px solid rgba(0,0,0,0.1); border-radius:8px; padding:10px 16px; box-shadow:0 2px 4px rgba(0,0,0,0.06); min-width:120px; }
-    .kpi-label { font-size:0.7rem; color:#6c757d; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; }
-    .kpi-value { font-size:1.5rem; font-weight:700; color:#1a1d24; line-height:1.2; }
-    #cmShell.mlo-shell { background:transparent; border:none; gap:10px; }
-    #cmShell .mlo-pane-left,#cmShell .mlo-pane-mid,#cmShell .mlo-pane-right { background:#fff; border:1px solid rgba(0,0,0,0.1); border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,0.06); }
-    #cmShell .mlo-pane-header { background:#f8f9fa; border-bottom:1px solid rgba(0,0,0,0.1); }
-    #cmShell .mlo-title { color:#1a1d24 !important; }
-    #cmShell .mlo-section-label { color:#6c757d !important; opacity:1 !important; }
-    #cmShell .mlo-resizer:hover { background:rgba(16,185,129,0.3); }
-    #cmShell .pastel-tree { padding:0 !important; margin:0 !important; }
-    #cmShell .pastel-tree li { height:28px !important; display:flex !important; align-items:center !important; font-size:0.83rem !important; font-weight:500 !important; padding-left:10px !important; margin-bottom:2px !important; border-radius:5px !important; border:1px solid rgba(0,0,0,0.08) !important; color:#1a1d24 !important; white-space:nowrap !important; overflow:hidden !important; text-overflow:ellipsis !important; cursor:pointer !important; list-style:none; }
-    #cmShell .pastel-tree li.active { background:rgba(16,185,129,0.1) !important; border-color:rgba(16,185,129,0.35) !important; color:#059669 !important; font-weight:700 !important; }
-    .cm-table { width:100%; font-size:0.82rem; border-collapse:separate; border-spacing:0; }
-    .cm-table thead { position:sticky; top:0; background:#f8f9fa; z-index:5; }
-    .cm-table th { padding:8px 10px; font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:#6c757d; border-bottom:2px solid #dee2e6; white-space:nowrap; }
-    .cm-table td { padding:6px 10px; border-bottom:1px solid rgba(0,0,0,0.05); vertical-align:middle; color:#1a1d24; }
-    .cm-table tbody tr { cursor:pointer; transition:background 0.1s; }
-    .cm-table tbody tr:hover { background:#f8f9fa; }
-    .cm-table tbody tr.selected { background:rgba(16,185,129,0.08) !important; outline:2px solid #10b981; outline-offset:-2px; }
-    .del-btn { opacity:0; background:none; border:none; color:#dc3545; font-size:1rem; padding:0 4px; cursor:pointer; }
-    .cm-table tbody tr:hover .del-btn { opacity:1; }
-    .sev-pill { display:inline-block; padding:2px 8px; border-radius:20px; font-size:0.65rem; font-weight:700; }
-    .sv-low { background:#d1fae5; color:#065f46; }
-    .sv-medium { background:#fef3c7; color:#92400e; }
-    .sv-high { background:#fee2e2; color:#991b1b; }
-    .sv-critical { background:#dc3545; color:#fff; }
-    .status-pill { display:inline-block; padding:2px 8px; border-radius:20px; font-size:0.65rem; font-weight:700; }
+    .ev-stats-bar { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+    .ev-stat-card { background:#fff; border:1px solid rgba(0,0,0,0.1); border-radius:8px; padding:10px 16px; box-shadow:0 2px 4px rgba(0,0,0,0.06); min-width:120px; }
+    .ev-stat-label { font-size:0.7rem; color:#6c757d; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; }
+    .ev-stat-value { font-size:1.5rem; font-weight:700; color:#1a1d24; line-height:1.2; }
+
+    .cm-toolbar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:14px; }
+    .section-label { font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#6c757d; margin:14px 0 8px; }
+    .cm-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap:14px; margin-bottom:16px; }
+
+    /* Active / monitoring cards */
+    .cm-card { background:#fff; border-radius:10px; border:1px solid rgba(0,0,0,0.1); border-left-width:4px; box-shadow:0 2px 6px rgba(0,0,0,0.07); padding:16px; cursor:pointer; transition:box-shadow 0.15s; }
+    .cm-card:hover { box-shadow:0 4px 14px rgba(0,0,0,0.12); }
+    .cm-card.sev-critical { border-left-color:#dc2626; }
+    .cm-card.sev-high { border-left-color:#f97316; }
+    .cm-card.sev-medium { border-left-color:#f59e0b; }
+    .cm-card.sev-low { border-left-color:#10b981; }
+    /* Resolved/post-review */
+    .cm-card.resolved { border-left-color:#10b981; opacity:0.52; }
+    .cm-card-title { font-size:0.96rem; font-weight:700; color:#1a1d24; margin-bottom:6px; }
+    .cm-card-meta { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px; }
+    .cm-card-info { font-size:0.8rem; color:#6c757d; }
+    .cm-card-lead { font-size:0.82rem; color:#1a1d24; font-weight:500; margin-top:4px; }
+
+    .sp { display:inline-block; padding:2px 8px; border-radius:20px; font-size:0.64rem; font-weight:700; white-space:nowrap; }
+    .sp-monitoring { background:#dbeafe; color:#1e40af; }
     .sp-active { background:#fee2e2; color:#991b1b; }
-    .sp-contained { background:#fef3c7; color:#92400e; }
     .sp-resolved { background:#d1fae5; color:#065f46; }
-    .sp-closed { background:#f1f5f9; color:#64748b; }
-    #cmShell .form-label { color:#495057 !important; font-size:0.78rem; font-weight:600; margin-bottom:2px; }
-    #cmShell .form-control,#cmShell .form-select { font-size:0.82rem; }
+    .sp-post_review { background:#f1f5f9; color:#475569; }
+    .sev-badge { display:inline-block; padding:2px 8px; border-radius:20px; font-size:0.64rem; font-weight:700; }
+    .sv-critical { background:#dc2626; color:#fff; }
+    .sv-high { background:#fee2e2; color:#991b1b; }
+    .sv-medium { background:#fef3c7; color:#92400e; }
+    .sv-low { background:#d1fae5; color:#065f46; }
+    .type-badge { display:inline-block; padding:2px 8px; border-radius:20px; font-size:0.64rem; font-weight:700; background:#f1f5f9; color:#475569; }
+
+    /* Modal */
+    .modal-label { color:#495057; font-size:0.78rem; font-weight:600; margin-bottom:2px; display:block; }
+    .modal-section { font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#6366f1; margin:12px 0 6px; border-bottom:1px solid #e2e8f0; padding-bottom:4px; }
+    .timeline-view { background:#f8f9fa; border-radius:6px; padding:10px 12px; font-size:0.82rem; white-space:pre-wrap; max-height:150px; overflow-y:auto; color:#374151; }
+    .form-control,.form-select { font-size:0.82rem; }
+    .form-label { color:#495057 !important; font-size:0.78rem !important; font-weight:600 !important; margin-bottom:2px !important; }
   </style>
 </head>
 <body class="light-mode">
   <div id="rtsTopNav"></div>
   <div class="rts-main container-fluid">
+
     <div class="pt-3 pb-2 mb-2 border-bottom d-flex justify-content-between align-items-end">
       <div>
         <h1 class="h4 mb-1">Crisis Management</h1>
-        <div class="text-secondary" style="font-size:0.85rem;">Log crises, manage response actions, track resolution and capture lessons learned.</div>
+        <div class="text-secondary" style="font-size:0.85rem;">Active crises, response coordination, lessons learned and post-incident review.</div>
       </div>
-      <button class="btn btn-sm" style="background:#10b981;color:#fff;border:none;" id="btnAddCM" type="button">+ Log Crisis</button>
+      <button class="btn btn-sm" style="background:#ef4444;color:#fff;border:none;" id="btnAdd">+ Add Crisis</button>
     </div>
-    <div class="kpi-bar">
-      <div class="kpi-card"><div class="kpi-label">Total</div><div class="kpi-value" id="kpiTotal">0</div></div>
-      <div class="kpi-card"><div class="kpi-label">Active</div><div class="kpi-value" id="kpiActive" style="color:#dc3545;">0</div></div>
-      <div class="kpi-card"><div class="kpi-label">Resolved</div><div class="kpi-value" id="kpiResolved" style="color:#059669;">0</div></div>
-      <div class="kpi-card"><div class="kpi-label">Avg Response (hrs)</div><div class="kpi-value" id="kpiAvgResp">—</div></div>
+
+    <div class="ev-stats-bar">
+      <div class="ev-stat-card"><div class="ev-stat-label">Total</div><div class="ev-stat-value" id="kpiTotal">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Active</div><div class="ev-stat-value" id="kpiActive" style="color:#ef4444;">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Monitoring</div><div class="ev-stat-value" id="kpiMonitoring" style="color:#3b82f6;">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Resolved</div><div class="ev-stat-value" id="kpiResolved" style="color:#10b981;">0</div></div>
     </div>
-    <div class="mlo-shell" id="cmShell">
-      <!-- LEFT -->
-      <section class="mlo-pane mlo-pane-left" aria-label="Crisis filters">
-        <div class="mlo-pane-header">
-          <div class="d-flex justify-content-between align-items-center">
-            <div class="mlo-title">Filter</div>
-            <span class="badge text-bg-secondary" id="cmCountBadge">0</span>
-          </div>
+
+    <div class="cm-toolbar">
+      <input id="srch" type="text" class="form-control form-control-sm" placeholder="Search…" style="max-width:200px;">
+      <select id="fType" class="form-select form-select-sm" style="max-width:160px;">
+        <option value="">Type: All</option>
+        <option value="operational">Operational</option>
+        <option value="media">Media</option>
+        <option value="safety">Safety</option>
+        <option value="financial">Financial</option>
+        <option value="legal">Legal</option>
+        <option value="sporting">Sporting</option>
+        <option value="natural">Natural</option>
+        <option value="other">Other</option>
+      </select>
+      <select id="fSeverity" class="form-select form-select-sm" style="max-width:135px;">
+        <option value="">Severity: All</option>
+        <option value="critical">Critical</option>
+        <option value="high">High</option>
+        <option value="medium">Medium</option>
+        <option value="low">Low</option>
+      </select>
+      <span class="badge bg-secondary ms-auto" id="cntBadge">0</span>
+    </div>
+
+    <div id="activeSection">
+      <div class="section-label" id="activeSectionLabel" style="display:none;">Active &amp; Monitoring</div>
+      <div class="cm-grid" id="activeGrid"></div>
+    </div>
+    <div id="resolvedSection">
+      <div class="section-label" id="resolvedSectionLabel" style="display:none;">Resolved &amp; Post-Review</div>
+      <div class="cm-grid" id="resolvedGrid"></div>
+    </div>
+
+  </div>
+
+  <!-- DETAIL / EDIT MODAL -->
+  <div class="modal fade" id="cmModal" tabindex="-1" aria-labelledby="cmModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header" style="background:#f8f9fa;">
+          <h5 class="modal-title" id="cmModalLabel">Crisis</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
-        <div class="mlo-pane-content">
-          <div class="mlo-section-label">Status</div>
-          <ul class="pastel-tree" id="cmFilterList">
-            <li class="active" data-v="all">All Crises</li>
-            <li data-v="active">Active</li>
-            <li data-v="contained">Contained</li>
-            <li data-v="resolved">Resolved</li>
-            <li data-v="closed">Closed</li>
-          </ul>
-          <div class="mlo-section-label mt-3">Type</div>
-          <ul class="pastel-tree" id="cmTypeList">
-            <li class="active" data-v="all">All Types</li>
-            <li data-v="pr">PR</li>
-            <li data-v="legal">Legal</li>
-            <li data-v="operational">Operational</li>
-            <li data-v="safety">Safety</li>
-            <li data-v="financial">Financial</li>
-            <li data-v="regulatory">Regulatory</li>
-            <li data-v="other">Other</li>
-          </ul>
-        </div>
-      </section>
-      <div class="mlo-resizer" data-resize="left"></div>
-      <!-- MIDDLE -->
-      <section class="mlo-pane mlo-pane-mid" aria-label="Crises list">
-        <div class="mlo-pane-header">
-          <input id="cmSearch" type="text" class="form-control form-control-sm" placeholder="Search…" style="max-width:260px;">
-        </div>
-        <div class="mlo-pane-content" style="padding:0;">
-          <table class="cm-table">
-            <thead><tr><th>#</th><th>Title</th><th>Type</th><th>Severity</th><th>Response Lead</th><th>Status</th><th>Date</th><th></th></tr></thead>
-            <tbody id="cmTbody"></tbody>
-          </table>
-        </div>
-      </section>
-      <div class="mlo-resizer" data-resize="right"></div>
-      <!-- RIGHT -->
-      <section class="mlo-pane mlo-pane-right mlo-inspector" aria-label="Crisis inspector">
-        <div class="mlo-pane-header">
-          <div class="d-flex justify-content-between align-items-center">
-            <div class="mlo-title">Inspector</div>
-            <span class="badge text-bg-secondary" id="cmInspBadge">—</span>
-          </div>
-          <div class="d-flex gap-1 mt-1">
-            <button class="btn btn-sm" style="background:#10b981;color:#fff;border:none;font-size:0.75rem;" id="btnSaveCM">Save</button>
-            <button class="btn btn-sm btn-outline-danger" style="font-size:0.75rem;" id="btnDelCM">Delete</button>
-          </div>
-        </div>
-        <div class="mlo-pane-content">
+        <div class="modal-body">
           <form id="cmForm" autocomplete="off">
             <div class="row g-2">
-              <div class="col-12"><label class="form-label">Title *</label><input id="f_cm_title" class="form-control form-control-sm" type="text" required></div>
-              <div class="col-12"><label class="form-label">Description</label><textarea id="f_cm_desc" class="form-control form-control-sm" rows="2"></textarea></div>
-              <div class="col-6"><label class="form-label">Crisis Type</label>
-                <select id="f_cm_type" class="form-select form-select-sm">
-                  <option value="pr">PR</option><option value="legal">Legal</option>
-                  <option value="operational">Operational</option><option value="safety">Safety</option>
-                  <option value="financial">Financial</option><option value="regulatory">Regulatory</option>
+              <!-- Core -->
+              <div class="col-12"><div class="modal-section">Core Details</div></div>
+              <div class="col-12 col-md-8">
+                <label class="modal-label">Title *</label>
+                <input id="f_title" class="form-control form-control-sm" type="text" required>
+              </div>
+              <div class="col-6 col-md-2">
+                <label class="modal-label">Type</label>
+                <select id="f_crisis_type" class="form-select form-select-sm">
+                  <option value="operational">Operational</option>
+                  <option value="media">Media</option>
+                  <option value="safety">Safety</option>
+                  <option value="financial">Financial</option>
+                  <option value="legal">Legal</option>
+                  <option value="sporting">Sporting</option>
+                  <option value="natural">Natural</option>
                   <option value="other">Other</option>
                 </select>
               </div>
-              <div class="col-6"><label class="form-label">Severity</label>
-                <select id="f_cm_severity" class="form-select form-select-sm">
-                  <option value="low">Low</option><option value="medium">Medium</option>
-                  <option value="high">High</option><option value="critical">Critical</option>
+              <div class="col-6 col-md-2">
+                <label class="modal-label">Severity</label>
+                <select id="f_severity" class="form-select form-select-sm">
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                  <option value="critical">Critical</option>
                 </select>
               </div>
-              <div class="col-6"><label class="form-label">Response Lead</label><input id="f_cm_lead" class="form-control form-control-sm" type="text"></div>
-              <div class="col-6"><label class="form-label">Status</label>
-                <select id="f_cm_status" class="form-select form-select-sm">
-                  <option value="active">Active</option><option value="contained">Contained</option>
-                  <option value="resolved">Resolved</option><option value="closed">Closed</option>
+              <div class="col-12">
+                <label class="modal-label">Description</label>
+                <textarea id="f_description" class="form-control form-control-sm" rows="2"></textarea>
+              </div>
+              <div class="col-12">
+                <label class="modal-label">Trigger</label>
+                <textarea id="f_trigger" class="form-control form-control-sm" rows="2" placeholder="What caused or triggered this crisis?"></textarea>
+              </div>
+              <!-- Response Team -->
+              <div class="col-12"><div class="modal-section">Response Team</div></div>
+              <div class="col-md-4 col-6">
+                <label class="modal-label">Response Lead</label>
+                <input id="f_response_lead" class="form-control form-control-sm" type="text">
+              </div>
+              <div class="col-md-4 col-6">
+                <label class="modal-label">Communications Lead</label>
+                <input id="f_communications_lead" class="form-control form-control-sm" type="text">
+              </div>
+              <div class="col-12">
+                <label class="modal-label">Response Team</label>
+                <textarea id="f_response_team" class="form-control form-control-sm" rows="2" placeholder="Names and roles…"></textarea>
+              </div>
+              <!-- Timeline & Resolution -->
+              <div class="col-12"><div class="modal-section">Timeline &amp; Resolution</div></div>
+              <div class="col-12">
+                <label class="modal-label">Timeline (chronological notes)</label>
+                <textarea id="f_timeline" class="form-control form-control-sm" rows="4" placeholder="DD/MM HH:MM – Action taken&#10;DD/MM HH:MM – Next update…"></textarea>
+              </div>
+              <div class="col-md-6">
+                <label class="modal-label">Resolution</label>
+                <textarea id="f_resolution" class="form-control form-control-sm" rows="3"></textarea>
+              </div>
+              <div class="col-md-6">
+                <label class="modal-label">Lessons Learned</label>
+                <textarea id="f_lessons_learned" class="form-control form-control-sm" rows="3"></textarea>
+              </div>
+              <!-- Status -->
+              <div class="col-12"><div class="modal-section">Status</div></div>
+              <div class="col-md-4">
+                <label class="modal-label">Status</label>
+                <select id="f_status" class="form-select form-select-sm">
+                  <option value="monitoring">Monitoring</option>
+                  <option value="active">Active</option>
+                  <option value="resolved">Resolved</option>
+                  <option value="post_review">Post Review</option>
                 </select>
               </div>
-              <div class="col-12"><label class="form-label">Team Members</label><textarea id="f_cm_team" class="form-control form-control-sm" rows="1" placeholder="Comma-separated names"></textarea></div>
-              <div class="col-12"><label class="form-label">Immediate Actions</label><textarea id="f_cm_actions" class="form-control form-control-sm" rows="2"></textarea></div>
-              <div class="col-12"><label class="form-label">Communications</label><textarea id="f_cm_comms" class="form-control form-control-sm" rows="2"></textarea></div>
-              <div class="col-12"><label class="form-label">Resolution</label><textarea id="f_cm_resolution" class="form-control form-control-sm" rows="2"></textarea></div>
-              <div class="col-6"><label class="form-label">Occurred At</label><input id="f_cm_occurred" class="form-control form-control-sm" type="datetime-local"></div>
-              <div class="col-6"><label class="form-label">Resolved At</label><input id="f_cm_resolved_at" class="form-control form-control-sm" type="datetime-local"></div>
-              <div class="col-12"><label class="form-label">Lessons Learned</label><textarea id="f_cm_lessons" class="form-control form-control-sm" rows="2"></textarea></div>
             </div>
           </form>
         </div>
-      </section>
+        <div class="modal-footer">
+          <button class="btn btn-sm btn-outline-danger me-auto" id="btnDelModal" style="display:none;">Delete</button>
+          <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-sm" style="background:#ef4444;color:#fff;border:none;" id="btnSave">Save Crisis</button>
+        </div>
+      </div>
     </div>
   </div>
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="topnav.js?v=20260420"></script>
   <script src="core.js?v=20260420"></script>
   <script>
   const API = '/api/crisis-management';
-  let allData = [], current = null, filterStatus = 'all', filterType = 'all';
-  function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-  function fmt(d){ return d ? new Date(d).toLocaleDateString('en-GB') : '—'; }
+  let allData = [], current = null;
+  let modal;
+  const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const fmt = s => (s||'').replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
 
-  async function loadAll(){ const data=await apiFetch(API).catch(()=>[]); allData=data||[]; renderStats(); renderTable(); }
-  function renderStats(){
-    const total=allData.length;
-    const active=allData.filter(r=>r.status==='active').length;
-    const resolved=allData.filter(r=>r.status==='resolved'||r.status==='closed').length;
-    const withResp=allData.filter(r=>r.occurred_at&&r.resolved_at);
-    const avgHrs=withResp.length ? Math.round(withResp.reduce((acc,r)=>{
-      return acc+(new Date(r.resolved_at)-new Date(r.occurred_at))/(1000*3600);
-    },0)/withResp.length) : null;
-    document.getElementById('kpiTotal').textContent=total;
-    document.getElementById('kpiActive').textContent=active;
-    document.getElementById('kpiResolved').textContent=resolved;
-    document.getElementById('kpiAvgResp').textContent=avgHrs!==null?avgHrs+'h':'—';
+  const SEV_ORDER = { critical:0, high:1, medium:2, low:3 };
+
+  function isActive(r) { return r.status === 'active' || r.status === 'monitoring'; }
+  function isResolved(r) { return r.status === 'resolved' || r.status === 'post_review'; }
+
+  async function loadAll() {
+    const data = await apiFetch(API).catch(() => []);
+    allData = data || [];
+    renderStats(); renderCards();
   }
-  function renderTable(){
-    const q=document.getElementById('cmSearch').value.toLowerCase();
-    let rows=allData;
-    if(filterStatus!=='all') rows=rows.filter(r=>r.status===filterStatus);
-    if(filterType!=='all') rows=rows.filter(r=>r.crisis_type===filterType);
-    if(q) rows=rows.filter(r=>JSON.stringify(r).toLowerCase().includes(q));
-    document.getElementById('cmCountBadge').textContent=rows.length;
-    const tbody=document.getElementById('cmTbody');
-    if(!rows.length){ tbody.innerHTML='<tr><td colspan="8" class="text-center text-muted py-3">No crises found</td></tr>'; return; }
-    tbody.innerHTML=rows.map((r,i)=>`
-      <tr data-id="${r.id}" class="${current&&current.id===r.id?'selected':''}">
-        <td>${i+1}</td>
-        <td>${esc(r.title)}</td>
-        <td style="text-transform:capitalize;">${esc(r.crisis_type||'—')}</td>
-        <td><span class="sev-pill sv-${r.severity||'medium'}">${r.severity||'—'}</span></td>
-        <td>${esc(r.response_lead||'—')}</td>
-        <td><span class="status-pill sp-${r.status||'active'}">${r.status||'—'}</span></td>
-        <td>${fmt(r.occurred_at)}</td>
-        <td><button class="del-btn" data-id="${r.id}">✕</button></td>
-      </tr>`).join('');
-    tbody.querySelectorAll('tr[data-id]').forEach(tr=>tr.addEventListener('click',e=>{ if(e.target.classList.contains('del-btn')) return; selectRow(tr.dataset.id); }));
-    tbody.querySelectorAll('.del-btn').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation(); deleteById(b.dataset.id); }));
+
+  function renderStats() {
+    document.getElementById('kpiTotal').textContent = allData.length;
+    document.getElementById('kpiActive').textContent = allData.filter(r => r.status === 'active').length;
+    document.getElementById('kpiMonitoring').textContent = allData.filter(r => r.status === 'monitoring').length;
+    document.getElementById('kpiResolved').textContent = allData.filter(r => r.status === 'resolved').length;
   }
-  function fmtDT(d){ return d ? d.slice(0,16) : ''; }
-  function selectRow(id){
-    current=allData.find(r=>String(r.id)===String(id)); if(!current) return;
-    document.getElementById('cmInspBadge').textContent='#'+current.id;
-    const F=f=>document.getElementById(f);
-    F('f_cm_title').value=current.title||'';
-    F('f_cm_desc').value=current.description||'';
-    F('f_cm_type').value=current.crisis_type||'other';
-    F('f_cm_severity').value=current.severity||'medium';
-    F('f_cm_lead').value=current.response_lead||'';
-    F('f_cm_status').value=current.status||'active';
-    F('f_cm_team').value=current.team_members||'';
-    F('f_cm_actions').value=current.immediate_actions||'';
-    F('f_cm_comms').value=current.communications||'';
-    F('f_cm_resolution').value=current.resolution||'';
-    F('f_cm_occurred').value=fmtDT(current.occurred_at);
-    F('f_cm_resolved_at').value=fmtDT(current.resolved_at);
-    F('f_cm_lessons').value=current.lessons_learned||'';
-    renderTable();
+
+  function renderCards() {
+    const q = document.getElementById('srch').value.toLowerCase();
+    const tf = document.getElementById('fType').value;
+    const sf = document.getElementById('fSeverity').value;
+    let rows = allData;
+    if (tf) rows = rows.filter(r => r.crisis_type === tf);
+    if (sf) rows = rows.filter(r => r.severity === sf);
+    if (q) rows = rows.filter(r => JSON.stringify(r).toLowerCase().includes(q));
+    document.getElementById('cntBadge').textContent = rows.length;
+
+    const active = rows.filter(isActive).sort((a,b) => (SEV_ORDER[a.severity]||3) - (SEV_ORDER[b.severity]||3));
+    const resolved = rows.filter(isResolved).sort((a,b) => (SEV_ORDER[a.severity]||3) - (SEV_ORDER[b.severity]||3));
+
+    document.getElementById('activeSectionLabel').style.display = active.length ? '' : 'none';
+    document.getElementById('resolvedSectionLabel').style.display = resolved.length ? '' : 'none';
+
+    document.getElementById('activeGrid').innerHTML = active.length
+      ? active.map(r => cardHTML(r, false)).join('')
+      : '<div class="text-muted" style="font-size:0.85rem;padding:4px 0;">No active or monitoring crises.</div>';
+
+    document.getElementById('resolvedGrid').innerHTML = resolved.length
+      ? resolved.map(r => cardHTML(r, true)).join('')
+      : '';
+
+    document.querySelectorAll('.cm-card').forEach(c => {
+      c.addEventListener('click', () => openEdit(c.dataset.id));
+    });
   }
-  function clearForm(){ current=null; document.getElementById('cmInspBadge').textContent='—'; document.getElementById('cmForm').reset(); renderTable(); }
-  async function saveRecord(){
-    const F=f=>document.getElementById(f).value.trim();
-    if(!F('f_cm_title')){ alert('Title is required'); return; }
-    const body={ title:F('f_cm_title'), description:F('f_cm_desc'), crisis_type:F('f_cm_type'),
-      severity:F('f_cm_severity'), response_lead:F('f_cm_lead'), team_members:F('f_cm_team'),
-      immediate_actions:F('f_cm_actions'), communications:F('f_cm_comms'), resolution:F('f_cm_resolution'),
-      occurred_at:F('f_cm_occurred')||null, resolved_at:F('f_cm_resolved_at')||null,
-      status:F('f_cm_status'), lessons_learned:F('f_cm_lessons') };
-    if(current){ await apiFetch(`${API}/${current.id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); }
-    else { await apiFetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); }
+
+  function cardHTML(r, faded) {
+    const resolvedCls = faded ? 'resolved' : `sev-${r.severity||'low'}`;
+    return `<div class="cm-card ${resolvedCls}" data-id="${r.id}">
+      <div class="cm-card-title">${esc(r.title)}</div>
+      <div class="cm-card-meta">
+        <span class="type-badge">${fmt(r.crisis_type||'')}</span>
+        <span class="sev-badge sv-${r.severity||'low'}">${fmt(r.severity||'')}</span>
+        <span class="sp sp-${r.status||'monitoring'}">${fmt(r.status||'')}</span>
+      </div>
+      ${r.response_lead ? `<div class="cm-card-lead">Lead: ${esc(r.response_lead)}</div>` : ''}
+      ${r.communications_lead ? `<div class="cm-card-info">Comms: ${esc(r.communications_lead)}</div>` : ''}
+    </div>`;
+  }
+
+  function openEdit(id) {
+    current = allData.find(r => String(r.id) === String(id));
+    if (!current) return;
+    document.getElementById('cmModalLabel').textContent = current.title || 'Crisis';
+    document.getElementById('f_title').value = current.title || '';
+    document.getElementById('f_crisis_type').value = current.crisis_type || 'operational';
+    document.getElementById('f_severity').value = current.severity || 'medium';
+    document.getElementById('f_description').value = current.description || '';
+    document.getElementById('f_trigger').value = current.trigger || '';
+    document.getElementById('f_response_lead').value = current.response_lead || '';
+    document.getElementById('f_communications_lead').value = current.communications_lead || '';
+    document.getElementById('f_response_team').value = current.response_team || '';
+    document.getElementById('f_timeline').value = current.timeline || '';
+    document.getElementById('f_resolution').value = current.resolution || '';
+    document.getElementById('f_lessons_learned').value = current.lessons_learned || '';
+    document.getElementById('f_status').value = current.status || 'monitoring';
+    document.getElementById('btnDelModal').style.display = '';
+    modal.show();
+  }
+
+  function openNew() {
+    current = null;
+    document.getElementById('cmModalLabel').textContent = 'New Crisis';
+    document.getElementById('cmForm').reset();
+    document.getElementById('btnDelModal').style.display = 'none';
+    modal.show();
+  }
+
+  async function saveRecord() {
+    const v = id => document.getElementById(id).value.trim();
+    if (!v('f_title')) { alert('Title is required'); return; }
+    const body = {
+      title: v('f_title'), crisis_type: v('f_crisis_type'), description: v('f_description'),
+      trigger: v('f_trigger'), severity: v('f_severity'),
+      response_lead: v('f_response_lead'), response_team: v('f_response_team'),
+      communications_lead: v('f_communications_lead'), timeline: v('f_timeline'),
+      resolution: v('f_resolution'), lessons_learned: v('f_lessons_learned'),
+      status: v('f_status')
+    };
+    if (current) {
+      await apiFetch(`${API}/${current.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+    } else {
+      await apiFetch(API, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+    }
+    modal.hide();
     await loadAll();
   }
-  async function deleteById(id){
-    if(!confirm('Delete this crisis record?')) return;
-    await apiFetch(`${API}/${id}`,{method:'DELETE'});
-    if(current&&String(current.id)===String(id)){ current=null; document.getElementById('cmForm').reset(); }
+
+  async function delById(id) {
+    if (!confirm('Delete this crisis record?')) return;
+    await apiFetch(`${API}/${id}`, { method:'DELETE' });
+    modal.hide();
     await loadAll();
   }
-  document.addEventListener('DOMContentLoaded',()=>{
+
+  document.addEventListener('DOMContentLoaded', () => {
+    modal = new bootstrap.Modal(document.getElementById('cmModal'));
     loadAll();
-    document.getElementById('btnAddCM').addEventListener('click',clearForm);
-    document.getElementById('btnSaveCM').addEventListener('click',saveRecord);
-    document.getElementById('btnDelCM').addEventListener('click',()=>{ if(current) deleteById(current.id); });
-    document.getElementById('cmSearch').addEventListener('input',renderTable);
-    document.querySelectorAll('#cmFilterList li').forEach(li=>li.addEventListener('click',()=>{
-      document.querySelectorAll('#cmFilterList li').forEach(x=>x.classList.remove('active'));
-      li.classList.add('active'); filterStatus=li.dataset.v; renderTable();
-    }));
-    document.querySelectorAll('#cmTypeList li').forEach(li=>li.addEventListener('click',()=>{
-      document.querySelectorAll('#cmTypeList li').forEach(x=>x.classList.remove('active'));
-      li.classList.add('active'); filterType=li.dataset.v; renderTable();
-    }));
+    document.getElementById('btnAdd').addEventListener('click', openNew);
+    document.getElementById('btnSave').addEventListener('click', saveRecord);
+    document.getElementById('btnDelModal').addEventListener('click', () => { if (current) delById(current.id); });
+    document.getElementById('srch').addEventListener('input', renderCards);
+    document.getElementById('fType').addEventListener('change', renderCards);
+    document.getElementById('fSeverity').addEventListener('change', renderCards);
   });
   </script>
 </body>

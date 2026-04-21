@@ -8,242 +8,320 @@
   <link href="style.css?v=20260420" rel="stylesheet" />
   <style>
     body { background: linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%); min-height:100vh; }
-    .kpi-bar { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
-    .kpi-card { background:#fff; border:1px solid rgba(0,0,0,0.1); border-radius:8px; padding:10px 16px; box-shadow:0 2px 4px rgba(0,0,0,0.06); min-width:120px; }
-    .kpi-label { font-size:0.7rem; color:#6c757d; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; }
-    .kpi-value { font-size:1.5rem; font-weight:700; color:#1a1d24; line-height:1.2; }
-    #lcShell.mlo-shell { background:transparent; border:none; gap:10px; }
-    #lcShell .mlo-pane-left,#lcShell .mlo-pane-mid,#lcShell .mlo-pane-right { background:#fff; border:1px solid rgba(0,0,0,0.1); border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,0.06); }
-    #lcShell .mlo-pane-header { background:#f8f9fa; border-bottom:1px solid rgba(0,0,0,0.1); }
-    #lcShell .mlo-title { color:#1a1d24 !important; }
-    #lcShell .mlo-section-label { color:#6c757d !important; opacity:1 !important; }
-    #lcShell .mlo-resizer:hover { background:rgba(16,185,129,0.3); }
-    #lcShell .pastel-tree { padding:0 !important; margin:0 !important; }
-    #lcShell .pastel-tree li { height:28px !important; display:flex !important; align-items:center !important; font-size:0.83rem !important; font-weight:500 !important; padding-left:10px !important; margin-bottom:2px !important; border-radius:5px !important; border:1px solid rgba(0,0,0,0.08) !important; color:#1a1d24 !important; white-space:nowrap !important; overflow:hidden !important; text-overflow:ellipsis !important; cursor:pointer !important; list-style:none; }
-    #lcShell .pastel-tree li.active { background:rgba(16,185,129,0.1) !important; border-color:rgba(16,185,129,0.35) !important; color:#059669 !important; font-weight:700 !important; }
-    .lc-table { width:100%; font-size:0.82rem; border-collapse:separate; border-spacing:0; }
-    .lc-table thead { position:sticky; top:0; background:#f8f9fa; z-index:5; }
-    .lc-table th { padding:8px 10px; font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:#6c757d; border-bottom:2px solid #dee2e6; white-space:nowrap; }
-    .lc-table td { padding:6px 10px; border-bottom:1px solid rgba(0,0,0,0.05); vertical-align:middle; color:#1a1d24; }
-    .lc-table tbody tr { cursor:pointer; transition:background 0.1s; }
-    .lc-table tbody tr:hover { background:#f8f9fa; }
-    .lc-table tbody tr.selected { background:rgba(16,185,129,0.08) !important; outline:2px solid #10b981; outline-offset:-2px; }
-    .del-btn { opacity:0; background:none; border:none; color:#dc3545; font-size:1rem; padding:0 4px; cursor:pointer; }
-    .lc-table tbody tr:hover .del-btn { opacity:1; }
-    .status-pill { display:inline-block; padding:2px 8px; border-radius:20px; font-size:0.65rem; font-weight:700; }
+    .ev-stats-bar { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+    .ev-stat-card { background:#fff; border:1px solid rgba(0,0,0,0.1); border-radius:8px; padding:10px 16px; box-shadow:0 2px 4px rgba(0,0,0,0.06); min-width:120px; }
+    .ev-stat-label { font-size:0.7rem; color:#6c757d; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; }
+    .ev-stat-value { font-size:1.5rem; font-weight:700; color:#1a1d24; line-height:1.2; }
+    .lc-shell { display:flex; gap:10px; height:calc(100vh - 215px); }
+    .lc-table-pane { flex:1; min-width:0; background:#fff; border:1px solid rgba(0,0,0,0.1); border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,0.06); display:flex; flex-direction:column; overflow:hidden; }
+    .lc-insp-pane { width:360px; flex-shrink:0; background:#fff; border:1px solid rgba(0,0,0,0.1); border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,0.06); display:flex; flex-direction:column; overflow:hidden; }
+    .pane-hd { background:#f8f9fa; border-bottom:1px solid rgba(0,0,0,0.1); padding:8px 12px; }
+    .pane-title { font-size:0.75rem; font-weight:700; color:#1a1d24; text-transform:uppercase; letter-spacing:0.05em; }
+    .pane-scroll { flex:1; overflow-y:auto; }
+    .pane-pad { padding:12px; }
+    .lc-tbl { width:100%; font-size:0.81rem; border-collapse:separate; border-spacing:0; }
+    .lc-tbl thead { position:sticky; top:0; background:#f8f9fa; z-index:5; }
+    .lc-tbl th { padding:8px 10px; font-size:0.69rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:#6c757d; border-bottom:2px solid #dee2e6; white-space:nowrap; }
+    .lc-tbl td { padding:6px 10px; border-bottom:1px solid rgba(0,0,0,0.05); vertical-align:middle; color:#1a1d24; }
+    .lc-tbl tbody tr { cursor:pointer; transition:background 0.1s; }
+    .lc-tbl tbody tr:hover { background:#f8f9fa; }
+    .lc-tbl tbody tr.selected { background:rgba(139,92,246,0.08) !important; outline:2px solid #8b5cf6; outline-offset:-2px; }
+    .lc-tbl tbody tr.row-amber { background:rgba(251,191,36,0.12); }
+    .lc-tbl tbody tr.row-amber:hover { background:rgba(251,191,36,0.2); }
+    .lc-tbl tbody tr.row-faded { opacity:0.45; }
+    .del-btn { opacity:0; background:none; border:none; color:#dc3545; padding:0 4px; cursor:pointer; }
+    .lc-tbl tbody tr:hover .del-btn { opacity:1; }
+    .sp { display:inline-block; padding:2px 8px; border-radius:20px; font-size:0.64rem; font-weight:700; white-space:nowrap; }
+    .sp-draft { background:#f1f5f9; color:#475569; }
+    .sp-under_review { background:#e0e7ff; color:#3730a3; }
+    .sp-signed { background:#dbeafe; color:#1e40af; }
     .sp-active { background:#d1fae5; color:#065f46; }
-    .sp-draft { background:#e0e7ff; color:#3730a3; }
     .sp-expired { background:#fee2e2; color:#991b1b; }
     .sp-terminated { background:#f1f5f9; color:#64748b; }
-    .sp-under_review { background:#fef3c7; color:#92400e; }
-    #lcShell .form-label { color:#495057 !important; font-size:0.78rem; font-weight:600; margin-bottom:2px; }
-    #lcShell .form-control,#lcShell .form-select { font-size:0.82rem; }
+    .form-label { color:#495057 !important; font-size:0.78rem !important; font-weight:600 !important; margin-bottom:2px !important; }
+    .form-control,.form-select { font-size:0.82rem; }
+    .amber-dot { display:inline-block; width:7px; height:7px; background:#f59e0b; border-radius:50%; margin-right:4px; vertical-align:middle; }
   </style>
 </head>
 <body class="light-mode">
   <div id="rtsTopNav"></div>
   <div class="rts-main container-fluid">
+
     <div class="pt-3 pb-2 mb-2 border-bottom d-flex justify-content-between align-items-end">
       <div>
         <h1 class="h4 mb-1">Legal Contracts</h1>
-        <div class="text-secondary" style="font-size:0.85rem;">Manage sponsorship, employment, supplier and other legal contracts.</div>
+        <div class="text-secondary" style="font-size:0.85rem;">Commercial, employment, sponsorship and supplier contracts with expiry tracking.</div>
       </div>
-      <button class="btn btn-sm" style="background:#10b981;color:#fff;border:none;" id="btnAddLC" type="button">+ Add Contract</button>
+      <button class="btn btn-sm" style="background:#8b5cf6;color:#fff;border:none;" id="btnAdd">+ Add Contract</button>
     </div>
-    <div class="kpi-bar">
-      <div class="kpi-card"><div class="kpi-label">Total</div><div class="kpi-value" id="kpiTotal">0</div></div>
-      <div class="kpi-card"><div class="kpi-label">Active</div><div class="kpi-value" id="kpiActive">0</div></div>
-      <div class="kpi-card"><div class="kpi-label">Under Review</div><div class="kpi-value" id="kpiReview">0</div></div>
-      <div class="kpi-card"><div class="kpi-label">Expired</div><div class="kpi-value" id="kpiExpired">0</div></div>
+
+    <div class="ev-stats-bar">
+      <div class="ev-stat-card"><div class="ev-stat-label">Total</div><div class="ev-stat-value" id="kpiTotal">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Active</div><div class="ev-stat-value" id="kpiActive" style="color:#8b5cf6;">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Expiring Soon</div><div class="ev-stat-value" id="kpiExpiring" style="color:#f59e0b;">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Expired</div><div class="ev-stat-value" id="kpiExpired" style="color:#dc2626;">0</div></div>
     </div>
-    <div class="mlo-shell" id="lcShell">
-      <!-- LEFT -->
-      <section class="mlo-pane mlo-pane-left" aria-label="Contract filters">
-        <div class="mlo-pane-header">
-          <div class="d-flex justify-content-between align-items-center">
-            <div class="mlo-title">Filter</div>
-            <span class="badge text-bg-secondary" id="lcCountBadge">0</span>
-          </div>
+
+    <div class="lc-shell">
+      <!-- TABLE PANE -->
+      <div class="lc-table-pane">
+        <div class="pane-hd d-flex gap-2 align-items-center flex-wrap">
+          <input id="srch" type="text" class="form-control form-control-sm" placeholder="Search…" style="max-width:190px;">
+          <select id="fType" class="form-select form-select-sm" style="max-width:155px;">
+            <option value="">Type: All</option>
+            <option value="commercial">Commercial</option>
+            <option value="employment">Employment</option>
+            <option value="sponsorship">Sponsorship</option>
+            <option value="supplier">Supplier</option>
+            <option value="nda">NDA</option>
+            <option value="ip">IP</option>
+            <option value="other">Other</option>
+          </select>
+          <select id="fStatus" class="form-select form-select-sm" style="max-width:145px;">
+            <option value="">Status: All</option>
+            <option value="draft">Draft</option>
+            <option value="under_review">Under Review</option>
+            <option value="signed">Signed</option>
+            <option value="active">Active</option>
+            <option value="expired">Expired</option>
+            <option value="terminated">Terminated</option>
+          </select>
+          <span class="badge bg-secondary ms-auto" id="cntBadge">0</span>
         </div>
-        <div class="mlo-pane-content">
-          <div class="mlo-section-label">Status</div>
-          <ul class="pastel-tree" id="lcFilterList">
-            <li class="active" data-v="all">All Contracts</li>
-            <li data-v="active">Active</li>
-            <li data-v="draft">Draft</li>
-            <li data-v="under_review">Under Review</li>
-            <li data-v="expired">Expired</li>
-            <li data-v="terminated">Terminated</li>
-          </ul>
-          <div class="mlo-section-label mt-3">Type</div>
-          <ul class="pastel-tree" id="lcTypeList">
-            <li class="active" data-v="all">All Types</li>
-            <li data-v="sponsorship">Sponsorship</li>
-            <li data-v="employment">Employment</li>
-            <li data-v="supplier">Supplier</li>
-            <li data-v="nda">NDA</li>
-            <li data-v="venue">Venue</li>
-            <li data-v="other">Other</li>
-          </ul>
-        </div>
-      </section>
-      <div class="mlo-resizer" data-resize="left"></div>
-      <!-- MIDDLE -->
-      <section class="mlo-pane mlo-pane-mid" aria-label="Contracts list">
-        <div class="mlo-pane-header">
-          <input id="lcSearch" type="text" class="form-control form-control-sm" placeholder="Search…" style="max-width:260px;">
-        </div>
-        <div class="mlo-pane-content" style="padding:0;">
-          <table class="lc-table">
-            <thead><tr><th>#</th><th>Title</th><th>Type</th><th>Counterparty</th><th>Start</th><th>End</th><th>Value</th><th>Status</th><th></th></tr></thead>
-            <tbody id="lcTbody"></tbody>
+        <div class="pane-scroll">
+          <table class="lc-tbl">
+            <thead>
+              <tr>
+                <th>Title</th><th>Type</th><th>Counterparty</th><th>Value</th><th>Currency</th>
+                <th>End Date</th><th>Auto-Renew</th><th>Notice (days)</th><th>Legal Owner</th><th>Status</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="tBody"></tbody>
           </table>
         </div>
-      </section>
-      <div class="mlo-resizer" data-resize="right"></div>
-      <!-- RIGHT -->
-      <section class="mlo-pane mlo-pane-right mlo-inspector" aria-label="Contract inspector">
-        <div class="mlo-pane-header">
+      </div>
+
+      <!-- INSPECTOR PANE -->
+      <div class="lc-insp-pane">
+        <div class="pane-hd">
           <div class="d-flex justify-content-between align-items-center">
-            <div class="mlo-title">Inspector</div>
-            <span class="badge text-bg-secondary" id="lcInspBadge">—</span>
+            <span class="pane-title">Contract Detail</span>
+            <span class="badge text-bg-secondary" id="inspBadge">—</span>
           </div>
-          <div class="d-flex gap-1 mt-1">
-            <button class="btn btn-sm" style="background:#10b981;color:#fff;border:none;font-size:0.75rem;" id="btnSaveLC">Save</button>
-            <button class="btn btn-sm btn-outline-danger" style="font-size:0.75rem;" id="btnDelLC">Delete</button>
+          <div class="d-flex gap-1 mt-2">
+            <button class="btn btn-sm" style="background:#8b5cf6;color:#fff;border:none;font-size:0.75rem;" id="btnSave">Save</button>
+            <button class="btn btn-sm btn-outline-danger" style="font-size:0.75rem;" id="btnDel">Delete</button>
           </div>
         </div>
-        <div class="mlo-pane-content">
+        <div class="pane-scroll pane-pad">
           <form id="lcForm" autocomplete="off">
             <div class="row g-2">
-              <div class="col-12"><label class="form-label">Title *</label><input id="f_lc_title" class="form-control form-control-sm" type="text" required></div>
-              <div class="col-6"><label class="form-label">Contract Type</label>
-                <select id="f_lc_type" class="form-select form-select-sm">
-                  <option value="sponsorship">Sponsorship</option><option value="employment">Employment</option>
-                  <option value="supplier">Supplier</option><option value="nda">NDA</option>
-                  <option value="venue">Venue</option><option value="other">Other</option>
+              <div class="col-12">
+                <label class="form-label">Title *</label>
+                <input id="f_title" class="form-control form-control-sm" type="text" required>
+              </div>
+              <div class="col-6">
+                <label class="form-label">Contract Type</label>
+                <select id="f_contract_type" class="form-select form-select-sm">
+                  <option value="commercial">Commercial</option>
+                  <option value="employment">Employment</option>
+                  <option value="sponsorship">Sponsorship</option>
+                  <option value="supplier">Supplier</option>
+                  <option value="nda">NDA</option>
+                  <option value="ip">IP</option>
+                  <option value="other">Other</option>
                 </select>
               </div>
-              <div class="col-6"><label class="form-label">Counterparty</label><input id="f_lc_party" class="form-control form-control-sm" type="text"></div>
-              <div class="col-4"><label class="form-label">Start Date</label><input id="f_lc_start" class="form-control form-control-sm" type="date"></div>
-              <div class="col-4"><label class="form-label">End Date</label><input id="f_lc_end" class="form-control form-control-sm" type="date"></div>
-              <div class="col-4"><label class="form-label">Review Date</label><input id="f_lc_review" class="form-control form-control-sm" type="date"></div>
-              <div class="col-6"><label class="form-label">Value</label><input id="f_lc_value" class="form-control form-control-sm" type="number" step="0.01" min="0"></div>
-              <div class="col-6"><label class="form-label">Currency</label><input id="f_lc_currency" class="form-control form-control-sm" type="text" placeholder="GBP"></div>
-              <div class="col-12"><label class="form-label">Key Obligations</label><textarea id="f_lc_obligations" class="form-control form-control-sm" rows="3"></textarea></div>
-              <div class="col-8"><label class="form-label">Signed By</label><input id="f_lc_signed" class="form-control form-control-sm" type="text"></div>
-              <div class="col-4"><label class="form-label">Status</label>
-                <select id="f_lc_status" class="form-select form-select-sm">
-                  <option value="draft">Draft</option><option value="active">Active</option>
-                  <option value="expired">Expired</option><option value="terminated">Terminated</option>
+              <div class="col-6">
+                <label class="form-label">Status</label>
+                <select id="f_status" class="form-select form-select-sm">
+                  <option value="draft">Draft</option>
                   <option value="under_review">Under Review</option>
+                  <option value="signed">Signed</option>
+                  <option value="active">Active</option>
+                  <option value="expired">Expired</option>
+                  <option value="terminated">Terminated</option>
                 </select>
+              </div>
+              <div class="col-12">
+                <label class="form-label">Counterparty *</label>
+                <input id="f_counterparty" class="form-control form-control-sm" type="text" required>
+              </div>
+              <div class="col-6">
+                <label class="form-label">Value</label>
+                <input id="f_value" class="form-control form-control-sm" type="number" step="0.01" min="0">
+              </div>
+              <div class="col-6">
+                <label class="form-label">Currency</label>
+                <input id="f_currency" class="form-control form-control-sm" type="text" placeholder="GBP" maxlength="5">
+              </div>
+              <div class="col-6">
+                <label class="form-label">Start Date</label>
+                <input id="f_start_date" class="form-control form-control-sm" type="date">
+              </div>
+              <div class="col-6">
+                <label class="form-label">End Date</label>
+                <input id="f_end_date" class="form-control form-control-sm" type="date">
+              </div>
+              <div class="col-6">
+                <label class="form-label">Notice Period (days)</label>
+                <input id="f_notice_period_days" class="form-control form-control-sm" type="number" min="0">
+              </div>
+              <div class="col-6 d-flex align-items-end pb-1">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="f_auto_renew">
+                  <label class="form-check-label" for="f_auto_renew" style="font-size:0.82rem;">Auto-Renew</label>
+                </div>
+              </div>
+              <div class="col-12">
+                <label class="form-label">Legal Owner</label>
+                <input id="f_legal_owner" class="form-control form-control-sm" type="text">
+              </div>
+              <div class="col-12">
+                <label class="form-label">Document URL</label>
+                <input id="f_document_url" class="form-control form-control-sm" type="url" placeholder="https://…">
+              </div>
+              <div class="col-12">
+                <label class="form-label">Notes</label>
+                <textarea id="f_notes" class="form-control form-control-sm" rows="3"></textarea>
               </div>
             </div>
           </form>
         </div>
-      </section>
+      </div>
     </div>
+
   </div>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="topnav.js?v=20260420"></script>
   <script src="core.js?v=20260420"></script>
   <script>
   const API = '/api/legal-contracts';
-  let allData = [], current = null, filterStatus = 'all', filterType = 'all';
+  let allData = [], current = null;
+  const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const fmt = s => (s||'').replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+  const fmtD = s => { if(!s) return '—'; try { return new Date(s).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}); } catch(e){ return s; }};
+  const fmtMoney = (v, c) => v != null ? `${(+v).toLocaleString('en-GB',{minimumFractionDigits:0,maximumFractionDigits:0})} ${c||'GBP'}` : '—';
 
-  function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-  function fmt(d){ return d ? new Date(d).toLocaleDateString('en-GB') : '—'; }
-  function fmtVal(v,c){ return v ? new Intl.NumberFormat('en-GB',{style:'currency',currency:c||'GBP',maximumFractionDigits:0}).format(v) : '—'; }
+  function isExpiringSoon(r) {
+    if (!r.end_date || r.status !== 'active') return false;
+    const diff = new Date(r.end_date) - new Date();
+    return diff >= 0 && diff <= 60 * 864e5;
+  }
+  function isFaded(r) { return r.status === 'terminated' || r.status === 'expired'; }
 
-  async function loadAll(){ const data=await apiFetch(API).catch(()=>[]); allData=data||[]; renderStats(); renderTable(); }
+  async function loadAll() {
+    const data = await apiFetch(API).catch(() => []);
+    allData = data || [];
+    renderStats(); renderTable();
+  }
 
-  function renderStats(){
+  function renderStats() {
+    const now = new Date();
     document.getElementById('kpiTotal').textContent = allData.length;
-    document.getElementById('kpiActive').textContent = allData.filter(r=>r.status==='active').length;
-    document.getElementById('kpiReview').textContent = allData.filter(r=>r.status==='under_review').length;
-    document.getElementById('kpiExpired').textContent = allData.filter(r=>r.status==='expired'||r.status==='terminated').length;
+    document.getElementById('kpiActive').textContent = allData.filter(r => r.status === 'active').length;
+    document.getElementById('kpiExpiring').textContent = allData.filter(isExpiringSoon).length;
+    document.getElementById('kpiExpired').textContent = allData.filter(r => r.status === 'expired').length;
   }
 
-  function renderTable(){
-    const q = document.getElementById('lcSearch').value.toLowerCase();
+  function renderTable() {
+    const q = document.getElementById('srch').value.toLowerCase();
+    const tf = document.getElementById('fType').value;
+    const sf = document.getElementById('fStatus').value;
     let rows = allData;
-    if(filterStatus!=='all') rows = rows.filter(r=>r.status===filterStatus);
-    if(filterType!=='all') rows = rows.filter(r=>r.contract_type===filterType);
-    if(q) rows = rows.filter(r=>JSON.stringify(r).toLowerCase().includes(q));
-    document.getElementById('lcCountBadge').textContent = rows.length;
-    const tbody = document.getElementById('lcTbody');
-    if(!rows.length){ tbody.innerHTML='<tr><td colspan="9" class="text-center text-muted py-3">No contracts found</td></tr>'; return; }
-    tbody.innerHTML = rows.map((r,i)=>`
-      <tr data-id="${r.id}" class="${current&&current.id===r.id?'selected':''}">
-        <td>${i+1}</td>
-        <td>${esc(r.title)}</td>
-        <td style="text-transform:capitalize;">${esc(r.contract_type||'—')}</td>
+    if (tf) rows = rows.filter(r => r.contract_type === tf);
+    if (sf) rows = rows.filter(r => r.status === sf);
+    if (q) rows = rows.filter(r => JSON.stringify(r).toLowerCase().includes(q));
+    document.getElementById('cntBadge').textContent = rows.length;
+    const tb = document.getElementById('tBody');
+    if (!rows.length) { tb.innerHTML = '<tr><td colspan="11" class="text-center text-muted py-4">No contracts found</td></tr>'; return; }
+    tb.innerHTML = rows.map(r => {
+      const amber = isExpiringSoon(r);
+      const faded = isFaded(r);
+      const sel = current && current.id === r.id;
+      return `<tr data-id="${r.id}" class="${sel?'selected':''} ${amber?'row-amber':''} ${faded?'row-faded':''}">
+        <td>${amber?'<span class="amber-dot" title="Expiring within 60 days"></span>':''}${esc(r.title)}</td>
+        <td>${esc(fmt(r.contract_type||''))}</td>
         <td>${esc(r.counterparty||'—')}</td>
-        <td>${fmt(r.start_date)}</td>
-        <td>${fmt(r.end_date)}</td>
-        <td>${fmtVal(r.value,r.currency)}</td>
-        <td><span class="status-pill sp-${r.status||'draft'}">${r.status||'draft'}</span></td>
+        <td>${r.value!=null?(+r.value).toLocaleString('en-GB',{minimumFractionDigits:0}):'—'}</td>
+        <td>${esc(r.currency||'GBP')}</td>
+        <td>${fmtD(r.end_date)}</td>
+        <td style="text-align:center;">${r.auto_renew?'✓':'—'}</td>
+        <td style="text-align:center;">${r.notice_period_days!=null?r.notice_period_days:'—'}</td>
+        <td>${esc(r.legal_owner||'—')}</td>
+        <td><span class="sp sp-${r.status||'draft'}">${fmt(r.status||'draft')}</span></td>
         <td><button class="del-btn" data-id="${r.id}">✕</button></td>
-      </tr>`).join('');
-    tbody.querySelectorAll('tr[data-id]').forEach(tr=>tr.addEventListener('click',e=>{ if(e.target.classList.contains('del-btn')) return; selectRow(tr.dataset.id); }));
-    tbody.querySelectorAll('.del-btn').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation(); deleteById(b.dataset.id); }));
+      </tr>`;
+    }).join('');
+    tb.querySelectorAll('tr[data-id]').forEach(tr => tr.addEventListener('click', e => { if (e.target.classList.contains('del-btn')) return; selRow(tr.dataset.id); }));
+    tb.querySelectorAll('.del-btn').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); delById(b.dataset.id); }));
   }
 
-  function selectRow(id){
-    current = allData.find(r=>String(r.id)===String(id));
-    if(!current) return;
-    document.getElementById('lcInspBadge').textContent='#'+current.id;
-    const F=f=>document.getElementById(f);
-    F('f_lc_title').value=current.title||'';
-    F('f_lc_type').value=current.contract_type||'other';
-    F('f_lc_party').value=current.counterparty||'';
-    F('f_lc_start').value=current.start_date?current.start_date.slice(0,10):'';
-    F('f_lc_end').value=current.end_date?current.end_date.slice(0,10):'';
-    F('f_lc_review').value=current.review_date?current.review_date.slice(0,10):'';
-    F('f_lc_value').value=current.value||'';
-    F('f_lc_currency').value=current.currency||'GBP';
-    F('f_lc_obligations').value=current.key_obligations||'';
-    F('f_lc_signed').value=current.signed_by||'';
-    F('f_lc_status').value=current.status||'draft';
+  function selRow(id) {
+    current = allData.find(r => String(r.id) === String(id));
+    if (!current) return;
+    document.getElementById('inspBadge').textContent = '#' + current.id;
+    document.getElementById('f_title').value = current.title || '';
+    document.getElementById('f_contract_type').value = current.contract_type || 'commercial';
+    document.getElementById('f_status').value = current.status || 'draft';
+    document.getElementById('f_counterparty').value = current.counterparty || '';
+    document.getElementById('f_value').value = current.value != null ? current.value : '';
+    document.getElementById('f_currency').value = current.currency || 'GBP';
+    document.getElementById('f_start_date').value = (current.start_date||'').slice(0,10);
+    document.getElementById('f_end_date').value = (current.end_date||'').slice(0,10);
+    document.getElementById('f_notice_period_days').value = current.notice_period_days != null ? current.notice_period_days : '';
+    document.getElementById('f_auto_renew').checked = !!current.auto_renew;
+    document.getElementById('f_legal_owner').value = current.legal_owner || '';
+    document.getElementById('f_document_url').value = current.document_url || '';
+    document.getElementById('f_notes').value = current.notes || '';
     renderTable();
   }
 
-  function clearForm(){ current=null; document.getElementById('lcInspBadge').textContent='—'; document.getElementById('lcForm').reset(); document.getElementById('f_lc_currency').value='GBP'; renderTable(); }
+  function clearForm() {
+    current = null;
+    document.getElementById('inspBadge').textContent = '—';
+    document.getElementById('lcForm').reset();
+    document.getElementById('f_currency').value = 'GBP';
+    renderTable();
+  }
 
-  async function saveRecord(){
-    const F=f=>document.getElementById(f).value.trim();
-    if(!F('f_lc_title')){ alert('Title is required'); return; }
-    const body={ title:F('f_lc_title'), contract_type:F('f_lc_type'), counterparty:F('f_lc_party'),
-      start_date:F('f_lc_start')||null, end_date:F('f_lc_end')||null, review_date:F('f_lc_review')||null,
-      value:parseFloat(F('f_lc_value'))||null, currency:F('f_lc_currency')||'GBP',
-      key_obligations:F('f_lc_obligations'), signed_by:F('f_lc_signed'), status:F('f_lc_status') };
-    if(current){ await apiFetch(`${API}/${current.id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); }
-    else { await apiFetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); }
+  async function saveRecord() {
+    const v = id => document.getElementById(id).value.trim();
+    if (!v('f_title')) { alert('Title is required'); return; }
+    if (!v('f_counterparty')) { alert('Counterparty is required'); return; }
+    const body = {
+      title: v('f_title'), contract_type: v('f_contract_type'), counterparty: v('f_counterparty'),
+      value: v('f_value') ? parseFloat(v('f_value')) : null,
+      currency: v('f_currency') || 'GBP',
+      start_date: v('f_start_date') || null, end_date: v('f_end_date') || null,
+      auto_renew: document.getElementById('f_auto_renew').checked,
+      notice_period_days: v('f_notice_period_days') ? parseInt(v('f_notice_period_days')) : null,
+      legal_owner: v('f_legal_owner'), document_url: v('f_document_url') || null,
+      status: v('f_status'), notes: v('f_notes')
+    };
+    if (current) {
+      await apiFetch(`${API}/${current.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+    } else {
+      await apiFetch(API, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+    }
     await loadAll();
   }
 
-  async function deleteById(id){
-    if(!confirm('Delete this contract?')) return;
-    await apiFetch(`${API}/${id}`,{method:'DELETE'});
-    if(current&&String(current.id)===String(id)){ current=null; document.getElementById('lcForm').reset(); }
+  async function delById(id) {
+    if (!confirm('Delete this contract?')) return;
+    await apiFetch(`${API}/${id}`, { method:'DELETE' });
+    if (current && String(current.id) === String(id)) { current = null; document.getElementById('lcForm').reset(); }
     await loadAll();
   }
 
-  document.addEventListener('DOMContentLoaded',()=>{
+  document.addEventListener('DOMContentLoaded', () => {
     loadAll();
-    document.getElementById('btnAddLC').addEventListener('click',clearForm);
-    document.getElementById('btnSaveLC').addEventListener('click',saveRecord);
-    document.getElementById('btnDelLC').addEventListener('click',()=>{ if(current) deleteById(current.id); });
-    document.getElementById('lcSearch').addEventListener('input',renderTable);
-    document.querySelectorAll('#lcFilterList li').forEach(li=>li.addEventListener('click',()=>{
-      document.querySelectorAll('#lcFilterList li').forEach(x=>x.classList.remove('active'));
-      li.classList.add('active'); filterStatus=li.dataset.v; renderTable();
-    }));
-    document.querySelectorAll('#lcTypeList li').forEach(li=>li.addEventListener('click',()=>{
-      document.querySelectorAll('#lcTypeList li').forEach(x=>x.classList.remove('active'));
-      li.classList.add('active'); filterType=li.dataset.v; renderTable();
-    }));
+    document.getElementById('btnAdd').addEventListener('click', clearForm);
+    document.getElementById('btnSave').addEventListener('click', saveRecord);
+    document.getElementById('btnDel').addEventListener('click', () => { if (current) delById(current.id); });
+    document.getElementById('srch').addEventListener('input', renderTable);
+    document.getElementById('fType').addEventListener('change', renderTable);
+    document.getElementById('fStatus').addEventListener('change', renderTable);
   });
   </script>
 </body>

@@ -2,195 +2,228 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Race Team OS – Emergency Orders</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet"/>
   <link href="style.css?v=20260420" rel="stylesheet"/>
   <style>
-    body{background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%);}
+    body{background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%);min-height:100vh;}
     .ev-stats-bar{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
-    .ev-stat-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:10px 16px;min-width:110px;}
-    .ev-stat-label{font-size:.7rem;color:#6c757d;font-weight:600;text-transform:uppercase;}
-    .ev-stat-value{font-size:1.5rem;font-weight:700;color:#1a1d24;}
-    #mainShell.mlo-shell{background:transparent;border:none;gap:10px;}
-    #mainShell .mlo-pane-left,#mainShell .mlo-pane-mid,#mainShell .mlo-pane-right{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;}
+    .ev-stat-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:10px 18px;min-width:120px;}
+    .ev-stat-label{font-size:.7rem;color:#6c757d;font-weight:600;text-transform:uppercase;letter-spacing:.4px;}
+    .ev-stat-value{font-size:1.6rem;font-weight:700;color:#1a1d24;}
+    .main-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;overflow:hidden;}
+    .main-card-hdr{padding:10px 14px;background:#f8f9fa;border-bottom:1px solid #dee2e6;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;}
     .data-table{width:100%;font-size:.82rem;border-collapse:separate;border-spacing:0;}
     .data-table thead{position:sticky;top:0;background:#f8f9fa;z-index:5;}
-    .data-table th{padding:8px 10px;font-size:.7rem;font-weight:700;text-transform:uppercase;color:#6c757d;border-bottom:2px solid #dee2e6;}
-    .data-table td{padding:6px 10px;border-bottom:1px solid rgba(0,0,0,.05);}
-    .data-table tbody tr{cursor:pointer;}
-    .data-table tbody tr:hover{background:#f8f9fa;}
-    .data-table tbody tr.selected{background:rgba(14,165,233,.08);outline:2px solid #0ea5e9;outline-offset:-2px;}
-    .filter-item{padding:5px 8px;border-radius:4px;cursor:pointer;font-size:.8rem;margin-bottom:2px;display:block;color:#495057;text-decoration:none;}
-    .filter-item:hover{background:#f0f9ff;color:#0ea5e9;}
-    .filter-item.active{background:rgba(14,165,233,.12);color:#0ea5e9;font-weight:600;}
+    .data-table th{padding:8px 10px;font-size:.7rem;font-weight:700;text-transform:uppercase;color:#6c757d;border-bottom:2px solid #dee2e6;white-space:nowrap;}
+    .data-table td{padding:7px 10px;border-bottom:1px solid rgba(0,0,0,.05);vertical-align:middle;}
+    .data-table tbody tr{cursor:pointer;transition:background .1s;}
+    .data-table tbody tr:hover{background:#fff1f2;}
+    .data-table tbody tr.overdue td{background:rgba(239,68,68,.07);}
+    .data-table tbody tr.overdue:hover td{background:rgba(239,68,68,.14);}
+    .filter-pill{padding:4px 12px;border-radius:20px;font-size:.75rem;cursor:pointer;border:1px solid #dee2e6;background:#fff;color:#495057;transition:all .15s;}
+    .filter-pill.active{background:#ef4444;border-color:#ef4444;color:#fff;font-weight:600;}
   </style>
 </head>
 <body class="light-mode">
-  <div id="rtsTopNav"></div>
-  <div class="rts-main container-fluid">
-    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
-      <div>
-        <h1 class="h4 mb-1">Emergency Orders</h1>
-        <p class="text-secondary mb-0" style="font-size:.85rem;">Critical and urgent part requests outside normal procurement cycle</p>
-      </div>
-      <button class="btn btn-sm" id="btnAdd" style="background:#0ea5e9;border-color:#0ea5e9;color:#fff">+ New Emergency Order</button>
+<div id="rtsTopNav"></div>
+<div class="rts-main container-fluid">
+  <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+    <div>
+      <h1 class="h4 mb-1">Emergency Orders</h1>
+      <p class="text-secondary mb-0" style="font-size:.85rem;">Urgent procurement requests outside normal cycle</p>
     </div>
-    <div class="ev-stats-bar">
-      <div class="ev-stat-card"><div class="ev-stat-label">Total</div><div class="ev-stat-value" id="kpi0">—</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">Requested</div><div class="ev-stat-value" id="kpi1">—</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">Approved</div><div class="ev-stat-value" id="kpi2">—</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">Received</div><div class="ev-stat-value" id="kpi3">—</div></div>
+    <button class="btn btn-sm text-white" id="btnAdd" style="background:#ef4444;border-color:#ef4444;">+ New Emergency Order</button>
+  </div>
+
+  <div class="ev-stats-bar">
+    <div class="ev-stat-card"><div class="ev-stat-label">Total</div><div class="ev-stat-value" id="kpiTotal">—</div></div>
+    <div class="ev-stat-card" style="border-left:3px solid #3b82f6;"><div class="ev-stat-label">Awaiting Delivery</div><div class="ev-stat-value" id="kpiAwaiting">—</div></div>
+    <div class="ev-stat-card" style="border-left:3px solid #ef4444;"><div class="ev-stat-label">Overdue</div><div class="ev-stat-value" id="kpiOverdue">—</div></div>
+    <div class="ev-stat-card" style="border-left:3px solid #f59e0b;"><div class="ev-stat-label">Total Spend</div><div class="ev-stat-value" id="kpiSpend">—</div></div>
+  </div>
+
+  <div class="d-flex gap-2 mb-3 flex-wrap align-items-center">
+    <span class="filter-pill active" data-val="">All</span>
+    <span class="filter-pill" data-val="placed">Placed</span>
+    <span class="filter-pill" data-val="confirmed">Confirmed</span>
+    <span class="filter-pill" data-val="in_transit">In Transit</span>
+    <span class="filter-pill" data-val="received">Received</span>
+    <span class="filter-pill" data-val="cancelled">Cancelled</span>
+    <input type="search" class="form-control form-control-sm ms-auto" id="searchBox" placeholder="Search…" style="width:200px;"/>
+  </div>
+
+  <div class="main-card">
+    <div class="main-card-hdr">
+      <small style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:#6c757d;letter-spacing:.5px;">Orders — Newest First</small>
+      <small id="rowCount" class="text-muted" style="font-size:.75rem;">0 records</small>
     </div>
-    <div class="mlo-shell" id="mainShell">
-      <div class="mlo-pane mlo-pane-left" style="width:180px;min-width:140px;">
-        <div class="mlo-pane-header p-2 border-bottom"><small class="fw-bold text-muted">STATUS</small></div>
-        <div class="mlo-pane-content p-2" id="filterList"></div>
+    <div style="overflow-y:auto;max-height:calc(100vh - 370px);">
+      <table class="data-table">
+        <thead><tr><th>Supplier</th><th>Description</th><th>Reason</th><th>Qty</th><th>Total Cost</th><th>Ordered</th><th>Required By</th><th>Approved By</th><th>Status</th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="eoModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header" style="background:#ef4444;color:#fff;">
+        <h5 class="modal-title" id="modalTitle">New Emergency Order</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
-      <div class="mlo-resizer"></div>
-      <div class="mlo-pane mlo-pane-mid" style="flex:1 1 0;min-width:200px;">
-        <div class="mlo-pane-header p-2 border-bottom d-flex justify-content-between align-items-center">
-          <small class="fw-bold text-muted">ORDERS LIST</small>
-          <input type="search" class="form-control form-control-sm" id="searchBox" placeholder="Search…" style="width:160px"/>
-        </div>
-        <div class="mlo-pane-content p-0" style="overflow-y:auto;max-height:calc(100vh - 260px);">
-          <table class="data-table">
-            <thead><tr><th>Title</th><th>Part</th><th>Qty</th><th>Event</th><th>Required By</th><th>Priority</th><th>Status</th></tr></thead>
-            <tbody id="tbody"></tbody>
-          </table>
-        </div>
+      <div class="modal-body">
+        <form id="eoForm" class="row g-3" onsubmit="return false">
+          <div class="col-md-6"><label class="form-label small fw-semibold">Supplier ID</label><input class="form-control form-control-sm" id="fSupplierId"/></div>
+          <div class="col-md-6"><label class="form-label small fw-semibold">Supplier Name *</label><input class="form-control form-control-sm" id="fSupplierName"/></div>
+          <div class="col-12"><label class="form-label small fw-semibold">Description *</label><textarea class="form-control form-control-sm" id="fDescription" rows="2"></textarea></div>
+          <div class="col-12"><label class="form-label small fw-semibold">Reason *</label><textarea class="form-control form-control-sm" id="fReason" rows="2"></textarea></div>
+          <div class="col-md-4"><label class="form-label small fw-semibold">Quantity</label><input type="number" class="form-control form-control-sm" id="fQuantity" min="0"/></div>
+          <div class="col-md-4"><label class="form-label small fw-semibold">Unit Cost</label><input type="number" class="form-control form-control-sm" id="fUnitCost" step="0.01" min="0"/></div>
+          <div class="col-md-4"><label class="form-label small fw-semibold">Total Cost <span class="text-muted fw-normal">(auto)</span></label><input type="number" class="form-control form-control-sm" id="fTotalCost" step="0.01" min="0"/></div>
+          <div class="col-md-6"><label class="form-label small fw-semibold">Ordered Date</label><input type="date" class="form-control form-control-sm" id="fOrderedDate"/></div>
+          <div class="col-md-6"><label class="form-label small fw-semibold">Required By</label><input type="date" class="form-control form-control-sm" id="fRequiredBy"/></div>
+          <div class="col-md-6"><label class="form-label small fw-semibold">Status</label>
+            <select class="form-select form-select-sm" id="fStatus">
+              <option value="placed">Placed</option><option value="confirmed">Confirmed</option>
+              <option value="in_transit">In Transit</option><option value="received">Received</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
+          <div class="col-md-6"><label class="form-label small fw-semibold">Approved By</label><input class="form-control form-control-sm" id="fApprovedBy"/></div>
+          <div class="col-12"><label class="form-label small fw-semibold">Notes</label><textarea class="form-control form-control-sm" id="fNotes" rows="2"></textarea></div>
+          <div class="col-md-6"><label class="form-label small fw-semibold">Created By</label><input class="form-control form-control-sm" id="fCreatedBy"/></div>
+        </form>
       </div>
-      <div class="mlo-resizer"></div>
-      <div class="mlo-pane mlo-pane-right" style="width:340px;min-width:260px;">
-        <div class="mlo-pane-header p-2 border-bottom d-flex justify-content-between align-items-center">
-          <small class="fw-bold text-muted">INSPECTOR</small>
-          <button class="btn btn-sm btn-danger" id="btnDel" style="display:none">Delete</button>
-        </div>
-        <div class="mlo-pane-content p-3" style="overflow-y:auto;max-height:calc(100vh - 260px);">
-          <form id="form" class="vstack gap-2" onsubmit="return false">
-            <div><label class="form-label small fw-semibold mb-1">Title *</label><input class="form-control form-control-sm" id="fTitle"/></div>
-            <div><label class="form-label small fw-semibold mb-1">Description</label><textarea class="form-control form-control-sm" id="fDesc" rows="2"></textarea></div>
-            <div><label class="form-label small fw-semibold mb-1">Part Name *</label><input class="form-control form-control-sm" id="fPartName"/></div>
-            <div class="row g-2">
-              <div class="col-6"><label class="form-label small fw-semibold mb-1">Quantity</label><input type="number" class="form-control form-control-sm" id="fQty" min="1"/></div>
-              <div class="col-6"><label class="form-label small fw-semibold mb-1">Supplier ID</label><input class="form-control form-control-sm" id="fSupplierId"/></div>
-            </div>
-            <div><label class="form-label small fw-semibold mb-1">Event ID</label><input class="form-control form-control-sm" id="fEventId"/></div>
-            <div><label class="form-label small fw-semibold mb-1">Required By</label><input type="date" class="form-control form-control-sm" id="fReqBy"/></div>
-            <div><label class="form-label small fw-semibold mb-1">Priority</label>
-              <select class="form-select form-select-sm" id="fPriority">
-                <option value="normal">Normal</option><option value="high">High</option><option value="critical">Critical</option>
-              </select>
-            </div>
-            <div class="row g-2">
-              <div class="col-8"><label class="form-label small fw-semibold mb-1">Cost</label><input type="number" class="form-control form-control-sm" id="fCost" min="0" step="0.01"/></div>
-              <div class="col-4"><label class="form-label small fw-semibold mb-1">Currency</label><input class="form-control form-control-sm" id="fCurrency" value="GBP"/></div>
-            </div>
-            <div><label class="form-label small fw-semibold mb-1">Justification</label><textarea class="form-control form-control-sm" id="fJustification" rows="2"></textarea></div>
-            <div><label class="form-label small fw-semibold mb-1">Status</label>
-              <select class="form-select form-select-sm" id="fStatus">
-                <option value="requested">Requested</option><option value="approved">Approved</option>
-                <option value="ordered">Ordered</option><option value="received">Received</option><option value="cancelled">Cancelled</option>
-              </select>
-            </div>
-            <div><label class="form-label small fw-semibold mb-1">Requested By</label><input class="form-control form-control-sm" id="fReqName"/></div>
-            <div><label class="form-label small fw-semibold mb-1">Approved By</label><input class="form-control form-control-sm" id="fApprovedBy"/></div>
-          </form>
-          <button class="btn btn-sm mt-2 w-100" id="btnSave" style="background:#0ea5e9;color:#fff">Save</button>
-        </div>
+      <div class="modal-footer">
+        <button class="btn btn-sm btn-danger me-auto" id="btnDel" style="display:none;">Delete</button>
+        <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-sm text-white" id="btnSave" style="background:#ef4444;border-color:#ef4444;">Save Order</button>
       </div>
     </div>
   </div>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="topnav.js?v=20260420"></script>
-  <script src="core.js?v=20260420"></script>
-  <script>
-  const API='/api/emergency-orders';
-  const STATUSES=['requested','approved','ordered','received','cancelled'];
-  let all=[],sel=null,filt='all';
-  const gv=id=>(document.getElementById(id)||{}).value||'';
-  const sv=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v??'';};
+</div>
 
-  async function load(){
-    try{const r=await fetch(API);const j=await r.json();all=Array.isArray(j)?j:(j.data||[]);updateKPIs();buildFilters();render();}
-    catch(e){console.error(e);}
-  }
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="topnav.js?v=20260420"></script>
+<script src="core.js?v=20260420"></script>
+<script>
+const API='/api/emergency-orders';
+let all=[],sel=null,filtStatus='';
+const modal=new bootstrap.Modal(document.getElementById('eoModal'));
+const gv=id=>(document.getElementById(id)||{}).value||'';
+const sv=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v??'';};
+const TODAY_STR=new Date().toISOString().slice(0,10);
+const fmt=v=>v!=null?parseFloat(v).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2}):'—';
+const statusBadge=s=>{const m={placed:'primary',confirmed:'warning',in_transit:'info',received:'success',cancelled:'secondary'};return`<span class="badge bg-${m[s]||'secondary'}">${(s||'—').replace('_',' ')}</span>`;};
 
-  function updateKPIs(){
-    document.getElementById('kpi0').textContent=all.length;
-    document.getElementById('kpi1').textContent=all.filter(x=>x.status==='requested').length;
-    document.getElementById('kpi2').textContent=all.filter(x=>x.status==='approved').length;
-    document.getElementById('kpi3').textContent=all.filter(x=>x.status==='received').length;
-  }
+function isOverdue(row){
+  if(!row.required_by)return false;
+  if(row.status==='received'||row.status==='cancelled')return false;
+  return row.required_by<TODAY_STR;
+}
 
-  function buildFilters(){
-    document.getElementById('filterList').innerHTML=
-      [['all','All'],...STATUSES.map(s=>[s,s.charAt(0).toUpperCase()+s.slice(1)])].map(([v,l])=>
-        `<a class="filter-item${filt===v?' active':''}" data-val="${v}" href="#">${l} <small class="text-muted">(${v==='all'?all.length:all.filter(x=>x.status===v).length})</small></a>`
-      ).join('');
-    document.querySelectorAll('#filterList .filter-item').forEach(a=>a.onclick=e=>{e.preventDefault();filt=a.dataset.val;buildFilters();render();});
-  }
+async function load(){
+  try{const r=await fetch(API);const j=await r.json();
+    all=Array.isArray(j)?j:(j.data||[]);
+    // Sort by ordered_date desc
+    all.sort((a,b)=>(b.ordered_date||'').localeCompare(a.ordered_date||''));
+    updateKPIs();render();}
+  catch(e){console.error(e);}
+}
 
-  function render(){
-    const q=document.getElementById('searchBox').value.toLowerCase();
-    let d=filt==='all'?[...all]:all.filter(x=>x.status===filt);
-    if(q)d=d.filter(x=>JSON.stringify(x).toLowerCase().includes(q));
-    const PB={normal:'secondary',high:'warning',critical:'danger'};
-    const SB={requested:'primary',approved:'success',ordered:'info',received:'success',cancelled:'dark'};
-    document.getElementById('tbody').innerHTML=d.length
-      ?d.map(row=>`<tr data-id="${row.id}" class="${sel&&String(sel.id)===String(row.id)?'selected':''}">
-          <td class="fw-semibold">${row.title||'—'}</td><td>${row.part_name||'—'}</td>
-          <td>${row.quantity||'—'}</td><td>${row.event_id||'—'}</td><td>${row.required_by||'—'}</td>
-          <td><span class="badge bg-${PB[row.priority]||'secondary'}">${row.priority||'—'}</span></td>
-          <td><span class="badge bg-${SB[row.status]||'secondary'}">${row.status||'—'}</span></td>
-        </tr>`).join('')
-      :'<tr><td colspan="7" class="text-center text-muted py-4">No emergency orders found</td></tr>';
-    document.querySelectorAll('#tbody tr[data-id]').forEach(tr=>tr.onclick=()=>{
-      const item=all.find(x=>String(x.id)===tr.dataset.id);if(item)pick(item);
-    });
-  }
+function updateKPIs(){
+  document.getElementById('kpiTotal').textContent=all.length;
+  document.getElementById('kpiAwaiting').textContent=all.filter(x=>['placed','confirmed','in_transit'].includes(x.status)).length;
+  document.getElementById('kpiOverdue').textContent=all.filter(isOverdue).length;
+  const spend=all.reduce((a,x)=>a+Number(x.total_cost||0),0);
+  document.getElementById('kpiSpend').textContent='£'+fmt(spend);
+}
 
-  function pick(item){
-    sel=item;
-    sv('fTitle',item.title);sv('fDesc',item.description);sv('fPartName',item.part_name);
-    sv('fQty',item.quantity);sv('fSupplierId',item.supplier_id);sv('fEventId',item.event_id);
-    sv('fReqBy',item.required_by);sv('fPriority',item.priority||'normal');
-    sv('fCost',item.cost);sv('fCurrency',item.currency||'GBP');sv('fJustification',item.justification);
-    sv('fStatus',item.status||'requested');sv('fReqName',item.requested_by);sv('fApprovedBy',item.approved_by);
-    document.getElementById('btnDel').style.display='';render();
-  }
+function render(){
+  const q=document.getElementById('searchBox').value.toLowerCase();
+  let d=filtStatus?all.filter(x=>x.status===filtStatus):[...all];
+  if(q) d=d.filter(x=>JSON.stringify(x).toLowerCase().includes(q));
+  document.getElementById('rowCount').textContent=d.length+' records';
+  document.getElementById('tbody').innerHTML=d.length
+    ?d.map(row=>`<tr data-id="${row.id}" class="${isOverdue(row)?'overdue':''}">
+        <td class="fw-semibold">${row.supplier_name||'—'}</td>
+        <td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${row.description||'—'}</td>
+        <td style="max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${row.reason||'—'}</td>
+        <td>${row.quantity??'—'}</td>
+        <td>${row.total_cost!=null?'£'+fmt(row.total_cost):'—'}</td>
+        <td>${row.ordered_date||'—'}</td>
+        <td>${row.required_by?`<span${isOverdue(row)?' style="color:#ef4444;font-weight:600;"':''}>⚠ ${row.required_by}</span>`:'—'}</td>
+        <td>${row.approved_by||'—'}</td>
+        <td>${statusBadge(row.status)}</td>
+      </tr>`).join('')
+    :'<tr><td colspan="9" class="text-center text-muted py-4">No emergency orders found</td></tr>';
+  document.querySelectorAll('#tbody tr[data-id]').forEach(tr=>tr.onclick=()=>{
+    const item=all.find(x=>String(x.id)===tr.dataset.id);if(item)openEdit(item);
+  });
+}
 
-  function clearForm(){
-    sel=null;document.getElementById('form').reset();
-    sv('fPriority','normal');sv('fStatus','requested');sv('fCurrency','GBP');
-    document.getElementById('btnDel').style.display='none';render();
-  }
+function openNew(){
+  sel=null;document.getElementById('eoForm').reset();
+  sv('fOrderedDate',TODAY_STR);sv('fStatus','placed');
+  document.getElementById('modalTitle').textContent='New Emergency Order';
+  document.getElementById('btnDel').style.display='none';modal.show();
+}
 
-  async function save(){
-    const body={title:gv('fTitle'),description:gv('fDesc'),part_name:gv('fPartName'),
-      quantity:gv('fQty')||null,supplier_id:gv('fSupplierId')||null,event_id:gv('fEventId')||null,
-      required_by:gv('fReqBy')||null,priority:gv('fPriority'),cost:gv('fCost')||null,
-      currency:gv('fCurrency')||'GBP',justification:gv('fJustification'),status:gv('fStatus'),
-      requested_by:gv('fReqName'),approved_by:gv('fApprovedBy')};
-    if(!body.title||!body.part_name){alert('Title and Part Name are required');return;}
-    try{
-      const url=sel?`${API}/${sel.id}`:API;const method=sel?'PUT':'POST';
-      const r=await fetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-      if(r.ok){const saved=await r.json();if(!sel){sel=saved.data||saved;}await load();}
-      else alert('Save failed');
-    }catch(e){console.error(e);alert('Save failed');}
-  }
+function openEdit(item){
+  sel=item;document.getElementById('modalTitle').textContent='Edit Emergency Order';
+  document.getElementById('btnDel').style.display='';
+  sv('fSupplierId',item.supplier_id);sv('fSupplierName',item.supplier_name);
+  sv('fDescription',item.description);sv('fReason',item.reason);
+  sv('fQuantity',item.quantity);sv('fUnitCost',item.unit_cost);sv('fTotalCost',item.total_cost);
+  sv('fOrderedDate',item.ordered_date);sv('fRequiredBy',item.required_by);
+  sv('fStatus',item.status||'placed');sv('fApprovedBy',item.approved_by);
+  sv('fNotes',item.notes);sv('fCreatedBy',item.created_by);
+  modal.show();
+}
 
-  async function del(){
-    if(!sel||!confirm('Delete this emergency order? This cannot be undone.'))return;
-    try{const r=await fetch(`${API}/${sel.id}`,{method:'DELETE'});if(r.ok){clearForm();await load();}else alert('Delete failed');}
-    catch(e){console.error(e);}
-  }
+function autoCalcTotal(){
+  const u=parseFloat(gv('fUnitCost'))||0;const q=parseFloat(gv('fQuantity'))||0;
+  if(u&&q) sv('fTotalCost',(u*q).toFixed(2));
+}
 
-  document.getElementById('btnAdd').onclick=clearForm;
-  document.getElementById('btnSave').onclick=save;
-  document.getElementById('btnDel').onclick=del;
-  document.getElementById('searchBox').addEventListener('input',render);
-  load();
-  </script>
+async function save(){
+  const body={supplier_id:gv('fSupplierId')||null,supplier_name:gv('fSupplierName'),
+    description:gv('fDescription'),reason:gv('fReason'),quantity:gv('fQuantity')||null,
+    unit_cost:gv('fUnitCost')||null,total_cost:gv('fTotalCost')||null,
+    ordered_date:gv('fOrderedDate')||null,required_by:gv('fRequiredBy')||null,
+    status:gv('fStatus')||'placed',approved_by:gv('fApprovedBy'),
+    notes:gv('fNotes'),created_by:gv('fCreatedBy')};
+  if(!body.supplier_name||!body.description||!body.reason){alert('Supplier Name, Description and Reason are required');return;}
+  try{
+    const url=sel?`${API}/${sel.id}`:API;const method=sel?'PUT':'POST';
+    const r=await fetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(r.ok){modal.hide();await load();}else alert('Save failed');
+  }catch(e){console.error(e);alert('Save failed');}
+}
+
+async function del(){
+  if(!sel||!confirm('Delete this emergency order?'))return;
+  try{const r=await fetch(`${API}/${sel.id}`,{method:'DELETE'});if(r.ok){modal.hide();await load();}else alert('Delete failed');}
+  catch(e){console.error(e);}
+}
+
+document.getElementById('btnAdd').onclick=openNew;
+document.getElementById('btnSave').onclick=save;
+document.getElementById('btnDel').onclick=del;
+document.getElementById('searchBox').addEventListener('input',render);
+document.getElementById('fUnitCost').addEventListener('input',autoCalcTotal);
+document.getElementById('fQuantity').addEventListener('input',autoCalcTotal);
+document.querySelectorAll('.filter-pill').forEach(p=>p.onclick=()=>{
+  document.querySelectorAll('.filter-pill').forEach(x=>x.classList.remove('active'));
+  p.classList.add('active');filtStatus=p.dataset.val;render();
+});
+load();
+</script>
 </body>
 </html>

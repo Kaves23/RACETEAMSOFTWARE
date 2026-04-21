@@ -2,187 +2,332 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Race Team OS – Driver Calendar</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
   <link href="style.css?v=20260420" rel="stylesheet"/>
   <style>
-    body{background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%);}
+    body{background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%);min-height:100vh;}
     .ev-stats-bar{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
-    .ev-stat-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:10px 16px;min-width:110px;}
-    .ev-stat-label{font-size:.7rem;color:#6c757d;font-weight:600;text-transform:uppercase;}
-    .ev-stat-value{font-size:1.5rem;font-weight:700;color:#1a1d24;}
-    #mainShell.mlo-shell{background:transparent;border:none;gap:10px;}
-    #mainShell .mlo-pane-left,#mainShell .mlo-pane-mid,#mainShell .mlo-pane-right{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;}
-    .data-table{width:100%;font-size:.82rem;border-collapse:separate;border-spacing:0;}
-    .data-table thead{position:sticky;top:0;background:#f8f9fa;z-index:5;}
-    .data-table th{padding:8px 10px;font-size:.7rem;font-weight:700;text-transform:uppercase;color:#6c757d;border-bottom:2px solid #dee2e6;}
-    .data-table td{padding:6px 10px;border-bottom:1px solid rgba(0,0,0,.05);}
-    .data-table tbody tr{cursor:pointer;}
-    .data-table tbody tr:hover{background:#f8f9fa;}
-    .data-table tbody tr.selected{background:rgba(236,72,153,.08);outline:2px solid #ec4899;outline-offset:-2px;}
-    .filter-item{padding:5px 8px;border-radius:4px;cursor:pointer;font-size:.8rem;margin-bottom:2px;display:block;color:#495057;text-decoration:none;}
-    .filter-item:hover{background:#fdf2f8;color:#ec4899;}
-    .filter-item.active{background:rgba(236,72,153,.12);color:#ec4899;font-weight:600;}
+    .ev-stat-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:10px 16px;box-shadow:0 2px 4px rgba(0,0,0,.06);min-width:110px;}
+    .ev-stat-label{font-size:.7rem;color:#6c757d;font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+    .ev-stat-value{font-size:1.5rem;font-weight:700;color:#1a1d24;line-height:1.2;}
+
+    .cal-wrap{display:flex;gap:12px;align-items:flex-start;}
+    .cal-main{flex:1 1 0;min-width:0;background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.06);overflow:hidden;}
+    .cal-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #dee2e6;background:#f8f9fa;}
+    .cal-title{font-size:1.05rem;font-weight:700;color:#1a1d24;}
+    .cal-nav-btn{border:1px solid #dee2e6;background:#fff;border-radius:6px;padding:4px 12px;cursor:pointer;color:#6c757d;font-size:.9rem;transition:all .15s;}
+    .cal-nav-btn:hover{background:#6366f1;color:#fff;border-color:#6366f1;}
+    .cal-day-header{padding:7px 4px;text-align:center;font-size:.68rem;font-weight:700;text-transform:uppercase;color:#6c757d;background:#f8f9fa;border-bottom:1px solid #dee2e6;}
+    .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);}
+    .cal-cell{min-height:78px;padding:4px;border-right:1px solid #f0f0f0;border-bottom:1px solid #f0f0f0;cursor:pointer;transition:background .1s;}
+    .cal-cell:nth-child(7n){border-right:none;}
+    .cal-cell:hover{background:#f0f1ff;}
+    .cal-cell.today .cal-date{background:#6366f1;color:#fff;border-radius:50%;}
+    .cal-cell.selected{background:#eef0ff;outline:2px solid #6366f1;outline-offset:-2px;}
+    .cal-cell.other-month{background:#fafafa;}
+    .cal-cell.other-month .cal-date{color:#ccc;}
+    .cal-date{width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:600;color:#1a1d24;margin-bottom:3px;}
+    .cal-chip{font-size:.62rem;padding:1px 5px;border-radius:10px;margin-bottom:2px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600;}
+    .chip-race{background:#fee2e2;color:#991b1b;}
+    .chip-test{background:#dbeafe;color:#1d4ed8;}
+    .chip-simulator{background:#ede9fe;color:#5b21b6;}
+    .chip-media{background:#fef3c7;color:#92400e;}
+    .chip-commercial{background:#d1fae5;color:#065f46;}
+    .chip-fitness{background:#ccfbf1;color:#0f766e;}
+    .chip-other{background:#f3f4f6;color:#6b7280;}
+
+    .cal-side{width:290px;min-width:250px;background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.06);}
+    .cal-side-header{padding:12px 16px;border-bottom:1px solid #dee2e6;background:#f8f9fa;}
+    .cal-side-title{font-size:.85rem;font-weight:700;color:#1a1d24;}
+    .cal-side-body{padding:12px;overflow-y:auto;max-height:520px;}
+    .day-event-card{border:1px solid #dee2e6;border-left-width:3px;border-radius:6px;padding:10px;margin-bottom:8px;}
+    .day-event-title{font-size:.85rem;font-weight:700;color:#1a1d24;margin-bottom:3px;}
+    .day-event-meta{font-size:.75rem;color:#6c757d;margin-bottom:2px;}
+
+    .filter-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center;}
+    .filter-bar select{font-size:.8rem;padding:4px 8px;border:1px solid #dee2e6;border-radius:6px;background:#fff;color:#1a1d24;}
+    .badge-t{display:inline-block;padding:2px 7px;border-radius:10px;font-size:.65rem;font-weight:700;}
+    .badge-confirmed{background:#d1fae5;color:#065f46;}
+    .badge-unconfirmed{background:#fef3c7;color:#92400e;}
   </style>
 </head>
 <body class="light-mode">
-  <div id="rtsTopNav"></div>
-  <div class="rts-main container-fluid">
-    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
-      <div>
-        <h1 class="h4 mb-1">Driver Calendar</h1>
-        <p class="text-secondary mb-0" style="font-size:.85rem;">Driver schedule — races, tests, media, fitness and travel</p>
-      </div>
-      <button class="btn btn-sm" id="btnAdd" style="background:#ec4899;border-color:#ec4899;color:#fff">+ New Event</button>
+<div id="rtsTopNav"></div>
+<div class="rts-main container-fluid">
+  <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+    <div>
+      <h1 class="h4 mb-1">Driver Calendar</h1>
+      <p class="text-secondary mb-0" style="font-size:.85rem;">Driver schedule — races, tests, media, fitness and simulator</p>
     </div>
-    <div class="ev-stats-bar">
-      <div class="ev-stat-card"><div class="ev-stat-label">Total</div><div class="ev-stat-value" id="kpi0">—</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">This Month</div><div class="ev-stat-value" id="kpi1">—</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">Races</div><div class="ev-stat-value" id="kpi2">—</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">Tests</div><div class="ev-stat-value" id="kpi3">—</div></div>
+    <button class="btn btn-sm text-white" id="btnAdd" style="background:#6366f1;border-color:#6366f1;">+ New Event</button>
+  </div>
+
+  <div class="ev-stats-bar">
+    <div class="ev-stat-card"><div class="ev-stat-label">Total Events</div><div class="ev-stat-value" id="kpiTotal">—</div></div>
+    <div class="ev-stat-card"><div class="ev-stat-label">Confirmed</div><div class="ev-stat-value" id="kpiConfirmed">—</div></div>
+    <div class="ev-stat-card"><div class="ev-stat-label">Race Days</div><div class="ev-stat-value" id="kpiRace">—</div></div>
+    <div class="ev-stat-card"><div class="ev-stat-label">Test Days</div><div class="ev-stat-value" id="kpiTest">—</div></div>
+  </div>
+
+  <div class="filter-bar">
+    <label class="fw-semibold me-1" style="font-size:.8rem;color:#6c757d;">Filter:</label>
+    <select id="fDriver"><option value="">All Drivers</option></select>
+    <select id="fType">
+      <option value="">All Types</option>
+      <option value="race">Race</option>
+      <option value="test">Test</option>
+      <option value="simulator">Simulator</option>
+      <option value="media">Media</option>
+      <option value="commercial">Commercial</option>
+      <option value="fitness">Fitness</option>
+      <option value="other">Other</option>
+    </select>
+    <button class="btn btn-sm btn-outline-secondary" id="btnToday" style="font-size:.78rem;padding:4px 10px;">Today</button>
+  </div>
+
+  <div class="cal-wrap">
+    <div class="cal-main">
+      <div class="cal-header">
+        <button class="cal-nav-btn" id="btnPrev">&#8249;</button>
+        <span class="cal-title" id="calMonthLabel"></span>
+        <button class="cal-nav-btn" id="btnNext">&#8250;</button>
+      </div>
+      <div class="cal-grid" id="calDayHeaders"></div>
+      <div class="cal-grid" id="calCells"></div>
     </div>
-    <div class="mlo-shell" id="mainShell">
-      <div class="mlo-pane mlo-pane-left" style="width:180px;min-width:140px;">
-        <div class="mlo-pane-header p-2 border-bottom"><small class="fw-bold text-muted">EVENT TYPE</small></div>
-        <div class="mlo-pane-content p-2" id="filterList"></div>
+    <div class="cal-side">
+      <div class="cal-side-header">
+        <div class="cal-side-title" id="sideTitle">Select a day</div>
       </div>
-      <div class="mlo-resizer"></div>
-      <div class="mlo-pane mlo-pane-mid" style="flex:1 1 0;min-width:200px;">
-        <div class="mlo-pane-header p-2 border-bottom d-flex justify-content-between align-items-center">
-          <small class="fw-bold text-muted">CALENDAR LIST</small>
-          <input type="search" class="form-control form-control-sm" id="searchBox" placeholder="Search…" style="width:160px"/>
-        </div>
-        <div class="mlo-pane-content p-0" style="overflow-y:auto;max-height:calc(100vh - 260px);">
-          <table class="data-table">
-            <thead><tr><th>Driver</th><th>Type</th><th>Title</th><th>Start Date</th><th>Location</th><th>Status</th></tr></thead>
-            <tbody id="tbody"></tbody>
-          </table>
-        </div>
-      </div>
-      <div class="mlo-resizer"></div>
-      <div class="mlo-pane mlo-pane-right" style="width:320px;min-width:260px;">
-        <div class="mlo-pane-header p-2 border-bottom d-flex justify-content-between align-items-center">
-          <small class="fw-bold text-muted">INSPECTOR</small>
-          <button class="btn btn-sm btn-danger" id="btnDel" style="display:none">Delete</button>
-        </div>
-        <div class="mlo-pane-content p-3" style="overflow-y:auto;max-height:calc(100vh - 260px);">
-          <form id="form" class="vstack gap-2" onsubmit="return false">
-            <div><label class="form-label small fw-semibold mb-1">Driver Name *</label><input class="form-control form-control-sm" id="fDriver"/></div>
-            <div><label class="form-label small fw-semibold mb-1">Driver ID</label><input class="form-control form-control-sm" id="fDriverId"/></div>
-            <div><label class="form-label small fw-semibold mb-1">Event Type</label>
-              <select class="form-select form-select-sm" id="fType">
-                <option value="race">Race</option><option value="test">Test</option>
-                <option value="media">Media</option><option value="fitness">Fitness</option>
-                <option value="simulator">Simulator</option><option value="travel">Travel</option><option value="other">Other</option>
-              </select>
-            </div>
-            <div><label class="form-label small fw-semibold mb-1">Title *</label><input class="form-control form-control-sm" id="fTitle"/></div>
-            <div><label class="form-label small fw-semibold mb-1">Start Date/Time</label><input type="datetime-local" class="form-control form-control-sm" id="fStart"/></div>
-            <div><label class="form-label small fw-semibold mb-1">End Date/Time</label><input type="datetime-local" class="form-control form-control-sm" id="fEnd"/></div>
-            <div><label class="form-label small fw-semibold mb-1">Location</label><input class="form-control form-control-sm" id="fLocation"/></div>
-            <div><label class="form-label small fw-semibold mb-1">Status</label>
-              <select class="form-select form-select-sm" id="fStatus">
-                <option value="confirmed">Confirmed</option><option value="tentative">Tentative</option><option value="cancelled">Cancelled</option>
-              </select>
-            </div>
-            <div><label class="form-label small fw-semibold mb-1">Notes</label><textarea class="form-control form-control-sm" id="fNotes" rows="3"></textarea></div>
-          </form>
-          <button class="btn btn-sm mt-2 w-100" id="btnSave" style="background:#ec4899;color:#fff">Save</button>
-        </div>
+      <div class="cal-side-body" id="sideBody">
+        <p class="text-secondary" style="font-size:.82rem;">Click a day to see events.</p>
       </div>
     </div>
   </div>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="topnav.js?v=20260420"></script>
-  <script src="core.js?v=20260420"></script>
-  <script>
-  const API='/api/driver-calendar';
-  const TYPES=['race','test','media','fitness','simulator','travel','other'];
-  let all=[],sel=null,filt='all';
-  const gv=id=>(document.getElementById(id)||{}).value||'';
-  const sv=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v??'';};
+</div>
 
-  async function load(){
-    try{const r=await fetch(API);const j=await r.json();all=Array.isArray(j)?j:(j.data||[]);updateKPIs();buildFilters();render();}
-    catch(e){console.error(e);}
-  }
+<!-- Modal -->
+<div class="modal fade" id="evModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header py-2" style="background:#6366f1;">
+        <h6 class="modal-title text-white fw-bold" id="modalTitle">New Event</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="evForm" novalidate>
+          <input type="hidden" id="fId"/>
+          <div class="row g-2">
+            <div class="col-12">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Driver Name *</label>
+              <input type="text" class="form-control form-control-sm" id="fDriverName" required/>
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Event Type *</label>
+              <select class="form-select form-select-sm" id="fEventType" required>
+                <option value="">Select…</option>
+                <option value="race">Race</option>
+                <option value="test">Test</option>
+                <option value="simulator">Simulator</option>
+                <option value="media">Media</option>
+                <option value="commercial">Commercial</option>
+                <option value="fitness">Fitness</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Title *</label>
+              <input type="text" class="form-control form-control-sm" id="fTitle" required/>
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Event Date *</label>
+              <input type="date" class="form-control form-control-sm" id="fEventDate" required/>
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">End Date</label>
+              <input type="date" class="form-control form-control-sm" id="fEndDate"/>
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Location</label>
+              <input type="text" class="form-control form-control-sm" id="fLocation"/>
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Series</label>
+              <input type="text" class="form-control form-control-sm" id="fSeries"/>
+            </div>
+            <div class="col-12">
+              <div class="form-check mt-1">
+                <input class="form-check-input" type="checkbox" id="fConfirmed"/>
+                <label class="form-check-label fw-semibold" for="fConfirmed" style="font-size:.78rem;">Confirmed</label>
+              </div>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Notes</label>
+              <textarea class="form-control form-control-sm" id="fNotes" rows="2"></textarea>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-sm btn-danger me-auto d-none" id="btnDel">Delete</button>
+        <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-sm text-white" id="btnSave" style="background:#6366f1;border-color:#6366f1;">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
 
-  function updateKPIs(){
-    const now=new Date();const ym=now.getFullYear()+'-'+(String(now.getMonth()+1).padStart(2,'0'));
-    document.getElementById('kpi0').textContent=all.length;
-    document.getElementById('kpi1').textContent=all.filter(x=>x.start_date&&x.start_date.startsWith(ym)).length;
-    document.getElementById('kpi2').textContent=all.filter(x=>x.event_type==='race').length;
-    document.getElementById('kpi3').textContent=all.filter(x=>x.event_type==='test').length;
-  }
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="topnav.js?v=20260420"></script>
+<script src="core.js?v=20260420"></script>
+<script>
+const API = '/api/driver-calendar';
+let allEvents = [];
+let curYear = new Date().getFullYear();
+let curMonth = new Date().getMonth();
+let selDate = null;
+const modal = new bootstrap.Modal(document.getElementById('evModal'));
+const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
-  function buildFilters(){
-    document.getElementById('filterList').innerHTML=
-      [['all','All'],...TYPES.map(t=>[t,t.charAt(0).toUpperCase()+t.slice(1)])].map(([v,l])=>
-        `<a class="filter-item${filt===v?' active':''}" data-val="${v}" href="#">${l} <small class="text-muted">(${v==='all'?all.length:all.filter(x=>x.event_type===v).length})</small></a>`
-      ).join('');
-    document.querySelectorAll('#filterList .filter-item').forEach(a=>a.onclick=e=>{e.preventDefault();filt=a.dataset.val;buildFilters();render();});
-  }
+function chipCls(t){return({race:'chip-race',test:'chip-test',simulator:'chip-simulator',media:'chip-media',commercial:'chip-commercial',fitness:'chip-fitness'})[t]||'chip-other';}
+function typeColor(t){return({race:'#ef4444',test:'#3b82f6',simulator:'#8b5cf6',media:'#f59e0b',commercial:'#10b981',fitness:'#14b8a6'})[t]||'#9ca3af';}
+function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function fmtD(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 
-  function render(){
-    const q=document.getElementById('searchBox').value.toLowerCase();
-    let d=filt==='all'?[...all]:all.filter(x=>x.event_type===filt);
-    if(q)d=d.filter(x=>JSON.stringify(x).toLowerCase().includes(q));
-    d.sort((a,b)=>(a.start_date||'').localeCompare(b.start_date||''));
-    const TypeColors={race:'danger',test:'primary',media:'info',fitness:'success',simulator:'warning',travel:'secondary',other:'secondary'};
-    const SB={confirmed:'success',tentative:'warning',cancelled:'secondary'};
-    document.getElementById('tbody').innerHTML=d.length
-      ?d.map(row=>`<tr data-id="${row.id}" class="${sel&&String(sel.id)===String(row.id)?'selected':''}">
-          <td class="fw-semibold">${row.driver_name||'—'}</td>
-          <td><span class="badge bg-${TypeColors[row.event_type]||'secondary'}">${row.event_type||'—'}</span></td>
-          <td>${row.title||'—'}</td>
-          <td>${row.start_date?row.start_date.replace('T',' ').substring(0,16):'—'}</td>
-          <td>${row.location||'—'}</td>
-          <td><span class="badge bg-${SB[row.status]||'secondary'}">${row.status||'—'}</span></td>
-        </tr>`).join('')
-      :'<tr><td colspan="6" class="text-center text-muted py-4">No calendar events found</td></tr>';
-    document.querySelectorAll('#tbody tr[data-id]').forEach(tr=>tr.onclick=()=>{
-      const item=all.find(x=>String(x.id)===tr.dataset.id);if(item)pick(item);
-    });
-  }
+async function load(){
+  try{const r=await fetch(API);if(r.ok)allEvents=await r.json();}catch(e){allEvents=[];}
+  populateDriverFilter();
+  renderKPIs();
+  renderCalendar();
+}
 
-  function pick(item){
-    sel=item;
-    sv('fDriver',item.driver_name);sv('fDriverId',item.driver_id);sv('fType',item.event_type||'race');
-    sv('fTitle',item.title);sv('fStart',item.start_date);sv('fEnd',item.end_date);
-    sv('fLocation',item.location);sv('fStatus',item.status||'confirmed');sv('fNotes',item.notes);
-    document.getElementById('btnDel').style.display='';render();
-  }
+function populateDriverFilter(){
+  const sel=document.getElementById('fDriver'),cur=sel.value;
+  const names=[...new Set(allEvents.map(e=>e.driver_name).filter(Boolean))].sort();
+  sel.innerHTML='<option value="">All Drivers</option>'+names.map(n=>`<option value="${esc(n)}"${n===cur?' selected':''}>${esc(n)}</option>`).join('');
+}
 
-  function clearForm(){
-    sel=null;document.getElementById('form').reset();
-    sv('fType','race');sv('fStatus','confirmed');
-    document.getElementById('btnDel').style.display='none';render();
-  }
+function filtered(){
+  const d=document.getElementById('fDriver').value,t=document.getElementById('fType').value;
+  return allEvents.filter(e=>(!d||e.driver_name===d)&&(!t||e.event_type===t));
+}
 
-  async function save(){
-    const body={driver_name:gv('fDriver'),driver_id:gv('fDriverId')||null,event_type:gv('fType'),
-      title:gv('fTitle'),start_date:gv('fStart')||null,end_date:gv('fEnd')||null,
-      location:gv('fLocation'),status:gv('fStatus'),notes:gv('fNotes')};
-    if(!body.driver_name||!body.title){alert('Driver name and title are required');return;}
-    try{
-      const url=sel?`${API}/${sel.id}`:API;const method=sel?'PUT':'POST';
-      const r=await fetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-      if(r.ok){const saved=await r.json();if(!sel){sel=saved.data||saved;}await load();}
-      else alert('Save failed');
-    }catch(e){console.error(e);alert('Save failed');}
-  }
+function renderKPIs(){
+  document.getElementById('kpiTotal').textContent=allEvents.length;
+  document.getElementById('kpiConfirmed').textContent=allEvents.filter(e=>e.confirmed).length;
+  document.getElementById('kpiRace').textContent=allEvents.filter(e=>e.event_type==='race').length;
+  document.getElementById('kpiTest').textContent=allEvents.filter(e=>e.event_type==='test').length;
+}
 
-  async function del(){
-    if(!sel||!confirm('Delete this calendar event? This cannot be undone.'))return;
-    try{const r=await fetch(`${API}/${sel.id}`,{method:'DELETE'});if(r.ok){clearForm();await load();}else alert('Delete failed');}
-    catch(e){console.error(e);}
-  }
+function renderCalendar(){
+  document.getElementById('calMonthLabel').textContent=`${MONTHS[curMonth]} ${curYear}`;
+  document.getElementById('calDayHeaders').innerHTML=DAYS.map(d=>`<div class="cal-day-header">${d}</div>`).join('');
+  const firstDay=new Date(curYear,curMonth,1).getDay();
+  const daysInMonth=new Date(curYear,curMonth+1,0).getDate();
+  const daysInPrev=new Date(curYear,curMonth,0).getDate();
+  const todayStr=fmtD(new Date());
+  const evts=filtered();
+  const cells=[];
+  for(let i=firstDay-1;i>=0;i--) cells.push({d:daysInPrev-i,m:curMonth-1,y:curYear,other:true});
+  for(let d=1;d<=daysInMonth;d++) cells.push({d,m:curMonth,y:curYear,other:false});
+  let nxt=1;while(cells.length%7!==0) cells.push({d:nxt++,m:curMonth+1,y:curYear,other:true});
+  document.getElementById('calCells').innerHTML=cells.map(c=>{
+    const ds=fmtD(new Date(c.y,c.m,c.d));
+    const isToday=ds===todayStr,isSel=ds===selDate;
+    const dayEvts=c.other?[]:evts.filter(e=>e.event_date&&e.event_date.slice(0,10)===ds);
+    const chips=dayEvts.slice(0,3).map(e=>`<span class="cal-chip ${chipCls(e.event_type)}">${esc(e.driver_name)} ${esc(e.title||e.event_type)}</span>`).join('');
+    const more=dayEvts.length>3?`<span style="font-size:.6rem;color:#6c757d;">+${dayEvts.length-3} more</span>`:'';
+    return `<div class="cal-cell${c.other?' other-month':''}${isToday?' today':''}${isSel?' selected':''}" onclick="selectDay('${ds}')">
+      <div class="cal-date">${c.d}</div>${chips}${more}</div>`;
+  }).join('');
+}
 
-  document.getElementById('btnAdd').onclick=clearForm;
-  document.getElementById('btnSave').onclick=save;
-  document.getElementById('btnDel').onclick=del;
-  document.getElementById('searchBox').addEventListener('input',render);
-  load();
-  </script>
+function selectDay(ds){
+  selDate=ds;renderCalendar();
+  const evts=filtered().filter(e=>e.event_date&&e.event_date.slice(0,10)===ds);
+  const d=new Date(ds+'T00:00:00');
+  document.getElementById('sideTitle').textContent=d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const body=document.getElementById('sideBody');
+  if(!evts.length){body.innerHTML='<p class="text-secondary" style="font-size:.82rem;">No events this day.</p>';return;}
+  body.innerHTML=evts.map(e=>`
+    <div class="day-event-card" style="border-left-color:${typeColor(e.event_type)}">
+      <div class="day-event-title">${esc(e.title)}</div>
+      <div class="day-event-meta fw-semibold">${esc(e.driver_name)}</div>
+      <div class="d-flex gap-2 flex-wrap mt-1">
+        <span class="badge-t ${chipCls(e.event_type)}">${esc(e.event_type)}</span>
+        <span class="badge-t ${e.confirmed?'badge-confirmed':'badge-unconfirmed'}">${e.confirmed?'Confirmed':'Unconfirmed'}</span>
+      </div>
+      ${e.location?`<div class="day-event-meta mt-1">📍 ${esc(e.location)}</div>`:''}
+      ${e.series?`<div class="day-event-meta">🏁 ${esc(e.series)}</div>`:''}
+      <div class="mt-2"><button class="btn btn-outline-secondary" style="font-size:.7rem;padding:2px 8px;" onclick="openEdit(${e.id})">Edit</button></div>
+    </div>`).join('');
+}
+
+function openNew(){
+  document.getElementById('evForm').reset();
+  document.getElementById('fId').value='';
+  document.getElementById('modalTitle').textContent='New Event';
+  document.getElementById('btnDel').classList.add('d-none');
+  if(selDate) document.getElementById('fEventDate').value=selDate;
+  modal.show();
+}
+
+function openEdit(id){
+  const e=allEvents.find(x=>x.id===id);if(!e)return;
+  document.getElementById('fId').value=e.id;
+  document.getElementById('fDriverName').value=e.driver_name||'';
+  document.getElementById('fEventType').value=e.event_type||'';
+  document.getElementById('fTitle').value=e.title||'';
+  document.getElementById('fEventDate').value=e.event_date?e.event_date.slice(0,10):'';
+  document.getElementById('fEndDate').value=e.end_date?e.end_date.slice(0,10):'';
+  document.getElementById('fLocation').value=e.location||'';
+  document.getElementById('fSeries').value=e.series||'';
+  document.getElementById('fConfirmed').checked=!!e.confirmed;
+  document.getElementById('fNotes').value=e.notes||'';
+  document.getElementById('modalTitle').textContent='Edit Event';
+  document.getElementById('btnDel').classList.remove('d-none');
+  modal.show();
+}
+
+async function save(){
+  const id=document.getElementById('fId').value;
+  const body={
+    driver_name:document.getElementById('fDriverName').value.trim(),
+    event_type:document.getElementById('fEventType').value,
+    title:document.getElementById('fTitle').value.trim(),
+    event_date:document.getElementById('fEventDate').value||null,
+    end_date:document.getElementById('fEndDate').value||null,
+    location:document.getElementById('fLocation').value.trim(),
+    series:document.getElementById('fSeries').value.trim(),
+    confirmed:document.getElementById('fConfirmed').checked,
+    notes:document.getElementById('fNotes').value.trim()
+  };
+  if(!body.driver_name||!body.event_type||!body.title||!body.event_date){alert('Fill required fields');return;}
+  const r=await fetch(id?`${API}/${id}`:API,{method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(!r.ok){alert('Save failed');return;}
+  modal.hide();load();
+}
+
+async function del(){
+  const id=document.getElementById('fId').value;if(!id)return;
+  if(!confirm('Delete this event?'))return;
+  const r=await fetch(`${API}/${id}`,{method:'DELETE'});
+  if(!r.ok){alert('Delete failed');return;}
+  modal.hide();selDate=null;load();
+}
+
+document.getElementById('btnAdd').addEventListener('click',openNew);
+document.getElementById('btnSave').addEventListener('click',save);
+document.getElementById('btnDel').addEventListener('click',del);
+document.getElementById('btnPrev').addEventListener('click',()=>{curMonth--;if(curMonth<0){curMonth=11;curYear--;}renderCalendar();});
+document.getElementById('btnNext').addEventListener('click',()=>{curMonth++;if(curMonth>11){curMonth=0;curYear++;}renderCalendar();});
+document.getElementById('btnToday').addEventListener('click',()=>{curYear=new Date().getFullYear();curMonth=new Date().getMonth();renderCalendar();});
+document.getElementById('fDriver').addEventListener('change',()=>renderCalendar());
+document.getElementById('fType').addEventListener('change',()=>renderCalendar());
+load();
+</script>
 </body>
 </html>

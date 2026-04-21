@@ -3,229 +3,388 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Race Team OS – Decisions Register</title>
+  <title>Race Team OS – Decisions</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="style.css?v=20260420" rel="stylesheet" />
   <style>
     body { background: linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%); min-height:100vh; }
-    .kpi-bar { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
-    .kpi-card { background:#fff; border:1px solid rgba(0,0,0,0.1); border-radius:8px; padding:10px 16px; box-shadow:0 2px 4px rgba(0,0,0,0.06); min-width:120px; }
-    .kpi-label { font-size:0.7rem; color:#6c757d; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; }
-    .kpi-value { font-size:1.5rem; font-weight:700; color:#1a1d24; line-height:1.2; }
-    #appShell.mlo-shell { background:transparent; border:none; gap:10px; }
-    #appShell .mlo-pane-left,#appShell .mlo-pane-mid,#appShell .mlo-pane-right { background:#fff; border:1px solid rgba(0,0,0,0.1); border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,0.06); }
-    #appShell .mlo-pane-header { background:#f8f9fa; border-bottom:1px solid rgba(0,0,0,0.1); }
-    #appShell .mlo-title { color:#1a1d24 !important; }
-    #appShell .mlo-section-label { color:#6c757d !important; opacity:1 !important; }
-    #appShell .mlo-resizer:hover { background:rgba(30,64,175,0.3); }
-    #appShell .pastel-tree { padding:0 !important; margin:0 !important; }
-    #appShell .pastel-tree li { height:28px !important; display:flex !important; align-items:center !important; font-size:0.83rem !important; font-weight:500 !important; padding-left:10px !important; margin-bottom:2px !important; border-radius:5px !important; border:1px solid rgba(0,0,0,0.08) !important; color:#1a1d24 !important; white-space:nowrap !important; overflow:hidden !important; text-overflow:ellipsis !important; cursor:pointer !important; list-style:none; }
-    #appShell .pastel-tree li.active { background:rgba(30,64,175,0.1) !important; border-color:rgba(30,64,175,0.35) !important; color:#1e40af !important; font-weight:700 !important; }
-    .app-table { width:100%; font-size:0.82rem; border-collapse:separate; border-spacing:0; }
-    .app-table thead { position:sticky; top:0; background:#f8f9fa; z-index:5; }
-    .app-table th { padding:8px 10px; font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:#6c757d; border-bottom:2px solid #dee2e6; white-space:nowrap; }
-    .app-table td { padding:6px 10px; border-bottom:1px solid rgba(0,0,0,0.05); vertical-align:middle; color:#1a1d24; }
-    .app-table tbody tr { cursor:pointer; transition:background 0.1s; }
-    .app-table tbody tr:hover { background:#f8f9fa; }
-    .app-table tbody tr.selected { background:rgba(30,64,175,0.08) !important; outline:2px solid #1e40af; outline-offset:-2px; }
-    .del-btn { opacity:0; background:none; border:none; color:#dc3545; font-size:1rem; padding:0 4px; cursor:pointer; }
-    .app-table tbody tr:hover .del-btn { opacity:1; }
-    .status-pill { display:inline-block; padding:2px 8px; border-radius:20px; font-size:0.65rem; font-weight:700; }
-    .sp-active { background:#d1fae5; color:#065f46; }
-    .sp-under_review { background:#fef3c7; color:#92400e; }
-    .sp-superseded { background:#e0e7ff; color:#3730a3; }
-    .sp-archived { background:#f1f5f9; color:#64748b; }
-    #appShell .form-label { color:#495057 !important; font-size:0.78rem; font-weight:600; margin-bottom:2px; }
-    #appShell .form-control,#appShell .form-select { font-size:0.82rem; }
+    .ev-stats-bar { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+    .ev-stat-card { background:#fff; border:1px solid rgba(0,0,0,0.1); border-radius:8px; padding:10px 16px; box-shadow:0 2px 4px rgba(0,0,0,0.06); min-width:120px; }
+    .ev-stat-label { font-size:0.7rem; color:#6c757d; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; }
+    .ev-stat-value { font-size:1.5rem; font-weight:700; color:#1a1d24; line-height:1.2; }
+
+    /* Timeline */
+    .tl-wrap { max-width:860px; margin:0 auto; padding-bottom:40px; }
+    .tl-toolbar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:16px; }
+    .tl-item { display:flex; gap:0; margin-bottom:10px; }
+    .tl-date-col { width:90px; flex-shrink:0; padding-top:14px; text-align:right; padding-right:16px; }
+    .tl-date-day { font-size:1.4rem; font-weight:800; color:#1a1d24; line-height:1; }
+    .tl-date-mon { font-size:0.72rem; font-weight:700; color:#6c757d; text-transform:uppercase; letter-spacing:0.04em; }
+    .tl-date-yr  { font-size:0.68rem; color:#adb5bd; }
+    .tl-connector { display:flex; flex-direction:column; align-items:center; width:28px; flex-shrink:0; }
+    .tl-dot  { width:12px; height:12px; border-radius:50%; margin-top:18px; flex-shrink:0; }
+    .tl-line { flex:1; width:2px; background:#dee2e6; margin-top:4px; }
+    .tl-card { flex:1; background:#fff; border:1px solid rgba(0,0,0,0.1); border-left-width:4px; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,0.06); padding:14px 16px; cursor:pointer; transition:box-shadow 0.15s; margin-bottom:2px; }
+    .tl-card:hover { box-shadow:0 4px 12px rgba(0,0,0,0.1); }
+    .tl-card-title { font-size:0.95rem; font-weight:700; color:#1a1d24; margin-bottom:6px; }
+    .tl-card-meta  { display:flex; gap:8px; align-items:center; flex-wrap:wrap; font-size:0.8rem; color:#6c757d; }
+    .tl-expand { margin-top:10px; border-top:1px solid #f1f5f9; padding-top:10px; font-size:0.83rem; color:#374151; }
+    .tl-expand .el { margin-bottom:8px; }
+    .tl-expand .el-lbl { font-size:0.68rem; font-weight:700; text-transform:uppercase; color:#6c757d; margin-bottom:1px; }
+    .tl-expand .el-val { white-space:pre-wrap; }
+    .tl-expand-actions { display:flex; gap:6px; margin-top:10px; }
+
+    /* Type colours */
+    .tbl-strategic   { border-left-color:#6366f1; }
+    .tbl-operational { border-left-color:#3b82f6; }
+    .tbl-sporting    { border-left-color:#f59e0b; }
+    .tbl-financial   { border-left-color:#10b981; }
+    .tbl-hr          { border-left-color:#a855f7; }
+    .tbl-technical   { border-left-color:#06b6d4; }
+    .tbl-other       { border-left-color:#94a3b8; }
+    .dot-strategic   { background:#6366f1; }
+    .dot-operational { background:#3b82f6; }
+    .dot-sporting    { background:#f59e0b; }
+    .dot-financial   { background:#10b981; }
+    .dot-hr          { background:#a855f7; }
+    .dot-technical   { background:#06b6d4; }
+    .dot-other       { background:#94a3b8; }
+
+    .typ-badge { display:inline-block; padding:2px 8px; border-radius:20px; font-size:0.64rem; font-weight:700; }
+    .tb-strategic   { background:#e0e7ff; color:#3730a3; }
+    .tb-operational { background:#dbeafe; color:#1e40af; }
+    .tb-sporting    { background:#fef3c7; color:#92400e; }
+    .tb-financial   { background:#d1fae5; color:#065f46; }
+    .tb-hr          { background:#f3e8ff; color:#6b21a8; }
+    .tb-technical   { background:#cffafe; color:#155e75; }
+    .tb-other       { background:#f1f5f9; color:#475569; }
+
+    .sp { display:inline-block; padding:2px 8px; border-radius:20px; font-size:0.64rem; font-weight:700; }
+    .sp-pending       { background:#fef3c7; color:#92400e; }
+    .sp-active        { background:#d1fae5; color:#065f46; }
+    .sp-under_review  { background:#dbeafe; color:#1e40af; }
+    .sp-superseded    { background:#e2e8f0; color:#64748b; }
+    .sp-archived      { background:#e2e8f0; color:#64748b; }
+
+    .form-label { color:#495057 !important; font-size:0.78rem !important; font-weight:600 !important; margin-bottom:2px !important; }
+    .form-control,.form-select { font-size:0.82rem; }
+    .modal-section { font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#6366f1; margin:12px 0 6px; border-bottom:1px solid #e2e8f0; padding-bottom:4px; }
   </style>
 </head>
 <body class="light-mode">
   <div id="rtsTopNav"></div>
   <div class="rts-main container-fluid">
+
     <div class="pt-3 pb-2 mb-2 border-bottom d-flex justify-content-between align-items-end">
       <div>
-        <h1 class="h4 mb-1">Decisions Register</h1>
-        <div class="text-secondary" style="font-size:0.85rem;">Record and track key executive decisions and their rationale.</div>
+        <h1 class="h4 mb-1">Decisions</h1>
+        <div class="text-secondary" style="font-size:0.85rem;">Strategic, operational and sporting decisions — with rationale and impact tracking.</div>
       </div>
-      <button class="btn btn-sm" style="background:#1e40af;color:#fff;border:none;" id="btnAdd" type="button">+ New Decision</button>
+      <button class="btn btn-sm" style="background:#6366f1;color:#fff;border:none;" id="btnAdd">+ Record Decision</button>
     </div>
-    <div class="kpi-bar">
-      <div class="kpi-card"><div class="kpi-label">Total</div><div class="kpi-value" id="kpiTotal">0</div></div>
-      <div class="kpi-card"><div class="kpi-label">Active</div><div class="kpi-value" id="kpiActive" style="color:#059669;">0</div></div>
-      <div class="kpi-card"><div class="kpi-label">This Month</div><div class="kpi-value" id="kpiMonth" style="color:#1e40af;">0</div></div>
-      <div class="kpi-card"><div class="kpi-label">Superseded</div><div class="kpi-value" id="kpiSuper" style="color:#6c757d;">0</div></div>
+
+    <div class="ev-stats-bar">
+      <div class="ev-stat-card"><div class="ev-stat-label">Total</div><div class="ev-stat-value" id="kpiTotal">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">This Month</div><div class="ev-stat-value" id="kpiMonth" style="color:#6366f1;">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Active</div><div class="ev-stat-value" id="kpiActive" style="color:#10b981;">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Under Review</div><div class="ev-stat-value" id="kpiReview" style="color:#3b82f6;">0</div></div>
     </div>
-    <div class="mlo-shell" id="appShell">
-      <!-- LEFT -->
-      <section class="mlo-pane mlo-pane-left" aria-label="Decision filters">
-        <div class="mlo-pane-header">
-          <div class="d-flex justify-content-between align-items-center">
-            <div class="mlo-title">Filter</div>
-            <span class="badge text-bg-secondary" id="cntBadge">0</span>
-          </div>
+
+    <div class="tl-toolbar">
+      <input id="srch" type="text" class="form-control form-control-sm" placeholder="Search…" style="max-width:200px;">
+      <select id="fType" class="form-select form-select-sm" style="max-width:160px;">
+        <option value="">Type: All</option>
+        <option value="strategic">Strategic</option>
+        <option value="operational">Operational</option>
+        <option value="sporting">Sporting</option>
+        <option value="financial">Financial</option>
+        <option value="hr">HR</option>
+        <option value="technical">Technical</option>
+        <option value="other">Other</option>
+      </select>
+      <select id="fStatus" class="form-select form-select-sm" style="max-width:160px;">
+        <option value="">Status: All</option>
+        <option value="pending">Pending</option>
+        <option value="active">Active</option>
+        <option value="under_review">Under Review</option>
+        <option value="superseded">Superseded</option>
+        <option value="archived">Archived</option>
+      </select>
+      <span class="badge bg-secondary ms-auto" id="cntBadge">0 items</span>
+    </div>
+
+    <div class="tl-wrap">
+      <div id="timeline"></div>
+    </div>
+
+  </div>
+
+  <!-- MODAL -->
+  <div class="modal fade" id="decModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header" style="background:#f8f9fa;">
+          <h5 class="modal-title" id="decModalLabel">Decision</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
-        <div class="mlo-pane-content">
-          <div class="mlo-section-label">Department</div>
-          <ul class="pastel-tree" id="filterList">
-            <li class="active" data-v="all">All Departments</li>
-            <li data-v="sporting">Sporting</li>
-            <li data-v="technical">Technical</li>
-            <li data-v="build">Build</li>
-            <li data-v="logistics">Logistics</li>
-            <li data-v="hr">HR</li>
-            <li data-v="finance">Finance</li>
-            <li data-v="compliance">Compliance</li>
-            <li data-v="commercial">Commercial</li>
-            <li data-v="executive">Executive</li>
-          </ul>
-        </div>
-      </section>
-      <div class="mlo-resizer" data-resize="left"></div>
-      <!-- MIDDLE -->
-      <section class="mlo-pane mlo-pane-mid" aria-label="Decisions list">
-        <div class="mlo-pane-header">
-          <div class="d-flex gap-1 align-items-center flex-wrap">
-            <input id="srch" type="text" class="form-control form-control-sm" placeholder="Search…" style="max-width:200px;">
-            <select id="statusFilter" class="form-select form-select-sm" style="max-width:150px;">
-              <option value="">Status: All</option>
-              <option value="active">Active</option>
-              <option value="under_review">Under Review</option>
-              <option value="superseded">Superseded</option>
-              <option value="archived">Archived</option>
-            </select>
-          </div>
-        </div>
-        <div class="mlo-pane-content" style="padding:0;">
-          <table class="app-table">
-            <thead><tr><th>#</th><th>Title</th><th>Dept</th><th>Decision Maker</th><th>Date</th><th>Status</th><th></th></tr></thead>
-            <tbody id="tbody"></tbody>
-          </table>
-        </div>
-      </section>
-      <div class="mlo-resizer" data-resize="right"></div>
-      <!-- RIGHT -->
-      <section class="mlo-pane mlo-pane-right mlo-inspector" aria-label="Decision inspector">
-        <div class="mlo-pane-header">
-          <div class="d-flex justify-content-between align-items-center">
-            <div class="mlo-title">Inspector</div>
-            <span class="badge text-bg-secondary" id="inspBadge">—</span>
-          </div>
-          <div class="d-flex gap-1 mt-1">
-            <button class="btn btn-sm" style="background:#1e40af;color:#fff;border:none;font-size:0.75rem;" id="btnSave">Save</button>
-            <button class="btn btn-sm btn-outline-danger" style="font-size:0.75rem;" id="btnDel">Delete</button>
-          </div>
-        </div>
-        <div class="mlo-pane-content">
-          <form id="recForm" autocomplete="off">
+        <div class="modal-body">
+          <form id="decForm" autocomplete="off">
             <div class="row g-2">
-              <div class="col-12"><label class="form-label">Title *</label><input id="f_title" class="form-control form-control-sm" type="text" required></div>
-              <div class="col-12"><label class="form-label">Description</label><textarea id="f_desc" class="form-control form-control-sm" rows="2"></textarea></div>
-              <div class="col-6"><label class="form-label">Department</label><input id="f_dept" class="form-control form-control-sm" type="text" list="deptList">
-                <datalist id="deptList"><option value="Sporting"><option value="Technical"><option value="Build"><option value="Logistics"><option value="HR"><option value="Finance"><option value="Compliance"><option value="Commercial"><option value="Executive"></datalist>
+              <div class="col-12"><div class="modal-section">Core</div></div>
+              <div class="col-12 col-md-8">
+                <label class="form-label">Title *</label>
+                <input id="f_title" class="form-control form-control-sm" type="text" required>
               </div>
-              <div class="col-6"><label class="form-label">Decision Maker</label><input id="f_maker" class="form-control form-control-sm" type="text"></div>
-              <div class="col-12"><label class="form-label">Options Considered</label><textarea id="f_options" class="form-control form-control-sm" rows="2"></textarea></div>
-              <div class="col-12"><label class="form-label">Rationale</label><textarea id="f_rationale" class="form-control form-control-sm" rows="2"></textarea></div>
-              <div class="col-12"><label class="form-label">Outcome</label><textarea id="f_outcome" class="form-control form-control-sm" rows="2"></textarea></div>
-              <div class="col-6"><label class="form-label">Decision Date</label><input id="f_ddate" class="form-control form-control-sm" type="date"></div>
-              <div class="col-6"><label class="form-label">Review Date</label><input id="f_rdate" class="form-control form-control-sm" type="date"></div>
-              <div class="col-12"><label class="form-label">Status</label>
-                <select id="f_status" class="form-select form-select-sm">
-                  <option value="active">Active</option><option value="under_review">Under Review</option>
-                  <option value="superseded">Superseded</option><option value="archived">Archived</option>
+              <div class="col-6 col-md-4">
+                <label class="form-label">Decision Type</label>
+                <select id="f_decision_type" class="form-select form-select-sm">
+                  <option value="strategic">Strategic</option>
+                  <option value="operational">Operational</option>
+                  <option value="sporting">Sporting</option>
+                  <option value="financial">Financial</option>
+                  <option value="hr">HR</option>
+                  <option value="technical">Technical</option>
+                  <option value="other">Other</option>
                 </select>
+              </div>
+              <div class="col-12">
+                <label class="form-label">Description</label>
+                <textarea id="f_description" class="form-control form-control-sm" rows="3"></textarea>
+              </div>
+              <div class="col-12"><div class="modal-section">Rationale</div></div>
+              <div class="col-12">
+                <label class="form-label">Options Considered</label>
+                <textarea id="f_options_considered" class="form-control form-control-sm" rows="3" placeholder="List the options that were evaluated…"></textarea>
+              </div>
+              <div class="col-12">
+                <label class="form-label">Rationale</label>
+                <textarea id="f_rationale" class="form-control form-control-sm" rows="3" placeholder="Why was this decision made?"></textarea>
+              </div>
+              <div class="col-12">
+                <label class="form-label">Impact</label>
+                <textarea id="f_impact" class="form-control form-control-sm" rows="2"></textarea>
+              </div>
+              <div class="col-12"><div class="modal-section">Record</div></div>
+              <div class="col-md-4 col-6">
+                <label class="form-label">Decided By *</label>
+                <input id="f_decided_by" class="form-control form-control-sm" type="text" required>
+              </div>
+              <div class="col-md-4 col-6">
+                <label class="form-label">Decision Date</label>
+                <input id="f_decision_date" class="form-control form-control-sm" type="date">
+              </div>
+              <div class="col-md-4 col-6">
+                <label class="form-label">Review Date</label>
+                <input id="f_review_date" class="form-control form-control-sm" type="date">
+              </div>
+              <div class="col-md-4 col-6">
+                <label class="form-label">Status</label>
+                <select id="f_status" class="form-select form-select-sm">
+                  <option value="pending">Pending</option>
+                  <option value="active">Active</option>
+                  <option value="under_review">Under Review</option>
+                  <option value="superseded">Superseded</option>
+                  <option value="archived">Archived</option>
+                </select>
+              </div>
+              <div class="col-12">
+                <label class="form-label">Notes</label>
+                <textarea id="f_notes" class="form-control form-control-sm" rows="2"></textarea>
               </div>
             </div>
           </form>
         </div>
-      </section>
+        <div class="modal-footer">
+          <button class="btn btn-sm btn-outline-danger me-auto" id="btnDelModal" style="display:none;">Delete</button>
+          <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-sm" style="background:#6366f1;color:#fff;border:none;" id="btnSave">Save</button>
+        </div>
+      </div>
     </div>
   </div>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="topnav.js?v=20260420"></script>
-  <script src="core.js?v=20260420"></script>
-  <script>
-  const API = '/api/decisions';
-  let allData = [], current = null, filterDept = 'all';
-  function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-  function fmtDate(d){ if(!d) return '—'; return new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'}); }
 
-  async function loadAll(){ const data=await apiFetch(API).catch(()=>[]); allData=data||[]; renderStats(); renderTable(); }
-  function renderStats(){
-    const now=new Date(); const m=now.getMonth(); const y=now.getFullYear();
-    document.getElementById('kpiTotal').textContent=allData.length;
-    document.getElementById('kpiActive').textContent=allData.filter(r=>r.status==='active').length;
-    document.getElementById('kpiMonth').textContent=allData.filter(r=>{ if(!r.decision_date) return false; const d=new Date(r.decision_date); return d.getMonth()===m&&d.getFullYear()===y; }).length;
-    document.getElementById('kpiSuper').textContent=allData.filter(r=>r.status==='superseded').length;
-  }
-  function renderTable(){
-    const q=document.getElementById('srch').value.toLowerCase();
-    const sf=document.getElementById('statusFilter').value;
-    let rows=filterDept==='all'?allData:allData.filter(r=>(r.department||'').toLowerCase()===filterDept);
-    if(sf) rows=rows.filter(r=>r.status===sf);
-    if(q) rows=rows.filter(r=>JSON.stringify(r).toLowerCase().includes(q));
-    document.getElementById('cntBadge').textContent=rows.length;
-    const tbody=document.getElementById('tbody');
-    if(!rows.length){ tbody.innerHTML='<tr><td colspan="7" class="text-center text-muted py-3">No decisions found</td></tr>'; return; }
-    tbody.innerHTML=rows.map((r,i)=>`
-      <tr data-id="${r.id}" class="${current&&current.id===r.id?'selected':''}">
-        <td>${i+1}</td>
-        <td>${esc(r.title)}</td>
-        <td>${esc(r.department||'—')}</td>
-        <td>${esc(r.decision_maker||'—')}</td>
-        <td>${fmtDate(r.decision_date)}</td>
-        <td><span class="status-pill sp-${r.status||'active'}">${(r.status||'active').replace('_',' ')}</span></td>
-        <td><button class="del-btn" data-id="${r.id}">✕</button></td>
-      </tr>`).join('');
-    tbody.querySelectorAll('tr[data-id]').forEach(tr=>tr.addEventListener('click',e=>{ if(e.target.classList.contains('del-btn')) return; selectRow(tr.dataset.id); }));
-    tbody.querySelectorAll('.del-btn').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation(); deleteById(b.dataset.id); }));
-  }
-  function selectRow(id){
-    current=allData.find(r=>String(r.id)===String(id)); if(!current) return;
-    document.getElementById('inspBadge').textContent='#'+current.id;
-    const F=f=>document.getElementById(f);
-    F('f_title').value=current.title||'';
-    F('f_desc').value=current.description||'';
-    F('f_dept').value=current.department||'';
-    F('f_maker').value=current.decision_maker||'';
-    F('f_options').value=current.options_considered||'';
-    F('f_rationale').value=current.rationale||'';
-    F('f_outcome').value=current.outcome||'';
-    F('f_ddate').value=current.decision_date?current.decision_date.slice(0,10):'';
-    F('f_rdate').value=current.review_date?current.review_date.slice(0,10):'';
-    F('f_status').value=current.status||'active';
-    renderTable();
-  }
-  function clearForm(){ current=null; document.getElementById('inspBadge').textContent='—'; document.getElementById('recForm').reset(); renderTable(); }
-  async function saveRecord(){
-    const F=f=>document.getElementById(f).value.trim();
-    if(!F('f_title')){ alert('Title is required'); return; }
-    const body={ title:F('f_title'), description:F('f_desc'), department:F('f_dept'),
-      decision_maker:F('f_maker'), options_considered:F('f_options'), rationale:F('f_rationale'),
-      outcome:F('f_outcome'), decision_date:F('f_ddate')||null, review_date:F('f_rdate')||null,
-      status:F('f_status') };
-    if(current){ await apiFetch(`${API}/${current.id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); }
-    else { await apiFetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); }
-    await loadAll();
-  }
-  async function deleteById(id){
-    if(!confirm('Delete this decision?')) return;
-    await apiFetch(`${API}/${id}`,{method:'DELETE'});
-    if(current&&String(current.id)===String(id)){ current=null; document.getElementById('recForm').reset(); }
-    await loadAll();
-  }
-  document.addEventListener('DOMContentLoaded',()=>{
-    loadAll();
-    document.getElementById('btnAdd').addEventListener('click',clearForm);
-    document.getElementById('btnSave').addEventListener('click',saveRecord);
-    document.getElementById('btnDel').addEventListener('click',()=>{ if(current) deleteById(current.id); });
-    document.getElementById('srch').addEventListener('input',renderTable);
-    document.getElementById('statusFilter').addEventListener('change',renderTable);
-    document.querySelectorAll('#filterList li').forEach(li=>li.addEventListener('click',()=>{
-      document.querySelectorAll('#filterList li').forEach(x=>x.classList.remove('active'));
-      li.classList.add('active'); filterDept=li.dataset.v; renderTable();
-    }));
-  });
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="core.js?v=20260420"></script>
+  <script src="topnav.js?v=20260420"></script>
+  <script>
+  (() => {
+    const API = '/api/decisions';
+    const today = new Date().toISOString().slice(0,10);
+    const thisMonth = today.slice(0,7);
+    let all = [], expanded = new Set(), editId = null;
+    const modal = new bootstrap.Modal(document.getElementById('decModal'));
+    const g = id => document.getElementById(id);
+
+    async function load() {
+      try { const r = await fetch(API); all = await r.json(); } catch(e) { all = []; }
+      render(); updateKPIs();
+    }
+
+    function updateKPIs() {
+      g('kpiTotal').textContent  = all.length;
+      g('kpiMonth').textContent  = all.filter(a => (a.decision_date||'').startsWith(thisMonth)).length;
+      g('kpiActive').textContent = all.filter(a => a.status === 'active').length;
+      g('kpiReview').textContent = all.filter(a => a.status === 'under_review').length;
+    }
+
+    function filtered() {
+      const s  = g('srch').value.toLowerCase();
+      const ft = g('fType').value;
+      const fs = g('fStatus').value;
+      return all.filter(a => {
+        if (ft && a.decision_type !== ft) return false;
+        if (fs && a.status !== fs) return false;
+        if (s) {
+          const hay = `${a.title} ${a.decided_by||''} ${a.description||''} ${a.rationale||''}`.toLowerCase();
+          if (!hay.includes(s)) return false;
+        }
+        return true;
+      }).sort((a,b) => {
+        const da = a.decision_date || '', db = b.decision_date || '';
+        return da < db ? 1 : da > db ? -1 : 0;
+      });
+    }
+
+    const typeBadgeClass = { strategic:'tb-strategic', operational:'tb-operational', sporting:'tb-sporting',
+      financial:'tb-financial', hr:'tb-hr', technical:'tb-technical', other:'tb-other' };
+    const typeCardClass  = { strategic:'tbl-strategic', operational:'tbl-operational', sporting:'tbl-sporting',
+      financial:'tbl-financial', hr:'tbl-hr', technical:'tbl-technical', other:'tbl-other' };
+    const dotClass       = { strategic:'dot-strategic', operational:'dot-operational', sporting:'dot-sporting',
+      financial:'dot-financial', hr:'dot-hr', technical:'dot-technical', other:'dot-other' };
+
+    function typeBadge(t) { return `<span class="typ-badge ${typeBadgeClass[t]||'tb-other'}">${t||'other'}</span>`; }
+    function statusBadge(s) {
+      const m = { pending:'sp-pending', active:'sp-active', under_review:'sp-under_review', superseded:'sp-superseded', archived:'sp-archived' };
+      return `<span class="sp ${m[s]||'sp-active'}">${(s||'active').replace('_',' ')}</span>`;
+    }
+    function esc(s) { const d=document.createElement('div'); d.textContent=String(s||''); return d.innerHTML; }
+
+    function fmtDateParts(d) {
+      if (!d) return { day:'—', mon:'', yr:'' };
+      const dt = new Date(d + 'T00:00:00');
+      return {
+        day: dt.getDate(),
+        mon: dt.toLocaleString('en-GB', { month:'short' }),
+        yr:  dt.getFullYear()
+      };
+    }
+
+    function render() {
+      const rows = filtered();
+      g('cntBadge').textContent = `${rows.length} item${rows.length!==1?'s':''}`;
+      const tl = g('timeline');
+      if (!rows.length) {
+        tl.innerHTML = '<div class="text-center text-muted py-5">No decisions found.</div>';
+        return;
+      }
+      tl.innerHTML = rows.map((a, idx) => {
+        const dp   = fmtDateParts(a.decision_date);
+        const tc   = typeCardClass[a.decision_type] || 'tbl-other';
+        const dc   = dotClass[a.decision_type] || 'dot-other';
+        const isEx = expanded.has(a.id);
+        const expandHtml = isEx ? `
+          <div class="tl-expand">
+            ${a.description ? `<div class="el"><div class="el-lbl">Description</div><div class="el-val">${esc(a.description)}</div></div>` : ''}
+            ${a.options_considered ? `<div class="el"><div class="el-lbl">Options Considered</div><div class="el-val">${esc(a.options_considered)}</div></div>` : ''}
+            ${a.rationale ? `<div class="el"><div class="el-lbl">Rationale</div><div class="el-val">${esc(a.rationale)}</div></div>` : ''}
+            ${a.impact ? `<div class="el"><div class="el-lbl">Impact</div><div class="el-val">${esc(a.impact)}</div></div>` : ''}
+            ${a.review_date ? `<div class="el"><div class="el-lbl">Review Date</div><div class="el-val">${a.review_date.slice(0,10).split('-').reverse().join('/')}</div></div>` : ''}
+            ${a.notes ? `<div class="el"><div class="el-lbl">Notes</div><div class="el-val">${esc(a.notes)}</div></div>` : ''}
+            <div class="tl-expand-actions">
+              <button class="btn btn-sm btn-outline-secondary" style="font-size:0.74rem;" onclick="openEdit(event,${a.id})">Edit</button>
+              <button class="btn btn-sm btn-outline-danger" style="font-size:0.74rem;" onclick="doDelete(event,${a.id})">Delete</button>
+            </div>
+          </div>` : '';
+        const isLast = idx === rows.length - 1;
+        return `<div class="tl-item" id="tli-${a.id}">
+          <div class="tl-date-col">
+            <div class="tl-date-day">${dp.day}</div>
+            <div class="tl-date-mon">${dp.mon}</div>
+            <div class="tl-date-yr">${dp.yr}</div>
+          </div>
+          <div class="tl-connector">
+            <div class="tl-dot ${dc}"></div>
+            ${!isLast ? '<div class="tl-line"></div>' : ''}
+          </div>
+          <div class="tl-card ${tc}" data-id="${a.id}" onclick="toggleExpand(${a.id})">
+            <div class="tl-card-title">${esc(a.title)}</div>
+            <div class="tl-card-meta">
+              ${typeBadge(a.decision_type)}
+              ${statusBadge(a.status)}
+              <span>${esc(a.decided_by||'')}</span>
+            </div>
+            ${expandHtml}
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    function toggleExpand(id) {
+      if (expanded.has(id)) expanded.delete(id); else expanded.add(id);
+      render();
+    }
+
+    function openAdd() {
+      editId = null;
+      g('decModalLabel').textContent = 'Record Decision';
+      g('btnDelModal').style.display = 'none';
+      g('decForm').reset();
+      g('f_decision_date').value = today;
+      g('f_status').value = 'active';
+      modal.show();
+    }
+
+    function openEdit(e, id) {
+      if(e) e.stopPropagation();
+      const a = all.find(x => x.id === id); if (!a) return;
+      editId = id;
+      g('decModalLabel').textContent = 'Edit Decision';
+      g('btnDelModal').style.display = '';
+      ['title','decision_type','description','options_considered','rationale','decided_by',
+       'decision_date','impact','review_date','status','notes'
+      ].forEach(f => { const el = g(`f_${f}`); if (el) el.value = a[f] ?? ''; });
+      modal.show();
+    }
+
+    async function save() {
+      const body = {};
+      ['title','decision_type','description','options_considered','rationale','decided_by',
+       'decision_date','impact','review_date','status','notes'
+      ].forEach(f => { body[f] = g(`f_${f}`)?.value ?? ''; });
+      if (!body.title.trim()) { alert('Title is required.'); return; }
+      if (!body.decided_by.trim()) { alert('Decided By is required.'); return; }
+      const method = editId ? 'PUT' : 'POST';
+      const url    = editId ? `${API}/${editId}` : API;
+      const r = await fetch(url, { method, headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+      if (!r.ok) { alert('Save failed.'); return; }
+      modal.hide(); load();
+    }
+
+    async function doDelete(e, id) {
+      if(e) e.stopPropagation();
+      if (!confirm('Delete this decision?')) return;
+      await fetch(`${API}/${id}`, { method:'DELETE' });
+      expanded.delete(id); load();
+    }
+
+    g('btnAdd').onclick = openAdd;
+    g('btnSave').onclick = save;
+    g('btnDelModal').onclick = async () => {
+      if (!confirm('Delete this decision?')) return;
+      await fetch(`${API}/${editId}`, { method:'DELETE' });
+      modal.hide(); expanded.delete(editId); load();
+    };
+    g('srch').oninput = render;
+    g('fType').onchange = render;
+    g('fStatus').onchange = render;
+
+    // Expose to onclick
+    window.toggleExpand = toggleExpand;
+    window.openEdit = openEdit;
+    window.doDelete = doDelete;
+
+    load();
+  })();
   </script>
 </body>
 </html>

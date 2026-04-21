@@ -2,189 +2,319 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Race Team OS – Driver Preferences</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
   <link href="style.css?v=20260420" rel="stylesheet"/>
   <style>
-    body{background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%);}
+    body{background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%);min-height:100vh;}
     .ev-stats-bar{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
-    .ev-stat-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:10px 16px;min-width:110px;}
-    .ev-stat-label{font-size:.7rem;color:#6c757d;font-weight:600;text-transform:uppercase;}
-    .ev-stat-value{font-size:1.5rem;font-weight:700;color:#1a1d24;}
-    #mainShell.mlo-shell{background:transparent;border:none;gap:10px;}
-    #mainShell .mlo-pane-left,#mainShell .mlo-pane-mid,#mainShell .mlo-pane-right{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;}
-    .data-table{width:100%;font-size:.82rem;border-collapse:separate;border-spacing:0;}
-    .data-table thead{position:sticky;top:0;background:#f8f9fa;z-index:5;}
-    .data-table th{padding:8px 10px;font-size:.7rem;font-weight:700;text-transform:uppercase;color:#6c757d;border-bottom:2px solid #dee2e6;}
-    .data-table td{padding:6px 10px;border-bottom:1px solid rgba(0,0,0,.05);}
-    .data-table tbody tr{cursor:pointer;}
-    .data-table tbody tr:hover{background:#f8f9fa;}
-    .data-table tbody tr.selected{background:rgba(236,72,153,.08);outline:2px solid #ec4899;outline-offset:-2px;}
-    .filter-item{padding:5px 8px;border-radius:4px;cursor:pointer;font-size:.8rem;margin-bottom:2px;display:block;color:#495057;text-decoration:none;}
-    .filter-item:hover{background:#fdf2f8;color:#ec4899;}
-    .filter-item.active{background:rgba(236,72,153,.12);color:#ec4899;font-weight:600;}
+    .ev-stat-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:10px 16px;box-shadow:0 2px 4px rgba(0,0,0,.06);min-width:110px;}
+    .ev-stat-label{font-size:.7rem;color:#6c757d;font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+    .ev-stat-value{font-size:1.5rem;font-weight:700;color:#1a1d24;line-height:1.2;}
+
+    .filter-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center;}
+    .filter-bar input,.filter-bar select{font-size:.8rem;padding:4px 8px;border:1px solid #dee2e6;border-radius:6px;background:#fff;color:#1a1d24;}
+
+    .accordion-wrap{display:flex;flex-direction:column;gap:8px;}
+    .acc-item{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.06);overflow:hidden;}
+    .acc-header{padding:13px 16px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;transition:background .1s;}
+    .acc-header:hover{background:#f0fdfb;}
+    .acc-driver{font-size:.95rem;font-weight:700;color:#1a1d24;}
+    .acc-meta{font-size:.75rem;color:#6c757d;}
+    .acc-chevron{transition:transform .2s;font-size:.85rem;color:#6c757d;}
+    .acc-chevron.open{transform:rotate(90deg);}
+    .acc-body{display:none;border-top:1px solid #f0f0f0;}
+    .acc-body.show{display:block;}
+    .acc-body-inner{padding:12px;}
+
+    .pref-table{width:100%;font-size:.8rem;border-collapse:separate;border-spacing:0;}
+    .pref-table thead{background:#f8f9fa;}
+    .pref-table th{padding:6px 10px;font-size:.68rem;font-weight:700;text-transform:uppercase;color:#6c757d;border-bottom:2px solid #dee2e6;white-space:nowrap;}
+    .pref-table td{padding:6px 10px;border-bottom:1px solid rgba(0,0,0,.05);vertical-align:middle;color:#1a1d24;}
+    .pref-table tbody tr:last-child td{border-bottom:none;}
+
+    .badge-p{display:inline-block;padding:2px 7px;border-radius:10px;font-size:.63rem;font-weight:700;}
+    .bp-critical{background:#fee2e2;color:#991b1b;}
+    .bp-high{background:#ffedd5;color:#c2410c;}
+    .bp-normal{background:#dbeafe;color:#1d4ed8;}
+    .bp-low{background:#f3f4f6;color:#6b7280;}
+
+    .badge-cat{display:inline-block;padding:1px 6px;border-radius:8px;font-size:.63rem;font-weight:600;}
+    .bc-setup{background:#ede9fe;color:#5b21b6;}
+    .bc-travel{background:#dbeafe;color:#1d4ed8;}
+    .bc-nutrition{background:#d1fae5;color:#065f46;}
+    .bc-hotel{background:#fef3c7;color:#92400e;}
+    .bc-media{background:#fce7f3;color:#9d174d;}
+    .bc-communication{background:#ccfbf1;color:#0f766e;}
+    .bc-other{background:#f3f4f6;color:#6b7280;}
+
+    .row-actions{opacity:0;transition:opacity .15s;}
+    .pref-table tbody tr:hover .row-actions{opacity:1;}
   </style>
 </head>
 <body class="light-mode">
-  <div id="rtsTopNav"></div>
-  <div class="rts-main container-fluid">
-    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
-      <div>
-        <h1 class="h4 mb-1">Driver Preferences</h1>
-        <p class="text-secondary mb-0" style="font-size:.85rem;">Ergonomics, setup preferences, communication style and debrief preferences</p>
-      </div>
-      <button class="btn btn-sm" id="btnAdd" style="background:#ec4899;border-color:#ec4899;color:#fff">+ New Profile</button>
+<div id="rtsTopNav"></div>
+<div class="rts-main container-fluid">
+  <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+    <div>
+      <h1 class="h4 mb-1">Driver Preferences</h1>
+      <p class="text-secondary mb-0" style="font-size:.85rem;">Setup, travel, nutrition and communication preferences per driver</p>
     </div>
-    <div class="ev-stats-bar">
-      <div class="ev-stat-card"><div class="ev-stat-label">Drivers Profiled</div><div class="ev-stat-value" id="kpi0">—</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">Understeery</div><div class="ev-stat-value" id="kpi1">—</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">Neutral</div><div class="ev-stat-value" id="kpi2">—</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">Oversteery</div><div class="ev-stat-value" id="kpi3">—</div></div>
-    </div>
-    <div class="mlo-shell" id="mainShell">
-      <div class="mlo-pane mlo-pane-left" style="width:180px;min-width:140px;">
-        <div class="mlo-pane-header p-2 border-bottom"><small class="fw-bold text-muted">DRIVERS</small></div>
-        <div class="mlo-pane-content p-2" id="filterList"></div>
+    <button class="btn btn-sm text-white" id="btnAdd" style="background:#14b8a6;border-color:#14b8a6;">+ New Preference</button>
+  </div>
+
+  <div class="ev-stats-bar">
+    <div class="ev-stat-card"><div class="ev-stat-label">Drivers</div><div class="ev-stat-value" id="kpiDrivers">—</div></div>
+    <div class="ev-stat-card"><div class="ev-stat-label">Preferences</div><div class="ev-stat-value" id="kpiPrefs">—</div></div>
+    <div class="ev-stat-card"><div class="ev-stat-label">Critical</div><div class="ev-stat-value" id="kpiCritical">—</div></div>
+    <div class="ev-stat-card"><div class="ev-stat-label">Categories</div><div class="ev-stat-value" id="kpiCategories">—</div></div>
+  </div>
+
+  <div class="filter-bar">
+    <label class="fw-semibold me-1" style="font-size:.8rem;color:#6c757d;">Filter:</label>
+    <input type="search" id="fSearch" placeholder="Search driver, key…" style="width:200px;"/>
+    <select id="fCategory">
+      <option value="">All Categories</option>
+      <option value="setup">Setup</option>
+      <option value="travel">Travel</option>
+      <option value="nutrition">Nutrition</option>
+      <option value="hotel">Hotel</option>
+      <option value="media">Media</option>
+      <option value="communication">Communication</option>
+      <option value="other">Other</option>
+    </select>
+    <select id="fPriority">
+      <option value="">All Priorities</option>
+      <option value="critical">Critical</option>
+      <option value="high">High</option>
+      <option value="normal">Normal</option>
+      <option value="low">Low</option>
+    </select>
+  </div>
+
+  <div class="accordion-wrap" id="accordionWrap"></div>
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="pModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header py-2" style="background:#14b8a6;">
+        <h6 class="modal-title text-white fw-bold" id="modalTitle">New Preference</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
-      <div class="mlo-resizer"></div>
-      <div class="mlo-pane mlo-pane-mid" style="flex:1 1 0;min-width:200px;">
-        <div class="mlo-pane-header p-2 border-bottom d-flex justify-content-between align-items-center">
-          <small class="fw-bold text-muted">PREFERENCES LIST</small>
-          <input type="search" class="form-control form-control-sm" id="searchBox" placeholder="Search…" style="width:160px"/>
-        </div>
-        <div class="mlo-pane-content p-0" style="overflow-y:auto;max-height:calc(100vh - 260px);">
-          <table class="data-table">
-            <thead><tr><th>Driver</th><th>Seat Position</th><th>Brake Bias</th><th>Balance Preference</th></tr></thead>
-            <tbody id="tbody"></tbody>
-          </table>
-        </div>
-      </div>
-      <div class="mlo-resizer"></div>
-      <div class="mlo-pane mlo-pane-right" style="width:340px;min-width:260px;">
-        <div class="mlo-pane-header p-2 border-bottom d-flex justify-content-between align-items-center">
-          <small class="fw-bold text-muted">INSPECTOR</small>
-          <button class="btn btn-sm btn-danger" id="btnDel" style="display:none">Delete</button>
-        </div>
-        <div class="mlo-pane-content p-3" style="overflow-y:auto;max-height:calc(100vh - 260px);">
-          <form id="form" class="vstack gap-2" onsubmit="return false">
-            <div><label class="form-label small fw-semibold mb-1">Driver Name *</label><input class="form-control form-control-sm" id="fDriver"/></div>
-            <div><label class="form-label small fw-semibold mb-1">Driver ID</label><input class="form-control form-control-sm" id="fDriverId"/></div>
-            <hr class="my-1"/>
-            <p class="fw-bold small text-muted mb-0">Ergonomics</p>
-            <div><label class="form-label small fw-semibold mb-1">Seat Position</label><input class="form-control form-control-sm" id="fSeat" placeholder="e.g. +5mm forward, -3mm height"/></div>
-            <div><label class="form-label small fw-semibold mb-1">Steering Position</label><input class="form-control form-control-sm" id="fSteering"/></div>
-            <div><label class="form-label small fw-semibold mb-1">Mirror Settings</label><input class="form-control form-control-sm" id="fMirrors"/></div>
-            <div><label class="form-label small fw-semibold mb-1">Pedal Spacing</label><input class="form-control form-control-sm" id="fPedals"/></div>
-            <hr class="my-1"/>
-            <p class="fw-bold small text-muted mb-0">Setup Preferences</p>
-            <div><label class="form-label small fw-semibold mb-1">Brake Bias Preference</label><input class="form-control form-control-sm" id="fBrakeBias" placeholder="e.g. 60 front"/></div>
-            <div><label class="form-label small fw-semibold mb-1">Differential Preference</label><input class="form-control form-control-sm" id="fDiff"/></div>
-            <div><label class="form-label small fw-semibold mb-1">Balance Preference</label>
-              <select class="form-select form-select-sm" id="fBalance">
-                <option value="">— Select —</option>
-                <option value="understeery">Understeery</option><option value="neutral">Neutral</option><option value="oversteery">Oversteery</option>
+      <div class="modal-body">
+        <form id="pForm" novalidate>
+          <input type="hidden" id="fId"/>
+          <div class="row g-2">
+            <div class="col-6">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Driver Name *</label>
+              <input type="text" class="form-control form-control-sm" id="fDriverName" required/>
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Driver ID</label>
+              <input type="text" class="form-control form-control-sm" id="fDriverId"/>
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Category</label>
+              <select class="form-select form-select-sm" id="fCategory2">
+                <option value="setup">Setup</option>
+                <option value="travel">Travel</option>
+                <option value="nutrition">Nutrition</option>
+                <option value="hotel">Hotel</option>
+                <option value="media">Media</option>
+                <option value="communication">Communication</option>
+                <option value="other">Other</option>
               </select>
             </div>
-            <hr class="my-1"/>
-            <p class="fw-bold small text-muted mb-0">Communication</p>
-            <div><label class="form-label small fw-semibold mb-1">Communication Style</label><input class="form-control form-control-sm" id="fComms" placeholder="e.g. Detailed / High level"/></div>
-            <div><label class="form-label small fw-semibold mb-1">Debrief Preference</label><input class="form-control form-control-sm" id="fDebrief" placeholder="e.g. Data-led, 1-on-1"/></div>
-            <div><label class="form-label small fw-semibold mb-1">Notes</label><textarea class="form-control form-control-sm" id="fNotes" rows="3"></textarea></div>
-          </form>
-          <button class="btn btn-sm mt-2 w-100" id="btnSave" style="background:#ec4899;color:#fff">Save</button>
-        </div>
+            <div class="col-6">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Priority</label>
+              <select class="form-select form-select-sm" id="fPriority2">
+                <option value="normal">Normal</option>
+                <option value="low">Low</option>
+                <option value="high">High</option>
+                <option value="critical">Critical</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Preference Key *</label>
+              <input type="text" class="form-control form-control-sm" id="fPreferenceKey" required placeholder="e.g. Seat Angle, Airline, Pre-race Meal"/>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Preference Value</label>
+              <input type="text" class="form-control form-control-sm" id="fPreferenceValue" placeholder="e.g. 12°, Business Class, Pasta"/>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold" style="font-size:.78rem;">Notes</label>
+              <textarea class="form-control form-control-sm" id="fNotes" rows="2"></textarea>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-sm btn-danger me-auto d-none" id="btnDel">Delete</button>
+        <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-sm text-white" id="btnSave" style="background:#14b8a6;border-color:#14b8a6;">Save</button>
       </div>
     </div>
   </div>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="topnav.js?v=20260420"></script>
-  <script src="core.js?v=20260420"></script>
-  <script>
-  const API='/api/driver-preferences';
-  let all=[],sel=null,filt='all';
-  const gv=id=>(document.getElementById(id)||{}).value||'';
-  const sv=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v??'';};
+</div>
 
-  async function load(){
-    try{const r=await fetch(API);const j=await r.json();all=Array.isArray(j)?j:(j.data||[]);updateKPIs();buildFilters();render();}
-    catch(e){console.error(e);}
-  }
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="topnav.js?v=20260420"></script>
+<script src="core.js?v=20260420"></script>
+<script>
+const API='/api/driver-preferences';
+let allPrefs=[];
+const modal=new bootstrap.Modal(document.getElementById('pModal'));
 
-  function updateKPIs(){
-    document.getElementById('kpi0').textContent=all.length;
-    document.getElementById('kpi1').textContent=all.filter(x=>x.balance_preference==='understeery').length;
-    document.getElementById('kpi2').textContent=all.filter(x=>x.balance_preference==='neutral').length;
-    document.getElementById('kpi3').textContent=all.filter(x=>x.balance_preference==='oversteery').length;
-  }
+function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function prioBadge(p){const m={critical:'bp-critical',high:'bp-high',normal:'bp-normal',low:'bp-low'};return`<span class="badge-p ${m[p]||'bp-normal'}">${esc(p||'normal')}</span>`;}
+function catBadge(c){const m={setup:'bc-setup',travel:'bc-travel',nutrition:'bc-nutrition',hotel:'bc-hotel',media:'bc-media',communication:'bc-communication'};return`<span class="badge-cat ${m[c]||'bc-other'}">${esc(c||'')}</span>`;}
 
-  function buildFilters(){
-    const drivers=[...new Set(all.map(x=>x.driver_name).filter(Boolean))].sort();
-    document.getElementById('filterList').innerHTML=
-      [['all','All Drivers'],...drivers.map(d=>[d,d])].map(([v,l])=>
-        `<a class="filter-item${filt===v?' active':''}" data-val="${v}" href="#">${l}</a>`
-      ).join('');
-    document.querySelectorAll('#filterList .filter-item').forEach(a=>a.onclick=e=>{e.preventDefault();filt=a.dataset.val;buildFilters();render();});
-  }
+async function load(){
+  try{const r=await fetch(API);if(r.ok)allPrefs=await r.json();}catch(e){allPrefs=[];}
+  renderKPIs();
+  renderAccordion();
+}
 
-  function render(){
-    const q=document.getElementById('searchBox').value.toLowerCase();
-    let d=filt==='all'?[...all]:all.filter(x=>x.driver_name===filt);
-    if(q)d=d.filter(x=>JSON.stringify(x).toLowerCase().includes(q));
-    const BalColors={understeery:'info',neutral:'success',oversteery:'warning'};
-    document.getElementById('tbody').innerHTML=d.length
-      ?d.map(row=>`<tr data-id="${row.id}" class="${sel&&String(sel.id)===String(row.id)?'selected':''}">
-          <td class="fw-semibold">${row.driver_name||'—'}</td>
-          <td>${row.seat_position||'—'}</td><td>${row.brake_bias_preference||'—'}</td>
-          <td>${row.balance_preference?`<span class="badge bg-${BalColors[row.balance_preference]||'secondary'}">${row.balance_preference}</span>`:'—'}</td>
-        </tr>`).join('')
-      :'<tr><td colspan="4" class="text-center text-muted py-4">No preference profiles found</td></tr>';
-    document.querySelectorAll('#tbody tr[data-id]').forEach(tr=>tr.onclick=()=>{
-      const item=all.find(x=>String(x.id)===tr.dataset.id);if(item)pick(item);
-    });
-  }
+function renderKPIs(){
+  const drivers=[...new Set(allPrefs.map(p=>p.driver_name).filter(Boolean))];
+  const cats=[...new Set(allPrefs.map(p=>p.category).filter(Boolean))];
+  document.getElementById('kpiDrivers').textContent=drivers.length;
+  document.getElementById('kpiPrefs').textContent=allPrefs.length;
+  document.getElementById('kpiCritical').textContent=allPrefs.filter(p=>p.priority==='critical').length;
+  document.getElementById('kpiCategories').textContent=cats.length;
+}
 
-  function pick(item){
-    sel=item;
-    sv('fDriver',item.driver_name);sv('fDriverId',item.driver_id);
-    sv('fSeat',item.seat_position);sv('fSteering',item.steering_position);
-    sv('fMirrors',item.mirror_settings);sv('fPedals',item.pedal_spacing);
-    sv('fBrakeBias',item.brake_bias_preference);sv('fDiff',item.diff_preference);
-    sv('fBalance',item.balance_preference);sv('fComms',item.communication_style);
-    sv('fDebrief',item.debriefs_preference);sv('fNotes',item.notes);
-    document.getElementById('btnDel').style.display='';render();
-  }
+function filtered(){
+  const q=document.getElementById('fSearch').value.toLowerCase();
+  const cat=document.getElementById('fCategory').value;
+  const pri=document.getElementById('fPriority').value;
+  return allPrefs.filter(p=>{
+    if(cat&&p.category!==cat)return false;
+    if(pri&&p.priority!==pri)return false;
+    if(q&&!`${p.driver_name} ${p.preference_key}`.toLowerCase().includes(q))return false;
+    return true;
+  });
+}
 
-  function clearForm(){
-    sel=null;document.getElementById('form').reset();
-    document.getElementById('btnDel').style.display='none';render();
-  }
+function renderAccordion(){
+  const data=filtered();
+  const drivers=[...new Set(allPrefs.map(p=>p.driver_name).filter(Boolean))].sort();
+  const wrap=document.getElementById('accordionWrap');
+  const openSections=new Set([...wrap.querySelectorAll('.acc-body.show')].map(el=>el.dataset.driver));
+  wrap.innerHTML='';
+  if(!drivers.length){wrap.innerHTML='<div class="text-secondary" style="font-size:.85rem;">No preferences found.</div>';return;}
+  drivers.forEach(name=>{
+    const driverPrefs=data.filter(p=>p.driver_name===name);
+    const allCount=allPrefs.filter(p=>p.driver_name===name).length;
+    const critCount=allPrefs.filter(p=>p.driver_name===name&&p.priority==='critical').length;
+    const item=document.createElement('div');
+    item.className='acc-item';
+    item.innerHTML=`
+      <div class="acc-header" onclick="toggleAcc(this)">
+        <div>
+          <div class="acc-driver">${esc(name)}</div>
+          <div class="acc-meta">${allCount} preference${allCount!==1?'s':''}${critCount>0?` · <span style="color:#ef4444;font-weight:600;">${critCount} critical</span>`:''}</div>
+        </div>
+        <div class="d-flex gap-2 align-items-center">
+          <button class="btn btn-sm text-white" style="font-size:.75rem;padding:3px 10px;background:#14b8a6;border-color:#14b8a6;" onclick="event.stopPropagation();openNewForDriver('${esc(name)}')">+ Add</button>
+          <span class="acc-chevron${openSections.has(name)?' open':''}">&#9654;</span>
+        </div>
+      </div>
+      <div class="acc-body${openSections.has(name)?' show':''}" data-driver="${esc(name)}">
+        <div class="acc-body-inner">
+          ${driverPrefs.length?`
+          <table class="pref-table">
+            <thead><tr><th>Category</th><th>Key</th><th>Value</th><th>Priority</th><th>Notes</th><th></th></tr></thead>
+            <tbody>
+              ${driverPrefs.map(p=>`<tr>
+                <td>${catBadge(p.category)}</td>
+                <td class="fw-semibold">${esc(p.preference_key||'')}</td>
+                <td>${esc(p.preference_value||'')}</td>
+                <td>${prioBadge(p.priority)}</td>
+                <td class="text-secondary">${esc(p.notes||'')}</td>
+                <td class="row-actions"><button class="btn btn-outline-secondary" style="font-size:.7rem;padding:1px 7px;" onclick="openEdit(${p.id})">Edit</button></td>
+              </tr>`).join('')}
+            </tbody>
+          </table>`:'<div class="text-secondary py-2" style="font-size:.82rem;">No preferences match filter for this driver.</div>'}
+        </div>
+      </div>`;
+    wrap.appendChild(item);
+  });
+}
 
-  async function save(){
-    const body={driver_name:gv('fDriver'),driver_id:gv('fDriverId')||null,
-      seat_position:gv('fSeat'),steering_position:gv('fSteering'),mirror_settings:gv('fMirrors'),
-      pedal_spacing:gv('fPedals'),brake_bias_preference:gv('fBrakeBias'),diff_preference:gv('fDiff'),
-      balance_preference:gv('fBalance')||null,communication_style:gv('fComms'),
-      debriefs_preference:gv('fDebrief'),notes:gv('fNotes')};
-    if(!body.driver_name){alert('Driver name is required');return;}
-    try{
-      const url=sel?`${API}/${sel.id}`:API;const method=sel?'PUT':'POST';
-      const r=await fetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-      if(r.ok){const saved=await r.json();if(!sel){sel=saved.data||saved;}await load();}
-      else alert('Save failed');
-    }catch(e){console.error(e);alert('Save failed');}
-  }
+function toggleAcc(header){
+  const body=header.nextElementSibling;
+  const chevron=header.querySelector('.acc-chevron');
+  body.classList.toggle('show');
+  chevron.classList.toggle('open');
+}
 
-  async function del(){
-    if(!sel||!confirm('Delete this preference profile? This cannot be undone.'))return;
-    try{const r=await fetch(`${API}/${sel.id}`,{method:'DELETE'});if(r.ok){clearForm();await load();}else alert('Delete failed');}
-    catch(e){console.error(e);}
-  }
+function openNew(){
+  document.getElementById('pForm').reset();
+  document.getElementById('fId').value='';
+  document.getElementById('fPriority2').value='normal';
+  document.getElementById('fCategory2').value='setup';
+  document.getElementById('modalTitle').textContent='New Preference';
+  document.getElementById('btnDel').classList.add('d-none');
+  modal.show();
+}
 
-  document.getElementById('btnAdd').onclick=clearForm;
-  document.getElementById('btnSave').onclick=save;
-  document.getElementById('btnDel').onclick=del;
-  document.getElementById('searchBox').addEventListener('input',render);
-  load();
-  </script>
+function openNewForDriver(name){
+  openNew();
+  document.getElementById('fDriverName').value=name;
+}
+
+function openEdit(id){
+  const p=allPrefs.find(x=>x.id===id);if(!p)return;
+  document.getElementById('fId').value=p.id;
+  document.getElementById('fDriverName').value=p.driver_name||'';
+  document.getElementById('fDriverId').value=p.driver_id||'';
+  document.getElementById('fCategory2').value=p.category||'setup';
+  document.getElementById('fPriority2').value=p.priority||'normal';
+  document.getElementById('fPreferenceKey').value=p.preference_key||'';
+  document.getElementById('fPreferenceValue').value=p.preference_value||'';
+  document.getElementById('fNotes').value=p.notes||'';
+  document.getElementById('modalTitle').textContent='Edit Preference';
+  document.getElementById('btnDel').classList.remove('d-none');
+  modal.show();
+}
+
+async function save(){
+  const id=document.getElementById('fId').value;
+  const body={
+    driver_name:document.getElementById('fDriverName').value.trim(),
+    driver_id:document.getElementById('fDriverId').value.trim(),
+    category:document.getElementById('fCategory2').value,
+    preference_key:document.getElementById('fPreferenceKey').value.trim(),
+    preference_value:document.getElementById('fPreferenceValue').value.trim(),
+    priority:document.getElementById('fPriority2').value,
+    notes:document.getElementById('fNotes').value.trim()
+  };
+  if(!body.driver_name||!body.preference_key){alert('Driver Name and Preference Key are required');return;}
+  const r=await fetch(id?`${API}/${id}`:API,{method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(!r.ok){alert('Save failed');return;}
+  modal.hide();load();
+}
+
+async function del(){
+  const id=document.getElementById('fId').value;if(!id)return;
+  if(!confirm('Delete this preference?'))return;
+  const r=await fetch(`${API}/${id}`,{method:'DELETE'});
+  if(!r.ok){alert('Delete failed');return;}
+  modal.hide();load();
+}
+
+document.getElementById('btnAdd').addEventListener('click',openNew);
+document.getElementById('btnSave').addEventListener('click',save);
+document.getElementById('btnDel').addEventListener('click',del);
+document.getElementById('fSearch').addEventListener('input',renderAccordion);
+document.getElementById('fCategory').addEventListener('change',renderAccordion);
+document.getElementById('fPriority').addEventListener('change',renderAccordion);
+load();
+</script>
 </body>
 </html>
