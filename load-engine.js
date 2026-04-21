@@ -15,6 +15,7 @@ console.log('📦 load-engine.js loading...');
   // ========== STATE ==========
   let boxes = [];
   let assets = [];
+  let inventory = [];
   let trucks = [];
   let currentLoad = null;
   let events = [];
@@ -57,7 +58,9 @@ console.log('📦 load-engine.js loading...');
       const apiBoxes = boxesResp.boxes || [];
       const apiBoxContents = boxContentsResp.boxContents || [];
       const apiItems = itemsResp.items || [];
-      assets = apiItems; // expose to asset tab
+      // assets = tracked physical items (barcodes, serials) from /api/items
+      assets = apiItems;
+      // inventory loaded separately below
       
       // Map boxes with their contents
       boxes = apiBoxes.map(b => {
@@ -166,6 +169,15 @@ console.log('📦 load-engine.js loading...');
     } catch (e) {
       showError('Could not load vehicles from database: ' + e.message);
       return;
+    }
+
+    // Load inventory items (consumables/stock) from collections
+    try {
+      const invResp = await window.RTS_API.getCollectionItems('inventory');
+      inventory = Array.isArray(invResp) ? invResp : (invResp.items || invResp.data || []);
+    } catch (e) {
+      console.warn('Could not load inventory items:', e.message);
+      inventory = [];
     }
 
     // Load current load plan from DB — use the first truck's plan by default
@@ -508,6 +520,7 @@ console.log('📦 load-engine.js loading...');
   function renderAll() {
     renderBoxes();
     renderAssets();
+    renderInventory();
     renderTruckZones();
     updateStats();
     if (currentView === '3D') render3D();
@@ -592,33 +605,42 @@ console.log('📦 load-engine.js loading...');
   // ========== TAB SWITCHING ==========
   function switchTab(tab) {
     activeTab = tab;
-    const boxesList   = document.getElementById('boxesList');
-    const assetsList  = document.getElementById('assetsList');
-    const searchBoxes = document.getElementById('searchBoxes');
-    const searchAssets= document.getElementById('searchAssets');
-    const boxesHint   = document.getElementById('boxesHint');
-    const assetsHint  = document.getElementById('assetsHint');
-    const tabBoxes    = document.getElementById('tabBoxes');
-    const tabAssets   = document.getElementById('tabAssets');
+    const boxesList     = document.getElementById('boxesList');
+    const assetsList    = document.getElementById('assetsList');
+    const inventoryList = document.getElementById('inventoryList');
+    const searchBoxes   = document.getElementById('searchBoxes');
+    const searchAssets  = document.getElementById('searchAssets');
+    const searchInv     = document.getElementById('searchInventory');
+    const boxesHint     = document.getElementById('boxesHint');
+    const assetsHint    = document.getElementById('assetsHint');
+    const inventoryHint = document.getElementById('inventoryHint');
+    const tabBoxes      = document.getElementById('tabBoxes');
+    const tabAssets     = document.getElementById('tabAssets');
+    const tabInventory  = document.getElementById('tabInventory');
+
+    // hide all
+    [boxesList, assetsList, inventoryList].forEach(el => { if (el) el.style.display = 'none'; });
+    [searchBoxes, searchAssets, searchInv].forEach(el => { if (el) el.style.display = 'none'; });
+    [boxesHint, assetsHint, inventoryHint].forEach(el => { if (el) el.style.display = 'none'; });
+    [tabBoxes, tabAssets, tabInventory].forEach(el => { if (el) el.classList.remove('active'); });
+
     if (tab === 'boxes') {
       if (boxesList)   boxesList.style.display   = '';
-      if (assetsList)  assetsList.style.display  = 'none';
       if (searchBoxes) searchBoxes.style.display  = '';
-      if (searchAssets)searchAssets.style.display = 'none';
       if (boxesHint)   boxesHint.style.display    = '';
-      if (assetsHint)  assetsHint.style.display   = 'none';
       if (tabBoxes)    tabBoxes.classList.add('active');
-      if (tabAssets)   tabAssets.classList.remove('active');
-    } else {
-      if (boxesList)   boxesList.style.display   = 'none';
+    } else if (tab === 'assets') {
       if (assetsList)  assetsList.style.display  = '';
-      if (searchBoxes) searchBoxes.style.display  = 'none';
       if (searchAssets)searchAssets.style.display = '';
-      if (boxesHint)   boxesHint.style.display    = 'none';
       if (assetsHint)  assetsHint.style.display   = '';
-      if (tabBoxes)    tabBoxes.classList.remove('active');
       if (tabAssets)   tabAssets.classList.add('active');
       renderAssets();
+    } else if (tab === 'inventory') {
+      if (inventoryList) inventoryList.style.display = '';
+      if (searchInv)     searchInv.style.display      = '';
+      if (inventoryHint) inventoryHint.style.display  = '';
+      if (tabInventory)  tabInventory.classList.add('active');
+      renderInventory();
     }
   }
 
@@ -677,6 +699,54 @@ console.log('📦 load-engine.js loading...');
     }).join('');
   }
 
+  // ========== INVENTORY PANEL ==========
+  function renderInventory() {
+    const listEl = document.getElementById('inventoryList');
+    if (!listEl) return;
+    const search = (document.getElementById('searchInventory')?.value || '').toLowerCase();
+    const placedInvIds = new Set(
+      currentLoad.placements.filter(p => p.type === 'inventory').map(p => p.inventoryId)
+    );
+
+    let sorted = [...inventory];
+    if (search) {
+      sorted = sorted.filter(i =>
+        (i.name || '').toLowerCase().includes(search) ||
+        (i.sku || '').toLowerCase().includes(search) ||
+        (i.category || '').toLowerCase().includes(search)
+      );
+    }
+    sorted.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+    if (sorted.length === 0) {
+      listEl.innerHTML = '<div style="text-align:center;color:#9e9e9e;padding:20px;font-size:.8rem;">No inventory items found</div>';
+      return;
+    }
+
+    listEl.innerHTML = sorted.map(i => {
+      const placed = placedInvIds.has(i.id);
+      const qtyBadge = i.quantity !== undefined
+        ? `<span style="background:#fff3e0;color:#e65100;border-radius:3px;padding:1px 5px;font-size:.62rem;font-weight:700;">Qty: ${i.quantity}</span>`
+        : '';
+      const catBadge = i.category
+        ? `<span style="background:#f3e5f5;color:#6a1b9a;border-radius:3px;padding:1px 5px;font-size:.62rem;font-weight:700;">${esc(i.category)}</span>`
+        : '';
+      const statusBadge = placed
+        ? `<div class="box-status loaded" style="margin-top:4px;">✓ In This Truck</div>`
+        : `<div class="box-status warehouse" style="margin-top:4px;">📦 Available</div>`;
+      return `
+        <div class="box-item asset-item${placed ? ' placed loaded' : ''}"
+             draggable="${!placed}"
+             data-inventory-id="${i.id}"
+             style="cursor:${placed ? 'not-allowed' : 'grab'};border-left:3px solid #9c27b0;">
+          <div class="box-barcode" style="color:#9c27b0;">${esc(i.sku || i.id?.slice(0,8) || '—')}</div>
+          <div class="box-name">${esc(i.name)}</div>
+          <div class="box-dims" style="margin-top:2px;display:flex;gap:4px;flex-wrap:wrap;">${catBadge}${qtyBadge}</div>
+          ${statusBadge}
+        </div>`;
+    }).join('');
+  }
+
   function renderTruckZones() {
     const truck = getTruck();
     
@@ -708,7 +778,8 @@ console.log('📦 load-engine.js loading...');
     sortedZoneKeys.forEach((zoneKey) => {
       const zone = truck.zones[zoneKey];
       const placements = currentLoad.placements.filter(p => p.zone === zoneKey && p.type !== 'asset');
-      const assetPlacements = currentLoad.placements.filter(p => p.zone === zoneKey && p.type === 'asset');
+      const assetPlacements     = currentLoad.placements.filter(p => p.zone === zoneKey && p.type === 'asset');
+      const inventoryPlacements = currentLoad.placements.filter(p => p.zone === zoneKey && p.type === 'inventory');
       const gridNum = parseInt(zoneKey.replace('grid-', ''));
       const zoneColor = gridColors[(gridNum - 1) % gridColors.length];
       
@@ -804,7 +875,24 @@ console.log('📦 load-engine.js loading...');
           </div>`;
       }).join('');
 
-      const totalItems = placements.length + assetPlacements.length;
+      const inventoryHtml = inventoryPlacements.map(p => {
+        const item = inventory.find(i => i.id === p.inventoryId);
+        if (!item) return `
+          <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:4px;padding:5px 8px;margin-bottom:4px;">
+            <div style="font-size:.7rem;font-weight:700;color:#856404;">⚠ Item not found</div>
+            <button style="font-size:.65rem;margin-top:2px;padding:1px 6px;background:#dc3545;color:#fff;border:none;border-radius:3px;cursor:pointer;" onclick="LoadEngine.removeInventory('${p.inventoryId}')">Remove</button>
+          </div>`;
+        return `
+          <div class="placed-asset" style="border-color:#9c27b0;background:#f3e5f5;">
+            <div>
+              <div class="placed-asset-name" style="color:#6a1b9a;">🗃️ ${esc(item.name)}</div>
+              <div class="placed-asset-meta">${esc(item.sku || '')}${item.category ? ' · ' + esc(item.category) : ''}${item.quantity !== undefined ? ' · Qty: ' + item.quantity : ''}</div>
+            </div>
+            <button class="btn-remove-box" onclick="LoadEngine.removeInventory('${item.id}')">×</button>
+          </div>`;
+      }).join('');
+
+      const totalItems = placements.length + assetPlacements.length + inventoryPlacements.length;
       const weightPercent = (totalWeight / zone.maxWeight) * 100;
       const capacityClass = weightPercent > 95 ? 'danger' : weightPercent > 80 ? 'warning' : '';
       const hasBoxes = placements.length > 0;
@@ -828,13 +916,13 @@ console.log('📦 load-engine.js loading...');
           <div style="position:absolute;top:8px;right:8px;width:20px;height:20px;border-radius:50%;background:${zoneColor};border:2px solid #fff;box-shadow:0 2px 4px rgba(0,0,0,.2);"></div>
           <div style="font-size:1rem;font-weight:700;color:#202124;margin-bottom:6px;">Grid ${gridNum}</div>
           <div style="font-size:.75rem;color:#5f6368;margin-bottom:6px;font-weight:500;">
-            ${totalWeight.toFixed(0)}/${zone.maxWeight}kg | ${placements.length} box${placements.length !== 1 ? 'es' : ''}${assetPlacements.length ? ` · ${assetPlacements.length} asset${assetPlacements.length !== 1 ? 's' : ''}` : ''}
+            ${totalWeight.toFixed(0)}/${zone.maxWeight}kg | ${placements.length} box${placements.length !== 1 ? 'es' : ''}${assetPlacements.length ? ` · ${assetPlacements.length} asset${assetPlacements.length !== 1 ? 's' : ''}` : ''}${inventoryPlacements.length ? ` · ${inventoryPlacements.length} inv` : ''}
           </div>
           <div class="capacity-bar" style="margin-bottom:8px;">
             <div class="capacity-fill ${capacityClass}" style="width:${Math.min(weightPercent, 100)}%;background:${zoneColor}"></div>
           </div>
           <div style="max-height:180px;overflow-y:auto;transition:max-height .3s ease;">
-            ${boxesHtml}${assetsHtml}${(!boxesHtml && !assetsHtml) ? '<div style="font-size:.75rem;color:#9e9e9e;text-align:center;padding:12px;opacity:0.6;">Empty Zone</div>' : ''}
+            ${boxesHtml}${assetsHtml}${inventoryHtml}${(!boxesHtml && !assetsHtml && !inventoryHtml) ? '<div style="font-size:.75rem;color:#9e9e9e;text-align:center;padding:12px;opacity:0.6;">Empty Zone</div>' : ''}
           </div>
         </div>
       `;
@@ -856,9 +944,10 @@ console.log('📦 load-engine.js loading...');
     const truck = getTruck();
     const boxPlacements   = currentLoad.placements.filter(p => p.type !== 'asset');
     const assetPlacements = currentLoad.placements.filter(p => p.type === 'asset');
+    const invPlacements   = currentLoad.placements.filter(p => p.type === 'inventory');
     const loadedCount = boxPlacements.length;
     const totalBoxes  = boxes.length;
-    
+
     let totalWeight = 0;
     let totalVolume = 0;
 
@@ -870,8 +959,11 @@ console.log('📦 load-engine.js loading...');
       }
     });
 
-    const assetLabel = assetPlacements.length ? ` +${assetPlacements.length}a` : '';
-    document.getElementById('statBoxesLoaded').textContent = `${loadedCount} / ${totalBoxes}${assetLabel}`;
+    const extraLabel = [
+      assetPlacements.length ? `+${assetPlacements.length}a` : '',
+      invPlacements.length   ? `+${invPlacements.length}i`   : ''
+    ].filter(Boolean).join(' ');
+    document.getElementById('statBoxesLoaded').textContent = `${loadedCount} / ${totalBoxes}${extraLabel ? ' ' + extraLabel : ''}`;
     document.getElementById('statWeight').textContent = `${totalWeight.toFixed(0)} kg`;
     
     if (truck) {
@@ -895,6 +987,7 @@ console.log('📦 load-engine.js loading...');
   // ========== DRAG AND DROP ==========
   let draggedBoxId = null;
   let draggedAssetId = null;
+  let draggedInventoryId = null;
   let dragHandlersSetup = false;
 
   function setupDragAndDrop() {
@@ -903,16 +996,22 @@ console.log('📦 load-engine.js loading...');
     // Setup box item drag events (only once)
     document.addEventListener('dragstart', e => {
       console.log('DRAGSTART event fired on:', e.target.className);
-      if (e.target.classList.contains('asset-item') && !e.target.classList.contains('placed')) {
+      if (e.target.dataset.inventoryId && !e.target.classList.contains('placed')) {
+        draggedInventoryId = e.target.dataset.inventoryId;
+        draggedAssetId = null; draggedBoxId = null;
+        e.target.style.opacity = '0.5';
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', 'inventory:' + draggedInventoryId);
+      } else if (e.target.classList.contains('asset-item') && !e.target.classList.contains('placed')) {
         draggedAssetId = e.target.dataset.assetId;
-        draggedBoxId = null;
+        draggedBoxId = null; draggedInventoryId = null;
         e.target.style.opacity = '0.5';
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', 'asset:' + draggedAssetId);
         console.log('✅ Started dragging asset:', draggedAssetId);
       } else if (e.target.classList.contains('box-item') && !e.target.classList.contains('loaded') && !e.target.classList.contains('in-other-truck')) {
         draggedBoxId = e.target.dataset.boxId;
-        draggedAssetId = null;
+        draggedAssetId = null; draggedInventoryId = null;
         e.target.style.opacity = '0.5';
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', draggedBoxId);
@@ -954,8 +1053,11 @@ console.log('📦 load-engine.js loading...');
         e.stopPropagation();
         section.classList.remove('drop-target');
         const zone = section.dataset.zone;
-        console.log('✅ DROP event on zone:', zone, 'boxId:', draggedBoxId, 'assetId:', draggedAssetId);
-        if (draggedAssetId) {
+        console.log('✅ DROP event on zone:', zone, 'boxId:', draggedBoxId, 'assetId:', draggedAssetId, 'invId:', draggedInventoryId);
+        if (draggedInventoryId) {
+          placeInventory(draggedInventoryId, zone);
+          draggedInventoryId = null;
+        } else if (draggedAssetId) {
           placeAsset(draggedAssetId, zone);
           draggedAssetId = null;
         } else if (draggedBoxId) {
@@ -1026,6 +1128,32 @@ console.log('📦 load-engine.js loading...');
 
   function removeAsset(assetId) {
     const index = currentLoad.placements.findIndex(p => p.type === 'asset' && p.assetId === assetId);
+    if (index !== -1) {
+      currentLoad.placements.splice(index, 1);
+      currentLoad.updatedAt = new Date().toISOString();
+      saveData();
+      renderAll();
+    }
+  }
+
+  function placeInventory(inventoryId, zone) {
+    if (currentLoad.placements.some(p => p.type === 'inventory' && p.inventoryId === inventoryId)) {
+      alert('Item is already loaded!');
+      return;
+    }
+    currentLoad.placements.push({
+      type: 'inventory',
+      inventoryId,
+      zone,
+      timestamp: new Date().toISOString()
+    });
+    currentLoad.updatedAt = new Date().toISOString();
+    saveData();
+    renderAll();
+  }
+
+  function removeInventory(inventoryId) {
+    const index = currentLoad.placements.findIndex(p => p.type === 'inventory' && p.inventoryId === inventoryId);
     if (index !== -1) {
       currentLoad.placements.splice(index, 1);
       currentLoad.updatedAt = new Date().toISOString();
@@ -2274,10 +2402,13 @@ console.log('📦 load-engine.js loading...');
     removeBox,
     removeAsset,
     placeAsset,
+    removeInventory,
+    placeInventory,
     showBoxModal,
     toggleBoxExpand,
     switchTab,
     renderAssets,
+    renderInventory,
     exportPackingListCSV,
     exportPackingListPDF
   };
