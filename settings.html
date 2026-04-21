@@ -1160,8 +1160,14 @@
         // Save to database
         (async () => {
           try {
-            await RTS_API.updateAssetType(cur.id, { name: cur.name, color: cur.color });
-            await loadAssetTypesFromDB();
+            const saveResp = await RTS_API.updateAssetType(cur.id, { name: cur.name, color: cur.color });
+            // Update cache directly from the server response to avoid a stale GET cache hit
+            if (saveResp?.success && saveResp.assetType && assetTypesCache) {
+              const ci = assetTypesCache.findIndex(t => t.id === cur.id);
+              if (ci !== -1) assetTypesCache[ci] = saveResp.assetType;
+            } else {
+              await loadAssetTypesFromDB();
+            }
             await renderList();
             loadInspector();
             if (RTS.showToast) RTS.showToast('✅ Asset type saved', 'success');

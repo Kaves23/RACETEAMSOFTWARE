@@ -20,7 +20,7 @@ router.get('/', async (req, res, next) => {
     query += ' ORDER BY sort_order ASC, name ASC';
     
     const result = await pool.query(query, params);
-    res.set('Cache-Control', 'private, max-age=30');
+    res.set('Cache-Control', 'no-store');
     res.json({ success: true, count: result.rows.length, assetTypes: result.rows });
   } catch (error) {
     next(error);
