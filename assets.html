@@ -535,6 +535,64 @@
       margin-bottom: 0;
     }
 
+    /* Asset type section (top-level collapsible by type) */
+    .asset-type-section { margin-bottom: 8px; }
+    .asset-type-section-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      user-select: none;
+      transition: filter .15s, border-radius .15s;
+      border: none;
+      box-shadow: 0 2px 6px rgba(0,0,0,.15);
+    }
+    .asset-type-section-header:hover { filter: brightness(0.92); }
+    .asset-type-section-header.expanded {
+      border-bottom-left-radius: 0;
+      border-bottom-right-radius: 0;
+    }
+    .asset-type-section-chevron {
+      font-size: 0.65rem;
+      color: rgba(255,255,255,.85);
+      transition: transform .2s;
+      flex-shrink: 0;
+      display: inline-block;
+    }
+    .asset-type-section-header.expanded .asset-type-section-chevron {
+      transform: rotate(90deg);
+    }
+    .asset-type-section-title {
+      font-size: 0.88rem;
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      flex: 1;
+    }
+    .asset-type-section-count {
+      font-size: 0.65rem;
+      font-weight: 700;
+      color: #fff;
+      background: rgba(255,255,255,.2);
+      border: 1px solid rgba(255,255,255,.3);
+      border-radius: 10px;
+      padding: 1px 9px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .asset-type-section-body {
+      border: 1px solid rgba(0,0,0,.1);
+      border-top: none;
+      border-bottom-left-radius: 8px;
+      border-bottom-right-radius: 8px;
+      padding: 8px 8px 6px;
+      background: #fafbfc;
+      margin-bottom: 2px;
+    }
+
    /* Bulk Actions Toolbar - Compact Racing Theme */
     #bulkActionsToolbar {
       background: linear-gradient(135deg, #1a1a1a 0%, #2d1b4e 100%);
@@ -2180,6 +2238,8 @@
     let currentFilteredAssets = []; // Track currently displayed assets for range selection
     let expandedGroups = new Set(); // Track which asset name groups are expanded
     let groupKeyMap = []; // Maps gid (render-time index) → base name, for toggling
+    let expandedTypes = new Set(); // Track which asset type sections are expanded
+    let typeKeyMap = [];  // Maps tid (render-time index) → type key, for toggling
 
     // Simple cache to avoid redundant API calls
     let dataCache = {
@@ -2582,19 +2642,66 @@
     // Render cards with same-base-name assets collapsed into accordion groups
     function renderGroupedCards(assets) {
       groupKeyMap = [];
-      console.log('[ACCORDION] renderGroupedCards called with', assets.length, 'assets');
+      typeKeyMap  = [];
 
-      // Count how many filtered assets share each base name
+      // Group assets by item_type, preserving allAssetTypes order
+      const typeOrder = allAssetTypes.map(t => t.name.toLowerCase().replace(/\s+/g, '_'));
+      const typeGroups = {};
+      assets.forEach(asset => {
+        const key = (asset.item_type || 'other').toLowerCase();
+        if (!typeGroups[key]) typeGroups[key] = [];
+        typeGroups[key].push(asset);
+      });
+
+      // Ordered: known types first (in settings order), then any unlisted types
+      const orderedKeys = [
+        ...typeOrder.filter(k => typeGroups[k]),
+        ...Object.keys(typeGroups).filter(k => !typeOrder.includes(k))
+      ];
+
+      let html = '';
+      orderedKeys.forEach(typeKey => {
+        const tid = typeKeyMap.length;
+        typeKeyMap.push(typeKey);
+        html += renderTypeSectionHeader(tid, typeKey, typeGroups[typeKey]);
+      });
+      return html;
+    }
+
+    // Render a collapsible type-level section header
+    function renderTypeSectionHeader(tid, typeKey, typeAssets) {
+      const assetTypeObj = allAssetTypes.find(t => t.name.toLowerCase().replace(/\s+/g, '_') === typeKey);
+      const typeColor    = assetTypeObj ? assetTypeObj.color : '#64748b';
+      const typeName     = assetTypeObj ? assetTypeObj.name  : typeKey;
+      const isExpanded   = expandedTypes.has(typeKey);
+      const innerHtml    = renderNameGroupedCards(typeAssets);
+
+      return `
+      <div class="asset-type-section">
+        <div class="asset-type-section-header${isExpanded ? ' expanded' : ''}"
+             data-tid="${tid}"
+             style="background:${typeColor};"
+             onclick="toggleTypeSection(${tid})">
+          <span class="asset-type-section-chevron">▶</span>
+          <span class="asset-type-section-title">${typeName}</span>
+          <span class="asset-type-section-count">${typeAssets.length} asset${typeAssets.length !== 1 ? 's' : ''}</span>
+        </div>
+        <div class="asset-type-section-body" id="asset-type-body-${tid}" style="display:${isExpanded ? 'block' : 'none'}">
+          ${innerHtml}
+        </div>
+      </div>`;
+    }
+
+    // Inner name-based grouping (the existing logic, extracted) 
+    function renderNameGroupedCards(assets) {
       const baseCounts = {};
       assets.forEach(asset => {
         const base = getAssetBaseName(asset.name);
         if (base) baseCounts[base] = (baseCounts[base] || 0) + 1;
       });
 
-      console.log('[ACCORDION] groups found:', Object.entries(baseCounts).filter(([,v])=>v>1).map(([k,v])=>k+'×'+v));
       let html = '';
       const renderedGroups = new Set();
-
       assets.forEach(asset => {
         const base = getAssetBaseName(asset.name);
         if (base && baseCounts[base] > 1) {
@@ -2609,8 +2716,23 @@
           html += createAssetCard(asset);
         }
       });
-
       return html;
+    }
+
+    function toggleTypeSection(tid) {
+      const typeKey = typeKeyMap[tid];
+      if (!typeKey) return;
+      const body   = document.getElementById('asset-type-body-' + tid);
+      const header = document.querySelector(`.asset-type-section-header[data-tid="${tid}"]`);
+      if (expandedTypes.has(typeKey)) {
+        expandedTypes.delete(typeKey);
+        if (body) body.style.display = 'none';
+        if (header) header.classList.remove('expanded');
+      } else {
+        expandedTypes.add(typeKey);
+        if (body) body.style.display = 'block';
+        if (header) header.classList.add('expanded');
+      }
     }
 
     function renderGroupHeader(gid, baseName, groupAssets) {
@@ -2638,7 +2760,6 @@
         <span class="asset-group-chevron">▶</span>
         <span class="asset-group-name">${baseName}</span>
         <span class="asset-group-count">×${groupAssets.length}</span>
-        <span class="asset-badge" style="background:${typeColor};color:white;font-weight:500;font-size:0.65rem;padding:1px 7px;border-radius:4px;flex-shrink:0;">${typeName}</span>
         ${locationHtml}
       </div>
       <div class="asset-group-children" id="asset-group-children-${gid}" style="display:${isExpanded ? 'block' : 'none'}">
