@@ -14,12 +14,14 @@ console.log('📦 load-engine.js loading...');
 
   // ========== STATE ==========
   let boxes = [];
+  let assets = [];
   let trucks = [];
   let currentLoad = null;
   let events = [];
   let eventsLoadError = false;
   let selectedBoxId = null;
   let currentView = '2D';
+  let activeTab = 'boxes';
   let scene, camera, renderer, controls;
   let boxModal;
 
@@ -55,6 +57,7 @@ console.log('📦 load-engine.js loading...');
       const apiBoxes = boxesResp.boxes || [];
       const apiBoxContents = boxContentsResp.boxContents || [];
       const apiItems = itemsResp.items || [];
+      assets = apiItems; // expose to asset tab
       
       // Map boxes with their contents
       boxes = apiBoxes.map(b => {
@@ -504,6 +507,7 @@ console.log('📦 load-engine.js loading...');
   // ========== RENDERING ==========
   function renderAll() {
     renderBoxes();
+    renderAssets();
     renderTruckZones();
     updateStats();
     if (currentView === '3D') render3D();
@@ -585,6 +589,94 @@ console.log('📦 load-engine.js loading...');
     }
   }
 
+  // ========== TAB SWITCHING ==========
+  function switchTab(tab) {
+    activeTab = tab;
+    const boxesList   = document.getElementById('boxesList');
+    const assetsList  = document.getElementById('assetsList');
+    const searchBoxes = document.getElementById('searchBoxes');
+    const searchAssets= document.getElementById('searchAssets');
+    const boxesHint   = document.getElementById('boxesHint');
+    const assetsHint  = document.getElementById('assetsHint');
+    const tabBoxes    = document.getElementById('tabBoxes');
+    const tabAssets   = document.getElementById('tabAssets');
+    if (tab === 'boxes') {
+      if (boxesList)   boxesList.style.display   = '';
+      if (assetsList)  assetsList.style.display  = 'none';
+      if (searchBoxes) searchBoxes.style.display  = '';
+      if (searchAssets)searchAssets.style.display = 'none';
+      if (boxesHint)   boxesHint.style.display    = '';
+      if (assetsHint)  assetsHint.style.display   = 'none';
+      if (tabBoxes)    tabBoxes.classList.add('active');
+      if (tabAssets)   tabAssets.classList.remove('active');
+    } else {
+      if (boxesList)   boxesList.style.display   = 'none';
+      if (assetsList)  assetsList.style.display  = '';
+      if (searchBoxes) searchBoxes.style.display  = 'none';
+      if (searchAssets)searchAssets.style.display = '';
+      if (boxesHint)   boxesHint.style.display    = 'none';
+      if (assetsHint)  assetsHint.style.display   = '';
+      if (tabBoxes)    tabBoxes.classList.remove('active');
+      if (tabAssets)   tabAssets.classList.add('active');
+      renderAssets();
+    }
+  }
+
+  // ========== ASSETS PANEL ==========
+  function renderAssets() {
+    const listEl = document.getElementById('assetsList');
+    if (!listEl) return;
+    const search = (document.getElementById('searchAssets')?.value || '').toLowerCase();
+    const placedAssetIds = new Set(
+      currentLoad.placements.filter(p => p.type === 'asset').map(p => p.assetId)
+    );
+
+    // Race fleet items first, then rest
+    let sorted = [...assets].sort((a, b) => {
+      if (a.is_race_fleet && !b.is_race_fleet) return -1;
+      if (!a.is_race_fleet && b.is_race_fleet) return 1;
+      return (a.name || '').localeCompare(b.name || '');
+    });
+    if (search) {
+      sorted = sorted.filter(a =>
+        (a.name || '').toLowerCase().includes(search) ||
+        (a.barcode || '').toLowerCase().includes(search) ||
+        (a.category || '').toLowerCase().includes(search) ||
+        (a.serial_number || '').toLowerCase().includes(search)
+      );
+    }
+
+    if (sorted.length === 0) {
+      listEl.innerHTML = '<div style="text-align:center;color:#9e9e9e;padding:20px;font-size:.8rem;">No assets found</div>';
+      return;
+    }
+
+    listEl.innerHTML = sorted.map(a => {
+      const placed = placedAssetIds.has(a.id);
+      const isFleet = a.is_race_fleet;
+      const catBadge = a.category
+        ? `<span style="background:#e8f0fe;color:#1a73e8;border-radius:3px;padding:1px 5px;font-size:.62rem;font-weight:700;">${esc(a.category)}</span>`
+        : '';
+      const fleetBadge = isFleet
+        ? `<span style="background:#e6f4ea;color:#137333;border-radius:3px;padding:1px 5px;font-size:.62rem;font-weight:700;">🏁 Fleet</span>`
+        : '';
+      const statusBadge = placed
+        ? `<div class="box-status loaded" style="margin-top:4px;">✓ In This Truck</div>`
+        : `<div class="box-status warehouse" style="margin-top:4px;">📦 Available</div>`;
+      return `
+        <div class="box-item asset-item${placed ? ' placed loaded' : ''}"
+             draggable="${!placed}"
+             data-asset-id="${a.id}"
+             style="cursor:${placed ? 'not-allowed' : 'grab'};border-left:3px solid #34a853;">
+          <div class="box-barcode" style="color:#34a853;">${esc(a.barcode || a.id.slice(0,8))}</div>
+          <div class="box-name">${esc(a.name)}</div>
+          <div class="box-dims" style="margin-top:2px;display:flex;gap:4px;flex-wrap:wrap;">${catBadge}${fleetBadge}</div>
+          ${a.serial_number ? `<div class="box-weight">S/N: ${esc(a.serial_number)}</div>` : ''}
+          ${statusBadge}
+        </div>`;
+    }).join('');
+  }
+
   function renderTruckZones() {
     const truck = getTruck();
     
@@ -615,7 +707,8 @@ console.log('📦 load-engine.js loading...');
     
     sortedZoneKeys.forEach((zoneKey) => {
       const zone = truck.zones[zoneKey];
-      const placements = currentLoad.placements.filter(p => p.zone === zoneKey);
+      const placements = currentLoad.placements.filter(p => p.zone === zoneKey && p.type !== 'asset');
+      const assetPlacements = currentLoad.placements.filter(p => p.zone === zoneKey && p.type === 'asset');
       const gridNum = parseInt(zoneKey.replace('grid-', ''));
       const zoneColor = gridColors[(gridNum - 1) % gridColors.length];
       
@@ -694,6 +787,24 @@ console.log('📦 load-engine.js loading...');
         return '';
       }).join('');
       
+      const assetsHtml = assetPlacements.map(p => {
+        const asset = assets.find(a => a.id === p.assetId);
+        if (!asset) return `
+          <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:4px;padding:5px 8px;margin-bottom:4px;">
+            <div style="font-size:.7rem;font-weight:700;color:#856404;">⚠ Asset not found</div>
+            <button style="font-size:.65rem;margin-top:2px;padding:1px 6px;background:#dc3545;color:#fff;border:none;border-radius:3px;cursor:pointer;" onclick="LoadEngine.removeAsset('${p.assetId}')">Remove</button>
+          </div>`;
+        return `
+          <div class="placed-asset">
+            <div>
+              <div class="placed-asset-name">🔧 ${esc(asset.name)}</div>
+              <div class="placed-asset-meta">${esc(asset.barcode || '')}${asset.category ? ' · ' + esc(asset.category) : ''}</div>
+            </div>
+            <button class="btn-remove-box" onclick="LoadEngine.removeAsset('${asset.id}')">×</button>
+          </div>`;
+      }).join('');
+
+      const totalItems = placements.length + assetPlacements.length;
       const weightPercent = (totalWeight / zone.maxWeight) * 100;
       const capacityClass = weightPercent > 95 ? 'danger' : weightPercent > 80 ? 'warning' : '';
       const hasBoxes = placements.length > 0;
@@ -717,13 +828,13 @@ console.log('📦 load-engine.js loading...');
           <div style="position:absolute;top:8px;right:8px;width:20px;height:20px;border-radius:50%;background:${zoneColor};border:2px solid #fff;box-shadow:0 2px 4px rgba(0,0,0,.2);"></div>
           <div style="font-size:1rem;font-weight:700;color:#202124;margin-bottom:6px;">Grid ${gridNum}</div>
           <div style="font-size:.75rem;color:#5f6368;margin-bottom:6px;font-weight:500;">
-            ${totalWeight.toFixed(0)}/${zone.maxWeight}kg | ${placements.length} box${placements.length !== 1 ? 'es' : ''}
+            ${totalWeight.toFixed(0)}/${zone.maxWeight}kg | ${placements.length} box${placements.length !== 1 ? 'es' : ''}${assetPlacements.length ? ` · ${assetPlacements.length} asset${assetPlacements.length !== 1 ? 's' : ''}` : ''}
           </div>
           <div class="capacity-bar" style="margin-bottom:8px;">
             <div class="capacity-fill ${capacityClass}" style="width:${Math.min(weightPercent, 100)}%;background:${zoneColor}"></div>
           </div>
           <div style="max-height:180px;overflow-y:auto;transition:max-height .3s ease;">
-            ${boxesHtml || '<div style="font-size:.75rem;color:#9e9e9e;text-align:center;padding:12px;opacity:0.6;">Empty Zone</div>'}
+            ${boxesHtml}${assetsHtml}${(!boxesHtml && !assetsHtml) ? '<div style="font-size:.75rem;color:#9e9e9e;text-align:center;padding:12px;opacity:0.6;">Empty Zone</div>' : ''}
           </div>
         </div>
       `;
@@ -743,13 +854,15 @@ console.log('📦 load-engine.js loading...');
 
   function updateStats() {
     const truck = getTruck();
-    const loadedCount = currentLoad.placements.length;
-    const totalBoxes = boxes.length;
+    const boxPlacements   = currentLoad.placements.filter(p => p.type !== 'asset');
+    const assetPlacements = currentLoad.placements.filter(p => p.type === 'asset');
+    const loadedCount = boxPlacements.length;
+    const totalBoxes  = boxes.length;
     
     let totalWeight = 0;
     let totalVolume = 0;
 
-    currentLoad.placements.forEach(p => {
+    boxPlacements.forEach(p => {
       const box = getBox(p.boxId);
       if (box) {
         totalWeight += box.weight;
@@ -757,7 +870,8 @@ console.log('📦 load-engine.js loading...');
       }
     });
 
-    document.getElementById('statBoxesLoaded').textContent = `${loadedCount} / ${totalBoxes}`;
+    const assetLabel = assetPlacements.length ? ` +${assetPlacements.length}a` : '';
+    document.getElementById('statBoxesLoaded').textContent = `${loadedCount} / ${totalBoxes}${assetLabel}`;
     document.getElementById('statWeight').textContent = `${totalWeight.toFixed(0)} kg`;
     
     if (truck) {
@@ -780,6 +894,7 @@ console.log('📦 load-engine.js loading...');
 
   // ========== DRAG AND DROP ==========
   let draggedBoxId = null;
+  let draggedAssetId = null;
   let dragHandlersSetup = false;
 
   function setupDragAndDrop() {
@@ -788,8 +903,16 @@ console.log('📦 load-engine.js loading...');
     // Setup box item drag events (only once)
     document.addEventListener('dragstart', e => {
       console.log('DRAGSTART event fired on:', e.target.className);
-      if (e.target.classList.contains('box-item') && !e.target.classList.contains('loaded') && !e.target.classList.contains('in-other-truck')) {
+      if (e.target.classList.contains('asset-item') && !e.target.classList.contains('placed')) {
+        draggedAssetId = e.target.dataset.assetId;
+        draggedBoxId = null;
+        e.target.style.opacity = '0.5';
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', 'asset:' + draggedAssetId);
+        console.log('✅ Started dragging asset:', draggedAssetId);
+      } else if (e.target.classList.contains('box-item') && !e.target.classList.contains('loaded') && !e.target.classList.contains('in-other-truck')) {
         draggedBoxId = e.target.dataset.boxId;
+        draggedAssetId = null;
         e.target.style.opacity = '0.5';
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', draggedBoxId);
@@ -798,7 +921,7 @@ console.log('📦 load-engine.js loading...');
     });
 
     document.addEventListener('dragend', e => {
-      if (e.target.classList.contains('box-item')) {
+      if (e.target.classList.contains('box-item') || e.target.classList.contains('asset-item')) {
         e.target.style.opacity = '1';
       }
     });
@@ -831,8 +954,11 @@ console.log('📦 load-engine.js loading...');
         e.stopPropagation();
         section.classList.remove('drop-target');
         const zone = section.dataset.zone;
-        console.log('✅ DROP event on zone:', zone, 'boxId:', draggedBoxId);
-        if (draggedBoxId) {
+        console.log('✅ DROP event on zone:', zone, 'boxId:', draggedBoxId, 'assetId:', draggedAssetId);
+        if (draggedAssetId) {
+          placeAsset(draggedAssetId, zone);
+          draggedAssetId = null;
+        } else if (draggedBoxId) {
           placeBox(draggedBoxId, zone);
           draggedBoxId = null;
         }
@@ -874,6 +1000,32 @@ console.log('📦 load-engine.js loading...');
 
   function removeBox(boxId) {
     const index = currentLoad.placements.findIndex(p => p.boxId === boxId);
+    if (index !== -1) {
+      currentLoad.placements.splice(index, 1);
+      currentLoad.updatedAt = new Date().toISOString();
+      saveData();
+      renderAll();
+    }
+  }
+
+  function placeAsset(assetId, zone) {
+    if (currentLoad.placements.some(p => p.type === 'asset' && p.assetId === assetId)) {
+      alert('Asset is already loaded!');
+      return;
+    }
+    currentLoad.placements.push({
+      type: 'asset',
+      assetId,
+      zone,
+      timestamp: new Date().toISOString()
+    });
+    currentLoad.updatedAt = new Date().toISOString();
+    saveData();
+    renderAll();
+  }
+
+  function removeAsset(assetId) {
+    const index = currentLoad.placements.findIndex(p => p.type === 'asset' && p.assetId === assetId);
     if (index !== -1) {
       currentLoad.placements.splice(index, 1);
       currentLoad.updatedAt = new Date().toISOString();
@@ -2120,8 +2272,12 @@ console.log('📦 load-engine.js loading...');
     init,
     selectBox,
     removeBox,
+    removeAsset,
+    placeAsset,
     showBoxModal,
     toggleBoxExpand,
+    switchTab,
+    renderAssets,
     exportPackingListCSV,
     exportPackingListPDF
   };
