@@ -16,6 +16,7 @@ console.log('📦 load-engine.js loading...');
   let boxes = [];
   let assets = [];
   let inventory = [];
+  let locations = [];
   let trucks = [];
   let currentLoad = null;
   let events = [];
@@ -23,6 +24,11 @@ console.log('📦 load-engine.js loading...');
   let selectedBoxId = null;
   let currentView = '2D';
   let activeTab = 'boxes';
+  // active filters per tab
+  let filterBoxCat = 'all';
+  let filterAssetType = 'all';
+  let filterAssetStatus = 'all';
+  let filterInvCat = 'all';
   let scene, camera, renderer, controls;
   let boxModal;
 
@@ -178,6 +184,14 @@ console.log('📦 load-engine.js loading...');
     } catch (e) {
       console.warn('Could not load inventory items:', e.message);
       inventory = [];
+    }
+
+    // Load locations for asset display
+    try {
+      const locResp = await window.RTS_API.getLocations();
+      locations = locResp.items || [];
+    } catch (e) {
+      locations = [];
     }
 
     // Load current load plan from DB — use the first truck's plan by default
@@ -528,11 +542,14 @@ console.log('📦 load-engine.js loading...');
 
   function renderBoxes() {
     const search = document.getElementById('searchBoxes').value.toLowerCase();
-    const filtered = boxes.filter(b =>
-      (b.barcode || '').toLowerCase().includes(search) ||
-      (b.name || '').toLowerCase().includes(search) ||
-      (b.contents || '').toLowerCase().includes(search)
-    );
+    const filtered = boxes.filter(b => {
+      const matchCat = filterBoxCat === 'all' || (b.category || '').toLowerCase() === filterBoxCat;
+      const matchSearch = !search ||
+        (b.barcode || '').toLowerCase().includes(search) ||
+        (b.name || '').toLowerCase().includes(search) ||
+        (b.contents || '').toLowerCase().includes(search);
+      return matchCat && matchSearch;
+    });
 
     // Separate garage boxes to bottom
     const normalBoxes  = filtered.filter(b => b.boxType !== 'garage');
@@ -602,6 +619,20 @@ console.log('📦 load-engine.js loading...');
     }
   }
 
+  // ========== FILTER CHIPS ==========
+  function setFilter(tab, key, value) {
+    if (tab === 'boxes')                          { filterBoxCat      = value; renderBoxes();     }
+    else if (tab === 'assets' && key === 'type')  { filterAssetType   = value; renderAssets();    }
+    else if (tab === 'assets' && key === 'status'){ filterAssetStatus = value; renderAssets();    }
+    else if (tab === 'inventory')                 { filterInvCat      = value; renderInventory(); }
+
+    // Update active chip visual
+    const group = tab === 'assets' ? `assets_${key}` : `${tab}_cat`;
+    document.querySelectorAll(`[data-filter-group="${group}"]`).forEach(el => {
+      el.classList.toggle('active', el.dataset.filterValue === value);
+    });
+  }
+
   // ========== TAB SWITCHING ==========
   function switchTab(tab) {
     activeTab = tab;
@@ -614,6 +645,9 @@ console.log('📦 load-engine.js loading...');
     const boxesHint     = document.getElementById('boxesHint');
     const assetsHint    = document.getElementById('assetsHint');
     const inventoryHint = document.getElementById('inventoryHint');
+    const filterBoxes   = document.getElementById('filterBoxes');
+    const filterAssets  = document.getElementById('filterAssets');
+    const filterInv     = document.getElementById('filterInventory');
     const tabBoxes      = document.getElementById('tabBoxes');
     const tabAssets     = document.getElementById('tabAssets');
     const tabInventory  = document.getElementById('tabInventory');
@@ -622,23 +656,27 @@ console.log('📦 load-engine.js loading...');
     [boxesList, assetsList, inventoryList].forEach(el => { if (el) el.style.display = 'none'; });
     [searchBoxes, searchAssets, searchInv].forEach(el => { if (el) el.style.display = 'none'; });
     [boxesHint, assetsHint, inventoryHint].forEach(el => { if (el) el.style.display = 'none'; });
+    [filterBoxes, filterAssets, filterInv].forEach(el => { if (el) el.style.display = 'none'; });
     [tabBoxes, tabAssets, tabInventory].forEach(el => { if (el) el.classList.remove('active'); });
 
     if (tab === 'boxes') {
       if (boxesList)   boxesList.style.display   = '';
       if (searchBoxes) searchBoxes.style.display  = '';
       if (boxesHint)   boxesHint.style.display    = '';
+      if (filterBoxes) filterBoxes.style.display  = '';
       if (tabBoxes)    tabBoxes.classList.add('active');
     } else if (tab === 'assets') {
-      if (assetsList)  assetsList.style.display  = '';
-      if (searchAssets)searchAssets.style.display = '';
-      if (assetsHint)  assetsHint.style.display   = '';
+      if (assetsList)  assetsList.style.display   = '';
+      if (searchAssets)searchAssets.style.display  = '';
+      if (assetsHint)  assetsHint.style.display    = '';
+      if (filterAssets)filterAssets.style.display  = '';
       if (tabAssets)   tabAssets.classList.add('active');
       renderAssets();
     } else if (tab === 'inventory') {
       if (inventoryList) inventoryList.style.display = '';
       if (searchInv)     searchInv.style.display      = '';
       if (inventoryHint) inventoryHint.style.display  = '';
+      if (filterInv)     filterInv.style.display      = '';
       if (tabInventory)  tabInventory.classList.add('active');
       renderInventory();
     }
@@ -659,14 +697,16 @@ console.log('📦 load-engine.js loading...');
       if (!a.is_race_fleet && b.is_race_fleet) return 1;
       return (a.name || '').localeCompare(b.name || '');
     });
-    if (search) {
-      sorted = sorted.filter(a =>
-        (a.name || '').toLowerCase().includes(search) ||
-        (a.barcode || '').toLowerCase().includes(search) ||
-        (a.category || '').toLowerCase().includes(search) ||
-        (a.serial_number || '').toLowerCase().includes(search)
-      );
-    }
+    sorted = sorted.filter(a => {
+      const matchType   = filterAssetType   === 'all' || (a.item_type || '').toLowerCase() === filterAssetType;
+      const matchStatus = filterAssetStatus === 'all' || (a.status    || '').toLowerCase() === filterAssetStatus;
+      const matchSearch = !search ||
+        (a.name          || '').toLowerCase().includes(search) ||
+        (a.barcode       || '').toLowerCase().includes(search) ||
+        (a.category      || '').toLowerCase().includes(search) ||
+        (a.serial_number || '').toLowerCase().includes(search);
+      return matchType && matchStatus && matchSearch;
+    });
 
     if (sorted.length === 0) {
       listEl.innerHTML = '<div style="text-align:center;color:#9e9e9e;padding:20px;font-size:.8rem;">No assets found</div>';
@@ -682,18 +722,35 @@ console.log('📦 load-engine.js loading...');
       const fleetBadge = isFleet
         ? `<span style="background:#e6f4ea;color:#137333;border-radius:3px;padding:1px 5px;font-size:.62rem;font-weight:700;">🏁 Fleet</span>`
         : '';
+      const loc = locations.find(l => l.id === a.current_location_id);
+      const locName = loc
+        ? loc.name
+        : (a.assigned_staff_name || a.assigned_driver_name)
+          ? `Assigned: ${a.assigned_staff_name || a.assigned_driver_name}`
+          : null;
       const statusBadge = placed
         ? `<div class="box-status loaded" style="margin-top:4px;">✓ In This Truck</div>`
         : `<div class="box-status warehouse" style="margin-top:4px;">📦 Available</div>`;
+      const ttData = esc(JSON.stringify({
+        _name: a.name || '—', Barcode: a.barcode || '—',
+        Serial: a.serial_number || '—', Category: a.category || '—',
+        Type: a.item_type || '—', Status: a.status || '—',
+        Location: locName || '—',
+        Value: a.value_usd ? `$${a.value_usd}` : '—',
+        Weight: a.weight_kg ? `${a.weight_kg} kg` : '—',
+        Notes: a.description || '—'
+      }));
       return `
         <div class="box-item asset-item${placed ? ' placed loaded' : ''}"
              draggable="${!placed}"
              data-asset-id="${a.id}"
+             data-tooltip="${ttData}"
              style="cursor:${placed ? 'not-allowed' : 'grab'};border-left:3px solid #34a853;">
           <div class="box-barcode" style="color:#34a853;">${esc(a.barcode || a.id.slice(0,8))}</div>
           <div class="box-name">${esc(a.name)}</div>
           <div class="box-dims" style="margin-top:2px;display:flex;gap:4px;flex-wrap:wrap;">${catBadge}${fleetBadge}</div>
           ${a.serial_number ? `<div class="box-weight">S/N: ${esc(a.serial_number)}</div>` : ''}
+          ${locName ? `<div class="box-weight" style="color:#1a73e8;">📍 ${esc(locName)}</div>` : ''}
           ${statusBadge}
         </div>`;
     }).join('');
@@ -708,14 +765,24 @@ console.log('📦 load-engine.js loading...');
       currentLoad.placements.filter(p => p.type === 'inventory').map(p => p.inventoryId)
     );
 
-    let sorted = [...inventory];
-    if (search) {
-      sorted = sorted.filter(i =>
-        (i.name || '').toLowerCase().includes(search) ||
-        (i.sku || '').toLowerCase().includes(search) ||
-        (i.category || '').toLowerCase().includes(search)
-      );
+    // Build dynamic category chips
+    const chipsEl = document.getElementById('filterInventoryChips');
+    if (chipsEl) {
+      const cats = [...new Set(inventory.map(i => i.category).filter(Boolean))].sort();
+      chipsEl.innerHTML =
+        `<button class="filter-chip${filterInvCat === 'all' ? ' active' : ''}" data-filter-group="inventory_cat" data-filter-value="all" onclick="LoadEngine.setFilter('inventory','cat','all')">All</button>` +
+        cats.map(c => `<button class="filter-chip${filterInvCat === c ? ' active' : ''}" data-filter-group="inventory_cat" data-filter-value="${esc(c)}" onclick="LoadEngine.setFilter('inventory','cat',${JSON.stringify(c)})">${esc(c)}</button>`).join('');
     }
+
+    let sorted = [...inventory];
+    sorted = sorted.filter(i => {
+      const matchCat = filterInvCat === 'all' || (i.category || '') === filterInvCat;
+      const matchSearch = !search ||
+        (i.name     || '').toLowerCase().includes(search) ||
+        (i.sku      || '').toLowerCase().includes(search) ||
+        (i.category || '').toLowerCase().includes(search);
+      return matchCat && matchSearch;
+    });
     sorted.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
     if (sorted.length === 0) {
@@ -734,10 +801,17 @@ console.log('📦 load-engine.js loading...');
       const statusBadge = placed
         ? `<div class="box-status loaded" style="margin-top:4px;">✓ In This Truck</div>`
         : `<div class="box-status warehouse" style="margin-top:4px;">📦 Available</div>`;
+      const ttData = esc(JSON.stringify({
+        _name: i.name || '—', SKU: i.sku || '—',
+        Category: i.category || '—',
+        Quantity: i.quantity !== undefined ? String(i.quantity) : '—',
+        Unit: i.unit || '—', Notes: i.notes || '—'
+      }));
       return `
         <div class="box-item asset-item${placed ? ' placed loaded' : ''}"
              draggable="${!placed}"
              data-inventory-id="${i.id}"
+             data-tooltip="${ttData}"
              style="cursor:${placed ? 'not-allowed' : 'grab'};border-left:3px solid #9c27b0;">
           <div class="box-barcode" style="color:#9c27b0;">${esc(i.sku || i.id?.slice(0,8) || '—')}</div>
           <div class="box-name">${esc(i.name)}</div>
@@ -1466,6 +1540,45 @@ console.log('📦 load-engine.js loading...');
       const el = e.target.closest('.box-item');
       if (!el) return;
       hideTimer = setTimeout(() => { tip.style.display = 'none'; }, 120);
+    });
+  })();
+
+  // ========== ASSET / INVENTORY HOVER TOOLTIP ==========
+  (function setupItemTooltip() {
+    const tip = document.getElementById('loadTooltip');
+    if (!tip) return;
+    const ttTitle = document.getElementById('ttTitle');
+    const ttBody  = document.getElementById('ttBody');
+    let hideTimer = null;
+
+    document.addEventListener('mouseover', e => {
+      const el = e.target.closest('[data-tooltip]');
+      if (!el) return;
+      let data;
+      try { data = JSON.parse(el.dataset.tooltip); } catch(ex) { return; }
+      clearTimeout(hideTimer);
+      if (ttTitle) ttTitle.textContent = data._name || '—';
+      if (ttBody) {
+        ttBody.innerHTML = Object.entries(data)
+          .filter(([k]) => !k.startsWith('_') && data[k] && data[k] !== '—')
+          .map(([k, v]) => `<div class="tt-row"><span class="tt-key">${esc(k)}</span><span class="tt-val">${esc(String(v))}</span></div>`)
+          .join('');
+      }
+      tip.style.display = 'block';
+    });
+
+    document.addEventListener('mousemove', e => {
+      if (tip.style.display === 'none') return;
+      const tw = tip.offsetWidth  || 240;
+      const th = tip.offsetHeight || 100;
+      tip.style.left = Math.min(e.clientX + 14, window.innerWidth  - tw - 8) + 'px';
+      tip.style.top  = Math.min(e.clientY + 10, window.innerHeight - th - 8) + 'px';
+    });
+
+    document.addEventListener('mouseout', e => {
+      const el = e.target.closest('[data-tooltip]');
+      if (!el) return;
+      hideTimer = setTimeout(() => { tip.style.display = 'none'; }, 100);
     });
   })();
 
@@ -2407,6 +2520,7 @@ console.log('📦 load-engine.js loading...');
     showBoxModal,
     toggleBoxExpand,
     switchTab,
+    setFilter,
     renderAssets,
     renderInventory,
     exportPackingListCSV,

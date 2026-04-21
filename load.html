@@ -105,6 +105,18 @@
     .placed-asset{background:#e6f4ea;border:1px solid #34a853;border-radius:4px;padding:8px 10px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;}
     .placed-asset-name{font-size:.8rem;font-weight:600;color:#1e7e34;}
     .placed-asset-meta{font-size:.7rem;color:#5f6368;margin-top:2px;}
+    /* Filter chips */
+    .filter-chips{display:flex;flex-wrap:wrap;gap:3px;}
+    .filter-chip{padding:2px 8px;border-radius:10px;font-size:.62rem;font-weight:600;border:1px solid #dadce0;background:#f8f9fa;color:#5f6368;cursor:pointer;transition:all .12s;line-height:1.6;}
+    .filter-chip:hover{border-color:#1a73e8;color:#1a73e8;}
+    .filter-chip.active{background:#1a73e8;color:#fff;border-color:#1a73e8;}
+    .filter-chip-label{font-size:.6rem;color:#9e9e9e;text-transform:uppercase;letter-spacing:.04em;margin:4px 0 2px;}
+    /* Item hover tooltip */
+    #loadTooltip{position:fixed;z-index:99999;background:#fff;border:1px solid #e0e0e0;border-radius:7px;box-shadow:0 4px 18px rgba(0,0,0,.16);padding:10px 13px;min-width:200px;max-width:280px;pointer-events:none;font-size:.76rem;line-height:1.55;color:#202124;display:none;}
+    #loadTooltip .tt-title{font-weight:700;font-size:.82rem;margin-bottom:6px;color:#1a73e8;border-bottom:1px solid #f0f0f0;padding-bottom:4px;}
+    #loadTooltip .tt-row{display:flex;gap:6px;margin-bottom:2px;}
+    #loadTooltip .tt-key{color:#9e9e9e;min-width:62px;font-size:.7rem;flex-shrink:0;}
+    #loadTooltip .tt-val{color:#202124;font-size:.72rem;word-break:break-word;}
   </style>
 </head>
 <body class="page-load light-mode">
@@ -163,6 +175,43 @@
           <div id="boxesHint" style="font-size:.65rem;color:#5f6368;margin-top:4px;font-style:italic">💡 In 3D: matches = spring green, others = gray</div>
           <div id="assetsHint" style="font-size:.65rem;color:#5f6368;margin-top:4px;font-style:italic;display:none">💡 Drag assets into truck zones. Race fleet items shown first.</div>
           <div id="inventoryHint" style="font-size:.65rem;color:#5f6368;margin-top:4px;font-style:italic;display:none">💡 Drag inventory items into truck zones.</div>
+          <!-- Boxes filter -->
+          <div id="filterBoxes" style="margin-top:5px;">
+            <div class="filter-chips">
+              <button class="filter-chip active" data-filter-group="boxes_cat" data-filter-value="all" onclick="LoadEngine.setFilter('boxes','cat','all')">All</button>
+              <button class="filter-chip" data-filter-group="boxes_cat" data-filter-value="container" onclick="LoadEngine.setFilter('boxes','cat','container')">Container</button>
+              <button class="filter-chip" data-filter-group="boxes_cat" data-filter-value="tools" onclick="LoadEngine.setFilter('boxes','cat','tools')">Tools</button>
+              <button class="filter-chip" data-filter-group="boxes_cat" data-filter-value="spares" onclick="LoadEngine.setFilter('boxes','cat','spares')">Spares</button>
+              <button class="filter-chip" data-filter-group="boxes_cat" data-filter-value="tyres" onclick="LoadEngine.setFilter('boxes','cat','tyres')">Tyres</button>
+              <button class="filter-chip" data-filter-group="boxes_cat" data-filter-value="fuel" onclick="LoadEngine.setFilter('boxes','cat','fuel')">Fuel</button>
+              <button class="filter-chip" data-filter-group="boxes_cat" data-filter-value="equipment" onclick="LoadEngine.setFilter('boxes','cat','equipment')">Equipment</button>
+              <button class="filter-chip" data-filter-group="boxes_cat" data-filter-value="personal" onclick="LoadEngine.setFilter('boxes','cat','personal')">Personal</button>
+            </div>
+          </div>
+          <!-- Assets filter -->
+          <div id="filterAssets" style="margin-top:5px;display:none;">
+            <div class="filter-chip-label">Type</div>
+            <div class="filter-chips">
+              <button class="filter-chip active" data-filter-group="assets_type" data-filter-value="all" onclick="LoadEngine.setFilter('assets','type','all')">All</button>
+              <button class="filter-chip" data-filter-group="assets_type" data-filter-value="equipment" onclick="LoadEngine.setFilter('assets','type','equipment')">Equipment</button>
+              <button class="filter-chip" data-filter-group="assets_type" data-filter-value="asset" onclick="LoadEngine.setFilter('assets','type','asset')">Asset</button>
+              <button class="filter-chip" data-filter-group="assets_type" data-filter-value="tool" onclick="LoadEngine.setFilter('assets','type','tool')">Tool</button>
+              <button class="filter-chip" data-filter-group="assets_type" data-filter-value="consumable" onclick="LoadEngine.setFilter('assets','type','consumable')">Consumable</button>
+            </div>
+            <div class="filter-chip-label" style="margin-top:4px;">Status</div>
+            <div class="filter-chips">
+              <button class="filter-chip active" data-filter-group="assets_status" data-filter-value="all" onclick="LoadEngine.setFilter('assets','status','all')">All</button>
+              <button class="filter-chip" data-filter-group="assets_status" data-filter-value="available" onclick="LoadEngine.setFilter('assets','status','available')">Available</button>
+              <button class="filter-chip" data-filter-group="assets_status" data-filter-value="in use" onclick="LoadEngine.setFilter('assets','status','in use')">In Use</button>
+              <button class="filter-chip" data-filter-group="assets_status" data-filter-value="maintenance" onclick="LoadEngine.setFilter('assets','status','maintenance')">Maintenance</button>
+            </div>
+          </div>
+          <!-- Inventory filter (categories built dynamically by renderInventory) -->
+          <div id="filterInventory" style="margin-top:5px;display:none;">
+            <div id="filterInventoryChips" class="filter-chips">
+              <button class="filter-chip active" data-filter-group="inventory_cat" data-filter-value="all" onclick="LoadEngine.setFilter('inventory','cat','all')">All</button>
+            </div>
+          </div>
         </div>
         <div class="boxes-list" id="boxesList"></div>
         <div class="boxes-list" id="assetsList" style="display:none"></div>
@@ -254,5 +303,10 @@
   <script src="core.js"></script>
   <script src="topnav.js?v=20260420"></script>
   <script src="load-engine.js?v=20260409-0900"></script>
+  <!-- Item hover tooltip (assets & inventory) -->
+  <div id="loadTooltip">
+    <div class="tt-title" id="ttTitle">—</div>
+    <div id="ttBody"></div>
+  </div>
 </body>
 </html>
