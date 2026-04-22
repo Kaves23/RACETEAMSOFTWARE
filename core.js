@@ -260,7 +260,10 @@
         { code:'International Trip', color:'#22c55e' },
         { code:'Travel Day', color:'#facc15' }
       ],
-      calendars: { google: { enabled:false, calendarId:'', lastSync:'', notes:'' } }
+      calendars: { google: { enabled:false, calendarId:'', lastSync:'', notes:'' } },
+      teamName: '',
+      teamLogoUrl: '',
+      brandColor: '#e32636'
     };
     return deepMerge(base, ext);
   }

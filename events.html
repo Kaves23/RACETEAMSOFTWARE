@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
   <title>Race Team OS – Events</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="style.css?v=20260420" rel="stylesheet" />
@@ -124,6 +127,53 @@
     #evShell .ev-sub-table .form-select, #evShell .ev-sub-table .form-control { font-size: 0.78rem; }
     /* Wrap a class for the table containers */
     .ev-table-wrap { border: 1px solid #dee2e6; border-radius: 6px; overflow: hidden; }
+
+    /* ── PRINT OVERLAY (hides everything except the print sheet) ─── */
+    @media print {
+      body > *:not(#rp-print-overlay) { display: none !important; }
+      #rp-print-overlay { display: block !important; }
+    }
+    #rp-print-overlay { display: none; }
+
+    /* ── RUN PLAN / DAY PROGRAMME ────────────────────────────────── */
+    .rp-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+    .rp-toolbar-left { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .rp-countdown { font-size: 0.78rem; color: #6c757d; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 20px; padding: 2px 10px; white-space: nowrap; }
+    .rp-print-btns { display: flex; gap: 6px; }
+    .rp-print-btn { font-size: 0.75rem; padding: 3px 12px; border-radius: 20px; border: 1px solid #dee2e6; background: #fff; color: #495057; cursor: pointer; font-weight: 500; transition: background 0.15s, border-color 0.15s; display: inline-flex; align-items: center; gap: 4px; }
+    .rp-print-btn:hover { background: #f0f4f8; border-color: #adb5bd; }
+    .rp-print-btn.client { border-color: #0099cc; color: #0099cc; }
+    .rp-print-btn.client:hover { background: rgba(0,153,204,0.08); }
+    .rp-print-btn.internal { border-color: #fd7e14; color: #e67300; }
+    .rp-print-btn.internal:hover { background: rgba(253,126,20,0.08); }
+
+    /* Programme table */
+    .rp-table { width: 100%; font-size: 0.8rem; border-collapse: collapse; }
+    .rp-table th { background: #f8f9fa; color: #6c757d; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 6px 10px; border-bottom: 2px solid #dee2e6; white-space: nowrap; }
+    .rp-table td { padding: 7px 10px; border-bottom: 1px solid #f0f0f0; color: #1a1d24; vertical-align: middle; }
+    .rp-table tr:last-child td { border-bottom: none; }
+    .rp-table tr:hover td { background: #f8fbfe; }
+    .rp-table .rp-time { font-weight: 700; font-size: 0.88rem; white-space: nowrap; color: #1a1d24; }
+    .rp-table .rp-endtime { font-size: 0.75rem; color: #9aa0a6; white-space: nowrap; }
+    .rp-table .rp-name { font-weight: 500; color: #1a1d24; }
+    .rp-table .rp-desc { font-size: 0.74rem; color: #6c757d; margin-top: 1px; }
+    .rp-table .rp-driver { font-size: 0.78rem; color: #495057; }
+    .rp-badge-public { font-size: 0.62rem; background: #e8f5e9; color: #2e7d32; border-radius: 10px; padding: 1px 7px; font-weight: 600; border: 1px solid #c8e6c9; white-space: nowrap; }
+    .rp-badge-internal { font-size: 0.62rem; background: #fff3e0; color: #e65100; border-radius: 10px; padding: 1px 7px; font-weight: 600; border: 1px solid #ffe0b2; white-space: nowrap; }
+    .rp-table tr.rp-internal-row td { background: rgba(253,126,20,0.03); }
+    .rp-table tr.rp-internal-row:hover td { background: rgba(253,126,20,0.07); }
+    .rp-status { font-size: 0.72rem; padding: 2px 8px; border-radius: 10px; font-weight: 600; white-space: nowrap; }
+    .rp-status.pending { background: #f0f0f0; color: #6c757d; }
+    .rp-status.ontrack { background: #e3f7ec; color: #1a7a40; }
+    .rp-status.complete { background: #e8eaf6; color: #3949ab; }
+    .rp-row-actions { display: flex; gap: 4px; justify-content: flex-end; }
+    .rp-row-actions .btn { font-size: 0.7rem; padding: 2px 7px; border-radius: 4px; }
+
+    /* Add-item form */
+    .rp-add-form { background: #f8fafc; border: 1px solid #e0e7ef; border-radius: 8px; padding: 10px 12px; margin-top: 10px; }
+    .rp-add-form .form-label-xs { font-size: 0.68rem; color: #6c757d; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 2px; display: block; }
+    .rp-form-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+    .rp-form-row:last-child { margin-bottom: 0; }
   </style>
 </head>
 <body class="light-mode">
@@ -471,40 +521,84 @@
 
                 <!-- RUN PLAN TAB -->
                 <div class="tab-pane fade" id="pane-runplan" role="tabpanel" aria-labelledby="tab-runplan">
-                  <div class="row g-2">
-                    <div class="col-12 d-flex justify-content-between align-items-center">
-                      <div class="mlo-title">Session Timeline</div>
-                      <div id="runplan_countdown" class="text-secondary" style="font-size:0.85rem;">Next: —</div>
+
+                  <!-- Toolbar -->
+                  <div class="rp-toolbar">
+                    <div class="rp-toolbar-left">
+                      <div class="mlo-title" style="margin:0;">Day Programme</div>
+                      <div id="runplan_countdown" class="rp-countdown">Next: —</div>
                     </div>
-                    <div class="col-12">
-                      <div class="table-responsive">
-                        <table class="ev-sub-table" style="width:100%;">
-                          <thead>
-                            <tr>
-                              <th style="width:140px;">Start</th>
-                              <th>Session</th>
-                              <th style="width:140px;">Driver</th>
-                              <th style="width:140px;">Status</th>
-                              <th style="width:60px;"></th>
-                            </tr>
-                          </thead>
-                          <tbody id="runplan_tbody"></tbody>
-                        </table>
+                    <div class="rp-print-btns">
+                      <button class="rp-print-btn client" id="btn_rp_print_client" type="button">⬡ Print Client</button>
+                      <button class="rp-print-btn internal" id="btn_rp_print_internal" type="button">⬡ Print Internal</button>
+                    </div>
+                  </div>
+
+                  <!-- Programme table -->
+                  <div class="ev-table-wrap">
+                    <table class="rp-table">
+                      <thead>
+                        <tr>
+                          <th style="width:60px;">Start</th>
+                          <th style="width:52px;">End</th>
+                          <th>Activity</th>
+                          <th style="width:100px;">Driver</th>
+                          <th style="width:70px; text-align:center;">Vis.</th>
+                          <th style="width:78px; text-align:center;">Status</th>
+                          <th style="width:70px;"></th>
+                        </tr>
+                      </thead>
+                      <tbody id="runplan_tbody"></tbody>
+                    </table>
+                  </div>
+
+                  <!-- Add-item form -->
+                  <div class="rp-add-form">
+                    <div class="rp-form-row">
+                      <div style="flex:0 1 170px; min-width:150px;">
+                        <label class="form-label-xs" for="rp_start">Start date &amp; time</label>
+                        <input id="rp_start" class="form-control form-control-sm" type="datetime-local">
                       </div>
-                      <div class="d-flex flex-wrap gap-1 mt-1">
-                        <input id="rp_start" class="form-control form-control-sm" type="datetime-local" style="flex:0 1 180px; min-width:160px;">
-                        <input id="rp_name" class="form-control form-control-sm" type="text" placeholder="Quali / Heat" style="flex:1 1 180px; min-width:160px;">
-                        <select id="rp_driver" class="form-select form-select-sm" style="flex:0 1 180px; min-width:160px;"></select>
-                        <select id="rp_status" class="form-select form-select-sm" style="flex:0 1 160px; min-width:140px;">
+                      <div style="flex:0 1 100px; min-width:88px;">
+                        <label class="form-label-xs" for="rp_end_time">End time</label>
+                        <input id="rp_end_time" class="form-control form-control-sm" type="time" placeholder="--:--">
+                      </div>
+                      <div style="flex:0 1 90px; min-width:80px;">
+                        <label class="form-label-xs" for="rp_dur">Duration (min)</label>
+                        <input id="rp_dur" class="form-control form-control-sm" type="number" min="1" step="1" placeholder="e.g. 25">
+                      </div>
+                      <div style="flex:1 1 160px; min-width:140px;">
+                        <label class="form-label-xs" for="rp_name">Activity name</label>
+                        <input id="rp_name" class="form-control form-control-sm" type="text" placeholder="e.g. Qualifying (25 mins)">
+                      </div>
+                    </div>
+                    <div class="rp-form-row align-items-end">
+                      <div style="flex:0 1 140px; min-width:120px;">
+                        <label class="form-label-xs" for="rp_driver">Driver</label>
+                        <select id="rp_driver" class="form-select form-select-sm"></select>
+                      </div>
+                      <div style="flex:0 1 120px; min-width:100px;">
+                        <label class="form-label-xs" for="rp_status">Status</label>
+                        <select id="rp_status" class="form-select form-select-sm">
                           <option>Pending</option>
                           <option>On Track</option>
                           <option>Complete</option>
                         </select>
-                        <input id="rp_dur" class="form-control form-control-sm" type="number" min="1" step="1" placeholder="Dur (min)" style="flex:0 1 120px; min-width:100px;">
-                        <button class="btn btn-sm btn-outline-secondary" id="btn_rp_add" type="button">Add Session</button>
+                      </div>
+                      <div style="flex:1 1 180px; min-width:150px;">
+                        <label class="form-label-xs" for="rp_description">Internal notes</label>
+                        <input id="rp_description" class="form-control form-control-sm" type="text" placeholder="Internal detail (hidden from client print)">
+                      </div>
+                      <div class="d-flex align-items-center gap-2 pb-1" style="white-space:nowrap;">
+                        <input class="form-check-input mt-0" type="checkbox" id="rp_internal">
+                        <label class="form-check-label" for="rp_internal" style="font-size:0.78rem; color:#6c757d; cursor:pointer;">Internal only</label>
+                      </div>
+                      <div class="pb-1">
+                        <button class="btn btn-sm btn-primary" id="btn_rp_add" type="button" style="white-space:nowrap;">+ Add Item</button>
                       </div>
                     </div>
                   </div>
+
                 </div>
 
                 <!-- CHECKLISTS TAB -->
@@ -803,11 +897,16 @@
   // run plan
   runplanTbody: document.getElementById('runplan_tbody'),
   rpStart: document.getElementById('rp_start'),
+  rpEndTime: document.getElementById('rp_end_time'),
   rpName: document.getElementById('rp_name'),
+  rpDescription: document.getElementById('rp_description'),
+  rpInternal: document.getElementById('rp_internal'),
   rpDriver: document.getElementById('rp_driver'),
   rpStatus: document.getElementById('rp_status'),
   rpDur: document.getElementById('rp_dur'),
   btnRpAdd: document.getElementById('btn_rp_add'),
+  btnRpPrintClient: document.getElementById('btn_rp_print_client'),
+  btnRpPrintInternal: document.getElementById('btn_rp_print_internal'),
   runplanCountdown: document.getElementById('runplan_countdown'),
   // checklists
   chkMaster: document.getElementById('chk_master'),
@@ -911,20 +1010,60 @@
 
     // ---------- Run Plan ----------
     function ensureRunPlan(ev){ if (!ev.runPlan) ev.runPlan = []; return ev.runPlan; }
+    function calcEndTime(startISO, durationMin){
+      if (!startISO || !durationMin) return '';
+      try {
+        const d = new Date(startISO);
+        d.setMinutes(d.getMinutes() + Number(durationMin));
+        return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+      } catch(e){ return ''; }
+    }
     function renderRunPlan(){
       const ev = getSelected(); if(!ev) return;
       const plan = ensureRunPlan(ev).slice().sort((a,b)=> (a.start||'').localeCompare(b.start||''));
       els.runplanTbody.innerHTML = '';
-      plan.forEach((s, idx)=>{
+      if (!plan.length){
         const tr = document.createElement('tr');
+        tr.innerHTML = '<td colspan="7" style="text-align:center; padding:18px; color:#9aa0a6; font-size:0.82rem; font-style:italic;">No items yet — add one below.</td>';
+        els.runplanTbody.appendChild(tr);
+        updateCountdown(); return;
+      }
+      plan.forEach((s)=>{
+        const tr = document.createElement('tr');
+        if (s.internalOnly) tr.className = 'rp-internal-row';
+        const startDisp = s.start ? (s.start.includes('T') ? s.start.slice(11,16) : s.start) : '—';
+        const endDisp = s.endTime || (s.durationMin ? calcEndTime(s.start, s.durationMin) : '');
+        const statusClass = s.status === 'On Track' ? 'ontrack' : s.status === 'Complete' ? 'complete' : 'pending';
         tr.innerHTML = `
-          <td>${escapeHtml(s.start||'')}</td>
-          <td>${escapeHtml(s.name||'')}</td>
-          <td>${escapeHtml(s.driver||'')}</td>
-          <td>${escapeHtml(s.status||'Pending')}</td>
-          <td><button class="btn btn-sm btn-outline-secondary rp-log" type="button">Log</button></td>
+          <td><span class="rp-time">${escapeHtml(startDisp)}</span></td>
+          <td><span class="rp-endtime">${escapeHtml(endDisp)}</span></td>
+          <td>
+            <div class="rp-name">${escapeHtml(s.name||'')}</div>
+            ${s.description ? `<div class="rp-desc">${escapeHtml(s.description)}</div>` : ''}
+          </td>
+          <td><span class="rp-driver">${escapeHtml(s.driver||'')}</span></td>
+          <td style="text-align:center;">${s.internalOnly ? '<span class="rp-badge-internal">Internal</span>' : '<span class="rp-badge-public">Public</span>'}</td>
+          <td style="text-align:center;"><span class="rp-status ${statusClass}">${escapeHtml(s.status||'Pending')}</span></td>
+          <td>
+            <div class="rp-row-actions">
+              <button class="btn btn-sm btn-outline-secondary rp-log" type="button">Log</button>
+              <button class="btn btn-sm btn-outline-danger rp-del" type="button">&times;</button>
+            </div>
+          </td>
         `;
         tr.querySelector('.rp-log').addEventListener('click', ()=> openSessionLogModal(s));
+        tr.querySelector('.rp-del').addEventListener('click', async ()=>{
+          const ok = window.RTS && typeof window.RTS.confirmPrompt === 'function'
+            ? await window.RTS.confirmPrompt(`Remove '${s.name}'?`)
+            : window.confirm(`Remove '${s.name}'?`);
+          if (!ok) return;
+          const plan2 = ensureRunPlan(ev);
+          const i = plan2.findIndex(x=>x.id===s.id);
+          if (i !== -1) plan2.splice(i,1);
+          ev.updatedAt = nowISO();
+          await saveEvent(ev); await saveAll();
+          renderRunPlan();
+        });
         els.runplanTbody.appendChild(tr);
       });
       updateCountdown();
@@ -932,9 +1071,21 @@
     async function addRunPlan(){
       const ev = getSelected(); if(!ev) return;
       const start = els.rpStart.value; if (!start) return;
-      ensureRunPlan(ev).push({ id: RTS.uid('sess'), start, name: els.rpName.value.trim()||'Session', driver: els.rpDriver.value||'', status: els.rpStatus.value||'Pending', durationMin: Number(els.rpDur.value||0) || 0 });
+      ensureRunPlan(ev).push({
+        id: RTS.uid('sess'),
+        start,
+        endTime: els.rpEndTime.value || '',
+        name: els.rpName.value.trim()||'Session',
+        description: els.rpDescription.value.trim()||'',
+        driver: els.rpDriver.value||'',
+        status: els.rpStatus.value||'Pending',
+        durationMin: Number(els.rpDur.value||0) || 0,
+        internalOnly: els.rpInternal.checked
+      });
       ev.updatedAt = nowISO();
-      els.rpStart.value=''; els.rpName.value=''; els.rpStatus.value='Pending'; els.rpDur.value='';
+      els.rpStart.value=''; els.rpEndTime.value=''; els.rpName.value='';
+      els.rpDescription.value=''; els.rpStatus.value='Pending'; els.rpDur.value='';
+      els.rpInternal.checked=false;
       await saveEvent(ev);
       await saveAll();
       renderRunPlan();
@@ -944,6 +1095,200 @@
       const names = driverNames();
       els.rpDriver.innerHTML = ['<option value="">—</option>'].concat(names.map(n=>`<option>${escapeHtml(n)}</option>`)).join('');
     }
+
+    // ---------- Programme Print Functions ----------
+    function getPrintOverlay(){
+      let el = document.getElementById('rp-print-overlay');
+      if (!el){ el = document.createElement('div'); el.id = 'rp-print-overlay'; document.body.appendChild(el); }
+      return el;
+    }
+
+    function rpBrandingBlock(teamName, logoUrl, accentColor, mode){
+      // mode: 'header' (top of page) or 'footer' (bottom brand stamp)
+      const initial = teamName ? teamName.trim().charAt(0).toUpperCase() : '★';
+      const color = accentColor || '#e32636';
+      const logoHtml = logoUrl
+        ? `<img src="${escapeHtml(logoUrl)}" alt="${escapeHtml(teamName)}" style="height:52px; max-width:160px; object-fit:contain;">`
+        : `<div style="width:52px; height:52px; border-radius:50%; background:${escapeHtml(color)}; display:flex; align-items:center; justify-content:center; font-size:1.6rem; font-weight:900; color:#fff; flex-shrink:0;">${escapeHtml(initial)}</div>`;
+      if (mode === 'footer'){
+        return teamName ? `
+          <div style="display:flex; align-items:center; justify-content:center; gap:12px; margin-top:44px; padding-top:20px; border-top:1px solid rgba(255,255,255,0.15);">
+            ${logoHtml}
+            <div style="text-align:left;">
+              <div style="font-size:1.1rem; font-weight:900; letter-spacing:0.12em; text-transform:uppercase; color:#fff;">${escapeHtml(teamName)}</div>
+              <div style="font-size:0.65rem; letter-spacing:0.3em; text-transform:uppercase; color:rgba(255,255,255,0.45); margin-top:3px;">Motorsport</div>
+            </div>
+          </div>` : '';
+      }
+      // header mode
+      return `
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0;">
+          <div style="display:flex; align-items:center; gap:14px;">
+            ${logoHtml}
+            ${teamName ? `<div>
+              <div style="font-size:1.0rem; font-weight:900; letter-spacing:0.12em; text-transform:uppercase; color:#fff;">${escapeHtml(teamName)}</div>
+              <div style="font-size:0.6rem; letter-spacing:0.25em; text-transform:uppercase; color:rgba(255,255,255,0.45); margin-top:2px;">Motorsport</div>
+            </div>` : ''}
+          </div>
+          <div style="text-align:right; font-size:0.65rem; color:rgba(255,255,255,0.35); text-transform:uppercase; letter-spacing:0.06em; line-height:1.6;">Confidential<br>Internal Use Only</div>
+        </div>`;
+    }
+
+    function printClientProgramme(){
+      const ev = getSelected(); if(!ev) return;
+      const settings = RTS.getSettings();
+      const plan = ensureRunPlan(ev).slice()
+        .filter(s => !s.internalOnly)
+        .sort((a,b)=> (a.start||'').localeCompare(b.start||''));
+      const teamName = (settings.teamName || settings.organisationName || '').trim();
+      const logoUrl  = (settings.teamLogoUrl || '').trim();
+      const accent   = (settings.brandColor || '#e32636');
+      const dateStr  = formatDateRange(ev) || ev.title || ev.name || 'Event';
+      const venue    = ev.venue || '';
+
+      const rows = plan.map((s, i) => {
+        const startDisp = s.start ? (s.start.includes('T') ? s.start.slice(11,16) : s.start) : '';
+        const endDisp   = s.endTime || (s.durationMin ? calcEndTime(s.start, s.durationMin) : '');
+        const timeRange = endDisp ? `${startDisp}–${endDisp}` : startDisp;
+        const isLast    = i === plan.length - 1;
+        return `<div style="display:flex; align-items:flex-start; gap:0; padding:10px 0; border-bottom:${isLast ? 'none' : '1px solid rgba(255,255,255,0.08)'};">
+          <div style="min-width:56px; flex-shrink:0; padding-right:10px; border-right:2px solid ${escapeHtml(accent)}; margin-right:16px;">
+            <div style="font-size:1.0rem; font-weight:800; color:#fff; line-height:1.1;">${escapeHtml(startDisp)}</div>
+            ${endDisp ? `<div style="font-size:0.72rem; color:rgba(255,255,255,0.38); margin-top:2px;">${escapeHtml(endDisp)}</div>` : ''}
+          </div>
+          <div style="flex:1; padding-top:1px;">
+            <div style="font-size:1.0rem; font-style:italic; color:#f0f0f0; line-height:1.35;">${escapeHtml(s.name||'')}</div>
+            ${s.durationMin ? `<div style="font-size:0.72rem; color:rgba(255,255,255,0.38); margin-top:2px;">${s.durationMin} mins</div>` : ''}
+          </div>
+        </div>`;
+      }).join('');
+
+      const overlay = getPrintOverlay();
+      overlay.innerHTML = `
+        <style>
+          #rp-print-overlay { font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif; background:#0a0a0a; color:#fff; min-height:100vh; display:flex; justify-content:center; padding:0 16px 60px; box-sizing:border-box; }
+          @media print { #rp-print-overlay { background:#0a0a0a !important; color:#fff !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; } }
+        </style>
+        <div style="width:100%; max-width:440px;">
+          <!-- Top accent bar -->
+          <div style="height:5px; background:${escapeHtml(accent)}; margin-bottom:28px; border-radius:0 0 3px 3px;"></div>
+          <!-- Header -->
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; flex-wrap:wrap; gap:10px;">
+            ${logoUrl
+              ? `<img src="${escapeHtml(logoUrl)}" alt="${escapeHtml(teamName)}" style="height:48px; max-width:150px; object-fit:contain;">`
+              : teamName
+                ? `<div style="display:flex; align-items:center; gap:10px;">
+                    <div style="width:44px; height:44px; border-radius:50%; background:${escapeHtml(accent)}; display:flex; align-items:center; justify-content:center; font-size:1.35rem; font-weight:900; color:#fff; flex-shrink:0;">${escapeHtml(teamName.charAt(0).toUpperCase())}</div>
+                    <div>
+                      <div style="font-size:0.95rem; font-weight:900; letter-spacing:0.12em; text-transform:uppercase;">${escapeHtml(teamName)}</div>
+                      <div style="font-size:0.58rem; letter-spacing:0.3em; text-transform:uppercase; color:rgba(255,255,255,0.4); margin-top:2px;">Motorsport</div>
+                    </div>
+                   </div>`
+                : '<div></div>'}
+            <div style="text-align:right;">
+              <div style="font-size:1.0rem; font-weight:700; line-height:1.2;">${escapeHtml(dateStr)}</div>
+              ${venue ? `<div style="font-size:0.72rem; color:rgba(255,255,255,0.45); margin-top:3px; letter-spacing:0.03em;">${escapeHtml(venue)}</div>` : ''}
+            </div>
+          </div>
+          <!-- Divider -->
+          <div style="height:1px; background:linear-gradient(90deg,${escapeHtml(accent)},rgba(255,255,255,0.08)); margin-bottom:18px;"></div>
+          <!-- Schedule label -->
+          <div style="font-size:0.62rem; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:rgba(255,255,255,0.35); margin-bottom:12px;">Programme</div>
+          <!-- Rows -->
+          ${rows || '<div style="text-align:center; opacity:0.35; font-style:italic; padding:20px 0;">No public items.</div>'}
+          <!-- Footer brand stamp -->
+          <div style="margin-top:40px; padding-top:16px; border-top:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:space-between;">
+            <div style="font-size:0.62rem; color:rgba(255,255,255,0.25); letter-spacing:0.05em;">OFFICIAL PROGRAMME</div>
+            <div style="display:flex; gap:5px; align-items:center;">
+              <div style="width:6px; height:6px; border-radius:50%; background:${escapeHtml(accent)};"></div>
+              <div style="width:6px; height:6px; border-radius:50%; background:rgba(255,255,255,0.2);"></div>
+              <div style="width:6px; height:6px; border-radius:50%; background:rgba(255,255,255,0.2);"></div>
+            </div>
+          </div>
+        </div>`;
+      overlay.style.display = 'block';
+      setTimeout(()=>{ window.print(); overlay.style.display = 'none'; }, 150);
+    }
+
+    function printInternalProgramme(){
+      const ev = getSelected(); if(!ev) return;
+      const settings = RTS.getSettings();
+      const plan = ensureRunPlan(ev).slice().sort((a,b)=> (a.start||'').localeCompare(b.start||''));
+      const teamName = (settings.teamName || settings.organisationName || '').trim();
+      const logoUrl  = (settings.teamLogoUrl || '').trim();
+      const accent   = (settings.brandColor || '#e32636');
+      const dateStr  = formatDateRange(ev) || ev.title || ev.name || 'Event';
+      const venue    = ev.venue || '';
+
+      const rows = plan.map((s, i) => {
+        const startDisp = s.start ? (s.start.includes('T') ? s.start.slice(11,16) : s.start) : '';
+        const endDisp   = s.endTime || (s.durationMin ? calcEndTime(s.start, s.durationMin) : '');
+        const isLast    = i === plan.length - 1;
+        const isInt     = !!s.internalOnly;
+        const detail    = [s.driver ? `Driver: ${escapeHtml(s.driver)}` : '', s.status && s.status !== 'Pending' ? `Status: ${escapeHtml(s.status)}` : '', s.description ? escapeHtml(s.description) : ''].filter(Boolean).join(' &nbsp;·&nbsp; ');
+        return `<div style="display:flex; align-items:flex-start; padding:9px 10px 9px ${isInt?'8px':'10px'}; border-bottom:${isLast?'none':'1px solid rgba(255,255,255,0.07)'}; ${isInt?`background:rgba(255,200,0,0.05); border-left:3px solid rgba(255,193,7,0.5);`:''}">
+          <div style="min-width:56px; flex-shrink:0; margin-right:14px;">
+            <div style="font-size:0.95rem; font-weight:800; color:#e0e3e6; line-height:1.1;">${escapeHtml(startDisp)}</div>
+            ${endDisp ? `<div style="font-size:0.7rem; color:#555; margin-top:2px;">${escapeHtml(endDisp)}</div>` : ''}
+          </div>
+          <div style="flex:1;">
+            <div style="display:flex; align-items:baseline; gap:8px; flex-wrap:wrap;">
+              <span style="font-size:0.95rem; font-style:italic; color:#dde1e5;">${escapeHtml(s.name||'')}</span>
+              ${isInt ? '<span style="font-size:0.6rem; background:rgba(255,193,7,0.2); color:#ffc107; padding:1px 6px; border-radius:3px; font-style:normal; font-weight:700; letter-spacing:0.05em; white-space:nowrap;">INTERNAL</span>' : ''}
+            </div>
+            ${detail ? `<div style="font-size:0.75rem; color:#666; margin-top:3px;">${detail}</div>` : ''}
+          </div>
+        </div>`;
+      }).join('');
+
+      const logoHtml = logoUrl
+        ? `<img src="${escapeHtml(logoUrl)}" alt="${escapeHtml(teamName)}" style="height:38px; max-width:130px; object-fit:contain; opacity:0.7;">`
+        : teamName
+          ? `<div style="display:flex; align-items:center; gap:9px;">
+              <div style="width:36px; height:36px; border-radius:50%; background:${escapeHtml(accent)}; display:flex; align-items:center; justify-content:center; font-size:1.1rem; font-weight:900; color:#fff; flex-shrink:0; opacity:0.85;">${escapeHtml(teamName.charAt(0).toUpperCase())}</div>
+              <div style="font-size:0.82rem; font-weight:800; letter-spacing:0.1em; text-transform:uppercase; color:#9aa0a6;">${escapeHtml(teamName)}</div>
+             </div>`
+          : '';
+
+      const overlay = getPrintOverlay();
+      overlay.innerHTML = `
+        <style>
+          #rp-print-overlay { font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif; background:#0f1115; color:#e0e3e6; min-height:100vh; padding:0 20px 50px; max-width:680px; margin:0 auto; box-sizing:border-box; }
+          @media print { #rp-print-overlay { background:#0f1115 !important; color:#e0e3e6 !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; padding-top:0; } }
+        </style>
+        <!-- Top bar -->
+        <div style="height:4px; background:linear-gradient(90deg,${escapeHtml(accent)},#444); margin-bottom:24px;"></div>
+        <!-- Header row -->
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:18px; flex-wrap:wrap; gap:12px;">
+          <div>
+            <div style="font-size:1.3rem; font-weight:800; color:#e8ecf0; line-height:1.2;">${escapeHtml(dateStr)}</div>
+            ${venue ? `<div style="font-size:0.78rem; color:#5a6270; margin-top:4px; letter-spacing:0.03em;">${escapeHtml(venue)}</div>` : ''}
+            <div style="margin-top:8px; display:inline-flex; align-items:center; gap:6px; background:rgba(255,193,7,0.1); border:1px solid rgba(255,193,7,0.3); border-radius:4px; padding:3px 10px;">
+              <span style="width:7px; height:7px; border-radius:50%; background:#ffc107; flex-shrink:0; display:inline-block;"></span>
+              <span style="font-size:0.65rem; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:#ffc107;">Internal — Not for Distribution</span>
+            </div>
+          </div>
+          <div style="text-align:right;">
+            ${logoHtml}
+          </div>
+        </div>
+        <!-- Divider -->
+        <div style="height:1px; background:rgba(255,255,255,0.08); margin-bottom:16px;"></div>
+        <!-- Section label -->
+        <div style="font-size:0.6rem; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:rgba(255,255,255,0.25); margin-bottom:10px;">Full Programme</div>
+        <!-- Rows -->
+        <div style="border:1px solid rgba(255,255,255,0.08); border-radius:8px; overflow:hidden;">
+          ${rows || '<div style="text-align:center; opacity:0.3; font-style:italic; padding:20px;">No programme items yet.</div>'}
+        </div>
+        <!-- Footer -->
+        <div style="margin-top:22px; display:flex; align-items:center; justify-content:space-between; font-size:0.72rem; color:rgba(255,255,255,0.2);">
+          <span>Generated ${new Date().toLocaleString()}</span>
+          <span style="font-weight:600; letter-spacing:0.05em; text-transform:uppercase;">${teamName ? escapeHtml(teamName) + ' ·&nbsp;' : ''}Motorsport</span>
+        </div>`;
+      overlay.style.display = 'block';
+      setTimeout(()=>{ window.print(); overlay.style.display = 'none'; }, 150);
+    }
+
     let baseTitle = document.title;
     function updateCountdown(){
       const ev = getSelected(); if(!ev || !els.runplanCountdown) return;
@@ -1982,6 +2327,8 @@
       els.btnSetupCompare?.addEventListener('click', compareSetups);
       // run plan
       els.btnRpAdd?.addEventListener('click', addRunPlan);
+      els.btnRpPrintClient?.addEventListener('click', printClientProgramme);
+      els.btnRpPrintInternal?.addEventListener('click', printInternalProgramme);
       // checklists
       els.btnChkSpawn?.addEventListener('click', spawnChecklist);
     }
