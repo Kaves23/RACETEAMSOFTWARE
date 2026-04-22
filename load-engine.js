@@ -2299,9 +2299,9 @@ console.log('📦 load-engine.js loading...');
 
   // ========== EXPORT PACKING LIST ==========
   function buildPackingListData() {
-    // Returns an array of { box, zone, items[] } for currently loaded boxes only
+    // Returns { boxes: [{ box, zoneLabel, items[] }], standaloneItems: [{ name, barcode, category, zoneLabel, itemType }] }
     const truck = getTruck();
-    return currentLoad.placements.map(p => {
+    const boxes = currentLoad.placements.filter(p => p.boxId).map(p => {
       const box = getBox(p.boxId);
       if (!box) return null;
       const zoneLabel = truck ? `Zone ${p.zone.replace('grid-', '')}` : p.zone;
@@ -2310,11 +2310,26 @@ console.log('📦 load-engine.js loading...');
         : [];
       return { box, zoneLabel, items };
     }).filter(Boolean);
+
+    const standaloneItems = currentLoad.placements.filter(p => p.type === 'asset' || p.type === 'inventory').map(p => {
+      const zoneLabel = truck ? `Zone ${p.zone.replace('grid-', '')}` : p.zone;
+      if (p.type === 'asset') {
+        const asset = assets.find(a => a.id === p.assetId);
+        if (!asset) return null;
+        return { name: asset.name, barcode: asset.barcode || '', category: asset.category || '', zoneLabel, itemType: 'Asset' };
+      } else {
+        const item = inventory.find(i => i.id === p.inventoryId);
+        if (!item) return null;
+        return { name: item.name, barcode: item.sku || '', category: item.category || '', quantity: item.quantity, zoneLabel, itemType: 'Inventory' };
+      }
+    }).filter(Boolean);
+
+    return { boxes, standaloneItems };
   }
 
   function exportPackingListCSV() {
-    const data = buildPackingListData();
-    if (!data.length) { alert('No boxes are loaded on the trailer yet.'); return; }
+    const { boxes, standaloneItems } = buildPackingListData();
+    if (!boxes.length && !standaloneItems.length) { alert('No boxes or standalone items are loaded on the trailer yet.'); return; }
 
     const truck = getTruck();
     const event = events.find(e => e.id === currentLoad.eventId);
@@ -2330,7 +2345,7 @@ console.log('📦 load-engine.js loading...');
     // Column headers
     lines.push('Box Name,Box Barcode,Zone,#,Qty,Item Name,Item Barcode,Serial Number,Item Type');
 
-    data.forEach(({ box, zoneLabel, items }) => {
+    boxes.forEach(({ box, zoneLabel, items }) => {
       if (items.length === 0) {
         // Box is loaded but empty
         lines.push(`"${box.name}","${box.barcode}","${zoneLabel}","","","(empty box)","","",""`);
@@ -2340,6 +2355,15 @@ console.log('📦 load-engine.js loading...');
         });
       }
     });
+
+    if (standaloneItems.length > 0) {
+      lines.push('');
+      lines.push('Standalone Assets & Inventory');
+      lines.push('Zone,#,Qty,Item Name,Barcode / SKU,Category,Type');
+      standaloneItems.forEach((item, idx) => {
+        lines.push(`"${item.zoneLabel}","${idx + 1}","${item.quantity || 1}","${item.name}","${item.barcode}","${item.category}","${item.itemType}"`);
+      });
+    }
 
     const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -2353,8 +2377,8 @@ console.log('📦 load-engine.js loading...');
   }
 
   function exportPackingListPDF() {
-    const data = buildPackingListData();
-    if (!data.length) { alert('No boxes are loaded on the trailer yet.'); return; }
+    const { boxes, standaloneItems } = buildPackingListData();
+    if (!boxes.length && !standaloneItems.length) { alert('No boxes or standalone items are loaded on the trailer yet.'); return; }
 
     const truck = getTruck();
     const event = events.find(e => e.id === currentLoad.eventId);
@@ -2362,7 +2386,7 @@ console.log('📦 load-engine.js loading...');
     const dateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
     const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
     const docRef = `PL-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}-${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
-    const totalItems = data.reduce((sum, d) => sum + d.items.length, 0);
+    const totalItems = boxes.reduce((sum, d) => sum + d.items.length, 0);
 
     let html = `<!DOCTYPE html>
 <html>
@@ -2446,16 +2470,16 @@ console.log('📦 load-engine.js loading...');
   <div class="meta-strip">
     <div class="meta-cell"><span class="label">Vehicle / Trailer</span><span class="value">${esc(truck ? truck.name : 'Not selected')}</span></div>
     <div class="meta-cell"><span class="label">Event</span><span class="value">${esc(event ? (event.title || event.name) : 'No event selected')}</span></div>
-    <div class="meta-cell"><span class="label">Boxes Loaded</span><span class="value">${data.length}</span></div>
-    <div class="meta-cell"><span class="label">Total Items</span><span class="value">${totalItems}</span></div>
+    <div class="meta-cell"><span class="label">Boxes Loaded</span><span class="value">${boxes.length}</span></div>
+    <div class="meta-cell"><span class="label">Total Items</span><span class="value">${totalItems + standaloneItems.length}</span></div>
   </div>`;
 
-    data.forEach(({ box, zoneLabel, items }, boxIdx) => {
+    boxes.forEach(({ box, zoneLabel, items }, boxIdx) => {
       html += `
   <div class="box-section">
     <div class="box-header">
       <div class="box-header-left">
-        <div class="box-seq">Container ${String(boxIdx + 1).padStart(2, '0')} of ${String(data.length).padStart(2, '0')}</div>
+        <div class="box-seq">Container ${String(boxIdx + 1).padStart(2, '0')} of ${String(boxes.length).padStart(2, '0')}</div>
         <div class="box-name">${esc(box.name)}</div>
       </div>
       <div class="box-header-right">
@@ -2491,6 +2515,41 @@ console.log('📦 load-engine.js loading...');
       }
       html += `</div>`;
     });
+
+    if (standaloneItems.length > 0) {
+      html += `
+  <div class="box-section" style="margin-top:16px;border-color:#6a1b9a;">
+    <div class="box-header" style="background:#4a148c;">
+      <div class="box-header-left">
+        <div class="box-seq" style="color:#ce93d8;">Standalone Items</div>
+        <div class="box-name">Assets &amp; Inventory (not in a box)</div>
+      </div>
+      <div class="box-header-right">
+        <div class="box-zone">${standaloneItems.length} item${standaloneItems.length !== 1 ? 's' : ''}</div>
+      </div>
+    </div>
+    <table><thead><tr>
+      <th class="col-num">#</th>
+      <th>Item Name</th>
+      <th class="col-barcode">Barcode / SKU</th>
+      <th>Category</th>
+      <th class="col-qty">Qty</th>
+      <th class="col-type">Type</th>
+      <th>Zone</th>
+    </tr></thead><tbody>`;
+      standaloneItems.forEach((item, idx) => {
+        html += `<tr>
+          <td class="col-num">${idx + 1}</td>
+          <td>${esc(item.name)}</td>
+          <td class="col-barcode">${esc(item.barcode || '—')}</td>
+          <td>${esc(item.category || '—')}</td>
+          <td class="col-qty" style="text-align:center;">${item.quantity || '—'}</td>
+          <td class="col-type">${esc(item.itemType)}</td>
+          <td>${esc(item.zoneLabel)}</td>
+        </tr>`;
+      });
+      html += `</tbody></table></div>`;
+    }
 
     html += `
   <div class="sig-section">
