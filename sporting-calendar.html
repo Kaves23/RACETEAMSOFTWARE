@@ -5,323 +5,320 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Race Team OS – Sporting Calendar</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
-  <link href="style.css?v=20260420" rel="stylesheet" />
+  <link href="style.css?v=20260422" rel="stylesheet" />
   <style>
-    body { background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%); }
+    body { background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%); min-height:100vh; }
     .ev-stats-bar { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
     .ev-stat-card { background:#fff; border:1px solid rgba(0,0,0,.1); border-radius:8px; padding:10px 16px; box-shadow:0 2px 4px rgba(0,0,0,.06); min-width:100px; }
     .ev-stat-label { font-size:.7rem; color:#6c757d; font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
     .ev-stat-value { font-size:1.5rem; font-weight:700; color:#1a1d24; line-height:1.2; }
-    #calShell.mlo-shell { background:transparent; border:none; gap:10px; }
-    #calShell .mlo-pane-left,#calShell .mlo-pane-mid,#calShell .mlo-pane-right { background:#fff; border:1px solid rgba(0,0,0,.1); border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,.06); }
-    #calShell .mlo-pane-header { background:#f8f9fa; border-bottom:1px solid rgba(0,0,0,.1); }
-    #calShell .mlo-title { color:#1a1d24 !important; }
-    #calShell .mlo-section-label { color:#6c757d !important; opacity:1 !important; }
-    #calShell .mlo-pane-content { color:#1a1d24; }
-    #calShell .mlo-resizer { background:transparent; }
-    #calShell .mlo-resizer:hover { background:rgba(166,77,255,.3); }
-    .cal-list-table { width:100%; font-size:.82rem; border-collapse:separate; border-spacing:0; }
-    .cal-list-table thead { position:sticky; top:0; background:#f8f9fa; z-index:5; }
-    .cal-list-table th { padding:8px 10px; font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:#6c757d; border-bottom:2px solid #dee2e6; white-space:nowrap; }
-    .cal-list-table td { padding:6px 10px; border-bottom:1px solid rgba(0,0,0,.05); vertical-align:middle; color:#1a1d24; }
-    .cal-list-table tbody tr { cursor:pointer; transition:background .1s; }
-    .cal-list-table tbody tr:hover { background:#f8f9fa; }
-    .cal-list-table tbody tr.selected { background:rgba(166,77,255,.08) !important; outline:2px solid #a64dff; outline-offset:-2px; }
-    .status-pill { display:inline-block; padding:2px 9px; border-radius:20px; font-size:.72rem; font-weight:600; }
-    .status-scheduled  { background:#dbeafe; color:#1e40af; }
-    .status-confirmed  { background:#d1fae5; color:#065f46; }
-    .status-cancelled  { background:#fee2e2; color:#991b1b; }
-    .status-completed  { background:#e0e7ff; color:#3730a3; }
-    #calShell .form-label { color:#495057 !important; font-size:.78rem; font-weight:600; margin-bottom:2px; }
-    #calShell .form-control,#calShell .form-select { background:#fff !important; color:#1a1d24 !important; border-color:#dee2e6 !important; font-size:.82rem; }
-    #calShell .mlo-pane-left .pastel-tree li { height:28px !important; display:flex !important; align-items:center !important; font-size:.83rem !important; font-weight:500 !important; padding-left:10px !important; margin-bottom:2px !important; border-radius:5px !important; border:1px solid rgba(0,0,0,.08) !important; color:#1a1d24 !important; white-space:nowrap !important; overflow:hidden !important; text-overflow:ellipsis !important; cursor:pointer !important; }
-    #calShell .mlo-pane-left .pastel-tree li.active { background:rgba(166,77,255,.1) !important; border-color:rgba(166,77,255,.35) !important; color:#7c3aed !important; font-weight:700 !important; }
+    .cal-layout { display:flex; gap:14px; align-items:flex-start; }
+    .cal-sidebar { width:210px; flex-shrink:0; }
+    .cal-main { flex:1; min-width:0; }
+    .cal-sidebar-card { background:#fff; border:1px solid rgba(0,0,0,.1); border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,.06); padding:14px; margin-bottom:12px; }
+    .cal-sidebar-title { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:#6c757d; margin-bottom:8px; }
+    .type-legend-item { display:flex; align-items:center; gap:8px; padding:4px 6px; border-radius:5px; cursor:pointer; font-size:.82rem; font-weight:500; color:#1a1d24; transition:background .1s; }
+    .type-legend-item:hover { background:#f1f3f5; }
+    .type-legend-item.hidden { opacity:.35; }
+    .type-dot { width:11px; height:11px; border-radius:50%; flex-shrink:0; }
+    .type-count { margin-left:auto; font-size:.72rem; color:#6c757d; font-weight:600; }
+    .cal-month-header { background:#fff; border:1px solid rgba(0,0,0,.1); border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,.06); padding:12px 16px; margin-bottom:10px; display:flex; align-items:center; gap:12px; }
+    .cal-month-label { font-size:1.15rem; font-weight:700; color:#1a1d24; flex:1; text-align:center; }
+    .cal-nav-btn { background:#f1f3f5; border:1px solid rgba(0,0,0,.1); border-radius:6px; width:32px; height:32px; display:flex; align-items:center; justify-content:center; cursor:pointer; color:#495057; font-size:.9rem; }
+    .cal-nav-btn:hover { background:#e2e6ea; }
+    .cal-today-btn { font-size:.78rem; font-weight:600; background:#f1f3f5; border:1px solid rgba(0,0,0,.1); border-radius:6px; padding:4px 12px; cursor:pointer; color:#495057; }
+    .cal-today-btn:hover { background:#e2e6ea; }
+    .cal-grid { background:#fff; border:1px solid rgba(0,0,0,.1); border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,.06); overflow:hidden; }
+    .cal-grid-head { display:grid; grid-template-columns:repeat(7,1fr); border-bottom:2px solid #dee2e6; }
+    .cal-grid-head-cell { padding:8px 4px; text-align:center; font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#6c757d; }
+    .cal-grid-body { display:grid; grid-template-columns:repeat(7,1fr); }
+    .cal-cell { min-height:100px; border-right:1px solid rgba(0,0,0,.06); border-bottom:1px solid rgba(0,0,0,.06); padding:4px; box-sizing:border-box; }
+    .cal-cell:nth-child(7n) { border-right:none; }
+    .cal-cell.other-month { background:#fafbfc; }
+    .cal-cell.today { background:rgba(166,77,255,.04); }
+    .cal-day-num { font-size:.78rem; font-weight:600; color:#6c757d; display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; margin-bottom:2px; }
+    .cal-cell.today .cal-day-num { background:#a64dff; color:#fff; }
+    .cal-cell.other-month .cal-day-num { color:#c0c7d0; }
+    .cal-ev-pill { display:block; font-size:.68rem; font-weight:600; padding:2px 6px; border-radius:4px; margin-bottom:2px; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.5; }
+    .cal-ev-pill:hover { filter:brightness(.88); }
+    .cal-ev-more { font-size:.67rem; color:#6c757d; padding:1px 4px; cursor:pointer; }
+    .cal-ev-more:hover { color:#a64dff; }
+    .cal-popup { position:fixed; background:#fff; border:1px solid rgba(0,0,0,.15); border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,.15); padding:14px 16px; z-index:9999; min-width:240px; max-width:300px; }
+    .cal-popup-title { font-size:.92rem; font-weight:700; color:#1a1d24; margin-bottom:6px; padding-right:20px; }
+    .cal-popup-row { font-size:.78rem; color:#495057; margin-bottom:3px; display:flex; gap:6px; }
+    .cal-popup-row b { color:#1a1d24; min-width:60px; flex-shrink:0; }
+    .cal-popup-close { position:absolute; top:8px; right:10px; font-size:1rem; cursor:pointer; color:#6c757d; line-height:1; }
+    .cal-popup-open { display:inline-block; margin-top:8px; font-size:.75rem; font-weight:600; color:#a64dff; cursor:pointer; text-decoration:underline; }
+    .status-chip { display:inline-block; padding:1px 7px; border-radius:20px; font-size:.69rem; font-weight:600; }
+    .sc-scheduled  { background:#dbeafe; color:#1e40af; }
+    .sc-confirmed  { background:#d1fae5; color:#065f46; }
+    .sc-cancelled  { background:#fee2e2; color:#991b1b; }
+    .sc-completed  { background:#e0e7ff; color:#3730a3; }
+    .sc-open       { background:#d1fae5; color:#065f46; }
+    .sc-planned    { background:#dbeafe; color:#1e40af; }
+    .sc-elapsed    { background:#f3f4f6; color:#6b7280; }
   </style>
 </head>
 <body class="light-mode">
   <div id="rtsTopNav"></div>
   <div class="rts-version-badge">v1</div>
   <div class="rts-main container-fluid">
+
     <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
       <div>
         <h1 class="h4 mb-1">Sporting Calendar</h1>
-        <div class="text-secondary" style="font-size:.85rem;">Season calendar, event timeline, and regulatory deadlines.</div>
+        <div class="text-secondary" style="font-size:.85rem;">Season overview — all events shown on a monthly grid.</div>
       </div>
-      <div class="d-flex gap-2">
-        <select class="form-select form-select-sm" id="calYearFilter" style="width:auto;">
-          <option>2026</option><option>2025</option><option>2027</option>
-        </select>
-        <button class="btn btn-sm btn-primary" id="btnAddCalEvent">+ Add Event</button>
+      <div class="d-flex gap-2 align-items-center">
+        <a href="events.html" class="btn btn-sm btn-outline-secondary">Manage Events →</a>
       </div>
     </div>
 
     <div class="ev-stats-bar">
-      <div class="ev-stat-card"><div class="ev-stat-label">Total Events</div><div class="ev-stat-value" id="statCalTotal">0</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">Confirmed</div><div class="ev-stat-value" id="statCalConfirmed">0</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">Remaining</div><div class="ev-stat-value" id="statCalRemaining">0</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">Completed</div><div class="ev-stat-value" id="statCalCompleted">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Total Events</div><div class="ev-stat-value" id="statTotal">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Remaining</div><div class="ev-stat-value" id="statRemaining">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">This Month</div><div class="ev-stat-value" id="statThisMonth">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Completed</div><div class="ev-stat-value" id="statCompleted">0</div></div>
     </div>
 
-    <div class="mlo-shell" id="calShell">
-      <!-- LEFT -->
-      <section class="mlo-pane mlo-pane-left" aria-label="Calendar navigation">
-        <div class="mlo-pane-header">
-          <div class="d-flex justify-content-between align-items-center">
-            <div class="mlo-title">Filter</div>
+    <div class="cal-layout">
+      <aside class="cal-sidebar">
+        <div class="cal-sidebar-card">
+          <div class="cal-sidebar-title">Event Types <span style="font-size:.65rem;font-weight:400;color:#adb5bd;">(click to hide)</span></div>
+          <div id="legendList"></div>
+        </div>
+        <div class="cal-sidebar-card">
+          <div class="cal-sidebar-title">Jump To</div>
+          <div id="quickJump" style="display:flex;flex-direction:column;gap:2px;"></div>
+        </div>
+      </aside>
+
+      <div class="cal-main">
+        <div class="cal-month-header">
+          <div class="cal-nav-btn" id="btnPrevYear" title="Previous year">«</div>
+          <div class="cal-nav-btn" id="btnPrev">‹</div>
+          <div class="cal-month-label" id="monthLabel">—</div>
+          <div class="cal-nav-btn" id="btnNext">›</div>
+          <div class="cal-nav-btn" id="btnNextYear" title="Next year">»</div>
+          <div class="cal-today-btn" id="btnToday">Today</div>
+        </div>
+        <div class="cal-grid">
+          <div class="cal-grid-head">
+            <div class="cal-grid-head-cell">Mon</div>
+            <div class="cal-grid-head-cell">Tue</div>
+            <div class="cal-grid-head-cell">Wed</div>
+            <div class="cal-grid-head-cell">Thu</div>
+            <div class="cal-grid-head-cell">Fri</div>
+            <div class="cal-grid-head-cell">Sat</div>
+            <div class="cal-grid-head-cell">Sun</div>
           </div>
+          <div class="cal-grid-body" id="calBody"></div>
         </div>
-        <div class="mlo-pane-content">
-          <div class="mlo-section-label">By Status</div>
-          <ul class="mlo-tree pastel-tree" id="calStatusList">
-            <li class="active" data-filter="all">All Events</li>
-            <li data-filter="scheduled">Scheduled</li>
-            <li data-filter="confirmed">Confirmed</li>
-            <li data-filter="completed">Completed</li>
-            <li data-filter="cancelled">Cancelled</li>
-          </ul>
-          </ul>
-          <div class="mlo-section-label mt-3">By Series</div>
-          <ul class="mlo-tree pastel-tree" id="calTypeList">
-            <li class="active" data-type="all">All Series</li>
-          </ul>
-        </div>
-      </section>
-
-      <div class="mlo-resizer" id="calResizer1"></div>
-
-      <!-- MIDDLE -->
-      <section class="mlo-pane mlo-pane-mid" aria-label="Event list">
-        <div class="mlo-pane-header">
-          <div class="d-flex justify-content-between align-items-center">
-            <div class="mlo-title">Events</div>
-            <span class="badge text-bg-secondary" id="calCountBadge">0</span>
-          </div>
-          <input class="form-control form-control-sm mt-2" type="search" id="calSearch" placeholder="Search events…" />
-        </div>
-        <div class="mlo-pane-content p-0">
-          <table class="cal-list-table" id="calTable">
-            <thead><tr>
-              <th>Round</th><th>Event</th><th>Circuit</th><th>Country</th>
-              <th>Date</th><th>Series</th><th>Status</th>
-            </tr></thead>
-            <tbody id="calTableBody">
-              <tr><td colspan="7" class="text-center text-secondary py-4">No events found. Add your first event.</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <div class="mlo-resizer" id="calResizer2"></div>
-
-      <!-- RIGHT -->
-      <section class="mlo-pane mlo-pane-right" aria-label="Event detail">
-        <div class="mlo-pane-header">
-          <div class="mlo-title" id="calDetailTitle">Event Detail</div>
-        </div>
-        <div class="mlo-pane-content" id="calDetailPanel">
-          <div class="text-center text-secondary py-5" id="calDetailEmpty">
-            <div style="font-size:2rem;">📅</div>
-            <div class="mt-2">Select an event to view details</div>
-          </div>
-          <form id="calEventForm" style="display:none;">
-            <div class="mb-2">
-              <label class="form-label">Event Name *</label>
-              <input class="form-control" id="calFTitle" placeholder="e.g. Round 4 – Kyalami" />
-            </div>
-            <div class="row g-2 mb-2">
-              <div class="col">
-                <label class="form-label">Round No.</label>
-                <input class="form-control" id="calFRound" type="number" placeholder="4" />
-              </div>
-              <div class="col">
-                <label class="form-label">Series / Championship</label>
-                <input class="form-control" id="calFType" placeholder="e.g. F4, GT3, Karting" />
-              </div>
-            </div>
-            <div class="mb-2">
-              <label class="form-label">Circuit</label>
-              <input class="form-control" id="calFCircuit" placeholder="e.g. Kyalami Grand Prix Circuit" />
-            </div>
-            <div class="row g-2 mb-2">
-              <div class="col">
-                <label class="form-label">Country</label>
-                <input class="form-control" id="calFCountry" />
-              </div>
-              <div class="col">
-                <label class="form-label">City</label>
-                <input class="form-control" id="calFCity" />
-              </div>
-            </div>
-            <div class="row g-2 mb-2">
-              <div class="col">
-                <label class="form-label">Start Date</label>
-                <input class="form-control" id="calFStart" type="date" />
-              </div>
-              <div class="col">
-                <label class="form-label">End Date</label>
-                <input class="form-control" id="calFEnd" type="date" />
-              </div>
-            </div>
-            <div class="mb-2">
-              <label class="form-label">Status</label>
-              <select class="form-select" id="calFStatus">
-                <option value="scheduled">Scheduled</option>
-                <option value="confirmed">Confirmed</option>
-                <option value="cancelled">Cancelled</option>
-                <option value="completed">Completed</option>
-              </select>
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Notes</label>
-              <textarea class="form-control" id="calFNotes" rows="3"></textarea>
-            </div>
-            <div class="d-flex gap-2">
-              <button type="button" class="btn btn-primary btn-sm" id="calBtnSave">Save</button>
-              <button type="button" class="btn btn-outline-danger btn-sm" id="calBtnDelete" style="display:none;">Delete</button>
-              <button type="button" class="btn btn-outline-secondary btn-sm" id="calBtnCancel">Cancel</button>
-            </div>
-          </form>
-        </div>
-      </section>
+      </div>
     </div>
+  </div>
+
+  <div class="cal-popup" id="evPopup" style="display:none;">
+    <span class="cal-popup-close" id="popupClose">✕</span>
+    <div class="cal-popup-title" id="popupTitle"></div>
+    <div id="popupBody"></div>
+    <div class="cal-popup-open" id="popupOpenLink">Open events page →</div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="core.js"></script>
-  <script src="topnav.js?v=20260420"></script>
+  <script src="topnav.js?v=20260422"></script>
   <script>
-    const API = window.RTS_API || {};
-    let allEvents = [], selectedId = null, filterStatus = 'all', filterType = 'all';
+    const TYPE_COLORS = {
+      'Practice':           '#3b82f6',
+      'Race/Event':         '#e32636',
+      'Race Weekend':       '#dc2626',
+      'Travel':             '#6b7280',
+      'Travel Day':         '#9ca3af',
+      'Camp':               '#16a34a',
+      'Regional Weekend':   '#f59e0b',
+      'National Weekend':   '#7c3aed',
+      'International Trip': '#0891b2',
+      'Test Day':           '#10b981',
+      'Promo / Media':      '#ec4899',
+    };
+    function typeColor(t) { return TYPE_COLORS[t] || '#a64dff'; }
+
+    let allEvents = [];
+    let viewYear, viewMonth;
+    let hiddenTypes = new Set();
+
+    function toISO(v) {
+      if (!v) return '';
+      return String(v).includes('T') ? String(v).slice(0,10) : String(v);
+    }
+
+    function esc(s) {
+      return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
 
     async function loadEvents() {
       try {
-        const res = await fetch('/api/sporting-calendar');
-        if (res.ok) allEvents = await res.json();
-      } catch(_) { allEvents = []; }
-      rebuildSeriesFilter();
-      renderList();
+        const res = await fetch('/api/events');
+        if (res.ok) {
+          const data = await res.json();
+          allEvents = Array.isArray(data) ? data : (data.items || []);
+        }
+      } catch(e) { allEvents = []; }
+      updateStats();
+      buildLegend();
+      buildQuickJump();
+      renderGrid();
     }
 
-    function rebuildSeriesFilter() {
-      const ul = document.getElementById('calTypeList');
-      const series = [...new Set(allEvents.map(e => e.series).filter(Boolean))].sort();
-      ul.innerHTML = '<li class="active" data-type="all">All Series</li>' +
-        series.map(s => `<li data-type="${esc(s)}">${esc(s)}</li>`).join('');
-      ul.querySelectorAll('li').forEach(li => li.addEventListener('click', () => {
-        ul.querySelectorAll('li').forEach(x=>x.classList.remove('active'));
-        li.classList.add('active'); filterType = li.dataset.type; renderList();
-      }));
+    function updateStats() {
+      const today = new Date().toISOString().slice(0,10);
+      document.getElementById('statTotal').textContent = allEvents.length;
+      document.getElementById('statRemaining').textContent =
+        allEvents.filter(e => toISO(e.start_date||e.start||'') >= today && (e.status||'').toLowerCase() !== 'cancelled').length;
+      document.getElementById('statCompleted').textContent =
+        allEvents.filter(e => ['completed','elapsed'].includes((e.status||'').toLowerCase())).length;
+      const y = new Date().getFullYear(), m = String(new Date().getMonth()+1).padStart(2,'0');
+      document.getElementById('statThisMonth').textContent =
+        allEvents.filter(e => toISO(e.start_date||e.start||'').startsWith(`${y}-${m}`)).length;
     }
 
-    function renderList() {
-      let rows = allEvents.filter(e => {
-        const ms = filterStatus === 'all' || e.status === filterStatus;
-        const mt = filterType === 'all' || (e.series || '') === filterType;
-        const q = document.getElementById('calSearch').value.trim().toLowerCase();
-        const mq = !q || (e.event_name||'').toLowerCase().includes(q) || (e.circuit||'').toLowerCase().includes(q) || (e.series||'').toLowerCase().includes(q);
-        return ms && mt && mq;
+    function buildLegend() {
+      const counts = {};
+      allEvents.forEach(e => { const t = e.event_type||e.type||'Other'; counts[t]=(counts[t]||0)+1; });
+      const el = document.getElementById('legendList');
+      el.innerHTML = '';
+      Object.entries(counts).sort((a,b)=>b[1]-a[1]).forEach(([t,c]) => {
+        const div = document.createElement('div');
+        div.className = 'type-legend-item'+(hiddenTypes.has(t)?' hidden':'');
+        div.dataset.type = t;
+        div.innerHTML = `<span class="type-dot" style="background:${typeColor(t)}"></span><span>${esc(t)}</span><span class="type-count">${c}</span>`;
+        div.addEventListener('click', () => { if(hiddenTypes.has(t)) hiddenTypes.delete(t); else hiddenTypes.add(t); buildLegend(); renderGrid(); });
+        el.appendChild(div);
       });
-      const tb = document.getElementById('calTableBody');
-      document.getElementById('calCountBadge').textContent = rows.length;
-      document.getElementById('statCalTotal').textContent = allEvents.length;
-      document.getElementById('statCalConfirmed').textContent = allEvents.filter(e=>e.status==='confirmed'||e.status==='scheduled').length;
-      document.getElementById('statCalCompleted').textContent = allEvents.filter(e=>e.status==='completed').length;
-      const now = new Date().toISOString().slice(0,10);
-      document.getElementById('statCalRemaining').textContent = allEvents.filter(e=>e.start_date >= now && e.status !== 'cancelled').length;
-      if (!rows.length) { tb.innerHTML = '<tr><td colspan="7" class="text-center text-secondary py-4">No events match the filter.</td></tr>'; return; }
-      tb.innerHTML = rows.map(e => `<tr data-id="${e.id}" class="${e.id===selectedId?'selected':''}">
-        <td>${e.round_number||'—'}</td>
-        <td><strong>${esc(e.event_name||'')}</strong></td>
-        <td>${esc(e.circuit||'—')}</td>
-        <td>${esc(e.country||'—')}</td>
-        <td>${e.start_date||'—'}</td>
-        <td>${esc(e.series||'—')}</td>
-        <td><span class="status-pill status-${e.status||'scheduled'}">${e.status||'scheduled'}</span></td>
-      </tr>`).join('');
-      tb.querySelectorAll('tr').forEach(r => r.addEventListener('click', () => selectEvent(r.dataset.id)));
     }
 
-    function selectEvent(id) {
-      selectedId = id;
-      const ev = allEvents.find(e => e.id == id);
-      if (!ev) return;
-      document.getElementById('calDetailEmpty').style.display = 'none';
-      document.getElementById('calEventForm').style.display = '';
-      document.getElementById('calDetailTitle').textContent = ev.event_name || 'Event Detail';
-      document.getElementById('calFTitle').value = ev.event_name||'';
-      document.getElementById('calFRound').value = ev.round_number||'';
-      document.getElementById('calFType').value = ev.series||'';
-      document.getElementById('calFCircuit').value = ev.circuit||'';
-      document.getElementById('calFCountry').value = ev.country||'';
-      document.getElementById('calFCity').value = ev.city||'';
-      document.getElementById('calFStart').value = ev.start_date||'';
-      document.getElementById('calFEnd').value = ev.end_date||'';
-      document.getElementById('calFStatus').value = ev.status||'scheduled';
-      document.getElementById('calFNotes').value = ev.notes||'';
-      document.getElementById('calBtnDelete').style.display = '';
-      renderList();
+    function buildQuickJump() {
+      const months = {};
+      allEvents.forEach(e => { const d=toISO(e.start_date||e.start||''); if(d) { const k=d.slice(0,7); months[k]=(months[k]||0)+1; } });
+      const el = document.getElementById('quickJump');
+      el.innerHTML = '';
+      const MN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      Object.keys(months).sort().forEach(key => {
+        const [y,m] = key.split('-');
+        const btn = document.createElement('div');
+        btn.style.cssText = 'font-size:.78rem;font-weight:500;color:#495057;padding:3px 8px;border-radius:5px;cursor:pointer;display:flex;justify-content:space-between;';
+        btn.innerHTML = `<span>${MN[parseInt(m,10)-1]} ${y}</span><span style="color:#a64dff;font-weight:700;">${months[key]}</span>`;
+        btn.addEventListener('click', () => { viewYear=parseInt(y); viewMonth=parseInt(m,10)-1; renderGrid(); });
+        btn.addEventListener('mouseenter', () => btn.style.background='#f1f3f5');
+        btn.addEventListener('mouseleave', () => btn.style.background='');
+        el.appendChild(btn);
+      });
     }
 
-    function newEventForm() {
-      selectedId = null;
-      document.getElementById('calDetailEmpty').style.display = 'none';
-      document.getElementById('calEventForm').style.display = '';
-      document.getElementById('calDetailTitle').textContent = 'New Event';
-      document.getElementById('calEventForm').reset();
-      document.getElementById('calBtnDelete').style.display = 'none';
+    const MONTH_NAMES=['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+    function renderGrid() {
+      document.getElementById('monthLabel').textContent = `${MONTH_NAMES[viewMonth]} ${viewYear}`;
+      const firstDay = new Date(viewYear, viewMonth, 1);
+      const startOffset = (firstDay.getDay()+6)%7; // Mon=0
+      const daysInMonth = new Date(viewYear, viewMonth+1, 0).getDate();
+      const totalCells = Math.ceil((startOffset+daysInMonth)/7)*7;
+      const todayISO = new Date().toISOString().slice(0,10);
+
+      // Build date→events map
+      const cellMap = {};
+      allEvents.filter(e => !hiddenTypes.has(e.event_type||e.type||'Other')).forEach(ev => {
+        const s = toISO(ev.start_date||ev.start||'');
+        const end = toISO(ev.end_date||ev.end||'')||s;
+        if (!s) return;
+        let cur = new Date(s+'T12:00:00');
+        const endD = new Date(end+'T12:00:00');
+        const totalDays = Math.round((endD-cur)/86400000)+1;
+        let idx=0;
+        while(cur<=endD) {
+          const iso = cur.toISOString().slice(0,10);
+          if(!cellMap[iso]) cellMap[iso]=[];
+          let pos = totalDays===1?'single':(idx===0?'start':(idx===totalDays-1?'end':'mid'));
+          cellMap[iso].push({ev,pos});
+          cur.setDate(cur.getDate()+1); idx++;
+        }
+      });
+
+      const body = document.getElementById('calBody');
+      body.innerHTML = '';
+      for(let i=0;i<totalCells;i++) {
+        const offset = i-startOffset;
+        const isOther = offset<0||offset>=daysInMonth;
+        const date = new Date(viewYear, viewMonth, offset+1);
+        const iso = date.toISOString().slice(0,10);
+        const isToday = iso===todayISO;
+
+        const cell = document.createElement('div');
+        cell.className='cal-cell'+(isOther?' other-month':'')+(isToday?' today':'');
+
+        const dn = document.createElement('div');
+        dn.className='cal-day-num';
+        dn.textContent = date.getDate();
+        cell.appendChild(dn);
+
+        const evs = cellMap[iso]||[];
+        evs.slice(0,3).forEach(({ev,pos}) => {
+          const col = typeColor(ev.event_type||ev.type||'Other');
+          const pill = document.createElement('div');
+          pill.className='cal-ev-pill';
+          pill.style.background=col; pill.style.color='#fff';
+          // show name only on first day of a multi-day event
+          pill.textContent = (pos==='single'||pos==='start') ? (ev.name||ev.event_name||'—') : '\u00A0';
+          if(pos==='mid'||pos==='end') { pill.style.opacity='.7'; pill.style.borderRadius='0'; }
+          if(pos==='start') pill.style.borderRadius='4px 0 0 4px';
+          if(pos==='end')   { pill.style.borderRadius='0 4px 4px 0'; pill.style.opacity='.7'; }
+          pill.title = ev.name||ev.event_name||'';
+          pill.addEventListener('click', ev2 => { ev2.stopPropagation(); showPopup(ev, ev2); });
+          cell.appendChild(pill);
+        });
+        if(evs.length>3) {
+          const more=document.createElement('div');
+          more.className='cal-ev-more';
+          more.textContent=`+${evs.length-3} more`;
+          cell.appendChild(more);
+        }
+        body.appendChild(cell);
+      }
     }
 
-    async function saveEvent() {
-      const body = {
-        event_name: document.getElementById('calFTitle').value.trim(),
-        round_number: parseInt(document.getElementById('calFRound').value, 10) || null,
-        series: document.getElementById('calFType').value.trim(),
-        circuit: document.getElementById('calFCircuit').value.trim(),
-        country: document.getElementById('calFCountry').value.trim(),
-        city: document.getElementById('calFCity').value.trim(),
-        start_date: document.getElementById('calFStart').value||null,
-        end_date: document.getElementById('calFEnd').value||null,
-        status: document.getElementById('calFStatus').value,
-        notes: document.getElementById('calFNotes').value.trim()
-      };
-      if (!body.event_name) { alert('Event name is required.'); return; }
-      try {
-        const url = selectedId ? `/api/sporting-calendar/${selectedId}` : '/api/sporting-calendar';
-        const method = selectedId ? 'PUT' : 'POST';
-        const res = await fetch(url, { method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
-        if (!res.ok) throw new Error(await res.text());
-        await loadEvents();
-      } catch(e) { alert('Save failed: ' + e.message); }
+    function showPopup(ev, mouseEvent) {
+      const popup = document.getElementById('evPopup');
+      const col = typeColor(ev.event_type||ev.type||'Other');
+      document.getElementById('popupTitle').textContent = ev.name||ev.event_name||'—';
+      document.getElementById('popupTitle').style.color = col;
+      const s=toISO(ev.start_date||ev.start||''), e=toISO(ev.end_date||ev.end||'');
+      const status=ev.status||'';
+      const scClass='sc-'+status.toLowerCase().replace(/\s+/g,'-');
+      document.getElementById('popupBody').innerHTML = `
+        ${ev.event_type||ev.type?`<div class="cal-popup-row"><b>Type</b><span>${esc(ev.event_type||ev.type)}</span></div>`:''}
+        ${s?`<div class="cal-popup-row"><b>Dates</b><span>${s}${e&&e!==s?' → '+e:''}</span></div>`:''}
+        ${ev.circuit?`<div class="cal-popup-row"><b>Circuit</b><span>${esc(ev.circuit)}</span></div>`:''}
+        ${ev.country?`<div class="cal-popup-row"><b>Country</b><span>${esc(ev.country)}</span></div>`:''}
+        ${status?`<div class="cal-popup-row"><b>Status</b><span class="status-chip ${scClass}">${esc(status)}</span></div>`:''}
+      `;
+      document.getElementById('popupOpenLink').onclick = () => window.location.href='events.html';
+      popup.style.display='block';
+      let x=mouseEvent.clientX+12, y=mouseEvent.clientY+12;
+      if(x+300>window.innerWidth-10) x=mouseEvent.clientX-312;
+      if(y+200>window.innerHeight-10) y=mouseEvent.clientY-212;
+      popup.style.left=x+'px'; popup.style.top=y+'px';
     }
 
-    async function deleteEvent() {
-      if (!selectedId) return;
-      if (!confirm('Delete this event?')) return;
-      try {
-        await fetch(`/api/sporting-calendar/${selectedId}`, { method:'DELETE' });
-        selectedId = null;
-        document.getElementById('calDetailEmpty').style.display = '';
-        document.getElementById('calEventForm').style.display = 'none';
-        await loadEvents();
-      } catch(e) { alert('Delete failed: ' + e.message); }
-    }
+    document.getElementById('popupClose').addEventListener('click', () => { document.getElementById('evPopup').style.display='none'; });
+    document.addEventListener('click', e => { const p=document.getElementById('evPopup'); if(p.style.display!=='none'&&!p.contains(e.target)) p.style.display='none'; });
+    document.getElementById('btnPrev').addEventListener('click', ()=>{ viewMonth--; if(viewMonth<0){viewMonth=11;viewYear--;} renderGrid(); });
+    document.getElementById('btnNext').addEventListener('click', ()=>{ viewMonth++; if(viewMonth>11){viewMonth=0;viewYear++;} renderGrid(); });
+    document.getElementById('btnPrevYear').addEventListener('click', ()=>{ viewYear--; renderGrid(); });
+    document.getElementById('btnNextYear').addEventListener('click', ()=>{ viewYear++; renderGrid(); });
+    document.getElementById('btnToday').addEventListener('click', ()=>{ const n=new Date(); viewYear=n.getFullYear(); viewMonth=n.getMonth(); renderGrid(); });
 
-    function esc(s) { return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-
-    document.getElementById('btnAddCalEvent').addEventListener('click', newEventForm);
-    document.getElementById('calBtnSave').addEventListener('click', saveEvent);
-    document.getElementById('calBtnDelete').addEventListener('click', deleteEvent);
-    document.getElementById('calBtnCancel').addEventListener('click', () => {
-      document.getElementById('calEventForm').style.display = 'none';
-      document.getElementById('calDetailEmpty').style.display = '';
-    });
-    document.getElementById('calSearch').addEventListener('input', renderList);
-    document.querySelectorAll('#calStatusList li').forEach(li => li.addEventListener('click', () => {
-      document.querySelectorAll('#calStatusList li').forEach(x=>x.classList.remove('active'));
-      li.classList.add('active'); filterStatus = li.dataset.filter; renderList();
-    }));
-    // Series filter is rebuilt dynamically by rebuildSeriesFilter() after loadEvents()
-
+    const n=new Date(); viewYear=n.getFullYear(); viewMonth=n.getMonth();
     loadEvents();
   </script>
 </body>
