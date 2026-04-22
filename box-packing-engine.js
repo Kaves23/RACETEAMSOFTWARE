@@ -3634,23 +3634,61 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     overlay.id = modalId;
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px)';
 
-    const variantRows = variants.map(v => {
-      const total = (v.qty_a || 0) + (v.qty_b || 0) + (v.qty_c || 0);
-      return `
-        <div style="display:grid;grid-template-columns:80px 1fr 80px;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid #f0f0f0">
-          <strong style="font-size:.85rem;color:#202124">${v.label}</strong>
-          <span style="font-size:.72rem;color:#5f6368">
-            <span style="background:#e8f5e9;color:#2e7d32;padding:1px 5px;border-radius:3px;font-weight:700;margin-right:2px">A:${v.qty_a}</span>
-            <span style="background:#fff8e1;color:#f57f17;padding:1px 5px;border-radius:3px;font-weight:700;margin-right:2px">B:${v.qty_b}</span>
-            <span style="background:#ffebee;color:#c62828;padding:1px 5px;border-radius:3px;font-weight:700">C:${v.qty_c}</span>
-            <span style="margin-left:4px;color:#9aa0a6">(${total} total)</span>
-          </span>
-          <input type="number" min="0" max="${total}" value="0" placeholder="0"
-                 data-variant-id="${v.id}" data-variant-label="${v.label.replace(/"/g, '&quot;')}"
-                 style="padding:4px 6px;border:1px solid #d0d0d0;border-radius:4px;font-size:.8rem;width:100%;text-align:center"
-                 oninput="this.style.borderColor=parseInt(this.value)>0?'#1a73e8':'#d0d0d0'">
-        </div>`;
-    }).join('');
+    // Helper: build stock cells for a given variant and selected location
+    function stockCells(v, locName) {
+      const locStock = (v.location_stock && typeof v.location_stock === 'object') ? v.location_stock : {};
+      let a, b, c, total;
+      if (locName && locStock[locName]) {
+        a = locStock[locName].a || 0;
+        b = locStock[locName].b || 0;
+        c = locStock[locName].c || 0;
+        total = a + b + c;
+      } else if (locName) {
+        // Location selected but no stock there
+        a = b = c = total = 0;
+      } else {
+        // All locations — use aggregate totals
+        a = v.qty_a || 0; b = v.qty_b || 0; c = v.qty_c || 0;
+        total = a + b + c;
+      }
+      return { a, b, c, total,
+        html: `<span style="background:#e8f5e9;color:#2e7d32;padding:1px 5px;border-radius:3px;font-weight:700;margin-right:2px">A:${a}</span>` +
+              `<span style="background:#fff8e1;color:#f57f17;padding:1px 5px;border-radius:3px;font-weight:700;margin-right:2px">B:${b}</span>` +
+              `<span style="background:#ffebee;color:#c62828;padding:1px 5px;border-radius:3px;font-weight:700">C:${c}</span>` +
+              `<span style="margin-left:4px;color:#9aa0a6">(${total} total)</span>`
+      };
+    }
+
+    function buildVariantRows(locName) {
+      return variants.map(v => {
+        const { html, total } = stockCells(v, locName);
+        return `
+          <div style="display:grid;grid-template-columns:80px 1fr 80px;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid #f0f0f0">
+            <strong style="font-size:.85rem;color:#202124">${v.label}</strong>
+            <span class="vpm-stock-cell" data-vid="${v.id}" style="font-size:.72rem;color:#5f6368">${html}</span>
+            <input type="number" min="0" max="${total}" value="0" placeholder="0"
+                   data-variant-id="${v.id}" data-variant-label="${v.label.replace(/"/g, '&quot;')}"
+                   style="padding:4px 6px;border:1px solid #d0d0d0;border-radius:4px;font-size:.8rem;width:100%;text-align:center"
+                   oninput="this.style.borderColor=parseInt(this.value)>0?'#1a73e8':'#d0d0d0'">
+          </div>`;
+      }).join('');
+    }
+
+    // Check which locations actually have stock for any variant
+    const locationsWithStock = new Set();
+    variants.forEach(v => {
+      if (v.location_stock && typeof v.location_stock === 'object') {
+        Object.keys(v.location_stock).forEach(l => locationsWithStock.add(l));
+      }
+    });
+
+    const locOptions = '<option value="">All locations</option>' +
+      allLocations
+        .filter(l => locationsWithStock.size === 0 || locationsWithStock.has(l.name || l))
+        .map(l => {
+          const name = l.name || l;
+          return `<option value="${name}">${name}</option>`;
+        }).join('');
 
     overlay.innerHTML = `
       <div style="background:#fff;border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.25);max-width:480px;width:90%;max-height:80vh;overflow:hidden;display:flex;flex-direction:column">
@@ -3661,11 +3699,17 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
           </div>
           <button id="${modalId}_cancel" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:.8rem">Cancel</button>
         </div>
+        <div style="padding:10px 18px;border-bottom:1px solid #e8eaed;background:#f8f9fa;display:flex;align-items:center;gap:10px">
+          <label style="font-size:.72rem;font-weight:700;color:#4a5568;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap">From Location</label>
+          <select id="${modalId}_loc" style="flex:1;padding:5px 8px;border:1px solid #d0d0d0;border-radius:6px;font-size:.8rem;color:#202124">
+            ${locOptions}
+          </select>
+        </div>
         <div style="overflow-y:auto;flex:1;padding:12px 18px">
           <div style="display:grid;grid-template-columns:80px 1fr 80px;gap:8px;padding:4px 0 8px;border-bottom:2px solid #e0e0e0;font-size:.65rem;font-weight:700;color:#5f6368;text-transform:uppercase">
             <span>Size</span><span>Stock</span><span>Pack Qty</span>
           </div>
-          ${variantRows}
+          <div id="${modalId}_rows">${buildVariantRows('')}</div>
         </div>
         <div style="padding:12px 18px;border-top:1px solid #e0e0e0;display:flex;justify-content:flex-end;gap:8px">
           <button id="${modalId}_confirm" style="background:#1a73e8;color:#fff;border:none;padding:8px 20px;border-radius:6px;font-weight:600;cursor:pointer;font-size:.85rem">Pack Selected Sizes</button>
@@ -3673,6 +3717,21 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       </div>`;
 
     document.body.appendChild(overlay);
+
+    // Reactive location filter — re-render stock cells only (preserve qty inputs)
+    document.getElementById(`${modalId}_loc`).addEventListener('change', function() {
+      const locName = this.value;
+      overlay.querySelectorAll('.vpm-stock-cell').forEach(cell => {
+        const vid = cell.dataset.vid;
+        const v = variants.find(x => String(x.id) === String(vid));
+        if (!v) return;
+        const { html, total } = stockCells(v, locName);
+        cell.innerHTML = html;
+        // Update the max on the qty input
+        const inp = cell.parentElement.querySelector('input[data-variant-id]');
+        if (inp) inp.max = total;
+      });
+    });
 
     const result = await new Promise(resolve => {
       document.getElementById(`${modalId}_cancel`).onclick = () => resolve(null);
@@ -3683,16 +3742,18 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
           const qty = parseInt(inp.value) || 0;
           if (qty > 0) selections.push({ variantId: inp.dataset.variantId, variantLabel: inp.dataset.variantLabel, qty });
         });
-        resolve(selections);
+        const fromLocation = document.getElementById(`${modalId}_loc`).value;
+        resolve(selections.length > 0 ? { selections, fromLocation } : null);
       };
     });
 
     document.body.removeChild(overlay);
-    if (!result || result.length === 0) return;
+    if (!result) return;
+    const { selections, fromLocation } = result;
 
-    showLoading('Packing Sizes', `Adding ${result.length} size(s) to ${box.name}…`);
+    showLoading('Packing Sizes', `Adding ${selections.length} size(s) to ${box.name}…`);
     let packed = 0;
-    for (const { variantLabel, qty } of result) {
+    for (const { variantLabel, qty } of selections) {
       try {
         const token = localStorage.getItem('auth_token');
         const resp = await fetch('/api/inventory/pack', {
