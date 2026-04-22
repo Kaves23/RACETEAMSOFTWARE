@@ -24,24 +24,38 @@ router.get('/:parentId', async (req, res, next) => {
 
 // ─── POST /api/inventory-variants  ───────────────────────────────────────────
 // Create a new variant (and mark parent as has_variants=true).
-// Body: { parentId, label, qty_a, qty_b, qty_c, notes, sort_order }
+// Body: { parentId, label, part_number, qty_a, qty_b, qty_c, notes, sort_order, location_stock }
+// If location_stock is provided, qty_a/b/c are computed from it; explicit values used otherwise.
 router.post('/', async (req, res, next) => {
   try {
-    const { parentId, label, qty_a = 0, qty_b = 0, qty_c = 0, notes = '', sort_order = 0 } = req.body;
+    const { parentId, label, part_number = '', notes = '', sort_order = 0 } = req.body;
+    let { qty_a = 0, qty_b = 0, qty_c = 0, location_stock } = req.body;
 
     if (!parentId || !label) {
       return res.status(400).json({ success: false, error: 'parentId and label are required' });
     }
 
+    // If location_stock provided, derive aggregate totals from it
+    if (location_stock && typeof location_stock === 'object') {
+      qty_a = 0; qty_b = 0; qty_c = 0;
+      for (const loc of Object.values(location_stock)) {
+        qty_a += Math.max(0, parseInt(loc.a) || 0);
+        qty_b += Math.max(0, parseInt(loc.b) || 0);
+        qty_c += Math.max(0, parseInt(loc.c) || 0);
+      }
+    }
+
     const id = genId();
+    const locStock = (location_stock && typeof location_stock === 'object') ? JSON.stringify(location_stock) : '{}';
 
     const result = await pool.query(
-      `INSERT INTO inventory_variants (id, parent_id, label, qty_a, qty_b, qty_c, notes, sort_order)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `INSERT INTO inventory_variants (id, parent_id, label, part_number, qty_a, qty_b, qty_c, notes, sort_order, location_stock)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        RETURNING *`,
-      [id, parentId, label.trim(), Math.max(0, parseInt(qty_a) || 0),
-       Math.max(0, parseInt(qty_b) || 0), Math.max(0, parseInt(qty_c) || 0),
-       notes || '', parseInt(sort_order) || 0]
+      [id, parentId, label.trim(), (part_number || '').trim(),
+       Math.max(0, parseInt(qty_a) || 0), Math.max(0, parseInt(qty_b) || 0),
+       Math.max(0, parseInt(qty_c) || 0), notes || '',
+       parseInt(sort_order) || 0, locStock]
     );
 
     // Ensure parent is flagged as having variants
@@ -63,22 +77,40 @@ router.post('/', async (req, res, next) => {
 });
 
 // ─── PUT /api/inventory-variants/:id  ────────────────────────────────────────
-// Update a variant's quantities, label, or notes.
+// Update a variant's quantities, label, notes, part_number, or location_stock.
+// If location_stock is provided, qty_a/b/c are recomputed from it.
 router.put('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { label, qty_a, qty_b, qty_c, notes, sort_order } = req.body;
+    const { label, part_number, qty_a, qty_b, qty_c, notes, sort_order, location_stock } = req.body;
 
     const fields  = [];
     const values  = [];
     let   pCount  = 1;
 
-    if (label      !== undefined) { fields.push(`label = $${pCount++}`);      values.push(label.trim()); }
-    if (qty_a      !== undefined) { fields.push(`qty_a = $${pCount++}`);      values.push(Math.max(0, parseInt(qty_a) || 0)); }
-    if (qty_b      !== undefined) { fields.push(`qty_b = $${pCount++}`);      values.push(Math.max(0, parseInt(qty_b) || 0)); }
-    if (qty_c      !== undefined) { fields.push(`qty_c = $${pCount++}`);      values.push(Math.max(0, parseInt(qty_c) || 0)); }
-    if (notes      !== undefined) { fields.push(`notes = $${pCount++}`);      values.push(notes); }
-    if (sort_order !== undefined) { fields.push(`sort_order = $${pCount++}`); values.push(parseInt(sort_order) || 0); }
+    if (label        !== undefined) { fields.push(`label = $${pCount++}`);        values.push(label.trim()); }
+    if (part_number  !== undefined) { fields.push(`part_number = $${pCount++}`);  values.push((part_number || '').trim()); }
+    if (notes        !== undefined) { fields.push(`notes = $${pCount++}`);        values.push(notes); }
+    if (sort_order   !== undefined) { fields.push(`sort_order = $${pCount++}`);   values.push(parseInt(sort_order) || 0); }
+
+    if (location_stock !== undefined && location_stock !== null && typeof location_stock === 'object') {
+      // Compute aggregate totals from location_stock
+      let sumA = 0, sumB = 0, sumC = 0;
+      for (const loc of Object.values(location_stock)) {
+        sumA += Math.max(0, parseInt(loc.a) || 0);
+        sumB += Math.max(0, parseInt(loc.b) || 0);
+        sumC += Math.max(0, parseInt(loc.c) || 0);
+      }
+      fields.push(`location_stock = $${pCount++}`); values.push(JSON.stringify(location_stock));
+      fields.push(`qty_a = $${pCount++}`);           values.push(sumA);
+      fields.push(`qty_b = $${pCount++}`);           values.push(sumB);
+      fields.push(`qty_c = $${pCount++}`);           values.push(sumC);
+    } else {
+      // Explicit qty values (legacy / no location_stock)
+      if (qty_a !== undefined) { fields.push(`qty_a = $${pCount++}`); values.push(Math.max(0, parseInt(qty_a) || 0)); }
+      if (qty_b !== undefined) { fields.push(`qty_b = $${pCount++}`); values.push(Math.max(0, parseInt(qty_b) || 0)); }
+      if (qty_c !== undefined) { fields.push(`qty_c = $${pCount++}`); values.push(Math.max(0, parseInt(qty_c) || 0)); }
+    }
 
     if (fields.length === 0) {
       return res.status(400).json({ success: false, error: 'No valid fields to update' });

@@ -185,10 +185,10 @@
     .variant-manager{border:1px solid #dde1e8;border-radius:6px;overflow:hidden;margin-top:10px}
     .variant-manager-header{background:#f0f3f7;padding:6px 10px;display:flex;justify-content:space-between;align-items:center;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#4a5568}
     .variant-manager-body{padding:0}
-    .variant-row-edit{display:grid;grid-template-columns:80px 52px 52px 52px 1fr 34px;gap:4px;padding:5px 8px;border-bottom:1px solid #f0f0f0;align-items:center}
+    .variant-row-edit{display:grid;grid-template-columns:85px 85px 1fr 22px 22px;gap:4px;padding:5px 8px;border-bottom:1px solid #f0f0f0;align-items:center}
     .variant-row-edit:last-child{border-bottom:none}
     .variant-row-edit:hover{background:#f5f8ff}
-    .variant-row-header{display:grid;grid-template-columns:80px 52px 52px 52px 1fr 34px;gap:4px;padding:4px 8px;background:#fafbfc;border-bottom:1px solid #e8eaed;font-size:.65rem;font-weight:700;color:#5f6368;text-transform:uppercase}
+    .variant-row-header{display:grid;grid-template-columns:85px 85px 1fr 22px 22px;gap:4px;padding:4px 8px;background:#fafbfc;border-bottom:1px solid #e8eaed;font-size:.65rem;font-weight:700;color:#5f6368;text-transform:uppercase}
     .variant-edit-input{font-size:.75rem;padding:2px 5px;border:1px solid #d0d0d0;border-radius:3px;width:100%;text-align:center;color:#202124}
     .variant-edit-input:focus{outline:none;border-color:#1a73e8;background:#e8f0fe}
     .variant-input-label{font-size:.74rem;padding:2px 5px;border:1px solid #d0d0d0;border-radius:3px;width:100%;color:#202124}
@@ -196,7 +196,22 @@
     .variant-add-row{padding:6px 8px;border-top:1px dashed #c0c0c0;background:#fafbfc}
     .btn-variant-delete{background:none;border:none;padding:2px 4px;color:#d0d0d0;cursor:pointer;border-radius:3px;font-size:.8rem;line-height:1}
     .btn-variant-delete:hover{background:#ffebee;color:#c62828}
+    .btn-variant-expand{background:none;border:none;padding:2px 4px;color:#1a73e8;cursor:pointer;border-radius:3px;font-size:.8rem;line-height:1;transition:transform .15s}
+    .btn-variant-expand.open{transform:rotate(90deg)}
     .btn-enable-variants{font-size:.75rem;padding:4px 10px}
+    /* ── Variant location expansion ── */
+    .variant-loc-section{border-left:3px solid #c5d8f5;margin:0 8px 6px 8px;border-radius:0 4px 4px 0;background:#f4f8ff;padding:6px 8px;display:none}
+    .variant-loc-section.open{display:block}
+    .variant-loc-row{display:grid;grid-template-columns:1fr 44px 44px 44px 22px;gap:4px;align-items:center;margin-bottom:4px}
+    .variant-loc-row:last-child{margin-bottom:0}
+    .vloc-label{font-size:.67rem;font-weight:700;color:#5f6368;text-transform:uppercase;padding-bottom:3px;margin-bottom:3px;border-bottom:1px solid #dde5f5;display:grid;grid-template-columns:1fr 44px 44px 44px 22px;gap:4px}
+    /* ── Grade chips in manager ── */
+    .grade-chips-cell{display:inline-flex;gap:3px;align-items:center;flex-wrap:wrap}
+    /* ── Add Item Modal ── */
+    #addItemModal .modal-dialog{max-width:860px}
+    .modal-variant-staged-row{display:grid;grid-template-columns:100px 100px 1fr 26px;gap:6px;align-items:center;padding:4px 0;border-bottom:1px solid #f0f0f0}
+    .modal-variant-staged-row:last-child{border-bottom:none}
+    .modal-variant-staged-header{display:grid;grid-template-columns:100px 100px 1fr 26px;gap:6px;padding:3px 0;font-size:.65rem;font-weight:700;color:#5f6368;text-transform:uppercase;border-bottom:1px solid #e0e0e0;margin-bottom:4px}
 
     .category-consumables{background:#e8f5e9;color:#2e7d32}
     .category-spares{background:#e3f2fd;color:#1565c0}
@@ -574,7 +589,7 @@
             </div>
             
             <!-- Multi-Location Distribution -->
-            <div class="mb-2">
+            <div id="locationDistSection" class="mb-2">
               <label class="form-label">
                 Location Distribution
                 <small class="text-muted">(track items across multiple locations)</small>
@@ -630,23 +645,20 @@
                 <div class="variant-manager-body">
                   <div class="variant-row-header">
                     <span>Label</span>
-                    <span style="text-align:center">Grade A</span>
-                    <span style="text-align:center">Grade B</span>
-                    <span style="text-align:center">Grade C</span>
-                    <span>Notes</span>
+                    <span>Part #</span>
+                    <span>Stock (A / B / C)</span>
+                    <span></span>
                     <span></span>
                   </div>
                   <div id="variantManagerRows"></div>
                   <div class="variant-add-row">
-                    <div style="display:grid;grid-template-columns:80px 52px 52px 52px 1fr 80px;gap:4px;align-items:center">
+                    <div style="display:grid;grid-template-columns:85px 85px 1fr 80px;gap:4px;align-items:center">
                       <input type="text" id="newVariantLabel" class="variant-input-label" placeholder='e.g. "73T"' maxlength="30">
-                      <input type="number" id="newVariantA" class="variant-edit-input" min="0" placeholder="0">
-                      <input type="number" id="newVariantB" class="variant-edit-input" min="0" placeholder="0">
-                      <input type="number" id="newVariantC" class="variant-edit-input" min="0" placeholder="0">
+                      <input type="text" id="newVariantPart" class="variant-input-label" placeholder="Part # (opt)" maxlength="60">
                       <input type="text" id="newVariantNotes" class="variant-input-label" placeholder="notes (optional)">
                       <button type="button" class="btn btn-sm btn-primary" onclick="addVariant()" style="font-size:.72rem;padding:3px 8px">+ Add</button>
                     </div>
-                    <p class="text-muted mb-0 mt-1" style="font-size:.65rem">A = race-ready &nbsp;|&nbsp; B = usable/monitor wear &nbsp;|&nbsp; C = end-of-life (discard)</p>
+                    <p class="text-muted mb-0 mt-1" style="font-size:.65rem">After adding, click ▶ to set stock quantities per location &nbsp;|&nbsp; A race-ready &nbsp; B usable &nbsp; C end-of-life</p>
                   </div>
                 </div>
               </div>
@@ -724,6 +736,125 @@
     </div>
   </div>
   
+  <!-- Add Item Modal -->
+  <div class="modal fade" id="addItemModal" tabindex="-1" aria-labelledby="addItemModalLabel">
+    <div class="modal-dialog modal-xl">
+      <div class="modal-content">
+        <div class="modal-header" style="background:#1a73e8;color:#fff;padding:12px 20px">
+          <h5 class="modal-title" id="addItemModalLabel" style="font-size:1rem;font-weight:700">➕ Add Inventory Item</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body" style="padding:20px 24px">
+          <div class="row g-4">
+            <!-- LEFT: Item Details -->
+            <div class="col-md-6">
+              <h6 class="fw-bold mb-3" style="font-size:.8rem;text-transform:uppercase;letter-spacing:.5px;color:#4a5568;border-bottom:2px solid #e8eaed;padding-bottom:6px">Item Details</h6>
+              <div class="mb-3">
+                <label class="form-label fw-semibold">Item Name <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" id="modalItemName" placeholder="e.g. Sprocket, Chain, Tyre" required>
+              </div>
+              <div class="row g-2 mb-3">
+                <div class="col-6">
+                  <label class="form-label fw-semibold">SKU / Part #</label>
+                  <input type="text" class="form-control" id="modalItemSku" placeholder="Optional">
+                </div>
+                <div class="col-6">
+                  <label class="form-label fw-semibold">Category <span class="text-danger">*</span></label>
+                  <select class="form-select" id="modalItemCategory" required>
+                    <option value="">Select category…</option>
+                  </select>
+                </div>
+              </div>
+              <div class="row g-2 mb-3">
+                <div class="col-6">
+                  <label class="form-label fw-semibold">Unit of Measure</label>
+                  <input type="text" class="form-control" id="modalItemUom" placeholder="ea, m, kg…" value="ea">
+                </div>
+                <div class="col-6">
+                  <label class="form-label fw-semibold">Min Qty (Reorder)</label>
+                  <input type="number" class="form-control" id="modalItemReorder" min="0" step="1" value="0">
+                </div>
+              </div>
+              <div class="mb-3">
+                <label class="form-label fw-semibold">Supplier</label>
+                <select class="form-select" id="modalItemSupplier">
+                  <option value="">— None —</option>
+                </select>
+              </div>
+              <div class="row g-2 mb-3">
+                <div class="col-6">
+                  <label class="form-label fw-semibold">Lead Time (days)</label>
+                  <input type="number" class="form-control" id="modalItemLeadDays" min="0" step="1" value="0">
+                </div>
+                <div class="col-6">
+                  <label class="form-label fw-semibold">Unit Cost (£)</label>
+                  <input type="number" class="form-control" id="modalItemCost" min="0" step="0.01" value="0">
+                </div>
+              </div>
+              <div class="mb-3">
+                <label class="form-label fw-semibold">Notes</label>
+                <textarea class="form-control" id="modalItemNotes" rows="2" placeholder="Optional notes…"></textarea>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="modalItemAutoReorder">
+                <label class="form-check-label" for="modalItemAutoReorder">Auto-reorder when below minimum</label>
+              </div>
+            </div>
+            <!-- RIGHT: Stock -->
+            <div class="col-md-6">
+              <div class="d-flex align-items-center gap-2 mb-3" style="border-bottom:2px solid #e8eaed;padding-bottom:8px">
+                <h6 class="fw-bold mb-0" style="font-size:.8rem;text-transform:uppercase;letter-spacing:.5px;color:#4a5568">Stock Setup</h6>
+                <div class="ms-auto">
+                  <div class="btn-group btn-group-sm" role="group" id="modalStockModeToggle">
+                    <input type="radio" class="btn-check" name="modalStockMode" id="modalModeStandard" value="standard" checked>
+                    <label class="btn btn-outline-primary" for="modalModeStandard" style="font-size:.75rem">📦 Standard</label>
+                    <input type="radio" class="btn-check" name="modalStockMode" id="modalModeVariants" value="variants">
+                    <label class="btn btn-outline-primary" for="modalModeVariants" style="font-size:.75rem">📐 By Variants</label>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Standard Location Distribution -->
+              <div id="modalStockSection">
+                <p class="text-muted mb-2" style="font-size:.8rem">Enter quantities at each storage location. Total is summed automatically.</p>
+                <div id="modalLocationRows" style="min-height:40px"></div>
+                <button type="button" class="btn btn-sm btn-outline-primary w-100 mt-2" onclick="addModalLocationRow()">+ Add Location</button>
+                <div class="mt-2 p-2 rounded d-flex align-items-center gap-2" style="background:#f0f7ff;border:1px solid #c5d8f5">
+                  <span style="font-size:.8rem;color:#4a5568">Total Qty:</span>
+                  <strong id="modalTotalQty" style="font-size:1rem;color:#1a73e8">0</strong>
+                </div>
+              </div>
+
+              <!-- Variants Staging -->
+              <div id="modalVariantSection" style="display:none">
+                <p class="text-muted mb-2" style="font-size:.8rem">Define the sizes / specs you stock. You'll set quantities per location after saving.</p>
+                <div style="border:1px solid #dde1e8;border-radius:6px;overflow:hidden">
+                  <div class="modal-variant-staged-header px-2 pt-2">
+                    <span>Label</span><span>Part #</span><span>Notes</span><span></span>
+                  </div>
+                  <div id="modalStagedVariants" style="padding:4px 8px;min-height:36px"></div>
+                  <div style="padding:6px 8px;border-top:1px dashed #ccc;background:#fafbfc">
+                    <div style="display:grid;grid-template-columns:100px 100px 1fr 60px;gap:6px;align-items:center">
+                      <input type="text" id="modalNewVLabel" class="form-control form-control-sm" placeholder='e.g. "73T"' maxlength="30">
+                      <input type="text" id="modalNewVPart" class="form-control form-control-sm" placeholder="Part # (opt)" maxlength="60">
+                      <input type="text" id="modalNewVNotes" class="form-control form-control-sm" placeholder="Notes (opt)">
+                      <button type="button" class="btn btn-sm btn-primary" onclick="addModalVariantRow()">+ Add</button>
+                    </div>
+                  </div>
+                </div>
+                <p class="text-muted mt-2 mb-0" style="font-size:.74rem">💡 Stock quantities (Grade A / B / C per location) are set after saving the item.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer" style="background:#f8f9fa">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary px-4" onclick="saveModalItem()">💾 Save Item</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Shopify Integration Modal -->
   <div class="modal fade" id="shopifyModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
@@ -1094,10 +1225,9 @@
         document.getElementById('btnBulkUpdateLocation').addEventListener('click', bulkUpdateLocation);
         document.getElementById('btnBulkUpdateSupplier').addEventListener('click', bulkUpdateSupplier);
         
-        // Add item
+        // Add item → open modal
         document.getElementById('btnAddItem').addEventListener('click', () => {
-          selectedItemId = null;
-          showItemForm(null);
+          openAddItemModal();
         });
         
         // Shopify sync
@@ -1108,6 +1238,211 @@
         document.getElementById('btnDeleteItem').addEventListener('click', deleteItem);
       }
       
+      // ===== ADD ITEM MODAL =====
+
+      let addItemModalInstance = null;
+
+      function openAddItemModal() {
+        // Populate dropdowns
+        const catOptions = CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('');
+        const supOptions = SUPPLIERS.map(s => `<option value="${s.name||s}">${s.name||s}</option>`).join('');
+        document.getElementById('modalItemCategory').innerHTML = '<option value="">Select category…</option>' + catOptions;
+        document.getElementById('modalItemSupplier').innerHTML = '<option value="">— None —</option>' + supOptions;
+
+        // Reset fields
+        document.getElementById('modalItemName').value = '';
+        document.getElementById('modalItemSku').value = '';
+        document.getElementById('modalItemCategory').value = '';
+        document.getElementById('modalItemUom').value = 'ea';
+        document.getElementById('modalItemReorder').value = '0';
+        document.getElementById('modalItemSupplier').value = '';
+        document.getElementById('modalItemLeadDays').value = '0';
+        document.getElementById('modalItemCost').value = '0';
+        document.getElementById('modalItemNotes').value = '';
+        document.getElementById('modalItemAutoReorder').checked = false;
+
+        // Reset stock mode to standard
+        document.getElementById('modalModeStandard').checked = true;
+        document.getElementById('modalStockSection').style.display = 'block';
+        document.getElementById('modalVariantSection').style.display = 'none';
+
+        // Reset location rows: start with one empty row
+        document.getElementById('modalLocationRows').innerHTML = '';
+        document.getElementById('modalTotalQty').textContent = '0';
+        addModalLocationRow();
+
+        // Reset staged variants
+        document.getElementById('modalStagedVariants').innerHTML = '';
+        document.getElementById('modalNewVLabel').value = '';
+        document.getElementById('modalNewVPart').value = '';
+        document.getElementById('modalNewVNotes').value = '';
+
+        // Wire mode toggle
+        document.querySelectorAll('input[name="modalStockMode"]').forEach(radio => {
+          radio.onchange = () => {
+            const isVariants = document.getElementById('modalModeVariants').checked;
+            document.getElementById('modalStockSection').style.display  = isVariants ? 'none'  : 'block';
+            document.getElementById('modalVariantSection').style.display = isVariants ? 'block' : 'none';
+          };
+        });
+
+        if (!addItemModalInstance) {
+          addItemModalInstance = new bootstrap.Modal(document.getElementById('addItemModal'));
+        }
+        addItemModalInstance.show();
+        setTimeout(() => document.getElementById('modalItemName').focus(), 400);
+      }
+
+      window.addModalLocationRow = function(location = '', quantity = 0) {
+        const container = document.getElementById('modalLocationRows');
+        const rowId = `mloc-${Date.now()}-${Math.random().toString(36).substr(2,6)}`;
+        const locOptions = LOCATIONS.map(l => `<option value="${l.name||l}">${l.name||l}</option>`).join('');
+        const html = `
+          <div class="d-flex gap-2 align-items-center mb-2" id="${rowId}">
+            <select class="form-select form-select-sm modal-loc-select" style="flex:2">
+              <option value="">Select location…</option>${locOptions}
+            </select>
+            <input type="number" class="form-control form-control-sm modal-loc-qty" placeholder="Qty" min="0" step="1" value="${quantity}" style="max-width:90px">
+            <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeModalLocationRow('${rowId}')" style="flex-shrink:0">×</button>
+          </div>`;
+        container.insertAdjacentHTML('beforeend', html);
+        if (location) {
+          const sel = document.querySelector(`#${rowId} .modal-loc-select`);
+          if (sel) sel.value = location;
+        }
+        updateModalTotalQty();
+      };
+
+      window.removeModalLocationRow = function(rowId) {
+        const el = document.getElementById(rowId);
+        if (el) { el.remove(); updateModalTotalQty(); }
+      };
+
+      function updateModalTotalQty() {
+        let total = 0;
+        document.querySelectorAll('.modal-loc-qty').forEach(inp => { total += parseFloat(inp.value) || 0; });
+        document.getElementById('modalTotalQty').textContent = total;
+      }
+
+      // Delegate qty input changes inside the modal
+      document.getElementById('addItemModal').addEventListener('input', e => {
+        if (e.target.classList.contains('modal-loc-qty')) updateModalTotalQty();
+      });
+
+      let modalStagedVariantCounter = 0;  // unique IDs for staged rows
+
+      window.addModalVariantRow = function() {
+        const label = document.getElementById('modalNewVLabel').value.trim();
+        if (!label) { showToast('Enter a label before adding', 'warning'); return; }
+        const part  = document.getElementById('modalNewVPart').value.trim();
+        const notes = document.getElementById('modalNewVNotes').value.trim();
+        const rowId = `msv-${++modalStagedVariantCounter}`;
+        const html = `
+          <div class="modal-variant-staged-row" id="${rowId}" data-label="${escHtml(label)}" data-part="${escHtml(part)}" data-notes="${escHtml(notes)}">
+            <span style="font-size:.8rem;font-weight:600">${escHtml(label)}</span>
+            <span style="font-size:.75rem;color:#5f6368">${escHtml(part) || '<em class="text-muted">—</em>'}</span>
+            <span style="font-size:.75rem;color:#5f6368">${escHtml(notes) || ''}</span>
+            <button type="button" class="btn-variant-delete" onclick="removeModalVariantRow('${rowId}')" title="Remove">✕</button>
+          </div>`;
+        document.getElementById('modalStagedVariants').insertAdjacentHTML('beforeend', html);
+        document.getElementById('modalNewVLabel').value = '';
+        document.getElementById('modalNewVPart').value = '';
+        document.getElementById('modalNewVNotes').value = '';
+        document.getElementById('modalNewVLabel').focus();
+      };
+
+      window.removeModalVariantRow = function(rowId) {
+        const el = document.getElementById(rowId);
+        if (el) el.remove();
+      };
+
+      async function saveModalItem() {
+        const name = document.getElementById('modalItemName').value.trim();
+        const category = document.getElementById('modalItemCategory').value;
+        if (!name) { showToast('Item name is required', 'warning'); document.getElementById('modalItemName').focus(); return; }
+        if (!category) { showToast('Category is required', 'warning'); document.getElementById('modalItemCategory').focus(); return; }
+
+        const isVariants = document.getElementById('modalModeVariants').checked;
+
+        // Collect location distribution for standard mode
+        let locationDistribution = {};
+        let totalQty = 0;
+        if (!isVariants) {
+          document.querySelectorAll('#modalLocationRows .d-flex').forEach(row => {
+            const loc = row.querySelector('.modal-loc-select').value;
+            const qty = parseFloat(row.querySelector('.modal-loc-qty').value) || 0;
+            if (loc && qty > 0) { locationDistribution[loc] = qty; totalQty += qty; }
+          });
+        }
+
+        const itemData = {
+          name,
+          sku: document.getElementById('modalItemSku').value.trim(),
+          category,
+          quantity: totalQty,
+          unit_of_measure: document.getElementById('modalItemUom').value || 'ea',
+          min_quantity: parseFloat(document.getElementById('modalItemReorder').value) || 0,
+          location_distribution: JSON.stringify(locationDistribution),
+          supplier: document.getElementById('modalItemSupplier').value,
+          lead_time_days: parseInt(document.getElementById('modalItemLeadDays').value) || 0,
+          unit_cost: parseFloat(document.getElementById('modalItemCost').value) || 0,
+          notes: document.getElementById('modalItemNotes').value.trim(),
+          auto_reorder: document.getElementById('modalItemAutoReorder').checked
+        };
+
+        // Collect staged variants
+        const stagedVariants = [];
+        if (isVariants) {
+          document.querySelectorAll('#modalStagedVariants .modal-variant-staged-row').forEach(row => {
+            stagedVariants.push({
+              label: row.dataset.label,
+              part_number: row.dataset.part || '',
+              notes: row.dataset.notes || ''
+            });
+          });
+        }
+
+        showLoading('Saving Item', 'Creating in database…');
+
+        try {
+          let response;
+          if (typeof RTS_API !== 'undefined' && RTS_API.createCollectionItem) {
+            response = await RTS_API.createCollectionItem('inventory', itemData);
+          }
+          if (!response || !response.item) throw new Error('No item returned from server');
+
+          const newId = response.item.id;
+
+          // Create staged variants
+          for (const sv of stagedVariants) {
+            await variantFetch('POST', '/inventory-variants', { parentId: newId, label: sv.label, part_number: sv.part_number, notes: sv.notes });
+          }
+
+          // Close modal
+          if (addItemModalInstance) addItemModalInstance.hide();
+
+          await loadData();
+          applyFilters();
+
+          // Select the new item
+          selectedItemId = newId;
+          const freshItem = allItems.find(i => i.id === newId);
+          if (freshItem) await showItemForm(freshItem);
+
+          hideLoading();
+          if (isVariants && stagedVariants.length > 0) {
+            showToast(`Item created with ${stagedVariants.length} variant(s) — expand rows to set stock`, 'success');
+          } else {
+            showToast('Item created successfully', 'success');
+          }
+        } catch (err) {
+          hideLoading();
+          showToast('Error saving item: ' + err.message, 'error');
+        }
+      }
+
+      // ===== END ADD ITEM MODAL =====
+
       // Populate dropdowns
       function populateDropdowns() {
         const catOptions = CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('');
@@ -1457,12 +1792,16 @@
 
           // Load variant manager if item supports variants (or enable-variants button if not)
           await loadVariantManager(item);
+
+          // Hide location distribution for variant items — stock is tracked per-variant
+          document.getElementById('locationDistSection').style.display = item.hasVariants ? 'none' : '';
         } else {
           document.getElementById('itemForm').reset();
           document.getElementById('itemId').value = '';
           document.getElementById('detailBadge').textContent = 'New Item';
           document.getElementById('itemInfo').style.display = 'none';
-          
+          document.getElementById('locationDistSection').style.display = '';
+
           // Initialize location editor with one empty entry
           loadLocationDistributionEditor({});
         }
@@ -1722,21 +2061,42 @@
           if (variants.length === 0) {
             container.innerHTML = '<div style="padding:8px 10px;font-size:.74rem;color:#9aa0a6;font-style:italic">No variants yet. Add sizes below.</div>';
           } else {
-            container.innerHTML = variants.map(v => `
-              <div class="variant-row-edit" data-variant-id="${v.id}">
-                <input type="text" class="variant-input-label vr-label" value="${escHtml(v.label)}" maxlength="30" placeholder="label">
-                <input type="number" class="variant-edit-input vr-a" value="${v.qty_a}" min="0" title="Grade A — race ready">
-                <input type="number" class="variant-edit-input vr-b" value="${v.qty_b}" min="0" title="Grade B — usable">
-                <input type="number" class="variant-edit-input vr-c" value="${v.qty_c}" min="0" title="Grade C — end of life">
-                <input type="text" class="variant-input-label vr-notes" value="${escHtml(v.notes || '')}" placeholder="notes">
-                <button type="button" class="btn-variant-delete" onclick="deleteVariant('${v.id}','${parentId}')" title="Delete variant">✕</button>
-              </div>`).join('');
+            container.innerHTML = variants.map(v => {
+              const locStock = (v.location_stock && typeof v.location_stock === 'object') ? v.location_stock : {};
+              const gradeHtml = buildGradeChips(v.qty_a, v.qty_b, v.qty_c);
+              return `
+              <div>
+                <div class="variant-row-edit" data-variant-id="${v.id}">
+                  <input type="text" class="variant-input-label vr-label" value="${escHtml(v.label)}" maxlength="30" placeholder="label" title="Label">
+                  <input type="text" class="variant-edit-input vr-part" value="${escHtml(v.part_number || '')}" maxlength="60" placeholder="Part #" title="Part number">
+                  <div class="grade-chips-cell">${gradeHtml}</div>
+                  <button type="button" class="btn-variant-expand" onclick="toggleVariantLocations('${v.id}','${parentId}')" title="Set stock per location">▶</button>
+                  <button type="button" class="btn-variant-delete" onclick="deleteVariant('${v.id}','${parentId}')" title="Delete variant">✕</button>
+                </div>
+                <div class="variant-loc-section" id="vloc-${v.id}">
+                  <div class="vloc-label"><span>Location</span><span>Grade A</span><span>Grade B</span><span>Grade C</span><span></span></div>
+                  <div id="vloc-rows-${v.id}"></div>
+                  <div class="d-flex gap-2 mt-2">
+                    <button type="button" class="btn btn-xs btn-outline-primary" onclick="addVariantLocRow('${v.id}','${parentId}')" style="font-size:.7rem;padding:2px 8px">+ Add Location</button>
+                    <button type="button" class="btn btn-xs btn-success" onclick="saveVariantLocations('${v.id}','${parentId}')" style="font-size:.7rem;padding:2px 8px" id="vloc-save-${v.id}">💾 Save</button>
+                  </div>
+                </div>
+              </div>`;
+            }).join('');
 
-            // Auto-save on blur for each row
+            // Auto-save label/part# on blur
             container.querySelectorAll('.variant-row-edit').forEach(row => {
-              row.querySelectorAll('input').forEach(inp => {
+              row.querySelectorAll('.vr-label, .vr-part').forEach(inp => {
                 inp.addEventListener('blur', () => saveVariantRow(row, parentId));
               });
+            });
+
+            // Render location rows for already-expanded sections
+            variants.forEach(v => {
+              const locSection = document.getElementById(`vloc-${v.id}`);
+              if (locSection && locSection.classList.contains('open')) {
+                renderVariantLocRows(v.id, parentId);
+              }
             });
           }
 
@@ -1752,29 +2112,28 @@
         }
       }
 
+      function buildGradeChips(a, b, c) {
+        const chips = [
+          `<span class="grade-chip a${a === 0 ? ' zero' : ''}">A:${a}</span>`,
+          `<span class="grade-chip b${b === 0 ? ' zero' : ''}">B:${b}</span>`,
+          `<span class="grade-chip c${c === 0 ? ' zero' : ''}">C:${c}</span>`
+        ];
+        return chips.join('');
+      }
+
       async function saveVariantRow(row, parentId) {
         const id    = row.dataset.variantId;
         const label = row.querySelector('.vr-label').value.trim();
-        const qty_a = parseInt(row.querySelector('.vr-a').value) || 0;
-        const qty_b = parseInt(row.querySelector('.vr-b').value) || 0;
-        const qty_c = parseInt(row.querySelector('.vr-c').value) || 0;
-        const notes = row.querySelector('.vr-notes').value.trim();
+        const part  = row.querySelector('.vr-part').value.trim();
         if (!label) return;
         try {
-          const data = await variantFetch('PUT', `/inventory-variants/${id}`, { label, qty_a, qty_b, qty_c, notes });
+          const data = await variantFetch('PUT', `/inventory-variants/${id}`, { label, part_number: part });
           if (!data.success) { showToast('Save failed: ' + data.error, 'error'); return; }
           // Update cache
           const cached = variantCache[parentId];
           if (cached) {
             const idx = cached.findIndex(v => v.id === id);
             if (idx >= 0) cached[idx] = data.variant;
-          }
-          // Re-sync qty
-          const parentItem = allItems.find(i => i.id === parentId);
-          if (parentItem) {
-            const allV = variantCache[parentId] || [];
-            parentItem.qty = allV.reduce((s, v) => s + (v.qty_a || 0) + (v.qty_b || 0) + (v.qty_c || 0), 0);
-            document.getElementById('itemQty').value = parentItem.qty;
           }
           renderItems();
         } catch (err) {
@@ -1787,18 +2146,14 @@
         if (!parentId) return;
         const label = document.getElementById('newVariantLabel').value.trim();
         if (!label) { showToast('Enter a label (e.g. "73T") before adding', 'warning'); return; }
-        const qty_a = parseInt(document.getElementById('newVariantA').value) || 0;
-        const qty_b = parseInt(document.getElementById('newVariantB').value) || 0;
-        const qty_c = parseInt(document.getElementById('newVariantC').value) || 0;
+        const part  = document.getElementById('newVariantPart').value.trim();
         const notes = document.getElementById('newVariantNotes').value.trim();
         try {
-          const data = await variantFetch('POST', '/inventory-variants', { parentId, label, qty_a, qty_b, qty_c, notes });
+          const data = await variantFetch('POST', '/inventory-variants', { parentId, label, part_number: part, notes });
           if (!data.success) { showToast(data.error, 'error'); return; }
           // Clear inputs
           document.getElementById('newVariantLabel').value = '';
-          document.getElementById('newVariantA').value = '';
-          document.getElementById('newVariantB').value = '';
-          document.getElementById('newVariantC').value = '';
+          document.getElementById('newVariantPart').value = '';
           document.getElementById('newVariantNotes').value = '';
           // Update local item
           const parentItem = allItems.find(i => i.id === parentId);
@@ -1811,6 +2166,122 @@
           showToast('Error adding variant: ' + err.message, 'error');
         }
       };
+
+      // ===== VARIANT LOCATION EXPANSION =====
+
+      window.toggleVariantLocations = function(variantId, parentId) {
+        const section = document.getElementById(`vloc-${variantId}`);
+        const btn = document.querySelector(`.variant-row-edit[data-variant-id="${variantId}"] .btn-variant-expand`);
+        if (!section) return;
+        const isOpen = section.classList.toggle('open');
+        if (btn) btn.classList.toggle('open', isOpen);
+        if (isOpen) renderVariantLocRows(variantId, parentId);
+      };
+
+      function renderVariantLocRows(variantId, parentId) {
+        const container = document.getElementById(`vloc-rows-${variantId}`);
+        if (!container) return;
+        const cached = variantCache[parentId] || [];
+        const variant = cached.find(v => String(v.id) === String(variantId));
+        const locStock = (variant && variant.location_stock && typeof variant.location_stock === 'object')
+          ? variant.location_stock : {};
+
+        container.innerHTML = '';
+        const entries = Object.entries(locStock);
+        if (entries.length === 0) {
+          // Start with one empty row
+          appendVariantLocRow(container, variantId, parentId, '', 0, 0, 0);
+        } else {
+          entries.forEach(([loc, grades]) => {
+            appendVariantLocRow(container, variantId, parentId, loc,
+              grades.a || 0, grades.b || 0, grades.c || 0);
+          });
+        }
+      }
+
+      function appendVariantLocRow(container, variantId, parentId, loc = '', a = 0, b = 0, c = 0) {
+        const locOptions = LOCATIONS.map(l => `<option value="${l.name||l}">${l.name||l}</option>`).join('');
+        const rowId = `vlocr-${variantId}-${Date.now()}-${Math.random().toString(36).substr(2,4)}`;
+        const html = `
+          <div class="variant-loc-row" id="${rowId}">
+            <select class="form-select form-select-sm vloc-loc-sel">
+              <option value="">Location…</option>${locOptions}
+            </select>
+            <input type="number" class="form-control form-control-sm vloc-a" min="0" step="1" value="${a}" title="Grade A — race ready" style="text-align:center">
+            <input type="number" class="form-control form-control-sm vloc-b" min="0" step="1" value="${b}" title="Grade B — usable" style="text-align:center">
+            <input type="number" class="form-control form-control-sm vloc-c" min="0" step="1" value="${c}" title="Grade C — end of life" style="text-align:center">
+            <button type="button" class="btn-variant-delete" onclick="removeVariantLocRow('${rowId}','${variantId}','${parentId}')" title="Remove location">✕</button>
+          </div>`;
+        container.insertAdjacentHTML('beforeend', html);
+        if (loc) {
+          const sel = document.querySelector(`#${rowId} .vloc-loc-sel`);
+          if (sel) sel.value = loc;
+        }
+      }
+
+      window.addVariantLocRow = function(variantId, parentId) {
+        const container = document.getElementById(`vloc-rows-${variantId}`);
+        if (container) appendVariantLocRow(container, variantId, parentId);
+      };
+
+      window.removeVariantLocRow = function(rowId, variantId, parentId) {
+        const el = document.getElementById(rowId);
+        if (el) el.remove();
+        saveVariantLocations(variantId, parentId);
+      };
+
+      window.saveVariantLocations = async function(variantId, parentId) {
+        const container = document.getElementById(`vloc-rows-${variantId}`);
+        if (!container) return;
+
+        const location_stock = {};
+        container.querySelectorAll('.variant-loc-row').forEach(row => {
+          const loc = row.querySelector('.vloc-loc-sel').value;
+          const a = parseInt(row.querySelector('.vloc-a').value) || 0;
+          const b = parseInt(row.querySelector('.vloc-b').value) || 0;
+          const c = parseInt(row.querySelector('.vloc-c').value) || 0;
+          if (loc) location_stock[loc] = { a, b, c };
+        });
+
+        // Get label/part from the parent row
+        const rowEl = document.querySelector(`.variant-row-edit[data-variant-id="${variantId}"]`);
+        const label = rowEl ? rowEl.querySelector('.vr-label').value.trim() : undefined;
+        const part_number = rowEl ? rowEl.querySelector('.vr-part').value.trim() : undefined;
+
+        try {
+          const data = await variantFetch('PUT', `/inventory-variants/${variantId}`, {
+            ...(label !== undefined ? { label } : {}),
+            ...(part_number !== undefined ? { part_number } : {}),
+            location_stock
+          });
+          if (!data.success) { showToast('Save failed: ' + data.error, 'error'); return; }
+
+          // Update cache
+          const cached = variantCache[parentId];
+          if (cached) {
+            const idx = cached.findIndex(v => String(v.id) === String(variantId));
+            if (idx >= 0) cached[idx] = data.variant;
+          }
+
+          // Update grade chips in the row
+          const chipsCell = rowEl ? rowEl.querySelector('.grade-chips-cell') : null;
+          if (chipsCell) chipsCell.innerHTML = buildGradeChips(data.variant.qty_a, data.variant.qty_b, data.variant.qty_c);
+
+          // Sync parent qty
+          const parentItem = allItems.find(i => i.id === parentId);
+          if (parentItem) {
+            const allV = variantCache[parentId] || [];
+            parentItem.qty = allV.reduce((s, v) => s + (v.qty_a || 0) + (v.qty_b || 0) + (v.qty_c || 0), 0);
+            document.getElementById('itemQty').value = parentItem.qty;
+          }
+          renderItems();
+          showToast('Stock saved', 'success');
+        } catch (err) {
+          showToast('Error saving stock: ' + err.message, 'error');
+        }
+      };
+
+      // ===== END VARIANT LOCATION EXPANSION =====
 
       window.deleteVariant = async function(variantId, parentId) {
         const ok = await customConfirm('Delete Variant', 'Remove this variant? This cannot be undone.', 'Delete', true);
@@ -1838,13 +2309,12 @@
       async function enableVariants(item) {
         document.getElementById('enableVariantsSection').style.display  = 'none';
         document.getElementById('variantManagerSection').style.display = 'block';
+        document.getElementById('locationDistSection').style.display = 'none';
         // Mark locally
         item.hasVariants = true;
         const idx = allItems.findIndex(i => i.id === item.id);
         if (idx >= 0) allItems[idx].hasVariants = true;
-        // Persist flag (fire-and-forget — actual has_variants=TRUE is set by server when first variant is created)
         await refreshVariantManagerRows(item.id);
-        // Focus the label input
         document.getElementById('newVariantLabel').focus();
       }
 
@@ -1866,6 +2336,7 @@
           if (idx >= 0) allItems[idx].hasVariants = false;
           document.getElementById('variantManagerSection').style.display = 'none';
           document.getElementById('enableVariantsSection').style.display  = 'block';
+          document.getElementById('locationDistSection').style.display = '';
           renderItems();
           showToast('Variants disabled', 'success');
         } catch (err) {
