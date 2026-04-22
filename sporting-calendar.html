@@ -28,8 +28,8 @@
     .cal-list-table tbody tr:hover { background:#f8f9fa; }
     .cal-list-table tbody tr.selected { background:rgba(166,77,255,.08) !important; outline:2px solid #a64dff; outline-offset:-2px; }
     .status-pill { display:inline-block; padding:2px 9px; border-radius:20px; font-size:.72rem; font-weight:600; }
+    .status-scheduled  { background:#dbeafe; color:#1e40af; }
     .status-confirmed  { background:#d1fae5; color:#065f46; }
-    .status-tentative  { background:#fef3c7; color:#92400e; }
     .status-cancelled  { background:#fee2e2; color:#991b1b; }
     .status-completed  { background:#e0e7ff; color:#3730a3; }
     #calShell .form-label { color:#495057 !important; font-size:.78rem; font-weight:600; margin-bottom:2px; }
@@ -74,19 +74,15 @@
           <div class="mlo-section-label">By Status</div>
           <ul class="mlo-tree pastel-tree" id="calStatusList">
             <li class="active" data-filter="all">All Events</li>
+            <li data-filter="scheduled">Scheduled</li>
             <li data-filter="confirmed">Confirmed</li>
-            <li data-filter="tentative">Tentative</li>
             <li data-filter="completed">Completed</li>
             <li data-filter="cancelled">Cancelled</li>
           </ul>
-          <div class="mlo-section-label mt-3">By Type</div>
+          </ul>
+          <div class="mlo-section-label mt-3">By Series</div>
           <ul class="mlo-tree pastel-tree" id="calTypeList">
-            <li class="active" data-type="all">All Types</li>
-            <li data-type="race">Race Weekend</li>
-            <li data-type="test">Test Day</li>
-            <li data-type="national">National</li>
-            <li data-type="regional">Regional</li>
-            <li data-type="international">International</li>
+            <li class="active" data-type="all">All Series</li>
           </ul>
         </div>
       </section>
@@ -106,7 +102,7 @@
           <table class="cal-list-table" id="calTable">
             <thead><tr>
               <th>Round</th><th>Event</th><th>Circuit</th><th>Country</th>
-              <th>Date</th><th>Type</th><th>Status</th>
+              <th>Date</th><th>Series</th><th>Status</th>
             </tr></thead>
             <tbody id="calTableBody">
               <tr><td colspan="7" class="text-center text-secondary py-4">No events found. Add your first event.</td></tr>
@@ -129,21 +125,17 @@
           </div>
           <form id="calEventForm" style="display:none;">
             <div class="mb-2">
-              <label class="form-label">Event Title *</label>
+              <label class="form-label">Event Name *</label>
               <input class="form-control" id="calFTitle" placeholder="e.g. Round 4 – Kyalami" />
             </div>
             <div class="row g-2 mb-2">
               <div class="col">
-                <label class="form-label">Championship Round</label>
+                <label class="form-label">Round No.</label>
                 <input class="form-control" id="calFRound" type="number" placeholder="4" />
               </div>
               <div class="col">
-                <label class="form-label">Event Type</label>
-                <select class="form-select" id="calFType">
-                  <option value="">Select…</option>
-                  <option>Race Weekend</option><option>Test Day</option>
-                  <option>National</option><option>Regional</option><option>International</option>
-                </select>
+                <label class="form-label">Series / Championship</label>
+                <input class="form-control" id="calFType" placeholder="e.g. F4, GT3, Karting" />
               </div>
             </div>
             <div class="mb-2">
@@ -156,8 +148,8 @@
                 <input class="form-control" id="calFCountry" />
               </div>
               <div class="col">
-                <label class="form-label">Time Zone</label>
-                <input class="form-control" id="calFTimezone" placeholder="SAST / UTC+2" />
+                <label class="form-label">City</label>
+                <input class="form-control" id="calFCity" />
               </div>
             </div>
             <div class="row g-2 mb-2">
@@ -173,19 +165,11 @@
             <div class="mb-2">
               <label class="form-label">Status</label>
               <select class="form-select" id="calFStatus">
+                <option value="scheduled">Scheduled</option>
                 <option value="confirmed">Confirmed</option>
-                <option value="tentative">Tentative</option>
                 <option value="cancelled">Cancelled</option>
                 <option value="completed">Completed</option>
               </select>
-            </div>
-            <div class="mb-2">
-              <label class="form-label">FIA Deadline</label>
-              <input class="form-control" id="calFFiaDeadline" type="date" />
-            </div>
-            <div class="mb-2">
-              <label class="form-label">Internal Deadline</label>
-              <input class="form-control" id="calFIntDeadline" type="date" />
             </div>
             <div class="mb-3">
               <label class="form-label">Notes</label>
@@ -214,33 +198,45 @@
         const res = await fetch('/api/sporting-calendar');
         if (res.ok) allEvents = await res.json();
       } catch(_) { allEvents = []; }
+      rebuildSeriesFilter();
       renderList();
+    }
+
+    function rebuildSeriesFilter() {
+      const ul = document.getElementById('calTypeList');
+      const series = [...new Set(allEvents.map(e => e.series).filter(Boolean))].sort();
+      ul.innerHTML = '<li class="active" data-type="all">All Series</li>' +
+        series.map(s => `<li data-type="${esc(s)}">${esc(s)}</li>`).join('');
+      ul.querySelectorAll('li').forEach(li => li.addEventListener('click', () => {
+        ul.querySelectorAll('li').forEach(x=>x.classList.remove('active'));
+        li.classList.add('active'); filterType = li.dataset.type; renderList();
+      }));
     }
 
     function renderList() {
       let rows = allEvents.filter(e => {
         const ms = filterStatus === 'all' || e.status === filterStatus;
-        const mt = filterType === 'all' || (e.event_type || '').toLowerCase() === filterType;
+        const mt = filterType === 'all' || (e.series || '') === filterType;
         const q = document.getElementById('calSearch').value.trim().toLowerCase();
-        const mq = !q || (e.title||'').toLowerCase().includes(q) || (e.circuit||'').toLowerCase().includes(q);
+        const mq = !q || (e.event_name||'').toLowerCase().includes(q) || (e.circuit||'').toLowerCase().includes(q) || (e.series||'').toLowerCase().includes(q);
         return ms && mt && mq;
       });
       const tb = document.getElementById('calTableBody');
       document.getElementById('calCountBadge').textContent = rows.length;
       document.getElementById('statCalTotal').textContent = allEvents.length;
-      document.getElementById('statCalConfirmed').textContent = allEvents.filter(e=>e.status==='confirmed').length;
+      document.getElementById('statCalConfirmed').textContent = allEvents.filter(e=>e.status==='confirmed'||e.status==='scheduled').length;
       document.getElementById('statCalCompleted').textContent = allEvents.filter(e=>e.status==='completed').length;
       const now = new Date().toISOString().slice(0,10);
       document.getElementById('statCalRemaining').textContent = allEvents.filter(e=>e.start_date >= now && e.status !== 'cancelled').length;
       if (!rows.length) { tb.innerHTML = '<tr><td colspan="7" class="text-center text-secondary py-4">No events match the filter.</td></tr>'; return; }
       tb.innerHTML = rows.map(e => `<tr data-id="${e.id}" class="${e.id===selectedId?'selected':''}">
-        <td>${e.round||'—'}</td>
-        <td><strong>${esc(e.title||'')}</strong></td>
+        <td>${e.round_number||'—'}</td>
+        <td><strong>${esc(e.event_name||'')}</strong></td>
         <td>${esc(e.circuit||'—')}</td>
         <td>${esc(e.country||'—')}</td>
         <td>${e.start_date||'—'}</td>
-        <td>${esc(e.event_type||'—')}</td>
-        <td><span class="status-pill status-${e.status||'tentative'}">${e.status||'tentative'}</span></td>
+        <td>${esc(e.series||'—')}</td>
+        <td><span class="status-pill status-${e.status||'scheduled'}">${e.status||'scheduled'}</span></td>
       </tr>`).join('');
       tb.querySelectorAll('tr').forEach(r => r.addEventListener('click', () => selectEvent(r.dataset.id)));
     }
@@ -251,18 +247,16 @@
       if (!ev) return;
       document.getElementById('calDetailEmpty').style.display = 'none';
       document.getElementById('calEventForm').style.display = '';
-      document.getElementById('calDetailTitle').textContent = ev.title || 'Event Detail';
-      document.getElementById('calFTitle').value = ev.title||'';
-      document.getElementById('calFRound').value = ev.round||'';
-      document.getElementById('calFType').value = ev.event_type||'';
+      document.getElementById('calDetailTitle').textContent = ev.event_name || 'Event Detail';
+      document.getElementById('calFTitle').value = ev.event_name||'';
+      document.getElementById('calFRound').value = ev.round_number||'';
+      document.getElementById('calFType').value = ev.series||'';
       document.getElementById('calFCircuit').value = ev.circuit||'';
       document.getElementById('calFCountry').value = ev.country||'';
-      document.getElementById('calFTimezone').value = ev.timezone||'';
+      document.getElementById('calFCity').value = ev.city||'';
       document.getElementById('calFStart').value = ev.start_date||'';
       document.getElementById('calFEnd').value = ev.end_date||'';
-      document.getElementById('calFStatus').value = ev.status||'confirmed';
-      document.getElementById('calFFiaDeadline').value = ev.fia_deadline||'';
-      document.getElementById('calFIntDeadline').value = ev.internal_deadline||'';
+      document.getElementById('calFStatus').value = ev.status||'scheduled';
       document.getElementById('calFNotes').value = ev.notes||'';
       document.getElementById('calBtnDelete').style.display = '';
       renderList();
@@ -279,20 +273,18 @@
 
     async function saveEvent() {
       const body = {
-        title: document.getElementById('calFTitle').value.trim(),
-        round: document.getElementById('calFRound').value||null,
-        event_type: document.getElementById('calFType').value,
+        event_name: document.getElementById('calFTitle').value.trim(),
+        round_number: parseInt(document.getElementById('calFRound').value, 10) || null,
+        series: document.getElementById('calFType').value.trim(),
         circuit: document.getElementById('calFCircuit').value.trim(),
         country: document.getElementById('calFCountry').value.trim(),
-        timezone: document.getElementById('calFTimezone').value.trim(),
+        city: document.getElementById('calFCity').value.trim(),
         start_date: document.getElementById('calFStart').value||null,
         end_date: document.getElementById('calFEnd').value||null,
         status: document.getElementById('calFStatus').value,
-        fia_deadline: document.getElementById('calFFiaDeadline').value||null,
-        internal_deadline: document.getElementById('calFIntDeadline').value||null,
         notes: document.getElementById('calFNotes').value.trim()
       };
-      if (!body.title) { alert('Event title is required.'); return; }
+      if (!body.event_name) { alert('Event name is required.'); return; }
       try {
         const url = selectedId ? `/api/sporting-calendar/${selectedId}` : '/api/sporting-calendar';
         const method = selectedId ? 'PUT' : 'POST';
@@ -328,10 +320,7 @@
       document.querySelectorAll('#calStatusList li').forEach(x=>x.classList.remove('active'));
       li.classList.add('active'); filterStatus = li.dataset.filter; renderList();
     }));
-    document.querySelectorAll('#calTypeList li').forEach(li => li.addEventListener('click', () => {
-      document.querySelectorAll('#calTypeList li').forEach(x=>x.classList.remove('active'));
-      li.classList.add('active'); filterType = li.dataset.type; renderList();
-    }));
+    // Series filter is rebuilt dynamically by rebuildSeriesFilter() after loadEvents()
 
     loadEvents();
   </script>
