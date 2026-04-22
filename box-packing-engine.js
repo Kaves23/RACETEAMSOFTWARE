@@ -3519,7 +3519,8 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
           currentBoxId: packedBoxId || null,
           shopify_variant_id: invItem.shopify_variant_id || null,
           shopify_inventory_item_id: invItem.shopify_inventory_item_id || null,
-          unit_cost: invItem.unit_cost || null
+          unit_cost: invItem.unit_cost || null,
+          hasVariants: invItem.has_variants || false
         };
       }
     }
