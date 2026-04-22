@@ -163,6 +163,41 @@
     .loc-badge.primary{background:#1a73e8;color:#fff;font-weight:700}
     .loc-more{font-size:.65rem;color:#202124;cursor:pointer;text-decoration:underline}
     .loc-more:hover{color:#1a73e8}
+
+    /* ── Variant rows ── */
+    .variant-toggle-btn{background:none;border:none;padding:0 4px;cursor:pointer;color:#1a73e8;font-size:.85rem;line-height:1;transition:transform .15s}
+    .variant-toggle-btn.expanded{transform:rotate(90deg)}
+    .variant-count-badge{display:inline-block;padding:1px 6px;border-radius:8px;font-size:.65rem;font-weight:700;background:#e8f0fe;color:#1a73e8;margin-left:4px;white-space:nowrap}
+    .used-badge{display:inline-block;padding:1px 5px;border-radius:3px;font-size:.6rem;font-weight:700;background:#fff3e0;color:#e65100;margin-left:4px;letter-spacing:.3px;text-transform:uppercase}
+    .inventory-table tbody tr.variant-parent-row td{font-weight:500}
+    .inventory-table tbody tr.variant-sub-row{background:#f8faff}
+    .inventory-table tbody tr.variant-sub-row td{font-size:.74rem;color:#37474f;border-bottom:1px solid #edf2ff;height:20px;padding-top:2px;padding-bottom:2px}
+    .inventory-table tbody tr.variant-sub-row:hover{background:#eef2ff}
+    .variant-label-cell{padding-left:28px !important;display:flex;align-items:center;gap:6px;white-space:nowrap}
+    .grade-bar{display:inline-flex;gap:2px;align-items:center}
+    .grade-chip{display:inline-block;padding:1px 5px;border-radius:3px;font-size:.65rem;font-weight:700;letter-spacing:.2px;white-space:nowrap}
+    .grade-chip.a{background:#e8f5e9;color:#2e7d32}
+    .grade-chip.b{background:#fff8e1;color:#f57f17}
+    .grade-chip.c{background:#ffebee;color:#c62828}
+    .grade-chip.zero{opacity:.35}
+
+    /* ── Variant manager in right panel ── */
+    .variant-manager{border:1px solid #dde1e8;border-radius:6px;overflow:hidden;margin-top:10px}
+    .variant-manager-header{background:#f0f3f7;padding:6px 10px;display:flex;justify-content:space-between;align-items:center;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#4a5568}
+    .variant-manager-body{padding:0}
+    .variant-row-edit{display:grid;grid-template-columns:80px 52px 52px 52px 1fr 34px;gap:4px;padding:5px 8px;border-bottom:1px solid #f0f0f0;align-items:center}
+    .variant-row-edit:last-child{border-bottom:none}
+    .variant-row-edit:hover{background:#f5f8ff}
+    .variant-row-header{display:grid;grid-template-columns:80px 52px 52px 52px 1fr 34px;gap:4px;padding:4px 8px;background:#fafbfc;border-bottom:1px solid #e8eaed;font-size:.65rem;font-weight:700;color:#5f6368;text-transform:uppercase}
+    .variant-edit-input{font-size:.75rem;padding:2px 5px;border:1px solid #d0d0d0;border-radius:3px;width:100%;text-align:center;color:#202124}
+    .variant-edit-input:focus{outline:none;border-color:#1a73e8;background:#e8f0fe}
+    .variant-input-label{font-size:.74rem;padding:2px 5px;border:1px solid #d0d0d0;border-radius:3px;width:100%;color:#202124}
+    .variant-input-label:focus{outline:none;border-color:#1a73e8}
+    .variant-add-row{padding:6px 8px;border-top:1px dashed #c0c0c0;background:#fafbfc}
+    .btn-variant-delete{background:none;border:none;padding:2px 4px;color:#d0d0d0;cursor:pointer;border-radius:3px;font-size:.8rem;line-height:1}
+    .btn-variant-delete:hover{background:#ffebee;color:#c62828}
+    .btn-enable-variants{font-size:.75rem;padding:4px 10px}
+
     .category-consumables{background:#e8f5e9;color:#2e7d32}
     .category-spares{background:#e3f2fd;color:#1565c0}
     .category-tyres{background:#fff3e0;color:#e65100}
@@ -584,7 +619,47 @@
               <button type="submit" class="btn btn-primary btn-sm">💾 Save Item</button>
               <button type="button" class="btn btn-outline-danger btn-sm" id="btnDeleteItem">🗑 Delete Item</button>
             </div>
-            
+
+            <!-- Variant Manager — shown when item uses variants -->
+            <div id="variantManagerSection" style="display:none;margin-top:14px">
+              <div class="variant-manager">
+                <div class="variant-manager-header">
+                  <span>📐 Size / Spec Variants</span>
+                  <button type="button" class="btn btn-sm btn-outline-danger btn-variant-delete" id="btnDisableVariants" title="Remove all variants" style="padding:2px 8px;font-size:.7rem">Disable</button>
+                </div>
+                <div class="variant-manager-body">
+                  <div class="variant-row-header">
+                    <span>Label</span>
+                    <span style="text-align:center">Grade A</span>
+                    <span style="text-align:center">Grade B</span>
+                    <span style="text-align:center">Grade C</span>
+                    <span>Notes</span>
+                    <span></span>
+                  </div>
+                  <div id="variantManagerRows"></div>
+                  <div class="variant-add-row">
+                    <div style="display:grid;grid-template-columns:80px 52px 52px 52px 1fr 80px;gap:4px;align-items:center">
+                      <input type="text" id="newVariantLabel" class="variant-input-label" placeholder='e.g. "73T"' maxlength="30">
+                      <input type="number" id="newVariantA" class="variant-edit-input" min="0" placeholder="0">
+                      <input type="number" id="newVariantB" class="variant-edit-input" min="0" placeholder="0">
+                      <input type="number" id="newVariantC" class="variant-edit-input" min="0" placeholder="0">
+                      <input type="text" id="newVariantNotes" class="variant-input-label" placeholder="notes (optional)">
+                      <button type="button" class="btn btn-sm btn-primary" onclick="addVariant()" style="font-size:.72rem;padding:3px 8px">+ Add</button>
+                    </div>
+                    <p class="text-muted mb-0 mt-1" style="font-size:.65rem">A = race-ready &nbsp;|&nbsp; B = usable/monitor wear &nbsp;|&nbsp; C = end-of-life (discard)</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Enable Variants Button — shown when item has no variants yet -->
+            <div id="enableVariantsSection" style="display:none;margin-top:10px;text-align:center">
+              <button type="button" class="btn btn-outline-secondary btn-enable-variants" id="btnEnableVariants">
+                📐 Track by Size / Spec Variants
+              </button>
+              <p class="text-muted mb-0 mt-1" style="font-size:.65rem">Use for parts like sprockets where you stock multiple sizes</p>
+            </div>
+
             <input type="hidden" id="itemId">
           </form>
         </div>
@@ -756,6 +831,8 @@
       let  currentSort = 'name';
       let displayMode = 'table';
       let selectedItemId = null;
+      let expandedVariants = new Set();   // set of item IDs whose variant rows are shown
+      let variantCache = {};               // { [parentId]: [...variant objects] }
       
       // Settings
       let CATEGORIES = []; // Loaded from DB in init() — no local fallback
@@ -841,7 +918,8 @@
                 cost: parseFloat(item.unit_cost) || 0,
                 notes: item.notes || '',
                 auto: item.auto_reorder || false,
-                lastUsed: item.last_used_date || null
+                lastUsed: item.last_used_date || null,
+                hasVariants: item.has_variants || false
               };
             });
             console.log(`✅ Loaded ${allItems.length} items from database`);
@@ -1194,28 +1272,48 @@
         document.getElementById('cardView').style.display = 'none';
         
         const tbody = document.getElementById('inventoryTableBody');
-        tbody.innerHTML = filteredItems.map(item => {
+        const rows = [];
+
+        filteredItems.forEach(item => {
           const qtyClass = item.qty === 0 ? 'out' : (item.qty <= item.reorder ? 'low' : '');
           const catClass = `category-${item.category.toLowerCase().replace(/\s+/g, '-')}`;
           
-          // Generate location distribution display
+          // Location distribution display
           let locationDisplay = item.location || '-';
           if (item.locationDist && Object.keys(item.locationDist).length > 0) {
             const entries = Object.entries(item.locationDist).sort((a, b) => b[1] - a[1]);
             const badges = entries.slice(0, 2).map(([loc, qty], idx) => 
               `<span class="loc-badge ${idx === 0 ? 'primary' : ''}" title="${loc}: ${qty} ${item.uom}">${loc.substring(0, 3)}: ${qty}</span>`
             ).join('');
-            
             const moreCount = entries.length - 2;
             const moreHtml = moreCount > 0 ? `<span class="loc-more" title="${entries.slice(2).map(([l, q]) => `${l}: ${q}`).join(', ')}">+${moreCount}</span>` : '';
-            
             locationDisplay = `<div class="location-dist">${badges}${moreHtml}</div>`;
           }
-          
-          return `
-            <tr class="${selectedItems.has(item.id) ? 'selected' : ''}" data-item-id="${item.id}">
+
+          const isExpanded = expandedVariants.has(item.id);
+
+          // Name cell — includes expand toggle and badges for variant items
+          let nameCellContent;
+          if (item.hasVariants) {
+            const cached = variantCache[item.id] || [];
+            const varCount = cached.length;
+            const hasEndOfLife = cached.some(v => v.qty_c > 0);
+            nameCellContent = `
+              <button class="variant-toggle-btn ${isExpanded ? 'expanded' : ''}" 
+                      onclick="window.toggleVariants('${item.id}', event)" 
+                      title="${isExpanded ? 'Collapse' : 'Expand'} variants">▶</button>
+              ${item.name}
+              <span class="variant-count-badge">${varCount ? varCount + ' sizes' : 'variants'}</span>
+              <span class="used-badge">Used</span>
+              ${hasEndOfLife ? '<span title="Some parts are Grade C — end of life" style="color:#c62828;font-size:.75rem">⚠</span>' : ''}`;
+          } else {
+            nameCellContent = item.name;
+          }
+
+          rows.push(`
+            <tr class="${selectedItems.has(item.id) ? 'selected' : ''}${item.hasVariants ? ' variant-parent-row' : ''}" data-item-id="${item.id}">
               <td><input type="checkbox" class="item-checkbox" ${selectedItems.has(item.id) ? 'checked' : ''}></td>
-              <td>${item.name}</td>
+              <td>${nameCellContent}</td>
               <td><code style="font-size:.75rem;color:#000">${item.sku}</code></td>
               <td class="item-qty ${qtyClass}">${item.qty}</td>
               <td>${item.uom}</td>
@@ -1229,10 +1327,42 @@
                 </button>
               </td>
             </tr>
-          `;
-        }).join('');
+          `);
+
+          // If expanded and we have cached variants, inject sub-rows
+          if (item.hasVariants && isExpanded) {
+            const variants = variantCache[item.id] || [];
+            if (variants.length === 0) {
+              rows.push(`
+                <tr class="variant-sub-row">
+                  <td></td>
+                  <td colspan="9" style="padding-left:28px;color:#9aa0a6;font-style:italic">No variants yet — select item to add sizes</td>
+                </tr>`);
+            } else {
+              variants.forEach(v => {
+                const total = (v.qty_a || 0) + (v.qty_b || 0) + (v.qty_c || 0);
+                const gradeHtml = `
+                  <span class="grade-chip a${v.qty_a === 0 ? ' zero' : ''}" title="Grade A — race ready">A:${v.qty_a}</span>
+                  <span class="grade-chip b${v.qty_b === 0 ? ' zero' : ''}" title="Grade B — usable, monitor wear">B:${v.qty_b}</span>
+                  <span class="grade-chip c${v.qty_c === 0 ? ' zero' : ''}" title="Grade C — end of life">C:${v.qty_c}</span>
+                `;
+                rows.push(`
+                  <tr class="variant-sub-row" data-variant-id="${v.id}">
+                    <td></td>
+                    <td style="padding-left:28px;font-weight:600;white-space:nowrap">↳ ${v.label}</td>
+                    <td class="item-qty ${total === 0 ? 'out' : ''}" style="font-size:.74rem">${total}</td>
+                    <td colspan="2"><div class="grade-bar">${gradeHtml}</div></td>
+                    <td colspan="4" style="color:#9aa0a6;font-size:.7rem;font-style:italic">${v.notes || ''}</td>
+                    <td></td>
+                  </tr>`);
+              });
+            }
+          }
+        });
+
+        tbody.innerHTML = rows.join('');
         
-        // Add click handlers
+        // Checkbox handlers
         tbody.querySelectorAll('.item-checkbox').forEach(cb => {
           cb.addEventListener('change', (e) => {
             e.stopPropagation();
@@ -1248,7 +1378,7 @@
           });
         });
         
-        tbody.querySelectorAll('tr').forEach(row => {
+        tbody.querySelectorAll('tr[data-item-id]').forEach(row => {
           row.addEventListener('click', (e) => {
             if (!e.target.closest('.item-checkbox') && !e.target.closest('button')) {
               const itemId = row.dataset.itemId;
@@ -1257,6 +1387,26 @@
           });
         });
       }
+
+      // Toggle variant sub-rows for a parent item
+      window.toggleVariants = async function(itemId, e) {
+        if (e) e.stopPropagation();
+        if (expandedVariants.has(itemId)) {
+          expandedVariants.delete(itemId);
+        } else {
+          expandedVariants.add(itemId);
+          // Load variants if not cached
+          if (!variantCache[itemId]) {
+            try {
+              const data = await RTS_API.request(`/inventory-variants/${itemId}`);
+              variantCache[itemId] = data.variants || [];
+            } catch (err) {
+              variantCache[itemId] = [];
+            }
+          }
+        }
+        renderItems();
+      };
       
       // Render card view
       function renderCardView() {
@@ -1304,6 +1454,9 @@
           
           // Fetch and populate boxes containing this item
           await populateBoxesContaining(item);
+
+          // Load variant manager if item supports variants (or enable-variants button if not)
+          await loadVariantManager(item);
         } else {
           document.getElementById('itemForm').reset();
           document.getElementById('itemId').value = '';
@@ -1510,6 +1663,213 @@
           container.innerHTML = '<div class="info-empty">Error loading box data</div>';
         }
       }
+
+      // ===== VARIANT MANAGER =====
+
+      async function loadVariantManager(item) {
+        const variantSection  = document.getElementById('variantManagerSection');
+        const enableSection   = document.getElementById('enableVariantsSection');
+
+        if (!item) {
+          variantSection.style.display = 'none';
+          enableSection.style.display  = 'none';
+          return;
+        }
+
+        if (item.hasVariants) {
+          enableSection.style.display  = 'none';
+          variantSection.style.display = 'block';
+          await refreshVariantManagerRows(item.id);
+        } else {
+          variantSection.style.display = 'none';
+          enableSection.style.display  = 'block';
+        }
+
+        // Wire enable button (remove old listener to avoid duplicates)
+        const btnEnable = document.getElementById('btnEnableVariants');
+        const btnDisable = document.getElementById('btnDisableVariants');
+        const newEnableBtn = btnEnable.cloneNode(true);
+        btnEnable.replaceWith(newEnableBtn);
+        const newDisableBtn = btnDisable.cloneNode(true);
+        btnDisable.replaceWith(newDisableBtn);
+
+        document.getElementById('btnEnableVariants').addEventListener('click', () => enableVariants(item));
+        document.getElementById('btnDisableVariants').addEventListener('click', () => disableVariants(item));
+      }
+
+      async function refreshVariantManagerRows(parentId) {
+        const container = document.getElementById('variantManagerRows');
+        container.innerHTML = '<div style="padding:6px 10px;font-size:.74rem;color:#9aa0a6">Loading…</div>';
+        try {
+          const data = await RTS_API.request(`/inventory-variants/${parentId}`);
+          const variants = data.variants || [];
+          variantCache[parentId] = variants;
+
+          if (variants.length === 0) {
+            container.innerHTML = '<div style="padding:8px 10px;font-size:.74rem;color:#9aa0a6;font-style:italic">No variants yet. Add sizes below.</div>';
+          } else {
+            container.innerHTML = variants.map(v => `
+              <div class="variant-row-edit" data-variant-id="${v.id}">
+                <input type="text" class="variant-input-label vr-label" value="${escHtml(v.label)}" maxlength="30" placeholder="label">
+                <input type="number" class="variant-edit-input vr-a" value="${v.qty_a}" min="0" title="Grade A — race ready">
+                <input type="number" class="variant-edit-input vr-b" value="${v.qty_b}" min="0" title="Grade B — usable">
+                <input type="number" class="variant-edit-input vr-c" value="${v.qty_c}" min="0" title="Grade C — end of life">
+                <input type="text" class="variant-input-label vr-notes" value="${escHtml(v.notes || '')}" placeholder="notes">
+                <button type="button" class="btn-variant-delete" onclick="deleteVariant('${v.id}','${parentId}')" title="Delete variant">✕</button>
+              </div>`).join('');
+
+            // Auto-save on blur for each row
+            container.querySelectorAll('.variant-row-edit').forEach(row => {
+              row.querySelectorAll('input').forEach(inp => {
+                inp.addEventListener('blur', () => saveVariantRow(row, parentId));
+              });
+            });
+          }
+
+          // Sync the local item's qty display
+          const parentItem = allItems.find(i => i.id === parentId);
+          if (parentItem) {
+            const total = variants.reduce((s, v) => s + (v.qty_a || 0) + (v.qty_b || 0) + (v.qty_c || 0), 0);
+            parentItem.qty = total;
+            document.getElementById('itemQty').value = total;
+          }
+        } catch (err) {
+          container.innerHTML = `<div style="padding:8px 10px;font-size:.74rem;color:#c62828">Error loading variants: ${err.message}</div>`;
+        }
+      }
+
+      async function saveVariantRow(row, parentId) {
+        const id    = row.dataset.variantId;
+        const label = row.querySelector('.vr-label').value.trim();
+        const qty_a = parseInt(row.querySelector('.vr-a').value) || 0;
+        const qty_b = parseInt(row.querySelector('.vr-b').value) || 0;
+        const qty_c = parseInt(row.querySelector('.vr-c').value) || 0;
+        const notes = row.querySelector('.vr-notes').value.trim();
+        if (!label) return;
+        try {
+          const data = await RTS_API.request(`/inventory-variants/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify({ label, qty_a, qty_b, qty_c, notes })
+          });
+          if (!data.success) { showToast('Save failed: ' + data.error, 'error'); return; }
+          // Update cache
+          const cached = variantCache[parentId];
+          if (cached) {
+            const idx = cached.findIndex(v => v.id === id);
+            if (idx >= 0) cached[idx] = data.variant;
+          }
+          // Re-sync qty
+          const parentItem = allItems.find(i => i.id === parentId);
+          if (parentItem) {
+            const allV = variantCache[parentId] || [];
+            parentItem.qty = allV.reduce((s, v) => s + (v.qty_a || 0) + (v.qty_b || 0) + (v.qty_c || 0), 0);
+            document.getElementById('itemQty').value = parentItem.qty;
+          }
+          renderItems();
+        } catch (err) {
+          showToast('Error saving variant: ' + err.message, 'error');
+        }
+      }
+
+      window.addVariant = async function() {
+        const parentId = document.getElementById('itemId').value;
+        if (!parentId) return;
+        const label = document.getElementById('newVariantLabel').value.trim();
+        if (!label) { showToast('Enter a label (e.g. "73T") before adding', 'warning'); return; }
+        const qty_a = parseInt(document.getElementById('newVariantA').value) || 0;
+        const qty_b = parseInt(document.getElementById('newVariantB').value) || 0;
+        const qty_c = parseInt(document.getElementById('newVariantC').value) || 0;
+        const notes = document.getElementById('newVariantNotes').value.trim();
+        try {
+          const data = await RTS_API.request('/inventory-variants', {
+            method: 'POST',
+            body: JSON.stringify({ parentId, label, qty_a, qty_b, qty_c, notes })
+          });
+          if (!data.success) { showToast(data.error, 'error'); return; }
+          // Clear inputs
+          document.getElementById('newVariantLabel').value = '';
+          document.getElementById('newVariantA').value = '';
+          document.getElementById('newVariantB').value = '';
+          document.getElementById('newVariantC').value = '';
+          document.getElementById('newVariantNotes').value = '';
+          // Update local item
+          const parentItem = allItems.find(i => i.id === parentId);
+          if (parentItem) parentItem.hasVariants = true;
+          delete variantCache[parentId]; // Force refresh
+          await refreshVariantManagerRows(parentId);
+          renderItems();
+          showToast(`Variant "${label}" added`, 'success');
+        } catch (err) {
+          showToast('Error adding variant: ' + err.message, 'error');
+        }
+      };
+
+      window.deleteVariant = async function(variantId, parentId) {
+        const ok = await customConfirm('Delete Variant', 'Remove this variant? This cannot be undone.', 'Delete', true);
+        if (!ok) return;
+        try {
+          const data = await RTS_API.request(`/inventory-variants/${variantId}`, { method: 'DELETE' });
+          if (!data.success) { showToast(data.error, 'error'); return; }
+          // If no variants remain, update local item flag
+          const remaining = (variantCache[parentId] || []).filter(v => v.id !== variantId);
+          if (remaining.length === 0) {
+            const parentItem = allItems.find(i => i.id === parentId);
+            if (parentItem) parentItem.hasVariants = false;
+            document.getElementById('variantManagerSection').style.display = 'none';
+            document.getElementById('enableVariantsSection').style.display  = 'block';
+          }
+          delete variantCache[parentId];
+          await refreshVariantManagerRows(parentId);
+          renderItems();
+          showToast('Variant deleted', 'success');
+        } catch (err) {
+          showToast('Error deleting variant: ' + err.message, 'error');
+        }
+      };
+
+      async function enableVariants(item) {
+        document.getElementById('enableVariantsSection').style.display  = 'none';
+        document.getElementById('variantManagerSection').style.display = 'block';
+        // Mark locally
+        item.hasVariants = true;
+        const idx = allItems.findIndex(i => i.id === item.id);
+        if (idx >= 0) allItems[idx].hasVariants = true;
+        // Persist flag (fire-and-forget — actual has_variants=TRUE is set by server when first variant is created)
+        await refreshVariantManagerRows(item.id);
+        // Focus the label input
+        document.getElementById('newVariantLabel').focus();
+      }
+
+      async function disableVariants(item) {
+        const cached = variantCache[item.id] || [];
+        const msg = cached.length > 0
+          ? `This will permanently delete all ${cached.length} variant(s) for "${item.name}". Continue?`
+          : `Disable variant tracking for "${item.name}"?`;
+        const ok = await customConfirm('Disable Variants', msg, 'Disable', true);
+        if (!ok) return;
+        // Delete all variants server-side by deleting them one by one
+        try {
+          for (const v of cached) {
+            await RTS_API.request(`/inventory-variants/${v.id}`, { method: 'DELETE' });
+          }
+          delete variantCache[item.id];
+          item.hasVariants = false;
+          const idx = allItems.findIndex(i => i.id === item.id);
+          if (idx >= 0) allItems[idx].hasVariants = false;
+          document.getElementById('variantManagerSection').style.display = 'none';
+          document.getElementById('enableVariantsSection').style.display  = 'block';
+          renderItems();
+          showToast('Variants disabled', 'success');
+        } catch (err) {
+          showToast('Error disabling variants: ' + err.message, 'error');
+        }
+      }
+
+      function escHtml(str) {
+        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      }
+
+      // ===== END VARIANT MANAGER =====
       
       // Save item
       async function saveItem(e) {

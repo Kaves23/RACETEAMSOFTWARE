@@ -168,7 +168,8 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       boxContents = contentsResp.boxContents.map(c => ({
         id: String(c.id), boxId: c.box_id, itemId: c.item_id,
         itemType: c.item_type || 'equipment', packedAt: c.packed_at,
-        positionInBox: c.position_in_box, quantityPacked: c.quantity_packed || 1
+        positionInBox: c.position_in_box, quantityPacked: c.quantity_packed || 1,
+        variantLabel: c.variant_label || null
       }));
     } else {
       boxContents = [];
@@ -402,7 +403,8 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
           itemType: content.item_type || 'equipment',
           packedAt: content.packed_at,
           positionInBox: content.position_in_box,
-          quantityPacked: content.quantity_packed || 1
+          quantityPacked: content.quantity_packed || 1,
+          variantLabel: content.variant_label || null
         }));
         console.log(`✅ Loaded ${boxContents.length} box contents from API in 1 query (was ${boxes.length} queries)`);
       } else {
@@ -1649,7 +1651,8 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
           packedQuantity: packedQty,
           availableQuantity: availableQty,
           currentBoxId: null, // Inventory items can be in multiple boxes
-          shopify_variant_id: inv.shopify_variant_id || null
+          shopify_variant_id: inv.shopify_variant_id || null,
+          hasVariants: inv.has_variants || false
         };
       });
     } else {
@@ -1738,6 +1741,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
           <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:3px">
             <span style="background:${typeColor};color:white;font-weight:500;padding:3px 8px;border-radius:4px;font-size:.65rem;white-space:nowrap">${esc(typeName)}</span>
             ${item.shopify_variant_id ? '<span style="background:#96bf48;color:#fff;font-weight:600;padding:2px 6px;border-radius:4px;font-size:.6rem">SHOPIFY</span>' : ''}
+            ${item.hasVariants ? '<span style="background:#e65100;color:#fff;font-weight:600;padding:2px 6px;border-radius:4px;font-size:.6rem">📐 SIZES</span>' : ''}
             <div style="font-size:.65rem;color:#5f6368;display:flex;gap:4px"><span style="font-weight:600">S/N:</span><span style="font-family:monospace">${esc(serialNum)}</span></div>
           </div>
           ${quantityInfo}
@@ -1881,12 +1885,17 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       const quantityBadge = content.itemType === 'inventory' && content.quantityPacked 
         ? `<span style="background:#34a853;color:white;padding:2px 6px;border-radius:3px;font-size:.7rem;font-weight:700;margin-right:8px">${content.quantityPacked}×</span>` 
         : '';
+
+      // Show variant label badge if this is a size-variant entry
+      const variantBadge = content.variantLabel
+        ? `<span style="background:#e65100;color:#fff;padding:1px 5px;border-radius:3px;font-size:.68rem;font-weight:700;margin-left:4px">${esc(content.variantLabel)}</span>`
+        : '';
       
       return `
         <div class="packed-item">
           <div class="packed-item-info">
             <div class="packed-item-barcode">${quantityBadge}${esc(item.barcode)}</div>
-            <div class="packed-item-name">${esc(item.name)}</div>
+            <div class="packed-item-name">${esc(item.name)}${variantBadge}</div>
             <div style="font-size:.75rem;color:#5f6368;margin-top:3px">
               ${esc(item.category || 'Uncategorized')} · ${content.itemType === 'equipment' ? 'Equipment' : content.itemType === 'inventory' ? 'Inventory' : 'Asset'}${item.serialNumber ? ` · <span style="font-family:monospace;color:#1a73e8">SN: ${esc(item.serialNumber)}</span>` : ''}
             </div>
@@ -3594,7 +3603,118 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     
     return null;
   }
-  
+
+  // ─── Variant-aware pack flow ────────────────────────────────────────────────
+  // Shows a size-picker modal listing all variants for this item,
+  // lets the user enter how many of each size to pack into the box.
+  async function packVariantItem(box, item) {
+    // Fetch variants
+    let variants = [];
+    try {
+      const data = await RTS_API.request(`/inventory-variants/${item.id}`);
+      variants = data.variants || [];
+    } catch (err) {
+      showToast('Error loading sizes: ' + err.message, 'error');
+      return;
+    }
+    if (variants.length === 0) {
+      showToast(`"${item.name}" has no sizes defined yet — add them in Inventory first`, 'warning');
+      return;
+    }
+
+    // Build modal HTML dynamically and inject it
+    const modalId = 'variantPackModal_' + Date.now();
+    const overlay = document.createElement('div');
+    overlay.id = modalId;
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px)';
+
+    const variantRows = variants.map(v => {
+      const total = (v.qty_a || 0) + (v.qty_b || 0) + (v.qty_c || 0);
+      return `
+        <div style="display:grid;grid-template-columns:80px 1fr 80px;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid #f0f0f0">
+          <strong style="font-size:.85rem;color:#202124">${v.label}</strong>
+          <span style="font-size:.72rem;color:#5f6368">
+            <span style="background:#e8f5e9;color:#2e7d32;padding:1px 5px;border-radius:3px;font-weight:700;margin-right:2px">A:${v.qty_a}</span>
+            <span style="background:#fff8e1;color:#f57f17;padding:1px 5px;border-radius:3px;font-weight:700;margin-right:2px">B:${v.qty_b}</span>
+            <span style="background:#ffebee;color:#c62828;padding:1px 5px;border-radius:3px;font-weight:700">C:${v.qty_c}</span>
+            <span style="margin-left:4px;color:#9aa0a6">(${total} total)</span>
+          </span>
+          <input type="number" min="0" max="${total}" value="0" placeholder="0"
+                 data-variant-id="${v.id}" data-variant-label="${v.label.replace(/"/g, '&quot;')}"
+                 style="padding:4px 6px;border:1px solid #d0d0d0;border-radius:4px;font-size:.8rem;width:100%;text-align:center"
+                 oninput="this.style.borderColor=parseInt(this.value)>0?'#1a73e8':'#d0d0d0'">
+        </div>`;
+    }).join('');
+
+    overlay.innerHTML = `
+      <div style="background:#fff;border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.25);max-width:480px;width:90%;max-height:80vh;overflow:hidden;display:flex;flex-direction:column">
+        <div style="padding:14px 18px;background:#1a73e8;color:#fff;border-radius:10px 10px 0 0;display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-weight:700;font-size:.95rem">📐 Pack by Size</div>
+            <div style="font-size:.75rem;opacity:.85">${item.name} → ${box.name}</div>
+          </div>
+          <button id="${modalId}_cancel" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:.8rem">Cancel</button>
+        </div>
+        <div style="overflow-y:auto;flex:1;padding:12px 18px">
+          <div style="display:grid;grid-template-columns:80px 1fr 80px;gap:8px;padding:4px 0 8px;border-bottom:2px solid #e0e0e0;font-size:.65rem;font-weight:700;color:#5f6368;text-transform:uppercase">
+            <span>Size</span><span>Stock</span><span>Pack Qty</span>
+          </div>
+          ${variantRows}
+        </div>
+        <div style="padding:12px 18px;border-top:1px solid #e0e0e0;display:flex;justify-content:flex-end;gap:8px">
+          <button id="${modalId}_confirm" style="background:#1a73e8;color:#fff;border:none;padding:8px 20px;border-radius:6px;font-weight:600;cursor:pointer;font-size:.85rem">Pack Selected Sizes</button>
+        </div>
+      </div>`;
+
+    document.body.appendChild(overlay);
+
+    const result = await new Promise(resolve => {
+      document.getElementById(`${modalId}_cancel`).onclick = () => resolve(null);
+      overlay.addEventListener('click', e => { if (e.target === overlay) resolve(null); });
+      document.getElementById(`${modalId}_confirm`).onclick = () => {
+        const selections = [];
+        overlay.querySelectorAll('input[data-variant-id]').forEach(inp => {
+          const qty = parseInt(inp.value) || 0;
+          if (qty > 0) selections.push({ variantId: inp.dataset.variantId, variantLabel: inp.dataset.variantLabel, qty });
+        });
+        resolve(selections);
+      };
+    });
+
+    document.body.removeChild(overlay);
+    if (!result || result.length === 0) return;
+
+    showLoading('Packing Sizes', `Adding ${result.length} size(s) to ${box.name}…`);
+    let packed = 0;
+    for (const { variantLabel, qty } of result) {
+      try {
+        const token = localStorage.getItem('auth_token');
+        const resp = await fetch('/api/inventory/pack', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+          body: JSON.stringify({ boxId: box.id, itemId: item.id, quantity: qty, variantLabel })
+        });
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          showToast(`Error packing ${variantLabel}: ${err.error || resp.statusText}`, 'error');
+          continue;
+        }
+        const currentPacked = window.inventoryPackedQuantities?.get(item.id) || 0;
+        window.inventoryPackedQuantities.set(item.id, currentPacked + qty);
+        window.inventoryPackedQuantities.set(String(item.id), currentPacked + qty);
+        packed += qty;
+      } catch (err) {
+        showToast(`Error packing ${variantLabel}: ${err.message}`, 'error');
+      }
+    }
+    hideLoading();
+    if (packed > 0) {
+      showToast(`✅ Packed ${packed} parts (${result.length} size${result.length > 1 ? 's' : ''}) into ${box.name}`, 'success');
+      await loadData();
+      renderAll();
+    }
+  }
+
   async function packMultipleItems(boxId, items, presetQuantity = null) {
     if (!items || items.length === 0) return;
     
@@ -3613,8 +3733,14 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       for (const {id, type} of inventoryItems) {
         const item = getItem(id, type);
         if (!item) continue;
+
+        // ── VARIANT ITEM: show size picker ──────────────────────────────
+        if (item.hasVariants) {
+          await packVariantItem(box, item);
+          continue;
+        }
         
-        // Calculate available quantity
+        // ── STANDARD INVENTORY: quantity prompt ─────────────────────────
         const packedQty = (window.inventoryPackedQuantities?.get(id) || 
                           window.inventoryPackedQuantities?.get(String(id))) || 0;
         const totalQty = item.totalQuantity || item.quantity || 0;
@@ -3656,7 +3782,6 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
         showLoading(`Packing Inventory`, `Adding ${quantity} units of ${item.name} to ${box.name}...`);
         
         try {
-          // Call API with quantity
           await RTS_API.packInventoryItem(boxId, id, quantity);
           
           // Update local tracking
@@ -3667,7 +3792,6 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
           hideLoading();
           showToast(`✅ Packed ${quantity} units into ${box.name}`, 'success');
           
-          // Reload data to get updated state
           await loadData();
           renderAll();
         } catch (error) {

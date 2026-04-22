@@ -109,6 +109,7 @@ const collectionsRouter = require('./routes/collections');
 const shopifyRouter = require('./routes/shopify');
 const shopifyOAuthRouter = require('./routes/shopify-oauth');
 const inventoryRouter = require('./routes/inventory');
+const inventoryVariantsRouter = require('./routes/inventory-variants');
 const dashboardRouter = require('./routes/dashboard');
 const packingRouter = require('./routes/packing');
 const scanRouter = require('./routes/scan');
@@ -133,6 +134,7 @@ app.use('/api/shopify', shopifyOAuthRouter);
 // Shopify protected endpoints — require JWT
 app.use('/api/shopify', requireAuth, shopifyRouter);
 app.use('/api/inventory', requireAuth, inventoryRouter);
+app.use('/api/inventory-variants', requireAuth, inventoryVariantsRouter);
 app.use('/api/dashboard', requireAuth, dashboardRouter);
 app.use('/api/packing-lists', requireAuth, packingRouter);
 app.use('/api/scan', requireAuth, scanRouter);

@@ -6,9 +6,9 @@ const { logActivity } = require('../lib/activityLog');
 // POST /api/inventory/pack - Pack inventory item into box (with quantity)
 router.post('/pack', async (req, res, next) => {
   try {
-    const { boxId, itemId, quantity } = req.body;
+    const { boxId, itemId, quantity, variantLabel } = req.body;
     
-    console.log('📦 /api/inventory/pack called:', { boxId, itemId, quantity });
+    console.log('📦 /api/inventory/pack called:', { boxId, itemId, quantity, variantLabel });
     
     if (!boxId || !itemId) {
       console.error('❌ Missing fields:', { boxId, itemId });
@@ -65,10 +65,10 @@ router.post('/pack', async (req, res, next) => {
         });
       }
       
-      // Check if this item is already in this box
+      // Check if this item (+ optional variant) is already in this box
       const existingEntry = await client.query(
-        'SELECT * FROM box_contents WHERE box_id = $1 AND item_id = $2 AND item_type = \'inventory\'',
-        [boxId, itemId]
+        `SELECT * FROM box_contents WHERE box_id = $1 AND item_id = $2 AND item_type = 'inventory' AND (variant_label = $3 OR (variant_label IS NULL AND $3 IS NULL))`,
+        [boxId, itemId, variantLabel || null]
       );
       
       if (existingEntry.rows.length > 0) {
@@ -76,15 +76,15 @@ router.post('/pack', async (req, res, next) => {
         await client.query(
           `UPDATE box_contents 
            SET quantity_packed = quantity_packed + $1, packed_at = NOW() 
-           WHERE box_id = $2 AND item_id = $3 AND item_type = 'inventory'`,
-          [quantityToPack, boxId, itemId]
+           WHERE box_id = $2 AND item_id = $3 AND item_type = 'inventory' AND (variant_label = $4 OR (variant_label IS NULL AND $4 IS NULL))`,
+          [quantityToPack, boxId, itemId, variantLabel || null]
         );
       } else {
         // Create new box_contents entry
         await client.query(
-          `INSERT INTO box_contents (box_id, item_id, item_type, quantity_packed, packed_at)
-           VALUES ($1, $2, 'inventory', $3, NOW())`,
-          [boxId, itemId, quantityToPack]
+          `INSERT INTO box_contents (box_id, item_id, item_type, quantity_packed, packed_at, variant_label)
+           VALUES ($1, $2, 'inventory', $3, NOW(), $4)`,
+          [boxId, itemId, quantityToPack, variantLabel || null]
         );
       }
       
