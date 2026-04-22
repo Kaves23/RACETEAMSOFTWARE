@@ -237,6 +237,8 @@ console.log('📦 load-engine.js loading...');
 
   function showError(message) {
     console.error(message);
+    const spinner = document.getElementById('loadSpinner');
+    if (spinner) spinner.remove();
     const view = document.getElementById('view2D');
     if (view) {
       view.innerHTML = `<div style="padding:40px;text-align:center;color:#dc3545;font-size:1rem;">
@@ -532,6 +534,9 @@ console.log('📦 load-engine.js loading...');
 
   // ========== RENDERING ==========
   function renderAll() {
+    // Hide loading spinner on first render
+    const spinner = document.getElementById('loadSpinner');
+    if (spinner) spinner.remove();
     renderBoxes();
     renderAssets();
     renderInventory();
