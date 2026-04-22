@@ -3720,6 +3720,12 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
 
     // Reactive location filter — re-render stock cells only (preserve qty inputs)
     document.getElementById(`${modalId}_loc`).addEventListener('change', function() {
+      // Clear any validation warning
+      this.style.border = '';
+      this.style.background = '';
+      const warn = document.getElementById(`${modalId}_locwarn`);
+      if (warn) warn.remove();
+
       const locName = this.value;
       overlay.querySelectorAll('.vpm-stock-cell').forEach(cell => {
         const vid = cell.dataset.vid;
@@ -3737,12 +3743,28 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       document.getElementById(`${modalId}_cancel`).onclick = () => resolve(null);
       overlay.addEventListener('click', e => { if (e.target === overlay) resolve(null); });
       document.getElementById(`${modalId}_confirm`).onclick = () => {
+        const fromLocation = document.getElementById(`${modalId}_loc`).value;
+        if (!fromLocation) {
+          const locSel = document.getElementById(`${modalId}_loc`);
+          locSel.style.border = '2px solid #c62828';
+          locSel.style.background = '#fff5f5';
+          locSel.focus();
+          // Flash a message below the dropdown
+          let warn = document.getElementById(`${modalId}_locwarn`);
+          if (!warn) {
+            warn = document.createElement('p');
+            warn.id = `${modalId}_locwarn`;
+            warn.style.cssText = 'margin:4px 0 0;font-size:.75rem;color:#c62828;font-weight:600';
+            warn.textContent = '⚠ Please select a location before packing.';
+            locSel.parentElement.insertAdjacentElement('afterend', warn);
+          }
+          return;
+        }
         const selections = [];
         overlay.querySelectorAll('input[data-variant-id]').forEach(inp => {
           const qty = parseInt(inp.value) || 0;
           if (qty > 0) selections.push({ variantId: inp.dataset.variantId, variantLabel: inp.dataset.variantLabel, qty });
         });
-        const fromLocation = document.getElementById(`${modalId}_loc`).value;
         resolve(selections.length > 0 ? { selections, fromLocation } : null);
       };
     });
