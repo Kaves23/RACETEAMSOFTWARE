@@ -3611,7 +3611,12 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     // Fetch variants
     let variants = [];
     try {
-      const data = await RTS_API.request(`/inventory-variants/${item.id}`);
+      const token = localStorage.getItem('auth_token');
+      const resp = await fetch(`/api/inventory-variants/${item.id}`, {
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || resp.statusText);
       variants = data.variants || [];
     } catch (err) {
       showToast('Error loading sizes: ' + err.message, 'error');
