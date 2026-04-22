@@ -532,11 +532,11 @@
                   <div class="row g-2">
                     <div class="col-12 d-flex align-items-end gap-1">
                       <div style="flex:1;">
-                        <label class="form-label">Master Checklist</label>
-                        <select id="chk_master" class="form-select form-select-sm"></select>
+                        <label class="form-label">From Logistics Checklist</label>
+                        <select id="chk_master" class="form-select form-select-sm"><option value="">Loading lists…</option></select>
                       </div>
                       <div>
-                        <button class="btn btn-sm btn-outline-secondary" id="btn_chk_spawn" type="button">Spawn Checklist</button>
+                        <button class="btn btn-sm btn-outline-secondary" id="btn_chk_spawn" type="button">Attach Checklist</button>
                       </div>
                     </div>
                     <div class="col-12">
@@ -1265,21 +1265,72 @@
 
     // ---------- Event Checklists ----------
     function ensureEventChecklists(ev){ if (!ev.checklists) ev.checklists = []; return ev.checklists; }
-    function renderChecklistMasterSelect(){
-      const masters = (RTS.getSettings().masterChecklists||[]).slice();
-      els.chkMaster.innerHTML = masters.map(m=>`<option value="${m.id}">${escapeHtml(m.name||'Checklist')}</option>`).join('');
+
+    async function renderChecklistMasterSelect(){
+      const sel = els.chkMaster;
+      sel.innerHTML = '<option value="">Loading…</option>';
+      try {
+        const token = localStorage.getItem('auth_token');
+        const resp = await fetch('/api/packing-lists', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await resp.json();
+        if (!data.success || !(data.lists||[]).length) {
+          sel.innerHTML = '<option value="">No lists found in Logistics</option>';
+          return;
+        }
+        // Group: standalone (no event_id) first, then event-linked lists
+        const standalone = data.lists.filter(l => !l.event_id);
+        const linked     = data.lists.filter(l =>  l.event_id);
+        let html = '';
+        if (standalone.length) {
+          html += `<optgroup label="── Standalone Templates ──">`;
+          standalone.forEach(l => { html += `<option value="${l.id}">${escapeHtml(l.name)} (${l.total_items||0} items)</option>`; });
+          html += '</optgroup>';
+        }
+        if (linked.length) {
+          html += `<optgroup label="── Event Lists ──">`;
+          linked.forEach(l => { html += `<option value="${l.id}">${escapeHtml(l.name)}${l.event_name ? ' — '+escapeHtml(l.event_name) : ''} (${l.total_items||0} items)</option>`; });
+          html += '</optgroup>';
+        }
+        sel.innerHTML = html;
+      } catch(e) {
+        sel.innerHTML = '<option value="">Error loading lists</option>';
+        console.error('Checklist dropdown fetch error:', e);
+      }
     }
+
     async function spawnChecklist(){
       const ev = getSelected(); if(!ev) return;
-      const masters = (RTS.getSettings().masterChecklists||[]).slice();
-      const m = masters.find(x=> String(x.id)===String(els.chkMaster.value)) || masters[0];
-      if (!m) { alert('No master checklists defined in Settings.'); return; }
-      const items = (m.items||[]).map(txt => ({ id: RTS.uid('item'), text: txt, done: false }));
-      ensureEventChecklists(ev).push({ id: RTS.uid('chk'), name: m.name||'Checklist', items });
-      ev.updatedAt = nowISO();
-      await saveEvent(ev);
-      await saveAll();
-      renderEventChecklists();
+      const listId = els.chkMaster.value;
+      if (!listId) { alert('Please select a list first.'); return; }
+      const btn = els.btnChkSpawn;
+      btn.disabled = true;
+      btn.textContent = 'Loading…';
+      try {
+        const token = localStorage.getItem('auth_token');
+        const resp = await fetch(`/api/packing-lists/${listId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await resp.json();
+        if (!data.success || !data.list) throw new Error(data.error || 'Failed to load list');
+        const list = data.list;
+        const items = (list.items||[]).map(it => ({
+          id: RTS.uid('item'),
+          text: [it.item_name, it.category ? `(${it.category})` : ''].filter(Boolean).join(' '),
+          done: false
+        }));
+        ensureEventChecklists(ev).push({ id: RTS.uid('chk'), name: list.name, items, sourceListId: listId });
+        ev.updatedAt = nowISO();
+        await saveEvent(ev);
+        await saveAll();
+        renderEventChecklists();
+      } catch(e) {
+        alert('Could not load checklist: ' + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Attach Checklist';
+      }
     }
     function renderEventChecklists(){
       const ev = getSelected(); if(!ev) return;
@@ -2110,6 +2161,9 @@
         }
       });
       // checklists
+      document.getElementById('tab-checklists')?.addEventListener('show.bs.tab', () => {
+        renderChecklistMasterSelect();
+      });
       els.btnChkSpawn?.addEventListener('click', spawnChecklist);
     }
 
