@@ -3924,10 +3924,12 @@ if (!newLocationId && !newBoxId) {
     }
 
     async function logHistory(kind, id, action, note) {
+      if (!id) return; // never log history for unsaved/null assets
       try {
+        const token = localStorage.getItem('auth_token') || '';
         const response = await fetch(`${window.RTS_CONFIG.api.baseURL}/history`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
           body: JSON.stringify({
             kind: kind,
             id: id,
@@ -4134,6 +4136,7 @@ if (!newLocationId && !newBoxId) {
       const assetId = document.getElementById('panelAssetId').value;
       const staffId = document.getElementById('panelAssignStaff').value;
       const notes = document.getElementById('panelAssignNote').value.trim();
+      if (!assetId) { showToast('No asset selected — please open an asset first', 'warning'); return; }
       if (!staffId) { showToast('Select a staff member first', 'warning'); return; }
       try {
         const token = localStorage.getItem('auth_token') || '';
