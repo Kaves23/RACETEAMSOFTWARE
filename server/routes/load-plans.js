@@ -29,13 +29,30 @@ router.get('/draft', async (req, res, next) => {
       [plan.id]
     );
 
-    const placements = boxesResult.rows.map(r => ({
+    const boxPlacements = boxesResult.rows.map(r => ({
+      type: 'box',
       boxId: r.box_id,
       zone: r.truck_zone,
       position: { x: r.position_x || 0, y: r.position_y || 0, z: r.position_z || 0 },
       timestamp: r.added_at,
       scannedAt: r.scanned_at || null
     }));
+
+    // Also load standalone asset / inventory placements
+    const assetsResult = await pool.query(
+      `SELECT item_type, item_id, truck_zone, added_at
+       FROM load_plan_assets WHERE load_plan_id = $1 ORDER BY added_at`,
+      [plan.id]
+    );
+
+    const assetPlacements = assetsResult.rows.map(r => ({
+      type: r.item_type,
+      ...(r.item_type === 'asset' ? { assetId: r.item_id } : { inventoryId: r.item_id }),
+      zone: r.truck_zone,
+      timestamp: r.added_at
+    }));
+
+    const placements = [...boxPlacements, ...assetPlacements];
 
     res.json({ success: true, plan, placements });
   } catch (error) {
@@ -82,17 +99,21 @@ router.put('/draft', async (req, res, next) => {
     // Replace all box placements
     await client.query('DELETE FROM load_plan_boxes WHERE load_plan_id = $1', [planId]);
 
-    // Bulk INSERT using unnest — one round-trip regardless of placement count
-    // (replaces N individual INSERTs which caused N network round-trips)
-    if (placements.length > 0) {
-      const planIds   = placements.map(() => planId);
-      const boxIds    = placements.map(p => p.boxId);
-      const zones     = placements.map(p => p.zone || null);
-      const xs        = placements.map(p => p.position?.x || 0);
-      const ys        = placements.map(p => p.position?.y || 0);
-      const zs        = placements.map(p => p.position?.z || 0);
-      const orders    = placements.map((_, i) => i + 1);
-      const addedAts  = placements.map(p => p.timestamp || new Date().toISOString());
+    // Split placements by type
+    const boxPlacements   = placements.filter(p => p.type === 'box' || p.boxId);
+    const assetPlacements = placements.filter(p => p.type === 'asset' || (p.assetId && !p.boxId));
+    const invPlacements   = placements.filter(p => p.type === 'inventory' || (p.inventoryId && !p.boxId));
+
+    // Bulk INSERT box placements using unnest
+    if (boxPlacements.length > 0) {
+      const planIds   = boxPlacements.map(() => planId);
+      const boxIds    = boxPlacements.map(p => p.boxId);
+      const zones     = boxPlacements.map(p => p.zone || null);
+      const xs        = boxPlacements.map(p => p.position?.x || 0);
+      const ys        = boxPlacements.map(p => p.position?.y || 0);
+      const zs        = boxPlacements.map(p => p.position?.z || 0);
+      const orders    = boxPlacements.map((_, i) => i + 1);
+      const addedAts  = boxPlacements.map(p => p.timestamp || new Date().toISOString());
 
       await client.query(
         `INSERT INTO load_plan_boxes
@@ -106,8 +127,30 @@ router.put('/draft', async (req, res, next) => {
       );
     }
 
+    // Replace asset / inventory placements
+    await client.query('DELETE FROM load_plan_assets WHERE load_plan_id = $1', [planId]);
+
+    const allItemPlacements = [
+      ...assetPlacements.map(p => ({ itemType: 'asset',     itemId: p.assetId,     zone: p.zone, ts: p.timestamp })),
+      ...invPlacements.map(p   => ({ itemType: 'inventory', itemId: p.inventoryId, zone: p.zone, ts: p.timestamp }))
+    ].filter(p => p.itemId);
+
+    if (allItemPlacements.length > 0) {
+      const iplanIds  = allItemPlacements.map(() => planId);
+      const iTypes    = allItemPlacements.map(p => p.itemType);
+      const iIds      = allItemPlacements.map(p => p.itemId);
+      const iZones    = allItemPlacements.map(p => p.zone || null);
+      const iAddedAts = allItemPlacements.map(p => p.ts || new Date().toISOString());
+
+      await client.query(
+        `INSERT INTO load_plan_assets (load_plan_id, item_type, item_id, truck_zone, added_at)
+         SELECT * FROM unnest($1::text[], $2::text[], $3::text[], $4::text[], $5::timestamptz[])`,
+        [iplanIds, iTypes, iIds, iZones, iAddedAts]
+      );
+    }
+
     // Sync boxes.current_truck_id — set for placed boxes, clear for removed ones
-    const placedBoxIds = placements.map(p => p.boxId).filter(Boolean);
+    const placedBoxIds = boxPlacements.map(p => p.boxId).filter(Boolean);
     if (placedBoxIds.length > 0) {
       await client.query(
         `UPDATE boxes SET current_truck_id = $1, updated_at = NOW() WHERE id = ANY($2::text[])`,
