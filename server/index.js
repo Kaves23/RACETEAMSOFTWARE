@@ -94,6 +94,33 @@ app.get('/api/health', (req, res) => res.json({ ok: true, ts: new Date().toISOSt
 const { router: authRouter, requireAuth } = require('./routes/auth');
 app.use('/api/auth', authRouter);
 
+// Admin: run pending migrations (requires auth + admin role)
+app.post('/api/admin/run-migrations', requireAuth, async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
+  const fs = require('fs');
+  const path = require('path');
+  const { pool: dbPool } = require('./db');
+  const migrationsDir = path.join(__dirname, 'migrations');
+  const files = [
+    '057_users_password_hash.sql','058_event_notes_extras.sql','059_finance_module.sql',
+    '060_performance_module.sql','061_reliability_module.sql','062_procurement_module.sql',
+    '063_driver_module.sql','064_compliance_module.sql','065_executive_module.sql',
+    '066_load_plan_assets.sql','phase1_new_modules.sql'
+  ];
+  const results = [];
+  for (const f of files) {
+    const fp = path.join(migrationsDir, f);
+    if (!fs.existsSync(fp)) { results.push({ file: f, status: 'not found' }); continue; }
+    try {
+      await dbPool.query(fs.readFileSync(fp, 'utf8'));
+      results.push({ file: f, status: 'ok' });
+    } catch (e) {
+      results.push({ file: f, status: 'error', error: e.message });
+    }
+  }
+  res.json({ results });
+});
+
 // PostgreSQL-specific routes for logistics (boxes, items, box_contents) - PROTECTED
 const boxesRouter = require('./routes/boxes');
 const boxAssignmentsRouter = require('./routes/box-assignments');

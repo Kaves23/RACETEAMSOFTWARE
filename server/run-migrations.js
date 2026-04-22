@@ -62,7 +62,18 @@ async function runMigrations() {
     '053_race_sessions_and_incidents.sql',
     '054_race_results_and_driver_hr_fields.sql',
     '055_driver_asset_assignments.sql',
-    '056_notes_knowledge_base.sql'
+    '056_notes_knowledge_base.sql',
+    '057_users_password_hash.sql',
+    '058_event_notes_extras.sql',
+    '059_finance_module.sql',
+    '060_performance_module.sql',
+    '061_reliability_module.sql',
+    '062_procurement_module.sql',
+    '063_driver_module.sql',
+    '064_compliance_module.sql',
+    '065_executive_module.sql',
+    '066_load_plan_assets.sql',
+    'phase1_new_modules.sql'
   ];
   
   for (const filename of migrationFiles) {
