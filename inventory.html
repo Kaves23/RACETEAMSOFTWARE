@@ -106,9 +106,24 @@
     .list-panel .panel-body { padding: 0; }
     
     /* Lists */
-    .list-panel{flex:0 0 210px}
     .table-panel{flex:1;min-width:0}
-    .detail-panel{flex:0 0 300px}
+    .detail-panel{flex:0 0 320px;min-width:200px}
+
+    /* ── Resizable divider ── */
+    .panel-resizer{width:6px;cursor:col-resize;flex-shrink:0;position:relative;background:transparent;transition:background .15s;border-radius:3px}
+    .panel-resizer::after{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:2px;height:36px;border-radius:1px;background:#ced4da;transition:background .15s,height .15s}
+    .panel-resizer:hover::after,.panel-resizer.dragging::after{background:#1a73e8;height:56px}
+    .panel-resizer.dragging{background:rgba(26,115,232,.06)}
+
+    /* ── Stock filter pills in panel header ── */
+    .stock-pill{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:10px;font-size:.7rem;font-weight:600;border:1px solid transparent;cursor:pointer;background:#f0f3f7;color:#4a5568;transition:all .1s;white-space:nowrap;line-height:1.4}
+    .stock-pill:hover{background:#e0e5ef}
+    .stock-pill.active{background:#1a73e8;color:#fff;border-color:#1967d2}
+    .stock-pill.pill-warning:not(.active):hover{background:#fef7e0;color:#b7791f}
+    .stock-pill.pill-warning.active{background:#f9ab00;color:#fff;border-color:#e09200}
+    .stock-pill.pill-danger:not(.active):hover{background:#fce8e6;color:#c0392b}
+    .stock-pill.pill-danger.active{background:#ea4335;color:#fff;border-color:#c5221f}
+    .stock-pill .pill-count{font-size:.65rem;opacity:.85}
     
     /* Item Cards for List View */
     .inventory-row{background:#f8f9fa;border:1px solid #d0d0d0;border-radius:4px;padding:2px 8px;margin-bottom:1px;cursor:pointer;transition:all .15s}
@@ -352,7 +367,8 @@
     /* Responsive */
     @media (max-width: 992px) {
       .inventory-container{flex-direction:column;height:auto}
-      .list-panel,.detail-panel{flex:0 0 auto;width:100%}
+      .detail-panel{flex:0 0 auto;width:100%}
+      .panel-resizer{display:none}
     }
   </style>
 </head>
@@ -378,82 +394,25 @@
       </div>
     </div>
     
+    <!-- Hidden stubs for JS references from old sidebar -->
+    <div style="display:none">
+      <span id="totalItemsBadge"></span>
+      <div id="activeFiltersBar"><span id="activeFiltersLabel"></span></div>
+      <div id="categoryList"></div>
+      <div id="locationList"></div>
+      <div id="supplierList"></div>
+    </div>
+
     <div class="inventory-container">
-      <!-- Left Panel - Filters -->
-      <div class="panel list-panel">
-        <div class="panel-header">
-          <span>Filters</span>
-          <span class="stat-badge" id="totalItemsBadge">0</span>
-        </div>
-        <div class="panel-body">
-          <!-- Sidebar search -->
-          <div class="inv-sidebar-search">
-            <input type="text" id="sidebarSearchInput" placeholder="🔍 Filter items…" oninput="filterSidebarItems(this.value)">
-          </div>
-
-          <!-- Active filter indicator -->
-          <div class="inv-active-filters" id="activeFiltersBar">
-            <span id="activeFiltersLabel">🔍 Filters active</span>
-            <button class="inv-clear-btn" onclick="clearAllFilters()">Clear ×</button>
-          </div>
-
-          <div class="inv-sidebar-section">
-            <div class="inv-sidebar-hdr collapsible" data-sidebar-toggle="stockBody">
-              Stock Status <span class="chev">▾</span>
-            </div>
-            <div class="inv-sidebar-body" id="stockBody">
-              <div class="inv-sidebar-item active" data-view="all">
-                <span>📋 All Items</span>
-                <span class="inv-sidebar-count" id="countAll">0</span>
-              </div>
-              <div class="inv-sidebar-item warning" data-view="low">
-                <span>🟡 Low Stock</span>
-                <span class="inv-sidebar-count" id="countLow">0</span>
-              </div>
-              <div class="inv-sidebar-item danger" data-view="out">
-                <span>🔴 Out of Stock</span>
-                <span class="inv-sidebar-count" id="countOut">0</span>
-              </div>
-              <div class="inv-sidebar-item" data-view="expiring">
-                <span>⏰ Expiring Soon</span>
-                <span class="inv-sidebar-count" id="countExpiring">0</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="inv-sidebar-section">
-            <div class="inv-sidebar-hdr collapsible" data-sidebar-toggle="categoryBody">
-              Categories <span class="chev">▾</span>
-            </div>
-            <div class="inv-sidebar-body" id="categoryBody">
-              <div id="categoryList"></div>
-            </div>
-          </div>
-
-          <div class="inv-sidebar-section">
-            <div class="inv-sidebar-hdr collapsible collapsed" data-sidebar-toggle="locationBody">
-              Locations <span class="chev">▾</span>
-            </div>
-            <div class="inv-sidebar-body collapsed" id="locationBody">
-              <div id="locationList"></div>
-            </div>
-          </div>
-
-          <div class="inv-sidebar-section">
-            <div class="inv-sidebar-hdr collapsible collapsed" data-sidebar-toggle="supplierBody">
-              Suppliers <span class="chev">▾</span>
-            </div>
-            <div class="inv-sidebar-body collapsed" id="supplierBody">
-              <div id="supplierList"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-      
       <!-- Middle Panel - Items List/Table -->
       <div class="panel table-panel">
-        <div class="panel-header">
-          <span id="viewTitle">All Items</span>
+        <div class="panel-header" style="padding:6px 10px">
+          <div class="d-flex align-items-center gap-1 flex-wrap">
+            <button class="stock-pill active" data-view="all">All <span class="pill-count" id="countAll">0</span></button>
+            <button class="stock-pill pill-warning" data-view="low">⚠ Low <span class="pill-count" id="countLow">0</span></button>
+            <button class="stock-pill pill-danger" data-view="out">✗ Out <span class="pill-count" id="countOut">0</span></button>
+            <button class="stock-pill" data-view="expiring">⏰ Expiring <span class="pill-count" id="countExpiring">0</span></button>
+          </div>
           <div class="d-flex gap-2 align-items-center">
             <span class="stat-badge" id="filteredCount">0 shown</span>
             <div class="btn-group btn-group-sm">
@@ -498,6 +457,7 @@
                 <option value="location">Sort: Location</option>
                 <option value="lastUsed">Sort: Last Used</option>
               </select>
+              <button class="btn btn-outline-secondary btn-sm" id="btnClearFilters" style="display:none;font-size:.72rem" onclick="clearAllFilters()">× Clear filters</button>
             </div>
           </div>
           
@@ -525,8 +485,11 @@
           <!-- Card View -->
           <div id="cardView" style="display:none"></div>
         </div>
-      </div>
-      
+      </div><!-- /table-panel -->
+
+      <!-- Draggable divider -->
+      <div id="midRightResizer" class="panel-resizer"></div>
+
       <!-- Right Panel - Details -->
       <div class="panel detail-panel">
         <div class="panel-header">
@@ -2790,26 +2753,64 @@
         document.getElementById('filterLocation').value = '';
         document.getElementById('filterSupplier').value = '';
         document.querySelectorAll('[data-filter-cat],[data-filter-loc],[data-filter-sup]').forEach(b => b.classList.remove('active'));
-        document.getElementById('activeFiltersBar').classList.remove('show');
+        const btn = document.getElementById('btnClearFilters');
+        if (btn) btn.style.display = 'none';
         applyFilters();
       }
 
       // Update active filters bar visibility
       function updateActiveFiltersBar() {
+        const btn = document.getElementById('btnClearFilters');
+        if (!btn) return;
+        const active = [currentFilter.category, currentFilter.location, currentFilter.supplier].filter(Boolean);
+        btn.style.display = active.length > 0 ? '' : 'none';
+        // keep hidden stubs in sync (avoid null errors elsewhere)
         const bar = document.getElementById('activeFiltersBar');
         const label = document.getElementById('activeFiltersLabel');
-        const active = [currentFilter.category, currentFilter.location, currentFilter.supplier].filter(Boolean);
-        if (active.length > 0) {
-          const parts = [];
-          if (currentFilter.category) parts.push(currentFilter.category);
-          if (currentFilter.location) parts.push(currentFilter.location);
-          if (currentFilter.supplier) parts.push(currentFilter.supplier);
-          label.textContent = '🔍 ' + parts.join(' · ');
-          bar.classList.add('show');
-        } else {
-          bar.classList.remove('show');
-        }
+        if (label) label.textContent = active.join(' · ');
+        if (bar) bar.classList.toggle('show', active.length > 0);
       }
+
+      // ── Mid-Right panel resizer ──────────────────────────────────────
+      (function() {
+        const resizer = document.getElementById('midRightResizer');
+        const detailPanel = document.querySelector('.detail-panel');
+        if (!resizer || !detailPanel) return;
+
+        // Restore saved width
+        const savedW = localStorage.getItem('inv_detail_w');
+        if (savedW) detailPanel.style.flex = '0 0 ' + savedW + 'px';
+
+        let startX, startW;
+
+        resizer.addEventListener('mousedown', function(e) {
+          e.preventDefault();
+          startX = e.clientX;
+          startW = detailPanel.getBoundingClientRect().width;
+          resizer.classList.add('dragging');
+          document.body.style.cursor = 'col-resize';
+          document.body.style.userSelect = 'none';
+
+          function onMove(e) {
+            const delta = startX - e.clientX; // drag left → wider right panel
+            const newW = Math.max(220, Math.min(640, startW + delta));
+            detailPanel.style.flex = '0 0 ' + newW + 'px';
+          }
+
+          function onUp() {
+            const w = Math.round(detailPanel.getBoundingClientRect().width);
+            localStorage.setItem('inv_detail_w', w);
+            resizer.classList.remove('dragging');
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+          }
+
+          document.addEventListener('mousemove', onMove);
+          document.addEventListener('mouseup', onUp);
+        });
+      })();
 
       // Initialize on DOM ready
       if (document.readyState === 'loading') {
