@@ -1398,7 +1398,7 @@
           // Load variants if not cached
           if (!variantCache[itemId]) {
             try {
-              const data = await RTS_API.request(`/inventory-variants/${itemId}`);
+              const data = await variantFetch('GET', `/inventory-variants/${itemId}`);
               variantCache[itemId] = data.variants || [];
             } catch (err) {
               variantCache[itemId] = [];
@@ -1517,7 +1517,7 @@
               ${locOptions}
             </select>
             <input type="number" class="form-control form-control-sm location-qty" 
-                   placeholder="Qty" min="0" step="0.01" value="${quantity}" 
+                   placeholder="Qty" min="0" step="1" value="${quantity}" 
                    style="flex: 1; max-width: 100px;">
             <button type="button" class="btn btn-sm btn-outline-danger" 
                     onclick="removeLocationEntry('${entryId}')" 
@@ -1697,11 +1697,25 @@
         document.getElementById('btnDisableVariants').addEventListener('click', () => disableVariants(item));
       }
 
+      // Direct authenticated fetch helper for variant API calls
+      async function variantFetch(method, path, body) {
+        const token = localStorage.getItem('auth_token');
+        const opts = {
+          method: method || 'GET',
+          headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }
+        };
+        if (body !== undefined) opts.body = JSON.stringify(body);
+        const resp = await fetch('/api' + path, opts);
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || resp.statusText);
+        return data;
+      }
+
       async function refreshVariantManagerRows(parentId) {
         const container = document.getElementById('variantManagerRows');
         container.innerHTML = '<div style="padding:6px 10px;font-size:.74rem;color:#9aa0a6">Loading…</div>';
         try {
-          const data = await RTS_API.request(`/inventory-variants/${parentId}`);
+          const data = await variantFetch('GET', `/inventory-variants/${parentId}`);
           const variants = data.variants || [];
           variantCache[parentId] = variants;
 
@@ -1747,10 +1761,7 @@
         const notes = row.querySelector('.vr-notes').value.trim();
         if (!label) return;
         try {
-          const data = await RTS_API.request(`/inventory-variants/${id}`, {
-            method: 'PUT',
-            body: JSON.stringify({ label, qty_a, qty_b, qty_c, notes })
-          });
+          const data = await variantFetch('PUT', `/inventory-variants/${id}`, { label, qty_a, qty_b, qty_c, notes });
           if (!data.success) { showToast('Save failed: ' + data.error, 'error'); return; }
           // Update cache
           const cached = variantCache[parentId];
@@ -1781,10 +1792,7 @@
         const qty_c = parseInt(document.getElementById('newVariantC').value) || 0;
         const notes = document.getElementById('newVariantNotes').value.trim();
         try {
-          const data = await RTS_API.request('/inventory-variants', {
-            method: 'POST',
-            body: JSON.stringify({ parentId, label, qty_a, qty_b, qty_c, notes })
-          });
+          const data = await variantFetch('POST', '/inventory-variants', { parentId, label, qty_a, qty_b, qty_c, notes });
           if (!data.success) { showToast(data.error, 'error'); return; }
           // Clear inputs
           document.getElementById('newVariantLabel').value = '';
@@ -1808,7 +1816,7 @@
         const ok = await customConfirm('Delete Variant', 'Remove this variant? This cannot be undone.', 'Delete', true);
         if (!ok) return;
         try {
-          const data = await RTS_API.request(`/inventory-variants/${variantId}`, { method: 'DELETE' });
+          const data = await variantFetch('DELETE', `/inventory-variants/${variantId}`);
           if (!data.success) { showToast(data.error, 'error'); return; }
           // If no variants remain, update local item flag
           const remaining = (variantCache[parentId] || []).filter(v => v.id !== variantId);
@@ -1850,7 +1858,7 @@
         // Delete all variants server-side by deleting them one by one
         try {
           for (const v of cached) {
-            await RTS_API.request(`/inventory-variants/${v.id}`, { method: 'DELETE' });
+            await variantFetch('DELETE', `/inventory-variants/${v.id}`);
           }
           delete variantCache[item.id];
           item.hasVariants = false;
@@ -1916,8 +1924,17 @@
             } else if (typeof RTS !== 'undefined' && RTS.apiCreateCollectionItem) {
               response = await RTS.apiCreateCollectionItem('inventory', itemData);
             }
-            allItems.push({ ...mapToLocal(itemData), id: response.item.id });
-            showToast('Item created successfully', 'success');
+            const newItem = { ...mapToLocal(itemData), id: response.item.id, hasVariants: false };
+            allItems.push(newItem);
+            showToast('Item created — you can now add size variants below', 'success');
+            await loadData();
+            applyFilters();
+            // Keep the new item selected so user can immediately enable variants
+            selectedItemId = newItem.id;
+            const freshItem = allItems.find(i => i.id === newItem.id) || newItem;
+            await showItemForm(freshItem);
+            hideLoading();
+            return;
           }
           
           await loadData();
