@@ -1345,7 +1345,7 @@
           return `<div class="form-check form-check-sm"><input class="form-check-input" type="checkbox" id="${id}" ${it.done? 'checked':''}><label class="form-check-label" for="${id}">${escapeHtml(it.text)}</label></div>`;
         }).join('');
         card.innerHTML = `
-          <div class="d-flex justify-content-between align-items-center mb-1"><strong>${escapeHtml(chk.name)}</strong><div class="d-flex gap-1"><button class="btn btn-sm btn-outline-secondary" data-act="clear">Clear</button><button class="btn btn-sm btn-outline-danger" data-act="remove">Remove</button></div></div>
+          <div class="d-flex justify-content-between align-items-center mb-1"><strong>${escapeHtml(chk.name)}</strong><div class="d-flex gap-1"><button class="btn btn-sm btn-outline-info" data-act="print">🖨 Print</button><button class="btn btn-sm btn-outline-secondary" data-act="clear">Clear</button><button class="btn btn-sm btn-outline-danger" data-act="remove">Remove</button></div></div>
           ${itemsHtml || '<div class="text-secondary">No items.</div>'}
         `;
         card.querySelectorAll('.form-check-input').forEach((inp, j)=>{
@@ -1367,8 +1367,60 @@
           ensureEventChecklists(ev).splice(idx,1);
           ev.updatedAt = nowISO(); saveAll(); renderEventChecklists();
         });
+        card.querySelector('[data-act="print"]').addEventListener('click', ()=> printEventChecklist(chk, ev));
         els.chkList.appendChild(card);
       });
+    }
+
+    function printEventChecklist(chk, ev) {
+      const settings = RTS.getSettings();
+      const teamName = (settings.teamName || settings.organisationName || '').trim();
+      const logoUrl  = (settings.teamLogoUrl || '').trim();
+      const accent   = (settings.brandColor || '#e32636');
+      const dateStr  = formatDateRange(ev) || '';
+      const venue    = ev.venue || '';
+      const eventTitle = ev.title || ev.name || 'Event';
+
+      const rows = (chk.items || []).map(it => `
+        <div style="display:flex; align-items:flex-start; gap:14px; padding:9px 0; border-bottom:1px solid #eee;">
+          <div style="width:19px; height:19px; border:2px solid #555; border-radius:3px; flex-shrink:0; margin-top:2px;"></div>
+          <div style="font-size:0.95rem; color:#1a1a1a; line-height:1.4;">${escapeHtml(it.text)}</div>
+        </div>`).join('');
+
+      const overlay = getPrintOverlay();
+      overlay.innerHTML = `
+        <style>
+          #rp-print-overlay { font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif; background:#fff !important; color:#1a1a1a !important; min-height:100vh; display:flex; justify-content:center; align-items:flex-start; padding:0 16px 60px; box-sizing:border-box; }
+          @media print { #rp-print-overlay { background:#fff !important; color:#1a1a1a !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; } }
+        </style>
+        <div style="width:100%; max-width:600px; margin:0 auto; padding-top:32px;">
+          <div style="height:5px; background:${escapeHtml(accent)}; margin-bottom:28px;"></div>
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
+            ${logoUrl
+              ? `<img src="${escapeHtml(logoUrl)}" alt="${escapeHtml(teamName)}" style="height:72px; max-width:240px; object-fit:contain;">`
+              : teamName
+                ? `<div style="display:flex; align-items:center; gap:10px;">
+                    <div style="width:56px; height:56px; border-radius:50%; background:${escapeHtml(accent)}; display:flex; align-items:center; justify-content:center; font-size:1.8rem; font-weight:900; color:#fff; flex-shrink:0;">${escapeHtml(teamName.charAt(0).toUpperCase())}</div>
+                    <div style="font-size:1rem; font-weight:900; letter-spacing:0.1em; text-transform:uppercase; color:#1a1a1a;">${escapeHtml(teamName)}</div>
+                   </div>`
+                : '<div></div>'}
+            <div style="text-align:right;">
+              <div style="font-size:1rem; font-weight:700; color:#1a1a1a;">${escapeHtml(eventTitle)}</div>
+              ${dateStr ? `<div style="font-size:0.78rem; color:#555; margin-top:2px;">${escapeHtml(dateStr)}</div>` : ''}
+              ${venue   ? `<div style="font-size:0.72rem; color:#888; margin-top:1px;">${escapeHtml(venue)}</div>` : ''}
+            </div>
+          </div>
+          <div style="height:2px; background:${escapeHtml(accent)}; margin-bottom:16px;"></div>
+          <div style="font-size:1.1rem; font-weight:700; color:#1a1a1a; margin-bottom:4px;">${escapeHtml(chk.name)}</div>
+          <div style="font-size:0.72rem; color:#888; margin-bottom:14px;">${(chk.items||[]).length} item${(chk.items||[]).length === 1 ? '' : 's'}</div>
+          ${rows || '<div style="color:#888; font-style:italic; padding:10px 0;">No items.</div>'}
+          <div style="margin-top:36px; padding-top:12px; border-top:1px solid #ddd; display:flex; justify-content:space-between; align-items:center;">
+            <div style="font-size:0.62rem; color:#bbb; letter-spacing:0.08em; text-transform:uppercase;">Checklist</div>
+            <div style="font-size:0.72rem; color:#bbb;">Signed: _________________________ &nbsp; Date: _____________</div>
+          </div>
+        </div>`;
+      overlay.style.display = 'block';
+      setTimeout(() => { window.print(); overlay.style.display = 'none'; }, 150);
     }
 
     function formatDateRange(e) {
