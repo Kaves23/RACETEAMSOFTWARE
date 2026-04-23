@@ -8,6 +8,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <title>Dashboard · Race Team OS</title>
   <link rel="stylesheet" href="mobile.css">
+  <script src="mobile-auth.js"></script>
 </head>
 <body>
 
@@ -258,12 +259,12 @@
     document.getElementById('statStock').classList.remove('has-alert');
 
     const [trucks, boxes, assets, inventory, eventsResp, driversResp] = await Promise.allSettled([
-      fetch(`${API}/api/trucks`,                   { headers: auth() }).then(r => r.json()),
-      fetch(`${API}/api/boxes`,                    { headers: auth() }).then(r => r.json()),
-      fetch(`${API}/api/items`,                    { headers: auth() }).then(r => r.json()),
-      fetch(`${API}/api/collections/inventory`,    { headers: auth() }).then(r => r.json()),
-      fetch(`${API}/api/collections/events`,       { headers: auth() }).then(r => r.json()),
-      fetch(`${API}/api/drivers`,                  { headers: auth() }).then(r => r.json()),
+      mobileFetch(`${API}/api/trucks`),
+      mobileFetch(`${API}/api/boxes`),
+      mobileFetch(`${API}/api/items`),
+      mobileFetch(`${API}/api/collections/inventory`),
+      mobileFetch(`${API}/api/collections/events`),
+      mobileFetch(`${API}/api/drivers`),
     ]);
 
     // Events
@@ -394,6 +395,7 @@
 
       try {
         var res = await fetch(ep.url, { headers: auth() });
+        if (mobileHandle401(res)) return;
         if (res.ok && cache) {
           await cache.put(ep.url, res.clone());
           // Also fetch individual box details if this was the boxes endpoint
