@@ -3,10 +3,11 @@
    Cache: shell files on install, stale-while-revalidate for API routes
    ───────────────────────────────────────────────────────────────────────────── */
 
-var CACHE_NAME = 'rts-mobile-v8';
+var CACHE_NAME = 'rts-mobile-v9';
 var DATA_CACHE = 'rts-offline-data'; // persists across SW version bumps
 var SHELL_FILES = [
   '/mobile/mobile.css',
+  '/mobile/mobile-auth.js',
   '/mobile/index.html',
   '/mobile/dashboard.html',
   '/mobile/load.html',
