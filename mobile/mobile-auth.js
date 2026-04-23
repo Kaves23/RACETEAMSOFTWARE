@@ -23,7 +23,14 @@
         clearAndRedirect();
         return Promise.reject(new Error('Session expired'));
       }
-      if (!r.ok) return Promise.reject(new Error('HTTP ' + r.status));
+      if (!r.ok) {
+        var err = new Error('HTTP ' + r.status);
+        err.status = r.status;
+        return r.json().catch(function() { return null; }).then(function(body) {
+          if (body) err.body = body;
+          return Promise.reject(err);
+        });
+      }
       return r.json();
     });
   };
