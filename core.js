@@ -283,6 +283,24 @@
     return next;
   }
 
+  // Fetch settings from the server and merge into localStorage so all pages see the latest branding.
+  // Call this once on page load (fire-and-forget). Returns the merged settings object.
+  async function syncSettingsFromDB() {
+    try {
+      const token = localStorage.getItem('auth_token') || '';
+      if (!token) return getSettings();
+      const resp = await fetch('/api/settings', { headers: { Authorization: `Bearer ${token}` } });
+      if (!resp.ok) return getSettings();
+      const data = await resp.json();
+      if (data.ok && data.settings && typeof data.settings === 'object') {
+        saveSettings(data.settings);
+      }
+    } catch(_e) {
+      // Network failure — use cached localStorage value
+    }
+    return getSettings();
+  }
+
   // ----------------------------
   // Deep linking helpers
   // ----------------------------
@@ -882,6 +900,7 @@
     uid,
     getSettings,
     saveSettings,
+    syncSettingsFromDB,
     getQueryParam,
     setQueryParam,
     pickDriveFiles,

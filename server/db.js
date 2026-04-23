@@ -123,6 +123,25 @@ async function getSettings() {
   }
 }
 
+// Save (upsert) settings into the generic settings table
+async function saveSettings(patch) {
+  try {
+    // Load current, merge patch on top, then write back
+    const current = await getSettings();
+    const merged = Object.assign({}, current, patch);
+    await query(
+      `INSERT INTO settings (id, data, updated_at)
+       VALUES ('global', $1, NOW())
+       ON CONFLICT (id) DO UPDATE SET data = settings.data || $1::jsonb, updated_at = NOW()`,
+      [JSON.stringify(patch)]
+    );
+    return merged;
+  } catch (error) {
+    console.warn('Error saving settings:', error.message);
+    throw error;
+  }
+}
+
 // Generic upsertMany — used by telemetry upload endpoint.
 // Inserts rows from the items array into the given table using ON CONFLICT DO UPDATE.
 // Column names are derived from the keys of the first item (all must share the same shape).
@@ -174,6 +193,7 @@ module.exports = {
   logHistory,
   getAll,
   getSettings,
+  saveSettings,
   upsertMany,
   createOne
 };

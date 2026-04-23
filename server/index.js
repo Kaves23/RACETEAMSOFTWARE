@@ -298,6 +298,21 @@ app.get('/api/settings', requireAuth, async (req, res) => {
   }
 });
 
+// Save settings - PROTECTED
+app.post('/api/settings', requireAuth, async (req, res) => {
+  try {
+    const patch = req.body;
+    if (!patch || typeof patch !== 'object' || Array.isArray(patch)) {
+      return res.status(400).json({ ok: false, error: 'Body must be a JSON object' });
+    }
+    const saved = await db.saveSettings(patch);
+    res.json({ ok: true, settings: saved });
+  } catch (err) {
+    console.error('POST /api/settings error', err);
+    res.status(500).json({ ok: false, error: String(err) });
+  }
+});
+
 // Sync endpoints for core collections: events, tasks, inventory, runbooks - PROTECTED
 app.get('/api/:collection', requireAuth, async (req, res) => {
   const { collection } = req.params;

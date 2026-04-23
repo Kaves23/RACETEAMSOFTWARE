@@ -709,6 +709,39 @@
     let inventoryCategoriesCache = null;
     let suppliersCache = null; // Cache for suppliers from database
 
+    // Load branding settings from DB and merge into local settings so all pages see them
+    async function loadBrandingFromDB() {
+      try {
+        const token = localStorage.getItem('auth_token') || '';
+        const resp = await fetch('/api/settings', { headers: { Authorization: `Bearer ${token}` } });
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data.ok && data.settings && typeof data.settings === 'object') {
+            // Merge DB settings on top of local defaults
+            settings = RTS.deepMerge(settings, data.settings);
+            RTS.saveSettings(data.settings); // keep localStorage in sync
+          }
+        }
+      } catch(e) {
+        console.warn('Could not load settings from DB:', e.message);
+      }
+    }
+
+    // Save a patch of settings to DB (and keep localStorage in sync)
+    async function saveBrandingToDB(patch) {
+      const token = localStorage.getItem('auth_token') || '';
+      const resp = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(patch)
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.error || resp.statusText);
+      }
+      return resp.json();
+    }
+
     function saveUI(){ RTS.safeSaveJSON('rts.settings.ui.v1', ui); }
 
     // Load locations from database
@@ -982,6 +1015,8 @@
         els.sectionList.querySelectorAll('li').forEach(li=>{
           li.classList.toggle('active', li.getAttribute('data-section')==='branding');
         });
+        // Always load from DB first so we show the latest saved value
+        await loadBrandingFromDB();
         // Populate branding fields from settings
         const brSet = RTS.getSettings();
         const ftn = document.getElementById('f_brand_teamname');
@@ -1770,13 +1805,22 @@
     // Save
     btnBrandSave.addEventListener('click', async ()=>{
       const hex = fBrandColorHex.value.trim();
-      RTS.saveSettings({
+      const patch = {
         teamName:    fBrandTeamName.value.trim(),
         teamLogoUrl: fBrandLogoUrl.value.trim(),
         brandColor:  /^#[0-9a-fA-F]{6}$/.test(hex) ? hex : fBrandColor.value
-      });
-      if (window.RTS && typeof window.RTS.showToast === 'function') RTS.showToast('Branding saved', 'success');
-      else alert('Branding saved.');
+      };
+      // Save to localStorage immediately for local pages
+      RTS.saveSettings(patch);
+      // Persist to database so all users/devices see it
+      try {
+        await saveBrandingToDB(patch);
+        if (window.RTS && typeof window.RTS.showToast === 'function') RTS.showToast('Branding saved to database ✓', 'success');
+        else alert('Branding saved.');
+      } catch(e) {
+        if (window.RTS && typeof window.RTS.showToast === 'function') RTS.showToast('DB save failed: ' + e.message, 'error');
+        else alert('Error saving to database: ' + e.message);
+      }
       await renderList(); // refresh the middle-pane preview card
     });
     await renderList();
