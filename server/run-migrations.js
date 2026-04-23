@@ -73,6 +73,7 @@ async function runMigrations() {
     '064_compliance_module.sql',
     '065_executive_module.sql',
     '066_load_plan_assets.sql',
+    '067_fix_variant_box_contents_constraint.sql',
     'phase1_new_modules.sql'
   ];
   
