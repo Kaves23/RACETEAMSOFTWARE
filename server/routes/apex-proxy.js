@@ -382,9 +382,7 @@ function connectWs(session) {
       session.error = null;
       session.closeCode = null;
       session.state.connected = true;
-      // Some Apex Timing servers require an initial message to start sending data
-      // Try sending a ping/subscribe — harmless if not needed
-      try { ws.send(''); } catch(e) {}
+      // Apex Timing streams data unprompted — no subscribe message needed
     });
 
     ws.on('message', (data) => {
