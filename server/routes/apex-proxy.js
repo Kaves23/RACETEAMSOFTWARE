@@ -137,133 +137,180 @@ function emptyState() {
 }
 
 // ── Apex Timing message parser ─────────────────────────────────────────────────
-// Messages: space-separated tokens of the form r{ROW}c{COL}|{TYPE}|{VALUE}
-// Columns observed:
-//   c1  = row status/flag
-//   c2  = kart status (su/sl/sd etc)
-//   c3  = position number
-//   c4  = driver name
-//   c5  = best lap time
-//   c9  = laps completed
-//   c11 = last lap time
-//   c13 = gap to leader
-//   c14 = best lap rank
+// Each WS frame contains one or more pipe-delimited tokens separated by spaces
+// or newlines.  Token format:  ELEMENT_ID|CSS_CLASS|VALUE
+//
+// ELEMENT_ID types:
+//   r{N}c{N}   — grid cell (row N, column N)
+//   r{N}       — row timestamp  (cssClass = "*")
+//   light      — current flag/status  (cssClass = lg/ly/lr/lc/lo/sc …)
+//   title1     — session class name   (value = "Mini ROK")
+//   title2     — session event name   (value = "Race 4")
+//   init       — session lifecycle    (cssClass = r=race / n=ended)
+//   dyn1       — lap counter display  (value = "Lap 34/200")
+//   dyn2       — countdown timer ms   (value = "1236639")
+//   br{N}c{N}  — best result cell
+//   msg/track  — free-text messages
+//
+// Grid column mapping (confirmed from DevTools + integration guide):
+//   c1  = row flag/status type  (gl/gf/yl/rf …)
+//   c2  = row status badge      (sr/sl/su/in/sd)
+//   c3  = race rank / position  (empty type, numeric value)
+//   c4  = kart number           (empty type, e.g. "46")
+//   c5  = driver name           (empty type, e.g. "Tuttelberg Ethan")
+//   c6  = team / sponsor
+//   c7  = class                 (e.g. "MINI ROK")
+//   c8  = nation code
+//   c9  = laps completed        (type: in)
+//   c10 = best lap time         (type: ib — updated when personal best)
+//   c11 = last lap time         (type: tn=normal / ti=improved / tb=time-best)
+//   c12 = interval              (gap to car in front)
+//   c13 = gap to race leader    (type: in)
+//   c14 = best-lap rank         (type: rkb)
+//
+// IMPORTANT: values can contain spaces ("1 Lap", "Cornofsky Kayde").
+// We split tokens using a lookahead on the IDENTIFIER|  pattern, not on \s+.
+
+// Flag cssClass → race status
+const FLAG_MAP = {
+  lg: 'racing', gr: 'racing', wf: 'racing',
+  ly: 'paused', yf: 'paused', lr: 'paused', rf: 'paused',
+  lc: 'finished', ch: 'finished',
+  lo: 'waiting', ls: 'paused', sc: 'paused', bf: 'paused', no: 'waiting',
+};
+
+// Tokenise a raw WS frame respecting multi-word values.
+// Splits on whitespace (including newlines) that precedes a new IDENTIFIER|
+function tokeniseFrame(raw) {
+  // An identifier is: word chars (no spaces) followed immediately by '|'
+  // We split on \s+ only when the next non-space content starts an identifier.
+  // Strategy: split on  /\s+(?=\S+\|)/  which splits before any "word|"
+  return raw.trim().split(/\s+(?=\S+\|)/);
+}
 
 function parseMessages(rawMessages, grid, state) {
   let changed = false;
 
   for (const raw of rawMessages) {
-    const tokens = raw.trim().split(/\s+/);
+    const tokens = tokeniseFrame(raw);
+
     for (const token of tokens) {
       if (!token) continue;
 
-      // r{ROW}|*|{val} — row timestamp marker
-      const rowMark = token.match(/^r(\d+)\|\*\|(\d*)$/);
-      if (rowMark) {
-        const row = parseInt(rowMark[1]);
-        if (!grid.has(row)) grid.set(row, {});
-        grid.get(row)._ts = rowMark[2];
-        changed = true;
+      const firstPipe = token.indexOf('|');
+      if (firstPipe < 0) continue;
+      const elemId  = token.slice(0, firstPipe);
+      const rest    = token.slice(firstPipe + 1);
+      const secondPipe = rest.indexOf('|');
+      if (secondPipe < 0) continue;
+      const cssClass = rest.slice(0, secondPipe);
+      const value    = rest.slice(secondPipe + 1);
+
+      changed = true;
+
+      // ── Special non-grid elements ─────────────────────────────────────────
+      if (elemId === 'light') {
+        const mapped = FLAG_MAP[cssClass.toLowerCase()];
+        if (mapped) { state.status = mapped; state.cssClass = cssClass; }
+        continue;
+      }
+      if (elemId === 'title1') { state.title1 = value.trim(); rebuildSessionName(state); continue; }
+      if (elemId === 'title2') { state.title2 = value.trim(); rebuildSessionName(state); continue; }
+      if (elemId === 'init') {
+        if (cssClass === 'r') state.status = 'racing';
+        else if (cssClass === 'n') state.status = 'finished';
+        continue;
+      }
+      if (elemId === 'dyn1') {
+        // "Lap 34/200"
+        const m = value.match(/(\d+)\s*\/\s*(\d+)/);
+        if (m) { state.laps = parseInt(m[1], 10); state.totalLaps = parseInt(m[2], 10); }
+        if (value) state.lapDisplay = value.trim();
+        continue;
+      }
+      if (elemId === 'dyn2') {
+        const ms = parseInt(value, 10);
+        if (!isNaN(ms) && ms > 0) {
+          const s = Math.floor(ms / 1000);
+          state.timeRemaining = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+        }
         continue;
       }
 
-      // r{ROW}c{COL}|{type}|{value}
-      const cellMatch = token.match(/^r(\d+)c(\d+)\|([^|]*)\|(.*)$/);
-      if (!cellMatch) continue;
+      // ── Row timestamp  r{N}|*|{ms} ────────────────────────────────────────
+      const rOnly = elemId.match(/^r(\d+)$/);
+      if (rOnly && cssClass === '*') {
+        const row = parseInt(rOnly[1]);
+        if (!grid.has(row)) grid.set(row, {});
+        grid.get(row)._ts = value;
+        continue;
+      }
 
-      const row = parseInt(cellMatch[1]);
-      const col = parseInt(cellMatch[2]);
-      const type = cellMatch[3];
-      const value = cellMatch[4];
+      // ── Grid cell  r{N}c{N}|{type}|{value} ───────────────────────────────
+      const rcMatch = elemId.match(/^r(\d+)c(\d+)$/);
+      if (rcMatch) {
+        const row = parseInt(rcMatch[1]);
+        const col = parseInt(rcMatch[2]);
+        if (!grid.has(row)) grid.set(row, {});
+        grid.get(row)[`c${col}`] = { type: cssClass, value };
+        continue;
+      }
 
-      if (!grid.has(row)) grid.set(row, {});
-      grid.get(row)[`c${col}`] = { type, value };
-      changed = true;
+      // br{N}c{N} — best result rows (kart/time of fastest lap)
+      // ignore for driver grid
     }
   }
 
   if (!changed) return;
+  rebuildDrivers(grid, state);
+}
 
-  // Rebuild drivers from grid
+function rebuildSessionName(state) {
+  const parts = [state.title1, state.title2].filter(Boolean);
+  if (parts.length) state.sessionName = parts.join(' – ');
+  // classOnTrack = title1 (e.g. "Mini ROK")
+  if (state.title1) state.classOnTrack = state.title1;
+}
+
+function rebuildDrivers(grid, state) {
   const drivers = [];
 
   for (const [row, cell] of grid) {
-    // Row 0 = session header
-    if (row === 0) {
-      applySessionCell(cell, state);
-      continue;
-    }
-
-    // Apply flag from c1 of any row (broadcast to session state)
+    // c1 flag applies to whole session state (broadcast from any row)
     if (cell.c1 && cell.c1.type) {
       const mapped = FLAG_MAP[cell.c1.type.toLowerCase()];
       if (mapped) { state.status = mapped; state.cssClass = cell.c1.type; }
     }
 
-    // Need at least one meaningful field
-    const c3 = cell.c3;   // position
-    const c4 = cell.c4;   // driver name
-    const c9 = cell.c9;   // laps
-    const c11 = cell.c11; // last lap
+    // Include the row if it has ANY useful driver field
+    const hasData = cell.c3 || cell.c4 || cell.c5 || cell.c9 || cell.c11;
+    if (!hasData) continue;
 
-    if (!c3 && !c4 && !c9 && !c11) continue;
+    const driver = {
+      pos:     cell.c3  ? toNum(cell.c3.value)  : row,
+      kart:    cell.c4  ? cell.c4.value          : '',
+      name:    cell.c5  ? cell.c5.value          : '',
+      laps:    cell.c9  ? toNum(cell.c9.value)   : 0,
+      bestLap: cell.c10 ? fmtLap(cell.c10.value) : '',
+      lastLap: cell.c11 ? fmtLap(cell.c11.value) : '',
+      gap:     cell.c13 ? cell.c13.value         : '',
+      class:   cell.c7  ? cell.c7.value          : '',
+      inPit:   !!(cell.c2 && /sd|pi/.test(cell.c2.type)),
+      flag:    cell.c1  ? cell.c1.type           : '',
+    };
 
-    drivers.push({
-      pos: (c3 ? toNum(c3.value) : 0) || row,
-      kart: cell.c2 ? cell.c2.value : '',
-      name: c4 ? c4.value : '',
-      laps: c9 ? toNum(c9.value) : 0,
-      lastLap: c11 ? fmtLap(c11.value) : '',
-      bestLap: cell.c5 ? fmtLap(cell.c5.value) : '',
-      gap: cell.c13 ? cell.c13.value : '',
-      inPit: !!(cell.c2 && /sp|pi|pit/i.test(cell.c2.type)),
-      flag: cell.c1 ? cell.c1.type : '',
-    });
+    // Fall back: kart in c2.value if c4 missing and c2 has a numeric value
+    if (!driver.kart && cell.c2 && /^\d+$/.test(cell.c2.value)) {
+      driver.kart = cell.c2.value;
+    }
+
+    drivers.push(driver);
   }
 
   drivers.sort((a, b) => (a.pos || 999) - (b.pos || 999));
   state.drivers = drivers;
   state.lastUpdate = new Date().toISOString();
   state.connected = true;
-}
-
-// Flag cssClass → race status mapping (from Apex Timing integration guide)
-const FLAG_MAP = {
-  lg: 'racing',    // green - race running
-  gr: 'racing',    // green legacy
-  ly: 'paused',    // yellow
-  yf: 'paused',    // yellow legacy
-  lr: 'paused',    // red
-  rf: 'paused',    // red legacy
-  lc: 'finished',  // chequered
-  ch: 'finished',  // chequered legacy
-  lo: 'waiting',   // lights out / not started
-  ls: 'paused',    // safety conditions
-  sc: 'paused',    // safety car
-  bf: 'paused',    // blue legacy
-  wf: 'racing',    // white legacy
-  no: 'waiting',   // none
-};
-
-function applySessionCell(cell, state) {
-  for (const [key, cv] of Object.entries(cell)) {
-    if (!cv || typeof cv !== 'object' || key === '_ts') continue;
-    const v = String(cv.value || '').trim();
-    const t = String(cv.type || '').trim();
-
-    // c1 in any row = flag/status indicator (cssClass is the type field)
-    if (key === 'c1' && t) {
-      const mapped = FLAG_MAP[t.toLowerCase()];
-      if (mapped) state.status = mapped;
-      state.cssClass = t;
-    }
-
-    if (!v) continue;
-    // Session name from title-like fields
-    if (/race|qual|prac|warm|heat|final/i.test(v)) state.sessionName = v;
-    // Time remaining
-    if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(v)) state.timeRemaining = v;
-  }
 }
 
 function toNum(v) {
