@@ -504,13 +504,21 @@
       ourDrivers.forEach(d => {
         if (!d || !d.name) return;
         const norm = normalise(d.name);
-        driverMatchMap[norm] = {
+        const entry = {
           ourId: d.id,
           ourName: d.name,
           ourColor: d.color || '#ffd700',
           ourClass: d.racing_class || d.class || '',
-          ourKart: d.race_number || d.raceNumber || ''
+          ourKart: String(d.race_number || d.raceNumber || d.kart_number || d.kartNumber || '').trim()
         };
+        driverMatchMap[norm] = entry;
+        // Also index by reversed name order ("Boshoff Zac" → "ZAC BOSHOFF") so Apex Timing
+        // surname-first format matches a "First Last" database entry and vice-versa
+        const parts = norm.split(' ');
+        if (parts.length >= 2) {
+          const reversed = parts.slice(1).join(' ') + ' ' + parts[0];
+          if (!driverMatchMap[reversed]) driverMatchMap[reversed] = entry;
+        }
       });
     } catch (e) {
       dbg('buildDriverMatchMap error:', e);
@@ -535,7 +543,7 @@
     return matrix[b.length][a.length];
   }
 
-  function matchToOurDriver(timingName) {
+  function matchToOurDriver(timingName, timingKart) {
     const normTiming = normalise(timingName);
     if (!normTiming) return null;
 
@@ -563,9 +571,9 @@
         return { ...match, confidence: 'medium' }; // surname only
       }
 
-      // 3. Kart number match (if available)
-      if (match.ourKart) {
-        // Nothing in timing — skip for now
+      // 3. Kart number match — definitive if both sides have a kart number
+      if (match.ourKart && timingKart && String(match.ourKart) === String(timingKart)) {
+        return { ...match, confidence: 'high' };
       }
 
       // 4. Levenshtein on full name (low confidence)
@@ -585,7 +593,7 @@
   }
 
   function applyDriverMatch(driver) {
-    const match = matchToOurDriver(driver.name);
+    const match = matchToOurDriver(driver.name, driver.kart);
     if (match) {
       driver.isOurs = true;
       driver.ourColor = match.ourColor;

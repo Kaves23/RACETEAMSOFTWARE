@@ -387,7 +387,19 @@ function rebuildDrivers(grid, state) {
     drivers.push(driver);
   }
 
-  drivers.sort((a, b) => (a.pos || 999) - (b.pos || 999));
+  drivers.sort((a, b) => {
+    // Primary: use explicit position (c3) if available and non-zero
+    const aPos = a.pos || 0;
+    const bPos = b.pos || 0;
+    if (aPos > 0 && bPos > 0) return aPos - bPos;
+    if (aPos > 0) return -1;
+    if (bPos > 0) return 1;
+    // Fallback: sort by laps desc, then gap asc (gap = "10.083" seconds from leader)
+    if (b.laps !== a.laps) return b.laps - a.laps;
+    const aGap = parseFloat(String(a.gap).replace(/[^\d.]/g, '')) || 0;
+    const bGap = parseFloat(String(b.gap).replace(/[^\d.]/g, '')) || 0;
+    return aGap - bGap;
+  });
   state.drivers = drivers;
   state.lastUpdate = new Date().toISOString();
   state.connected = true;

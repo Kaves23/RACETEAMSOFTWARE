@@ -1001,13 +1001,18 @@
       }
 
       function ltStatusInfo(status) {
+        // Custom SVG icons — no generic emoji
+        const flagSvg    = `<svg width="13" height="13" viewBox="0 0 16 16" fill="none" style="vertical-align:-2px;margin-right:4px"><rect x="2" y="1" width="5" height="5" fill="#fff"/><rect x="7" y="1" width="5" height="5" fill="#222"/><rect x="2" y="6" width="5" height="5" fill="#222"/><rect x="7" y="6" width="5" height="5" fill="#fff"/><line x1="2" y1="1" x2="2" y2="15" stroke="#fff" stroke-width="1.5"/></svg>`;
+        const raceSvg    = `<svg width="13" height="13" viewBox="0 0 16 16" fill="none" style="vertical-align:-2px;margin-right:4px"><polygon points="8,2 14,12 2,12" fill="none" stroke="#22c55e" stroke-width="1.8"/><circle cx="8" cy="8" r="2" fill="#22c55e"/></svg>`;
+        const stopwatchSvg = `<svg width="13" height="13" viewBox="0 0 16 16" fill="none" style="vertical-align:-2px;margin-right:4px"><circle cx="8" cy="9" r="5.5" stroke="#f59e0b" stroke-width="1.5"/><line x1="8" y1="3.5" x2="8" y2="6.5" stroke="#f59e0b" stroke-width="1.5"/><line x1="6" y1="1.5" x2="10" y2="1.5" stroke="#f59e0b" stroke-width="1.5"/></svg>`;
+        const pauseSvg   = `<svg width="13" height="13" viewBox="0 0 16 16" fill="none" style="vertical-align:-2px;margin-right:4px"><rect x="3" y="3" width="3.5" height="10" rx="1" fill="rgba(255,255,255,0.55)"/><rect x="9.5" y="3" width="3.5" height="10" rx="1" fill="rgba(255,255,255,0.55)"/></svg>`;
         switch(status) {
-          case 'racing':     return { dot: 'rts-lt-dot--racing',     label: '🔴 RACE' };
-          case 'qualifying': return { dot: 'rts-lt-dot--qualifying', label: '🟡 QUALI' };
-          case 'practice':   return { dot: 'rts-lt-dot--qualifying', label: '🟡 PRACTICE' };
-          case 'finished':   return { dot: 'rts-lt-dot--finished',   label: '🏁 FINISHED' };
-          case 'paused':     return { dot: 'rts-lt-dot--qualifying', label: '⏸ PAUSED' };
-          default:           return { dot: 'rts-lt-dot--waiting',    label: '⏸ Waiting' };
+          case 'racing':     return { dot: 'rts-lt-dot--racing',     label: raceSvg,       labelText: 'RACE' };
+          case 'qualifying': return { dot: 'rts-lt-dot--qualifying', label: stopwatchSvg,  labelText: 'QUALI' };
+          case 'practice':   return { dot: 'rts-lt-dot--qualifying', label: stopwatchSvg,  labelText: 'PRACTICE' };
+          case 'finished':   return { dot: 'rts-lt-dot--finished',   label: flagSvg,       labelText: 'FINISHED' };
+          case 'paused':     return { dot: 'rts-lt-dot--qualifying', label: pauseSvg,      labelText: 'PAUSED' };
+          default:           return { dot: 'rts-lt-dot--waiting',    label: pauseSvg,      labelText: 'Waiting' };
         }
       }
 
@@ -1056,7 +1061,7 @@
           badgeEl.style.display = '';
           if (dotEl) dotEl.className = `rts-lt-dot ${info.dot}`;
           if (badgeTxtEl) {
-            let badgeTxt = info.label;
+            let badgeTxt = info.labelText;
             if (state.classOnTrack) badgeTxt += ' · ' + state.classOnTrack;
             // Find our best position
             if (state.ourDrivers && state.ourDrivers.length) {
@@ -1065,7 +1070,7 @@
             }
             if (state.laps && state.totalLaps) badgeTxt += ` · Lap ${state.laps}/${state.totalLaps}`;
             else if (state.timeRemaining) badgeTxt += ` · ${state.timeRemaining}`;
-            badgeTxtEl.textContent = badgeTxt;
+            badgeTxtEl.innerHTML = info.label + badgeTxt;
           }
         } else if (badgeEl) {
           badgeEl.style.display = 'none';
@@ -1094,16 +1099,16 @@
         document.documentElement.style.setProperty('--rts-topbar-h', '108px');
 
         if (statusEl) {
-          let sText = info.label;
+          let sText = info.labelText;
           if (state.status === 'finished') {
-            sText = '🏁 Final Results';
+            sText = 'Final Results';
             if (state.classOnTrack) sText += ' · ' + state.classOnTrack;
           } else {
             if (state.classOnTrack) sText += ' · ' + state.classOnTrack;
             if (state.laps && state.totalLaps) sText += ` · Lap ${state.laps}/${state.totalLaps}`;
             else if (state.timeRemaining) sText += ` · ${state.timeRemaining}`;
           }
-          statusEl.textContent = sText;
+          statusEl.innerHTML = info.label + sText;
         }
 
         if (toggleEl) toggleEl.textContent = ltTickerMode === 'ours' ? 'Ours' : 'All';
