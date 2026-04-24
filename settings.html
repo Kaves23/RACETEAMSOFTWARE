@@ -174,6 +174,7 @@
                 <li data-section="setupTemplates">Setup Templates</li>
                 <li data-section="masterChecklists">Master Lists</li>
                 <li data-section="invCategories">Inv. Categories</li>
+                <li data-section="liveTiming">Live Timing</li>
               </ul>
 
               <div class="mlo-section-label mt-3">Appearance</div>
@@ -273,6 +274,9 @@
                   </li>
                   <li class="nav-item" role="presentation">
                     <button class="nav-link" id="tab-set-branding" data-bs-toggle="tab" data-bs-target="#paneBranding" type="button" role="tab" aria-controls="paneBranding" aria-selected="false">Team Branding</button>
+                  </li>
+                  <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tab-set-livetiming" data-bs-toggle="tab" data-bs-target="#paneLiveTiming" type="button" role="tab" aria-controls="paneLiveTiming" aria-selected="false">Live Timing</button>
                   </li>
                 </ul>
 
@@ -507,6 +511,63 @@
                   </div>
                 </div>
 
+                <!-- LIVE TIMING -->
+                <div id="paneLiveTiming" class="tab-pane fade" role="tabpanel" aria-labelledby="tab-set-livetiming">
+                  <div class="col-12 mb-2">
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" role="switch" id="f_lt_enabled">
+                      <label class="form-check-label fw-semibold" for="f_lt_enabled">Enable Live Timing</label>
+                    </div>
+                    <div class="text-secondary" style="font-size:0.75rem; line-height:1.4; margin-top:0.25rem;">
+                      Shows a scrolling live timing ticker in the header on every page. Connects to Apex Timing via WebSocket.
+                    </div>
+                  </div>
+                  <div class="col-12 mb-2">
+                    <label class="form-label">Apex Timing Event URL</label>
+                    <input id="f_lt_url" class="form-control form-control-sm" type="url" placeholder="https://live.apex-timing.com/african-karting-cup/">
+                    <div class="form-text">Paste the full URL of the event's live timing page. Works for any Apex Timing event.</div>
+                  </div>
+                  <div class="col-12 mb-2 d-flex gap-2 align-items-center flex-wrap">
+                    <button class="btn btn-sm btn-outline-secondary mlo-btn" id="btnLtTest" type="button">Test Connection</button>
+                    <button class="btn btn-sm btn-outline-secondary mlo-btn" id="btnLtOpen" type="button">Open Timing Page ↗</button>
+                    <span id="ltTestStatus" class="text-secondary" style="font-size:0.78rem;"></span>
+                  </div>
+                  <div class="mlo-section-label mt-2" style="margin-bottom:0.35rem;">Display Options</div>
+                  <div class="col-12 mb-1">
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" role="switch" id="f_lt_badge">
+                      <label class="form-check-label" for="f_lt_badge">Show status badge on header row</label>
+                    </div>
+                  </div>
+                  <div class="col-12 mb-1">
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" role="switch" id="f_lt_ticker">
+                      <label class="form-check-label" for="f_lt_ticker">Show scrolling ticker strip</label>
+                    </div>
+                  </div>
+                  <div class="col-12 mb-2">
+                    <label class="form-label">Default ticker mode</label>
+                    <select id="f_lt_tickermode" class="form-select form-select-sm">
+                      <option value="all">All drivers (our drivers highlighted)</option>
+                      <option value="ours">Our drivers only</option>
+                    </select>
+                  </div>
+                  <div class="col-12 mb-2">
+                    <label class="form-label">Polling interval (WebSocket reconnect / fallback fetch)</label>
+                    <select id="f_lt_interval" class="form-select form-select-sm">
+                      <option value="5">5 seconds</option>
+                      <option value="10" selected>10 seconds</option>
+                      <option value="15">15 seconds</option>
+                      <option value="30">30 seconds</option>
+                    </select>
+                  </div>
+                  <div class="mlo-section-label mt-2" style="margin-bottom:0.35rem;">Matched Drivers</div>
+                  <div class="text-secondary mb-1" style="font-size:0.75rem;">Automatically matched from your drivers list once a live session is active.</div>
+                  <div id="ltMatchedDriversTable" style="font-size:0.8rem;">
+                    <span class="text-secondary">No session active — matches will appear here when timing data arrives.</span>
+                  </div>
+                </div>
+
                 <!-- CALENDAR -->
                 <div id="paneCalendar" class="tab-pane fade" role="tabpanel" aria-labelledby="tab-set-calendar">
                   <div class="col-12">
@@ -696,7 +757,19 @@
       f_drive_folder: document.getElementById('f_drive_folder'),
       f_drive_scopes: document.getElementById('f_drive_scopes'),
       btnDriveTest: document.getElementById('btnDriveTest'),
-      btnDriveReset: document.getElementById('btnDriveReset')
+      btnDriveReset: document.getElementById('btnDriveReset'),
+
+      paneLiveTiming: document.getElementById('paneLiveTiming'),
+      f_lt_enabled: document.getElementById('f_lt_enabled'),
+      f_lt_url: document.getElementById('f_lt_url'),
+      f_lt_badge: document.getElementById('f_lt_badge'),
+      f_lt_ticker: document.getElementById('f_lt_ticker'),
+      f_lt_tickermode: document.getElementById('f_lt_tickermode'),
+      f_lt_interval: document.getElementById('f_lt_interval'),
+      btnLtTest: document.getElementById('btnLtTest'),
+      btnLtOpen: document.getElementById('btnLtOpen'),
+      ltTestStatus: document.getElementById('ltTestStatus'),
+      ltMatchedDriversTable: document.getElementById('ltMatchedDriversTable')
     };
 
     const defaultUI = { section:'drivers', search:'', selectedId:null };
@@ -914,7 +987,8 @@
         'calendar': 'tab-set-calendar',
         'setupTemplates': 'tab-set-setup',
         'masterChecklists': 'tab-set-checklists',
-        'invCategories': 'tab-set-invcategories'
+        'invCategories': 'tab-set-invcategories',
+        'liveTiming': 'tab-set-livetiming'
       };
       
       // Activate the corresponding Bootstrap tab
@@ -942,6 +1016,7 @@
       if(section==='setupTemplates') return (settings.setupTemplates||[]).map(t=>({ id:t.id||RTS.uid('setup'), name:t.name, fields:(t.fields||[]) }));
       if(section==='masterChecklists') return (settings.masterChecklists||[]).map(c=>({ id:c.id||RTS.uid('chk'), name:c.name, items:(c.items||[]) }));
       if(section==='invCategories') return inventoryCategoriesCache || [];
+      if(section==='liveTiming') return [{ id:'lt_config', name:'Live Timing Config' }];
       return [];
     }
 
@@ -966,6 +1041,7 @@
       }
       if(section==='setupTemplates') settings.setupTemplates = arr.map(x=>({ id:x.id||RTS.uid('setup'), name:x.name, fields:(x.fields||[]) })).filter(x=>x.name);
       if(section==='masterChecklists') settings.masterChecklists = arr.map(x=>({ id:x.id||RTS.uid('chk'), name:x.name, items:(x.items||[]) })).filter(x=>x.name);
+      if(section==='liveTiming') { /* saved directly in saveInspector */ return; }
       RTS.saveSettings(settings);
       settings = RTS.getSettings();
     }
@@ -984,6 +1060,7 @@
       else if(section==='setupTemplates') cols = ['Template','Fields'];
       else if(section==='masterChecklists') cols = ['Checklist','Items'];
       else if(section==='invCategories') cols = ['Category','Sort'];
+      else if(section==='liveTiming') cols = ['Setting'];
       els.theadRow.innerHTML = cols.map(c=>`<th>${c}</th>`).join('');
     }
 
@@ -1011,12 +1088,20 @@
       showPane(ui.section);
 
       // Branding section: populate inspector fields + show summary in middle pane
-      if (ui.section === 'branding') {
+      if (ui.section === 'branding' || ui.section === 'liveTiming') {
         els.sectionList.querySelectorAll('li').forEach(li=>{
-          li.classList.toggle('active', li.getAttribute('data-section')==='branding');
+          li.classList.toggle('active', li.getAttribute('data-section')===ui.section);
         });
-        // Always load from DB first so we show the latest saved value
-        await loadBrandingFromDB();
+        if (ui.section === 'branding') {
+          await loadBrandingFromDB();
+        }
+        if (ui.section === 'liveTiming') {
+          els.countBadge.textContent = '1';
+          els.theadRow.innerHTML = '';
+          els.tbody.innerHTML = '<tr><td style="padding:14px 16px;font-size:0.85rem;color:#374151;">Configure the Apex Timing live feed in the Inspector →</td></tr>';
+          loadInspector();
+          return;
+        }
         // Populate branding fields from settings
         const brSet = RTS.getSettings();
         const ftn = document.getElementById('f_brand_teamname');
@@ -1085,6 +1170,7 @@
         else if(ui.section==='setupTemplates') tr.innerHTML = `<td>${r.name||''}</td><td class="text-secondary">${(r.fields||[]).join(', ')}</td>`;
         else if(ui.section==='masterChecklists') tr.innerHTML = `<td>${r.name||''}</td><td class="text-secondary">${(r.items||[]).length} items</td>`;
         else if(ui.section==='invCategories') tr.innerHTML = `<td>${r.name||''}</td><td class="text-secondary">${r.sort_order ?? ''}</td>`;
+        else if(ui.section==='liveTiming') tr.innerHTML = `<td>${r.name||''}</td>`;
         tr.addEventListener('click', async ()=>{ ui.selectedId = r.id; saveUI(); await renderList(); loadInspector(); });
         els.tbody.appendChild(tr);
       });
@@ -1206,9 +1292,38 @@
         els.f_drive_folder.value = p.folderId || '';
         els.f_drive_scopes.value = p.scopes || 'https://www.googleapis.com/auth/drive.readonly';
       }
+      if(ui.section==='liveTiming') {
+        const lt = settings.liveTiming || {};
+        els.f_lt_enabled.checked = !!lt.enabled;
+        els.f_lt_url.value = lt.url || '';
+        els.f_lt_badge.checked = lt.showBadge !== false;
+        els.f_lt_ticker.checked = lt.showTicker !== false;
+        els.f_lt_tickermode.value = lt.tickerMode || 'all';
+        els.f_lt_interval.value = String(lt.intervalSec || 10);
+        // Show current driver matches
+        renderMatchedDriversTable();
+      }
     }
 
     function saveInspector(){
+      if(ui.section==='liveTiming') {
+        settings.liveTiming = settings.liveTiming || {};
+        settings.liveTiming.enabled = !!els.f_lt_enabled.checked;
+        settings.liveTiming.url = els.f_lt_url.value.trim();
+        settings.liveTiming.showBadge = !!els.f_lt_badge.checked;
+        settings.liveTiming.showTicker = !!els.f_lt_ticker.checked;
+        settings.liveTiming.tickerMode = els.f_lt_tickermode.value || 'all';
+        settings.liveTiming.intervalSec = parseInt(els.f_lt_interval.value || '10', 10);
+        RTS.saveSettings(settings);
+        settings = RTS.getSettings();
+        // Restart the live timing module if it's running
+        if (window.RTSLiveTiming) {
+          RTSLiveTiming.stop();
+          if (settings.liveTiming.enabled && settings.liveTiming.url) RTSLiveTiming.start(settings.liveTiming);
+        }
+        if (RTS.showToast) RTS.showToast('✅ Live Timing settings saved', 'success');
+        return;
+      }
       if(ui.section==='calendar') {
         settings.calendars = settings.calendars || {};
         settings.calendars.google = settings.calendars.google || {};
@@ -1424,6 +1539,7 @@
 
     async function addItem(){
       if(ui.section==='calendar') return;
+      if(ui.section==='liveTiming') return;
       const arr = currentArr();
       let item = null;
       
@@ -1761,6 +1877,55 @@
       els.importFile.value = '';
     });
     els.btnReset.addEventListener('click', resetDefaults);
+
+    // Live Timing button handlers
+    function renderMatchedDriversTable() {
+      const el = els.ltMatchedDriversTable;
+      if (!el) return;
+      const matches = window.RTSLiveTiming ? RTSLiveTiming.getDriverMatches() : [];
+      if (!matches.length) {
+        el.innerHTML = '<span class="text-secondary">No session active — matches will appear here when timing data arrives.</span>';
+        return;
+      }
+      el.innerHTML = `<table class="table table-sm" style="font-size:0.78rem;">
+        <thead><tr><th>Our Driver</th><th>Timing Name</th><th>Confidence</th><th>Class</th></tr></thead>
+        <tbody>${matches.map(m => `<tr>
+          <td><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${m.ourColor||'#aaa'};margin-right:5px;"></span>${m.ourName}</td>
+          <td class="text-secondary">${m.timingName || '—'}</td>
+          <td><span class="badge bg-${m.confidence === 'high' ? 'success' : m.confidence === 'medium' ? 'warning text-dark' : 'secondary'}">${m.confidence || '?'}</span></td>
+          <td class="text-secondary">${m.ourClass || '—'}</td>
+        </tr>`).join('')}</tbody>
+      </table>`;
+    }
+
+    els.btnLtTest.addEventListener('click', async () => {
+      const url = els.f_lt_url.value.trim();
+      if (!url) { els.ltTestStatus.textContent = 'Enter a URL first.'; return; }
+      els.ltTestStatus.textContent = 'Testing…';
+      els.btnLtTest.disabled = true;
+      // Save current form state first so live-timing.js picks up the new URL
+      saveInspector();
+      // Try a quick fetch to the base URL to confirm it responds
+      try {
+        const resp = await fetch(url, { mode: 'no-cors', signal: AbortSignal.timeout(5000) });
+        // no-cors means resp.type==='opaque' — we can't read it but a network error = unreachable
+        els.ltTestStatus.textContent = '✅ URL reachable. WebSocket connection will be attempted automatically.';
+      } catch (err) {
+        els.ltTestStatus.textContent = '⚠️ Could not reach URL: ' + err.message;
+      } finally {
+        els.btnLtTest.disabled = false;
+      }
+    });
+
+    els.btnLtOpen.addEventListener('click', () => {
+      const url = els.f_lt_url.value.trim();
+      if (url) window.open(url, '_blank', 'noopener');
+    });
+
+    // When live timing module fires updates, refresh the matched drivers table
+    if (window.RTSLiveTiming) {
+      RTSLiveTiming.onUpdate(() => { if (ui.section === 'liveTiming') renderMatchedDriversTable(); });
+    }
 
     // Drive Picker helpers
   els.btnDriveTest.addEventListener('click', async ()=>{

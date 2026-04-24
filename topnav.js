@@ -219,6 +219,10 @@
               <span class="rts-brand-mark">RT</span>
               <span class="rts-brand-text">Race Team OS</span>
             </div>
+            <div class="rts-lt-badge" id="rtsLtBadge" style="display:none;">
+              <span class="rts-lt-dot rts-lt-dot--waiting" id="rtsLtDot"></span>
+              <span class="rts-lt-badge-text" id="rtsLtBadgeText">Live</span>
+            </div>
             <div class="rts-topbar-right">
               <div class="d-flex align-items-center me-2">
                 <input id="rtsQuickSearch" class="form-control form-control-sm" type="search" placeholder="Search… (press /)" style="min-width:160px; max-width:280px;">
@@ -233,6 +237,16 @@
                 <button id="rtsLogoutBtn" class="btn btn-sm btn-outline-danger" type="button">Logout</button>
               </div>
               <span class="rts-env-badge">Prototype</span>
+            </div>
+          </div>
+          <div class="rts-lt-row" id="rtsLtRow" style="display:none;">
+            <span class="rts-lt-status" id="rtsLtStatus">⏸ Waiting</span>
+            <div class="rts-lt-track" id="rtsLtTrack">
+              <div class="rts-lt-inner" id="rtsLtInner"></div>
+            </div>
+            <div class="rts-lt-controls">
+              <button class="rts-lt-toggle" id="rtsLtToggle" type="button" title="Toggle all drivers / our drivers only">All</button>
+              <a class="rts-lt-extlink" id="rtsLtExtLink" href="#" target="_blank" rel="noopener" title="Open timing page" style="display:none;">↗</a>
             </div>
           </div>
           <div class="rts-topbar-tabs-wrap">
@@ -976,6 +990,206 @@
       }
 
     } catch(_e) { /* non-fatal */ }
+
+    // ── Live Timing ──────────────────────────────────────────────────────────
+    try {
+      function getLtSettings() {
+        try {
+          const s = window.RTS && typeof RTS.getSettings === 'function' ? RTS.getSettings() : {};
+          return s.liveTiming || null;
+        } catch(e) { return null; }
+      }
+
+      function ltStatusInfo(status) {
+        switch(status) {
+          case 'racing':     return { dot: 'rts-lt-dot--racing',     label: '🔴 RACE' };
+          case 'qualifying': return { dot: 'rts-lt-dot--qualifying', label: '🟡 QUALI' };
+          case 'practice':   return { dot: 'rts-lt-dot--qualifying', label: '🟡 PRACTICE' };
+          case 'finished':   return { dot: 'rts-lt-dot--finished',   label: '🏁 FINISHED' };
+          case 'paused':     return { dot: 'rts-lt-dot--qualifying', label: '⏸ PAUSED' };
+          default:           return { dot: 'rts-lt-dot--waiting',    label: '⏸ Waiting' };
+        }
+      }
+
+      let ltTickerMode = 'all';
+      let ltAnimTimer = null;
+
+      function renderLtTicker(state) {
+        const ltCfg = getLtSettings();
+        const rowEl   = document.getElementById('rtsLtRow');
+        const badgeEl = document.getElementById('rtsLtBadge');
+        const dotEl   = document.getElementById('rtsLtDot');
+        const badgeTxtEl = document.getElementById('rtsLtBadgeText');
+        const statusEl   = document.getElementById('rtsLtStatus');
+        const innerEl    = document.getElementById('rtsLtInner');
+        const toggleEl   = document.getElementById('rtsLtToggle');
+        const extLinkEl  = document.getElementById('rtsLtExtLink');
+        if (!rowEl) return;
+
+        // If error === 'live' (all connection methods failed), show an open-timing link
+        if (state.error === 'live' && ltCfg && ltCfg.url) {
+          if (extLinkEl) { extLinkEl.href = ltCfg.url; extLinkEl.style.display = ''; }
+          if (badgeEl && ltCfg.showBadge !== false) {
+            badgeEl.style.display = '';
+            if (dotEl) { dotEl.className = 'rts-lt-dot rts-lt-dot--waiting'; }
+            if (badgeTxtEl) badgeTxtEl.textContent = 'Live ↗';
+            badgeEl.style.cursor = 'pointer';
+            badgeEl.title = 'Open timing page';
+            badgeEl.onclick = () => window.open(ltCfg.url, '_blank', 'noopener');
+          }
+          if (ltCfg.showTicker !== false) {
+            rowEl.style.display = '';
+            if (statusEl) statusEl.textContent = '⏸ Connecting…';
+            if (innerEl) innerEl.textContent = 'Unable to connect to live timing data. Open timing page for live results.';
+            document.documentElement.style.setProperty('--rts-topbar-h', '108px');
+          }
+          return;
+        }
+
+        if (extLinkEl && ltCfg && ltCfg.url) { extLinkEl.href = ltCfg.url; extLinkEl.style.display = state.connected ? '' : 'none'; }
+
+        const info  = ltStatusInfo(state.status);
+        const hasData = state.drivers && state.drivers.length > 0;
+
+        // Row 1 badge
+        if (badgeEl && ltCfg && ltCfg.showBadge !== false) {
+          badgeEl.style.display = '';
+          if (dotEl) dotEl.className = `rts-lt-dot ${info.dot}`;
+          if (badgeTxtEl) {
+            let badgeTxt = info.label;
+            if (state.classOnTrack) badgeTxt += ' · ' + state.classOnTrack;
+            // Find our best position
+            if (state.ourDrivers && state.ourDrivers.length) {
+              const best = state.ourDrivers.reduce((a,b) => (a.pos||99) <= (b.pos||99) ? a : b);
+              badgeTxt += ' · P' + best.pos;
+            }
+            if (state.laps && state.totalLaps) badgeTxt += ` · Lap ${state.laps}/${state.totalLaps}`;
+            else if (state.timeRemaining) badgeTxt += ` · ${state.timeRemaining}`;
+            badgeTxtEl.textContent = badgeTxt;
+          }
+        } else if (badgeEl) {
+          badgeEl.style.display = 'none';
+        }
+
+        // Ticker strip
+        if (!ltCfg || ltCfg.showTicker === false || (!hasData && state.status === 'waiting' && !state.connected)) {
+          rowEl.style.display = 'none';
+          document.documentElement.style.setProperty('--rts-topbar-h', '84px');
+          return;
+        }
+
+        rowEl.style.display = '';
+        document.documentElement.style.setProperty('--rts-topbar-h', '108px');
+
+        if (statusEl) {
+          let sText = info.label;
+          if (state.classOnTrack) sText += ' · ' + state.classOnTrack;
+          if (state.laps && state.totalLaps) sText += ` · Lap ${state.laps}/${state.totalLaps}`;
+          else if (state.timeRemaining) sText += ` · ${state.timeRemaining}`;
+          statusEl.textContent = sText;
+        }
+
+        if (toggleEl) toggleEl.textContent = ltTickerMode === 'ours' ? 'Ours' : 'All';
+
+        if (innerEl && hasData) {
+          const source = ltTickerMode === 'ours'
+            ? (state.ourDrivers.length ? state.ourDrivers : state.drivers)
+            : state.drivers;
+
+          const items = source.map(d => {
+            const pos = d.pos ? `P${d.pos}` : '';
+            const pit = d.inPit ? '🛑' : '';
+            const kart = d.kart ? `#${d.kart}` : '';
+            const lap  = d.bestLap || d.lastLap || '';
+            const gap  = d.gap  ? `+${d.gap}` : '';
+            const cls  = d.class ? `[${d.class}]` : '';
+            if (d.isOurs) {
+              return `<span class="rts-lt-item rts-lt-ours" style="--lt-color:${d.ourColor||'#ffd700'}">★ ${pos} ${kart} ${d.name}${lap ? ` ${lap}` : ''}${gap ? ` ${gap}` : ''} ${cls} ${pit}</span>`;
+            }
+            return `<span class="rts-lt-item">${pos} ${kart} ${d.name}${lap ? ` · ${lap}` : ''}${gap ? ` ${gap}` : ''} ${cls} ${pit}</span>`;
+          }).join('<span class="rts-lt-sep"> &nbsp;│&nbsp; </span>');
+
+          // Only rebuild if content changed (avoid animation restart flicker)
+          const newContent = items;
+          if (innerEl.dataset.lastContent !== newContent) {
+            innerEl.dataset.lastContent = newContent;
+            innerEl.innerHTML = newContent;
+            // Restart animation by toggling the class
+            innerEl.classList.remove('rts-lt-scroll');
+            void innerEl.offsetWidth; // force reflow
+            innerEl.classList.add('rts-lt-scroll');
+            // Set duration proportional to content length
+            const charCount = innerEl.textContent.length;
+            const duration = Math.max(20, Math.min(120, charCount * 0.18));
+            innerEl.style.animationDuration = duration + 's';
+          }
+        } else if (innerEl && !hasData) {
+          innerEl.textContent = state.connected ? 'Waiting for timing data…' : 'Connecting to live timing…';
+          innerEl.innerHTML = innerEl.textContent;
+        }
+      }
+
+      function initLiveTiming() {
+        const ltCfg = getLtSettings();
+        if (!ltCfg || !ltCfg.enabled || !ltCfg.url) return;
+
+        // Dynamically load live-timing.js if not already present
+        if (!window.RTSLiveTiming) {
+          const script = document.createElement('script');
+          // Resolve path relative to topnav.js location
+          const base = (() => {
+            try {
+              const scripts = Array.from(document.querySelectorAll('script[src]'));
+              const topnavScript = scripts.find(s => /topnav\.js/.test(s.src));
+              if (topnavScript) {
+                const u = new URL(topnavScript.src);
+                return u.origin + u.pathname.replace(/topnav\.js.*$/, '');
+              }
+            } catch(e) {}
+            return '';
+          })();
+          script.src = base + 'live-timing.js?v=20260424';
+          script.onload = () => {
+            if (!window.RTSLiveTiming) return;
+            RTSLiveTiming.onUpdate(renderLtTicker);
+            RTSLiveTiming.start(ltCfg);
+            // Restore persisted ticker mode
+            try { ltTickerMode = localStorage.getItem('rts.lt.tickerMode') || ltCfg.tickerMode || 'all'; } catch(e){}
+          };
+          document.head.appendChild(script);
+        } else {
+          RTSLiveTiming.onUpdate(renderLtTicker);
+          RTSLiveTiming.start(ltCfg);
+          try { ltTickerMode = localStorage.getItem('rts.lt.tickerMode') || ltCfg.tickerMode || 'all'; } catch(e){}
+        }
+
+        // Toggle button: cycle All ↔ Ours
+        const toggleEl = document.getElementById('rtsLtToggle');
+        if (toggleEl) {
+          toggleEl.addEventListener('click', () => {
+            ltTickerMode = ltTickerMode === 'all' ? 'ours' : 'all';
+            try { localStorage.setItem('rts.lt.tickerMode', ltTickerMode); } catch(e) {}
+            toggleEl.textContent = ltTickerMode === 'ours' ? 'Ours' : 'All';
+            if (window.RTSLiveTiming) renderLtTicker(RTSLiveTiming.state);
+          });
+        }
+
+        // Pause scroll on hover
+        const trackEl = document.getElementById('rtsLtTrack');
+        if (trackEl) {
+          trackEl.addEventListener('mouseenter', () => {
+            const innerEl = document.getElementById('rtsLtInner');
+            if (innerEl) innerEl.classList.add('rts-lt-paused');
+          });
+          trackEl.addEventListener('mouseleave', () => {
+            const innerEl = document.getElementById('rtsLtInner');
+            if (innerEl) innerEl.classList.remove('rts-lt-paused');
+          });
+        }
+      }
+
+      initLiveTiming();
+    } catch(_e) { /* live timing non-fatal */ }
 
     // ── Spacebar → scanner (standalone — never swallowed by scanner init errors) ──
     try {
