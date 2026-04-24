@@ -1,16 +1,21 @@
 /**
- * Apex Timing reverse proxy
- * Fetches live timing data from live.apex-timing.com server-side,
- * bypassing the browser CORS restriction.
+ * Apex Timing reverse proxy — server-side WebSocket bridge
  *
- * GET /api/apex-proxy?slug=african-karting-cup
- *   → Returns { ok, status, sessionName, classOnTrack, drivers[], raw }
+ * Apex Timing uses a raw Java WebSocket server on a per-event port
+ * (e.g. wss://www.apex-timing.com:7553/).
+ * The port is embedded in the event page HTML / JS.
+ * This module:
+ *   1. Discovers the WS port by fetching the event page server-side
+ *   2. Maintains a persistent server-side WebSocket connection
+ *   3. Parses the proprietary r{row}c{col}|{type}|{value} message format
+ *      into a clean driver grid state object
+ *   4. Serves that state to the browser via HTTP polling (no CORS issues)
  *
- * GET /api/apex-proxy/discover?slug=african-karting-cup
- *   → Returns the page HTML + detected data URL patterns (debug/setup helper)
- *
- * GET /api/apex-proxy/raw?slug=african-karting-cup&path=/somepath.json
- *   → Returns raw content from that path under the event (for discovery)
+ * Routes:
+ *   GET /api/apex-proxy?slug=african-karting-cup
+ *   GET /api/apex-proxy/discover?slug=african-karting-cup
+ *   GET /api/apex-proxy/messages?slug=...&last=20
+ *   GET /api/apex-proxy/raw?slug=...&path=/somepath
  */
 'use strict';
 
@@ -18,8 +23,9 @@ const express = require('express');
 const router  = express.Router();
 const https   = require('https');
 const http    = require('http');
+const WebSocket = require('ws');
 
-// ── helpers ──────────────────────────────────────────────────────────────────
+// ── HTTP helper ───────────────────────────────────────────────────────────────
 
 function fetchUrl(url, opts = {}) {
   return new Promise((resolve, reject) => {
@@ -27,12 +33,11 @@ function fetchUrl(url, opts = {}) {
     const timeout = opts.timeout || 8000;
     const req = lib.get(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; RaceTeamOS/1.0)',
+        'User-Agent': 'Mozilla/5.0 (compatible; RaceTeamOS/5.0)',
         'Accept': 'text/html,application/json,*/*',
-        ...( opts.headers || {} )
+        ...(opts.headers || {})
       }
     }, (res) => {
-      // Follow one redirect
       if ((res.statusCode === 301 || res.statusCode === 302) && res.headers.location) {
         return fetchUrl(res.headers.location, opts).then(resolve).catch(reject);
       }
@@ -40,43 +45,14 @@ function fetchUrl(url, opts = {}) {
       res.on('data', chunk => { data += chunk; });
       res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body: data }));
     });
-    req.setTimeout(timeout, () => { req.destroy(); reject(new Error('Request timeout')); });
+    req.setTimeout(timeout, () => { req.destroy(); reject(new Error('timeout')); });
     req.on('error', reject);
-  });
-}
-
-function postData(rawUrl, body, timeoutMs) {
-  return new Promise((resolve, reject) => {
-    const u = new URL(rawUrl);
-    const lib = rawUrl.startsWith('https') ? https : http;
-    const buf = Buffer.from(String(body), 'utf8');
-    const req = lib.request({
-      hostname: u.hostname,
-      port: u.port || (rawUrl.startsWith('https') ? 443 : 80),
-      path: u.pathname + u.search,
-      method: 'POST',
-      headers: {
-        'Content-Type': 'text/plain;charset=UTF-8',
-        'Content-Length': buf.length,
-        'User-Agent': 'Mozilla/5.0 (compatible; RaceTeamOS/1.0)',
-        'Origin': 'https://live.apex-timing.com',
-        'Referer': 'https://live.apex-timing.com/',
-      }
-    }, (res) => {
-      let data = '';
-      res.on('data', c => { data += c; });
-      res.on('end', () => resolve({ status: res.statusCode, body: data }));
-    });
-    req.setTimeout(timeoutMs || 6000, () => { req.destroy(); reject(new Error('POST timeout')); });
-    req.on('error', reject);
-    req.write(buf);
-    req.end();
   });
 }
 
 function slugFromUrl(rawUrl) {
   try {
-    const u = new URL(rawUrl.trim().replace(/\/$/, ''));
+    const u = new URL(String(rawUrl).trim().replace(/\/$/, ''));
     const parts = u.pathname.split('/').filter(Boolean);
     return parts[parts.length - 1] || '';
   } catch (e) {
@@ -84,330 +60,358 @@ function slugFromUrl(rawUrl) {
   }
 }
 
-// Attempt to parse various known Apex Timing response formats
-function parseApexBody(body, contentType) {
-  // Try JSON
-  const ct = String(contentType || '').toLowerCase();
-  if (ct.includes('json') || body.trimStart().startsWith('{') || body.trimStart().startsWith('[')) {
-    try {
-      return { format: 'json', data: JSON.parse(body) };
-    } catch(e) { /* fall through */ }
-  }
+// ── Port discovery ────────────────────────────────────────────────────────────
 
-  // Try JSONP: callback({...})
-  const jsonpMatch = body.match(/^\s*\w+\s*\(\s*(\{[\s\S]*\}|\[[\s\S]*\])\s*\)\s*;?\s*$/);
-  if (jsonpMatch) {
-    try {
-      return { format: 'jsonp', data: JSON.parse(jsonpMatch[1]) };
-    } catch(e) { /* fall through */ }
-  }
-
-  // Return raw text
-  return { format: 'text', data: body };
-}
-
-// Extract potential data URLs / WebSocket URLs from page HTML/JS
-function extractDataUrls(html, baseUrl) {
-  const found = new Set();
-  // WebSocket URLs
-  const wsMatches = html.matchAll(/["'`](wss?:\/\/[^"'`\s]+)["'`]/g);
-  for (const m of wsMatches) found.add(m[1]);
-  // Relative JSON-like paths
-  const relMatches = html.matchAll(/["'`](\/[^"'`\s]*(?:json|data|timing|results|standings|status|race|feed|socket)[^"'`\s]*)["'`]/gi);
-  for (const m of relMatches) {
-    try {
-      found.add(new URL(m[1], baseUrl).href);
-    } catch(e) {}
-  }
-  // socket.io detection
-  if (html.includes('socket.io') || html.includes('Socket.IO')) found.add('socket.io');
-  return [...found];
-}
-
-// Known candidate data paths to probe (server-side, no CORS)
-// NOTE: /?format=json and /?json=1 are excluded — Apex Timing returns HTML for
-// those regardless of query params (false positives in status-200 checks).
-const CANDIDATE_PATHS = [
-  '/racedata.json',
-  '/data.json',
-  '/json',
-  '/timing.json',
-  '/race.json',
-  '/results.json',
-  '/standings.json',
-  '/status.json',
-  '/api/data',
-  '/api/timing',
-  '/api/standings',
-  '/api/results',
-  '/live.json',
-  '/current.json',
-  '/session.json',
+const PORT_PATTERNS = [
+  /wsPort\s*[=:]\s*(\d{4,5})/i,
+  /ws_port\s*[=:]\s*(\d{4,5})/i,
+  /"port"\s*:\s*(\d{4,5})/i,
+  /port\s*=\s*(\d{4,5})/i,
+  /apex-timing\.com['":\s,+]*(\d{4,5})/i,
+  /apex-timing\.com:(\d{4,5})/i,
+  /wss?:\/\/[^:'"]+:(\d{4,5})/i,
+  /connect\s*\([^)]*,\s*(\d{4,5})\s*\)/i,
+  /new\s+WebSocket\s*\(\s*["'`][^"'`]*:(\d{4,5})/i,
 ];
 
-// Simple in-memory cache: slug -> { ts, result }
-const cache = new Map();
-const CACHE_TTL = 8000; // 8 seconds
-
-function getCached(slug) {
-  const entry = cache.get(slug);
-  if (entry && (Date.now() - entry.ts) < CACHE_TTL) return entry.result;
-  return null;
-}
-function setCache(slug, result) {
-  cache.set(slug, { ts: Date.now(), result });
-  // prune old entries
-  if (cache.size > 50) {
-    const oldest = [...cache.entries()].sort((a,b) => a[1].ts - b[1].ts)[0];
-    cache.delete(oldest[0]);
-  }
-}
-
-// ── Socket.IO HTTP polling ───────────────────────────────────────────────────
-// Apex Timing uses Socket.IO. We implement the HTTP long-polling transport
-// server-side (no browser CORS restrictions apply to server→server requests).
-
-// Per-slug Socket.IO session state (lives in Node process memory)
-const sioSessions = new Map();
-// slug -> { base, eio, sid, ns, expires }
-
-// Parse EIO4/EIO3 packet frames and return the first socket.io event payload
-function parseSIOPackets(raw) {
-  if (!raw || raw.trim().length < 3) return null;
-  const packets = [];
-  let s = raw.trim();
-  while (s.length > 0) {
-    // Length-delimited: "27:42[\"ev\",{...}]"
-    const m = s.match(/^(\d+):([\s\S]*)/);
+function extractPort(text) {
+  for (const pattern of PORT_PATTERNS) {
+    const m = text.match(pattern);
     if (m) {
-      const len = parseInt(m[1], 10);
-      packets.push(m[2].slice(0, len));
-      s = m[2].slice(len);
-    } else {
-      packets.push(s);
-      break;
-    }
-  }
-  for (const pkt of packets) {
-    // Socket.IO message: "42[...]" or "42/ns,[...]"
-    const dm = pkt.match(/^42(?:\/[^,]+,)?(\[[\s\S]*\])$/);
-    if (!dm) continue;
-    try {
-      const arr = JSON.parse(dm[1]);
-      if (Array.isArray(arr) && arr.length >= 2) return { event: arr[0], data: arr[1] };
-    } catch(e) {}
-  }
-  return null;
-}
-
-// Create or return an existing Socket.IO session for the given slug.
-// Attempts both root-level and slug-scoped socket.io endpoints with EIO 4 and 3.
-async function ensureSIOSession(slug) {
-  const now = Date.now();
-  const existing = sioSessions.get(slug);
-  if (existing && existing.expires > now) return existing;
-
-  const bases = [
-    `https://live.apex-timing.com/socket.io`,
-    `https://live.apex-timing.com/${slug}/socket.io`,
-  ];
-  const nsCandidates = ['/', `/${slug}`];
-
-  for (const base of bases) {
-    for (const eio of ['4', '3']) {
-      // Step 1: Handshake
-      let sid, pingInterval;
-      try {
-        const hs = await fetchUrl(`${base}/?EIO=${eio}&transport=polling`, { timeout: 5000 });
-        if (hs.status !== 200) continue;
-        const m = hs.body.match(/0(\{[^}]*"sid"[^}]*\})/);
-        if (!m) continue;
-        const hsData = JSON.parse(m[1]);
-        sid = hsData.sid;
-        pingInterval = hsData.pingInterval || 25000;
-        if (!sid) continue;
-      } catch(e) { continue; }
-
-      // Step 2: Connect to namespace
-      for (const ns of nsCandidates) {
-        try {
-          const connectPkt = (ns === '/') ? '40' : `40${ns},`;
-          await postData(`${base}/?EIO=${eio}&transport=polling&sid=${sid}`, connectPkt, 5000);
-          // Step 3: Poll once to verify
-          const verify = await fetchUrl(`${base}/?EIO=${eio}&transport=polling&sid=${sid}`, { timeout: 6000 });
-          if (verify.status !== 200) continue;
-          const session = { base, eio, sid, ns, expires: now + pingInterval - 3000 };
-          sioSessions.set(slug, session);
-          return session;
-        } catch(e) { /* try next ns */ }
-      }
+      const p = parseInt(m[1], 10);
+      if (p >= 1024 && p <= 65535) return p;
     }
   }
   return null;
 }
 
-// Poll an existing Socket.IO session for new event data
-async function pollSIO(slug, session) {
+async function discoverPort(slug) {
+  const pageUrl = `https://live.apex-timing.com/${slug}/`;
+
+  let pageHtml = '';
   try {
-    const pollUrl = `${session.base}/?EIO=${session.eio}&transport=polling&sid=${session.sid}`;
-    const res = await fetchUrl(pollUrl, { timeout: 6000 });
-    if (res.status !== 200) { sioSessions.delete(slug); return null; }
-    return parseSIOPackets(res.body);
-  } catch(e) {
-    sioSessions.delete(slug);
-    return null;
+    const page = await fetchUrl(pageUrl, { timeout: 8000 });
+    if (page.status === 200) {
+      pageHtml = page.body;
+      const port = extractPort(pageHtml);
+      if (port) return { port, source: 'page-html' };
+    }
+  } catch(e) { /* try scripts */ }
+
+  // Fetch linked JS files
+  const scriptSrcs = [];
+  for (const m of pageHtml.matchAll(/<script[^>]+src=["']([^"']+)["']/gi)) {
+    try { scriptSrcs.push(new URL(m[1], pageUrl).href); } catch(e) {}
+  }
+  for (const src of scriptSrcs.slice(0, 8)) {
+    try {
+      const js = await fetchUrl(src, { timeout: 6000 });
+      if (js.status === 200) {
+        const port = extractPort(js.body);
+        if (port) return { port, source: src };
+      }
+    } catch(e) { /* try next */ }
+  }
+
+  return null;
+}
+
+// ── Per-slug WS session state ─────────────────────────────────────────────────
+
+const sessions = new Map();
+
+function emptyState() {
+  return {
+    connected: false,
+    sessionName: '',
+    classOnTrack: '',
+    nextClass: '',
+    status: 'waiting',
+    timeRemaining: '',
+    laps: 0,
+    totalLaps: 0,
+    drivers: [],
+    lastUpdate: null,
+  };
+}
+
+// ── Apex Timing message parser ─────────────────────────────────────────────────
+// Messages: space-separated tokens of the form r{ROW}c{COL}|{TYPE}|{VALUE}
+// Columns observed:
+//   c1  = row status/flag
+//   c2  = kart status (su/sl/sd etc)
+//   c3  = position number
+//   c4  = driver name
+//   c5  = best lap time
+//   c9  = laps completed
+//   c11 = last lap time
+//   c13 = gap to leader
+//   c14 = best lap rank
+
+function parseMessages(rawMessages, grid, state) {
+  let changed = false;
+
+  for (const raw of rawMessages) {
+    const tokens = raw.trim().split(/\s+/);
+    for (const token of tokens) {
+      if (!token) continue;
+
+      // r{ROW}|*|{val} — row timestamp marker
+      const rowMark = token.match(/^r(\d+)\|\*\|(\d*)$/);
+      if (rowMark) {
+        const row = parseInt(rowMark[1]);
+        if (!grid.has(row)) grid.set(row, {});
+        grid.get(row)._ts = rowMark[2];
+        changed = true;
+        continue;
+      }
+
+      // r{ROW}c{COL}|{type}|{value}
+      const cellMatch = token.match(/^r(\d+)c(\d+)\|([^|]*)\|(.*)$/);
+      if (!cellMatch) continue;
+
+      const row = parseInt(cellMatch[1]);
+      const col = parseInt(cellMatch[2]);
+      const type = cellMatch[3];
+      const value = cellMatch[4];
+
+      if (!grid.has(row)) grid.set(row, {});
+      grid.get(row)[`c${col}`] = { type, value };
+      changed = true;
+    }
+  }
+
+  if (!changed) return;
+
+  // Rebuild drivers from grid
+  const drivers = [];
+
+  for (const [row, cell] of grid) {
+    if (row === 0) {
+      applySessionCell(cell, state);
+      continue;
+    }
+
+    // Need at least one meaningful field
+    const c3 = cell.c3;   // position
+    const c4 = cell.c4;   // driver name
+    const c9 = cell.c9;   // laps
+    const c11 = cell.c11; // last lap
+
+    if (!c3 && !c4 && !c9 && !c11) continue;
+
+    drivers.push({
+      pos: (c3 ? toNum(c3.value) : 0) || row,
+      kart: cell.c2 ? cell.c2.value : '',
+      name: c4 ? c4.value : '',
+      laps: c9 ? toNum(c9.value) : 0,
+      lastLap: c11 ? fmtLap(c11.value) : '',
+      bestLap: cell.c5 ? fmtLap(cell.c5.value) : '',
+      gap: cell.c13 ? cell.c13.value : '',
+      inPit: !!(cell.c2 && /sp|pi|pit/i.test(cell.c2.type)),
+      flag: cell.c1 ? cell.c1.type : '',
+    });
+  }
+
+  drivers.sort((a, b) => (a.pos || 999) - (b.pos || 999));
+  state.drivers = drivers;
+  state.lastUpdate = new Date().toISOString();
+  state.connected = true;
+}
+
+function applySessionCell(cell, state) {
+  for (const cv of Object.values(cell)) {
+    if (!cv || typeof cv !== 'object') continue;
+    const v = String(cv.value || '').trim();
+    const t = String(cv.type || '').toLowerCase();
+    if (!v) continue;
+    if (/race|qual|prac|warm/i.test(v)) state.sessionName = v;
+    if (/race|green|start/i.test(t + v)) state.status = 'racing';
+    else if (/qual|hot/i.test(t + v)) state.status = 'qualifying';
+    else if (/prac|warm/i.test(t + v)) state.status = 'practice';
+    else if (/finish|end|check/i.test(t + v)) state.status = 'finished';
+    if (/\d:\d\d/.test(v)) state.timeRemaining = v;
   }
 }
 
-// Get live Socket.IO data for a slug (creates session if needed, then polls)
-async function getSIOData(slug) {
-  const now = Date.now();
-  const existing = sioSessions.get(slug);
-  if (existing && existing.expires > now) return pollSIO(slug, existing);
-  const session = await ensureSIOSession(slug);
-  if (!session) return null;
-  return pollSIO(slug, session);
+function toNum(v) {
+  const n = parseFloat(String(v || '').replace(/[^\d.]/g, ''));
+  return isNaN(n) ? 0 : n;
 }
 
-// ── Routes ───────────────────────────────────────────────────────────────────
+function fmtLap(v) {
+  if (!v) return '';
+  const s = String(v).trim();
+  if (/^\d+\.\d{3}$/.test(s)) return s;
+  const ms = parseInt(s, 10);
+  if (!isNaN(ms) && ms > 1000 && ms < 600000) return (ms / 1000).toFixed(3);
+  return s;
+}
 
-/**
- * GET /api/apex-proxy/discover?slug=...
- * Fetches the page HTML and reports what data URLs / scripts it finds.
- * Also probes all candidate paths and reports which return 200.
- */
+// ── WebSocket session manager ─────────────────────────────────────────────────
+
+async function startSession(slug) {
+  const old = sessions.get(slug);
+  if (old) {
+    if (old.retryTimer) clearTimeout(old.retryTimer);
+    if (old.ws) { try { old.ws.terminate(); } catch(e) {} }
+  }
+
+  const discovery = await discoverPort(slug);
+  if (!discovery) {
+    console.warn(`[apex-proxy] No WS port found for: ${slug}`);
+    sessions.set(slug, { slug, port: null, connected: false, state: emptyState(), grid: new Map(), messageQueue: [], error: 'port_not_found' });
+    return;
+  }
+
+  const { port } = discovery;
+  console.log(`[apex-proxy] Port ${port} for ${slug} (${discovery.source})`);
+
+  const session = { slug, port, wsUrl: `wss://www.apex-timing.com:${port}/`, ws: null, connected: false, state: emptyState(), grid: new Map(), messageQueue: [], retryTimer: null, error: null };
+  sessions.set(slug, session);
+  connectWs(session);
+}
+
+function connectWs(session) {
+  if (session.retryTimer) { clearTimeout(session.retryTimer); session.retryTimer = null; }
+  try {
+    const ws = new WebSocket(session.wsUrl, {
+      headers: { 'Origin': 'https://live.apex-timing.com', 'User-Agent': 'Mozilla/5.0 (compatible; RaceTeamOS/5.0)' },
+      rejectUnauthorized: false,
+    });
+    session.ws = ws;
+
+    ws.on('open', () => {
+      console.log(`[apex-proxy] Connected: ${session.wsUrl}`);
+      session.connected = true;
+      session.error = null;
+      session.state.connected = true;
+    });
+
+    ws.on('message', (data) => {
+      const msg = data.toString();
+      session.messageQueue.push(msg);
+      if (session.messageQueue.length > 200) session.messageQueue.shift();
+      parseMessages([msg], session.grid, session.state);
+    });
+
+    ws.on('close', (code) => {
+      console.log(`[apex-proxy] WS closed ${code} for ${session.slug}`);
+      session.connected = false;
+      session.state.connected = false;
+      session.ws = null;
+      if (code !== 1000) session.retryTimer = setTimeout(() => connectWs(session), 5000);
+    });
+
+    ws.on('error', (err) => {
+      console.warn(`[apex-proxy] WS error (${session.slug}):`, err.message);
+      session.error = err.message;
+      session.connected = false;
+    });
+  } catch(e) {
+    session.error = e.message;
+    session.retryTimer = setTimeout(() => connectWs(session), 8000);
+  }
+}
+
+// Evict sessions inactive for > 30 min
+setInterval(() => {
+  const now = Date.now();
+  for (const [slug, s] of sessions) {
+    const age = s.state.lastUpdate ? now - new Date(s.state.lastUpdate).getTime() : now - (s._startTime || now);
+    if (age > 30 * 60 * 1000) {
+      if (s.ws) try { s.ws.terminate(); } catch(e) {}
+      if (s.retryTimer) clearTimeout(s.retryTimer);
+      sessions.delete(slug);
+      console.log(`[apex-proxy] Evicted stale session: ${slug}`);
+    }
+  }
+}, 5 * 60 * 1000);
+
+// ── Routes ────────────────────────────────────────────────────────────────────
+
+router.get('/', async (req, res) => {
+  const slug = slugFromUrl(req.query.slug || req.query.url || '');
+  if (!slug) return res.status(400).json({ ok: false, error: 'slug param required' });
+  if (!/^[a-zA-Z0-9_-]+$/.test(slug)) return res.status(400).json({ ok: false, error: 'Invalid slug' });
+
+  let session = sessions.get(slug);
+
+  if (!session) {
+    startSession(slug).catch(e => console.error('[apex-proxy] startSession error:', e));
+    return res.json({ ok: true, slug, connecting: true, state: emptyState() });
+  }
+
+  if (session.error === 'port_not_found') {
+    return res.json({ ok: false, slug, error: 'port_not_found', message: 'Could not discover WebSocket port. The event page may be offline or the port pattern has changed.' });
+  }
+
+  return res.json({ ok: true, slug, port: session.port, connected: session.connected, state: session.state, queueLength: session.messageQueue.length });
+});
+
+router.get('/messages', (req, res) => {
+  const slug = slugFromUrl(req.query.slug || '');
+  if (!slug || !/^[a-zA-Z0-9_-]+$/.test(slug)) return res.status(400).json({ ok: false });
+  const session = sessions.get(slug);
+  if (!session) return res.json({ ok: false, error: 'no session — call /api/apex-proxy?slug=... first' });
+  const last = Math.min(parseInt(req.query.last || '20', 10), 200);
+  return res.json({ ok: true, slug, port: session.port, connected: session.connected, messages: session.messageQueue.slice(-last) });
+});
+
 router.get('/discover', async (req, res) => {
   const slug = slugFromUrl(req.query.slug || req.query.url || '');
-  if (!slug) return res.status(400).json({ ok: false, error: 'slug or url param required' });
+  if (!slug) return res.status(400).json({ ok: false, error: 'slug param required' });
 
-  const baseUrl = `https://live.apex-timing.com/${slug}`;
-  const result = { slug, baseUrl, pageStatus: null, foundUrls: [], workingPaths: [], scriptSrcs: [] };
+  const pageUrl = `https://live.apex-timing.com/${slug}/`;
+  const result = { slug, pageUrl, portFound: null, portSource: null, scriptSrcs: [], inlineScripts: [], jsPortScans: [] };
 
-  // Fetch main page
+  let pageHtml = '';
   try {
-    const page = await fetchUrl(baseUrl + '/', { timeout: 8000 });
+    const page = await fetchUrl(pageUrl, { timeout: 8000 });
     result.pageStatus = page.status;
-    result.foundUrls = extractDataUrls(page.body, baseUrl);
-
-    // Extract <script src="...">
-    const scriptMatches = page.body.matchAll(/<script[^>]+src=["']([^"']+)["']/gi);
-    for (const m of scriptMatches) {
-      try { result.scriptSrcs.push(new URL(m[1], baseUrl).href); } catch(e) {}
+    pageHtml = page.body;
+    result.numbersInPage = [...new Set([...pageHtml.matchAll(/\b(\d{4,5})\b/g)].map(m => m[1]))];
+    for (const m of pageHtml.matchAll(/<script[^>]+src=["']([^"']+)["']/gi)) {
+      try { result.scriptSrcs.push(new URL(m[1], pageUrl).href); } catch(e) {}
     }
-  } catch(e) {
-    result.pageError = e.message;
-  }
+    for (const m of pageHtml.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/gi)) {
+      const t = m[1].trim();
+      if (t) result.inlineScripts.push(t.slice(0, 400));
+    }
+  } catch(e) { result.pageError = e.message; }
 
-  // Probe all candidate paths
-  const probes = CANDIDATE_PATHS.map(async (path) => {
+  const disc = await discoverPort(slug).catch(() => null);
+  if (disc) { result.portFound = disc.port; result.portSource = disc.source; }
+
+  for (const src of result.scriptSrcs.slice(0, 6)) {
     try {
-      const r = await fetchUrl(baseUrl + path, { timeout: 4000 });
-      if (r.status === 200) {
-        const parsed = parseApexBody(r.body, r.headers['content-type']);
-        return { path, status: r.status, format: parsed.format, preview: String(r.body).slice(0, 200) };
-      }
-      return { path, status: r.status };
-    } catch(e) {
-      return { path, error: e.message };
-    }
-  });
-  result.workingPaths = (await Promise.all(probes)).filter(p => p.status === 200);
-
-  // Probe Socket.IO at root and slug-scoped bases
-  result.sio = {};
-  for (const sioBase of [`https://live.apex-timing.com/socket.io`, `https://live.apex-timing.com/${slug}/socket.io`]) {
-    for (const eio of ['4', '3']) {
-      const key = `${sioBase.replace('https://live.apex-timing.com', '')}?EIO=${eio}`;
-      try {
-        const hs = await fetchUrl(`${sioBase}/?EIO=${eio}&transport=polling`, { timeout: 5000 });
-        result.sio[key] = { status: hs.status, preview: hs.body.slice(0, 200) };
-      } catch(e) {
-        result.sio[key] = { error: e.message };
-      }
-    }
+      const js = await fetchUrl(src, { timeout: 5000 });
+      if (js.status !== 200) continue;
+      const port = extractPort(js.body);
+      const snippets = PORT_PATTERNS.flatMap(p => {
+        const m = js.body.match(new RegExp(`.{0,60}${p.source}.{0,60}`));
+        return m ? [m[0]] : [];
+      }).slice(0, 3);
+      result.jsPortScans.push({ src, port, snippets });
+    } catch(e) { result.jsPortScans.push({ src, error: e.message }); }
   }
 
-  // Fetch first few JS files and scan for socket.io connection code
-  result.sioSnippets = [];
-  for (const scriptUrl of result.scriptSrcs.slice(0, 6)) {
-    try {
-      const js = await fetchUrl(scriptUrl, { timeout: 5000 });
-      if (js.status === 200) {
-        const snippets = [];
-        for (const m of js.body.matchAll(/io\s*\(\s*["'`]([^"'`\s]+)["'`]/g)) snippets.push({ fn: 'io()', arg: m[1] });
-        for (const m of js.body.matchAll(/\.connect\s*\(\s*["'`]([^"'`\s]+)["'`]/g)) snippets.push({ fn: '.connect()', arg: m[1] });
-        for (const m of js.body.matchAll(/new\s+io\s*\(\s*["'`]([^"'`\s]+)["'`]/g)) snippets.push({ fn: 'new io()', arg: m[1] });
-        if (snippets.length) result.sioSnippets.push({ src: scriptUrl, snippets });
-      }
-    } catch(e) { /* skip */ }
-  }
+  const session = sessions.get(slug);
+  if (session) result.currentSession = { port: session.port, connected: session.connected, messages: session.messageQueue.slice(-3) };
 
   return res.json(result);
 });
 
-/**
- * GET /api/apex-proxy/raw?slug=...&path=/somepath
- * Proxies a single path under the event URL — for manual exploration.
- */
 router.get('/raw', async (req, res) => {
-  const slug = slugFromUrl(req.query.slug || req.query.url || '');
+  const slug = slugFromUrl(req.query.slug || '');
   const rawPath = req.query.path || '/';
-  if (!slug) return res.status(400).json({ ok: false, error: 'slug param required' });
-
-  // Only allow paths under live.apex-timing.com — validate slug is safe
-  if (!/^[a-zA-Z0-9_-]+$/.test(slug)) return res.status(400).json({ ok: false, error: 'Invalid slug' });
-
-  const targetUrl = `https://live.apex-timing.com/${slug}${rawPath}`;
+  if (!slug || !/^[a-zA-Z0-9_-]+$/.test(slug)) return res.status(400).json({ ok: false });
   try {
-    const r = await fetchUrl(targetUrl, { timeout: 6000 });
+    const r = await fetchUrl(`https://live.apex-timing.com/${slug}${rawPath}`, { timeout: 6000 });
     res.status(r.status).set('Content-Type', r.headers['content-type'] || 'text/plain').send(r.body);
   } catch(e) {
     res.status(502).json({ ok: false, error: e.message });
   }
-});
-
-/**
- * GET /api/apex-proxy?slug=african-karting-cup
- * Main polling endpoint. Returns cached timing data.
- * Probes candidate paths and returns first successful result.
- */
-router.get('/', async (req, res) => {
-  const slug = slugFromUrl(req.query.slug || req.query.url || '');
-  if (!slug) return res.status(400).json({ ok: false, error: 'slug or url param required' });
-  if (!/^[a-zA-Z0-9_-]+$/.test(slug)) return res.status(400).json({ ok: false, error: 'Invalid slug' });
-
-  // Serve cached result if fresh
-  const cached = getCached(slug);
-  if (cached) return res.json(cached);
-
-  // 1. Try Socket.IO HTTP polling (Apex Timing's native transport)
-  try {
-    const sioResult = await getSIOData(slug);
-    if (sioResult) {
-      const result = { ok: true, slug, path: 'socket.io', format: 'socket.io', event: sioResult.event, raw: sioResult.data };
-      setCache(slug, result);
-      return res.json(result);
-    }
-  } catch(e) { /* fall through to candidate paths */ }
-
-  // 2. Try candidate HTTP paths
-  const baseUrl = `https://live.apex-timing.com/${slug}`;
-  for (const path of CANDIDATE_PATHS) {
-    try {
-      const r = await fetchUrl(baseUrl + path, { timeout: 4000 });
-      if (r.status !== 200) continue;
-      const parsed = parseApexBody(r.body, r.headers['content-type']);
-      if (parsed.format === 'text') continue; // HTML page, not data
-      const result = { ok: true, slug, path, format: parsed.format, raw: parsed.data };
-      setCache(slug, result);
-      return res.json(result);
-    } catch(e) { /* try next */ }
-  }
-
-  // All paths failed
-  const fallback = { ok: false, slug, error: 'no_data', message: 'No data endpoint found. Run /api/apex-proxy/discover?slug=' + slug + ' to investigate.' };
-  setCache(slug, fallback);
-  return res.status(200).json(fallback);
 });
 
 module.exports = router;

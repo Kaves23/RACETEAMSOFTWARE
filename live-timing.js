@@ -277,28 +277,48 @@
       fireUpdate();
       return;
     }
-    // Use our server-side proxy to bypass Apex Timing CORS restrictions
     const proxyUrl = `/api/apex-proxy?slug=${encodeURIComponent(slug)}`;
     dbg('Polling via server proxy:', proxyUrl);
 
     try {
-      const resp = await fetch(proxyUrl, { cache: 'no-store', signal: AbortSignal.timeout(6000) });
+      const resp = await fetch(proxyUrl, { cache: 'no-store', signal: AbortSignal.timeout(8000) });
       if (!resp.ok) throw new Error(`Proxy HTTP ${resp.status}`);
       const result = await resp.json();
       dbg('Proxy response:', result);
 
+      // Still connecting — server is discovering port, poll again soon
+      if (result.connecting) {
+        dbg('Proxy connecting, will retry');
+        return;
+      }
+
       if (!result.ok) {
-        // Proxy could not find a data endpoint for this event
         state.connected = false;
-        state.error = 'live';  // UI shows "Tap to open" link
+        state.error = 'live';
         fireUpdate();
         return;
       }
-      // Proxy found data
-      state.raw = result.raw;
-      parseApexSnapshot(result.raw);
-      state.connected = true;
-      state.error = null;
+
+      // Server has a live WS session — copy the parsed state directly
+      const s = result.state;
+      if (s) {
+        if (s.drivers && s.drivers.length > 0) {
+          // Apply driver match flags (isOurs, ourColor, ourName) to server-parsed drivers
+          s.drivers.forEach(d => applyDriverMatch(d));
+          state.drivers = s.drivers;
+          state.ourDrivers = s.drivers.filter(d => d.isOurs);
+        }
+        if (s.sessionName) state.sessionName = s.sessionName;
+        if (s.classOnTrack) state.classOnTrack = s.classOnTrack;
+        if (s.nextClass) state.nextClass = s.nextClass;
+        if (s.status) state.status = s.status;
+        if (s.timeRemaining) state.timeRemaining = s.timeRemaining;
+        if (s.laps) state.laps = s.laps;
+        if (s.totalLaps) state.totalLaps = s.totalLaps;
+        state.lastUpdate = s.lastUpdate ? new Date(s.lastUpdate) : new Date();
+      }
+      state.connected = result.connected || (s && s.connected) || false;
+      state.error = state.connected ? null : 'live';
       fireUpdate();
     } catch (err) {
       dbg('Proxy fetch failed:', err.message);
