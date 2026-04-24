@@ -390,7 +390,22 @@ function connectWs(session) {
       session.error = null;
       session.closeCode = null;
       session.state.connected = true;
-      // Apex Timing streams data unprompted — no subscribe message needed
+
+      // Apex Timing sends a full state dump on connect, then incremental updates.
+      // If we missed the dump (e.g. server was reused mid-session), reconnect after
+      // a short delay to get a fresh dump that includes driver names (c4/c5).
+      if (session.nameCheckTimer) clearTimeout(session.nameCheckTimer);
+      session.nameCheckTimer = setTimeout(() => {
+        if (session.ws !== ws || ws.readyState !== WebSocket.OPEN) return;
+        let hasNames = false;
+        for (const [, cell] of session.grid) {
+          if ((cell.c4 && cell.c4.value) || (cell.c5 && cell.c5.value)) { hasNames = true; break; }
+        }
+        if (!hasNames) {
+          console.log(`[apex-proxy] No driver names after 6s for ${session.slug} — reconnecting to get initial state dump`);
+          ws.terminate(); // triggers close → retry
+        }
+      }, 6000);
     });
 
     ws.on('message', (data) => {
@@ -406,6 +421,7 @@ function connectWs(session) {
       session.closeCode = code;
       session.state.connected = false;
       session.ws = null;
+      if (session.nameCheckTimer) { clearTimeout(session.nameCheckTimer); session.nameCheckTimer = null; }
       if (code !== 1000) {
         // Rotate to next URL candidate (wss→ws) before retrying
         session.wsUrlIndex = (session.wsUrlIndex + 1) % session.wsUrls.length;
