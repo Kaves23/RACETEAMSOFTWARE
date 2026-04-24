@@ -268,10 +268,11 @@ async function startSession(slug) {
   const { port } = discovery;
   console.log(`[apex-proxy] Port ${port} for ${slug} (${discovery.source})`);
 
-  // Try wss:// first, fall back to ws:// — some Java WS servers use plain WS on custom ports
+  // Try ws:// first — Apex Timing Java server uses plain WS; browser sees wss:// only
+  // because Cloudflare/nginx terminates TLS in front of it.
   const wsUrls = [
-    `wss://www.apex-timing.com:${port}/`,
     `ws://www.apex-timing.com:${port}/`,
+    `wss://www.apex-timing.com:${port}/`,
   ];
   const session = { slug, port, wsUrl: wsUrls[0], wsUrls, wsUrlIndex: 0, ws: null, connected: false, state: emptyState(), grid: new Map(), messageQueue: [], retryTimer: null, error: null, closeCode: null };
   sessions.set(slug, session);
