@@ -9,25 +9,26 @@
   <link href="style.css?v=20260424" rel="stylesheet" />
   <style>
     /* ── page base ──────────────────────────────────────────────── */
-    body { background: #0b0d13; color: #e0e4ef; min-height: 100vh; }
+    body { background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%); color: #1a1d24; min-height: 100vh; }
 
     /* ── status header ──────────────────────────────────────────── */
     .tm-header {
       display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
       padding: 10px 20px;
-      background: rgba(255,255,255,0.04);
-      border-bottom: 1px solid rgba(255,255,255,0.07);
+      background: #fff;
+      border-bottom: 1px solid rgba(0,0,0,0.1);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
       font-size: 0.82rem;
     }
-    .tm-session   { font-weight: 700; font-size: 0.95rem; color: #fff; }
-    .tm-class     { color: #adb5bd; }
-    .tm-sep       { color: rgba(255,255,255,0.2); }
-    .tm-laps      { color: #e0e4ef; font-variant-numeric: tabular-nums; }
-    .tm-laps span { color: #fff; font-weight: 600; }
+    .tm-session   { font-weight: 700; font-size: 0.95rem; color: #1a1d24; }
+    .tm-class     { color: #6c757d; }
+    .tm-sep       { color: rgba(0,0,0,0.2); }
+    .tm-laps      { color: #1a1d24; font-variant-numeric: tabular-nums; }
+    .tm-laps span { color: #1a1d24; font-weight: 600; }
     .tm-conn      { margin-left: auto; display: flex; align-items: center; gap: 6px;
                     font-size: 0.75rem; color: #6c757d; }
-    .tm-conn-dot  { width: 8px; height: 8px; border-radius: 50%; background: #495057; }
-    .tm-conn-dot.live { background: #28a745; box-shadow: 0 0 6px #28a74599; }
+    .tm-conn-dot  { width: 8px; height: 8px; border-radius: 50%; background: #ced4da; }
+    .tm-conn-dot.live { background: #28a745; box-shadow: 0 0 6px #28a74566; }
 
     /* flag status badge */
     .tm-flag {
@@ -35,17 +36,17 @@
       padding: 2px 9px; border-radius: 20px; font-size: 0.72rem; font-weight: 700;
       letter-spacing: 0.05em; text-transform: uppercase; border: 1px solid transparent;
     }
-    .tm-flag.racing   { background: #0a2e0a; border-color: #28a745; color: #5cd67c; }
-    .tm-flag.paused   { background: #2e2a00; border-color: #ffc107; color: #ffd952; }
-    .tm-flag.finished { background: #1a1a1a; border-color: #adb5bd; color: #dee2e6; }
-    .tm-flag.waiting  { background: #1a1a2e; border-color: #4a6fa5; color: #7fa8d8; }
-    .tm-flag.qualifying { background: #1a0a2e; border-color: #7c3aed; color: #b17cf7; }
+    .tm-flag.racing     { background: #d4edda; border-color: #28a745; color: #155724; }
+    .tm-flag.paused     { background: #fff3cd; border-color: #ffc107; color: #856404; }
+    .tm-flag.finished   { background: #e9ecef; border-color: #6c757d; color: #495057; }
+    .tm-flag.waiting    { background: #cfe2ff; border-color: #0d6efd; color: #084298; }
+    .tm-flag.qualifying { background: #ede7f6; border-color: #7c3aed; color: #4a1e8a; }
 
     /* ── layout ─────────────────────────────────────────────────── */
     .tm-body {
       display: flex; flex-direction: column; align-items: center;
-      padding: 16px 20px 0;
-      height: calc(100vh - 110px); /* below topnav + header */
+      padding: 12px 20px 0;
+      height: calc(100vh - 110px);
     }
 
     /* ── SVG canvas ─────────────────────────────────────────────── */
@@ -56,27 +57,28 @@
       overflow: visible;
     }
 
-    /* track ring */
-    .tm-ring-outer { fill: none; stroke: #2a2d3a; stroke-width: 36; }
-    .tm-ring-inner { fill: none; stroke: #1c1e27; stroke-width: 32; }
-    .tm-ring-line  { fill: none; stroke: #3a3d4a; stroke-width: 1.5; }
+    /* track ring – light mode */
+    .tm-ring-bg   { fill: none; stroke: #dde1ec; stroke-width: 40; }
+    .tm-ring-road { fill: none; stroke: #eef0f6; stroke-width: 32; }
+    .tm-ring-edge  { fill: none; stroke: #c4c9d8; stroke-width: 1.5; opacity: 0.9; }
+    .tm-ring-edge2 { fill: none; stroke: #c4c9d8; stroke-width: 1.5; opacity: 0.9; }
 
     /* start/finish line */
-    .tm-sf-line { stroke: #fff; stroke-width: 3; stroke-linecap: round; opacity: 0.7; }
-    .tm-sf-label { fill: rgba(255,255,255,0.35); font-size: 11px; font-family: system-ui; letter-spacing: 0.1em; }
+    .tm-sf-line  { stroke: #555; stroke-width: 3; stroke-linecap: round; opacity: 0.55; }
+    .tm-sf-label { fill: #adb5bd; font-size: 11px; font-family: system-ui; letter-spacing: 0.08em; }
 
     /* kart markers */
     .tm-kart-group { cursor: default; }
-    .tm-kart-shadow { fill: rgba(0,0,0,0.5); }
+    .tm-kart-shadow { fill: rgba(0,0,0,0.12); }
     .tm-kart-dot { stroke-width: 2.5; }
-    .tm-kart-leader-ring { fill: none; stroke: #ffd700; stroke-width: 2; opacity: 0.85; }
+    .tm-kart-leader-ring { fill: none; stroke: #e6a800; stroke-width: 2.5; }
     .tm-kart-label {
       font-family: ui-monospace, 'Courier New', monospace;
       font-size: 11px;
       font-weight: 700;
       paint-order: stroke;
       stroke-linejoin: round;
-      stroke: #0b0d13;
+      stroke: rgba(255,255,255,0.95);
       stroke-width: 3;
     }
 
@@ -84,39 +86,39 @@
     .tm-overlay {
       position: absolute; inset: 0;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
-      background: rgba(11,13,19,0.88);
+      background: rgba(245,247,250,0.88);
       pointer-events: none;
+      border-radius: 8px;
     }
     .tm-overlay.hidden { display: none; }
-    .tm-overlay-icon { font-size: 3.5rem; margin-bottom: 12px; opacity: 0.5; }
+    .tm-overlay-icon { font-size: 3.5rem; margin-bottom: 12px; opacity: 0.4; }
     .tm-overlay-text { color: #6c757d; font-size: 0.9rem; text-align: center; max-width: 280px; }
 
     /* ── leaderboard strip ──────────────────────────────────────── */
     .tm-board {
       width: 100%;
       max-width: 960px;
-      display: flex; gap: 6px; flex-wrap: wrap;
-      padding: 10px 0 12px;
-      overflow-x: auto;
+      display: flex; gap: 5px; flex-wrap: wrap;
+      padding: 10px 0 14px;
     }
     .tm-board-row {
       display: flex; align-items: center; gap: 7px;
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.07);
+      background: #fff;
+      border: 1px solid rgba(0,0,0,0.1);
       border-radius: 6px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
       padding: 4px 10px;
       font-size: 0.78rem;
       white-space: nowrap;
-      transition: background 0.3s;
     }
     .tm-board-row.is-ours {
-      background: rgba(255,215,0,0.08);
-      border-color: rgba(255,215,0,0.25);
+      background: #fffbeb;
+      border-color: #fbbf24;
     }
     .tm-board-pos  { font-weight: 700; color: #6c757d; min-width: 22px; }
-    .tm-board-name { color: #fff; font-weight: 600; }
-    .tm-board-kart { color: #adb5bd; }
-    .tm-board-kart b { color: #e0e4ef; }
+    .tm-board-name { color: #1a1d24; font-weight: 600; }
+    .tm-board-kart { color: #6c757d; }
+    .tm-board-kart b { color: #1a1d24; }
     .tm-board-gap  { color: #6c757d; font-variant-numeric: tabular-nums; }
     .tm-board-dot  { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
 
@@ -124,7 +126,7 @@
     .tm-no-timing {
       flex: 1; display: flex; flex-direction: column;
       align-items: center; justify-content: center;
-      color: #495057; text-align: center;
+      color: #6c757d; text-align: center;
     }
     .tm-no-timing svg { opacity: 0.25; margin-bottom: 16px; }
     .tm-no-timing a { color: #4a6fa5; text-decoration: none; }
@@ -166,11 +168,12 @@
     <!-- SVG track map (shown when timing is active) -->
     <div style="position:relative;width:100%;max-width:960px;flex:1 1 auto;display:flex;flex-direction:column;align-items:center" id="tmMapWrap">
       <svg id="trackSvg" viewBox="0 0 600 540" preserveAspectRatio="xMidYMid meet">
-        <!-- Track ring -->
-        <circle cx="300" cy="255" r="180" class="tm-ring-outer"/>
-        <circle cx="300" cy="255" r="180" class="tm-ring-inner"/>
-        <!-- Sector guideline rings (subtle) -->
-        <circle cx="300" cy="255" r="180" class="tm-ring-line"/>
+        <!-- Track ring – light mode -->
+        <circle cx="300" cy="255" r="180" class="tm-ring-bg"/>
+        <circle cx="300" cy="255" r="180" class="tm-ring-road"/>
+        <!-- Inner and outer edge lines -->
+        <circle cx="300" cy="255" r="198" class="tm-ring-edge"/>
+        <circle cx="300" cy="255" r="162" class="tm-ring-edge2"/>
         <!-- Start/finish marker at 12 o'clock (top) -->
         <line x1="300" y1="57" x2="300" y2="93" class="tm-sf-line"/>
         <text x="313" y="72" class="tm-sf-label">S/F</text>
@@ -202,18 +205,19 @@
     // ── Constants ────────────────────────────────────────────────────────────
     const SVG_NS  = 'http://www.w3.org/2000/svg';
     const CX = 300, CY = 255, R = 180;   // circle centre & radius (SVG coords)
-    const START_ANGLE_DEG = -90;          // 12 o'clock = -90° in standard math
     const LABEL_R = R + 22;               // radius for kart number labels
     const DOT_R   = 9;                    // kart dot radius
     const LEADER_RING_R = DOT_R + 5;     // gold ring around leader
 
     // ── Animation state ──────────────────────────────────────────────────────
+    // leaderAngle advances continuously via rAF delta-time — NEVER reset on poll
+    let leaderAngle   = -90;   // degrees; -90 = 12 o'clock. Increases clockwise.
     let lapTimeSec    = 0;     // leader's last lap time in seconds (from last poll)
-    let pollTimestamp = 0;     // Date.now() when last poll arrived
     let karts         = [];    // array of { kart, name, isOurs, ourColor, isLeader,
-                               //            gapFrac,       — current interpolated gap fraction (0=leader, 0.5=half lap behind)
+                               //            gapFrac,       — current interpolated gap fraction
                                //            gapFracTarget  — from last poll, lerp toward this }
     let rafId         = null;
+    let prevRafTs     = null;  // previous rAF timestamp (ms) for delta-time
     let lerpStart     = 0;     // timestamp when current lerp began
     const LERP_MS     = 1800;  // lerp corrected positions over 1.8 s
 
@@ -233,17 +237,47 @@
       return 0;
     }
 
-    // ── Parse gap string → seconds behind leader ─────────────────────────────
-    function parseGapSec(gapStr, lapT) {
-      if (!gapStr || gapStr === '—' || gapStr === '') return 0;
-      const s = String(gapStr).trim();
-      // "+N Lap" / "+N Laps"
-      const lapMatch = s.match(/\+?\s*(\d+(?:\.\d+)?)\s*Lap/i);
-      if (lapMatch) return parseFloat(lapMatch[1]) * lapT;
-      // "+3.450" or "3.450"
-      const numMatch = s.match(/[+]?\s*(\d+(?:\.\d+)?)/);
-      if (numMatch) return parseFloat(numMatch[1]);
-      return 0;
+    // ── Parse gap string → gap fraction (0 = at leader, 1 = full lap behind) ─
+    // For lapped karts ("N Laps") we cannot know their intra-lap position,
+    // so we spread them evenly around the remaining arc behind the close-gap pack.
+    function computeGapFractions(drivers, lapT) {
+      const n = drivers.length;
+      if (!n || lapT <= 0) return drivers.map(() => 0);
+
+      const fracs = new Array(n).fill(null);
+      const lappedIdxs = [];
+
+      drivers.forEach((d, i) => {
+        if (i === 0) { fracs[i] = 0; return; }  // leader
+        const gap = String(d.gap || '').trim();
+        const isLapped = /Lap/i.test(gap);
+        if (isLapped) {
+          lappedIdxs.push(i);
+        } else {
+          // Time gap — exact fraction, capped at 0.22 (< quarter lap)
+          // so close runners don't accidentally merge with lapped karts visually
+          const numMatch = gap.match(/[+]?\s*(\d+(?:\.\d+)?)/);
+          const gapSec = numMatch ? parseFloat(numMatch[1]) : 0;
+          fracs[i] = Math.min(gapSec / lapT, 0.22);
+        }
+      });
+
+      // Distribute lapped karts evenly from 0.28 → 0.97
+      // (the far side of the circle from the racing leaders)
+      if (lappedIdxs.length > 0) {
+        const timeFracs = fracs.filter(f => f !== null);
+        const lastTimeFrac = timeFracs.length ? Math.max(...timeFracs) : 0;
+        const startFrac = Math.max(lastTimeFrac + 0.10, 0.28);
+        const endFrac   = 0.97;
+        const count = lappedIdxs.length;
+        lappedIdxs.forEach((idx, k) => {
+          fracs[idx] = count === 1
+            ? (startFrac + endFrac) / 2
+            : startFrac + (k / (count - 1)) * (endFrac - startFrac);
+        });
+      }
+
+      return fracs;
     }
 
     // ── Convert kart data from state into karts[] ─────────────────────────────
@@ -251,23 +285,24 @@
       const drivers = state.drivers || [];
       if (!drivers.length) return;
 
-      // Use leader's lastLap as lap time reference
+      // Use leader's lastLap as lap time reference (fall back to bestLap)
       const leader = drivers.find(d => String(d.pos) === '1') || drivers[0];
       const newLapTime = parseLapSec(leader && leader.lastLap) ||
                          parseLapSec(leader && leader.bestLap) ||
                          lapTimeSec;
-
       if (newLapTime > 5) lapTimeSec = newLapTime;  // sanity: ignore <5s values
-      pollTimestamp = Date.now();
-      lerpStart     = pollTimestamp;
+
+      lerpStart = Date.now();
+
+      // Compute target fractions for this poll
+      const targetFracs = computeGapFractions(drivers, lapTimeSec);
 
       // Build new kart list — preserve existing gapFrac for smooth lerp
       const existing = new Map(karts.map(k => [k.kart, k]));
 
       karts = drivers.map((d, i) => {
         const isLeader = i === 0 || String(d.pos) === '1';
-        const gapSec   = isLeader ? 0 : parseGapSec(d.gap, lapTimeSec);
-        const newFrac  = lapTimeSec > 0 ? (gapSec % lapTimeSec) / lapTimeSec : 0;
+        const newFrac  = targetFracs[i] || 0;
         const prev     = existing.get(String(d.kart));
 
         return {
@@ -277,7 +312,7 @@
           isLeader,
           isOurs:        !!d.isOurs,
           ourColor:      d.ourColor || null,
-          gapFrac:       prev ? prev.gapFrac : newFrac,   // animate from current pos
+          gapFrac:       prev ? prev.gapFrac : newFrac,   // lerp from current
           gapFracTarget: newFrac
         };
       });
@@ -316,20 +351,20 @@
 
           const leaderRing = svgEl('circle', { r: LEADER_RING_R, class: 'tm-kart-leader-ring' });
 
-          const color = k.ourColor || '#ffffff';
+          const color = k.ourColor || '#4a6fa5';
           const dot = svgEl('circle', {
             r:    DOT_R,
-            fill: color,
+            fill: k.isOurs ? color : '#6c757d',
             class: 'tm-kart-dot',
-            stroke: k.isOurs ? '#fff' : 'rgba(255,255,255,0.4)',
-            'fill-opacity': k.isOurs ? '1' : '0.75'
+            stroke: '#fff',
+            'fill-opacity': k.isOurs ? '1' : '0.8'
           });
 
           const label = svgEl('text', {
             'text-anchor': 'middle',
             'dominant-baseline': 'middle',
             class: 'tm-kart-label',
-            fill: k.isOurs ? (k.ourColor || '#ffd700') : 'rgba(255,255,255,0.7)'
+            fill: k.isOurs ? (k.ourColor || '#e6a800') : '#333'
           });
           label.textContent = '#' + k.kart;
 
@@ -342,13 +377,13 @@
           svgGroups.set(k.kart, { g, shadow, leaderRing, dot, label });
         }
 
-        // Style updates (in case isOurs/color changed via driver match)
+        // Style updates (in case isOurs/color/leader changed via driver match)
         const els = svgGroups.get(k.kart);
-        const color = k.ourColor || '#ffffff';
-        els.dot.setAttribute('fill', color);
-        els.dot.setAttribute('stroke', k.isOurs ? '#fff' : 'rgba(255,255,255,0.4)');
-        els.dot.setAttribute('fill-opacity', k.isOurs ? '1' : '0.75');
-        els.label.setAttribute('fill', k.isOurs ? (k.ourColor || '#ffd700') : 'rgba(255,255,255,0.65)');
+        const color = k.ourColor || '#4a6fa5';
+        els.dot.setAttribute('fill', k.isOurs ? color : '#6c757d');
+        els.dot.setAttribute('stroke', '#fff');
+        els.dot.setAttribute('fill-opacity', k.isOurs ? '1' : '0.8');
+        els.label.setAttribute('fill', k.isOurs ? (k.ourColor || '#e6a800') : '#333');
         els.leaderRing.style.display = k.isLeader ? '' : 'none';
       });
 
@@ -362,43 +397,44 @@
     }
 
     // ── requestAnimationFrame loop ────────────────────────────────────────────
+    // Uses rAF delta-time so leaderAngle advances independently of poll timing.
+    // pollTimestamp is NEVER used here — no more restart on poll arrival.
     function rafLoop(ts) {
       rafId = requestAnimationFrame(rafLoop);
 
+      // Advance leader angle by the angular distance covered since last frame
+      if (prevRafTs !== null && lapTimeSec > 0) {
+        const dtSec = (ts - prevRafTs) / 1000;
+        leaderAngle += (360 / lapTimeSec) * dtSec;  // e.g. 360/31.4 ≈ 11.5°/s
+      }
+      prevRafTs = ts;
+
       if (!karts.length || lapTimeSec <= 0) return;
 
-      const now    = Date.now();
-      const elapsedSec = (now - pollTimestamp) / 1000;
-      const lerpT  = Math.min((now - lerpStart) / LERP_MS, 1);  // 0→1
-
-      // Leader's current angle: progresses continuously with time
-      const leaderFrac = (elapsedSec % lapTimeSec) / lapTimeSec;  // 0→1 cycling
-      const leaderAngle = START_ANGLE_DEG + leaderFrac * 360;
+      const now   = Date.now();
+      const lerpT = Math.min((now - lerpStart) / LERP_MS, 1);  // 0→1
 
       karts.forEach(k => {
-        // Lerp gap fraction toward target
-        k.gapFrac = k.gapFrac + (k.gapFracTarget - k.gapFrac) * lerpT;
+        // Ease gap fraction toward latest poll target
+        k.gapFrac += (k.gapFracTarget - k.gapFrac) * lerpT;
 
-        // Kart angle = leader angle minus gap (trailing clockwise)
+        // Kart angle = leader angle minus its gap fraction (trails clockwise)
         const angle = leaderAngle - k.gapFrac * 360;
-
-        const pt     = angleToPt(angle, R);
-        const labelPt = angleToPt(angle, LABEL_R);
 
         const els = svgGroups.get(k.kart);
         if (!els) return;
 
-        // Nudge overlapping karts: tiny radial offset based on pos rank to avoid dot stacking
-        const radialNudge = k.isLeader ? 0 : (k.pos % 3 === 0 ? -8 : k.pos % 3 === 2 ? 8 : 0);
-        const ptFinal     = angleToPt(angle, R + radialNudge);
+        // Alternate inner/outer nudge so closely-spaced karts don't fully overlap
+        const radialNudge = k.isLeader ? 0 : ((k.pos % 2 === 0) ? 10 : -10);
+        const ptFinal  = angleToPt(angle, R + radialNudge);
+        const lptFinal = angleToPt(angle, LABEL_R + radialNudge);
 
         els.shadow.setAttribute('cx', ptFinal.x);
-        els.shadow.setAttribute('cy', ptFinal.y + 2);
+        els.shadow.setAttribute('cy', String(ptFinal.y + 2));
         els.leaderRing.setAttribute('cx', ptFinal.x);
         els.leaderRing.setAttribute('cy', ptFinal.y);
         els.dot.setAttribute('cx', ptFinal.x);
         els.dot.setAttribute('cy', ptFinal.y);
-        const lptFinal = angleToPt(angle, LABEL_R + radialNudge);
         els.label.setAttribute('x', lptFinal.x);
         els.label.setAttribute('y', lptFinal.y);
       });
@@ -470,7 +506,8 @@
     function updateOverlay(state) {
       const overlay = document.getElementById('tmOverlay');
       const text    = document.getElementById('tmOverlayText');
-      const isRaceWithData = (state.status === 'racing' || state.status === 'finished') && karts.length > 0 && lapTimeSec > 0;
+      // Show map for race regardless of lapTimeSec — data may arrive momentarily
+      const isRaceWithData = (state.status === 'racing' || state.status === 'finished') && karts.length > 0;
       const isNonRace = state.status === 'qualifying' || state.status === 'practice';
 
       if (isRaceWithData) {
