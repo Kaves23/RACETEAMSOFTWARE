@@ -219,31 +219,58 @@ function tokeniseFrame(raw) {
 // Apex Timing renders the timing board as an HTML table with data-id="r{N}c{N}" on each <td>.
 // This is how static data (kart#, driver name, class) is delivered — they're only in the HTML.
 function parseHtmlGrid(html, grid) {
-  // Match <td ... data-id="r{N}c{N}" ...>CONTENT</td>  (any attribute order)
-  // Use [\s\S]*? to capture content including inner tags (e.g. <b>17</b>)
-  const re = /<td\b([^>]*)>([\s\S]*?)<\/td>/gi;
-  let m;
-  while ((m = re.exec(html)) !== null) {
-    const attrs = m[1];
-    const innerHtml = m[2];
+  // Build a column-position → column-number map from the header row <th data-id="cN">
+  // e.g. position 0 → c3 (Rnk), position 1 → c4 (No.), position 2 → c5 (Driver) …
+  const colPosMap = {}; // 0-based td index → column number
+  const headerRowM = html.match(/<tr\b[^>]*>([\s\S]*?)<\/tr>/i);
+  if (headerRowM) {
+    const headerCells = [...headerRowM[1].matchAll(/<th\b([^>]*)>[\s\S]*?<\/th>/gi)];
+    headerCells.forEach((m, idx) => {
+      const idM = m[1].match(/\bdata-id="c(\d+)"/i);
+      if (idM) colPosMap[idx] = parseInt(idM[1]);
+    });
+  }
 
-    const idMatch = attrs.match(/\bdata-id="r(\d+)c(\d+)"/i);
-    if (!idMatch) continue;
-    const row = parseInt(idMatch[1]);
-    const col = parseInt(idMatch[2]);
+  // Parse each data row <tr>
+  const allRows = [...html.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)];
+  for (let ri = 1; ri < allRows.length; ri++) { // skip header row at index 0
+    const rowHtml = allRows[ri][1];
+    const cells = [...rowHtml.matchAll(/<td\b([^>]*)>([\s\S]*?)<\/td>/gi)];
 
-    const classMatch = attrs.match(/\bclass="([^"]*)"/i);
-    const cssClass = classMatch ? classMatch[1].trim() : '';
-
-    // Strip inner HTML tags, decode basic entities, trim whitespace
-    const value = innerHtml.replace(/<[^>]+>/g, '').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&nbsp;/g,' ').trim();
-
-    if (!value && !cssClass) continue;
-    if (!grid.has(row)) grid.set(row, {});
-    // Don't overwrite live incremental updates that arrived later
-    if (!grid.get(row)[`c${col}`]) {
-      grid.get(row)[`c${col}`] = { type: cssClass, value };
+    // Identify row number from any data-id="r{N}c{M}" inside this row
+    let rowNum = null;
+    for (const cell of cells) {
+      const idM = cell[1].match(/\bdata-id="r(\d+)c\d+"/i);
+      if (idM) { rowNum = parseInt(idM[1]); break; }
     }
+    if (!rowNum) continue;
+
+    if (!grid.has(rowNum)) grid.set(rowNum, {});
+    const gridRow = grid.get(rowNum);
+
+    cells.forEach((cell, idx) => {
+      const attrs    = cell[1];
+      const inner    = cell[2];
+      const value    = inner.replace(/<[^>]+>/g, '')
+                            .replace(/&amp;/g,'&').replace(/&lt;/g,'<')
+                            .replace(/&gt;/g,'>').replace(/&nbsp;/g,' ').trim();
+      const classM   = attrs.match(/\bclass="([^"]*)"/i);
+      const cssClass = classM ? classM[1].trim() : '';
+
+      // Cell with explicit data-id="r{N}c{M}" — use it directly
+      const explicitM = attrs.match(/\bdata-id="r\d+c(\d+)"/i);
+      if (explicitM) {
+        const col = parseInt(explicitM[1]);
+        if (!gridRow[`c${col}`]) gridRow[`c${col}`] = { type: cssClass, value };
+        return;
+      }
+
+      // No data-id → look up column number from header position map
+      const colNum = colPosMap[idx];
+      if (colNum !== undefined && value && !gridRow[`c${colNum}`]) {
+        gridRow[`c${colNum}`] = { type: cssClass, value };
+      }
+    });
   }
 }
 
