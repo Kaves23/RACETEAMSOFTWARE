@@ -8,188 +8,200 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="style.css?v=20260424" rel="stylesheet" />
   <style>
-    /* ── page base ──────────────────────────────────────────────── */
-    body { background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%); color: #1a1d24; min-height: 100vh; }
+    body { background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%); color:#1a1d24; min-height:100vh; }
 
-    /* ── status header ──────────────────────────────────────────── */
     .tm-header {
-      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-      padding: 10px 20px;
-      background: #fff;
-      border-bottom: 1px solid rgba(0,0,0,0.1);
-      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-      font-size: 0.82rem;
+      display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+      padding:9px 20px; background:#fff;
+      border-bottom:1px solid rgba(0,0,0,.1); box-shadow:0 1px 4px rgba(0,0,0,.06); font-size:.82rem;
     }
-    .tm-session   { font-weight: 700; font-size: 0.95rem; color: #1a1d24; }
-    .tm-class     { color: #6c757d; }
-    .tm-sep       { color: rgba(0,0,0,0.2); }
-    .tm-laps      { color: #1a1d24; font-variant-numeric: tabular-nums; }
-    .tm-laps span { color: #1a1d24; font-weight: 600; }
-    .tm-conn      { margin-left: auto; display: flex; align-items: center; gap: 6px;
-                    font-size: 0.75rem; color: #6c757d; }
-    .tm-conn-dot  { width: 8px; height: 8px; border-radius: 50%; background: #ced4da; }
-    .tm-conn-dot.live { background: #28a745; box-shadow: 0 0 6px #28a74566; }
-
-    /* flag status badge */
+    .tm-session { font-weight:700; font-size:.95rem; color:#1a1d24; }
+    .tm-class   { color:#6c757d; }
+    .tm-sep     { color:rgba(0,0,0,.2); }
+    .tm-laps    { color:#1a1d24; font-variant-numeric:tabular-nums; }
+    .tm-laps span { font-weight:600; }
+    .tm-conn  { margin-left:auto; display:flex; align-items:center; gap:6px; font-size:.75rem; color:#6c757d; }
+    .tm-conn-dot { width:8px; height:8px; border-radius:50%; background:#ced4da; }
+    .tm-conn-dot.live { background:#28a745; box-shadow:0 0 6px #28a74566; }
     .tm-flag {
-      display: inline-flex; align-items: center; gap: 5px;
-      padding: 2px 9px; border-radius: 20px; font-size: 0.72rem; font-weight: 700;
-      letter-spacing: 0.05em; text-transform: uppercase; border: 1px solid transparent;
+      display:inline-flex; align-items:center; gap:5px;
+      padding:2px 9px; border-radius:20px; font-size:.72rem; font-weight:700;
+      letter-spacing:.05em; text-transform:uppercase; border:1px solid transparent;
     }
-    .tm-flag.racing     { background: #d4edda; border-color: #28a745; color: #155724; }
-    .tm-flag.paused     { background: #fff3cd; border-color: #ffc107; color: #856404; }
-    .tm-flag.finished   { background: #e9ecef; border-color: #6c757d; color: #495057; }
-    .tm-flag.waiting    { background: #cfe2ff; border-color: #0d6efd; color: #084298; }
-    .tm-flag.qualifying { background: #ede7f6; border-color: #7c3aed; color: #4a1e8a; }
+    .tm-flag.racing     { background:#d4edda; border-color:#28a745; color:#155724; }
+    .tm-flag.paused     { background:#fff3cd; border-color:#ffc107; color:#856404; }
+    .tm-flag.finished   { background:#e9ecef; border-color:#6c757d; color:#495057; }
+    .tm-flag.waiting    { background:#cfe2ff; border-color:#0d6efd; color:#084298; }
+    .tm-flag.qualifying { background:#ede7f6; border-color:#7c3aed; color:#4a1e8a; }
 
-    /* ── layout ─────────────────────────────────────────────────── */
-    .tm-body {
-      display: flex; flex-direction: column; align-items: center;
-      padding: 12px 20px 0;
-      height: calc(100vh - 110px);
+    @keyframes fl-flash { 0%,100%{opacity:1} 40%{opacity:.25} }
+    .fl-anim { animation:fl-flash .6s ease-in-out 3; }
+
+    /* layout */
+    .tm-content {
+      display:flex; gap:12px; padding:12px 16px 0; flex:1 1 auto;
+      height:calc(100vh - 108px); overflow:hidden;
     }
+    .tm-left  { display:flex; flex-direction:column; flex:1 1 auto; min-width:0; }
+    .tm-right { width:284px; flex-shrink:0; display:flex; flex-direction:column; gap:10px; overflow-y:auto; padding-bottom:12px; }
 
-    /* ── SVG canvas ─────────────────────────────────────────────── */
-    #trackSvg {
-      flex: 1 1 auto;
-      width: 100%;
-      max-height: calc(100vh - 230px);
-      overflow: visible;
-    }
+    /* SVG */
+    #trackSvg { flex:1 1 auto; width:100%; max-height:calc(100vh - 260px); overflow:visible; }
+    .tm-ring-bg   { fill:none; stroke:#dde1ec; stroke-width:40; }
+    .tm-ring-road { fill:none; stroke:#eef0f6; stroke-width:32; }
+    .tm-ring-edge { fill:none; stroke:#c4c9d8; stroke-width:1.5; }
+    .tm-sf-line   { stroke:#555; stroke-width:3; stroke-linecap:round; opacity:.5; }
+    .tm-sf-label  { fill:#adb5bd; font-size:11px; font-family:system-ui; letter-spacing:.08em; }
+    #tmProgressArcFill { fill:none; stroke-width:40; stroke-linecap:butt; stroke:#0d6efd; opacity:.15; }
 
-    /* track ring – light mode */
-    .tm-ring-bg   { fill: none; stroke: #dde1ec; stroke-width: 40; }
-    .tm-ring-road { fill: none; stroke: #eef0f6; stroke-width: 32; }
-    .tm-ring-edge  { fill: none; stroke: #c4c9d8; stroke-width: 1.5; opacity: 0.9; }
-    .tm-ring-edge2 { fill: none; stroke: #c4c9d8; stroke-width: 1.5; opacity: 0.9; }
-
-    /* start/finish line */
-    .tm-sf-line  { stroke: #555; stroke-width: 3; stroke-linecap: round; opacity: 0.55; }
-    .tm-sf-label { fill: #adb5bd; font-size: 11px; font-family: system-ui; letter-spacing: 0.08em; }
-
-    /* kart markers */
-    .tm-kart-group { cursor: default; }
-    .tm-kart-shadow { fill: rgba(0,0,0,0.12); }
-    .tm-kart-dot { stroke-width: 2.5; }
-    .tm-kart-leader-ring { fill: none; stroke: #e6a800; stroke-width: 2.5; }
+    .tm-kart-dot          { stroke:#fff; stroke-width:2.5; }
+    .tm-kart-fl           { fill:none; stroke:#9333ea; stroke-width:2.5; }
+    .tm-kart-leader-ring  { fill:none; stroke:#e6a800; stroke-width:2.5; }
     .tm-kart-label {
-      font-family: ui-monospace, 'Courier New', monospace;
-      font-size: 11px;
-      font-weight: 700;
-      paint-order: stroke;
-      stroke-linejoin: round;
-      stroke: rgba(255,255,255,0.95);
-      stroke-width: 3;
+      font-family:ui-monospace,'Courier New',monospace; font-size:11px; font-weight:700;
+      paint-order:stroke; stroke-linejoin:round; stroke:rgba(255,255,255,.95); stroke-width:3;
+    }
+    .tm-trail  { fill:none; stroke-linecap:round; }
+    .tm-battle { stroke-width:2; stroke-dasharray:4 3; opacity:.65; }
+    .tm-pit-badge {
+      font-size:9px; font-family:system-ui; font-weight:700;
+      fill:#fff; paint-order:stroke; stroke:#dc3545; stroke-width:3;
     }
 
-    /* waiting / no-data overlay */
+    /* overlay */
     .tm-overlay {
-      position: absolute; inset: 0;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      background: rgba(245,247,250,0.88);
-      pointer-events: none;
-      border-radius: 8px;
+      position:absolute; inset:0; display:flex; flex-direction:column;
+      align-items:center; justify-content:center;
+      background:rgba(245,247,250,.88); pointer-events:none; border-radius:8px;
     }
-    .tm-overlay.hidden { display: none; }
-    .tm-overlay-icon { font-size: 3.5rem; margin-bottom: 12px; opacity: 0.4; }
-    .tm-overlay-text { color: #6c757d; font-size: 0.9rem; text-align: center; max-width: 280px; }
+    .tm-overlay.hidden { display:none; }
+    .tm-overlay-icon { font-size:3.5rem; margin-bottom:12px; opacity:.4; }
+    .tm-overlay-text { color:#6c757d; font-size:.9rem; text-align:center; max-width:280px; }
 
-    /* ── leaderboard strip ──────────────────────────────────────── */
-    .tm-board {
-      width: 100%;
-      max-width: 960px;
-      display: flex; gap: 5px; flex-wrap: wrap;
-      padding: 10px 0 14px;
-    }
+    /* leaderboard */
+    .tm-board { display:flex; gap:4px; flex-wrap:wrap; padding:8px 0 10px; }
     .tm-board-row {
-      display: flex; align-items: center; gap: 7px;
-      background: #fff;
-      border: 1px solid rgba(0,0,0,0.1);
-      border-radius: 6px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-      padding: 4px 10px;
-      font-size: 0.78rem;
-      white-space: nowrap;
+      display:flex; align-items:center; gap:6px;
+      background:#fff; border:1px solid rgba(0,0,0,.1); border-radius:6px;
+      box-shadow:0 1px 3px rgba(0,0,0,.05); padding:4px 10px;
+      font-size:.76rem; white-space:nowrap; transition:border-color .3s,background .3s;
     }
-    .tm-board-row.is-ours {
-      background: #fffbeb;
-      border-color: #fbbf24;
-    }
-    .tm-board-pos  { font-weight: 700; color: #6c757d; min-width: 22px; }
-    .tm-board-name { color: #1a1d24; font-weight: 600; }
-    .tm-board-kart { color: #6c757d; }
-    .tm-board-kart b { color: #1a1d24; }
-    .tm-board-gap  { color: #6c757d; font-variant-numeric: tabular-nums; }
-    .tm-board-dot  { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+    .tm-board-row.is-ours   { background:#fffbeb; border-color:#fbbf24; }
+    .tm-board-row.in-battle { background:#fff5f5; border-color:#f87171; }
+    .tm-board-row.fl        { background:#f5f0ff; border-color:#9333ea; }
+    .tm-board-pos  { font-weight:700; color:#6c757d; min-width:22px; }
+    .tm-board-chg  { font-size:.65rem; font-weight:700; min-width:18px; }
+    .tm-board-chg.up   { color:#16a34a; }
+    .tm-board-chg.down { color:#dc2626; }
+    .tm-board-chg.same { color:#d1d5db; }
+    .tm-board-name { color:#1a1d24; font-weight:600; }
+    .tm-board-kart { color:#6c757d; }
+    .tm-board-kart b { color:#1a1d24; }
+    .tm-board-gap  { color:#6c757d; font-variant-numeric:tabular-nums; }
+    .tm-board-dot  { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+    .tm-delta-wrap { width:38px; height:6px; background:#e5e7eb; border-radius:3px; overflow:hidden; flex-shrink:0; }
+    .tm-delta-bar  { height:100%; border-radius:3px; transition:width .4s; }
 
-    /* ── no-timing message ──────────────────────────────────────── */
-    .tm-no-timing {
-      flex: 1; display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      color: #6c757d; text-align: center;
+    /* focus panel */
+    .tm-focus-card {
+      background:#fff; border:1px solid rgba(0,0,0,.1);
+      border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,.06); padding:14px;
     }
-    .tm-no-timing svg { opacity: 0.25; margin-bottom: 16px; }
-    .tm-no-timing a { color: #4a6fa5; text-decoration: none; }
-    .tm-no-timing a:hover { text-decoration: underline; }
+    .tm-focus-hd { font-size:.7rem; font-weight:700; text-transform:uppercase;
+                   letter-spacing:.08em; color:#6c757d; margin-bottom:10px; }
+    .tm-focus-pos  { font-size:3.4rem; font-weight:800; line-height:1; }
+    .tm-focus-name { font-size:.85rem; font-weight:700; color:#1a1d24; margin-top:2px; }
+    .tm-focus-kart { font-size:.75rem; color:#6c757d; }
+    .tm-focus-row {
+      display:flex; justify-content:space-between; align-items:flex-start;
+      margin-top:8px; border-top:1px solid #f0f0f0; padding-top:8px; font-size:.78rem;
+    }
+    .tm-focus-lbl { color:#6c757d; font-size:.69rem; margin-bottom:1px; }
+    .tm-focus-val { font-weight:700; font-variant-numeric:tabular-nums; }
+    .tm-focus-val.purple { color:#9333ea; }
+    .tm-focus-val.green  { color:#16a34a; }
+    .tm-focus-val.red    { color:#dc2626; }
+    .tm-spark-lbl { font-size:.68rem; color:#6c757d; margin-bottom:3px; margin-top:10px; }
+
+    .tm-fl-card { background:#f5f0ff; border-color:#9333ea !important; }
+
+    .tm-no-timing {
+      flex:1; display:flex; flex-direction:column;
+      align-items:center; justify-content:center; color:#6c757d; text-align:center;
+    }
+    .tm-no-timing a { color:#4a6fa5; text-decoration:none; }
   </style>
 </head>
 <body>
   <div id="rtsTopNav"></div>
 
-  <!-- Status header -->
-  <div class="tm-header" id="tmHeader">
+  <div class="tm-header">
     <span class="tm-session" id="tmSession">—</span>
     <span class="tm-sep">·</span>
-    <span class="tm-class" id="tmClass">Waiting for data</span>
+    <span class="tm-class"  id="tmClass">Waiting for data</span>
     <span class="tm-sep">·</span>
     <span id="tmFlagBadge"></span>
     <span class="tm-sep" id="tmLapSep" style="display:none">·</span>
-    <span class="tm-laps" id="tmLaps" style="display:none">Lap <span id="tmLapCur">0</span> / <span id="tmLapTotal">0</span></span>
-    <span class="tm-conn" id="tmConn">
+    <span class="tm-laps" id="tmLaps" style="display:none">
+      Lap <span id="tmLapCur">0</span> / <span id="tmLapTotal">0</span>
+    </span>
+    <span class="tm-sep" id="tmFlSep" style="display:none">·</span>
+    <span id="tmFlHeader" style="display:none;font-size:.78rem">
+      <span style="color:#9333ea;font-weight:700">⬟ FL</span>
+      <span id="tmFlName" style="font-weight:600"></span>
+      <span id="tmFlTime" style="color:#9333ea;font-weight:700;font-variant-numeric:tabular-nums;margin-left:4px"></span>
+    </span>
+    <span class="tm-conn">
       <span class="tm-conn-dot" id="tmConnDot"></span>
       <span id="tmConnLabel">Connecting…</span>
     </span>
   </div>
 
-  <!-- Main body -->
-  <div class="tm-body" id="tmBody">
-
-    <!-- No timing configured message -->
+  <div class="tm-content" id="tmContent">
     <div class="tm-no-timing" id="tmNoTiming" style="display:none">
-      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
-      <div style="font-size:1.1rem;font-weight:600;margin-bottom:8px;color:#6c757d">Live Timing Not Configured</div>
-      <div style="font-size:0.85rem;color:#495057;max-width:260px">
-        Enter your Apex Timing event URL in
-        <a href="settings.html#livetiming">Settings → Live Timing</a>
-        to enable the track map.
-      </div>
+      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:.25;margin-bottom:16px"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+      <div style="font-size:1.1rem;font-weight:600;margin-bottom:8px">Live Timing Not Configured</div>
+      <div style="font-size:.85rem;max-width:260px">Enter your Apex Timing event URL in <a href="settings.html">Settings → Live Timing</a> to enable the track map.</div>
     </div>
 
-    <!-- SVG track map (shown when timing is active) -->
-    <div style="position:relative;width:100%;max-width:960px;flex:1 1 auto;display:flex;flex-direction:column;align-items:center" id="tmMapWrap">
-      <svg id="trackSvg" viewBox="0 0 600 540" preserveAspectRatio="xMidYMid meet">
-        <!-- Track ring – light mode -->
-        <circle cx="300" cy="255" r="180" class="tm-ring-bg"/>
-        <circle cx="300" cy="255" r="180" class="tm-ring-road"/>
-        <!-- Inner and outer edge lines -->
-        <circle cx="300" cy="255" r="198" class="tm-ring-edge"/>
-        <circle cx="300" cy="255" r="162" class="tm-ring-edge2"/>
-        <!-- Start/finish marker at 12 o'clock (top) -->
-        <line x1="300" y1="57" x2="300" y2="93" class="tm-sf-line"/>
-        <text x="313" y="72" class="tm-sf-label">S/F</text>
-        <!-- Dynamic kart groups injected here by JS -->
-        <g id="tmKarts"></g>
-      </svg>
-
-      <!-- Waiting overlay -->
-      <div class="tm-overlay" id="tmOverlay">
-        <div class="tm-overlay-icon">⏱</div>
-        <div class="tm-overlay-text" id="tmOverlayText">Waiting for race session&hellip;</div>
+    <div class="tm-left" id="tmLeft">
+      <div style="position:relative;flex:1 1 auto;display:flex;flex-direction:column;align-items:center" id="tmMapWrap">
+        <svg id="trackSvg" viewBox="0 0 600 510" preserveAspectRatio="xMidYMid meet">
+          <defs>
+            <filter id="glow"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          </defs>
+          <circle id="tmProgressArcFill" cx="300" cy="245" r="178"/>
+          <circle cx="300" cy="245" r="178" class="tm-ring-bg"/>
+          <circle cx="300" cy="245" r="178" class="tm-ring-road"/>
+          <circle cx="300" cy="245" r="196" class="tm-ring-edge"/>
+          <circle cx="300" cy="245" r="160" class="tm-ring-edge"/>
+          <line x1="300" y1="49" x2="300" y2="85" class="tm-sf-line"/>
+          <text x="313" y="64" class="tm-sf-label">S/F</text>
+          <g id="tmTrails"></g>
+          <g id="tmBattles"></g>
+          <g id="tmKarts"></g>
+        </svg>
+        <div class="tm-overlay" id="tmOverlay">
+          <div class="tm-overlay-icon">⏱</div>
+          <div class="tm-overlay-text" id="tmOverlayText">Waiting for race session…</div>
+        </div>
       </div>
+      <div class="tm-board" id="tmBoard"></div>
     </div>
 
-    <!-- Leaderboard strip -->
-    <div class="tm-board" id="tmBoard"></div>
+    <div class="tm-right" id="tmRight">
+      <div class="tm-focus-card tm-fl-card" id="tmFlCard" style="display:none">
+        <div class="tm-focus-hd">⬟ Fastest Lap</div>
+        <div style="font-size:1.5rem;font-weight:800;color:#9333ea;font-variant-numeric:tabular-nums" id="tmFlCardTime">—</div>
+        <div style="font-size:.82rem;font-weight:600;margin-top:2px" id="tmFlCardName">—</div>
+        <div style="font-size:.72rem;color:#6c757d" id="tmFlCardKart"></div>
+      </div>
+      <div id="tmFocusCards"></div>
+      <div class="tm-focus-card" id="tmBattleCard" style="display:none">
+        <div class="tm-focus-hd" style="color:#dc2626">⚔ Battles (≤0.5s)</div>
+        <div id="tmBattleList" style="display:flex;flex-direction:column;gap:6px;font-size:.78rem"></div>
+      </div>
+    </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -197,384 +209,439 @@
   <script src="core.js"></script>
   <script src="topnav.js?v=20260424"></script>
   <script>
-  (function () {
+  (function(){
     'use strict';
-
     RTS.setActiveNav();
 
-    // ── Constants ────────────────────────────────────────────────────────────
-    const SVG_NS  = 'http://www.w3.org/2000/svg';
-    const CX = 300, CY = 255, R = 180;   // circle centre & radius (SVG coords)
-    const LABEL_R = R + 22;               // radius for kart number labels
-    const DOT_R   = 9;                    // kart dot radius
-    const LEADER_RING_R = DOT_R + 5;     // gold ring around leader
+    const SVG_NS='http://www.w3.org/2000/svg';
+    const CX=300,CY=245,R=178,LABEL_R=R+23,DOT_R=9,LEADER_RING=DOT_R+5;
+    const TRAIL_STEPS=10, TRAIL_STEP_MS=80, HISTORY_POLLS=8, BATTLE_GAP=0.5;
 
-    // ── Animation state ──────────────────────────────────────────────────────
-    // leaderAngle advances continuously via rAF delta-time — NEVER reset on poll
-    let leaderAngle   = -90;   // degrees; -90 = 12 o'clock. Increases clockwise.
-    let lapTimeSec    = 0;     // leader's last lap time in seconds (from last poll)
-    let karts         = [];    // array of { kart, name, isOurs, ourColor, isLeader,
-                               //            gapFrac,       — current interpolated gap fraction
-                               //            gapFracTarget  — from last poll, lerp toward this }
-    let rafId         = null;
-    let prevRafTs     = null;  // previous rAF timestamp (ms) for delta-time
-    let lerpStart     = 0;     // timestamp when current lerp began
-    const LERP_MS     = 1800;  // lerp corrected positions over 1.8 s
+    let leaderAngle=-90, lapTimeSec=0, karts=[], pollHistory=[];
+    let fastestLap={sec:Infinity,kart:'',name:'',time:''};
+    let rafId=null, prevRafTs=null, lerpStart=0;
+    const LERP_MS=1800;
+    let lastTrailTs=0;
 
-    // ── Parse lap time string "M:SS.mmm" → seconds ───────────────────────────
-    function parseLapSec(str) {
-      if (!str || str === '—') return 0;
-      const s = String(str).trim();
-      // "1:03.421"
-      const m1 = s.match(/^(\d+):(\d{2})\.(\d+)$/);
-      if (m1) return parseInt(m1[1], 10) * 60 + parseFloat(m1[2] + '.' + m1[3]);
-      // "63.421"
-      const m2 = s.match(/^(\d+)\.(\d+)$/);
-      if (m2) return parseFloat(s);
-      // integer seconds "63"
-      const m3 = s.match(/^(\d+)$/);
-      if (m3) return parseInt(s, 10);
+    const svgGroups  = new Map();
+    const trailBufs  = new Map();
+    const trailEls   = new Map();
+    const battleLines= new Map();
+
+    function svgEl(tag,attrs){
+      const el=document.createElementNS(SVG_NS,tag);
+      for(const[k,v]of Object.entries(attrs))el.setAttribute(k,v);
+      return el;
+    }
+    function angleToPt(deg,r){
+      const rad=deg*Math.PI/180;
+      return{x:CX+r*Math.cos(rad),y:CY+r*Math.sin(rad)};
+    }
+    function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+    function parseLapSec(str){
+      if(!str||str==='—')return 0;
+      const s=String(str).trim();
+      const m1=s.match(/^(\d+):(\d{2})\.(\d+)$/);
+      if(m1)return parseInt(m1[1])*60+parseFloat(m1[2]+'.'+m1[3]);
+      if(/^\d+\.\d+$/.test(s))return parseFloat(s);
+      if(/^\d+$/.test(s))return parseInt(s,10);
       return 0;
     }
 
-    // ── Parse gap string → gap fraction (0 = at leader, 1 = full lap behind) ─
-    // For lapped karts ("N Laps") we cannot know their intra-lap position,
-    // so we spread them evenly around the remaining arc behind the close-gap pack.
-    function computeGapFractions(drivers, lapT) {
-      const n = drivers.length;
-      if (!n || lapT <= 0) return drivers.map(() => 0);
-
-      const fracs = new Array(n).fill(null);
-      const lappedIdxs = [];
-
-      drivers.forEach((d, i) => {
-        if (i === 0) { fracs[i] = 0; return; }  // leader
-        const gap = String(d.gap || '').trim();
-        const isLapped = /Lap/i.test(gap);
-        if (isLapped) {
-          lappedIdxs.push(i);
-        } else {
-          // Time gap — exact fraction, capped at 0.22 (< quarter lap)
-          // so close runners don't accidentally merge with lapped karts visually
-          const numMatch = gap.match(/[+]?\s*(\d+(?:\.\d+)?)/);
-          const gapSec = numMatch ? parseFloat(numMatch[1]) : 0;
-          fracs[i] = Math.min(gapSec / lapT, 0.22);
-        }
+    function computeGapFractions(drivers,lapT){
+      if(!drivers.length||lapT<=0)return drivers.map(()=>0);
+      const fracs=new Array(drivers.length).fill(null);
+      const lapped=[];
+      drivers.forEach((d,i)=>{
+        if(i===0){fracs[i]=0;return;}
+        const g=String(d.gap||'').trim();
+        if(/Lap/i.test(g)){lapped.push(i);return;}
+        const nm=g.match(/[+]?\s*(\d+(?:\.\d+)?)/);
+        fracs[i]=nm?Math.min(parseFloat(nm[1])/lapT,0.22):0;
       });
-
-      // Distribute lapped karts evenly from 0.28 → 0.97
-      // (the far side of the circle from the racing leaders)
-      if (lappedIdxs.length > 0) {
-        const timeFracs = fracs.filter(f => f !== null);
-        const lastTimeFrac = timeFracs.length ? Math.max(...timeFracs) : 0;
-        const startFrac = Math.max(lastTimeFrac + 0.10, 0.28);
-        const endFrac   = 0.97;
-        const count = lappedIdxs.length;
-        lappedIdxs.forEach((idx, k) => {
-          fracs[idx] = count === 1
-            ? (startFrac + endFrac) / 2
-            : startFrac + (k / (count - 1)) * (endFrac - startFrac);
-        });
+      if(lapped.length){
+        const named=fracs.filter(f=>f!==null);
+        const last=named.length?Math.max(...named):0;
+        const s0=Math.max(last+0.10,0.28),s1=0.97,n=lapped.length;
+        lapped.forEach((idx,k)=>{fracs[idx]=n===1?(s0+s1)/2:s0+(k/(n-1))*(s1-s0);});
       }
-
       return fracs;
     }
 
-    // ── Convert kart data from state into karts[] ─────────────────────────────
-    function ingestState(state) {
-      const drivers = state.drivers || [];
-      if (!drivers.length) return;
-
-      // Use leader's lastLap as lap time reference (fall back to bestLap)
-      const leader = drivers.find(d => String(d.pos) === '1') || drivers[0];
-      const newLapTime = parseLapSec(leader && leader.lastLap) ||
-                         parseLapSec(leader && leader.bestLap) ||
-                         lapTimeSec;
-      if (newLapTime > 5) lapTimeSec = newLapTime;  // sanity: ignore <5s values
-
-      lerpStart = Date.now();
-
-      // Compute target fractions for this poll
-      const targetFracs = computeGapFractions(drivers, lapTimeSec);
-
-      // Build new kart list — preserve existing gapFrac for smooth lerp
-      const existing = new Map(karts.map(k => [k.kart, k]));
-
-      karts = drivers.map((d, i) => {
-        const isLeader = i === 0 || String(d.pos) === '1';
-        const newFrac  = targetFracs[i] || 0;
-        const prev     = existing.get(String(d.kart));
-
-        return {
-          kart:          String(d.kart  || '?'),
-          name:          String(d.name  || ''),
-          pos:           parseInt(d.pos) || (i + 1),
-          isLeader,
-          isOurs:        !!d.isOurs,
-          ourColor:      d.ourColor || null,
-          gapFrac:       prev ? prev.gapFrac : newFrac,   // lerp from current
-          gapFracTarget: newFrac
+    function ingestState(state){
+      const drivers=state.drivers||[];
+      if(!drivers.length)return;
+      const leader=drivers.find(d=>String(d.pos)==='1')||drivers[0];
+      const newT=parseLapSec(leader&&leader.lastLap)||parseLapSec(leader&&leader.bestLap)||lapTimeSec;
+      if(newT>5)lapTimeSec=newT;
+      lerpStart=Date.now();
+      const fracs=computeGapFractions(drivers,lapTimeSec);
+      const existing=new Map(karts.map(k=>[k.kart,k]));
+      karts=drivers.map((d,i)=>{
+        const nf=fracs[i]||0, prev=existing.get(String(d.kart));
+        const lapSec=parseLapSec(d.lastLap), bestSec=parseLapSec(d.bestLap);
+        return{
+          kart:String(d.kart||'?'), name:String(d.name||''),
+          pos:parseInt(d.pos)||(i+1), isLeader:i===0||String(d.pos)==='1',
+          isOurs:!!d.isOurs, ourColor:d.ourColor||null, ourName:d.ourName||null,
+          inPit:!!d.inPit, gap:String(d.gap||''), lastLap:String(d.lastLap||''),
+          bestLap:String(d.bestLap||''), lapSec, bestSec,
+          gapFrac:prev?prev.gapFrac:nf, gapFracTarget:nf
         };
       });
+      pollHistory.push({
+        drivers:drivers.map(d=>({kart:String(d.kart||''),pos:parseInt(d.pos)||0,lapSec:parseLapSec(d.lastLap)})),
+        ts:Date.now()
+      });
+      if(pollHistory.length>HISTORY_POLLS)pollHistory.shift();
+      // fastest lap check
+      drivers.forEach(d=>{
+        const sec=parseLapSec(d.bestLap);
+        if(sec>1&&sec<fastestLap.sec){
+          fastestLap={sec,kart:String(d.kart||''),name:String(d.name||''),time:String(d.bestLap||'')};
+          showFL();
+        }
+      });
     }
 
-    // ── Compute SVG x,y from angle ────────────────────────────────────────────
-    function angleToPt(deg, radius) {
-      const rad = (deg * Math.PI) / 180;
-      return {
-        x: CX + radius * Math.cos(rad),
-        y: CY + radius * Math.sin(rad)
-      };
+    function showFL(){
+      const card=document.getElementById('tmFlCard');
+      if(card){
+        card.style.display='';
+        document.getElementById('tmFlCardTime').textContent=fastestLap.time;
+        document.getElementById('tmFlCardName').textContent=fastestLap.name;
+        document.getElementById('tmFlCardKart').textContent='#'+fastestLap.kart;
+        card.classList.remove('fl-anim'); void card.offsetWidth; card.classList.add('fl-anim');
+      }
+      document.getElementById('tmFlSep').style.display='';
+      document.getElementById('tmFlHeader').style.display='';
+      document.getElementById('tmFlName').textContent=' '+fastestLap.name;
+      document.getElementById('tmFlTime').textContent=fastestLap.time;
     }
 
-    // ── SVG helpers ───────────────────────────────────────────────────────────
-    function svgEl(tag, attrs) {
-      const el = document.createElementNS(SVG_NS, tag);
-      for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
-      return el;
+    function updateProgressArc(state){
+      const el=document.getElementById('tmProgressArcFill');
+      if(!el)return;
+      const circ=2*Math.PI*178;
+      if(!state.totalLaps||!state.laps){el.setAttribute('stroke-dasharray',`0 ${circ}`);return;}
+      const frac=Math.min(state.laps/state.totalLaps,1);
+      el.setAttribute('stroke-dasharray',`${circ*frac} ${circ*(1-frac)}`);
+      el.setAttribute('transform','rotate(-90 300 245)');
+      el.setAttribute('stroke',frac<0.5?'#0d6efd':frac<0.85?'#f59e0b':'#dc2626');
+      el.setAttribute('opacity', frac>0?'0.15':'0');
     }
 
-    // ── Build (or rebuild) SVG kart groups ────────────────────────────────────
-    let svgGroups = new Map();  // kart number string → { g, shadow, leaderRing, dot, label }
+    function getBattleSet(){
+      const bs=new Set();
+      karts.forEach((k,i)=>{
+        if(i===0)return;
+        const g=String(k.gap||'');
+        const nm=g.match(/[+]?\s*(\d+(?:\.\d+)?)/);
+        if(nm&&!/Lap/i.test(g)&&parseFloat(nm[1])<=BATTLE_GAP)bs.add(k.kart);
+      });
+      return bs;
+    }
 
-    function syncSvgGroups() {
-      const container = document.getElementById('tmKarts');
-      const seen = new Set();
+    function updateBattlesUI(){
+      const container=document.getElementById('tmBattles');
+      const battleList=document.getElementById('tmBattleList');
+      const battleCard=document.getElementById('tmBattleCard');
+      const battles=[];
+      karts.forEach((k,i)=>{
+        if(i===0)return;
+        const prev=karts[i-1];
+        const g=String(k.gap||'');
+        const nm=g.match(/[+]?\s*(\d+(?:\.\d+)?)/);
+        if(nm&&!/Lap/i.test(g)){
+          const gapSec=parseFloat(nm[1]);
+          if(gapSec>0&&gapSec<=BATTLE_GAP)battles.push({k1:prev,k2:k,gap:gapSec});
+        }
+      });
+      const seen=new Set();
+      battles.forEach(b=>{
+        const key=`${b.k1.kart}-${b.k2.kart}`; seen.add(key);
+        if(!battleLines.has(key)){
+          const line=svgEl('line',{class:'tm-battle',stroke:'#ef4444'});
+          container.appendChild(line); battleLines.set(key,line);
+        }
+      });
+      for(const[key,el]of battleLines){if(!seen.has(key)){el.remove();battleLines.delete(key);}}
+      if(battles.length){
+        battleCard.style.display='';
+        battleList.innerHTML=battles.map(b=>
+          `<div style="display:flex;align-items:center;gap:6px">
+            <span style="font-weight:700;color:#6c757d">P${b.k1.pos}</span>
+            <span style="font-weight:600">${esc(b.k1.name.split(' ').pop())}</span>
+            <span style="color:#dc2626;font-weight:700;font-variant-numeric:tabular-nums;min-width:40px">${b.gap.toFixed(3)}s</span>
+            <span style="font-weight:600">${esc(b.k2.name.split(' ').pop())}</span>
+            <span style="font-weight:700;color:#6c757d">P${b.k2.pos}</span>
+          </div>`
+        ).join('');
+      } else { battleCard.style.display='none'; }
+    }
 
-      karts.forEach(k => {
+    function syncSvgGroups(){
+      const container=document.getElementById('tmKarts');
+      const seen=new Set();
+      karts.forEach(k=>{
         seen.add(k.kart);
-        if (!svgGroups.has(k.kart)) {
-          // Create group
-          const g = svgEl('g', { class: 'tm-kart-group' });
-
-          const shadow = svgEl('circle', { r: DOT_R + 1, class: 'tm-kart-shadow', 'fill-opacity': '0.4' });
-
-          const leaderRing = svgEl('circle', { r: LEADER_RING_R, class: 'tm-kart-leader-ring' });
-
-          const color = k.ourColor || '#4a6fa5';
-          const dot = svgEl('circle', {
-            r:    DOT_R,
-            fill: k.isOurs ? color : '#6c757d',
-            class: 'tm-kart-dot',
-            stroke: '#fff',
-            'fill-opacity': k.isOurs ? '1' : '0.8'
-          });
-
-          const label = svgEl('text', {
-            'text-anchor': 'middle',
-            'dominant-baseline': 'middle',
-            class: 'tm-kart-label',
-            fill: k.isOurs ? (k.ourColor || '#e6a800') : '#333'
-          });
-          label.textContent = '#' + k.kart;
-
-          g.appendChild(shadow);
-          g.appendChild(leaderRing);
-          g.appendChild(dot);
-          g.appendChild(label);
+        if(!svgGroups.has(k.kart)){
+          const g=svgEl('g',{class:'tm-kart-group'});
+          const shadow=svgEl('circle',{r:DOT_R+2,fill:'rgba(0,0,0,0.12)'});
+          const leaderRing=svgEl('circle',{r:LEADER_RING,class:'tm-kart-leader-ring'});
+          const flRing=svgEl('circle',{r:LEADER_RING+5,class:'tm-kart-fl'});
+          const dot=svgEl('circle',{r:DOT_R,class:'tm-kart-dot'});
+          const label=svgEl('text',{'text-anchor':'middle','dominant-baseline':'middle',class:'tm-kart-label'});
+          label.textContent='#'+k.kart;
+          const pitLbl=svgEl('text',{class:'tm-pit-badge','text-anchor':'middle','dominant-baseline':'middle',style:'display:none'});
+          pitLbl.textContent='PIT';
+          g.appendChild(shadow);g.appendChild(leaderRing);g.appendChild(flRing);
+          g.appendChild(dot);g.appendChild(label);g.appendChild(pitLbl);
           container.appendChild(g);
-
-          svgGroups.set(k.kart, { g, shadow, leaderRing, dot, label });
+          svgGroups.set(k.kart,{g,shadow,leaderRing,flRing,dot,label,pitLbl});
         }
+        const els=svgGroups.get(k.kart);
+        const isFL=fastestLap.kart===k.kart;
+        const color=k.ourColor||(k.isLeader?'#e6a800':'#6c757d');
+        els.dot.setAttribute('fill',k.isOurs?(k.ourColor||'#4a6fa5'):(k.isLeader?'#e6a800':'#6c757d'));
+        els.dot.setAttribute('fill-opacity',k.inPit?'0.4':(k.isOurs?'1':'0.85'));
+        els.label.setAttribute('fill',isFL?'#9333ea':(k.isOurs?(k.ourColor||'#e6a800'):(k.isLeader?'#e6a800':'#444')));
+        els.leaderRing.style.display=k.isLeader?'':'none';
+        els.flRing.style.display=isFL?'':'none';
+        els.pitLbl.style.display=k.inPit?'':'none';
+      });
+      for(const[kn,els]of svgGroups){if(!seen.has(kn)){els.g.remove();svgGroups.delete(kn);}}
+    }
 
-        // Style updates (in case isOurs/color/leader changed via driver match)
-        const els = svgGroups.get(k.kart);
-        const color = k.ourColor || '#4a6fa5';
-        els.dot.setAttribute('fill', k.isOurs ? color : '#6c757d');
-        els.dot.setAttribute('stroke', '#fff');
-        els.dot.setAttribute('fill-opacity', k.isOurs ? '1' : '0.8');
-        els.label.setAttribute('fill', k.isOurs ? (k.ourColor || '#e6a800') : '#333');
-        els.leaderRing.style.display = k.isLeader ? '' : 'none';
+    function ensureTrails(){
+      const container=document.getElementById('tmTrails');
+      const seen=new Set();
+      karts.forEach(k=>{
+        seen.add(k.kart);
+        if(!trailBufs.has(k.kart))trailBufs.set(k.kart,[]);
+        if(!trailEls.has(k.kart)){
+          const segs=[];
+          const color=k.isOurs?(k.ourColor||'#e6a800'):'#94a3b8';
+          for(let i=0;i<TRAIL_STEPS;i++){
+            const pl=svgEl('line',{class:'tm-trail',stroke:color,
+              'stroke-width':(0.6+i*0.18).toFixed(2),
+              'stroke-opacity':(0.04+i*(0.3/TRAIL_STEPS)).toFixed(3)});
+            container.insertBefore(pl,container.firstChild);
+            segs.push(pl);
+          }
+          trailEls.set(k.kart,segs);
+        }
+      });
+      for(const[kn]of trailBufs){
+        if(!seen.has(kn)){trailBufs.delete(kn);trailEls.get(kn)?.forEach(l=>l.remove());trailEls.delete(kn);}
+      }
+    }
+
+    function rafLoop(ts){
+      rafId=requestAnimationFrame(rafLoop);
+      if(prevRafTs!==null&&lapTimeSec>0){
+        const dt=(ts-prevRafTs)/1000;
+        leaderAngle+=(360/lapTimeSec)*dt;
+      }
+      prevRafTs=ts;
+      if(!karts.length||lapTimeSec<=0)return;
+      const lerpT=Math.min((Date.now()-lerpStart)/LERP_MS,1);
+      const doTrail=(ts-lastTrailTs)>TRAIL_STEP_MS;
+      if(doTrail)lastTrailTs=ts;
+
+      karts.forEach(k=>{
+        k.gapFrac+=(k.gapFracTarget-k.gapFrac)*lerpT;
+        const angle=leaderAngle-k.gapFrac*360;
+        const nudge=k.isLeader?0:(k.pos%2===0?10:-10);
+        const rEff=k.inPit?R*0.38:R+nudge;
+        const pt=angleToPt(angle,rEff);
+        const lpt=angleToPt(angle,(k.inPit?R*0.38:LABEL_R)+nudge);
+        const els=svgGroups.get(k.kart);
+        if(els){
+          els.shadow.setAttribute('cx',pt.x);els.shadow.setAttribute('cy',String(pt.y+2));
+          els.leaderRing.setAttribute('cx',pt.x);els.leaderRing.setAttribute('cy',pt.y);
+          els.flRing.setAttribute('cx',pt.x);els.flRing.setAttribute('cy',pt.y);
+          els.dot.setAttribute('cx',pt.x);els.dot.setAttribute('cy',pt.y);
+          els.label.setAttribute('x',lpt.x);els.label.setAttribute('y',lpt.y);
+          if(k.inPit){els.pitLbl.setAttribute('x',pt.x);els.pitLbl.setAttribute('y',String(pt.y-DOT_R-9));}
+        }
+        if(doTrail){
+          const buf=trailBufs.get(k.kart);
+          if(buf){buf.push({x:pt.x,y:pt.y});if(buf.length>TRAIL_STEPS+1)buf.shift();}
+        }
+        const buf=trailBufs.get(k.kart)||[];
+        const segs=trailEls.get(k.kart)||[];
+        for(let i=0;i<segs.length;i++){
+          const a=buf[buf.length-2-i],b=buf[buf.length-1-i];
+          if(a&&b){segs[i].setAttribute('x1',a.x);segs[i].setAttribute('y1',a.y);
+                   segs[i].setAttribute('x2',b.x);segs[i].setAttribute('y2',b.y);}
+        }
       });
 
-      // Remove stale groups
-      for (const [kartNum, els] of svgGroups) {
-        if (!seen.has(kartNum)) {
-          els.g.remove();
-          svgGroups.delete(kartNum);
-        }
+      // battle connector endpoints
+      for(const[key,line]of battleLines){
+        const[k1n,k2n]=key.split('-');
+        const g1=svgGroups.get(k1n),g2=svgGroups.get(k2n);
+        if(!g1||!g2)continue;
+        line.setAttribute('x1',g1.dot.getAttribute('cx'));line.setAttribute('y1',g1.dot.getAttribute('cy'));
+        line.setAttribute('x2',g2.dot.getAttribute('cx'));line.setAttribute('y2',g2.dot.getAttribute('cy'));
       }
     }
 
-    // ── requestAnimationFrame loop ────────────────────────────────────────────
-    // Uses rAF delta-time so leaderAngle advances independently of poll timing.
-    // pollTimestamp is NEVER used here — no more restart on poll arrival.
-    function rafLoop(ts) {
-      rafId = requestAnimationFrame(rafLoop);
-
-      // Advance leader angle by the angular distance covered since last frame
-      if (prevRafTs !== null && lapTimeSec > 0) {
-        const dtSec = (ts - prevRafTs) / 1000;
-        leaderAngle += (360 / lapTimeSec) * dtSec;  // e.g. 360/31.4 ≈ 11.5°/s
+    function updateHeader(state){
+      document.getElementById('tmSession').textContent=state.sessionName||'Live Timing';
+      document.getElementById('tmClass').textContent=state.classOnTrack||'';
+      const dot=document.getElementById('tmConnDot'),lbl=document.getElementById('tmConnLabel');
+      if(state.connected){dot.className='tm-conn-dot live';lbl.textContent='Live';}
+      else{dot.className='tm-conn-dot';lbl.textContent='Reconnecting…';}
+      if(state.totalLaps>0){
+        document.getElementById('tmLapSep').style.display='';
+        document.getElementById('tmLaps').style.display='';
+        document.getElementById('tmLapCur').textContent=state.laps||'—';
+        document.getElementById('tmLapTotal').textContent=state.totalLaps;
+      }else{
+        document.getElementById('tmLapSep').style.display='none';
+        document.getElementById('tmLaps').style.display='none';
       }
-      prevRafTs = ts;
-
-      if (!karts.length || lapTimeSec <= 0) return;
-
-      const now   = Date.now();
-      const lerpT = Math.min((now - lerpStart) / LERP_MS, 1);  // 0→1
-
-      karts.forEach(k => {
-        // Ease gap fraction toward latest poll target
-        k.gapFrac += (k.gapFracTarget - k.gapFrac) * lerpT;
-
-        // Kart angle = leader angle minus its gap fraction (trails clockwise)
-        const angle = leaderAngle - k.gapFrac * 360;
-
-        const els = svgGroups.get(k.kart);
-        if (!els) return;
-
-        // Alternate inner/outer nudge so closely-spaced karts don't fully overlap
-        const radialNudge = k.isLeader ? 0 : ((k.pos % 2 === 0) ? 10 : -10);
-        const ptFinal  = angleToPt(angle, R + radialNudge);
-        const lptFinal = angleToPt(angle, LABEL_R + radialNudge);
-
-        els.shadow.setAttribute('cx', ptFinal.x);
-        els.shadow.setAttribute('cy', String(ptFinal.y + 2));
-        els.leaderRing.setAttribute('cx', ptFinal.x);
-        els.leaderRing.setAttribute('cy', ptFinal.y);
-        els.dot.setAttribute('cx', ptFinal.x);
-        els.dot.setAttribute('cy', ptFinal.y);
-        els.label.setAttribute('x', lptFinal.x);
-        els.label.setAttribute('y', lptFinal.y);
-      });
+      const badge=document.getElementById('tmFlagBadge');
+      const sm={racing:{cls:'racing',icon:'▶',lbl:'RACING'},qualifying:{cls:'qualifying',icon:'⏱',lbl:'QUALIFYING'},
+        practice:{cls:'qualifying',icon:'⏱',lbl:'PRACTICE'},paused:{cls:'paused',icon:'⏸',lbl:'PAUSED'},
+        finished:{cls:'finished',icon:'🏁',lbl:'FINISHED'},waiting:{cls:'waiting',icon:'◌',lbl:'WAITING'}};
+      const s=sm[state.status]||sm.waiting;
+      badge.className=`tm-flag ${s.cls}`;badge.textContent=`${s.icon} ${s.lbl}`;
     }
 
-    // ── Update the status header UI ───────────────────────────────────────────
-    function updateHeader(state) {
-      document.getElementById('tmSession').textContent = state.sessionName || 'Live Timing';
-      document.getElementById('tmClass').textContent   = state.classOnTrack || '';
-
-      // Connected indicator
-      const dot   = document.getElementById('tmConnDot');
-      const label = document.getElementById('tmConnLabel');
-      if (state.connected) {
-        dot.className   = 'tm-conn-dot live';
-        label.textContent = 'Live';
-      } else {
-        dot.className   = 'tm-conn-dot';
-        label.textContent = 'Reconnecting…';
-      }
-
-      // Lap counter
-      if (state.totalLaps > 0) {
-        document.getElementById('tmLapSep').style.display = '';
-        document.getElementById('tmLaps').style.display   = '';
-        document.getElementById('tmLapCur').textContent   = state.laps    || '—';
-        document.getElementById('tmLapTotal').textContent = state.totalLaps;
-      } else {
-        document.getElementById('tmLapSep').style.display = 'none';
-        document.getElementById('tmLaps').style.display   = 'none';
-      }
-
-      // Flag badge
-      const badge = document.getElementById('tmFlagBadge');
-      const statusMap = {
-        racing:     { cls: 'racing',     icon: '▶', label: 'RACING' },
-        qualifying: { cls: 'qualifying', icon: '⏱', label: 'QUALIFYING' },
-        practice:   { cls: 'qualifying', icon: '⏱', label: 'PRACTICE' },
-        paused:     { cls: 'paused',     icon: '⏸', label: 'PAUSED' },
-        finished:   { cls: 'finished',   icon: '🏁', label: 'FINISHED' },
-        waiting:    { cls: 'waiting',    icon: '◌', label: 'WAITING' }
-      };
-      const s = statusMap[state.status] || statusMap.waiting;
-      badge.className   = `tm-flag ${s.cls}`;
-      badge.textContent = `${s.icon} ${s.label}`;
+    function buildSparkline(laps,color){
+      if(laps.length<2)return'';
+      const W=252,H=32,pad=3;
+      const mn=Math.min(...laps)-0.3,mx=Math.max(...laps)+0.3;
+      const pts=laps.map((v,i)=>{
+        const x=pad+(i/(laps.length-1))*(W-2*pad);
+        const y=H-pad-((v-mn)/(mx-mn||1))*(H-2*pad);
+        return`${x.toFixed(1)},${y.toFixed(1)}`;
+      }).join(' ');
+      const lx=pad+(W-2*pad),last=laps[laps.length-1];
+      const ly=H-pad-((last-mn)/(mx-mn||1))*(H-2*pad);
+      const dc=last<laps[laps.length-2]?'#16a34a':'#dc2626';
+      return`<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="display:block">
+        <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" opacity=".8"/>
+        <circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="3" fill="${dc}"/>
+      </svg>`;
     }
 
-    // ── Update leaderboard strip ──────────────────────────────────────────────
-    function updateBoard(state) {
-      const board = document.getElementById('tmBoard');
-      const drivers = state.drivers || [];
-      if (!drivers.length) { board.innerHTML = ''; return; }
-
-      board.innerHTML = drivers.map(d => {
-        const color     = d.isOurs && d.ourColor ? d.ourColor : (d.isOurs ? '#ffd700' : '#495057');
-        const gapStr    = d.pos === 1 || !d.gap ? 'Leader' : d.gap;
-        const nameStr   = d.isOurs ? (d.ourName || d.name) : d.name;
-        return `<div class="tm-board-row${d.isOurs ? ' is-ours' : ''}">
-          <span class="tm-board-pos">P${d.pos}</span>
-          <span class="tm-board-dot" style="background:${color}"></span>
-          <span class="tm-board-name">${escHtml(nameStr)}</span>
-          <span class="tm-board-kart"><b>#${escHtml(d.kart)}</b></span>
-          <span class="tm-board-gap">${escHtml(gapStr)}</span>
+    function updateFocusPanel(){
+      const ourKarts=karts.filter(k=>k.isOurs);
+      const container=document.getElementById('tmFocusCards');
+      if(!ourKarts.length){container.innerHTML='';return;}
+      container.innerHTML=ourKarts.map(k=>{
+        const color=k.ourColor||'#e6a800';
+        const isFL=fastestLap.kart===k.kart;
+        const isFast=k.lapSec>0&&k.bestSec>0&&k.lapSec<=k.bestSec+0.001;
+        const deltaClass=isFL?'purple':isFast?'green':(k.lapSec-k.bestSec>0.5?'red':'');
+        const lapHistory=pollHistory.map(ph=>ph.drivers.find(d=>d.kart===k.kart)?.lapSec||0).filter(Boolean);
+        const sparkSvg=buildSparkline(lapHistory,color);
+        const ahead=karts.find(x=>x.pos===k.pos-1);
+        const gapAhead=ahead?(k.pos===1?'—':(k.gap||'—')):'—';
+        return`<div class="tm-focus-card" style="border-left:4px solid ${color}">
+          <div class="tm-focus-hd">${isFL?'⬟ ':''}${esc(k.ourName||k.name)}</div>
+          <div style="display:flex;align-items:flex-end;gap:10px">
+            <div class="tm-focus-pos" style="color:${k.pos===1?'#e6a800':color}">${k.pos===1?'P1':'P'+k.pos}</div>
+            <div><div class="tm-focus-name">${esc(k.name)}</div><div class="tm-focus-kart">#${esc(k.kart)}</div></div>
+          </div>
+          <div class="tm-focus-row">
+            <div><div class="tm-focus-lbl">Last Lap</div><div class="tm-focus-val ${deltaClass}">${esc(k.lastLap||'—')}</div></div>
+            <div><div class="tm-focus-lbl">Best Lap</div><div class="tm-focus-val${isFL?' purple':''}">
+              ${isFL?'⬟ ':''}${esc(k.bestLap||'—')}</div></div>
+          </div>
+          <div class="tm-focus-row">
+            <div><div class="tm-focus-lbl">Gap to Leader</div><div class="tm-focus-val">${esc(k.isLeader?'Leader':k.gap||'—')}</div></div>
+            <div><div class="tm-focus-lbl">Gap to Ahead</div><div class="tm-focus-val">${esc(gapAhead)}</div></div>
+          </div>
+          ${sparkSvg?`<div class="tm-spark-lbl">Last ${lapHistory.length} laps</div>${sparkSvg}`:''}
         </div>`;
       }).join('');
     }
 
-    // ── Overlay control ───────────────────────────────────────────────────────
-    function updateOverlay(state) {
-      const overlay = document.getElementById('tmOverlay');
-      const text    = document.getElementById('tmOverlayText');
-      // Show map for race regardless of lapTimeSec — data may arrive momentarily
-      const isRaceWithData = (state.status === 'racing' || state.status === 'finished') && karts.length > 0;
-      const isNonRace = state.status === 'qualifying' || state.status === 'practice';
-
-      if (isRaceWithData) {
-        overlay.classList.add('hidden');
-      } else if (isNonRace && (state.drivers || []).length > 0) {
-        overlay.classList.remove('hidden');
-        text.textContent = 'Track map shows live gaps — available in race sessions only.';
-      } else if (!state.connected && state.status === 'waiting') {
-        overlay.classList.remove('hidden');
-        text.textContent = 'Connecting to live timing…';
-      } else {
-        overlay.classList.remove('hidden');
-        text.textContent = 'Waiting for race session…';
-      }
+    function updateBoard(state){
+      const board=document.getElementById('tmBoard');
+      if(!karts.length){board.innerHTML='';return;}
+      const bs=getBattleSet();
+      board.innerHTML=karts.map(k=>{
+        const isFL=fastestLap.kart===k.kart;
+        const inBattle=bs.has(k.kart);
+        const color=k.isOurs&&k.ourColor?k.ourColor:(k.isOurs?'#e6a800':'#94a3b8');
+        let chg='',chgCls='same';
+        if(pollHistory.length>=4){
+          const old=pollHistory[pollHistory.length-4].drivers.find(d=>d.kart===k.kart);
+          if(old){const diff=old.pos-k.pos;if(diff>0){chg=`▲${diff}`;chgCls='up';}else if(diff<0){chg=`▼${Math.abs(diff)}`;chgCls='down';}else{chg='·';}}
+        }
+        let barHtml='';
+        if(k.lapSec>0&&k.bestSec>0){
+          const delta=k.lapSec-k.bestSec;
+          const pct=Math.min(Math.abs(delta)/2*100,100);
+          const bc=isFL?'#9333ea':(delta<=0.001?'#16a34a':(delta<0.5?'#f59e0b':'#dc2626'));
+          barHtml=`<span class="tm-delta-wrap"><span class="tm-delta-bar" style="width:${pct.toFixed(0)}%;background:${bc}"></span></span>`;
+        }
+        const rc=[isFL?'fl':'',inBattle?'in-battle':'',k.isOurs?'is-ours':''].filter(Boolean).join(' ');
+        return`<div class="tm-board-row ${rc}">
+          <span class="tm-board-pos">P${k.pos}</span>
+          <span class="tm-board-chg ${chgCls}">${chg}</span>
+          <span class="tm-board-dot" style="background:${color}"></span>
+          ${isFL?'<span style="color:#9333ea;font-size:.7rem">⬟</span>':''}
+          <span class="tm-board-name">${esc(k.ourName||k.name)}</span>
+          <span class="tm-board-kart"><b>#${esc(k.kart)}</b></span>
+          <span class="tm-board-gap">${esc(k.isLeader?'Leader':k.gap||'—')}</span>
+          <span class="tm-board-gap" style="color:#adb5bd">${esc(k.lastLap||'—')}</span>
+          ${barHtml}
+        </div>`;
+      }).join('');
     }
 
-    // ── Utility ───────────────────────────────────────────────────────────────
-    function escHtml(s) {
-      return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    function updateOverlay(state){
+      const ov=document.getElementById('tmOverlay'),tx=document.getElementById('tmOverlayText');
+      const ok=(state.status==='racing'||state.status==='finished')&&karts.length>0;
+      if(ok){ov.classList.add('hidden');return;}
+      ov.classList.remove('hidden');
+      if(state.status==='qualifying'||state.status==='practice')tx.textContent='Track map available in race sessions.';
+      else if(!state.connected)tx.textContent='Connecting to live timing…';
+      else tx.textContent='Waiting for race session…';
     }
 
-    // ── Main update callback ──────────────────────────────────────────────────
-    function onTimingUpdate(state) {
+    function onTimingUpdate(state){
       updateHeader(state);
       updateOverlay(state);
-
-      if ((state.drivers || []).length > 0) {
+      updateProgressArc(state);
+      if((state.drivers||[]).length>0){
         ingestState(state);
         syncSvgGroups();
+        ensureTrails();
+        updateBattlesUI();
+        updateFocusPanel();
         updateBoard(state);
       }
     }
 
-    // ── Boot ──────────────────────────────────────────────────────────────────
-    function init() {
-      const settings = RTS.getSettings ? RTS.getSettings() : {};
-      const ltCfg    = (settings && settings.liveTiming) || {};
-
-      // Check if live timing is configured
-      if (!ltCfg.url && !ltCfg.enabled) {
-        document.getElementById('tmNoTiming').style.display = 'flex';
-        document.getElementById('tmMapWrap').style.display  = 'none';
+    function init(){
+      const settings=RTS.getSettings?RTS.getSettings():{};
+      const ltCfg=(settings&&settings.liveTiming)||{};
+      if(!ltCfg.url&&!ltCfg.enabled){
+        document.getElementById('tmNoTiming').style.display='flex';
+        document.getElementById('tmLeft').style.display='none';
+        document.getElementById('tmRight').style.display='none';
         return;
       }
-
-      // Start the rAF loop immediately (karts will be empty until data arrives)
-      rafId = requestAnimationFrame(rafLoop);
-
-      // Load live-timing.js (same way topnav.js does — dynamic injection)
-      const ltVersion = '20260424-5';
-      const script    = document.createElement('script');
-      script.src      = `live-timing.js?v=${ltVersion}`;
-      script.onload   = () => {
-        if (window.RTSLiveTiming) {
-          RTSLiveTiming.onUpdate(onTimingUpdate);
-          RTSLiveTiming.start(ltCfg);
-        }
+      rafId=requestAnimationFrame(rafLoop);
+      const script=document.createElement('script');
+      script.src='live-timing.js?v=20260424-5';
+      script.onload=()=>{
+        if(window.RTSLiveTiming){RTSLiveTiming.onUpdate(onTimingUpdate);RTSLiveTiming.start(ltCfg);}
       };
       document.head.appendChild(script);
     }
-
     init();
-
-    // Cleanup on unload
-    window.addEventListener('beforeunload', () => {
-      if (rafId) cancelAnimationFrame(rafId);
-      if (window.RTSLiveTiming) RTSLiveTiming.stop();
+    window.addEventListener('beforeunload',()=>{
+      if(rafId)cancelAnimationFrame(rafId);
+      if(window.RTSLiveTiming)RTSLiveTiming.stop();
     });
   })();
   </script>
