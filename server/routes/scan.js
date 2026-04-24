@@ -210,4 +210,86 @@ router.post('/confirm', async (req, res, next) => {
   }
 });
 
+// POST /api/scan/sessions
+// Body: { id, mode, truck_id, truck_name, started_at, finished_at, scans[] }
+router.post('/sessions', async (req, res, next) => {
+  try {
+    const { id, mode, truck_id, truck_name, started_at, finished_at, scans } = req.body;
+
+    if (!id || !mode || !finished_at || !Array.isArray(scans)) {
+      return res.status(400).json({ success: false, error: 'id, mode, finished_at and scans are required' });
+    }
+    if (!['load', 'unload'].includes(mode)) {
+      return res.status(400).json({ success: false, error: 'mode must be "load" or "unload"' });
+    }
+
+    const ok   = scans.filter(s => s.status === 'loaded' || s.status === 'unloaded').length;
+    const dupe = scans.filter(s => s.status === 'already_loaded').length;
+    const err  = scans.filter(s => s.status === 'not_found').length;
+
+    await pool.query(
+      `INSERT INTO scan_sessions
+         (id, mode, truck_id, truck_name, started_at, finished_at,
+          total_scanned, ok_count, duplicate_count, not_found_count, scans)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+       ON CONFLICT (id) DO NOTHING`,
+      [
+        id, mode,
+        truck_id || null,
+        truck_name || null,
+        started_at || finished_at,
+        finished_at,
+        scans.length, ok, dupe, err,
+        JSON.stringify(scans)
+      ]
+    );
+
+    res.json({ success: true, id });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/scan/sessions
+// Query params: truck_id (optional), limit (default 50, max 200)
+router.get('/sessions', async (req, res, next) => {
+  try {
+    const limit = Math.min(Number(req.query.limit) || 50, 200);
+    const params = [];
+    let where = '';
+    if (req.query.truck_id) {
+      params.push(req.query.truck_id);
+      where = ' WHERE truck_id = $1';
+    }
+    params.push(limit);
+    const result = await pool.query(
+      `SELECT id, mode, truck_id, truck_name, started_at, finished_at,
+              total_scanned, ok_count, duplicate_count, not_found_count
+       FROM scan_sessions${where}
+       ORDER BY finished_at DESC
+       LIMIT $${params.length}`,
+      params
+    );
+    res.json({ success: true, sessions: result.rows });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/scan/sessions/:id
+router.get('/sessions/:id', async (req, res, next) => {
+  try {
+    const result = await pool.query(
+      `SELECT * FROM scan_sessions WHERE id = $1`,
+      [req.params.id]
+    );
+    if (!result.rows.length) {
+      return res.status(404).json({ success: false, error: 'Session not found' });
+    }
+    res.json({ success: true, session: result.rows[0] });
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;

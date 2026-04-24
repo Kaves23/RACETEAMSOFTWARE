@@ -75,6 +75,7 @@ async function runMigrations() {
     '066_load_plan_assets.sql',
     '067_fix_variant_box_contents_constraint.sql',
     '068_fleet_management.sql',
+    '069_scan_sessions.sql',
     'phase1_new_modules.sql'
   ];
   

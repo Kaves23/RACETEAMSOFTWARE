@@ -1072,6 +1072,18 @@
         }
 
         // Ticker strip
+        // After a race finishes, show final results for 5 minutes then auto-hide
+        if (state.status === 'finished') {
+          if (!renderLtTicker._finishedAt) renderLtTicker._finishedAt = Date.now();
+          if (Date.now() - renderLtTicker._finishedAt > 5 * 60 * 1000) {
+            rowEl.style.display = 'none';
+            document.documentElement.style.setProperty('--rts-topbar-h', '84px');
+            return;
+          }
+        } else {
+          renderLtTicker._finishedAt = null;
+        }
+
         if (!ltCfg || ltCfg.showTicker === false || (!hasData && state.status === 'waiting' && !state.connected)) {
           rowEl.style.display = 'none';
           document.documentElement.style.setProperty('--rts-topbar-h', '84px');
@@ -1083,9 +1095,14 @@
 
         if (statusEl) {
           let sText = info.label;
-          if (state.classOnTrack) sText += ' · ' + state.classOnTrack;
-          if (state.laps && state.totalLaps) sText += ` · Lap ${state.laps}/${state.totalLaps}`;
-          else if (state.timeRemaining) sText += ` · ${state.timeRemaining}`;
+          if (state.status === 'finished') {
+            sText = '🏁 Final Results';
+            if (state.classOnTrack) sText += ' · ' + state.classOnTrack;
+          } else {
+            if (state.classOnTrack) sText += ' · ' + state.classOnTrack;
+            if (state.laps && state.totalLaps) sText += ` · Lap ${state.laps}/${state.totalLaps}`;
+            else if (state.timeRemaining) sText += ` · ${state.timeRemaining}`;
+          }
           statusEl.textContent = sText;
         }
 

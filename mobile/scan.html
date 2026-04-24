@@ -408,6 +408,31 @@
       font-size: 15px; font-weight: 700;
       cursor: pointer;
     }
+
+    /* ── Session history ─────────────────────────────────────────── */
+    .history-session-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      background: var(--surface);
+      cursor: pointer;
+      transition: background 0.12s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .history-session-item:active { background: var(--surface-2); }
+    .history-session-icon {
+      width: 36px; height: 36px;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      font-size: 11px; font-weight: 800;
+      letter-spacing: 0.04em;
+    }
+    .history-session-icon.load-icon   { background: rgba(0,120,255,0.12); color: var(--accent); }
+    .history-session-icon.unload-icon { background: rgba(245,158,11,0.12); color: #f59e0b; }
   </style>
 </head>
 <body>
@@ -447,6 +472,14 @@
     </div>
 
     <button class="start-btn" id="startBtn">Start Session</button>
+
+    <!-- Recent Sessions -->
+    <div style="margin-top:28px;">
+      <div class="setup-label" style="margin-bottom:8px;">Recent Sessions</div>
+      <div id="recentSessions" style="display:flex;flex-direction:column;gap:8px;">
+        <div style="color:var(--text-3);font-size:13px;padding:4px 0;">Loading…</div>
+      </div>
+    </div>
 
   </main>
 
@@ -591,10 +624,12 @@ if ('serviceWorker' in navigator) {
 // ── Session state ─────────────────────────────────────────────────────────
 var session = {
   mode: 'load',
-  truck: null,      // { id, name, registration }
-  planBoxes: [],    // boxes from manifest
-  scans: [],        // { barcode, name, type, status, zone, time }
-  startTime: null
+  truck: null,       // { id, name, registration }
+  planBoxes: [],     // boxes from manifest
+  scans: [],         // { barcode, name, type, status, zone, time }
+  startTime: null,
+  finishedAt: null,  // Date when receipt was generated
+  savedId: null      // DB id of saved session (null = unsaved / new)
 };
 
 var trucks = [];
@@ -612,7 +647,9 @@ function esc(s) {
 }
 
 function fmtTime(d) {
-  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  var dt = (d instanceof Date) ? d : new Date(d);
+  if (isNaN(dt.getTime())) return '—';
+  return dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
 function buzz(ok) {
@@ -638,6 +675,7 @@ function showSetup() {
   document.getElementById('phaseReceipt').style.display = 'none';
   document.getElementById('pageTitle').textContent = 'Scan';
   stopCamera();
+  loadRecentSessions();
 }
 
 function showScan() {
@@ -661,11 +699,13 @@ function showScan() {
 
 function showReceipt() {
   stopCamera();
+  session.finishedAt = session.finishedAt || new Date();
   document.getElementById('phaseSetup').style.display   = 'none';
   document.getElementById('phaseScan').style.display    = 'none';
   document.getElementById('phaseReceipt').style.display = '';
   document.getElementById('pageTitle').textContent = 'Receipt';
   renderReceipt();
+  saveScanSession();
 }
 
 // ── Phase 1: Setup ────────────────────────────────────────────────────────
@@ -712,8 +752,20 @@ document.addEventListener('DOMContentLoaded', function() {
     session.scans = [];
     session.planBoxes = [];
     session.startTime = null;
+    session.finishedAt = null;
+    session.savedId = null;
     showSetup();
   });
+
+  // Recent sessions — delegated click handler (set once, innerHTML can change safely)
+  document.getElementById('recentSessions').addEventListener('click', function(e) {
+    var item = e.target.closest('[data-sid]');
+    if (!item) return;
+    viewSavedSession(item.getAttribute('data-sid'));
+  });
+
+  // Load session history on page open
+  loadRecentSessions();
 });
 
 function setMode(mode) {
@@ -929,11 +981,108 @@ function addScanEntry(entry) {
   updateProgress();
 }
 
+// ── Session persistence ───────────────────────────────────────────────────
+
+function saveScanSession() {
+  if (session.savedId) return; // already saved (e.g. replaying a past session)
+  var id = 'ss_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+  session.savedId = id;
+  var payload = {
+    id: id,
+    mode: session.mode,
+    truck_id:    session.truck ? session.truck.id   : null,
+    truck_name:  session.truck ? (session.truck.name || session.truck.registration || null) : null,
+    started_at:  session.startTime  ? session.startTime.toISOString()  : new Date().toISOString(),
+    finished_at: session.finishedAt ? session.finishedAt.toISOString() : new Date().toISOString(),
+    scans: session.scans.map(function(s) {
+      return {
+        barcode: s.barcode,
+        name:    s.name,
+        type:    s.type  || 'box',
+        status:  s.status,
+        zone:    s.zone  || null,
+        time:    (s.time instanceof Date) ? s.time.toISOString() : s.time
+      };
+    })
+  };
+  mobileFetch('/api/scan/sessions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }).catch(function(e) {
+    console.warn('Could not save scan session:', e);
+  });
+}
+
+function loadRecentSessions() {
+  var el = document.getElementById('recentSessions');
+  el.innerHTML = '<div style="color:var(--text-3);font-size:13px;padding:4px 0;">Loading\u2026</div>';
+  mobileFetch('/api/scan/sessions?limit=20').then(function(data) {
+    renderRecentSessions(data.sessions || []);
+  }).catch(function() {
+    el.innerHTML = '<div style="color:var(--text-3);font-size:13px;padding:4px 0;">Could not load history</div>';
+  });
+}
+
+function renderRecentSessions(sessions) {
+  var el = document.getElementById('recentSessions');
+  if (!sessions.length) {
+    el.innerHTML = '<div style="color:var(--text-3);font-size:13px;padding:4px 0;">No sessions yet</div>';
+    return;
+  }
+  el.innerHTML = sessions.slice(0, 15).map(function(s) {
+    var iconClass = s.mode === 'load' ? 'load-icon' : 'unload-icon';
+    var modeLabel = s.mode === 'load' ? 'LOAD' : 'UNLOD';
+    var date = s.finished_at ? new Date(s.finished_at) : null;
+    var dateStr = date
+      ? date.toLocaleDateString([], { day: 'numeric', month: 'short' }) + ' ' +
+        date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      : '\u2014';
+    var stats = s.ok_count + ' \u2713';
+    if (s.duplicate_count) stats += '  ' + s.duplicate_count + ' dup';
+    if (s.not_found_count) stats += '  ' + s.not_found_count + ' ?';
+    return '<div class="history-session-item" data-sid="' + esc(s.id) + '">' +
+      '<div class="history-session-icon ' + iconClass + '">' + modeLabel + '</div>' +
+      '<div style="flex:1;min-width:0;">' +
+        '<div style="font-size:13px;font-weight:600;color:var(--text-1);">' + esc(s.truck_name || 'Vehicle') + '</div>' +
+        '<div style="font-size:11px;color:var(--text-3);margin-top:2px;">' +
+          esc(dateStr) + ' \xb7 ' + esc(stats) +
+        '</div>' +
+      '</div>' +
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--text-3);flex-shrink:0;"><polyline points="9 18 15 12 9 6"/></svg>' +
+    '</div>';
+  }).join('');
+}
+
+function viewSavedSession(id) {
+  mobileFetch('/api/scan/sessions/' + id).then(function(data) {
+    var s = data.session;
+    session.mode  = s.mode;
+    session.truck = s.truck_name ? { id: s.truck_id, name: s.truck_name } : null;
+    session.scans = (s.scans || []).map(function(entry) {
+      return {
+        barcode: entry.barcode,
+        name:    entry.name,
+        type:    entry.type   || 'box',
+        status:  entry.status,
+        zone:    entry.zone   || null,
+        time:    entry.time   ? new Date(entry.time) : new Date()
+      };
+    });
+    session.startTime  = s.started_at  ? new Date(s.started_at)  : null;
+    session.finishedAt = s.finished_at ? new Date(s.finished_at) : null;
+    session.savedId    = s.id; // prevents re-save
+    showReceipt();
+  }).catch(function() {
+    showToast('Could not load session');
+  });
+}
+
 // ── Receipt ───────────────────────────────────────────────────────────────
 function renderReceipt() {
   var mode     = session.mode === 'load' ? 'Load' : 'Unload';
   var truckStr = session.truck ? (session.truck.name || session.truck.registration || 'Vehicle') : '—';
-  var now      = new Date();
+  var now      = session.finishedAt || new Date();
 
   document.getElementById('receiptTitle').textContent = mode + ' Receipt';
   document.getElementById('receiptSub').textContent   =

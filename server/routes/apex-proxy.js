@@ -236,7 +236,7 @@ function parseHtmlGrid(html, grid) {
   }
 }
 
-function parseMessages(rawMessages, grid, state) {
+function parseMessages(rawMessages, grid, state, session) {
   let changed = false;
 
   for (const raw of rawMessages) {
@@ -259,7 +259,22 @@ function parseMessages(rawMessages, grid, state) {
       // ── Special non-grid elements ─────────────────────────────────────────
       if (elemId === 'light') {
         const mapped = FLAG_MAP[cssClass.toLowerCase()];
-        if (mapped) { state.status = mapped; state.cssClass = cssClass; }
+        if (mapped) {
+          state.status = mapped;
+          state.cssClass = cssClass;
+          // On chequered flag, schedule a reconnect after 4s to fetch final standings HTML
+          if (mapped === 'finished' && session && !session._finishReconnectScheduled) {
+            session._finishReconnectScheduled = true;
+            console.log(`[apex-proxy] Chequered flag for ${session.slug} — reconnecting in 4s for final standings`);
+            setTimeout(() => {
+              session._finishReconnectScheduled = false;
+              if (session.ws && session.ws.readyState === WebSocket.OPEN) {
+                session.grid.clear(); // clear grid so final HTML overwrites everything
+                session.ws.terminate();
+              }
+            }, 4000);
+          }
+        }
         continue;
       }
       if (elemId === 'title1') { state.title1 = value.trim(); rebuildSessionName(state); continue; }
@@ -465,7 +480,7 @@ function connectWs(session) {
         console.log(`[apex-proxy] frame[${session._frameCount}] (${msg.length}b):`, msg.slice(0, 500));
         session._frameCount++;
       }
-      parseMessages([msg], session.grid, session.state);
+      parseMessages([msg], session.grid, session.state, session);
     });
 
     ws.on('close', (code) => {
