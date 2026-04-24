@@ -45,6 +45,35 @@ function fetchUrl(url, opts = {}) {
   });
 }
 
+function postData(rawUrl, body, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const u = new URL(rawUrl);
+    const lib = rawUrl.startsWith('https') ? https : http;
+    const buf = Buffer.from(String(body), 'utf8');
+    const req = lib.request({
+      hostname: u.hostname,
+      port: u.port || (rawUrl.startsWith('https') ? 443 : 80),
+      path: u.pathname + u.search,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain;charset=UTF-8',
+        'Content-Length': buf.length,
+        'User-Agent': 'Mozilla/5.0 (compatible; RaceTeamOS/1.0)',
+        'Origin': 'https://live.apex-timing.com',
+        'Referer': 'https://live.apex-timing.com/',
+      }
+    }, (res) => {
+      let data = '';
+      res.on('data', c => { data += c; });
+      res.on('end', () => resolve({ status: res.statusCode, body: data }));
+    });
+    req.setTimeout(timeoutMs || 6000, () => { req.destroy(); reject(new Error('POST timeout')); });
+    req.on('error', reject);
+    req.write(buf);
+    req.end();
+  });
+}
+
 function slugFromUrl(rawUrl) {
   try {
     const u = new URL(rawUrl.trim().replace(/\/$/, ''));
@@ -96,6 +125,8 @@ function extractDataUrls(html, baseUrl) {
 }
 
 // Known candidate data paths to probe (server-side, no CORS)
+// NOTE: /?format=json and /?json=1 are excluded — Apex Timing returns HTML for
+// those regardless of query params (false positives in status-200 checks).
 const CANDIDATE_PATHS = [
   '/racedata.json',
   '/data.json',
@@ -112,10 +143,6 @@ const CANDIDATE_PATHS = [
   '/live.json',
   '/current.json',
   '/session.json',
-  '/?format=json',
-  '/?json=1',
-  '/socket.io/?EIO=4&transport=polling',
-  '/socket.io/?EIO=3&transport=polling',
 ];
 
 // Simple in-memory cache: slug -> { ts, result }
@@ -134,6 +161,112 @@ function setCache(slug, result) {
     const oldest = [...cache.entries()].sort((a,b) => a[1].ts - b[1].ts)[0];
     cache.delete(oldest[0]);
   }
+}
+
+// ── Socket.IO HTTP polling ───────────────────────────────────────────────────
+// Apex Timing uses Socket.IO. We implement the HTTP long-polling transport
+// server-side (no browser CORS restrictions apply to server→server requests).
+
+// Per-slug Socket.IO session state (lives in Node process memory)
+const sioSessions = new Map();
+// slug -> { base, eio, sid, ns, expires }
+
+// Parse EIO4/EIO3 packet frames and return the first socket.io event payload
+function parseSIOPackets(raw) {
+  if (!raw || raw.trim().length < 3) return null;
+  const packets = [];
+  let s = raw.trim();
+  while (s.length > 0) {
+    // Length-delimited: "27:42[\"ev\",{...}]"
+    const m = s.match(/^(\d+):([\s\S]*)/);
+    if (m) {
+      const len = parseInt(m[1], 10);
+      packets.push(m[2].slice(0, len));
+      s = m[2].slice(len);
+    } else {
+      packets.push(s);
+      break;
+    }
+  }
+  for (const pkt of packets) {
+    // Socket.IO message: "42[...]" or "42/ns,[...]"
+    const dm = pkt.match(/^42(?:\/[^,]+,)?(\[[\s\S]*\])$/);
+    if (!dm) continue;
+    try {
+      const arr = JSON.parse(dm[1]);
+      if (Array.isArray(arr) && arr.length >= 2) return { event: arr[0], data: arr[1] };
+    } catch(e) {}
+  }
+  return null;
+}
+
+// Create or return an existing Socket.IO session for the given slug.
+// Attempts both root-level and slug-scoped socket.io endpoints with EIO 4 and 3.
+async function ensureSIOSession(slug) {
+  const now = Date.now();
+  const existing = sioSessions.get(slug);
+  if (existing && existing.expires > now) return existing;
+
+  const bases = [
+    `https://live.apex-timing.com/socket.io`,
+    `https://live.apex-timing.com/${slug}/socket.io`,
+  ];
+  const nsCandidates = ['/', `/${slug}`];
+
+  for (const base of bases) {
+    for (const eio of ['4', '3']) {
+      // Step 1: Handshake
+      let sid, pingInterval;
+      try {
+        const hs = await fetchUrl(`${base}/?EIO=${eio}&transport=polling`, { timeout: 5000 });
+        if (hs.status !== 200) continue;
+        const m = hs.body.match(/0(\{[^}]*"sid"[^}]*\})/);
+        if (!m) continue;
+        const hsData = JSON.parse(m[1]);
+        sid = hsData.sid;
+        pingInterval = hsData.pingInterval || 25000;
+        if (!sid) continue;
+      } catch(e) { continue; }
+
+      // Step 2: Connect to namespace
+      for (const ns of nsCandidates) {
+        try {
+          const connectPkt = (ns === '/') ? '40' : `40${ns},`;
+          await postData(`${base}/?EIO=${eio}&transport=polling&sid=${sid}`, connectPkt, 5000);
+          // Step 3: Poll once to verify
+          const verify = await fetchUrl(`${base}/?EIO=${eio}&transport=polling&sid=${sid}`, { timeout: 6000 });
+          if (verify.status !== 200) continue;
+          const session = { base, eio, sid, ns, expires: now + pingInterval - 3000 };
+          sioSessions.set(slug, session);
+          return session;
+        } catch(e) { /* try next ns */ }
+      }
+    }
+  }
+  return null;
+}
+
+// Poll an existing Socket.IO session for new event data
+async function pollSIO(slug, session) {
+  try {
+    const pollUrl = `${session.base}/?EIO=${session.eio}&transport=polling&sid=${session.sid}`;
+    const res = await fetchUrl(pollUrl, { timeout: 6000 });
+    if (res.status !== 200) { sioSessions.delete(slug); return null; }
+    return parseSIOPackets(res.body);
+  } catch(e) {
+    sioSessions.delete(slug);
+    return null;
+  }
+}
+
+// Get live Socket.IO data for a slug (creates session if needed, then polls)
+async function getSIOData(slug) {
+  const now = Date.now();
+  const existing = sioSessions.get(slug);
+  if (existing && existing.expires > now) return pollSIO(slug, existing);
+  const session = await ensureSIOSession(slug);
+  if (!session) return null;
+  return pollSIO(slug, session);
 }
 
 // ── Routes ───────────────────────────────────────────────────────────────────
@@ -180,6 +313,35 @@ router.get('/discover', async (req, res) => {
   });
   result.workingPaths = (await Promise.all(probes)).filter(p => p.status === 200);
 
+  // Probe Socket.IO at root and slug-scoped bases
+  result.sio = {};
+  for (const sioBase of [`https://live.apex-timing.com/socket.io`, `https://live.apex-timing.com/${slug}/socket.io`]) {
+    for (const eio of ['4', '3']) {
+      const key = `${sioBase.replace('https://live.apex-timing.com', '')}?EIO=${eio}`;
+      try {
+        const hs = await fetchUrl(`${sioBase}/?EIO=${eio}&transport=polling`, { timeout: 5000 });
+        result.sio[key] = { status: hs.status, preview: hs.body.slice(0, 200) };
+      } catch(e) {
+        result.sio[key] = { error: e.message };
+      }
+    }
+  }
+
+  // Fetch first few JS files and scan for socket.io connection code
+  result.sioSnippets = [];
+  for (const scriptUrl of result.scriptSrcs.slice(0, 6)) {
+    try {
+      const js = await fetchUrl(scriptUrl, { timeout: 5000 });
+      if (js.status === 200) {
+        const snippets = [];
+        for (const m of js.body.matchAll(/io\s*\(\s*["'`]([^"'`\s]+)["'`]/g)) snippets.push({ fn: 'io()', arg: m[1] });
+        for (const m of js.body.matchAll(/\.connect\s*\(\s*["'`]([^"'`\s]+)["'`]/g)) snippets.push({ fn: '.connect()', arg: m[1] });
+        for (const m of js.body.matchAll(/new\s+io\s*\(\s*["'`]([^"'`\s]+)["'`]/g)) snippets.push({ fn: 'new io()', arg: m[1] });
+        if (snippets.length) result.sioSnippets.push({ src: scriptUrl, snippets });
+      }
+    } catch(e) { /* skip */ }
+  }
+
   return res.json(result);
 });
 
@@ -218,23 +380,32 @@ router.get('/', async (req, res) => {
   const cached = getCached(slug);
   if (cached) return res.json(cached);
 
-  const baseUrl = `https://live.apex-timing.com/${slug}`;
+  // 1. Try Socket.IO HTTP polling (Apex Timing's native transport)
+  try {
+    const sioResult = await getSIOData(slug);
+    if (sioResult) {
+      const result = { ok: true, slug, path: 'socket.io', format: 'socket.io', event: sioResult.event, raw: sioResult.data };
+      setCache(slug, result);
+      return res.json(result);
+    }
+  } catch(e) { /* fall through to candidate paths */ }
 
-  // Try candidate paths in order, return first 200
+  // 2. Try candidate HTTP paths
+  const baseUrl = `https://live.apex-timing.com/${slug}`;
   for (const path of CANDIDATE_PATHS) {
     try {
       const r = await fetchUrl(baseUrl + path, { timeout: 4000 });
       if (r.status !== 200) continue;
       const parsed = parseApexBody(r.body, r.headers['content-type']);
-      if (parsed.format === 'text') continue; // probably HTML, not data
+      if (parsed.format === 'text') continue; // HTML page, not data
       const result = { ok: true, slug, path, format: parsed.format, raw: parsed.data };
       setCache(slug, result);
       return res.json(result);
     } catch(e) { /* try next */ }
   }
 
-  // All paths failed — return an indicator so the frontend can show the open-link fallback
-  const fallback = { ok: false, slug, error: 'no_data', message: 'No data endpoint found for this event. WebSocket discovery required.' };
+  // All paths failed
+  const fallback = { ok: false, slug, error: 'no_data', message: 'No data endpoint found. Run /api/apex-proxy/discover?slug=' + slug + ' to investigate.' };
   setCache(slug, fallback);
   return res.status(200).json(fallback);
 });
