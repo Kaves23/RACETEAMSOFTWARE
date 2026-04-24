@@ -20,6 +20,7 @@ router.post('/pack', async (req, res, next) => {
     }
     
     const quantityToPack = parseInt(quantity) || 1;
+    const override = req.body.override === true; // allow packing even if Shopify stock shows 0
     
     if (quantityToPack <= 0) {
       return res.status(400).json({ 
@@ -57,7 +58,7 @@ router.post('/pack', async (req, res, next) => {
       const alreadyPacked = parseInt(packedResult.rows[0].total_packed) || 0;
       const availableQuantity = inventoryItem.quantity - alreadyPacked;
       
-      if (quantityToPack > availableQuantity) {
+      if (quantityToPack > availableQuantity && !override) {
         await client.query('ROLLBACK');
         return res.status(400).json({ 
           success: false, 

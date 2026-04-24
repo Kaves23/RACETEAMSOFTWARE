@@ -1254,10 +1254,10 @@
     },
 
     // Pack inventory item into box
-    async packInventoryItem(boxId, itemId, quantity) {
+    async packInventoryItem(boxId, itemId, quantity, { override = false } = {}) {
       return await apiRequest('/inventory/pack', {
         method: 'POST',
-        body: JSON.stringify({ boxId, itemId, quantity: quantity || 1 })
+        body: JSON.stringify({ boxId, itemId, quantity: quantity || 1, override })
       });
     },
 

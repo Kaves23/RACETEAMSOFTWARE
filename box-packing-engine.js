@@ -1218,7 +1218,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
 
         await loadInventoryItems();
         hideLoading();
-        await packMultipleItems(currentBoxId, [{ id: String(importData.item.id), type: 'inventory' }], quantity);
+        await packMultipleItems(currentBoxId, [{ id: String(importData.item.id), type: 'inventory' }], quantity, stockAlertNeeded);
 
         // ── Send stock-below-zero alert email (fire-and-forget) ──
         if (stockAlertNeeded) {
@@ -3839,7 +3839,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     }
   }
 
-  async function packMultipleItems(boxId, items, presetQuantity = null) {
+  async function packMultipleItems(boxId, items, presetQuantity = null, overrideStock = false) {
     if (!items || items.length === 0) return;
     
     const box = boxes.find(b => b.id === boxId);
@@ -3906,7 +3906,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
         showLoading(`Packing Inventory`, `Adding ${quantity} units of ${item.name} to ${box.name}...`);
         
         try {
-          await RTS_API.packInventoryItem(boxId, id, quantity);
+          await RTS_API.packInventoryItem(boxId, id, quantity, { override: overrideStock });
           
           // Update local tracking
           const currentPacked = window.inventoryPackedQuantities?.get(id) || 0;
