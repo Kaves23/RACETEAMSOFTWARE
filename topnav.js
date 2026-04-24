@@ -1114,16 +1114,22 @@
             : state.drivers;
 
           const items = source.map(d => {
-            const pos = d.pos ? `P${d.pos}` : '';
-            const pit = d.inPit ? '🛑' : '';
-            const kart = d.kart ? `#${d.kart}` : '';
-            const lap  = d.bestLap || d.lastLap || '';
-            const gap  = d.gap  ? `+${d.gap}` : '';
-            const cls  = d.class ? `[${d.class}]` : '';
-            if (d.isOurs) {
-              return `<span class="rts-lt-item rts-lt-ours" style="--lt-color:${d.ourColor||'#ffd700'}">★ ${pos} ${kart} ${d.name}${lap ? ` ${lap}` : ''}${gap ? ` ${gap}` : ''} ${cls} ${pit}</span>`;
+            const pos  = d.pos ? `P${d.pos}` : '';
+            const pit  = d.inPit ? ' 🛑' : '';
+            const kart = d.kart ? ` #${d.kart}` : '';
+            // Show last lap (current pace) during race; fall back to best lap
+            const lap  = d.lastLap || d.bestLap || '';
+            // Gap: suppress for P1 and for values that are just "0" or empty
+            // Don't prefix "N Laps" with +; only add △ for second-based gaps
+            let gap = '';
+            if (d.gap && d.pos !== 1) {
+              gap = /lap/i.test(d.gap) ? ` ${d.gap}` : ` △${d.gap}`;
             }
-            return `<span class="rts-lt-item">${pos} ${kart} ${d.name}${lap ? ` · ${lap}` : ''}${gap ? ` ${gap}` : ''} ${cls} ${pit}</span>`;
+            const cls  = d.class ? ` [${d.class}]` : '';
+            if (d.isOurs) {
+              return `<span class="rts-lt-item rts-lt-ours" style="--lt-color:${d.ourColor||'#ffd700'}">★ ${pos}${kart} ${d.name}${lap ? ` · ${lap}` : ''}${gap}${cls}${pit}</span>`;
+            }
+            return `<span class="rts-lt-item">${pos}${kart} ${d.name}${lap ? ` · ${lap}` : ''}${gap}${cls}${pit}</span>`;
           }).join('<span class="rts-lt-sep"> &nbsp;│&nbsp; </span>');
 
           // Structural key = pos+name+kart (drives animation restart)
