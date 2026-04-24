@@ -62,7 +62,8 @@
       config = cfg;
       if (!config || !config.url) return;
       buildDriverMatchMap();
-      connectWebSocket();
+      // Use server-side proxy polling — Apex Timing has no public WebSocket endpoint
+      startIframeFallback();
     },
 
     stop() {
