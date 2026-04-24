@@ -268,17 +268,31 @@ async function startSession(slug) {
   const { port } = discovery;
   console.log(`[apex-proxy] Port ${port} for ${slug} (${discovery.source})`);
 
-  const session = { slug, port, wsUrl: `wss://www.apex-timing.com:${port}/`, ws: null, connected: false, state: emptyState(), grid: new Map(), messageQueue: [], retryTimer: null, error: null };
+  // Try wss:// first, fall back to ws:// — some Java WS servers use plain WS on custom ports
+  const wsUrls = [
+    `wss://www.apex-timing.com:${port}/`,
+    `ws://www.apex-timing.com:${port}/`,
+  ];
+  const session = { slug, port, wsUrl: wsUrls[0], wsUrls, wsUrlIndex: 0, ws: null, connected: false, state: emptyState(), grid: new Map(), messageQueue: [], retryTimer: null, error: null, closeCode: null };
   sessions.set(slug, session);
   connectWs(session);
 }
 
 function connectWs(session) {
   if (session.retryTimer) { clearTimeout(session.retryTimer); session.retryTimer = null; }
+  const wsUrl = session.wsUrls[session.wsUrlIndex % session.wsUrls.length];
+  session.wsUrl = wsUrl;
+  console.log(`[apex-proxy] Connecting: ${wsUrl}`);
   try {
-    const ws = new WebSocket(session.wsUrl, {
-      headers: { 'Origin': 'https://live.apex-timing.com', 'User-Agent': 'Mozilla/5.0 (compatible; RaceTeamOS/5.0)' },
+    const ws = new WebSocket(wsUrl, {
+      headers: {
+        'Origin': 'https://live.apex-timing.com',
+        'Host': `www.apex-timing.com:${session.port}`,
+        'User-Agent': 'Mozilla/5.0 (compatible; RaceTeamOS/5.0)',
+      },
       rejectUnauthorized: false,
+      handshakeTimeout: 8000,   // fail fast if TLS/upgrade hangs
+      followRedirects: true,
     });
     session.ws = ws;
 
@@ -301,12 +315,17 @@ function connectWs(session) {
     });
 
     ws.on('close', (code) => {
-      console.log(`[apex-proxy] WS closed ${code} for ${session.slug}`);
+      console.log(`[apex-proxy] WS closed ${code} for ${session.slug} (was ${session.wsUrl})`);
       session.connected = false;
       session.closeCode = code;
       session.state.connected = false;
       session.ws = null;
-      if (code !== 1000) session.retryTimer = setTimeout(() => connectWs(session), 5000);
+      if (code !== 1000) {
+        // Rotate to next URL candidate (wss→ws) before retrying
+        session.wsUrlIndex = (session.wsUrlIndex + 1) % session.wsUrls.length;
+        const delay = session.wsUrlIndex === 0 ? 5000 : 500; // short delay when switching scheme
+        session.retryTimer = setTimeout(() => connectWs(session), delay);
+      }
     });
 
     ws.on('error', (err) => {
@@ -476,6 +495,22 @@ router.get('/scan-ports', async (req, res) => {
   const results = await Promise.all(ports.map(p => tcpTest(host, p)));
   const reachable = results.filter(r => r.open).map(r => r.port);
   return res.json({ ok: true, host, base, range, reachable, all: results });
+});
+
+/**
+ * DELETE /api/apex-proxy/session?slug=...
+ * Force-close and delete session so next GET starts fresh.
+ */
+router.delete('/session', (req, res) => {
+  const slug = slugFromUrl(req.query.slug || '');
+  if (!slug || !/^[a-zA-Z0-9_-]+$/.test(slug)) return res.status(400).json({ ok: false });
+  const s = sessions.get(slug);
+  if (s) {
+    if (s.retryTimer) clearTimeout(s.retryTimer);
+    if (s.ws) try { s.ws.terminate(); } catch(e) {}
+    sessions.delete(slug);
+  }
+  return res.json({ ok: true, deleted: !!s });
 });
 
 module.exports = router;
