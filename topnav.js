@@ -1109,16 +1109,22 @@
             return `<span class="rts-lt-item">${pos} ${kart} ${d.name}${lap ? ` · ${lap}` : ''}${gap ? ` ${gap}` : ''} ${cls} ${pit}</span>`;
           }).join('<span class="rts-lt-sep"> &nbsp;│&nbsp; </span>');
 
-          // Only rebuild if content changed (avoid animation restart flicker)
-          const newContent = items;
-          if (innerEl.dataset.lastContent !== newContent) {
-            innerEl.dataset.lastContent = newContent;
-            innerEl.innerHTML = newContent;
-            // Restart animation by toggling the class
+          // Structural key = pos+name+kart (drives animation restart)
+          // Live values (lap times, gaps) update innerHTML without restarting scroll
+          const structKey = source.map(d => `${d.pos}|${d.name}|${d.kart}`).join(',');
+          const contentChanged = innerEl.dataset.lastContent !== items;
+          const structChanged  = innerEl.dataset.lastStruct  !== structKey;
+
+          if (contentChanged) {
+            innerEl.dataset.lastContent = items;
+            innerEl.innerHTML = items;
+          }
+          if (structChanged) {
+            innerEl.dataset.lastStruct = structKey;
+            // Restart scroll animation only when driver list structure changes
             innerEl.classList.remove('rts-lt-scroll');
             void innerEl.offsetWidth; // force reflow
             innerEl.classList.add('rts-lt-scroll');
-            // Set duration proportional to content length
             const charCount = innerEl.textContent.length;
             const duration = Math.max(20, Math.min(120, charCount * 0.18));
             innerEl.style.animationDuration = duration + 's';

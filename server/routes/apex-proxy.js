@@ -286,10 +286,18 @@ function rebuildDrivers(grid, state) {
     const hasData = cell.c3 || cell.c4 || cell.c5 || cell.c9 || cell.c11;
     if (!hasData) continue;
 
+    // c4 = kart number (numeric), c5 = driver name (text)
+    // Detect by value type: if c4 is purely numeric → kart; otherwise treat c4 as name
+    const c4val = cell.c4 ? cell.c4.value.trim() : '';
+    const c5val = cell.c5 ? cell.c5.value.trim() : '';
+    const c4isKart = c4val !== '' && /^\d+$/.test(c4val);
+    const kartVal = c4isKart ? c4val : (c5val && /^\d+$/.test(c5val) ? c5val : c4val);
+    const nameVal = c4isKart ? c5val : (!c4isKart && c4val ? c4val : c5val);
+
     const driver = {
       pos:     cell.c3  ? toNum(cell.c3.value)  : row,
-      kart:    cell.c4  ? cell.c4.value          : '',
-      name:    cell.c5  ? cell.c5.value          : '',
+      kart:    kartVal,
+      name:    nameVal,
       laps:    cell.c9  ? toNum(cell.c9.value)   : 0,
       bestLap: cell.c10 ? fmtLap(cell.c10.value) : '',
       lastLap: cell.c11 ? fmtLap(cell.c11.value) : '',
@@ -299,7 +307,7 @@ function rebuildDrivers(grid, state) {
       flag:    cell.c1  ? cell.c1.type           : '',
     };
 
-    // Fall back: kart in c2.value if c4 missing and c2 has a numeric value
+    // Fall back: kart in c2.value if still missing
     if (!driver.kart && cell.c2 && /^\d+$/.test(cell.c2.value)) {
       driver.kart = cell.c2.value;
     }
@@ -573,6 +581,20 @@ router.get('/scan-ports', async (req, res) => {
   const results = await Promise.all(ports.map(p => tcpTest(host, p)));
   const reachable = results.filter(r => r.open).map(r => r.port);
   return res.json({ ok: true, host, base, range, reachable, all: results });
+});
+
+/**
+ * GET /api/apex-proxy/grid?slug=...
+ * Debug: returns raw grid state so column mapping can be verified.
+ */
+router.get('/grid', (req, res) => {
+  const slug = slugFromUrl(req.query.slug || '');
+  if (!slug || !/^[a-zA-Z0-9_-]+$/.test(slug)) return res.status(400).json({ ok: false });
+  const session = sessions.get(slug);
+  if (!session) return res.json({ ok: false, error: 'no session' });
+  const grid = {};
+  for (const [row, cell] of session.grid) { grid[`r${row}`] = cell; }
+  return res.json({ ok: true, slug, connected: session.connected, gridRows: session.grid.size, grid, state: session.state });
 });
 
 /**
