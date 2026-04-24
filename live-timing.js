@@ -488,40 +488,55 @@
 
   function buildDriverMatchMap() {
     driverMatchMap = {};
-    try {
-      let ourDrivers = [];
-      // Try to get from RTS settings
-      if (window.RTS && typeof RTS.getSettings === 'function') {
-        ourDrivers = RTS.getSettings().drivers || [];
-      }
-      // Fallback: localStorage direct
-      if (!ourDrivers.length) {
-        try {
-          const s = JSON.parse(localStorage.getItem('rts.settings.v1') || '{}');
-          ourDrivers = s.drivers || [];
-        } catch(e) {}
-      }
-      ourDrivers.forEach(d => {
-        if (!d || !d.name) return;
-        const norm = normalise(d.name);
-        const entry = {
-          ourId: d.id,
-          ourName: d.name,
-          ourColor: d.color || '#ffd700',
-          ourClass: d.racing_class || d.class || '',
-          ourKart: String(d.race_number || d.raceNumber || d.kart_number || d.kartNumber || '').trim()
-        };
-        driverMatchMap[norm] = entry;
-        // Also index by reversed name order ("Boshoff Zac" → "ZAC BOSHOFF") so Apex Timing
-        // surname-first format matches a "First Last" database entry and vice-versa
-        const parts = norm.split(' ');
-        if (parts.length >= 2) {
-          const reversed = parts.slice(1).join(' ') + ' ' + parts[0];
-          if (!driverMatchMap[reversed]) driverMatchMap[reversed] = entry;
+    // Fetch from DB API (authoritative), fall back to localStorage
+    fetch('/api/collections/drivers', { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        const ourDrivers = (data && (data.items || data.data || data)) || [];
+        if (Array.isArray(ourDrivers) && ourDrivers.length) {
+          populateMatchMap(ourDrivers);
+        } else {
+          populateMatchMapFromLocal();
         }
-      });
-    } catch (e) {
-      dbg('buildDriverMatchMap error:', e);
+      })
+      .catch(() => populateMatchMapFromLocal());
+  }
+
+  function populateMatchMapFromLocal() {
+    try {
+      let d = [];
+      if (window.RTS && typeof RTS.getSettings === 'function') d = RTS.getSettings().drivers || [];
+      if (!d.length) d = JSON.parse(localStorage.getItem('rts.settings.v1') || '{}').drivers || [];
+      populateMatchMap(d);
+    } catch(e) {}
+  }
+
+  function populateMatchMap(ourDrivers) {
+    driverMatchMap = {};
+    ourDrivers.forEach(d => {
+      if (!d || !d.name) return;
+      const norm = normalise(d.name);
+      const entry = {
+        ourId: d.id,
+        ourName: d.name,
+        ourColor: d.color || '#ffd700',
+        ourClass: d.racing_class || d.class || '',
+        ourKart: String(d.race_number || d.raceNumber || d.kart_number || d.number || '').trim()
+      };
+      driverMatchMap[norm] = entry;
+      // Also index reversed name ("Boshoff Zac" ↔ "Zac Boshoff")
+      const parts = norm.split(' ');
+      if (parts.length >= 2) {
+        const reversed = parts.slice(1).join(' ') + ' ' + parts[0];
+        if (!driverMatchMap[reversed]) driverMatchMap[reversed] = entry;
+      }
+    });
+    dbg('Driver match map built:', Object.keys(driverMatchMap).length, 'entries');
+    // Re-apply matches to already-loaded drivers
+    if (state.drivers.length) {
+      state.drivers.forEach(d => applyDriverMatch(d));
+      state.ourDrivers = state.drivers.filter(d => d.isOurs);
+      fireUpdate();
     }
   }
 
