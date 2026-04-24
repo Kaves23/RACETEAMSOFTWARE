@@ -286,7 +286,11 @@ function connectWs(session) {
       console.log(`[apex-proxy] Connected: ${session.wsUrl}`);
       session.connected = true;
       session.error = null;
+      session.closeCode = null;
       session.state.connected = true;
+      // Some Apex Timing servers require an initial message to start sending data
+      // Try sending a ping/subscribe — harmless if not needed
+      try { ws.send(''); } catch(e) {}
     });
 
     ws.on('message', (data) => {
@@ -299,6 +303,7 @@ function connectWs(session) {
     ws.on('close', (code) => {
       console.log(`[apex-proxy] WS closed ${code} for ${session.slug}`);
       session.connected = false;
+      session.closeCode = code;
       session.state.connected = false;
       session.ws = null;
       if (code !== 1000) session.retryTimer = setTimeout(() => connectWs(session), 5000);
@@ -347,7 +352,8 @@ router.get('/', async (req, res) => {
     return res.json({ ok: false, slug, error: 'port_not_found', message: 'Could not discover WebSocket port. The event page may be offline or the port pattern has changed.' });
   }
 
-  return res.json({ ok: true, slug, port: session.port, wsUrl: session.wsUrl, connected: session.connected, wsError: session.error || null, state: session.state, queueLength: session.messageQueue.length });
+  const wsState = session.ws ? session.ws.readyState : -1; // 0=CONNECTING 1=OPEN 2=CLOSING 3=CLOSED
+  return res.json({ ok: true, slug, port: session.port, wsUrl: session.wsUrl, connected: session.connected, wsError: session.error || null, wsReadyState: wsState, wsCloseCode: session.closeCode || null, state: session.state, queueLength: session.messageQueue.length });
 });
 
 router.get('/messages', (req, res) => {
@@ -356,7 +362,8 @@ router.get('/messages', (req, res) => {
   const session = sessions.get(slug);
   if (!session) return res.json({ ok: false, error: 'no session — call /api/apex-proxy?slug=... first' });
   const last = Math.min(parseInt(req.query.last || '20', 10), 200);
-  return res.json({ ok: true, slug, port: session.port, wsUrl: session.wsUrl, connected: session.connected, wsError: session.error || null, messages: session.messageQueue.slice(-last) });
+  const wsStateM = session.ws ? session.ws.readyState : -1;
+  return res.json({ ok: true, slug, port: session.port, wsUrl: session.wsUrl, connected: session.connected, wsError: session.error || null, wsReadyState: wsStateM, wsCloseCode: session.closeCode || null, messages: session.messageQueue.slice(-last) });
 });
 
 router.get('/discover', async (req, res) => {
@@ -441,6 +448,34 @@ router.get('/test-port', (req, res) => {
     res.json({ ok: true, host, port, reachable: false, error: e.message, ms: Date.now() - start });
   });
   sock.connect(port, host);
+});
+
+/**
+ * GET /api/apex-proxy/scan-ports?host=www.apex-timing.com&base=7550&range=20
+ * Scans base..(base+range) ports via TCP to find which are open.
+ * Returns { reachable: [7553, 7557, ...], unreachable: [...] }
+ */
+router.get('/scan-ports', async (req, res) => {
+  const host = req.query.host || 'www.apex-timing.com';
+  const base = parseInt(req.query.base || '7550', 10);
+  const range = Math.min(parseInt(req.query.range || '20', 10), 50);
+  if (!/^[\w.-]+$/.test(host)) return res.status(400).json({ ok: false });
+
+  function tcpTest(h, p) {
+    return new Promise(resolve => {
+      const s = new net.Socket();
+      s.setTimeout(2000);
+      s.on('connect', () => { s.destroy(); resolve({ port: p, open: true }); });
+      s.on('timeout', () => { s.destroy(); resolve({ port: p, open: false, reason: 'timeout' }); });
+      s.on('error', e => resolve({ port: p, open: false, reason: e.message }));
+      s.connect(p, h);
+    });
+  }
+
+  const ports = Array.from({ length: range }, (_, i) => base + i);
+  const results = await Promise.all(ports.map(p => tcpTest(host, p)));
+  const reachable = results.filter(r => r.open).map(r => r.port);
+  return res.json({ ok: true, host, base, range, reachable, all: results });
 });
 
 module.exports = router;
