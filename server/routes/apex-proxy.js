@@ -346,7 +346,7 @@ router.get('/', async (req, res) => {
     return res.json({ ok: false, slug, error: 'port_not_found', message: 'Could not discover WebSocket port. The event page may be offline or the port pattern has changed.' });
   }
 
-  return res.json({ ok: true, slug, port: session.port, connected: session.connected, state: session.state, queueLength: session.messageQueue.length });
+  return res.json({ ok: true, slug, port: session.port, wsUrl: session.wsUrl, connected: session.connected, wsError: session.error || null, state: session.state, queueLength: session.messageQueue.length });
 });
 
 router.get('/messages', (req, res) => {
@@ -355,7 +355,7 @@ router.get('/messages', (req, res) => {
   const session = sessions.get(slug);
   if (!session) return res.json({ ok: false, error: 'no session — call /api/apex-proxy?slug=... first' });
   const last = Math.min(parseInt(req.query.last || '20', 10), 200);
-  return res.json({ ok: true, slug, port: session.port, connected: session.connected, messages: session.messageQueue.slice(-last) });
+  return res.json({ ok: true, slug, port: session.port, wsUrl: session.wsUrl, connected: session.connected, wsError: session.error || null, messages: session.messageQueue.slice(-last) });
 });
 
 router.get('/discover', async (req, res) => {
