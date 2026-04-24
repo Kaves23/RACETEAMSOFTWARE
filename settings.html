@@ -1901,17 +1901,28 @@
     els.btnLtTest.addEventListener('click', async () => {
       const url = els.f_lt_url.value.trim();
       if (!url) { els.ltTestStatus.textContent = 'Enter a URL first.'; return; }
-      els.ltTestStatus.textContent = 'Testing…';
+      els.ltTestStatus.textContent = 'Probing via server…';
       els.btnLtTest.disabled = true;
-      // Save current form state first so live-timing.js picks up the new URL
       saveInspector();
-      // Try a quick fetch to the base URL to confirm it responds
       try {
-        const resp = await fetch(url, { mode: 'no-cors', signal: AbortSignal.timeout(5000) });
-        // no-cors means resp.type==='opaque' — we can't read it but a network error = unreachable
-        els.ltTestStatus.textContent = '✅ URL reachable. WebSocket connection will be attempted automatically.';
+        // Use the server-side discovery endpoint (no CORS restrictions)
+        const slug = encodeURIComponent(url.trim().replace(/\/$/, '').split('/').pop());
+        const resp = await fetch(`/api/apex-proxy/discover?slug=${slug}`, { cache: 'no-store', signal: AbortSignal.timeout(20000) });
+        if (!resp.ok) throw new Error(`Server error ${resp.status}`);
+        const d = await resp.json();
+        const working = d.workingPaths || [];
+        if (working.length > 0) {
+          els.ltTestStatus.textContent = `✅ Found ${working.length} data endpoint(s): ${working.map(p => p.path).join(', ')}`;
+        } else {
+          const wsUrls = (d.foundUrls || []).filter(u => u.startsWith('wss://') || u.startsWith('ws://'));
+          if (wsUrls.length) {
+            els.ltTestStatus.textContent = `ℹ️ No JSON endpoints found. WebSocket URLs detected: ${wsUrls.join(', ')}`;
+          } else {
+            els.ltTestStatus.textContent = `⚠️ Page loaded (${d.pageStatus}) but no known data endpoints found. It may use a proprietary WebSocket. Open the timing page in DevTools → Network to find the WS URL.`;
+          }
+        }
       } catch (err) {
-        els.ltTestStatus.textContent = '⚠️ Could not reach URL: ' + err.message;
+        els.ltTestStatus.textContent = '⚠️ Test failed: ' + err.message;
       } finally {
         els.btnLtTest.disabled = false;
       }

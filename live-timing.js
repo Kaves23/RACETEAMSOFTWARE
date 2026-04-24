@@ -256,52 +256,54 @@
     pollTimer = setInterval(() => { if (!stopped) tryFetchSnapshot(); }, intervalMs);
   }
 
-  // Try known Apex Timing HTTP snapshot endpoints
-  const SNAPSHOT_PATHS = [
-    '/json',
-    '/data.json',
-    '/timing.json',
-    '/race.json',
-    '/results.json',
-    '/status.json',
-    '/api/data',
-    '/api/standings',
-    '/api/timing',
-    '/standings.json'
-  ];
-  let snapshotPathIndex = 0;
+  // Extract slug from a live.apex-timing.com URL
+  function slugFromUrl(url) {
+    try {
+      const u = new URL(String(url).trim());
+      const parts = u.pathname.split('/').filter(Boolean);
+      return parts[parts.length - 1] || parts[0] || '';
+    } catch(e) {
+      return String(url).trim().replace(/^\/+|\/+$/g, '').split('/').pop() || '';
+    }
+  }
 
   async function tryFetchSnapshot() {
     if (stopped) return;
-    const baseUrl = config.url.trim().replace(/\/$/, '');
-    const path = SNAPSHOT_PATHS[snapshotPathIndex % SNAPSHOT_PATHS.length];
-    const url = baseUrl + path;
-    dbg('Trying HTTP snapshot:', url);
-
-    try {
-      const resp = await fetch(url, { mode: 'cors', cache: 'no-store', signal: AbortSignal.timeout(4000) });
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const text = await resp.text();
-      // Try JSON parse
-      let data;
-      try { data = JSON.parse(text); } catch(e) { throw new Error('Not JSON'); }
-      dbg('Snapshot received:', data);
-      state.raw = data;
-      parseApexSnapshot(data);
-      state.connected = true;
-      state.error = null;
-      snapshotPathIndex = 0; // stick to working path
+    const slug = slugFromUrl(config.url);
+    if (!slug) {
+      state.connected = false;
+      state.error = 'live';
       fireUpdate();
       return;
-    } catch (err) {
-      dbg('Snapshot fetch failed:', url, err.message);
-      snapshotPathIndex++;
-      if (snapshotPathIndex >= SNAPSHOT_PATHS.length) {
-        // All paths exhausted
+    }
+    // Use our server-side proxy to bypass Apex Timing CORS restrictions
+    const proxyUrl = `/api/apex-proxy?slug=${encodeURIComponent(slug)}`;
+    dbg('Polling via server proxy:', proxyUrl);
+
+    try {
+      const resp = await fetch(proxyUrl, { cache: 'no-store', signal: AbortSignal.timeout(6000) });
+      if (!resp.ok) throw new Error(`Proxy HTTP ${resp.status}`);
+      const result = await resp.json();
+      dbg('Proxy response:', result);
+
+      if (!result.ok) {
+        // Proxy could not find a data endpoint for this event
         state.connected = false;
-        state.error = 'live';  // special sentinel: UI should show "Live" link button
+        state.error = 'live';  // UI shows "Tap to open" link
         fireUpdate();
+        return;
       }
+      // Proxy found data
+      state.raw = result.raw;
+      parseApexSnapshot(result.raw);
+      state.connected = true;
+      state.error = null;
+      fireUpdate();
+    } catch (err) {
+      dbg('Proxy fetch failed:', err.message);
+      state.connected = false;
+      state.error = 'live';
+      fireUpdate();
     }
   }
 
