@@ -81,15 +81,42 @@
 <!-- Detail Drawer -->
 <div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
 <div class="drawer" id="detailDrawer">
+  <!-- Drag handle -->
   <div class="drawer-handle" onclick="closeDrawer()"></div>
-  <div class="drawer-header">
-    <div style="flex:1;min-width:0;">
-      <div class="drawer-title" id="drawerName" style="white-space:normal;line-height:1.3;">—</div>
-      <div id="drawerDate" style="font-size:12px;color:var(--text-3);margin-top:3px;">—</div>
+
+  <!-- Header: colour bar + title + close -->
+  <div class="drawer-header" id="drawerHeader">
+    <div class="drawer-ev-bar" id="drawerBar"></div>
+    <div style="display:flex;align-items:flex-start;gap:10px;padding:12px 16px 0;">
+      <div style="flex:1;min-width:0;">
+        <div class="drawer-title" id="drawerName" style="white-space:normal;line-height:1.3;font-size:16px;font-weight:700;color:var(--text);">—</div>
+        <div id="drawerDate" style="font-size:12px;color:var(--text-3);margin-top:2px;">—</div>
+      </div>
+      <span id="drawerTypePill" class="tag" style="flex-shrink:0;font-size:10px;font-weight:700;color:#fff;border-radius:20px;padding:2px 9px;">—</span>
     </div>
-    <span id="drawerTypePill" class="tag" style="flex-shrink:0;margin-left:8px;">—</span>
+    <!-- Tab strip -->
+    <div class="ev-drawer-tabs" id="drawerTabStrip">
+      <button class="ev-drawer-tab active" data-tab="details">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:4px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Details
+      </button>
+      <button class="ev-drawer-tab" data-tab="runplans">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:4px;"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        Run Plans
+        <span class="ev-rp-count" id="drawerRPCount" style="display:none;">0</span>
+      </button>
+    </div>
   </div>
-  <div class="drawer-body" id="drawerBody"></div>
+
+  <!-- Body panels -->
+  <div class="drawer-body" id="drawerBody">
+    <!-- Details panel -->
+    <div id="panelDetails" style="padding:16px;">
+      <div style="text-align:center;padding:28px;color:var(--text-3);font-size:13px;">Loading…</div>
+    </div>
+    <!-- Run Plans panel -->
+    <div id="panelRunPlans" style="display:none;"></div>
+  </div>
 </div>
 
 <style>
@@ -196,25 +223,221 @@
   }
   .ev-empty-icon { font-size: 40px; margin-bottom: 12px; }
 
-  /* ── Drawer detail rows ──────────────────────────────────────────────── */
-  .detail-section { margin-bottom: 18px; }
-  .detail-section-title {
+  /* ── Drawer colour bar ───────────────────────────────────────────────── */
+  .drawer-ev-bar {
+    height: 4px;
+    width: 100%;
+    border-radius: 0;
+    flex-shrink: 0;
+  }
+
+  /* ── Drawer tab strip ────────────────────────────────────────────────── */
+  .ev-drawer-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    margin-top: 10px;
+  }
+  .ev-drawer-tab {
+    flex: 1;
+    padding: 9px 8px;
+    border: none;
+    background: none;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-3);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: color 0.15s, border-color 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .ev-drawer-tab.active {
+    color: var(--accent, #0078ff);
+    border-bottom-color: var(--accent, #0078ff);
+  }
+  .ev-rp-count {
+    margin-left: 5px;
+    background: var(--accent, #0078ff);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 20px;
+  }
+
+  /* ── Edit form ───────────────────────────────────────────────────────── */
+  .ev-field-group { margin-bottom: 14px; }
+  .ev-field-label {
     font-size: 10px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.07em;
     color: var(--text-3);
-    margin-bottom: 8px;
-    padding-bottom: 5px;
+    margin-bottom: 5px;
+  }
+  .ev-field-input,
+  .ev-field-select,
+  .ev-field-textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 12px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    font-size: 14px;
+    color: var(--text);
+    outline: none;
+    font-family: inherit;
+    transition: border-color 0.15s;
+    -webkit-appearance: none;
+  }
+  .ev-field-input:focus,
+  .ev-field-select:focus,
+  .ev-field-textarea:focus { border-color: var(--accent, #0078ff); }
+  .ev-field-textarea { resize: vertical; min-height: 70px; }
+  .ev-field-row { display: flex; gap: 10px; }
+  .ev-field-row .ev-field-group { flex: 1; }
+
+  .ev-save-btn {
+    width: 100%;
+    padding: 14px;
+    border-radius: 10px;
+    border: none;
+    background: var(--accent, #0078ff);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 6px;
+    transition: opacity 0.15s;
+  }
+  .ev-save-btn:disabled { opacity: 0.5; }
+  .ev-save-btn.saving { opacity: 0.7; }
+  .ev-save-msg {
+    text-align: center;
+    font-size: 12px;
+    margin-top: 8px;
+    min-height: 16px;
+    color: var(--text-3);
+  }
+  .ev-save-msg.ok  { color: #00c853; }
+  .ev-save-msg.err { color: #e53935; }
+
+  /* ── Run plan cards ──────────────────────────────────────────────────── */
+  .rp-add-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
     border-bottom: 1px solid var(--border);
+    background: var(--bg);
+  }
+  .rp-add-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-3);
+  }
+  .rp-add-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 7px 12px;
+    border-radius: 8px;
+    border: 1.5px solid var(--accent, #0078ff);
+    background: none;
+    color: var(--accent, #0078ff);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .rp-card {
+    padding: 13px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+    cursor: pointer;
+    transition: background 0.12s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .rp-card:active { background: var(--bg-2, #f5f5f5); }
+  .rp-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 5px;
+  }
+  .rp-session-name {
+    font-size: 14px; font-weight: 700; color: var(--text);
+    flex: 1; min-width: 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .rp-status-pill {
+    font-size: 10px; font-weight: 700;
+    padding: 2px 8px; border-radius: 20px;
+    color: #fff; flex-shrink: 0;
+  }
+  .rp-card-meta {
+    font-size: 11px; color: var(--text-3);
+    display: flex; gap: 10px; flex-wrap: wrap;
+  }
+  .rp-meta-chip {
+    display: flex; align-items: center; gap: 3px;
+  }
+  .rp-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-3);
+    font-size: 13px;
+  }
+
+  /* ── New run plan form (inline) ──────────────────────────────────────── */
+  .rp-form {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-2, #f5f5f5);
+  }
+  .rp-form-title {
+    font-size: 12px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--text-3); margin-bottom: 10px;
+  }
+  .rp-form-cancel {
+    flex: 1;
+    padding: 11px;
+    border-radius: 8px;
+    border: 1.5px solid var(--border);
+    background: none;
+    color: var(--text-2);
+    font-size: 13px; font-weight: 600;
+    cursor: pointer;
+  }
+  .rp-form-submit {
+    flex: 2;
+    padding: 11px;
+    border-radius: 8px;
+    border: none;
+    background: var(--accent, #0078ff);
+    color: #fff;
+    font-size: 13px; font-weight: 700;
+    cursor: pointer;
+  }
+
+  /* ── Detail read-only rows (legacy fallback) ─────────────────────────── */
+  .detail-section { margin-bottom: 18px; }
+  .detail-section-title {
+    font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.07em;
+    color: var(--text-3); margin-bottom: 8px;
+    padding-bottom: 5px; border-bottom: 1px solid var(--border);
   }
   .detail-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 10px;
-    padding: 5px 0;
-    border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between;
+    align-items: flex-start; gap: 10px;
+    padding: 5px 0; border-bottom: 1px solid var(--border);
     font-size: 13px;
   }
   .detail-row:last-child { border-bottom: none; }
@@ -229,7 +452,6 @@
   }
 
   const API = window.location.origin;
-  const auth = () => ({ 'Authorization': 'Bearer ' + localStorage.getItem('auth_token') });
 
   // Offline banner
   window.addEventListener('online',  () => document.getElementById('offlineBanner').style.display = 'none');
@@ -249,28 +471,35 @@
     'Promo / Media':    '#ec4899',
   };
   const STATUS_COLORS = {
-    'Elapsed': '#9ca3af',
-    'Upcoming': '#3b82f6',
-    'Open':    '#10b981',
-    'Closed':  '#6b7280',
-    'Planned': '#6b7280',
+    'Elapsed': '#9ca3af', 'Upcoming': '#3b82f6', 'Open': '#10b981',
+    'Closed': '#6b7280', 'Planned': '#6b7280',
+  };
+  const RP_STATUS_COLORS = {
+    'planned': '#3b82f6', 'in_progress': '#f59e0b', 'completed': '#10b981',
+    'cancelled': '#9ca3af',
   };
 
   let allEvents = [];
   let currentFilter = 'upcoming';
   let currentSearch = '';
+  let activeDrawerEventId = null;
+  let activeDrawerTab = 'details';
+  let drawerRunPlans = [];
+  let showNewRPForm = false;
 
+  // ── Helpers ───────────────────────────────────────────────────────────
+  function escHtml(str) {
+    return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
   function todayISO() {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   }
-
   function toISO(v) {
     if (!v) return '';
     if (v.includes('T')) return v.slice(0,10);
     return v;
   }
-
   function formatDate(v) {
     if (!v) return '—';
     const s = toISO(v);
@@ -278,7 +507,6 @@
     const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     return `${parseInt(d,10)} ${months[parseInt(m,10)-1]} ${y}`;
   }
-
   function formatDateRange(ev) {
     const s = toISO(ev.start_date || ev.start || '');
     const e = toISO(ev.end_date || ev.end || '');
@@ -291,18 +519,15 @@
     if (sy === ey) return `${parseInt(sd,10)} ${months[parseInt(sm,10)-1]} – ${parseInt(ed,10)} ${months[parseInt(em,10)-1]} ${sy}`;
     return `${formatDate(s)} – ${formatDate(e)}`;
   }
-
   function monthLabel(isoDate) {
     if (!isoDate) return 'No date';
     const [y, m] = isoDate.split('-');
     const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
     return `${months[parseInt(m,10)-1]} ${y}`;
   }
+  function typeColor(type) { return TYPE_COLORS[type] || '#6b7280'; }
 
-  function typeColor(type) {
-    return TYPE_COLORS[type] || '#6b7280';
-  }
-
+  // ── Event list ────────────────────────────────────────────────────────
   function getFilteredEvents() {
     const today = todayISO();
     let list = allEvents.slice().sort((a, b) => {
@@ -310,14 +535,12 @@
       const bs = toISO(b.start_date || b.start || '');
       return as.localeCompare(bs);
     });
-
     if (currentFilter === 'upcoming') {
       list = list.filter(e => toISO(e.start_date || e.start || '') >= today);
     } else if (currentFilter === 'past') {
       list = list.filter(e => toISO(e.start_date || e.start || '') < today);
-      list.reverse(); // Most recent first for past
+      list.reverse();
     }
-
     if (currentSearch) {
       const q = currentSearch.toLowerCase();
       list = list.filter(e =>
@@ -326,7 +549,6 @@
         (e.event_type || e.type || '').toLowerCase().includes(q)
       );
     }
-
     return list;
   }
 
@@ -335,20 +557,13 @@
     const today = todayISO();
     const container = document.getElementById('eventList');
     document.getElementById('evCount').textContent = list.length + ' event' + (list.length !== 1 ? 's' : '');
-
     if (list.length === 0) {
-      container.innerHTML = `
-        <div class="ev-empty">
-          <div class="ev-empty-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
-          <div>No events found</div>
-        </div>`;
+      container.innerHTML = `<div class="ev-empty"><div class="ev-empty-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div><div>No events found</div></div>`;
       return;
     }
-
     let html = '';
     let lastMonth = null;
     let nextInserted = false;
-
     list.forEach((ev, idx) => {
       const startISO = toISO(ev.start_date || ev.start || '');
       const month = startISO ? monthLabel(startISO) : 'No date';
@@ -359,14 +574,10 @@
       const type = ev.event_type || ev.type || '';
       const status = ev.status || '';
       const dateStr = formatDateRange(ev);
-
-      // Month group header
       if (month !== lastMonth) {
         lastMonth = month;
         html += `<div class="ev-group-header">${month}</div>`;
       }
-
-      // "Next event" divider
       if (!nextInserted && currentFilter !== 'past' && startISO >= today) {
         const nextIdx = list.findIndex(e => toISO(e.start_date || e.start || '') >= today);
         if (nextIdx === idx) {
@@ -374,9 +585,7 @@
           nextInserted = true;
         }
       }
-
-      html += `
-        <div class="ev-card" onclick="openDrawer(${JSON.stringify(ev.id)})">
+      html += `<div class="ev-card" onclick="openDrawer(${JSON.stringify(ev.id)})">
           <div class="ev-accent" style="background:${color};"></div>
           <div class="ev-info">
             <div class="ev-title">${escHtml(title)}</div>
@@ -391,127 +600,454 @@
           </div>
         </div>`;
     });
-
     container.innerHTML = html;
   }
 
-  function escHtml(str) {
-    return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  }
-
+  // ── Drawer open / close ───────────────────────────────────────────────
   function openDrawer(id) {
     const ev = allEvents.find(e => String(e.id) === String(id));
     if (!ev) return;
+    activeDrawerEventId = String(id);
+    activeDrawerTab = 'details';
+    drawerRunPlans = [];
+    showNewRPForm = false;
 
     const title = ev.name || ev.title || 'Untitled';
     const type  = ev.event_type || ev.type || '';
     const color = typeColor(type);
     const dateStr = formatDateRange(ev);
-    const venue = ev.circuit || ev.venue || '';
-    const status = ev.status || '';
-    const brief = ev.brief || '';
-    const drivers = ev.drivers || [];
-    const crew = ev.crew || [];
-    const docs = ev.documents || [];
-    const runbook = ev.runbook || {};
-    const gates = runbook.gates || [];
-    const schedule = runbook.schedule || [];
 
+    document.getElementById('drawerBar').style.background = color;
     document.getElementById('drawerName').textContent = title;
     document.getElementById('drawerDate').textContent = dateStr;
     document.getElementById('drawerTypePill').textContent = type;
     document.getElementById('drawerTypePill').style.background = color;
 
-    let body = '';
+    // Tab strip active state
+    document.querySelectorAll('.ev-drawer-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === 'details'));
+    document.getElementById('panelDetails').style.display = '';
+    document.getElementById('panelRunPlans').style.display = 'none';
 
-    // Key details
-    body += `<div class="detail-section">
-      <div class="detail-section-title">Details</div>`;
-    if (venue) body += detailRow('Venue', escHtml(venue));
-    body += detailRow('Status', escHtml(status));
-    if (brief) body += detailRow('Brief', escHtml(brief));
-    body += `</div>`;
+    renderDetailsPanel(ev);
 
-    // Drivers
-    if (drivers.length > 0) {
-      body += `<div class="detail-section">
-        <div class="detail-section-title">Drivers (${drivers.length})</div>`;
-      drivers.forEach(d => {
-        const name = typeof d === 'string' ? d : (d.name || d.driverName || d.driver_name || JSON.stringify(d));
-        const cls = typeof d === 'object' ? (d.class || d.klass || '') : '';
-        body += detailRow(cls || '—', escHtml(name));
-      });
-      body += `</div>`;
-    }
-
-    // Crew roster
-    if (crew.length > 0) {
-      body += `<div class="detail-section">
-        <div class="detail-section-title">Crew (${crew.length})</div>`;
-      crew.forEach(c => {
-        const name = typeof c === 'string' ? c : (c.name || c.staffName || c.staffId || '—');
-        const role = typeof c === 'object' ? (c.role || '') : '';
-        body += detailRow(role || '—', escHtml(name));
-      });
-      body += `</div>`;
-    }
-
-    // Runbook gates
-    if (gates.length > 0) {
-      body += `<div class="detail-section">
-        <div class="detail-section-title">Runbook gates</div>`;
-      gates.forEach(g => {
-        const done = g.status === 'Complete' || g.status === 'Done';
-        body += detailRow(done ? '✓' : '○', escHtml(g.name || '—'));
-      });
-      body += `</div>`;
-    }
-
-    // Schedule
-    if (schedule.length > 0) {
-      body += `<div class="detail-section">
-        <div class="detail-section-title">Schedule</div>`;
-      schedule.forEach(s => {
-        const label = s.type || 'Session';
-        const t = [s.start ? formatDate(s.start) : '', s.end ? formatDate(s.end) : ''].filter(Boolean).join(' → ');
-        body += detailRow(escHtml(label), t || '—');
-      });
-      body += `</div>`;
-    }
-
-    // Documents
-    if (docs.length > 0) {
-      body += `<div class="detail-section">
-        <div class="detail-section-title">Documents</div>`;
-      docs.forEach(d => {
-        const name = d.name || 'Document';
-        const url = d.url || '';
-        body += `<div class="detail-row">
-          <span class="detail-label"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span>
-          <span class="detail-value">${url ? `<a href="${escHtml(url)}" target="_blank" style="color:#0072a3;">${escHtml(name)}</a>` : escHtml(name)}</span>
-        </div>`;
-      });
-      body += `</div>`;
-    }
-
-    document.getElementById('drawerBody').innerHTML = body;
     document.getElementById('drawerOverlay').classList.add('active');
     document.getElementById('detailDrawer').classList.add('open');
-  }
 
-  function detailRow(label, value) {
-    return `<div class="detail-row">
-      <span class="detail-label">${label}</span>
-      <span class="detail-value">${value}</span>
-    </div>`;
+    // Load run plans in background
+    loadRunPlans(id);
   }
 
   function closeDrawer() {
     document.getElementById('drawerOverlay').classList.remove('active');
     document.getElementById('detailDrawer').classList.remove('open');
+    activeDrawerEventId = null;
   }
 
-  // Filter chips
+  // ── Tab switching ─────────────────────────────────────────────────────
+  document.getElementById('drawerTabStrip').addEventListener('click', e => {
+    const btn = e.target.closest('[data-tab]');
+    if (!btn) return;
+    activeDrawerTab = btn.dataset.tab;
+    document.querySelectorAll('.ev-drawer-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === activeDrawerTab));
+    document.getElementById('panelDetails').style.display   = activeDrawerTab === 'details'  ? '' : 'none';
+    document.getElementById('panelRunPlans').style.display  = activeDrawerTab === 'runplans' ? '' : 'none';
+    if (activeDrawerTab === 'runplans') renderRunPlansPanel();
+  });
+
+  // ── Details panel (editable form) ─────────────────────────────────────
+  const EVENT_TYPES = ['Practice','Race/Event','Regional Weekend','National Weekend','International Trip','Test Day','Travel Day','Promo / Media','Camp','Travel','Other'];
+  const EVENT_STATUSES = ['Planned','Upcoming','Open','Closed','Elapsed'];
+
+  function renderDetailsPanel(ev) {
+    const sd = toISO(ev.start_date || ev.start || '');
+    const ed = toISO(ev.end_date || ev.end || '');
+    const typeOpts = EVENT_TYPES.map(t =>
+      `<option value="${escHtml(t)}" ${(ev.event_type || ev.type || '') === t ? 'selected' : ''}>${escHtml(t)}</option>`
+    ).join('');
+    const statusOpts = EVENT_STATUSES.map(s =>
+      `<option value="${escHtml(s)}" ${(ev.status || '') === s ? 'selected' : ''}>${escHtml(s)}</option>`
+    ).join('');
+
+    document.getElementById('panelDetails').innerHTML = `
+      <div class="ev-field-group">
+        <div class="ev-field-label">Event Name</div>
+        <input class="ev-field-input" id="ef_name" type="text" value="${escHtml(ev.name || ev.title || '')}" placeholder="Event name">
+      </div>
+      <div class="ev-field-row">
+        <div class="ev-field-group">
+          <div class="ev-field-label">Start Date</div>
+          <input class="ev-field-input" id="ef_start" type="date" value="${escHtml(sd)}">
+        </div>
+        <div class="ev-field-group">
+          <div class="ev-field-label">End Date</div>
+          <input class="ev-field-input" id="ef_end" type="date" value="${escHtml(ed)}">
+        </div>
+      </div>
+      <div class="ev-field-group">
+        <div class="ev-field-label">Venue / Circuit</div>
+        <input class="ev-field-input" id="ef_venue" type="text" value="${escHtml(ev.circuit || ev.venue || '')}" placeholder="Circuit or venue name">
+      </div>
+      <div class="ev-field-row">
+        <div class="ev-field-group">
+          <div class="ev-field-label">Type</div>
+          <select class="ev-field-select" id="ef_type">${typeOpts}</select>
+        </div>
+        <div class="ev-field-group">
+          <div class="ev-field-label">Status</div>
+          <select class="ev-field-select" id="ef_status">${statusOpts}</select>
+        </div>
+      </div>
+      <div class="ev-field-group">
+        <div class="ev-field-label">Notes / Brief</div>
+        <textarea class="ev-field-textarea" id="ef_brief" placeholder="Event brief, notes…">${escHtml(ev.brief || ev.notes || '')}</textarea>
+      </div>
+      <button class="ev-save-btn" id="efSaveBtn" onclick="saveEventDetails()">Save Changes</button>
+      <div class="ev-save-msg" id="efSaveMsg"></div>
+    `;
+  }
+
+  function saveEventDetails() {
+    const ev = allEvents.find(e => String(e.id) === String(activeDrawerEventId));
+    if (!ev) return;
+    const btn = document.getElementById('efSaveBtn');
+    const msg = document.getElementById('efSaveMsg');
+    btn.disabled = true;
+    btn.classList.add('saving');
+    msg.textContent = '';
+    msg.className = 'ev-save-msg';
+
+    const nameField  = document.getElementById('ef_name');
+    const startField = document.getElementById('ef_start');
+    const endField   = document.getElementById('ef_end');
+    const venueField = document.getElementById('ef_venue');
+    const typeField  = document.getElementById('ef_type');
+    const statusField= document.getElementById('ef_status');
+    const briefField = document.getElementById('ef_brief');
+
+    // Build payload with same field names as the existing event
+    const hasNameCol    = 'name'    in ev;
+    const hasTitleCol   = 'title'   in ev;
+    const hasStartDate  = 'start_date' in ev;
+    const hasStartCol   = 'start'   in ev;
+    const hasEndDate    = 'end_date' in ev;
+    const hasEndCol     = 'end'     in ev;
+    const hasCircuit    = 'circuit' in ev;
+    const hasVenueCol   = 'venue'   in ev;
+    const hasEventType  = 'event_type' in ev;
+    const hasTypeCol    = 'type'    in ev;
+    const hasBriefCol   = 'brief'   in ev;
+    const hasNotesCol   = 'notes'   in ev;
+
+    const payload = {};
+    if (hasNameCol)   payload.name       = nameField.value.trim();
+    if (hasTitleCol)  payload.title      = nameField.value.trim();
+    if (hasStartDate) payload.start_date = startField.value || null;
+    if (hasStartCol)  payload.start      = startField.value || null;
+    if (hasEndDate)   payload.end_date   = endField.value || null;
+    if (hasEndCol)    payload.end        = endField.value || null;
+    if (hasCircuit)   payload.circuit    = venueField.value.trim();
+    if (hasVenueCol)  payload.venue      = venueField.value.trim();
+    if (hasEventType) payload.event_type = typeField.value;
+    if (hasTypeCol)   payload.type       = typeField.value;
+    if (hasBriefCol)  payload.brief      = briefField.value.trim();
+    if (hasNotesCol)  payload.notes      = briefField.value.trim();
+    payload.status = statusField.value;
+
+    mobileFetch(`/api/collections/events/${ev.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(data => {
+      // Update local cache
+      const idx = allEvents.findIndex(e => String(e.id) === String(ev.id));
+      if (idx >= 0) allEvents[idx] = Object.assign({}, allEvents[idx], payload);
+      renderEvents();
+      // Update drawer header
+      const updEv = allEvents[idx] || ev;
+      const newTitle = updEv.name || updEv.title || 'Untitled';
+      document.getElementById('drawerName').textContent = newTitle;
+      document.getElementById('drawerDate').textContent = formatDateRange(updEv);
+      const newColor = typeColor(updEv.event_type || updEv.type || '');
+      document.getElementById('drawerBar').style.background = newColor;
+      document.getElementById('drawerTypePill').textContent = updEv.event_type || updEv.type || '';
+      document.getElementById('drawerTypePill').style.background = newColor;
+      btn.disabled = false;
+      btn.classList.remove('saving');
+      msg.textContent = 'Saved ✓';
+      msg.className = 'ev-save-msg ok';
+      setTimeout(() => { if (msg) msg.textContent = ''; }, 3000);
+    }).catch(err => {
+      btn.disabled = false;
+      btn.classList.remove('saving');
+      msg.textContent = 'Save failed — check connection';
+      msg.className = 'ev-save-msg err';
+    });
+  }
+
+  // ── Run plans panel ───────────────────────────────────────────────────
+  function loadRunPlans(eventId) {
+    mobileFetch(`/api/run-plans?event_id=${encodeURIComponent(eventId)}`).then(rows => {
+      drawerRunPlans = Array.isArray(rows) ? rows : [];
+      updateRPCountBadge();
+      if (activeDrawerTab === 'runplans') renderRunPlansPanel();
+    }).catch(() => {
+      drawerRunPlans = [];
+      updateRPCountBadge();
+      if (activeDrawerTab === 'runplans') renderRunPlansPanel();
+    });
+  }
+
+  function updateRPCountBadge() {
+    const badge = document.getElementById('drawerRPCount');
+    if (drawerRunPlans.length > 0) {
+      badge.style.display = '';
+      badge.textContent = drawerRunPlans.length;
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+
+  function rpStatusColor(s) { return RP_STATUS_COLORS[s] || '#6b7280'; }
+
+  function renderRunPlansPanel() {
+    const panel = document.getElementById('panelRunPlans');
+    let html = `<div class="rp-add-bar">
+      <span class="rp-add-label">${drawerRunPlans.length} Run Plan${drawerRunPlans.length !== 1 ? 's' : ''}</span>
+      <button class="rp-add-btn" onclick="toggleNewRPForm()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add Run Plan
+      </button>
+    </div>`;
+
+    // New run plan form (shown inline at top)
+    if (showNewRPForm) {
+      html += `<div class="rp-form">
+        <div class="rp-form-title">New Run Plan</div>
+        <div class="ev-field-group">
+          <div class="ev-field-label">Session Name *</div>
+          <input class="ev-field-input" id="rp_session" type="text" placeholder="e.g. Q1, Race 1, Test AM">
+        </div>
+        <div class="ev-field-row">
+          <div class="ev-field-group">
+            <div class="ev-field-label">Car Number</div>
+            <input class="ev-field-input" id="rp_car" type="text" placeholder="22">
+          </div>
+          <div class="ev-field-group">
+            <div class="ev-field-label">Driver</div>
+            <input class="ev-field-input" id="rp_driver" type="text" placeholder="Driver name">
+          </div>
+        </div>
+        <div class="ev-field-row">
+          <div class="ev-field-group">
+            <div class="ev-field-label">Planned Laps</div>
+            <input class="ev-field-input" id="rp_planned_laps" type="number" min="0" placeholder="0">
+          </div>
+          <div class="ev-field-group">
+            <div class="ev-field-label">Tyre Compound</div>
+            <input class="ev-field-input" id="rp_tyre" type="text" placeholder="e.g. Soft">
+          </div>
+        </div>
+        <div class="ev-field-group">
+          <div class="ev-field-label">Objectives</div>
+          <textarea class="ev-field-textarea" id="rp_objectives" placeholder="Session objectives…" style="min-height:55px;"></textarea>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:4px;">
+          <button class="rp-form-cancel" onclick="toggleNewRPForm()">Cancel</button>
+          <button class="rp-form-submit" onclick="createRunPlan()">Create</button>
+        </div>
+        <div class="ev-save-msg" id="rpFormMsg"></div>
+      </div>`;
+    }
+
+    if (drawerRunPlans.length === 0 && !showNewRPForm) {
+      html += `<div class="rp-empty">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:0 auto 10px;color:var(--text-3);"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        No run plans yet — tap Add Run Plan
+      </div>`;
+    } else {
+      drawerRunPlans.forEach(rp => {
+        const sc = rpStatusColor(rp.status || 'planned');
+        const statusLabel = (rp.status || 'planned').replace(/_/g, ' ');
+        html += `<div class="rp-card" onclick="openRunPlanDetail(${JSON.stringify(rp.id)})">
+          <div class="rp-card-top">
+            <div class="rp-session-name">${escHtml(rp.session_name || '—')}</div>
+            <span class="rp-status-pill" style="background:${sc};">${escHtml(statusLabel)}</span>
+          </div>
+          <div class="rp-card-meta">
+            ${rp.car_number  ? `<span class="rp-meta-chip"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 3v5h-7"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>#${escHtml(rp.car_number)}</span>` : ''}
+            ${rp.driver_name ? `<span class="rp-meta-chip"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>${escHtml(rp.driver_name)}</span>` : ''}
+            ${rp.planned_laps ? `<span class="rp-meta-chip">${escHtml(String(rp.planned_laps))} laps planned</span>` : ''}
+            ${rp.tyre_compound ? `<span class="rp-meta-chip">Tyre: ${escHtml(rp.tyre_compound)}</span>` : ''}
+          </div>
+          ${rp.objectives ? `<div style="font-size:11px;color:var(--text-3);margin-top:5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${escHtml(rp.objectives)}</div>` : ''}
+        </div>`;
+      });
+    }
+
+    panel.innerHTML = html;
+  }
+
+  function toggleNewRPForm() {
+    showNewRPForm = !showNewRPForm;
+    renderRunPlansPanel();
+    if (showNewRPForm) {
+      setTimeout(() => {
+        const el = document.getElementById('rp_session');
+        if (el) el.focus();
+      }, 80);
+    }
+  }
+
+  function createRunPlan() {
+    const session = (document.getElementById('rp_session')?.value || '').trim();
+    const msg = document.getElementById('rpFormMsg');
+    if (!session) {
+      if (msg) { msg.textContent = 'Session name is required'; msg.className = 'ev-save-msg err'; }
+      return;
+    }
+    const payload = {
+      event_id:      activeDrawerEventId,
+      session_name:  session,
+      car_number:    (document.getElementById('rp_car')?.value || '').trim() || null,
+      driver_name:   (document.getElementById('rp_driver')?.value || '').trim() || null,
+      planned_laps:  parseInt(document.getElementById('rp_planned_laps')?.value || '0', 10) || 0,
+      tyre_compound: (document.getElementById('rp_tyre')?.value || '').trim() || null,
+      objectives:    (document.getElementById('rp_objectives')?.value || '').trim() || null,
+      status:        'planned'
+    };
+
+    const submitBtn = document.querySelector('.rp-form-submit');
+    if (submitBtn) submitBtn.disabled = true;
+
+    mobileFetch('/api/run-plans', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(newRP => {
+      drawerRunPlans.unshift(newRP);
+      showNewRPForm = false;
+      updateRPCountBadge();
+      renderRunPlansPanel();
+    }).catch(() => {
+      if (submitBtn) submitBtn.disabled = false;
+      if (msg) { msg.textContent = 'Failed to create — try again'; msg.className = 'ev-save-msg err'; }
+    });
+  }
+
+  function openRunPlanDetail(rpId) {
+    // For now: inline edit overlay on the run plan card
+    const rp = drawerRunPlans.find(r => String(r.id) === String(rpId));
+    if (!rp) return;
+    showRPEditForm(rp);
+  }
+
+  function showRPEditForm(rp) {
+    const panel = document.getElementById('panelRunPlans');
+    const rpStatusOpts = [
+      { value: 'planned',     label: 'Planned' },
+      { value: 'in_progress', label: 'In Progress' },
+      { value: 'completed',   label: 'Completed' },
+      { value: 'cancelled',   label: 'Cancelled' },
+    ].map(o => `<option value="${o.value}" ${rp.status === o.value ? 'selected' : ''}>${o.label}</option>`).join('');
+
+    // Replace panel with edit form
+    panel.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);">
+        <button onclick="renderRunPlansPanel()" style="border:none;background:none;color:var(--accent,#0078ff);font-size:13px;font-weight:700;padding:0;cursor:pointer;">
+          ← Back
+        </button>
+        <span style="font-size:13px;font-weight:700;color:var(--text);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(rp.session_name)}</span>
+      </div>
+      <div style="padding:14px 16px;">
+        <div class="ev-field-group">
+          <div class="ev-field-label">Session Name</div>
+          <input class="ev-field-input" id="rpe_session" type="text" value="${escHtml(rp.session_name || '')}">
+        </div>
+        <div class="ev-field-row">
+          <div class="ev-field-group">
+            <div class="ev-field-label">Car #</div>
+            <input class="ev-field-input" id="rpe_car" type="text" value="${escHtml(rp.car_number || '')}">
+          </div>
+          <div class="ev-field-group">
+            <div class="ev-field-label">Driver</div>
+            <input class="ev-field-input" id="rpe_driver" type="text" value="${escHtml(rp.driver_name || '')}">
+          </div>
+        </div>
+        <div class="ev-field-row">
+          <div class="ev-field-group">
+            <div class="ev-field-label">Planned Laps</div>
+            <input class="ev-field-input" id="rpe_planned" type="number" min="0" value="${escHtml(String(rp.planned_laps || 0))}">
+          </div>
+          <div class="ev-field-group">
+            <div class="ev-field-label">Actual Laps</div>
+            <input class="ev-field-input" id="rpe_actual" type="number" min="0" value="${escHtml(String(rp.actual_laps || 0))}">
+          </div>
+        </div>
+        <div class="ev-field-row">
+          <div class="ev-field-group">
+            <div class="ev-field-label">Tyre Compound</div>
+            <input class="ev-field-input" id="rpe_tyre" type="text" value="${escHtml(rp.tyre_compound || '')}">
+          </div>
+          <div class="ev-field-group">
+            <div class="ev-field-label">Fuel Load</div>
+            <input class="ev-field-input" id="rpe_fuel" type="text" value="${escHtml(rp.fuel_load || '')}">
+          </div>
+        </div>
+        <div class="ev-field-group">
+          <div class="ev-field-label">Status</div>
+          <select class="ev-field-select" id="rpe_status">${rpStatusOpts}</select>
+        </div>
+        <div class="ev-field-group">
+          <div class="ev-field-label">Objectives</div>
+          <textarea class="ev-field-textarea" id="rpe_objectives">${escHtml(rp.objectives || '')}</textarea>
+        </div>
+        <div class="ev-field-group">
+          <div class="ev-field-label">Notes</div>
+          <textarea class="ev-field-textarea" id="rpe_notes">${escHtml(rp.notes || '')}</textarea>
+        </div>
+        <button class="ev-save-btn" onclick="saveRunPlan(${JSON.stringify(rp.id)})">Save Run Plan</button>
+        <div class="ev-save-msg" id="rpeSaveMsg"></div>
+      </div>`;
+  }
+
+  function saveRunPlan(rpId) {
+    const rp = drawerRunPlans.find(r => String(r.id) === String(rpId));
+    if (!rp) return;
+    const btn = document.querySelector(`#panelRunPlans .ev-save-btn`);
+    const msg = document.getElementById('rpeSaveMsg');
+    if (btn) btn.disabled = true;
+
+    const payload = {
+      event_id:      activeDrawerEventId,
+      session_name:  document.getElementById('rpe_session')?.value.trim() || rp.session_name,
+      car_number:    document.getElementById('rpe_car')?.value.trim() || null,
+      driver_name:   document.getElementById('rpe_driver')?.value.trim() || null,
+      planned_laps:  parseInt(document.getElementById('rpe_planned')?.value || '0', 10) || 0,
+      actual_laps:   parseInt(document.getElementById('rpe_actual')?.value  || '0', 10) || 0,
+      tyre_compound: document.getElementById('rpe_tyre')?.value.trim() || null,
+      fuel_load:     document.getElementById('rpe_fuel')?.value.trim() || null,
+      status:        document.getElementById('rpe_status')?.value || rp.status,
+      objectives:    document.getElementById('rpe_objectives')?.value.trim() || null,
+      notes:         document.getElementById('rpe_notes')?.value.trim() || null,
+    };
+
+    mobileFetch(`/api/run-plans/${rpId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(updated => {
+      const idx = drawerRunPlans.findIndex(r => String(r.id) === String(rpId));
+      if (idx >= 0) drawerRunPlans[idx] = updated;
+      updateRPCountBadge();
+      if (msg) { msg.textContent = 'Saved ✓'; msg.className = 'ev-save-msg ok'; }
+      setTimeout(() => renderRunPlansPanel(), 1200);
+    }).catch(() => {
+      if (btn) btn.disabled = false;
+      if (msg) { msg.textContent = 'Save failed — try again'; msg.className = 'ev-save-msg err'; }
+    });
+  }
+
+  // ── Filter chips ──────────────────────────────────────────────────────
   document.getElementById('filterStrip').addEventListener('click', e => {
     const btn = e.target.closest('[data-filter]');
     if (!btn) return;
@@ -521,16 +1057,18 @@
     renderEvents();
   });
 
-  // Search
+  // ── Search ────────────────────────────────────────────────────────────
   document.getElementById('searchInput').addEventListener('input', e => {
     currentSearch = e.target.value.trim();
     renderEvents();
   });
 
-  // Load events
+  // ── Load events ───────────────────────────────────────────────────────
   async function loadEvents() {
     try {
-      const resp = await fetch(`${API}/api/collections/events`, { headers: auth() });
+      const resp = await fetch(`${API}/api/collections/events`, {
+        headers: { 'Authorization': 'Bearer ' + localStorage.getItem('auth_token') }
+      });
       if (mobileHandle401(resp)) return;
       const data = await resp.json();
       if (data.success) {
