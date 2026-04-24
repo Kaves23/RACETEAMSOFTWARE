@@ -20,6 +20,7 @@
 'use strict';
 
 const express = require('express');
+const net = require('net');
 const router  = express.Router();
 const https   = require('https');
 const http    = require('http');
@@ -412,6 +413,34 @@ router.get('/raw', async (req, res) => {
   } catch(e) {
     res.status(502).json({ ok: false, error: e.message });
   }
+});
+
+/**
+ * GET /api/apex-proxy/test-port?host=www.apex-timing.com&port=7553
+ * TCP connectivity test — confirms whether this server can reach the WS port.
+ * Returns { ok, host, port, reachable, error, ms }
+ */
+router.get('/test-port', (req, res) => {
+  const host = req.query.host || 'www.apex-timing.com';
+  const port = parseInt(req.query.port || '7553', 10);
+  if (port < 1 || port > 65535 || !/^[\w.-]+$/.test(host)) {
+    return res.status(400).json({ ok: false, error: 'invalid host/port' });
+  }
+  const start = Date.now();
+  const sock = new net.Socket();
+  sock.setTimeout(6000);
+  sock.on('connect', () => {
+    sock.destroy();
+    res.json({ ok: true, host, port, reachable: true, ms: Date.now() - start });
+  });
+  sock.on('timeout', () => {
+    sock.destroy();
+    res.json({ ok: true, host, port, reachable: false, error: 'timeout', ms: Date.now() - start });
+  });
+  sock.on('error', (e) => {
+    res.json({ ok: true, host, port, reachable: false, error: e.message, ms: Date.now() - start });
+  });
+  sock.connect(port, host);
 });
 
 module.exports = router;
