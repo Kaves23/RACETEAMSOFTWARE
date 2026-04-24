@@ -1173,6 +1173,21 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
         const quantity = parseInt(quantityStr);
         if (isNaN(quantity) || quantity <= 0) { showToast('Invalid quantity', 'error'); return; }
 
+        // ── Zero-stock override: warn but allow packing if Shopify may be wrong ──
+        const projectedQty = shopifyQty - quantity;
+        let stockAlertNeeded = false;
+        if (projectedQty < 0) {
+          const locLabel2 = locationName ? ` at ${locationName}` : '';
+          const confirmed = await customConfirm(
+            '⚠️ Shopify Stock Warning',
+            `Shopify shows ${shopifyQty} unit(s)${locLabel2}. Packing ${quantity} would push stock to ${projectedQty}.\n\nShopify may be wrong — do you want to pack anyway?\n\nAn alert email will be sent for stock validation.`,
+            'Pack Anyway',
+            true // isDanger — red button
+          );
+          if (!confirmed) return;
+          stockAlertNeeded = true;
+        }
+
         showLoading('Shopify', `Importing & packing ${name}…`);
 
         // Lazy-import
@@ -1204,6 +1219,26 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
         await loadInventoryItems();
         hideLoading();
         await packMultipleItems(currentBoxId, [{ id: String(importData.item.id), type: 'inventory' }], quantity);
+
+        // ── Send stock-below-zero alert email (fire-and-forget) ──
+        if (stockAlertNeeded) {
+          const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+          const userName = currentUser.name || currentUser.username || 'Unknown User';
+          fetch('/api/notifications/shopify-stock-alert', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}` },
+            body: JSON.stringify({
+              userName,
+              productName: name,
+              sku,
+              quantity,
+              boxName: box ? box.name : String(currentBoxId),
+              locationName: locationName || locationId,
+              shopifyQtyBefore: shopifyQty,
+              shopifyQtyAfter: projectedQty
+            })
+          }).catch(e => console.warn('Stock alert email failed (non-fatal):', e));
+        }
 
       } else {
         // ── No box selected: import only, switch to Inventory tab ──

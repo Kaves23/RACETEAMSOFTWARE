@@ -287,6 +287,9 @@ app.use('/api/board-reports',        requireAuth, require('./routes/board-report
 app.use('/api/doc-control',          requireAuth, require('./routes/doc-control'));
 app.use('/api/kpi-metrics',          requireAuth, require('./routes/kpi-metrics'));
 
+// Notifications — stock alerts, email dispatch - PROTECTED
+app.use('/api/notifications', requireAuth, require('./routes/notifications'));
+
 // Get settings (read-only endpoint) - PROTECTED
 app.get('/api/settings', requireAuth, async (req, res) => {
   try {
