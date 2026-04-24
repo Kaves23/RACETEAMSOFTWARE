@@ -130,6 +130,20 @@
       align-items:center; justify-content:center; color:#6c757d; text-align:center;
     }
     .tm-no-timing a { color:#4a6fa5; text-decoration:none; }
+
+    /* heat number card */
+    .tm-heat-card {
+      position:absolute; top:14px; left:14px; z-index:2;
+      background:#fff; border:1px solid rgba(8,145,178,.25);
+      border-left:4px solid #0891b2;
+      border-radius:10px; box-shadow:0 2px 8px rgba(8,145,178,.12);
+      padding:10px 14px; pointer-events:none; min-width:72px;
+    }
+    .tm-heat-lbl { font-size:.62rem; font-weight:700; text-transform:uppercase;
+                   letter-spacing:.1em; color:#0891b2; margin-bottom:2px; }
+    .tm-heat-num { font-size:2.6rem; font-weight:800; line-height:1;
+                   color:#0891b2; font-variant-numeric:tabular-nums; }
+    .tm-heat-sub { font-size:.68rem; color:#6c757d; margin-top:2px; font-weight:600; }
   </style>
 </head>
 <body>
@@ -166,6 +180,11 @@
 
     <div class="tm-left" id="tmLeft">
       <div style="position:relative;flex:1 1 auto;display:flex;flex-direction:column;align-items:center" id="tmMapWrap">
+        <div class="tm-heat-card" id="tmHeatCard" style="display:none">
+          <div class="tm-heat-lbl">Heat</div>
+          <div class="tm-heat-num" id="tmHeatNum">—</div>
+          <div class="tm-heat-sub" id="tmHeatClass"></div>
+        </div>
         <svg id="trackSvg" viewBox="0 0 600 510" preserveAspectRatio="xMidYMid meet">
           <defs>
             <filter id="glow"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
@@ -509,6 +528,21 @@
         finished:{cls:'finished',icon:'🏁',lbl:'FINISHED'},waiting:{cls:'waiting',icon:'◌',lbl:'WAITING'}};
       const s=sm[state.status]||sm.waiting;
       badge.className=`tm-flag ${s.cls}`;badge.textContent=`${s.icon} ${s.lbl}`;
+      // heat number card
+      const heatCard=document.getElementById('tmHeatCard');
+      const heatNum=document.getElementById('tmHeatNum');
+      const heatClass=document.getElementById('tmHeatClass');
+      if(heatCard&&state.sessionName){
+        const m=state.sessionName.match(/(?:Race|Heat|Final|Pre[- ]?Final|Pref)\s*(\d+)/i);
+        if(m){
+          heatCard.style.display='';
+          // label: 'Race', 'Heat', etc.
+          const lbl=heatCard.querySelector('.tm-heat-lbl');
+          if(lbl)lbl.textContent=m[0].replace(/\d+/,'').trim()||'Heat';
+          heatNum.textContent=m[1];
+          if(heatClass)heatClass.textContent=state.classOnTrack||'';
+        } else { heatCard.style.display='none'; }
+      }
     }
 
     function buildSparkline(laps,color){
