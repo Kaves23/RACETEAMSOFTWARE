@@ -188,9 +188,16 @@ function parseMessages(rawMessages, grid, state) {
   const drivers = [];
 
   for (const [row, cell] of grid) {
+    // Row 0 = session header
     if (row === 0) {
       applySessionCell(cell, state);
       continue;
+    }
+
+    // Apply flag from c1 of any row (broadcast to session state)
+    if (cell.c1 && cell.c1.type) {
+      const mapped = FLAG_MAP[cell.c1.type.toLowerCase()];
+      if (mapped) { state.status = mapped; state.cssClass = cell.c1.type; }
     }
 
     // Need at least one meaningful field
@@ -220,18 +227,42 @@ function parseMessages(rawMessages, grid, state) {
   state.connected = true;
 }
 
+// Flag cssClass → race status mapping (from Apex Timing integration guide)
+const FLAG_MAP = {
+  lg: 'racing',    // green - race running
+  gr: 'racing',    // green legacy
+  ly: 'paused',    // yellow
+  yf: 'paused',    // yellow legacy
+  lr: 'paused',    // red
+  rf: 'paused',    // red legacy
+  lc: 'finished',  // chequered
+  ch: 'finished',  // chequered legacy
+  lo: 'waiting',   // lights out / not started
+  ls: 'paused',    // safety conditions
+  sc: 'paused',    // safety car
+  bf: 'paused',    // blue legacy
+  wf: 'racing',    // white legacy
+  no: 'waiting',   // none
+};
+
 function applySessionCell(cell, state) {
-  for (const cv of Object.values(cell)) {
-    if (!cv || typeof cv !== 'object') continue;
+  for (const [key, cv] of Object.entries(cell)) {
+    if (!cv || typeof cv !== 'object' || key === '_ts') continue;
     const v = String(cv.value || '').trim();
-    const t = String(cv.type || '').toLowerCase();
+    const t = String(cv.type || '').trim();
+
+    // c1 in any row = flag/status indicator (cssClass is the type field)
+    if (key === 'c1' && t) {
+      const mapped = FLAG_MAP[t.toLowerCase()];
+      if (mapped) state.status = mapped;
+      state.cssClass = t;
+    }
+
     if (!v) continue;
-    if (/race|qual|prac|warm/i.test(v)) state.sessionName = v;
-    if (/race|green|start/i.test(t + v)) state.status = 'racing';
-    else if (/qual|hot/i.test(t + v)) state.status = 'qualifying';
-    else if (/prac|warm/i.test(t + v)) state.status = 'practice';
-    else if (/finish|end|check/i.test(t + v)) state.status = 'finished';
-    if (/\d:\d\d/.test(v)) state.timeRemaining = v;
+    // Session name from title-like fields
+    if (/race|qual|prac|warm|heat|final/i.test(v)) state.sessionName = v;
+    // Time remaining
+    if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(v)) state.timeRemaining = v;
   }
 }
 
@@ -265,16 +296,17 @@ async function startSession(slug) {
     return;
   }
 
-  const { port } = discovery;
-  console.log(`[apex-proxy] Port ${port} for ${slug} (${discovery.source})`);
+  const displayPort = discovery.port;
+  // Port formula: display port + 3 = WSS port, display port + 2 = WS port
+  const wssPort = displayPort + 3;
+  const wsPort  = displayPort + 2;
+  console.log(`[apex-proxy] Display port ${displayPort} → WSS ${wssPort} / WS ${wsPort} for ${slug}`);
 
-  // Try ws:// first — Apex Timing Java server uses plain WS; browser sees wss:// only
-  // because Cloudflare/nginx terminates TLS in front of it.
   const wsUrls = [
-    `ws://www.apex-timing.com:${port}/`,
-    `wss://www.apex-timing.com:${port}/`,
+    `wss://www.apex-timing.com:${wssPort}/`,
+    `ws://www.apex-timing.com:${wsPort}/`,
   ];
-  const session = { slug, port, wsUrl: wsUrls[0], wsUrls, wsUrlIndex: 0, ws: null, connected: false, state: emptyState(), grid: new Map(), messageQueue: [], retryTimer: null, error: null, closeCode: null };
+  const session = { slug, port: wssPort, displayPort, wsUrl: wsUrls[0], wsUrls, wsUrlIndex: 0, ws: null, connected: false, state: emptyState(), grid: new Map(), messageQueue: [], retryTimer: null, error: null, closeCode: null };
   sessions.set(slug, session);
   connectWs(session);
 }
