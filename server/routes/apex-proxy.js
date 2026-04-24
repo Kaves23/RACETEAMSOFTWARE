@@ -181,11 +181,59 @@ const FLAG_MAP = {
 
 // Tokenise a raw WS frame respecting multi-word values.
 // Splits on whitespace (including newlines) that precedes a new IDENTIFIER|
+// IMPORTANT: we must NOT split inside HTML values (grid/gridb elements).
+// Strategy: extract large HTML-value tokens first, then split the remainder.
 function tokeniseFrame(raw) {
-  // An identifier is: word chars (no spaces) followed immediately by '|'
-  // We split on \s+ only when the next non-space content starts an identifier.
-  // Strategy: split on  /\s+(?=\S+\|)/  which splits before any "word|"
-  return raw.trim().split(/\s+(?=\S+\|)/);
+  const tokens = [];
+  // Pull out any element whose value contains '<' (HTML) before general splitting.
+  // Pattern: match ELEMID|CLASS|<...> spanning to the next ELEMID| on its own line.
+  const htmlRe = /^(\S+\|[^|]*\|<[\s\S]*?)(?=\n\S+\||$)/gm;
+  let lastIndex = 0;
+  const htmlMatches = [];
+  let m;
+  while ((m = htmlRe.exec(raw)) !== null) {
+    htmlMatches.push({ start: m.index, end: m.index + m[1].length, token: m[1] });
+  }
+  if (htmlMatches.length === 0) {
+    // No HTML values — simple split
+    return raw.trim().split(/\s+(?=\S+\|)/);
+  }
+  // Build token list, splitting non-HTML regions normally
+  let pos = 0;
+  for (const hm of htmlMatches) {
+    if (hm.start > pos) {
+      const slice = raw.slice(pos, hm.start).trim();
+      if (slice) tokens.push(...slice.split(/\s+(?=\S+\|)/));
+    }
+    tokens.push(hm.token.trim());
+    pos = hm.end;
+  }
+  if (pos < raw.length) {
+    const slice = raw.slice(pos).trim();
+    if (slice) tokens.push(...slice.split(/\s+(?=\S+\|)/));
+  }
+  return tokens.filter(Boolean);
+}
+
+// Parse an Apex Timing HTML grid table into the cell Map.
+// Apex Timing renders the timing board as an HTML table with data-id="r{N}c{N}" on each <td>.
+// This is how static data (kart#, driver name, class) is delivered — they're only in the HTML.
+function parseHtmlGrid(html, grid) {
+  // Match <td ... data-id="r{N}c{N}" ... class="CSS">VALUE</td>  (any attribute order)
+  const re = /<td\b[^>]*\bdata-id="r(\d+)c(\d+)"[^>]*(?:\bclass="([^"]*)")?[^>]*>([^<]*)<\/td>/gi;
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    const row = parseInt(m[1]);
+    const col = parseInt(m[2]);
+    const cssClass = (m[3] || '').trim();
+    const value = (m[4] || '').trim();
+    if (!value && !cssClass) continue;
+    if (!grid.has(row)) grid.set(row, {});
+    // Don't overwrite live cell updates that arrived later
+    if (!grid.get(row)[`c${col}`]) {
+      grid.get(row)[`c${col}`] = { type: cssClass, value };
+    }
+  }
 }
 
 function parseMessages(rawMessages, grid, state) {
@@ -234,6 +282,15 @@ function parseMessages(rawMessages, grid, state) {
           const s = Math.floor(ms / 1000);
           state.timeRemaining = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
         }
+        continue;
+      }
+
+      // ── HTML timing grid  grid||<table …> ────────────────────────────────
+      // Apex Timing sends the full timing board as an HTML table on connect.
+      // This is the ONLY place static data (kart#, name, class) arrives.
+      if (elemId === 'grid' && value.includes('<')) {
+        console.log(`[apex-proxy] Parsing HTML grid (${value.length}b) for ${state.sessionName || 'session'}`);
+        parseHtmlGrid(value, grid);
         continue;
       }
 
@@ -394,24 +451,20 @@ function connectWs(session) {
       // Apex Timing sends a full state dump on connect, then incremental updates.
       // If we missed the dump (e.g. server was reused mid-session), reconnect after
       // a short delay to get a fresh dump that includes driver names (c4/c5).
-      if (session.nameCheckTimer) clearTimeout(session.nameCheckTimer);
-      session.nameCheckTimer = setTimeout(() => {
-        if (session.ws !== ws || ws.readyState !== WebSocket.OPEN) return;
-        let hasNames = false;
-        for (const [, cell] of session.grid) {
-          if ((cell.c4 && cell.c4.value) || (cell.c5 && cell.c5.value)) { hasNames = true; break; }
-        }
-        if (!hasNames) {
-          console.log(`[apex-proxy] No driver names after 6s for ${session.slug} — reconnecting to get initial state dump`);
-          ws.terminate(); // triggers close → retry
-        }
-      }, 6000);
+      // Apex Timing streams data unprompted — no subscribe message needed.
+      // Driver names come from the 'grid' HTML element in the initial dump (parsed by parseHtmlGrid).
     });
 
     ws.on('message', (data) => {
       const msg = data.toString();
       session.messageQueue.push(msg);
       if (session.messageQueue.length > 200) session.messageQueue.shift();
+      // Log first 5 frames verbatim so we can verify column structure in Render logs
+      if (!session._frameCount) session._frameCount = 0;
+      if (session._frameCount < 5) {
+        console.log(`[apex-proxy] frame[${session._frameCount}] (${msg.length}b):`, msg.slice(0, 500));
+        session._frameCount++;
+      }
       parseMessages([msg], session.grid, session.state);
     });
 
@@ -425,7 +478,7 @@ function connectWs(session) {
       if (code !== 1000) {
         // Rotate to next URL candidate (wss→ws) before retrying
         session.wsUrlIndex = (session.wsUrlIndex + 1) % session.wsUrls.length;
-        const delay = session.wsUrlIndex === 0 ? 5000 : 500; // short delay when switching scheme
+        const delay = session.wsUrlIndex === 0 ? 5000 : 500;
         session.retryTimer = setTimeout(() => connectWs(session), delay);
       }
     });
