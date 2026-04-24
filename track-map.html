@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <title>Race Team OS – Track Map</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="style.css?v=20260424" rel="stylesheet" />
+  <style>
+    /* ── page base ──────────────────────────────────────────────── */
+    body { background: #0b0d13; color: #e0e4ef; min-height: 100vh; }
+
+    /* ── status header ──────────────────────────────────────────── */
+    .tm-header {
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+      padding: 10px 20px;
+      background: rgba(255,255,255,0.04);
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+      font-size: 0.82rem;
+    }
+    .tm-session   { font-weight: 700; font-size: 0.95rem; color: #fff; }
+    .tm-class     { color: #adb5bd; }
+    .tm-sep       { color: rgba(255,255,255,0.2); }
+    .tm-laps      { color: #e0e4ef; font-variant-numeric: tabular-nums; }
+    .tm-laps span { color: #fff; font-weight: 600; }
+    .tm-conn      { margin-left: auto; display: flex; align-items: center; gap: 6px;
+                    font-size: 0.75rem; color: #6c757d; }
+    .tm-conn-dot  { width: 8px; height: 8px; border-radius: 50%; background: #495057; }
+    .tm-conn-dot.live { background: #28a745; box-shadow: 0 0 6px #28a74599; }
+
+    /* flag status badge */
+    .tm-flag {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 2px 9px; border-radius: 20px; font-size: 0.72rem; font-weight: 700;
+      letter-spacing: 0.05em; text-transform: uppercase; border: 1px solid transparent;
+    }
+    .tm-flag.racing   { background: #0a2e0a; border-color: #28a745; color: #5cd67c; }
+    .tm-flag.paused   { background: #2e2a00; border-color: #ffc107; color: #ffd952; }
+    .tm-flag.finished { background: #1a1a1a; border-color: #adb5bd; color: #dee2e6; }
+    .tm-flag.waiting  { background: #1a1a2e; border-color: #4a6fa5; color: #7fa8d8; }
+    .tm-flag.qualifying { background: #1a0a2e; border-color: #7c3aed; color: #b17cf7; }
+
+    /* ── layout ─────────────────────────────────────────────────── */
+    .tm-body {
+      display: flex; flex-direction: column; align-items: center;
+      padding: 16px 20px 0;
+      height: calc(100vh - 110px); /* below topnav + header */
+    }
+
+    /* ── SVG canvas ─────────────────────────────────────────────── */
+    #trackSvg {
+      flex: 1 1 auto;
+      width: 100%;
+      max-height: calc(100vh - 230px);
+      overflow: visible;
+    }
+
+    /* track ring */
+    .tm-ring-outer { fill: none; stroke: #2a2d3a; stroke-width: 36; }
+    .tm-ring-inner { fill: none; stroke: #1c1e27; stroke-width: 32; }
+    .tm-ring-line  { fill: none; stroke: #3a3d4a; stroke-width: 1.5; }
+
+    /* start/finish line */
+    .tm-sf-line { stroke: #fff; stroke-width: 3; stroke-linecap: round; opacity: 0.7; }
+    .tm-sf-label { fill: rgba(255,255,255,0.35); font-size: 11px; font-family: system-ui; letter-spacing: 0.1em; }
+
+    /* kart markers */
+    .tm-kart-group { cursor: default; }
+    .tm-kart-shadow { fill: rgba(0,0,0,0.5); }
+    .tm-kart-dot { stroke-width: 2.5; }
+    .tm-kart-leader-ring { fill: none; stroke: #ffd700; stroke-width: 2; opacity: 0.85; }
+    .tm-kart-label {
+      font-family: ui-monospace, 'Courier New', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      paint-order: stroke;
+      stroke-linejoin: round;
+      stroke: #0b0d13;
+      stroke-width: 3;
+    }
+
+    /* waiting / no-data overlay */
+    .tm-overlay {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: rgba(11,13,19,0.88);
+      pointer-events: none;
+    }
+    .tm-overlay.hidden { display: none; }
+    .tm-overlay-icon { font-size: 3.5rem; margin-bottom: 12px; opacity: 0.5; }
+    .tm-overlay-text { color: #6c757d; font-size: 0.9rem; text-align: center; max-width: 280px; }
+
+    /* ── leaderboard strip ──────────────────────────────────────── */
+    .tm-board {
+      width: 100%;
+      max-width: 960px;
+      display: flex; gap: 6px; flex-wrap: wrap;
+      padding: 10px 0 12px;
+      overflow-x: auto;
+    }
+    .tm-board-row {
+      display: flex; align-items: center; gap: 7px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 0.78rem;
+      white-space: nowrap;
+      transition: background 0.3s;
+    }
+    .tm-board-row.is-ours {
+      background: rgba(255,215,0,0.08);
+      border-color: rgba(255,215,0,0.25);
+    }
+    .tm-board-pos  { font-weight: 700; color: #6c757d; min-width: 22px; }
+    .tm-board-name { color: #fff; font-weight: 600; }
+    .tm-board-kart { color: #adb5bd; }
+    .tm-board-kart b { color: #e0e4ef; }
+    .tm-board-gap  { color: #6c757d; font-variant-numeric: tabular-nums; }
+    .tm-board-dot  { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+    /* ── no-timing message ──────────────────────────────────────── */
+    .tm-no-timing {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      color: #495057; text-align: center;
+    }
+    .tm-no-timing svg { opacity: 0.25; margin-bottom: 16px; }
+    .tm-no-timing a { color: #4a6fa5; text-decoration: none; }
+    .tm-no-timing a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div id="rtsTopNav"></div>
+
+  <!-- Status header -->
+  <div class="tm-header" id="tmHeader">
+    <span class="tm-session" id="tmSession">—</span>
+    <span class="tm-sep">·</span>
+    <span class="tm-class" id="tmClass">Waiting for data</span>
+    <span class="tm-sep">·</span>
+    <span id="tmFlagBadge"></span>
+    <span class="tm-sep" id="tmLapSep" style="display:none">·</span>
+    <span class="tm-laps" id="tmLaps" style="display:none">Lap <span id="tmLapCur">0</span> / <span id="tmLapTotal">0</span></span>
+    <span class="tm-conn" id="tmConn">
+      <span class="tm-conn-dot" id="tmConnDot"></span>
+      <span id="tmConnLabel">Connecting…</span>
+    </span>
+  </div>
+
+  <!-- Main body -->
+  <div class="tm-body" id="tmBody">
+
+    <!-- No timing configured message -->
+    <div class="tm-no-timing" id="tmNoTiming" style="display:none">
+      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+      <div style="font-size:1.1rem;font-weight:600;margin-bottom:8px;color:#6c757d">Live Timing Not Configured</div>
+      <div style="font-size:0.85rem;color:#495057;max-width:260px">
+        Enter your Apex Timing event URL in
+        <a href="settings.html#livetiming">Settings → Live Timing</a>
+        to enable the track map.
+      </div>
+    </div>
+
+    <!-- SVG track map (shown when timing is active) -->
+    <div style="position:relative;width:100%;max-width:960px;flex:1 1 auto;display:flex;flex-direction:column;align-items:center" id="tmMapWrap">
+      <svg id="trackSvg" viewBox="0 0 600 540" preserveAspectRatio="xMidYMid meet">
+        <!-- Track ring -->
+        <circle cx="300" cy="255" r="180" class="tm-ring-outer"/>
+        <circle cx="300" cy="255" r="180" class="tm-ring-inner"/>
+        <!-- Sector guideline rings (subtle) -->
+        <circle cx="300" cy="255" r="180" class="tm-ring-line"/>
+        <!-- Start/finish marker at 12 o'clock (top) -->
+        <line x1="300" y1="57" x2="300" y2="93" class="tm-sf-line"/>
+        <text x="313" y="72" class="tm-sf-label">S/F</text>
+        <!-- Dynamic kart groups injected here by JS -->
+        <g id="tmKarts"></g>
+      </svg>
+
+      <!-- Waiting overlay -->
+      <div class="tm-overlay" id="tmOverlay">
+        <div class="tm-overlay-icon">⏱</div>
+        <div class="tm-overlay-text" id="tmOverlayText">Waiting for race session&hellip;</div>
+      </div>
+    </div>
+
+    <!-- Leaderboard strip -->
+    <div class="tm-board" id="tmBoard"></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="config.js"></script>
+  <script src="core.js"></script>
+  <script src="topnav.js?v=20260424"></script>
+  <script>
+  (function () {
+    'use strict';
+
+    RTS.setActiveNav();
+
+    // ── Constants ────────────────────────────────────────────────────────────
+    const SVG_NS  = 'http://www.w3.org/2000/svg';
+    const CX = 300, CY = 255, R = 180;   // circle centre & radius (SVG coords)
+    const START_ANGLE_DEG = -90;          // 12 o'clock = -90° in standard math
+    const LABEL_R = R + 22;               // radius for kart number labels
+    const DOT_R   = 9;                    // kart dot radius
+    const LEADER_RING_R = DOT_R + 5;     // gold ring around leader
+
+    // ── Animation state ──────────────────────────────────────────────────────
+    let lapTimeSec    = 0;     // leader's last lap time in seconds (from last poll)
+    let pollTimestamp = 0;     // Date.now() when last poll arrived
+    let karts         = [];    // array of { kart, name, isOurs, ourColor, isLeader,
+                               //            gapFrac,       — current interpolated gap fraction (0=leader, 0.5=half lap behind)
+                               //            gapFracTarget  — from last poll, lerp toward this }
+    let rafId         = null;
+    let lerpStart     = 0;     // timestamp when current lerp began
+    const LERP_MS     = 1800;  // lerp corrected positions over 1.8 s
+
+    // ── Parse lap time string "M:SS.mmm" → seconds ───────────────────────────
+    function parseLapSec(str) {
+      if (!str || str === '—') return 0;
+      const s = String(str).trim();
+      // "1:03.421"
+      const m1 = s.match(/^(\d+):(\d{2})\.(\d+)$/);
+      if (m1) return parseInt(m1[1], 10) * 60 + parseFloat(m1[2] + '.' + m1[3]);
+      // "63.421"
+      const m2 = s.match(/^(\d+)\.(\d+)$/);
+      if (m2) return parseFloat(s);
+      // integer seconds "63"
+      const m3 = s.match(/^(\d+)$/);
+      if (m3) return parseInt(s, 10);
+      return 0;
+    }
+
+    // ── Parse gap string → seconds behind leader ─────────────────────────────
+    function parseGapSec(gapStr, lapT) {
+      if (!gapStr || gapStr === '—' || gapStr === '') return 0;
+      const s = String(gapStr).trim();
+      // "+N Lap" / "+N Laps"
+      const lapMatch = s.match(/\+?\s*(\d+(?:\.\d+)?)\s*Lap/i);
+      if (lapMatch) return parseFloat(lapMatch[1]) * lapT;
+      // "+3.450" or "3.450"
+      const numMatch = s.match(/[+]?\s*(\d+(?:\.\d+)?)/);
+      if (numMatch) return parseFloat(numMatch[1]);
+      return 0;
+    }
+
+    // ── Convert kart data from state into karts[] ─────────────────────────────
+    function ingestState(state) {
+      const drivers = state.drivers || [];
+      if (!drivers.length) return;
+
+      // Use leader's lastLap as lap time reference
+      const leader = drivers.find(d => String(d.pos) === '1') || drivers[0];
+      const newLapTime = parseLapSec(leader && leader.lastLap) ||
+                         parseLapSec(leader && leader.bestLap) ||
+                         lapTimeSec;
+
+      if (newLapTime > 5) lapTimeSec = newLapTime;  // sanity: ignore <5s values
+      pollTimestamp = Date.now();
+      lerpStart     = pollTimestamp;
+
+      // Build new kart list — preserve existing gapFrac for smooth lerp
+      const existing = new Map(karts.map(k => [k.kart, k]));
+
+      karts = drivers.map((d, i) => {
+        const isLeader = i === 0 || String(d.pos) === '1';
+        const gapSec   = isLeader ? 0 : parseGapSec(d.gap, lapTimeSec);
+        const newFrac  = lapTimeSec > 0 ? (gapSec % lapTimeSec) / lapTimeSec : 0;
+        const prev     = existing.get(String(d.kart));
+
+        return {
+          kart:          String(d.kart  || '?'),
+          name:          String(d.name  || ''),
+          pos:           parseInt(d.pos) || (i + 1),
+          isLeader,
+          isOurs:        !!d.isOurs,
+          ourColor:      d.ourColor || null,
+          gapFrac:       prev ? prev.gapFrac : newFrac,   // animate from current pos
+          gapFracTarget: newFrac
+        };
+      });
+    }
+
+    // ── Compute SVG x,y from angle ────────────────────────────────────────────
+    function angleToPt(deg, radius) {
+      const rad = (deg * Math.PI) / 180;
+      return {
+        x: CX + radius * Math.cos(rad),
+        y: CY + radius * Math.sin(rad)
+      };
+    }
+
+    // ── SVG helpers ───────────────────────────────────────────────────────────
+    function svgEl(tag, attrs) {
+      const el = document.createElementNS(SVG_NS, tag);
+      for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+      return el;
+    }
+
+    // ── Build (or rebuild) SVG kart groups ────────────────────────────────────
+    let svgGroups = new Map();  // kart number string → { g, shadow, leaderRing, dot, label }
+
+    function syncSvgGroups() {
+      const container = document.getElementById('tmKarts');
+      const seen = new Set();
+
+      karts.forEach(k => {
+        seen.add(k.kart);
+        if (!svgGroups.has(k.kart)) {
+          // Create group
+          const g = svgEl('g', { class: 'tm-kart-group' });
+
+          const shadow = svgEl('circle', { r: DOT_R + 1, class: 'tm-kart-shadow', 'fill-opacity': '0.4' });
+
+          const leaderRing = svgEl('circle', { r: LEADER_RING_R, class: 'tm-kart-leader-ring' });
+
+          const color = k.ourColor || '#ffffff';
+          const dot = svgEl('circle', {
+            r:    DOT_R,
+            fill: color,
+            class: 'tm-kart-dot',
+            stroke: k.isOurs ? '#fff' : 'rgba(255,255,255,0.4)',
+            'fill-opacity': k.isOurs ? '1' : '0.75'
+          });
+
+          const label = svgEl('text', {
+            'text-anchor': 'middle',
+            'dominant-baseline': 'middle',
+            class: 'tm-kart-label',
+            fill: k.isOurs ? (k.ourColor || '#ffd700') : 'rgba(255,255,255,0.7)'
+          });
+          label.textContent = '#' + k.kart;
+
+          g.appendChild(shadow);
+          g.appendChild(leaderRing);
+          g.appendChild(dot);
+          g.appendChild(label);
+          container.appendChild(g);
+
+          svgGroups.set(k.kart, { g, shadow, leaderRing, dot, label });
+        }
+
+        // Style updates (in case isOurs/color changed via driver match)
+        const els = svgGroups.get(k.kart);
+        const color = k.ourColor || '#ffffff';
+        els.dot.setAttribute('fill', color);
+        els.dot.setAttribute('stroke', k.isOurs ? '#fff' : 'rgba(255,255,255,0.4)');
+        els.dot.setAttribute('fill-opacity', k.isOurs ? '1' : '0.75');
+        els.label.setAttribute('fill', k.isOurs ? (k.ourColor || '#ffd700') : 'rgba(255,255,255,0.65)');
+        els.leaderRing.style.display = k.isLeader ? '' : 'none';
+      });
+
+      // Remove stale groups
+      for (const [kartNum, els] of svgGroups) {
+        if (!seen.has(kartNum)) {
+          els.g.remove();
+          svgGroups.delete(kartNum);
+        }
+      }
+    }
+
+    // ── requestAnimationFrame loop ────────────────────────────────────────────
+    function rafLoop(ts) {
+      rafId = requestAnimationFrame(rafLoop);
+
+      if (!karts.length || lapTimeSec <= 0) return;
+
+      const now    = Date.now();
+      const elapsedSec = (now - pollTimestamp) / 1000;
+      const lerpT  = Math.min((now - lerpStart) / LERP_MS, 1);  // 0→1
+
+      // Leader's current angle: progresses continuously with time
+      const leaderFrac = (elapsedSec % lapTimeSec) / lapTimeSec;  // 0→1 cycling
+      const leaderAngle = START_ANGLE_DEG + leaderFrac * 360;
+
+      karts.forEach(k => {
+        // Lerp gap fraction toward target
+        k.gapFrac = k.gapFrac + (k.gapFracTarget - k.gapFrac) * lerpT;
+
+        // Kart angle = leader angle minus gap (trailing clockwise)
+        const angle = leaderAngle - k.gapFrac * 360;
+
+        const pt     = angleToPt(angle, R);
+        const labelPt = angleToPt(angle, LABEL_R);
+
+        const els = svgGroups.get(k.kart);
+        if (!els) return;
+
+        // Nudge overlapping karts: tiny radial offset based on pos rank to avoid dot stacking
+        const radialNudge = k.isLeader ? 0 : (k.pos % 3 === 0 ? -8 : k.pos % 3 === 2 ? 8 : 0);
+        const ptFinal     = angleToPt(angle, R + radialNudge);
+
+        els.shadow.setAttribute('cx', ptFinal.x);
+        els.shadow.setAttribute('cy', ptFinal.y + 2);
+        els.leaderRing.setAttribute('cx', ptFinal.x);
+        els.leaderRing.setAttribute('cy', ptFinal.y);
+        els.dot.setAttribute('cx', ptFinal.x);
+        els.dot.setAttribute('cy', ptFinal.y);
+        const lptFinal = angleToPt(angle, LABEL_R + radialNudge);
+        els.label.setAttribute('x', lptFinal.x);
+        els.label.setAttribute('y', lptFinal.y);
+      });
+    }
+
+    // ── Update the status header UI ───────────────────────────────────────────
+    function updateHeader(state) {
+      document.getElementById('tmSession').textContent = state.sessionName || 'Live Timing';
+      document.getElementById('tmClass').textContent   = state.classOnTrack || '';
+
+      // Connected indicator
+      const dot   = document.getElementById('tmConnDot');
+      const label = document.getElementById('tmConnLabel');
+      if (state.connected) {
+        dot.className   = 'tm-conn-dot live';
+        label.textContent = 'Live';
+      } else {
+        dot.className   = 'tm-conn-dot';
+        label.textContent = 'Reconnecting…';
+      }
+
+      // Lap counter
+      if (state.totalLaps > 0) {
+        document.getElementById('tmLapSep').style.display = '';
+        document.getElementById('tmLaps').style.display   = '';
+        document.getElementById('tmLapCur').textContent   = state.laps    || '—';
+        document.getElementById('tmLapTotal').textContent = state.totalLaps;
+      } else {
+        document.getElementById('tmLapSep').style.display = 'none';
+        document.getElementById('tmLaps').style.display   = 'none';
+      }
+
+      // Flag badge
+      const badge = document.getElementById('tmFlagBadge');
+      const statusMap = {
+        racing:     { cls: 'racing',     icon: '▶', label: 'RACING' },
+        qualifying: { cls: 'qualifying', icon: '⏱', label: 'QUALIFYING' },
+        practice:   { cls: 'qualifying', icon: '⏱', label: 'PRACTICE' },
+        paused:     { cls: 'paused',     icon: '⏸', label: 'PAUSED' },
+        finished:   { cls: 'finished',   icon: '🏁', label: 'FINISHED' },
+        waiting:    { cls: 'waiting',    icon: '◌', label: 'WAITING' }
+      };
+      const s = statusMap[state.status] || statusMap.waiting;
+      badge.className   = `tm-flag ${s.cls}`;
+      badge.textContent = `${s.icon} ${s.label}`;
+    }
+
+    // ── Update leaderboard strip ──────────────────────────────────────────────
+    function updateBoard(state) {
+      const board = document.getElementById('tmBoard');
+      const drivers = state.drivers || [];
+      if (!drivers.length) { board.innerHTML = ''; return; }
+
+      board.innerHTML = drivers.map(d => {
+        const color     = d.isOurs && d.ourColor ? d.ourColor : (d.isOurs ? '#ffd700' : '#495057');
+        const gapStr    = d.pos === 1 || !d.gap ? 'Leader' : d.gap;
+        const nameStr   = d.isOurs ? (d.ourName || d.name) : d.name;
+        return `<div class="tm-board-row${d.isOurs ? ' is-ours' : ''}">
+          <span class="tm-board-pos">P${d.pos}</span>
+          <span class="tm-board-dot" style="background:${color}"></span>
+          <span class="tm-board-name">${escHtml(nameStr)}</span>
+          <span class="tm-board-kart"><b>#${escHtml(d.kart)}</b></span>
+          <span class="tm-board-gap">${escHtml(gapStr)}</span>
+        </div>`;
+      }).join('');
+    }
+
+    // ── Overlay control ───────────────────────────────────────────────────────
+    function updateOverlay(state) {
+      const overlay = document.getElementById('tmOverlay');
+      const text    = document.getElementById('tmOverlayText');
+      const isRaceWithData = (state.status === 'racing' || state.status === 'finished') && karts.length > 0 && lapTimeSec > 0;
+      const isNonRace = state.status === 'qualifying' || state.status === 'practice';
+
+      if (isRaceWithData) {
+        overlay.classList.add('hidden');
+      } else if (isNonRace && (state.drivers || []).length > 0) {
+        overlay.classList.remove('hidden');
+        text.textContent = 'Track map shows live gaps — available in race sessions only.';
+      } else if (!state.connected && state.status === 'waiting') {
+        overlay.classList.remove('hidden');
+        text.textContent = 'Connecting to live timing…';
+      } else {
+        overlay.classList.remove('hidden');
+        text.textContent = 'Waiting for race session…';
+      }
+    }
+
+    // ── Utility ───────────────────────────────────────────────────────────────
+    function escHtml(s) {
+      return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    // ── Main update callback ──────────────────────────────────────────────────
+    function onTimingUpdate(state) {
+      updateHeader(state);
+      updateOverlay(state);
+
+      if ((state.drivers || []).length > 0) {
+        ingestState(state);
+        syncSvgGroups();
+        updateBoard(state);
+      }
+    }
+
+    // ── Boot ──────────────────────────────────────────────────────────────────
+    function init() {
+      const settings = RTS.getSettings ? RTS.getSettings() : {};
+      const ltCfg    = (settings && settings.liveTiming) || {};
+
+      // Check if live timing is configured
+      if (!ltCfg.url && !ltCfg.enabled) {
+        document.getElementById('tmNoTiming').style.display = 'flex';
+        document.getElementById('tmMapWrap').style.display  = 'none';
+        return;
+      }
+
+      // Start the rAF loop immediately (karts will be empty until data arrives)
+      rafId = requestAnimationFrame(rafLoop);
+
+      // Load live-timing.js (same way topnav.js does — dynamic injection)
+      const ltVersion = '20260424-5';
+      const script    = document.createElement('script');
+      script.src      = `live-timing.js?v=${ltVersion}`;
+      script.onload   = () => {
+        if (window.RTSLiveTiming) {
+          RTSLiveTiming.onUpdate(onTimingUpdate);
+          RTSLiveTiming.start(ltCfg);
+        }
+      };
+      document.head.appendChild(script);
+    }
+
+    init();
+
+    // Cleanup on unload
+    window.addEventListener('beforeunload', () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      if (window.RTSLiveTiming) RTSLiveTiming.stop();
+    });
+  })();
+  </script>
+</body>
+</html>

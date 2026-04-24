@@ -10,6 +10,7 @@
       { href: 'events.html',            label: 'Events',           key: 'E' },
       { href: 'sporting-calendar.html', label: 'Calendar',         key: 'C' },
       { href: 'entries.html',           label: 'Entries',          key: 'N' },
+      { href: 'track-map.html',         label: 'Track Map',        key: 'K' },
       { href: 'regulations.html',       label: 'Regulations',      key: 'R' },
       { href: 'penalties.html',         label: 'Penalties',        key: 'P' },
       { href: 'notes.html',             label: 'Briefings',        key: 'B' },
