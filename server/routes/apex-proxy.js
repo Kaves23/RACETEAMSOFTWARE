@@ -219,17 +219,28 @@ function tokeniseFrame(raw) {
 // Apex Timing renders the timing board as an HTML table with data-id="r{N}c{N}" on each <td>.
 // This is how static data (kart#, driver name, class) is delivered — they're only in the HTML.
 function parseHtmlGrid(html, grid) {
-  // Match <td ... data-id="r{N}c{N}" ... class="CSS">VALUE</td>  (any attribute order)
-  const re = /<td\b[^>]*\bdata-id="r(\d+)c(\d+)"[^>]*(?:\bclass="([^"]*)")?[^>]*>([^<]*)<\/td>/gi;
+  // Match <td ... data-id="r{N}c{N}" ...>CONTENT</td>  (any attribute order)
+  // Use [\s\S]*? to capture content including inner tags (e.g. <b>17</b>)
+  const re = /<td\b([^>]*)>([\s\S]*?)<\/td>/gi;
   let m;
   while ((m = re.exec(html)) !== null) {
-    const row = parseInt(m[1]);
-    const col = parseInt(m[2]);
-    const cssClass = (m[3] || '').trim();
-    const value = (m[4] || '').trim();
+    const attrs = m[1];
+    const innerHtml = m[2];
+
+    const idMatch = attrs.match(/\bdata-id="r(\d+)c(\d+)"/i);
+    if (!idMatch) continue;
+    const row = parseInt(idMatch[1]);
+    const col = parseInt(idMatch[2]);
+
+    const classMatch = attrs.match(/\bclass="([^"]*)"/i);
+    const cssClass = classMatch ? classMatch[1].trim() : '';
+
+    // Strip inner HTML tags, decode basic entities, trim whitespace
+    const value = innerHtml.replace(/<[^>]+>/g, '').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&nbsp;/g,' ').trim();
+
     if (!value && !cssClass) continue;
     if (!grid.has(row)) grid.set(row, {});
-    // Don't overwrite live cell updates that arrived later
+    // Don't overwrite live incremental updates that arrived later
     if (!grid.get(row)[`c${col}`]) {
       grid.get(row)[`c${col}`] = { type: cssClass, value };
     }
@@ -354,35 +365,37 @@ function rebuildDrivers(grid, state) {
       if (mapped) { state.status = mapped; state.cssClass = cell.c1.type; }
     }
 
-    // Include the row if it has ANY useful driver field
+    // Include the row if it has any driver data
     const hasData = cell.c3 || cell.c4 || cell.c5 || cell.c9 || cell.c11;
     if (!hasData) continue;
 
-    // c4 = kart number (numeric), c5 = driver name (text)
-    // Detect by value type: if c4 is purely numeric → kart; otherwise treat c4 as name
-    const c4val = cell.c4 ? cell.c4.value.trim() : '';
-    const c5val = cell.c5 ? cell.c5.value.trim() : '';
-    const c4isKart = c4val !== '' && /^\d+$/.test(c4val);
-    const kartVal = c4isKart ? c4val : (c5val && /^\d+$/.test(c5val) ? c5val : c4val);
-    const nameVal = c4isKart ? c5val : (!c4isKart && c4val ? c4val : c5val);
+    // Confirmed column mapping from live data:
+    //   c3  = position (from incremental updates only, not in HTML grid)
+    //   c4  = kart number (numeric, may be in HTML if not wrapped; also incremental)
+    //   c5  = driver name (from HTML grid)
+    //   c6  = team/sponsor (from HTML grid)
+    //   c7  = class (from HTML grid)
+    //   c9  = laps completed
+    //   c10 = best lap time
+    //   c11 = last lap time (incremental)
+    //   c12 = interval to car ahead (e.g. "4.750", "1 Lap")
+    //   c13 = gap to race leader (e.g. "4.750", "1 Lap") — use c12 for display
+    const name = cell.c5 ? cell.c5.value.trim() : '';
+    const kart = cell.c4 ? cell.c4.value.trim() : '';
 
     const driver = {
-      pos:     cell.c3  ? toNum(cell.c3.value)  : row,
-      kart:    kartVal,
-      name:    nameVal,
-      laps:    cell.c9  ? toNum(cell.c9.value)   : 0,
-      bestLap: cell.c10 ? fmtLap(cell.c10.value) : '',
-      lastLap: cell.c11 ? fmtLap(cell.c11.value) : '',
-      gap:     cell.c13 ? cell.c13.value         : '',
-      class:   cell.c7  ? cell.c7.value          : '',
+      pos:     cell.c3  ? toNum(cell.c3.value)   : 0,
+      kart:    kart,
+      name:    name,
+      team:    cell.c6  ? cell.c6.value           : '',
+      laps:    cell.c9  ? toNum(cell.c9.value)    : 0,
+      bestLap: cell.c10 ? fmtLap(cell.c10.value)  : '',
+      lastLap: cell.c11 ? fmtLap(cell.c11.value)  : '',
+      gap:     cell.c12 ? cell.c12.value           : (cell.c13 ? cell.c13.value : ''),
+      class:   cell.c7  ? cell.c7.value           : '',
       inPit:   !!(cell.c2 && /sd|pi/.test(cell.c2.type)),
-      flag:    cell.c1  ? cell.c1.type           : '',
+      flag:    cell.c1  ? cell.c1.type            : '',
     };
-
-    // Fall back: kart in c2.value if still missing
-    if (!driver.kart && cell.c2 && /^\d+$/.test(cell.c2.value)) {
-      driver.kart = cell.c2.value;
-    }
 
     drivers.push(driver);
   }
