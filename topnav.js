@@ -292,14 +292,14 @@
       const groupModalTpl = `
         <div class="modal fade" id="rtsGroupQuickModal" tabindex="-1" aria-hidden="true">
           <div class="modal-dialog modal-dialog-centered modal-lg">
-            <div class="modal-content" style="background:#ffffff; color:#000000; border:2px solid #000000; font-family: 'Sedgwick Ave Display', 'Rubik Wet Paint', 'Bangers', 'Permanent Marker', 'Montserrat', system-ui, sans-serif;">
-              <div class="modal-header" style="border-bottom:2px solid #000000;">
-                <h5 class="modal-title" style="color:#000000; font-weight:700;"><span id="rtsGroupTitle"></span></h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            <div class="modal-content" style="background:#000000; color:#ffffff; border:1px solid rgba(255,255,255,0.12); box-shadow:0 0 0 1px #000, 0 24px 64px rgba(0,0,0,0.9); font-family: 'Sedgwick Ave Display', 'Rubik Wet Paint', 'Bangers', 'Permanent Marker', 'Montserrat', system-ui, sans-serif;">
+              <div class="modal-header" style="border-bottom:1px solid rgba(255,255,255,0.10);">
+                <h5 class="modal-title" style="color:#ffffff; font-weight:700;"><span id="rtsGroupTitle"></span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
               </div>
-              <div class="modal-body" style="background:#ffffff;">
+              <div class="modal-body" style="background:#000000;">
                 <div class="d-flex flex-wrap gap-2" id="rtsGroupButtons"></div>
-                <div class="mt-3" style="font-size:0.85rem; color:#000000; font-weight:600;">Press the highlighted letter to jump instantly.</div>
+                <div class="mt-3" style="font-size:0.85rem; color:rgba(255,255,255,0.45);">Press the highlighted letter to jump instantly.</div>
               </div>
             </div>
           </div>
@@ -331,7 +331,7 @@
             activeGroupKeys[key] = item.href;
             const b = document.createElement('button');
             b.type = 'button';
-            b.className = 'btn btn-lg mlo-btn rts-quick-btn rts-quick-btn-light';
+            b.className = 'btn btn-lg mlo-btn rts-quick-btn';
             // Square buttons with consistent width/height
             b.style.width = '220px';
             b.style.height = '220px';
