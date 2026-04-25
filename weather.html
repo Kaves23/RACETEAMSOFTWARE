@@ -1,0 +1,1431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Race Team OS – Weather Station</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="style.css?v=20260420" rel="stylesheet" />
+  <style>
+    body { background: linear-gradient(135deg, #f0f7ff 0%, #e4eef8 100%); }
+
+    /* ── Stats bar ─────────────────────────────────────────────────────── */
+    .ev-stats-bar { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+    .ev-stat-card { background:#fff; border:1px solid rgba(0,0,0,.1); border-radius:8px; padding:10px 16px; box-shadow:0 2px 4px rgba(0,0,0,.06); min-width:100px; }
+    .ev-stat-label { font-size:.7rem; color:#6c757d; font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
+    .ev-stat-value { font-size:1.5rem; font-weight:700; color:#1a1d24; line-height:1.2; }
+    .ev-stat-sub   { font-size:.7rem; color:#6c757d; margin-top:1px; }
+
+    /* ── MLO Shell ─────────────────────────────────────────────────────── */
+    #wxShell.mlo-shell { background:transparent; border:none; gap:10px; }
+    #wxShell .mlo-pane-left, #wxShell .mlo-pane-mid, #wxShell .mlo-pane-right {
+      background:#fff; border:1px solid rgba(0,0,0,.1); border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,.06);
+    }
+    #wxShell .mlo-pane-header { background:#f8f9fa; border-bottom:1px solid rgba(0,0,0,.1); }
+    #wxShell .mlo-title  { color:#1a1d24 !important; }
+    #wxShell .mlo-section-label { color:#6c757d !important; opacity:1 !important; }
+    #wxShell .mlo-resizer { background:transparent; }
+    #wxShell .mlo-resizer:hover { background:rgba(14,165,233,.3); }
+
+    /* ── Left pane ─────────────────────────────────────────────────────── */
+    .wx-location-row { display:flex; gap:6px; }
+    .wx-location-row input { flex:1; }
+    .wx-condition-block { text-align:center; padding:16px 8px 8px; }
+    .wx-condition-icon  { font-size:3.2rem; line-height:1; }
+    .wx-condition-desc  { font-size:.95rem; font-weight:600; color:#1a1d24; margin-top:4px; }
+    .wx-condition-sub   { font-size:.78rem; color:#6c757d; }
+
+    .wx-row { display:flex; justify-content:space-between; align-items:baseline; padding:5px 14px; border-bottom:1px solid rgba(0,0,0,.05); font-size:.83rem; }
+    .wx-row:last-child { border-bottom:none; }
+    .wx-row-label { color:#6c757d; font-weight:600; font-size:.72rem; text-transform:uppercase; letter-spacing:.04em; }
+    .wx-row-val   { font-weight:700; color:#1a1d24; }
+    .wx-row-unit  { color:#6c757d; font-size:.72rem; margin-left:2px; }
+
+    .wx-risk-bar-wrap { padding:6px 14px 10px; }
+    .wx-risk-label    { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:#6c757d; margin-bottom:4px; display:flex; justify-content:space-between; }
+    .wx-risk-bar-bg   { height:10px; border-radius:5px; background:#e9ecef; overflow:hidden; }
+    .wx-risk-bar-fill { height:100%; border-radius:5px; transition:width .6s ease; background:linear-gradient(90deg, #22c55e, #f59e0b, #ef4444); }
+
+    .wx-rain-window { margin:8px 14px; background:#f0f7ff; border:1px solid #bae6fd; border-radius:7px; padding:10px 12px; font-size:.8rem; }
+    .wx-rain-window .rw-title  { font-weight:700; color:#0369a1; font-size:.78rem; text-transform:uppercase; letter-spacing:.03em; margin-bottom:6px; }
+    .wx-rain-window .rw-row    { display:flex; justify-content:space-between; margin-bottom:2px; }
+    .wx-rain-window .rw-key    { color:#6c757d; }
+    .wx-rain-window .rw-val    { font-weight:700; color:#0c4a6e; }
+
+    .wx-pressure-pair { display:flex; gap:10px; padding:8px 14px; }
+    .wx-p-card { flex:1; background:#f8f9fa; border:1px solid #e9ecef; border-radius:6px; padding:8px 10px; text-align:center; }
+    .wx-p-card .pval { font-size:1.3rem; font-weight:800; color:#1a1d24; }
+    .wx-p-card .plbl { font-size:.68rem; color:#6c757d; font-weight:600; text-transform:uppercase; margin-top:2px; }
+    .wx-p-card .pten { font-size:.75rem; margin-top:2px; }
+
+    .wx-sunrise-row { display:flex; gap:8px; padding:6px 14px; }
+    .wx-sun-card { flex:1; background:#fff9e6; border:1px solid #fde68a; border-radius:6px; padding:6px 8px; text-align:center; font-size:.78rem; }
+    .wx-sun-card .sun-val { font-weight:700; color:#92400e; font-size:.9rem; }
+    .wx-sun-card .sun-lbl { color:#b45309; font-size:.67rem; font-weight:600; text-transform:uppercase; }
+
+    .wx-badge { display:inline-block; padding:2px 10px; border-radius:20px; font-size:.72rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase; }
+    .wx-badge-clear      { background:#dcfce7; color:#166534; }
+    .wx-badge-damp       { background:#fef9c3; color:#854d0e; }
+    .wx-badge-wet        { background:#dbeafe; color:#1e3a8a; }
+    .wx-badge-treacherous{ background:#fee2e2; color:#991b1b; }
+    .wx-badge-low        { background:#dcfce7; color:#166534; }
+    .wx-badge-medium     { background:#fef9c3; color:#854d0e; }
+    .wx-badge-high       { background:#fee2e2; color:#991b1b; }
+
+    /* ── API key accordions ─────────────────────────────────────────────── */
+    .wx-key-section { padding:10px 14px; border-top:1px solid rgba(0,0,0,.07); }
+    .wx-key-section details summary { font-size:.75rem; font-weight:700; color:#6c757d; cursor:pointer; text-transform:uppercase; letter-spacing:.04em; }
+    .wx-key-section .form-label { font-size:.75rem; color:#495057; font-weight:600; margin-bottom:2px; }
+    .wx-key-section .form-control { font-size:.78rem; }
+
+    /* ── Mid pane tabs ─────────────────────────────────────────────────── */
+    .wx-tabs { display:flex; gap:0; border-bottom:2px solid #e9ecef; padding:0 12px; }
+    .wx-tab  { padding:8px 14px; font-size:.78rem; font-weight:600; color:#6c757d; cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-2px; white-space:nowrap; user-select:none; }
+    .wx-tab:hover  { color:#0ea5e9; }
+    .wx-tab.active { color:#0ea5e9; border-bottom-color:#0ea5e9; }
+    .wx-tab-panel  { display:none; height:100%; flex-direction:column; }
+    .wx-tab-panel.active { display:flex; }
+
+    .wx-chart-wrap { position:relative; padding:12px; flex:1; min-height:0; }
+    .wx-chart-wrap canvas { width:100% !important; }
+
+    /* Pressure tendency badge */
+    .wx-tendency { display:inline-flex; align-items:center; gap:5px; background:#f0f4ff; border:1px solid #c7d2fe; border-radius:6px; padding:5px 12px; font-size:.8rem; font-weight:700; color:#3730a3; margin:8px 12px 0; }
+
+    /* Rain window analysis (mid pane) */
+    .wx-rwa { margin:6px 12px 0; background:#f0f7ff; border:1px solid #bae6fd; border-radius:7px; padding:10px 14px; }
+    .wx-rwa-title { font-size:.7rem; font-weight:700; text-transform:uppercase; color:#0369a1; letter-spacing:.04em; margin-bottom:8px; }
+    .wx-rwa-grid  { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+    .wx-rwa-cell  { text-align:center; background:#fff; border:1px solid #e0f2fe; border-radius:6px; padding:7px 6px; }
+    .wx-rwa-cell .rwa-val { font-size:1.1rem; font-weight:800; color:#0c4a6e; }
+    .wx-rwa-cell .rwa-lbl { font-size:.65rem; color:#6c757d; font-weight:600; text-transform:uppercase; margin-top:2px; }
+
+    /* 7-day forecast table */
+    .wx-fc-table { width:100%; font-size:.8rem; border-collapse:separate; border-spacing:0; }
+    .wx-fc-table thead { position:sticky; top:0; background:#f8f9fa; z-index:5; }
+    .wx-fc-table th { padding:7px 8px; font-size:.67rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:#6c757d; border-bottom:2px solid #dee2e6; white-space:nowrap; }
+    .wx-fc-table td { padding:6px 8px; border-bottom:1px solid rgba(0,0,0,.05); color:#1a1d24; white-space:nowrap; vertical-align:middle; }
+    .wx-fc-table tbody tr:hover { background:#f8faff; }
+
+    /* Wind compass */
+    .wx-compass-wrap { display:flex; flex-direction:column; align-items:center; padding:10px 0; }
+    .wx-compass-svg  { width:120px; height:120px; }
+    .wx-wind-speed   { font-size:1.5rem; font-weight:800; color:#1a1d24; margin-top:4px; }
+    .wx-wind-dir-lbl { font-size:.78rem; color:#6c757d; }
+
+    .wx-wind-heights  { width:100%; border-collapse:collapse; font-size:.78rem; margin:8px 0; }
+    .wx-wind-heights th { background:#f8f9fa; text-align:center; padding:5px 8px; font-size:.67rem; font-weight:700; text-transform:uppercase; color:#6c757d; border-bottom:2px solid #dee2e6; }
+    .wx-wind-heights td { text-align:center; padding:5px 8px; border-bottom:1px solid rgba(0,0,0,.05); color:#1a1d24; }
+
+    /* ── Right pane ─────────────────────────────────────────────────────── */
+    .wx-deep-section { padding:10px 14px 4px; border-bottom:1px solid rgba(0,0,0,.07); }
+    .wx-deep-section:last-child { border-bottom:none; }
+    .wx-deep-title { font-size:.7rem; font-weight:700; text-transform:uppercase; color:#6c757d; letter-spacing:.04em; margin-bottom:8px; }
+
+    .wx-deep-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+    .wx-deep-cell { background:#f8f9fa; border:1px solid #e9ecef; border-radius:6px; padding:7px 10px; }
+    .wx-deep-cell .dc-val { font-size:1.05rem; font-weight:800; color:#1a1d24; }
+    .wx-deep-cell .dc-lbl { font-size:.65rem; color:#6c757d; font-weight:600; text-transform:uppercase; margin-top:1px; }
+
+    /* Cloud layer bars */
+    .wx-cloud-layers { display:flex; flex-direction:column; gap:6px; }
+    .wx-cl-row  { display:flex; align-items:center; gap:8px; font-size:.78rem; }
+    .wx-cl-lbl  { width:36px; color:#6c757d; font-weight:600; font-size:.7rem; text-align:right; }
+    .wx-cl-bg   { flex:1; height:8px; background:#e9ecef; border-radius:4px; overflow:hidden; }
+    .wx-cl-fill { height:100%; border-radius:4px; transition:width .6s ease; }
+    .wx-cl-low  .wx-cl-fill { background:#94a3b8; }
+    .wx-cl-mid  .wx-cl-fill { background:#64748b; }
+    .wx-cl-high .wx-cl-fill { background:#475569; }
+    .wx-cl-pct { font-size:.72rem; font-weight:700; color:#1a1d24; width:30px; }
+
+    /* Air density card */
+    .wx-density-card { background:linear-gradient(135deg, #f0f4ff, #e8f0ff); border:1px solid #c7d2fe; border-radius:8px; padding:12px 14px; margin:4px 0; }
+    .wx-density-card .dens-val   { font-size:2rem; font-weight:800; color:#3730a3; line-height:1; }
+    .wx-density-card .dens-unit  { font-size:.8rem; color:#6c757d; }
+    .wx-density-card .dens-ref   { font-size:.75rem; margin-top:6px; }
+    .wx-density-card .dens-dev   { font-weight:700; }
+    .dens-pos { color:#16a34a; }
+    .dens-neg { color:#dc2626; }
+
+    /* Track grip card */
+    .wx-grip-card { border-radius:8px; padding:12px 14px; border:1px solid; }
+    .wx-grip-dry         { background:#f0fdf4; border-color:#86efac; }
+    .wx-grip-damp        { background:#fefce8; border-color:#fde68a; }
+    .wx-grip-wet         { background:#eff6ff; border-color:#93c5fd; }
+    .wx-grip-treacherous { background:#fef2f2; border-color:#fca5a5; }
+    .wx-grip-score { font-size:2.2rem; font-weight:800; line-height:1; }
+    .wx-grip-label { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
+    .wx-grip-detail { font-size:.72rem; color:#6c757d; margin-top:4px; }
+
+    /* Loading overlay */
+    .wx-loading { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:40px; gap:12px; color:#6c757d; }
+    .wx-loading-spinner { width:36px; height:36px; border:3px solid #e9ecef; border-top-color:#0ea5e9; border-radius:50%; animation:wx-spin .8s linear infinite; }
+    @keyframes wx-spin { to { transform:rotate(360deg); } }
+
+    /* Error state */
+    .wx-error { background:#fff5f5; border:1px solid #fecaca; border-radius:8px; padding:16px; color:#991b1b; font-size:.85rem; margin:12px; }
+
+    /* Locked section */
+    .wx-locked { background:#f8f9fa; border:1px solid #dee2e6; border-radius:7px; padding:14px; text-align:center; font-size:.78rem; color:#6c757d; }
+    .wx-locked .lock-icon { font-size:1.5rem; margin-bottom:6px; }
+    .wx-locked .lock-lbl  { font-weight:700; color:#495057; font-size:.82rem; }
+
+    /* Air quality grid */
+    .wx-aq-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
+    .wx-aq-cell { background:#f8f9fa; border:1px solid #e9ecef; border-radius:6px; padding:6px 8px; text-align:center; }
+    .wx-aq-cell .aq-val { font-size:1rem; font-weight:800; color:#1a1d24; }
+    .wx-aq-cell .aq-lbl { font-size:.63rem; color:#6c757d; font-weight:600; text-transform:uppercase; }
+
+    /* Minutely rain chart header */
+    .wx-minutely-hdr { font-size:.7rem; font-weight:700; text-transform:uppercase; color:#0369a1; letter-spacing:.04em; padding:6px 12px 0; }
+
+    /* Responsive tweaks */
+    @media(max-width:768px) {
+      .wx-rwa-grid { grid-template-columns:repeat(3,1fr); }
+    }
+
+    /* Frost warning badge */
+    .wx-frost { display:inline-flex; align-items:center; gap:4px; background:#eff6ff; border:1px solid #93c5fd; border-radius:20px; padding:2px 10px; font-size:.72rem; font-weight:700; color:#1e40af; }
+
+    /* Source tag */
+    .wx-source-tag { font-size:.65rem; background:#f0f4ff; border:1px solid #c7d2fe; border-radius:4px; padding:1px 6px; color:#4338ca; font-weight:600; }
+
+    /* Last updated bar */
+    .wx-footer-bar { display:flex; align-items:center; justify-content:space-between; padding:6px 14px; border-top:1px solid rgba(0,0,0,.07); font-size:.72rem; color:#6c757d; }
+  </style>
+</head>
+<body class="light-mode">
+  <div id="rtsTopNav"></div>
+  <div class="rts-version-badge">v1</div>
+  <div class="rts-main container-fluid">
+
+    <!-- Page header -->
+    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+      <div>
+        <h1 class="h4 mb-1">Weather Station</h1>
+        <div class="text-secondary" id="wxLocSubtitle" style="font-size:.85rem;">Enter a location to load live conditions and motorsport analysis.</div>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <span class="wx-source-tag">Open-Meteo</span>
+        <span class="wx-source-tag">Nominatim</span>
+        <button class="btn btn-sm btn-outline-secondary" id="btnWxRefresh" title="Refresh data">↻ Refresh</button>
+      </div>
+    </div>
+
+    <!-- Stats bar -->
+    <div class="ev-stats-bar">
+      <div class="ev-stat-card"><div class="ev-stat-label">Temperature</div><div class="ev-stat-value" id="statTemp">—</div><div class="ev-stat-sub" id="statTempSub">°C</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Feels Like</div><div class="ev-stat-value" id="statFeels">—</div><div class="ev-stat-sub">°C apparent</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">QNH (MSL)</div><div class="ev-stat-value" id="statQNH">—</div><div class="ev-stat-sub" id="statQNHSub">hPa</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">QFE (Surface)</div><div class="ev-stat-value" id="statQFE">—</div><div class="ev-stat-sub">hPa</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Humidity</div><div class="ev-stat-value" id="statHumidity">—</div><div class="ev-stat-sub">%</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Wind / Gust</div><div class="ev-stat-value" id="statWind">—</div><div class="ev-stat-sub" id="statWindSub">km/h</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Rain Chance 24h</div><div class="ev-stat-value" id="statRainChance">—</div><div class="ev-stat-sub">% max</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Air Density</div><div class="ev-stat-value" id="statDensity">—</div><div class="ev-stat-sub">kg/m³</div></div>
+    </div>
+
+    <!-- 3-pane shell -->
+    <div class="mlo-shell" id="wxShell">
+
+      <!-- ═══ LEFT PANE ═══ -->
+      <section class="mlo-pane mlo-pane-left" aria-label="Current weather snapshot">
+        <div class="mlo-pane-header"><div class="mlo-title">Current Conditions</div></div>
+        <div class="mlo-pane-content" style="padding:0; overflow-y:auto;">
+
+          <!-- Location search -->
+          <div style="padding:10px 14px 8px;">
+            <div class="mlo-section-label mb-1">Location</div>
+            <div class="wx-location-row">
+              <input type="text" class="form-control form-control-sm" id="wxLocationInput" placeholder="Circuit name or city…" />
+              <button class="btn btn-sm btn-primary" id="btnWxGo" style="background:#0ea5e9;border-color:#0ea5e9;">Go</button>
+            </div>
+          </div>
+
+          <!-- Condition block (populated after data load) -->
+          <div class="wx-condition-block" id="wxConditionBlock">
+            <div class="wx-condition-icon" id="wxIcon">⛅</div>
+            <div class="wx-condition-desc" id="wxDesc">—</div>
+            <div class="wx-condition-sub" id="wxCondSub">No data loaded</div>
+          </div>
+
+          <!-- Rain risk gauge -->
+          <div class="wx-risk-bar-wrap">
+            <div class="wx-risk-label">
+              <span>Rain Risk</span>
+              <span id="wxRiskPct">— %</span>
+            </div>
+            <div class="wx-risk-bar-bg">
+              <div class="wx-risk-bar-fill" id="wxRiskFill" style="width:0%"></div>
+            </div>
+          </div>
+
+          <!-- Rain window -->
+          <div class="wx-rain-window" id="wxRainWindow">
+            <div class="rw-title">☔ Next Rain Window</div>
+            <div class="rw-row"><span class="rw-key">Onset</span><span class="rw-val" id="rwOnset">—</span></div>
+            <div class="rw-row"><span class="rw-key">Duration</span><span class="rw-val" id="rwDuration">—</span></div>
+            <div class="rw-row"><span class="rw-key">Total Depth</span><span class="rw-val" id="rwDepth">—</span></div>
+            <div class="rw-row mt-1"><span class="rw-key">Peak Intensity</span><span class="rw-val" id="rwPeak">—</span></div>
+          </div>
+
+          <!-- Sunrise / Sunset -->
+          <div class="wx-sunrise-row" style="margin-top:8px;">
+            <div class="wx-sun-card">
+              <div class="sun-lbl">Sunrise</div>
+              <div class="sun-val" id="wxSunrise">—</div>
+            </div>
+            <div class="wx-sun-card">
+              <div class="sun-lbl">Sunset</div>
+              <div class="sun-val" id="wxSunset">—</div>
+            </div>
+          </div>
+
+          <!-- Dew point + frost risk -->
+          <div class="wx-row" style="margin-top:4px;">
+            <span class="wx-row-label">Dew Point</span>
+            <span>
+              <span class="wx-row-val" id="wxDewPoint">—</span>
+              <span class="wx-row-unit">°C</span>
+              <span id="wxFrostBadge" style="display:none;" class="wx-frost ms-1">❄ Frost Risk</span>
+            </span>
+          </div>
+          <div class="wx-row">
+            <span class="wx-row-label">Dew Point Depression</span>
+            <span>
+              <span class="wx-row-val" id="wxDewDep">—</span>
+              <span class="wx-row-unit">°C</span>
+            </span>
+          </div>
+
+          <!-- Pressure pair -->
+          <div class="wx-pressure-pair" style="margin-top:4px;">
+            <div class="wx-p-card">
+              <div class="pval" id="leftQNH">—</div>
+              <div class="plbl">QNH (MSL)</div>
+              <div class="pten" id="leftTendency">—</div>
+            </div>
+            <div class="wx-p-card">
+              <div class="pval" id="leftQFE">—</div>
+              <div class="plbl">QFE (Surface)</div>
+              <div class="pten" id="leftQFEDiff">—</div>
+            </div>
+          </div>
+
+          <!-- Track grip badge -->
+          <div style="padding:8px 14px 4px;">
+            <div class="mlo-section-label mb-1">Track Grip Assessment</div>
+            <div class="wx-grip-card" id="wxGripCard">
+              <div class="d-flex align-items-start justify-content-between">
+                <div>
+                  <div class="wx-grip-score" id="wxGripScore">—</div>
+                  <div class="wx-grip-label" id="wxGripLabel">No data</div>
+                  <div class="wx-grip-detail" id="wxGripDetail">Load a location to assess</div>
+                </div>
+                <span class="wx-badge" id="wxGripBadge">—</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tyre warm-up risk -->
+          <div class="wx-row">
+            <span class="wx-row-label">Tyre Warm-up Risk</span>
+            <span class="wx-badge" id="wxTyreRisk">—</span>
+          </div>
+          <div class="wx-row">
+            <span class="wx-row-label">Est. Surface Temp</span>
+            <span>
+              <span class="wx-row-val" id="wxSurfaceTemp">—</span>
+              <span class="wx-row-unit">°C</span>
+            </span>
+          </div>
+
+          <!-- API key settings -->
+          <div class="wx-key-section">
+            <details>
+              <summary>⚙ Optional API Keys</summary>
+              <div style="padding-top:8px; display:flex; flex-direction:column; gap:8px;">
+                <div>
+                  <label class="form-label">OpenWeatherMap Key <span style="font-weight:400;font-size:.68rem;">(One Call 3.0)</span></label>
+                  <input type="password" class="form-control form-control-sm" id="wxOWMKey" placeholder="Unlocks minutely rain chart" />
+                </div>
+                <div>
+                  <label class="form-label">WeatherAPI Key <span style="font-weight:400;font-size:.68rem;">(weatherapi.com)</span></label>
+                  <input type="password" class="form-control form-control-sm" id="wxWAPIKey" placeholder="Unlocks air quality + heat index" />
+                </div>
+                <button class="btn btn-sm btn-outline-secondary" id="btnSaveWxKeys">Save Keys</button>
+              </div>
+            </details>
+          </div>
+
+        </div><!-- /mlo-pane-content -->
+      </section>
+      <div class="mlo-resizer" id="wxResizer1"></div>
+
+      <!-- ═══ MID PANE ═══ -->
+      <section class="mlo-pane mlo-pane-mid" aria-label="Weather charts">
+        <div class="mlo-pane-header" style="padding:0;">
+          <div class="wx-tabs" id="wxTabs">
+            <div class="wx-tab active" data-tab="pressure">Pressure</div>
+            <div class="wx-tab" data-tab="rain">Rain</div>
+            <div class="wx-tab" data-tab="forecast">Forecast</div>
+            <div class="wx-tab" data-tab="wind">Wind</div>
+          </div>
+        </div>
+        <div class="mlo-pane-content" style="padding:0; display:flex; flex-direction:column; overflow:hidden;">
+
+          <!-- PRESSURE TAB -->
+          <div class="wx-tab-panel active" id="tabPressure" style="flex-direction:column; overflow:auto;">
+            <div id="wxTendencyBadge" class="wx-tendency">— Barometric tendency loading…</div>
+            <div class="wx-chart-wrap" style="min-height:260px;">
+              <canvas id="chartPressure"></canvas>
+            </div>
+            <div style="padding:0 12px 8px;">
+              <div style="font-size:.72rem; color:#6c757d; margin-top:4px;">
+                <span style="display:inline-block;width:12px;height:3px;background:#8b5cf6;border-radius:2px;margin-right:4px;vertical-align:middle;"></span>QNH — Mean Sea Level Pressure
+                &nbsp;&nbsp;
+                <span style="display:inline-block;width:12px;height:3px;background:#f59e0b;border-radius:2px;margin-right:4px;vertical-align:middle;"></span>QFE — Station / Surface Pressure
+              </div>
+              <div style="font-size:.72rem; color:#6c757d; margin-top:8px; line-height:1.6;">
+                <b>QNH</b> is adjusted to sea level and used for altimetry. <b>QFE</b> is the raw surface pressure at the measurement altitude.
+                Rising pressure generally indicates improving weather; falling signals deterioration.
+                A drop of &gt;3 hPa in 3 hours = Rapidly Falling (storm risk).
+              </div>
+            </div>
+          </div>
+
+          <!-- RAIN TAB -->
+          <div class="wx-tab-panel" id="tabRain" style="flex-direction:column; overflow:auto;">
+            <div class="wx-chart-wrap" style="min-height:240px;">
+              <canvas id="chartRain"></canvas>
+            </div>
+            <div class="wx-rwa" id="wxRWA">
+              <div class="wx-rwa-title">☔ Rain Window Analysis</div>
+              <div class="wx-rwa-grid">
+                <div class="wx-rwa-cell"><div class="rwa-val" id="rwaOnset">—</div><div class="rwa-lbl">Onset</div></div>
+                <div class="wx-rwa-cell"><div class="rwa-val" id="rwaDuration">—</div><div class="rwa-lbl">Duration</div></div>
+                <div class="wx-rwa-cell"><div class="rwa-val" id="rwaDepth">—</div><div class="rwa-lbl">Total Depth</div></div>
+                <div class="wx-rwa-cell"><div class="rwa-val" id="rwaPeak">—</div><div class="rwa-lbl">Peak mm/h</div></div>
+                <div class="wx-rwa-cell"><div class="rwa-val" id="rwaWindows">—</div><div class="rwa-lbl">Rain Periods</div></div>
+                <div class="wx-rwa-cell"><div class="rwa-val" id="rwaGap">—</div><div class="rwa-lbl">Until Onset</div></div>
+              </div>
+            </div>
+            <!-- Minutely chart (OWM key required) -->
+            <div id="wxMinutelySection" style="margin-top:8px;">
+              <div class="wx-minutely-hdr">Next 60 Minutes — Precipitation Intensity</div>
+              <div id="wxMinutelyLocked" class="wx-locked" style="margin:8px;">
+                <div class="lock-icon">🔑</div>
+                <div class="lock-lbl">OpenWeatherMap API Key Required</div>
+                <div style="margin-top:4px;">Enter key in left panel settings to unlock 60-minute rain intensity forecast.</div>
+              </div>
+              <div class="wx-chart-wrap" id="wxMinutelyChartWrap" style="min-height:120px; display:none;">
+                <canvas id="chartMinutely"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- FORECAST TAB -->
+          <div class="wx-tab-panel" id="tabForecast" style="flex-direction:column; overflow:auto;">
+            <div style="padding:10px 12px 6px; font-size:.78rem; color:#6c757d;">7-day daily forecast from Open-Meteo.</div>
+            <div style="overflow-x:auto; flex:1; padding:0 12px 12px;">
+              <table class="wx-fc-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Day</th>
+                    <th>Min °C</th>
+                    <th>Max °C</th>
+                    <th>Rain mm</th>
+                    <th>Rain hrs</th>
+                    <th>Prob %</th>
+                    <th>Max Gust</th>
+                    <th>UV</th>
+                    <th>Sunrise</th>
+                    <th>Sunset</th>
+                  </tr>
+                </thead>
+                <tbody id="wxFcBody">
+                  <tr><td colspan="11" class="text-center text-secondary py-4">No data — enter a location</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- WIND TAB -->
+          <div class="wx-tab-panel" id="tabWind" style="flex-direction:column; overflow:auto;">
+            <div style="display:flex; gap:12px; padding:10px 14px;">
+              <div class="wx-compass-wrap" style="flex-shrink:0;">
+                <svg class="wx-compass-svg" id="wxCompassSVG" viewBox="0 0 120 120">
+                  <!-- Compass ring -->
+                  <circle cx="60" cy="60" r="56" fill="#f0f7ff" stroke="#bae6fd" stroke-width="2"/>
+                  <circle cx="60" cy="60" r="42" fill="none" stroke="#e9ecef" stroke-width="1"/>
+                  <!-- Cardinal labels -->
+                  <text x="60" y="14" text-anchor="middle" font-size="11" font-weight="700" fill="#0ea5e9">N</text>
+                  <text x="106" y="64" text-anchor="middle" font-size="11" font-weight="700" fill="#6c757d">E</text>
+                  <text x="60" y="112" text-anchor="middle" font-size="11" font-weight="700" fill="#6c757d">S</text>
+                  <text x="14" y="64" text-anchor="middle" font-size="11" font-weight="700" fill="#6c757d">W</text>
+                  <!-- Tick marks -->
+                  <g id="compassTicks"></g>
+                  <!-- Wind arrow (rotated by JS) -->
+                  <g id="compassArrow" transform="rotate(0, 60, 60)">
+                    <polygon points="60,18 55,60 60,52 65,60" fill="#0ea5e9"/>
+                    <polygon points="60,102 55,60 60,68 65,60" fill="#94a3b8"/>
+                  </g>
+                  <!-- Centre dot -->
+                  <circle cx="60" cy="60" r="4" fill="#1a1d24"/>
+                </svg>
+                <div class="wx-wind-speed"><span id="wxWindSpd">—</span> <span style="font-size:.8rem;font-weight:400;color:#6c757d;">km/h</span></div>
+                <div class="wx-wind-dir-lbl" id="wxWindDirLbl">— from —</div>
+                <div style="font-size:.72rem; color:#6c757d; margin-top:2px;">Gusts: <b id="wxGustSpd">—</b> km/h</div>
+              </div>
+              <div style="flex:1; overflow-x:auto;">
+                <div style="font-size:.7rem; font-weight:700; text-transform:uppercase; color:#6c757d; margin-bottom:4px;">Multi-Altitude Wind Profile</div>
+                <table class="wx-wind-heights">
+                  <thead>
+                    <tr><th>Height</th><th>Speed (km/h)</th><th>Direction</th><th>Gust ≈</th></tr>
+                  </thead>
+                  <tbody id="wxWindHeights">
+                    <tr><td colspan="4" class="text-center text-secondary">No data</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div style="font-size:.7rem; font-weight:700; text-transform:uppercase; color:#6c757d; padding:0 14px 4px;">24-Hour Wind Gust Forecast</div>
+            <div class="wx-chart-wrap" style="min-height:180px;">
+              <canvas id="chartGust"></canvas>
+            </div>
+          </div>
+
+        </div><!-- /mlo-pane-content mid -->
+      </section>
+      <div class="mlo-resizer" id="wxResizer2"></div>
+
+      <!-- ═══ RIGHT PANE ═══ -->
+      <section class="mlo-pane mlo-pane-right mlo-inspector" aria-label="Motorsport analysis">
+        <div class="mlo-pane-header"><div class="mlo-title">Motorsport Analysis</div></div>
+        <div class="mlo-pane-content" style="padding:0; overflow-y:auto;">
+
+          <!-- Full current readings -->
+          <div class="wx-deep-section">
+            <div class="wx-deep-title">Atmospheric Conditions</div>
+            <div class="wx-deep-grid">
+              <div class="wx-deep-cell"><div class="dc-val" id="dcTemp">—</div><div class="dc-lbl">Temp °C</div></div>
+              <div class="wx-deep-cell"><div class="dc-val" id="dcDew">—</div><div class="dc-lbl">Dew Point °C</div></div>
+              <div class="wx-deep-cell"><div class="dc-val" id="dcHumidity">—</div><div class="dc-lbl">Humidity %</div></div>
+              <div class="wx-deep-cell"><div class="dc-val" id="dcApparent">—</div><div class="dc-lbl">Feels Like °C</div></div>
+              <div class="wx-deep-cell"><div class="dc-val" id="dcVis">—</div><div class="dc-lbl">Visibility km</div></div>
+              <div class="wx-deep-cell"><div class="dc-val" id="dcUV">—</div><div class="dc-lbl">UV Index</div></div>
+              <div class="wx-deep-cell"><div class="dc-val" id="dcCAPE">—</div><div class="dc-lbl">CAPE J/kg</div></div>
+              <div class="wx-deep-cell"><div class="dc-val" id="dcVPD">—</div><div class="dc-lbl">Vapour P. Def.</div></div>
+            </div>
+          </div>
+
+          <!-- Cloud layers -->
+          <div class="wx-deep-section">
+            <div class="wx-deep-title">Cloud Cover Layers</div>
+            <div class="wx-cloud-layers">
+              <div class="wx-cl-row wx-cl-high">
+                <span class="wx-cl-lbl">High</span>
+                <div class="wx-cl-bg"><div class="wx-cl-fill" id="clHighFill" style="width:0%"></div></div>
+                <span class="wx-cl-pct" id="clHighPct">—%</span>
+              </div>
+              <div class="wx-cl-row wx-cl-mid">
+                <span class="wx-cl-lbl">Mid</span>
+                <div class="wx-cl-bg"><div class="wx-cl-fill" id="clMidFill" style="width:0%"></div></div>
+                <span class="wx-cl-pct" id="clMidPct">—%</span>
+              </div>
+              <div class="wx-cl-row wx-cl-low">
+                <span class="wx-cl-lbl">Low</span>
+                <div class="wx-cl-bg"><div class="wx-cl-fill" id="clLowFill" style="width:0%"></div></div>
+                <span class="wx-cl-pct" id="clLowPct">—%</span>
+              </div>
+              <div class="wx-cl-row" style="border-top:1px solid #e9ecef; padding-top:4px; margin-top:2px;">
+                <span class="wx-cl-lbl" style="width:36px; text-align:right; color:#1a1d24; font-weight:700;">Total</span>
+                <div class="wx-cl-bg"><div class="wx-cl-fill" id="clTotalFill" style="width:0%; background:#334155;"></div></div>
+                <span class="wx-cl-pct" id="clTotalPct">—%</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Air Density -->
+          <div class="wx-deep-section">
+            <div class="wx-deep-title">Air Density (ρ)</div>
+            <div class="wx-density-card">
+              <div class="d-flex align-items-end gap-2">
+                <div class="dens-val" id="densVal">—</div>
+                <div class="dens-unit">kg/m³</div>
+              </div>
+              <div class="dens-ref" id="densRef">vs ISA standard 1.2250 kg/m³ at sea level 15°C</div>
+              <div class="dens-ref mt-1" id="densNote" style="font-size:.7rem; color:#6c757d;">
+                Air density affects engine power (~1% per 10 hPa) and aerodynamic downforce.<br>
+                Higher density → more power + more downforce. Lower → less of both.
+              </div>
+            </div>
+          </div>
+
+          <!-- Track grip -->
+          <div class="wx-deep-section">
+            <div class="wx-deep-title">Track Grip Score</div>
+            <div class="wx-grip-card wx-grip-dry" id="wxGripCardRight">
+              <div class="d-flex align-items-start justify-content-between mb-1">
+                <span class="wx-grip-label" id="wxGripLabelRight">No Data</span>
+                <span class="wx-badge" id="wxGripBadgeRight">—</span>
+              </div>
+              <div class="d-flex align-items-end gap-2 mb-1">
+                <div class="wx-grip-score" id="wxGripScoreRight">—</div>
+                <div style="font-size:.72rem; color:#6c757d; margin-bottom:4px;">/ 100</div>
+              </div>
+              <div class="wx-grip-detail" id="wxGripDetailRight">Enter a location to calculate grip assessment.</div>
+            </div>
+          </div>
+
+          <!-- Tyre + surface -->
+          <div class="wx-deep-section">
+            <div class="wx-deep-title">Tyre & Surface Conditions</div>
+            <div class="wx-deep-grid">
+              <div class="wx-deep-cell"><div class="dc-val" id="dcSurfTemp">—</div><div class="dc-lbl">Est. Surface °C</div></div>
+              <div class="wx-deep-cell"><div class="dc-val" id="dcTyreRisk">—</div><div class="dc-lbl">Warm-up Risk</div></div>
+              <div class="wx-deep-cell"><div class="dc-val" id="dcPrecip1h">—</div><div class="dc-lbl">Precip Last Hour</div></div>
+              <div class="wx-deep-cell"><div class="dc-val" id="dcPrecipProb">—</div><div class="dc-lbl">Precip Prob %</div></div>
+            </div>
+          </div>
+
+          <!-- Air quality (WeatherAPI key) -->
+          <div class="wx-deep-section">
+            <div class="wx-deep-title">Air Quality</div>
+            <div id="wxAQData" style="display:none;">
+              <div style="font-size:.8rem; font-weight:700; margin-bottom:6px;">AQI: <span id="aqAQI">—</span> — <span id="aqDesc">—</span></div>
+              <div class="wx-aq-grid">
+                <div class="wx-aq-cell"><div class="aq-val" id="aqPM25">—</div><div class="aq-lbl">PM2.5 μg/m³</div></div>
+                <div class="wx-aq-cell"><div class="aq-val" id="aqPM10">—</div><div class="aq-lbl">PM10 μg/m³</div></div>
+                <div class="wx-aq-cell"><div class="aq-val" id="aqNO2">—</div><div class="aq-lbl">NO₂ μg/m³</div></div>
+                <div class="wx-aq-cell"><div class="aq-val" id="aqO3">—</div><div class="aq-lbl">O₃ μg/m³</div></div>
+                <div class="wx-aq-cell"><div class="aq-val" id="aqCO">—</div><div class="aq-lbl">CO μg/m³</div></div>
+                <div class="wx-aq-cell"><div class="aq-val" id="aqSO2">—</div><div class="aq-lbl">SO₂ μg/m³</div></div>
+              </div>
+            </div>
+            <div id="wxAQLocked" class="wx-locked">
+              <div class="lock-icon">🔑</div>
+              <div class="lock-lbl">WeatherAPI Key Required</div>
+              <div style="margin-top:4px;">Enter key in left panel to unlock real-time air quality data including PM2.5, NO₂, O₃, CO.</div>
+            </div>
+          </div>
+
+          <!-- Data footer -->
+          <div class="wx-footer-bar">
+            <div>Sources: <span class="wx-source-tag">Open-Meteo</span> <span class="wx-source-tag">Nominatim/OSM</span></div>
+            <div id="wxLastUpdated">Not yet loaded</div>
+          </div>
+
+        </div><!-- /mlo-pane-content right -->
+      </section>
+
+    </div><!-- /mlo-shell -->
+  </div><!-- /rts-main -->
+
+  <script src="config.js"></script>
+  <script src="core.js"></script>
+  <script src="topnav.js?v=20260425"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script>
+  /* ═══════════════════════════════════════════════════════════════════════════
+     Race Team OS — Weather Station
+     Sources: Open-Meteo (free, no key) + Nominatim (free, no key)
+              + optional OpenWeatherMap (OWM) and WeatherAPI keys
+     ═══════════════════════════════════════════════════════════════════════════ */
+
+  'use strict';
+
+  /* ── State ─────────────────────────────────────────────────────────────── */
+  let wxState = {
+    lat: null, lon: null,
+    locationName: '',
+    data: null,            // Open-Meteo response
+    owmData: null,         // OWM minutely response
+    wapiData: null,        // WeatherAPI response
+    charts: {},
+    autoRefreshTimer: null
+  };
+
+  const CFG_KEY = 'rts.weather.cfg';
+
+  /* ── Helpers ────────────────────────────────────────────────────────────── */
+  function wxCfg() {
+    try { return JSON.parse(localStorage.getItem(CFG_KEY) || '{}'); } catch { return {}; }
+  }
+  function saveCfg(obj) {
+    localStorage.setItem(CFG_KEY, JSON.stringify(obj));
+  }
+
+  function fmt1(n) { return n == null ? '—' : Number(n).toFixed(1); }
+  function fmt0(n) { return n == null ? '—' : Math.round(Number(n)).toString(); }
+  function fmtTime(isoStr) {
+    if (!isoStr) return '—';
+    const d = new Date(isoStr);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+  function fmtDate(isoStr) {
+    if (!isoStr) return '—';
+    const d = new Date(isoStr);
+    return d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+  }
+  function degToCompass(d) {
+    const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+    return dirs[Math.round(d / 22.5) % 16];
+  }
+  function wmoIcon(code) {
+    const map = {
+      0:'☀️', 1:'🌤️', 2:'⛅', 3:'☁️',
+      45:'🌫️', 48:'🌫️',
+      51:'🌦️', 53:'🌦️', 55:'🌧️',
+      56:'🌧️', 57:'🌧️',
+      61:'🌧️', 63:'🌧️', 65:'🌧️',
+      66:'🌨️', 67:'🌨️',
+      71:'❄️', 73:'❄️', 75:'❄️', 77:'❄️',
+      80:'🌦️', 81:'🌧️', 82:'⛈️',
+      85:'❄️', 86:'❄️',
+      95:'⛈️', 96:'⛈️', 99:'⛈️'
+    };
+    return map[code] || '🌡️';
+  }
+  function wmoDesc(code) {
+    const map = {
+      0:'Clear sky', 1:'Mainly clear', 2:'Partly cloudy', 3:'Overcast',
+      45:'Fog', 48:'Depositing rime fog',
+      51:'Light drizzle', 53:'Moderate drizzle', 55:'Dense drizzle',
+      56:'Freezing drizzle (light)', 57:'Freezing drizzle (heavy)',
+      61:'Slight rain', 63:'Moderate rain', 65:'Heavy rain',
+      66:'Light freezing rain', 67:'Heavy freezing rain',
+      71:'Slight snowfall', 73:'Moderate snowfall', 75:'Heavy snowfall', 77:'Snow grains',
+      80:'Slight showers', 81:'Moderate showers', 82:'Violent showers',
+      85:'Slight snow showers', 86:'Heavy snow showers',
+      95:'Thunderstorm', 96:'Thunderstorm with hail', 99:'Thunderstorm with heavy hail'
+    };
+    return map[code] || 'Unknown';
+  }
+
+  /* ── Air Density calculation ─────────────────────────────────────────────
+     ρ = Pd/(Rd×T) + Pv/(Rv×T)
+     Using the simplified virtual temperature approach:
+       e  = humidity/100 × 0.6112 × exp(17.67 × T / (T + 243.5)) × 100  [Pa]
+       Tv = T_K / (1 - (e/P)(1 - 0.622))
+       ρ  = P / (287.058 × Tv)
+  ─────────────────────────────────────────────────────────────────────────── */
+  function calcAirDensity(tempC, pressureHpa, humidityPct) {
+    const T  = tempC + 273.15;
+    const P  = pressureHpa * 100;       // Pa
+    const rh = humidityPct / 100;
+    const es = 610.78 * Math.exp(17.27 * tempC / (tempC + 237.3)); // saturation vapour pressure [Pa]
+    const e  = rh * es;                 // actual vapour pressure [Pa]
+    const Tv = T / (1 - (e / P) * (1 - 0.622)); // virtual temperature [K]
+    return P / (287.058 * Tv);          // kg/m³
+  }
+
+  /* ── Pressure tendency ───────────────────────────────────────────────────*/
+  function calcTendency(hourlyPressure, currentIdx) {
+    if (!hourlyPressure || currentIdx < 3) return { label: 'Steady', arrow: '→', delta: 0 };
+    const now = hourlyPressure[currentIdx];
+    const past = hourlyPressure[currentIdx - 3];
+    const delta = now - past;
+    let label, arrow;
+    if      (delta >  3.0) { label = 'Rising Rapidly';  arrow = '⬆'; }
+    else if (delta >  1.5) { label = 'Rising';           arrow = '↗'; }
+    else if (delta >  0.3) { label = 'Rising Slowly';    arrow = '↗'; }
+    else if (delta > -0.3) { label = 'Steady';           arrow = '→'; }
+    else if (delta > -1.5) { label = 'Falling Slowly';   arrow = '↘'; }
+    else if (delta > -3.0) { label = 'Falling';          arrow = '↙'; }
+    else                   { label = 'Falling Rapidly';  arrow = '⬇'; }
+    return { label, arrow, delta: delta.toFixed(1) };
+  }
+
+  /* ── Rain window analysis ────────────────────────────────────────────────*/
+  function analyseRainWindows(times, probs, precips) {
+    const THRESHOLD = 50; // % probability
+    const windows = [];
+    let inWindow = false;
+    let wStart = null;
+    let wDepth = 0;
+    let wPeak  = 0;
+    let wHours = 0;
+
+    for (let i = 0; i < times.length; i++) {
+      if (probs[i] >= THRESHOLD) {
+        if (!inWindow) { inWindow = true; wStart = times[i]; wDepth = 0; wPeak = 0; wHours = 0; }
+        wDepth += (precips[i] || 0);
+        wPeak   = Math.max(wPeak, precips[i] || 0);
+        wHours++;
+      } else if (inWindow) {
+        inWindow = false;
+        windows.push({ start: wStart, hours: wHours, depth: wDepth, peak: wPeak });
+      }
+    }
+    if (inWindow) windows.push({ start: wStart, hours: wHours, depth: wDepth, peak: wPeak });
+    return windows;
+  }
+
+  /* ── Track grip score ────────────────────────────────────────────────────*/
+  function calcGrip(precipMm, precipProb, dewPointDep, recentPrecip) {
+    let score = 100;
+    score -= precipProb * 0.25;
+    score -= Math.min(recentPrecip, 5) * 12;
+    score -= Math.max(0, 4 - dewPointDep) * 4;
+    if (precipMm > 0.1) score -= precipMm * 8;
+    score = Math.max(0, Math.min(100, Math.round(score)));
+    let label, cls;
+    if      (score >= 75) { label = 'Dry';         cls = 'dry'; }
+    else if (score >= 50) { label = 'Damp';         cls = 'damp'; }
+    else if (score >= 25) { label = 'Wet';          cls = 'wet'; }
+    else                  { label = 'Treacherous';  cls = 'treacherous'; }
+    return { score, label, cls };
+  }
+
+  /* ── Tyre warm-up risk ───────────────────────────────────────────────────*/
+  function calcTyreRisk(surfaceTemp, humidityPct) {
+    if (surfaceTemp < 10 || (surfaceTemp < 15 && humidityPct > 80)) return 'high';
+    if (surfaceTemp < 18 || humidityPct > 70) return 'medium';
+    return 'low';
+  }
+
+  /* ── Find current hour index in hourly array ─────────────────────────────*/
+  function findCurrentHourIdx(times) {
+    const now = Date.now();
+    let best = 0;
+    for (let i = 0; i < times.length; i++) {
+      const t = new Date(times[i]).getTime();
+      if (t <= now) best = i;
+      else break;
+    }
+    return best;
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     GEOCODING — Nominatim
+  ══════════════════════════════════════════════════════════════════════════ */
+  async function geocode(query) {
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`;
+    const resp = await fetch(url, {
+      headers: { 'Accept': 'application/json', 'Accept-Language': 'en' }
+    });
+    if (!resp.ok) throw new Error(`Geocoding failed: ${resp.status}`);
+    const data = await resp.json();
+    if (!data.length) throw new Error(`Location not found: "${query}"`);
+    return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon), name: data[0].display_name.split(',').slice(0,2).join(', ') };
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     OPEN-METEO
+  ══════════════════════════════════════════════════════════════════════════ */
+  async function fetchOpenMeteo(lat, lon) {
+    const hourly = [
+      'temperature_2m','dew_point_2m','apparent_temperature','relative_humidity_2m',
+      'pressure_msl','surface_pressure',
+      'precipitation_probability','precipitation','rain','showers',
+      'cloud_cover','cloud_cover_low','cloud_cover_mid','cloud_cover_high',
+      'wind_speed_10m','wind_direction_10m',
+      'wind_speed_80m','wind_direction_80m',
+      'wind_speed_120m','wind_direction_120m',
+      'wind_speed_180m','wind_direction_180m',
+      'wind_gusts_10m',
+      'visibility','uv_index','cape','vapour_pressure_deficit',
+      'weather_code'
+    ].join(',');
+    const daily = [
+      'temperature_2m_max','temperature_2m_min',
+      'precipitation_sum','precipitation_hours','precipitation_probability_max',
+      'rain_sum','wind_gusts_10m_max','uv_index_max',
+      'sunrise','sunset','weather_code','wind_speed_10m_max'
+    ].join(',');
+    const current = [
+      'temperature_2m','apparent_temperature','relative_humidity_2m',
+      'pressure_msl','surface_pressure','wind_speed_10m','wind_direction_10m',
+      'wind_gusts_10m','cloud_cover','uv_index','weather_code','precipitation'
+    ].join(',');
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=${hourly}&daily=${daily}&current=${current}&timezone=auto&forecast_days=7&wind_speed_unit=kmh&precipitation_unit=mm`;
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`Open-Meteo error: ${resp.status}`);
+    return resp.json();
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     OWM — minutely (optional)
+  ══════════════════════════════════════════════════════════════════════════ */
+  async function fetchOWM(lat, lon, key) {
+    if (!key) return null;
+    try {
+      const url = `https://api.openweathermap.org/data/3.0/onecall?lat=${lat}&lon=${lon}&exclude=hourly,daily,alerts&appid=${key}&units=metric`;
+      const resp = await fetch(url);
+      if (!resp.ok) return null;
+      return resp.json();
+    } catch { return null; }
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     WeatherAPI — current + air quality (optional)
+  ══════════════════════════════════════════════════════════════════════════ */
+  async function fetchWeatherAPI(lat, lon, key) {
+    if (!key) return null;
+    try {
+      const url = `https://api.weatherapi.com/v1/forecast.json?key=${key}&q=${lat},${lon}&days=1&aqi=yes`;
+      const resp = await fetch(url);
+      if (!resp.ok) return null;
+      return resp.json();
+    } catch { return null; }
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     MAIN LOAD
+  ══════════════════════════════════════════════════════════════════════════ */
+  async function loadWeather() {
+    const cfg = wxCfg();
+    if (!wxState.lat || !wxState.lon) return;
+
+    showLoading(true);
+    try {
+      const [omData, owmData, wapiData] = await Promise.allSettled([
+        fetchOpenMeteo(wxState.lat, wxState.lon),
+        fetchOWM(wxState.lat, wxState.lon, cfg.owmKey),
+        fetchWeatherAPI(wxState.lat, wxState.lon, cfg.wapiKey)
+      ]);
+
+      wxState.data    = omData.status    === 'fulfilled' ? omData.value    : null;
+      wxState.owmData = owmData.status   === 'fulfilled' ? owmData.value   : null;
+      wxState.wapiData = wapiData.status === 'fulfilled' ? wapiData.value  : null;
+
+      if (!wxState.data) throw new Error('Open-Meteo fetch failed');
+
+      renderAll();
+
+    } catch(err) {
+      showError(err.message);
+    } finally {
+      showLoading(false);
+    }
+  }
+
+  function showLoading(on) {
+    // Brief visual feedback via button state only — no overlay to avoid disrupting layout
+    document.getElementById('btnWxRefresh').disabled = on;
+    document.getElementById('btnWxGo').disabled = on;
+    document.getElementById('btnWxRefresh').textContent = on ? '↻ Loading…' : '↻ Refresh';
+  }
+
+  function showError(msg) {
+    document.getElementById('wxCondSub').textContent = `Error: ${msg}`;
+    document.getElementById('wxDesc').textContent = '⚠ Data unavailable';
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     RENDER ALL
+  ══════════════════════════════════════════════════════════════════════════ */
+  function renderAll() {
+    const d   = wxState.data;
+    const h   = d.hourly;
+    const cur = d.current;
+    const dy  = d.daily;
+    const now = findCurrentHourIdx(h.time);
+
+    // Current values
+    const temp        = cur.temperature_2m;
+    const feels       = cur.apparent_temperature;
+    const qnh         = cur.pressure_msl;
+    const qfe         = cur.surface_pressure;
+    const humidity    = cur.relative_humidity_2m;
+    const windSpd     = cur.wind_speed_10m;
+    const windDir     = cur.wind_direction_10m;
+    const windGust    = cur.wind_gusts_10m;
+    const cloudTotal  = cur.cloud_cover;
+    const uvIdx       = cur.uv_index;
+    const wcode       = cur.weather_code;
+    const precipitation = cur.precipitation;
+
+    // Hourly current values
+    const dewPoint    = h.dew_point_2m[now];
+    const dewDep      = temp - dewPoint;
+    const vis         = h.visibility[now];
+    const cape        = h.cape[now];
+    const vpd         = h.vapour_pressure_deficit[now];
+    const cloudLow    = h.cloud_cover_low[now];
+    const cloudMid    = h.cloud_cover_mid[now];
+    const cloudHigh   = h.cloud_cover_high[now];
+
+    // Next 24h precipitation probability max
+    const next24probs  = h.precipitation_probability.slice(now, now + 24);
+    const maxRainChance = Math.max(...next24probs.filter(x => x != null));
+
+    // Air density
+    const density = calcAirDensity(temp, qnh, humidity);
+    const ISA     = 1.2250;
+    const densDevPct = ((density - ISA) / ISA * 100);
+
+    // Pressure tendency
+    const tendency = calcTendency(h.pressure_msl, now);
+
+    // Rain windows (next 48h)
+    const next48times  = h.time.slice(now, now + 48);
+    const next48probs2 = h.precipitation_probability.slice(now, now + 48);
+    const next48precip = h.precipitation.slice(now, now + 48);
+    const rainWindows  = analyseRainWindows(next48times, next48probs2, next48precip);
+    const firstWindow  = rainWindows[0] || null;
+
+    // Grip
+    const surfaceTemp  = temp - 5;
+    const grip         = calcGrip(precipitation, h.precipitation_probability[now], dewDep, precipitation);
+    const tyreRisk     = calcTyreRisk(surfaceTemp, humidity);
+
+    // Sunrise/sunset today
+    const todaySunrise = dy.sunrise[0];
+    const todaySunset  = dy.sunset[0];
+
+    /* ── Stats bar ─────────────────────────────────────────────────────── */
+    setText('statTemp',        fmt1(temp));
+    setText('statFeels',       fmt1(feels));
+    setText('statQNH',         fmt0(qnh));
+    setText('statQNHSub',      `hPa ${tendency.arrow}`);
+    setText('statQFE',         fmt0(qfe));
+    setText('statHumidity',    fmt0(humidity));
+    setText('statWind',        `${fmt0(windSpd)} / ${fmt0(windGust)}`);
+    setText('statWindSub',     `km/h · ${degToCompass(windDir)}`);
+    setText('statRainChance',  isFinite(maxRainChance) ? fmt0(maxRainChance) : '0');
+    setText('statDensity',     density.toFixed(4));
+
+    /* ── Location subtitle ─────────────────────────────────────────────── */
+    document.getElementById('wxLocSubtitle').textContent =
+      `${wxState.locationName} · ${wxState.lat.toFixed(4)}°, ${wxState.lon.toFixed(4)}° · Elevation: ${Math.round(d.elevation)} m`;
+
+    /* ── Left pane ─────────────────────────────────────────────────────── */
+    setText('wxIcon',     wmoIcon(wcode));
+    setText('wxDesc',     wmoDesc(wcode));
+    setText('wxCondSub',  `Updated ${new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}`);
+
+    // Rain risk gauge
+    const riskPct = isFinite(maxRainChance) ? maxRainChance : 0;
+    setText('wxRiskPct', `${fmt0(riskPct)} %`);
+    document.getElementById('wxRiskFill').style.width = `${riskPct}%`;
+
+    // Rain window (left pane)
+    if (firstWindow) {
+      setText('rwOnset',    fmtTime(firstWindow.start));
+      setText('rwDuration', `${firstWindow.hours}h`);
+      setText('rwDepth',    `${firstWindow.depth.toFixed(1)} mm`);
+      setText('rwPeak',     `${firstWindow.peak.toFixed(1)} mm/h`);
+    } else {
+      setText('rwOnset', 'No rain expected (48h)');
+      setText('rwDuration', '—');
+      setText('rwDepth', '—');
+      setText('rwPeak', '—');
+    }
+
+    // Sunrise/sunset
+    setText('wxSunrise', fmtTime(todaySunrise));
+    setText('wxSunset',  fmtTime(todaySunset));
+
+    // Dew point
+    setText('wxDewPoint', fmt1(dewPoint));
+    setText('wxDewDep',   fmt1(dewDep));
+    document.getElementById('wxFrostBadge').style.display = dewPoint < 2 ? 'inline-flex' : 'none';
+
+    // Pressure pair (left)
+    setText('leftQNH',    fmt0(qnh));
+    setText('leftQFE',    fmt0(qfe));
+    setText('leftTendency', `${tendency.arrow} ${tendency.label} (${tendency.delta > 0 ? '+' : ''}${tendency.delta} hPa/3h)`);
+    setText('leftQFEDiff',  `Δ ${(qnh - qfe).toFixed(1)} hPa vs QNH`);
+
+    // Grip (left pane)
+    updateGripCard('wxGripCard', 'wxGripScore', 'wxGripLabel', 'wxGripBadge', 'wxGripDetail', grip,
+      `Precip: ${fmt1(precipitation)}mm · Prob: ${fmt0(h.precipitation_probability[now])}% · DPD: ${fmt1(dewDep)}°C`);
+
+    // Tyre
+    setText('wxTyreRisk', tyreRisk.toUpperCase());
+    setText('wxSurfaceTemp', fmt1(surfaceTemp));
+    const tyreEl = document.getElementById('wxTyreRisk');
+    tyreEl.className = `wx-badge wx-badge-${tyreRisk}`;
+
+    /* ── Pressure tendency badge (mid pane) ─────────────────────────────── */
+    const tendBadge = document.getElementById('wxTendencyBadge');
+    tendBadge.textContent = `${tendency.arrow} ${tendency.label} · ${tendency.delta > 0 ? '+' : ''}${tendency.delta} hPa over 3 hours · QNH ${fmt0(qnh)} hPa`;
+    tendBadge.style.color = tendency.delta < -1.5 ? '#991b1b' : tendency.delta > 1.5 ? '#166534' : '#3730a3';
+
+    /* ── Charts ─────────────────────────────────────────────────────────── */
+    renderPressureChart(h, now);
+    renderRainChart(h, now);
+    renderGustChart(h, now);
+
+    /* ── Rain window analysis (mid pane) ────────────────────────────────── */
+    if (firstWindow) {
+      const gapMs = new Date(firstWindow.start) - Date.now();
+      const gapH  = Math.max(0, gapMs / 3600000);
+      setText('rwaOnset',    fmtTime(firstWindow.start));
+      setText('rwaDuration', `${firstWindow.hours}h`);
+      setText('rwaDepth',    `${firstWindow.depth.toFixed(1)} mm`);
+      setText('rwaPeak',     `${firstWindow.peak.toFixed(1)} mm/h`);
+      setText('rwaWindows',  rainWindows.length);
+      setText('rwaGap',      gapH < 1 ? 'Now / soon' : `${gapH.toFixed(1)} h`);
+    } else {
+      ['rwaOnset','rwaDuration','rwaDepth','rwaPeak'].forEach(id => setText(id, '—'));
+      setText('rwaWindows', '0');
+      setText('rwaGap', 'None (48h)');
+    }
+
+    /* ── 7-day Forecast table ────────────────────────────────────────────── */
+    const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const rows = dy.time.map((dateStr, i) => {
+      const d2 = new Date(dateStr);
+      return `<tr>
+        <td>${dateStr}</td>
+        <td><b>${days[d2.getDay()]}</b></td>
+        <td>${fmt1(dy.temperature_2m_min[i])}</td>
+        <td>${fmt1(dy.temperature_2m_max[i])}</td>
+        <td>${fmt1(dy.rain_sum[i])}</td>
+        <td>${dy.precipitation_hours[i] ?? '—'}</td>
+        <td><b>${fmt0(dy.precipitation_probability_max[i])}</b></td>
+        <td>${fmt0(dy.wind_gusts_10m_max[i])}</td>
+        <td>${fmt0(dy.uv_index_max[i])}</td>
+        <td>${fmtTime(dy.sunrise[i])}</td>
+        <td>${fmtTime(dy.sunset[i])}</td>
+      </tr>`;
+    }).join('');
+    document.getElementById('wxFcBody').innerHTML = rows;
+
+    /* ── Wind compass ────────────────────────────────────────────────────── */
+    document.getElementById('compassArrow').setAttribute('transform', `rotate(${windDir}, 60, 60)`);
+    setText('wxWindSpd',   fmt0(windSpd));
+    setText('wxGustSpd',   fmt0(windGust));
+    setText('wxWindDirLbl', `${degToCompass(windDir)} (${fmt0(windDir)}°)`);
+
+    // Multi-height wind table
+    const heights = [
+      { label: '10 m',  spd: h.wind_speed_10m[now],  dir: h.wind_direction_10m[now] },
+      { label: '80 m',  spd: h.wind_speed_80m[now],  dir: h.wind_direction_80m[now] },
+      { label: '120 m', spd: h.wind_speed_120m[now], dir: h.wind_direction_120m[now] },
+      { label: '180 m', spd: h.wind_speed_180m[now], dir: h.wind_direction_180m[now] }
+    ];
+    document.getElementById('wxWindHeights').innerHTML = heights.map(r =>
+      `<tr><td>${r.label}</td><td><b>${fmt0(r.spd)}</b></td><td>${r.dir != null ? degToCompass(r.dir) + ' (' + fmt0(r.dir) + '°)' : '—'}</td><td>≈ ${fmt0((r.spd || 0) * 1.3)}</td></tr>`
+    ).join('');
+
+    /* ── Right pane deep data ────────────────────────────────────────────── */
+    setText('dcTemp',     fmt1(temp));
+    setText('dcDew',      fmt1(dewPoint));
+    setText('dcHumidity', fmt0(humidity));
+    setText('dcApparent', fmt1(feels));
+    setText('dcVis',      vis != null ? (vis / 1000).toFixed(1) : '—');
+    setText('dcUV',       fmt0(uvIdx));
+    setText('dcCAPE',     fmt0(cape));
+    setText('dcVPD',      vpd != null ? vpd.toFixed(2) : '—');
+
+    // Cloud layers
+    setCloud('clHighFill', 'clHighPct', cloudHigh);
+    setCloud('clMidFill',  'clMidPct',  cloudMid);
+    setCloud('clLowFill',  'clLowPct',  cloudLow);
+    setCloud('clTotalFill','clTotalPct', cloudTotal);
+
+    // Air density (right pane)
+    setText('densVal', density.toFixed(4));
+    const devSign = densDevPct >= 0 ? '+' : '';
+    const devCls  = densDevPct >= 0 ? 'dens-pos' : 'dens-neg';
+    document.getElementById('densRef').innerHTML =
+      `vs ISA standard 1.2250 kg/m³ — deviation: <span class="dens-dev ${devCls}">${devSign}${densDevPct.toFixed(2)}%</span>`;
+
+    // Grip (right pane)
+    updateGripCard('wxGripCardRight', 'wxGripScoreRight', 'wxGripLabelRight', 'wxGripBadgeRight', 'wxGripDetailRight', grip,
+      `Grip score factors: precipitation ${fmt1(precipitation)}mm · prob ${fmt0(h.precipitation_probability[now])}% · dew-point depression ${fmt1(dewDep)}°C · surface est. ${fmt1(surfaceTemp)}°C`);
+
+    // Tyre (right pane)
+    setText('dcSurfTemp',   fmt1(surfaceTemp));
+    setText('dcTyreRisk',   tyreRisk.toUpperCase());
+    setText('dcPrecip1h',   fmt1(precipitation) + ' mm');
+    setText('dcPrecipProb', fmt0(h.precipitation_probability[now]) + '%');
+
+    /* ── OWM minutely chart ─────────────────────────────────────────────── */
+    if (wxState.owmData?.minutely?.length) {
+      document.getElementById('wxMinutelyLocked').style.display = 'none';
+      document.getElementById('wxMinutelyChartWrap').style.display = 'block';
+      renderMinutelyChart(wxState.owmData.minutely);
+    }
+
+    /* ── WeatherAPI air quality ─────────────────────────────────────────── */
+    const aq = wxState.wapiData?.current?.air_quality;
+    if (aq) {
+      document.getElementById('wxAQLocked').style.display = 'none';
+      document.getElementById('wxAQData').style.display   = 'block';
+      const aqiVal = aq['us-epa-index'] || 1;
+      const aqiLabels = ['','Good','Moderate','Unhealthy for sensitive','Unhealthy','Very Unhealthy','Hazardous'];
+      setText('aqAQI',  aqiVal);
+      setText('aqDesc', aqiLabels[aqiVal] || '—');
+      setText('aqPM25', aq.pm2_5?.toFixed(1) || '—');
+      setText('aqPM10', aq.pm10?.toFixed(1)  || '—');
+      setText('aqNO2',  aq.no2?.toFixed(1)   || '—');
+      setText('aqO3',   aq.o3?.toFixed(1)    || '—');
+      setText('aqCO',   aq.co?.toFixed(0)    || '—');
+      setText('aqSO2',  aq.so2?.toFixed(1)   || '—');
+    }
+
+    // Last updated
+    setText('wxLastUpdated', `Refreshed ${new Date().toLocaleTimeString()}`);
+  }
+
+  /* ── DOM helpers ───────────────────────────────────────────────────────── */
+  function setText(id, val) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val;
+  }
+  function setCloud(fillId, pctId, val) {
+    const pct = val ?? 0;
+    const fill = document.getElementById(fillId);
+    const pctEl = document.getElementById(pctId);
+    if (fill)  fill.style.width = `${pct}%`;
+    if (pctEl) pctEl.textContent = `${Math.round(pct)}%`;
+  }
+  function updateGripCard(cardId, scoreId, labelId, badgeId, detailId, grip, detail) {
+    const card  = document.getElementById(cardId);
+    const score = document.getElementById(scoreId);
+    const label = document.getElementById(labelId);
+    const badge = document.getElementById(badgeId);
+    const det   = document.getElementById(detailId);
+    if (!card) return;
+    card.className  = `wx-grip-card wx-grip-${grip.cls}`;
+    if (score) score.textContent = grip.score;
+    if (label) label.textContent = grip.label.toUpperCase();
+    if (badge) { badge.textContent = grip.label; badge.className = `wx-badge wx-badge-${grip.cls}`; }
+    if (det)   det.textContent = detail;
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     CHARTS
+  ══════════════════════════════════════════════════════════════════════════ */
+  const CHART_DEFAULTS = {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { labels: { font: { size: 11 }, boxWidth: 16, padding: 12 } },
+      tooltip: { bodyFont: { size: 11 }, titleFont: { size: 11 } }
+    },
+    scales: {
+      x: { ticks: { font: { size: 10 }, maxRotation: 45, autoSkip: true, maxTicksLimit: 12 }, grid: { color: 'rgba(0,0,0,.04)' } }
+    }
+  };
+
+  function sliceHourly(arr, from, count) {
+    return (arr || []).slice(from, from + count);
+  }
+
+  function renderPressureChart(h, now) {
+    const labels = sliceHourly(h.time, now, 48).map(t => {
+      const d = new Date(t); return `${d.getDate()}/${d.getMonth()+1} ${String(d.getHours()).padStart(2,'0')}:00`;
+    });
+    const qnhData = sliceHourly(h.pressure_msl,      now, 48);
+    const qfeData = sliceHourly(h.surface_pressure,  now, 48);
+
+    const allVals = [...qnhData, ...qfeData].filter(x => x != null);
+    const minY = Math.floor(Math.min(...allVals) - 2);
+    const maxY = Math.ceil(Math.max(...allVals)  + 2);
+
+    destroyChart('chartPressure');
+    const ctx = document.getElementById('chartPressure').getContext('2d');
+    wxState.charts.pressure = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          { label: 'QNH — MSL Pressure (hPa)', data: qnhData, borderColor: '#8b5cf6', backgroundColor: 'rgba(139,92,246,.08)', pointRadius: 0, borderWidth: 2, tension: 0.3, fill: false },
+          { label: 'QFE — Surface Pressure (hPa)', data: qfeData, borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,.06)', pointRadius: 0, borderWidth: 2, tension: 0.3, fill: false }
+        ]
+      },
+      options: {
+        ...CHART_DEFAULTS,
+        scales: {
+          ...CHART_DEFAULTS.scales,
+          y: { min: minY, max: maxY, ticks: { font: { size: 10 } }, grid: { color: 'rgba(0,0,0,.04)' } }
+        }
+      }
+    });
+  }
+
+  function renderRainChart(h, now) {
+    const labels = sliceHourly(h.time, now, 48).map(t => {
+      const d = new Date(t); return `${d.getDate()}/${d.getMonth()+1} ${String(d.getHours()).padStart(2,'0')}:00`;
+    });
+    const probData  = sliceHourly(h.precipitation_probability, now, 48);
+    const precipData = sliceHourly(h.precipitation, now, 48);
+
+    destroyChart('chartRain');
+    const ctx = document.getElementById('chartRain').getContext('2d');
+    wxState.charts.rain = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          {
+            type: 'line', label: 'Probability (%)', data: probData,
+            borderColor: '#3b82f6', backgroundColor: 'transparent',
+            pointRadius: 0, borderWidth: 2, tension: 0.3, yAxisID: 'yProb'
+          },
+          {
+            type: 'bar', label: 'Precipitation (mm)', data: precipData,
+            backgroundColor: 'rgba(59,130,246,.4)', borderColor: 'rgba(59,130,246,.7)',
+            borderWidth: 1, yAxisID: 'yPrec'
+          }
+        ]
+      },
+      options: {
+        ...CHART_DEFAULTS,
+        scales: {
+          ...CHART_DEFAULTS.scales,
+          yProb: { type:'linear', position:'left',  min:0, max:100, ticks:{ font:{size:10} }, grid:{ color:'rgba(0,0,0,.04)' }, title:{ display:true, text:'Probability %', font:{size:10} } },
+          yPrec: { type:'linear', position:'right', min:0, ticks:{ font:{size:10} }, grid:{ drawOnChartArea:false }, title:{ display:true, text:'mm', font:{size:10} } }
+        }
+      }
+    });
+  }
+
+  function renderGustChart(h, now) {
+    const labels = sliceHourly(h.time, now, 24).map(t => {
+      const d = new Date(t); return `${String(d.getHours()).padStart(2,'0')}:00`;
+    });
+    const gustData = sliceHourly(h.wind_gusts_10m,   now, 24);
+    const windData = sliceHourly(h.wind_speed_10m,   now, 24);
+
+    destroyChart('chartGust');
+    const ctx = document.getElementById('chartGust').getContext('2d');
+    wxState.charts.gust = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Wind Gust (km/h)', data: gustData, borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,.1)', pointRadius: 2, borderWidth: 2, tension: 0.3, fill: true },
+          { label: 'Wind Speed (km/h)', data: windData, borderColor: '#0ea5e9', backgroundColor: 'rgba(14,165,233,.08)', pointRadius: 2, borderWidth: 2, tension: 0.3, fill: false }
+        ]
+      },
+      options: {
+        ...CHART_DEFAULTS,
+        scales: {
+          ...CHART_DEFAULTS.scales,
+          y: { min: 0, ticks: { font: { size: 10 } }, grid: { color: 'rgba(0,0,0,.04)' } }
+        }
+      }
+    });
+  }
+
+  function renderMinutelyChart(minutely) {
+    const labels  = minutely.map(m => { const d = new Date(m.dt * 1000); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; });
+    const precipI = minutely.map(m => m.precipitation);
+
+    destroyChart('chartMinutely');
+    const ctx = document.getElementById('chartMinutely').getContext('2d');
+    wxState.charts.minutely = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{ label: 'Rain Intensity (mm/h)', data: precipI, backgroundColor: 'rgba(59,130,246,.5)', borderColor: 'rgba(59,130,246,.8)', borderWidth: 1 }]
+      },
+      options: {
+        ...CHART_DEFAULTS,
+        scales: { ...CHART_DEFAULTS.scales, y: { min: 0, ticks: { font: { size: 10 } } } }
+      }
+    });
+  }
+
+  function destroyChart(canvasId) {
+    const existing = Chart.getChart(canvasId);
+    if (existing) existing.destroy();
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     TAB SWITCHING
+  ══════════════════════════════════════════════════════════════════════════ */
+  document.getElementById('wxTabs').addEventListener('click', e => {
+    const tab = e.target.closest('.wx-tab');
+    if (!tab) return;
+    document.querySelectorAll('.wx-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.wx-tab-panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('tab' + tab.dataset.tab.charAt(0).toUpperCase() + tab.dataset.tab.slice(1)).classList.add('active');
+
+    // Resize charts after tab becomes visible
+    setTimeout(() => {
+      Object.values(wxState.charts).forEach(c => c && c.resize && c.resize());
+    }, 50);
+  });
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     EVENTS
+  ══════════════════════════════════════════════════════════════════════════ */
+
+  // Go button / Enter key
+  async function handleSearch() {
+    const query = document.getElementById('wxLocationInput').value.trim();
+    if (!query) return;
+    try {
+      document.getElementById('wxDesc').textContent = 'Searching…';
+      document.getElementById('wxCondSub').textContent = '';
+      const geo = await geocode(query);
+      wxState.lat  = geo.lat;
+      wxState.lon  = geo.lon;
+      wxState.locationName = geo.name;
+      // Save to cfg
+      const cfg = wxCfg();
+      cfg.lastLat  = geo.lat;
+      cfg.lastLon  = geo.lon;
+      cfg.lastName = geo.name;
+      cfg.lastQuery = query;
+      saveCfg(cfg);
+      await loadWeather();
+    } catch(err) {
+      showError(err.message);
+    }
+  }
+
+  document.getElementById('btnWxGo').addEventListener('click', handleSearch);
+  document.getElementById('wxLocationInput').addEventListener('keydown', e => { if (e.key === 'Enter') handleSearch(); });
+
+  // Refresh
+  document.getElementById('btnWxRefresh').addEventListener('click', () => {
+    if (wxState.lat && wxState.lon) loadWeather();
+  });
+
+  // Save API keys
+  document.getElementById('btnSaveWxKeys').addEventListener('click', () => {
+    const cfg = wxCfg();
+    const owm  = document.getElementById('wxOWMKey').value.trim();
+    const wapi = document.getElementById('wxWAPIKey').value.trim();
+    if (owm)  cfg.owmKey  = owm;
+    if (wapi) cfg.wapiKey = wapi;
+    saveCfg(cfg);
+    document.getElementById('btnSaveWxKeys').textContent = '✓ Saved';
+    setTimeout(() => document.getElementById('btnSaveWxKeys').textContent = 'Save Keys', 1500);
+    if (wxState.lat) loadWeather();
+  });
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     INIT — restore last location from localStorage
+  ══════════════════════════════════════════════════════════════════════════ */
+  (function init() {
+    // Resizers
+    if (typeof initTriPaneResizers === 'function') {
+      initTriPaneResizers(document.getElementById('wxShell'), 'rts.wx.panes');
+    }
+
+    const cfg = wxCfg();
+
+    // Populate saved API keys (masked)
+    if (cfg.owmKey)  document.getElementById('wxOWMKey').value  = cfg.owmKey;
+    if (cfg.wapiKey) document.getElementById('wxWAPIKey').value = cfg.wapiKey;
+
+    // Restore last location
+    if (cfg.lastLat && cfg.lastLon) {
+      wxState.lat  = cfg.lastLat;
+      wxState.lon  = cfg.lastLon;
+      wxState.locationName = cfg.lastName || '';
+      if (cfg.lastQuery) document.getElementById('wxLocationInput').value = cfg.lastQuery;
+      loadWeather();
+    }
+
+    // Auto-refresh every 10 minutes
+    wxState.autoRefreshTimer = setInterval(() => {
+      if (wxState.lat && wxState.lon) loadWeather();
+    }, 10 * 60 * 1000);
+  })();
+  </script>
+</body>
+</html>

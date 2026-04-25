@@ -15,7 +15,7 @@
       { href: 'penalties.html',         label: 'Penalties',        key: 'P' },
       { href: 'notes.html',             label: 'Briefings',        key: 'B' },
       { href: 'incidents.html',         label: 'Incidents',        key: 'I' },
-      { href: 'competitor-intel.html',  label: 'Competitor Intel', key: 'T' }
+      { href: 'weather.html',           label: 'Weather Station',  key: 'T' }
     ]},
     { label: 'Technical', items: [
       { href: 'cars.html',              label: 'Cars',             key: 'C' },
