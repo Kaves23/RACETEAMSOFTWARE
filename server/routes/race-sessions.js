@@ -37,6 +37,7 @@ router.get('/', async (req, res, next) => {
     const result = await pool.query(`
       SELECT
         rs.*,
+        rs.session_name                                 AS name,
         d.name                                          AS driver_name,
         d.color                                         AS driver_color,
         e.name                                          AS event_name,
@@ -69,6 +70,7 @@ router.get('/:id', async (req, res, next) => {
     const result = await pool.query(`
       SELECT
         rs.*,
+        rs.session_name AS name,
         d.name  AS driver_name,
         d.color AS driver_color,
         e.name  AS event_name,
@@ -96,7 +98,7 @@ router.post('/', async (req, res, next) => {
   try {
     const {
       event_id, driver_id, kart_id, session_type = 'Practice',
-      session_name, status = 'Planned',
+      session_name: _sn, name: _name, status = 'Planned',
       start_time, end_time,
       tyre_set, compound, tyre_laps = 0,
       best_lap_ms, lap_count = 0, consistency_ms,
@@ -104,6 +106,7 @@ router.post('/', async (req, res, next) => {
       driver_feedback, engineer_notes,
       aims_upload_id, flagged = false
     } = req.body;
+    const session_name = _sn || _name || null;
 
     const id = newId();
 
@@ -126,7 +129,7 @@ router.post('/', async (req, res, next) => {
       aims_upload_id || null, flagged
     ]);
 
-    const row = (await pool.query('SELECT * FROM race_sessions WHERE id=$1', [id])).rows[0];
+    const row = (await pool.query('SELECT *, session_name AS name FROM race_sessions WHERE id=$1', [id])).rows[0];
     res.status(201).json({ success: true, session: row });
   } catch (err) { next(err); }
 });
@@ -134,16 +137,15 @@ router.post('/', async (req, res, next) => {
 // ── PUT /api/race-sessions/:id ─────────────────────────────
 router.put('/:id', async (req, res, next) => {
   try {
-    const {
-      event_id, driver_id, kart_id, session_type,
-      session_name, status,
-      start_time, end_time,
-      tyre_set, compound, tyre_laps,
+    const body = req.body;
+    const session_name = body.session_name ?? body.name ?? null;
+    const { event_id, driver_id, kart_id, session_type, status,
+      start_time, end_time, tyre_set, compound, tyre_laps,
       best_lap_ms, lap_count, consistency_ms,
       setup_changes, lap_times,
       driver_feedback, engineer_notes,
       aims_upload_id, flagged
-    } = req.body;
+    } = body;
 
     const result = await pool.query(`
       UPDATE race_sessions SET

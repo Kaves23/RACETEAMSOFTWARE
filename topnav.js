@@ -1165,61 +1165,75 @@
       }
 
       function initLiveTiming() {
-        const ltCfg = getLtSettings();
-        if (!ltCfg || !ltCfg.enabled || !ltCfg.url) return;
+        // Fetch settings from DB first (so Apex URL set by any user/device is picked up),
+        // then start live timing with the fresh config.
+        const tryStart = () => {
+          const ltCfg = getLtSettings();
+          if (!ltCfg || !ltCfg.enabled || !ltCfg.url) return;
 
-        // Dynamically load live-timing.js if not already present
-        if (!window.RTSLiveTiming) {
-          const script = document.createElement('script');
-          // Resolve path relative to topnav.js location
-          const base = (() => {
-            try {
-              const scripts = Array.from(document.querySelectorAll('script[src]'));
-              const topnavScript = scripts.find(s => /topnav\.js/.test(s.src));
-              if (topnavScript) {
-                const u = new URL(topnavScript.src);
-                return u.origin + u.pathname.replace(/topnav\.js.*$/, '');
-              }
-            } catch(e) {}
-            return '';
-          })();
-          script.src = base + 'live-timing.js?v=20260424-5';
-          script.onload = () => {
-            if (!window.RTSLiveTiming) return;
+          // Dynamically load live-timing.js if not already present
+          if (!window.RTSLiveTiming) {
+            const script = document.createElement('script');
+            // Resolve path relative to topnav.js location
+            const base = (() => {
+              try {
+                const scripts = Array.from(document.querySelectorAll('script[src]'));
+                const topnavScript = scripts.find(s => /topnav\.js/.test(s.src));
+                if (topnavScript) {
+                  const u = new URL(topnavScript.src);
+                  return u.origin + u.pathname.replace(/topnav\.js.*$/, '');
+                }
+              } catch(e) {}
+              return '';
+            })();
+            script.src = base + 'live-timing.js?v=20260424-5';
+            script.onload = () => {
+              if (!window.RTSLiveTiming) return;
+              RTSLiveTiming.onUpdate(renderLtTicker);
+              RTSLiveTiming.start(ltCfg);
+              // Restore persisted ticker mode
+              try { ltTickerMode = localStorage.getItem('rts.lt.tickerMode') || ltCfg.tickerMode || 'all'; } catch(e){}
+            };
+            document.head.appendChild(script);
+          } else {
             RTSLiveTiming.onUpdate(renderLtTicker);
             RTSLiveTiming.start(ltCfg);
-            // Restore persisted ticker mode
             try { ltTickerMode = localStorage.getItem('rts.lt.tickerMode') || ltCfg.tickerMode || 'all'; } catch(e){}
-          };
-          document.head.appendChild(script);
-        } else {
-          RTSLiveTiming.onUpdate(renderLtTicker);
-          RTSLiveTiming.start(ltCfg);
-          try { ltTickerMode = localStorage.getItem('rts.lt.tickerMode') || ltCfg.tickerMode || 'all'; } catch(e){}
-        }
+          }
 
-        // Toggle button: cycle All ↔ Ours
-        const toggleEl = document.getElementById('rtsLtToggle');
-        if (toggleEl) {
-          toggleEl.addEventListener('click', () => {
-            ltTickerMode = ltTickerMode === 'all' ? 'ours' : 'all';
-            try { localStorage.setItem('rts.lt.tickerMode', ltTickerMode); } catch(e) {}
-            toggleEl.textContent = ltTickerMode === 'ours' ? 'Ours' : 'All';
-            if (window.RTSLiveTiming) renderLtTicker(RTSLiveTiming.state);
-          });
-        }
+          // Toggle button: cycle All ↔ Ours
+          const toggleEl = document.getElementById('rtsLtToggle');
+          if (toggleEl) {
+            toggleEl.addEventListener('click', () => {
+              ltTickerMode = ltTickerMode === 'all' ? 'ours' : 'all';
+              try { localStorage.setItem('rts.lt.tickerMode', ltTickerMode); } catch(e) {}
+              toggleEl.textContent = ltTickerMode === 'ours' ? 'Ours' : 'All';
+              if (window.RTSLiveTiming) renderLtTicker(RTSLiveTiming.state);
+            });
+          }
 
-        // Pause scroll on hover
-        const trackEl = document.getElementById('rtsLtTrack');
-        if (trackEl) {
-          trackEl.addEventListener('mouseenter', () => {
-            const innerEl = document.getElementById('rtsLtInner');
-            if (innerEl) innerEl.classList.add('rts-lt-paused');
-          });
-          trackEl.addEventListener('mouseleave', () => {
-            const innerEl = document.getElementById('rtsLtInner');
-            if (innerEl) innerEl.classList.remove('rts-lt-paused');
-          });
+          // Pause scroll on hover
+          const trackEl = document.getElementById('rtsLtTrack');
+          if (trackEl) {
+            trackEl.addEventListener('mouseenter', () => {
+              const innerEl = document.getElementById('rtsLtInner');
+              if (innerEl) innerEl.classList.add('rts-lt-paused');
+            });
+            trackEl.addEventListener('mouseleave', () => {
+              const innerEl = document.getElementById('rtsLtInner');
+              if (innerEl) innerEl.classList.remove('rts-lt-paused');
+            });
+          }
+        }; // end tryStart
+
+        // Pull latest settings from DB (merges liveTiming URL into localStorage),
+        // then start. Fall back to cached localStorage immediately if DB call fails/slow.
+        tryStart(); // start immediately with cached settings
+        if (window.RTS && typeof RTS.syncSettingsFromDB === 'function') {
+          RTS.syncSettingsFromDB().then(() => {
+            // If live timing wasn't running yet (no cached URL), try again with DB value
+            if (!window.RTSLiveTiming || !RTSLiveTiming.state.connected) tryStart();
+          }).catch(() => {});
         }
       }
 
