@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const db = require('../db');
 const constants = require('../constants');
+const { logActivity } = require('../lib/activityLog');
 
 const BCRYPT_ROUNDS = 12;
 
@@ -90,6 +91,18 @@ router.post('/login', async (req, res, next) => {
 
     console.log(`✅ User logged in: ${username} (token: ${token.substring(0, 8)}...)`);
 
+    // Log to activity_log (fire-and-forget — never blocks the login response)
+    const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket?.remoteAddress || req.ip || '';
+    logActivity(db, {
+      entityType: 'user',
+      entityId:   user.id,
+      entityName: user.full_name || user.username,
+      action:     'login',
+      userId:     user.id,
+      userName:   user.full_name || user.username,
+      details:    { ip, userAgent: req.headers['user-agent'] || '' },
+    }).catch(err => console.warn('Failed to log login activity:', err.message));
+
     res.json({
       success: true,
       token,
@@ -112,9 +125,20 @@ router.post('/logout', async (req, res) => {
   
   if (token) {
     _tokenCache.delete(token); // Evict immediately from cache
-    const result = await db.query('SELECT username FROM sessions WHERE token = $1', [token]);
+    const result = await db.query('SELECT user_id, username, name FROM sessions WHERE token = $1', [token]);
     if (result.rows.length > 0) {
-      console.log(`👋 User logged out: ${result.rows[0].username}`);
+      const sess = result.rows[0];
+      console.log(`👋 User logged out: ${sess.username}`);
+      // Log to activity_log (fire-and-forget)
+      logActivity(db, {
+        entityType: 'user',
+        entityId:   sess.user_id,
+        entityName: sess.name || sess.username,
+        action:     'logout',
+        userId:     sess.user_id,
+        userName:   sess.name || sess.username,
+        details:    {},
+      }).catch(err => console.warn('Failed to log logout activity:', err.message));
     }
     await db.query('DELETE FROM sessions WHERE token = $1', [token]);
   }

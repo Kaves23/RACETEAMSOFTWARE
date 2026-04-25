@@ -18,24 +18,27 @@ router.get('/', async (req, res, next) => {
       offset = 0,
     } = req.query;
 
-    let q = 'SELECT * FROM activity_log WHERE 1=1';
-    const params = [];
+    let where = 'WHERE 1=1';
+    const whereParams = [];
     let p = 1;
 
-    if (entity_type) { q += ` AND entity_type = $${p++}`;             params.push(entity_type); }
-    if (entity_id)   { q += ` AND entity_id = $${p++}`;               params.push(entity_id); }
-    if (event_id)    { q += ` AND event_id = $${p++}`;                params.push(event_id); }
-    if (user_id)     { q += ` AND performed_by_user_id = $${p++}`;    params.push(user_id); }
-    if (action)      { q += ` AND action = $${p++}`;                  params.push(action); }
-    if (from)        { q += ` AND created_at >= $${p++}`;             params.push(from); }
-    if (to)          { q += ` AND created_at <= $${p++}`;             params.push(to); }
+    if (entity_type) { where += ` AND entity_type = $${p++}`;             whereParams.push(entity_type); }
+    if (entity_id)   { where += ` AND entity_id = $${p++}`;               whereParams.push(entity_id); }
+    if (event_id)    { where += ` AND event_id = $${p++}`;                whereParams.push(event_id); }
+    if (user_id)     { where += ` AND performed_by_user_id = $${p++}`;    whereParams.push(user_id); }
+    if (action)      { where += ` AND action = $${p++}`;                  whereParams.push(action); }
+    if (from)        { where += ` AND created_at >= $${p++}`;             whereParams.push(from); }
+    if (to)          { where += ` AND created_at <= $${p++}`;             whereParams.push(to); }
 
-    q += ` ORDER BY created_at DESC LIMIT $${p++} OFFSET $${p++}`;
-    params.push(Math.min(parseInt(limit)  || 100, 500));
-    params.push(Math.max(parseInt(offset) || 0,   0));
+    const dataParams = [...whereParams, Math.min(parseInt(limit) || 100, 500), Math.max(parseInt(offset) || 0, 0)];
 
-    const result = await pool.query(q, params);
-    res.json({ success: true, count: result.rows.length, logs: result.rows });
+    const [countResult, dataResult] = await Promise.all([
+      pool.query(`SELECT COUNT(*) FROM activity_log ${where}`, whereParams),
+      pool.query(`SELECT * FROM activity_log ${where} ORDER BY created_at DESC LIMIT $${p} OFFSET $${p + 1}`, dataParams),
+    ]);
+
+    const total = parseInt(countResult.rows[0].count, 10);
+    res.json({ success: true, total, count: total, logs: dataResult.rows });
   } catch (err) {
     next(err);
   }
