@@ -402,7 +402,7 @@ function rebuildDrivers(grid, state) {
     const kart = cell.c4 ? cell.c4.value.trim() : '';
 
     const driver = {
-      pos:     cell.c3  ? toNum(cell.c3.value)   : 0,
+      pos:     cell.c3  ? toNum(cell.c3.value)   : row,  // fall back to HTML grid row order (Apex renders rows in position order)
       kart:    kart,
       name:    name,
       team:    cell.c6  ? cell.c6.value           : '',
