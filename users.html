@@ -151,17 +151,20 @@
       return { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) };
     }
 
+    function jsonHeaders() {
+      return { 'Authorization': 'Bearer ' + (localStorage.getItem('auth_token') || ''), 'Content-Type': 'application/json' };
+    }
     async function apiGet(path) {
       const r = await fetch(path, { headers: authHeaders() });
       if (r.status === 401) { window.location.href = '/login.html'; return null; }
       return r.json();
     }
     async function apiPost(path, body) {
-      const r = await fetch(path, { method: 'POST', headers: authHeaders(), body: JSON.stringify(body) });
+      const r = await fetch(path, { method: 'POST', headers: jsonHeaders(), body: JSON.stringify(body) });
       return { ok: r.ok, status: r.status, data: await r.json() };
     }
     async function apiPatch(path, body) {
-      const r = await fetch(path, { method: 'PATCH', headers: authHeaders(), body: JSON.stringify(body) });
+      const r = await fetch(path, { method: 'PATCH', headers: jsonHeaders(), body: JSON.stringify(body) });
       return { ok: r.ok, status: r.status, data: await r.json() };
     }
     async function apiDelete(path) {
