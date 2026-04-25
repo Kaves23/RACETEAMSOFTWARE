@@ -15,7 +15,8 @@
       { href: 'penalties.html',         label: 'Penalties',        key: 'P' },
       { href: 'notes.html',             label: 'Briefings',        key: 'B' },
       { href: 'incidents.html',         label: 'Incidents',        key: 'I' },
-      { href: 'weather.html',           label: 'Weather Station',  key: 'T' }
+      { href: 'weather.html',           label: 'Weather Station',  key: 'T' },
+      { href: 'race-strategy.html',     label: 'Race Strategy',    key: 'S' }
     ]},
     { label: 'Technical', items: [
       { href: 'cars.html',              label: 'Cars',             key: 'C' },

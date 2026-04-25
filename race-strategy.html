@@ -1,0 +1,1666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Race Team OS – Race Strategy</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+  <link href="style.css?v=20260425" rel="stylesheet" />
+  <style>
+    body { background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%); color:#1a1d24; }
+
+    /* ── Stats bar ──────────────────────────────────────────────────────── */
+    .ev-stats-bar { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
+    .ev-stat-card { background:#fff; border:1px solid rgba(0,0,0,.1); border-radius:8px;
+                    padding:9px 14px; box-shadow:0 2px 4px rgba(0,0,0,.06); min-width:90px; }
+    .ev-stat-label { font-size:.68rem; color:#6c757d; font-weight:600; text-transform:uppercase;
+                     letter-spacing:.04em; white-space:nowrap; }
+    .ev-stat-value { font-size:1.45rem; font-weight:700; color:#1a1d24; line-height:1.2; }
+    .ev-stat-sub   { font-size:.68rem; color:#6c757d; margin-top:1px; }
+
+    /* ── Mode badge ─────────────────────────────────────────────────────── */
+    .rs-mode-toggle { display:flex; gap:0; border-radius:22px; overflow:hidden;
+                      border:1px solid #dee2e6; background:#f8f9fa; }
+    .rs-mode-btn { padding:4px 16px; font-size:.75rem; font-weight:700; letter-spacing:.06em;
+                   text-transform:uppercase; cursor:pointer; border:none; background:transparent;
+                   color:#6c757d; border-radius:22px; transition:background .2s, color .2s; }
+    .rs-mode-btn.active-kart  { background:#0891b2; color:#fff; }
+    .rs-mode-btn.active-form  { background:#7c3aed; color:#fff; }
+
+    /* ── Shell overrides ────────────────────────────────────────────────── */
+    #rsShell.mlo-shell { background:transparent; border:none; gap:10px; }
+    #rsShell .mlo-pane-left, #rsShell .mlo-pane-mid, #rsShell .mlo-pane-right {
+      background:#fff; border:1px solid rgba(0,0,0,.1); border-radius:8px;
+      box-shadow:0 2px 4px rgba(0,0,0,.06); }
+    #rsShell .mlo-pane-header { background:#f8f9fa; border-bottom:1px solid rgba(0,0,0,.1); }
+    #rsShell .mlo-title   { color:#1a1d24 !important; }
+    #rsShell .mlo-section-label { color:#6c757d !important; opacity:1 !important; }
+    #rsShell .mlo-resizer { background:transparent; }
+    #rsShell .mlo-resizer:hover { background:rgba(8,145,178,.3); }
+
+    /* ── Left pane controls ─────────────────────────────────────────────── */
+    .rs-section { padding:10px 14px 4px; border-bottom:1px solid rgba(0,0,0,.06); }
+    .rs-section:last-child { border-bottom:none; }
+    .rs-section-title { font-size:.67rem; font-weight:700; text-transform:uppercase;
+                        letter-spacing:.08em; color:#0891b2; margin-bottom:8px; }
+    .rs-section-title.formula { color:#7c3aed; }
+    .rs-row { display:flex; justify-content:space-between; align-items:center;
+              margin-bottom:7px; gap:8px; }
+    .rs-row label { font-size:.75rem; color:#495057; font-weight:600; white-space:nowrap;
+                    flex-shrink:0; min-width:110px; }
+    .rs-row input[type=range] { flex:1; accent-color:#0891b2; }
+    .rs-row .form-select, .rs-row .form-control { font-size:.78rem; flex:1; }
+    .rs-val-badge { font-size:.78rem; font-weight:700; color:#1a1d24;
+                    background:#f0f4ff; border:1px solid #c7d2fe; border-radius:4px;
+                    padding:1px 7px; min-width:44px; text-align:center; flex-shrink:0; }
+    .rs-pressure-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:8px; }
+    .rs-p-cell { background:#f8f9fa; border:1px solid #e9ecef; border-radius:6px; padding:7px 10px; }
+    .rs-p-cell .pc-lbl { font-size:.64rem; font-weight:700; text-transform:uppercase;
+                         color:#6c757d; margin-bottom:3px; letter-spacing:.04em; }
+    .rs-p-cell input[type=range] { width:100%; accent-color:#0891b2; display:block; margin:3px 0; }
+    .rs-p-cell .pc-val { font-size:.95rem; font-weight:800; color:#0891b2;
+                         text-align:center; font-variant-numeric:tabular-nums; }
+
+    /* Schedule table */
+    .rs-sched-table { width:100%; font-size:.75rem; border-collapse:collapse; }
+    .rs-sched-table th { background:#f8f9fa; padding:4px 7px; font-size:.65rem; font-weight:700;
+                         text-transform:uppercase; color:#6c757d; border-bottom:2px solid #dee2e6;
+                         text-align:center; }
+    .rs-sched-table td { padding:4px 7px; border-bottom:1px solid rgba(0,0,0,.05);
+                         text-align:center; font-variant-numeric:tabular-nums; }
+    .rs-sched-table td:first-child { text-align:left; font-weight:600; color:#1a1d24; }
+    .pstat-ok   { color:#16a34a; font-weight:700; }
+    .pstat-warn { color:#d97706; font-weight:700; }
+    .pstat-bad  { color:#dc2626; font-weight:700; }
+
+    /* ── Centre pane tabs ───────────────────────────────────────────────── */
+    .rs-tabs { display:flex; gap:0; border-bottom:2px solid #e9ecef; padding:0 12px;
+               overflow-x:auto; }
+    .rs-tab  { padding:7px 13px; font-size:.76rem; font-weight:600; color:#6c757d;
+               cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-2px;
+               white-space:nowrap; user-select:none; }
+    .rs-tab:hover  { color:#0891b2; }
+    .rs-tab.active { color:#0891b2; border-bottom-color:#0891b2; }
+    .rs-tab-panel  { display:none; flex-direction:column; }
+    .rs-tab-panel.active { display:flex; }
+
+    .rs-chart-wrap { position:relative; padding:12px 16px; flex:1; min-height:0; }
+    .rs-chart-wrap canvas { max-height:300px; }
+
+    /* Scenario table */
+    .rs-scen-table { width:100%; font-size:.78rem; border-collapse:separate; border-spacing:0;
+                     margin:10px 14px 0; width:calc(100% - 28px); }
+    .rs-scen-table thead { position:sticky; top:0; background:#f8f9fa; z-index:5; }
+    .rs-scen-table th { padding:6px 8px; font-size:.66rem; font-weight:700; text-transform:uppercase;
+                        letter-spacing:.04em; color:#6c757d; border-bottom:2px solid #dee2e6;
+                        white-space:nowrap; }
+    .rs-scen-table td { padding:5px 8px; border-bottom:1px solid rgba(0,0,0,.05);
+                        color:#1a1d24; font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .rs-scen-table tr.scen-winner td { background:#f0fdf4; font-weight:700; }
+    .rs-scen-table .delta-pos { color:#16a34a; font-weight:700; }
+    .rs-scen-table .delta-neg { color:#dc2626; font-weight:700; }
+    .rs-scen-table .delta-neu { color:#6c757d; }
+    .rs-conf-bar { height:4px; border-radius:2px; background:#e5e7eb; overflow:hidden;
+                   margin-top:2px; }
+    .rs-conf-fill { height:100%; border-radius:2px; background:#0891b2; }
+
+    /* Stint planner Gantt */
+    #stintGantt { overflow-x:auto; padding:14px; }
+    .gantt-svg { display:block; width:100%; }
+
+    /* ── Right pane ─────────────────────────────────────────────────────── */
+    .rs-brief-card { margin:10px 12px; background:linear-gradient(135deg,#eff6ff,#dbeafe);
+                     border:1px solid #93c5fd; border-radius:9px; padding:12px 14px; }
+    .rs-brief-title { font-size:.68rem; font-weight:700; text-transform:uppercase;
+                      letter-spacing:.07em; color:#1e40af; margin-bottom:6px; }
+    .rs-brief-text  { font-size:.8rem; color:#1e3a8a; line-height:1.55; }
+
+    .rs-right-section { padding:10px 12px 8px; border-bottom:1px solid rgba(0,0,0,.06); }
+    .rs-right-section:last-child { border-bottom:none; }
+    .rs-right-title { font-size:.67rem; font-weight:700; text-transform:uppercase;
+                      letter-spacing:.07em; color:#6c757d; margin-bottom:8px; }
+
+    /* Pressure recommendation grid */
+    .rs-prec-grid { display:grid; grid-template-columns:80px repeat(4,1fr); gap:4px;
+                    font-size:.72rem; }
+    .rs-prec-hdr { font-size:.63rem; font-weight:700; text-transform:uppercase; color:#6c757d;
+                   text-align:center; background:#f8f9fa; border:1px solid #e9ecef;
+                   border-radius:4px; padding:4px 2px; }
+    .rs-prec-hdr:first-child { text-align:left; padding-left:6px; }
+    .rs-prec-row-lbl { font-size:.72rem; font-weight:600; color:#1a1d24; padding:4px 6px;
+                       display:flex; align-items:center; }
+    .rs-prec-cell { border-radius:5px; padding:4px 3px; text-align:center; border:1px solid transparent; }
+    .rs-prec-cell .prec-bar { font-size:.8rem; font-weight:800; display:block; }
+    .rs-prec-cell .prec-hot { font-size:.62rem; color:#6c757d; }
+    .prec-ok   { background:#dcfce7; border-color:#86efac; }
+    .prec-warn { background:#fef9c3; border-color:#fde68a; }
+    .prec-bad  { background:#fee2e2; border-color:#fca5a5; }
+
+    /* Wear gauge SVG */
+    .rs-wear-gauges { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .rs-wear-cell { background:#f8f9fa; border:1px solid #e9ecef; border-radius:8px;
+                    padding:8px 6px; text-align:center; }
+    .rs-wear-lbl { font-size:.65rem; font-weight:700; text-transform:uppercase;
+                   color:#6c757d; margin-top:4px; }
+
+    /* Pit window */
+    .rs-pit-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; }
+    .rs-pit-cell { border-radius:6px; padding:8px 10px; border:1px solid; text-align:center; }
+    .rs-pit-cell .pit-val { font-size:1.5rem; font-weight:800; line-height:1; color:#1a1d24; }
+    .rs-pit-cell .pit-lbl { font-size:.63rem; font-weight:700; text-transform:uppercase;
+                             color:#6c757d; margin-top:2px; }
+    .rs-pit-earliest { background:#fef9c3; border-color:#fde68a; }
+    .rs-pit-optimal  { background:#dcfce7; border-color:#86efac; }
+    .rs-pit-latest   { background:#fee2e2; border-color:#fca5a5; }
+
+    /* Undercut / overcut badges */
+    .rs-tactic-grid { display:flex; flex-direction:column; gap:5px; margin-top:8px; }
+    .rs-tactic-badge { display:flex; align-items:center; gap:8px; border-radius:7px;
+                       padding:7px 10px; font-size:.78rem; border:1px solid; }
+    .rs-tactic-uc { background:#eff6ff; border-color:#93c5fd; color:#1e40af; }
+    .rs-tactic-oc { background:#f5f3ff; border-color:#c4b5fd; color:#4c1d95; }
+    .rs-tactic-val { font-size:1.05rem; font-weight:800; margin-left:auto;
+                     font-variant-numeric:tabular-nums; }
+
+    /* Alert rail */
+    .rs-alert { display:flex; align-items:flex-start; gap:8px; padding:7px 10px;
+                border-radius:7px; font-size:.76rem; margin-bottom:5px;
+                border:1px solid; animation:rs-alert-in .25s ease; }
+    @keyframes rs-alert-in { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:none} }
+    .rs-alert-warn { background:#fefce8; border-color:#fde68a; color:#92400e; }
+    .rs-alert-danger{ background:#fef2f2; border-color:#fca5a5; color:#991b1b; }
+    .rs-alert-info  { background:#eff6ff; border-color:#bae6fd; color:#0369a1; }
+    .rs-alert-dismiss { margin-left:auto; background:none; border:none; cursor:pointer;
+                        font-size:.9rem; color:inherit; opacity:.6; flex-shrink:0; }
+    .rs-alert-dismiss:hover { opacity:1; }
+
+    /* Decision matrix */
+    .rs-matrix-table { width:100%; font-size:.75rem; border-collapse:collapse; }
+    .rs-matrix-table th { background:#f8f9fa; padding:5px 7px; font-size:.64rem; font-weight:700;
+                          text-transform:uppercase; color:#6c757d; border-bottom:2px solid #dee2e6;
+                          white-space:nowrap; }
+    .rs-matrix-table td { padding:5px 7px; border-bottom:1px solid rgba(0,0,0,.05);
+                          color:#1a1d24; font-variant-numeric:tabular-nums; }
+    .rs-matrix-table tr.mat-winner td { background:#f0fdf4; font-weight:700; color:#166534; }
+    .mat-conf-badge { display:inline-block; font-size:.68rem; font-weight:700;
+                      border-radius:10px; padding:1px 7px; }
+    .mat-conf-high { background:#dcfce7; color:#166534; }
+    .mat-conf-med  { background:#fef9c3; color:#92400e; }
+    .mat-conf-low  { background:#fee2e2; color:#991b1b; }
+
+    /* Empty state */
+    .rs-empty { display:flex; flex-direction:column; align-items:center; justify-content:center;
+                padding:40px 20px; color:#6c757d; text-align:center; }
+    .rs-empty-icon { font-size:2.5rem; opacity:.3; margin-bottom:10px; }
+
+    /* Responsive */
+    @media(max-width:900px){
+      .rs-prec-grid { grid-template-columns:70px repeat(4,1fr); font-size:.67rem; }
+    }
+  </style>
+</head>
+<body class="light-mode">
+  <div id="rtsTopNav"></div>
+  <div class="rts-version-badge">v1</div>
+  <div class="rts-main container-fluid">
+
+    <!-- ── Page header ─────────────────────────────────────────────────── -->
+    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end flex-wrap gap-2">
+      <div>
+        <h1 class="h4 mb-1">Race Strategy</h1>
+        <div class="text-secondary" style="font-size:.85rem;">
+          F1-grade tyre, pit-window and scenario modelling for karts &amp; formula cars.
+        </div>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <div class="rs-mode-toggle">
+          <button class="rs-mode-btn active-kart" id="btnModeKart">
+            <i class="bi bi-circle-fill me-1" style="font-size:.55rem;vertical-align:middle"></i>KART
+          </button>
+          <button class="rs-mode-btn" id="btnModeForm">
+            <i class="bi bi-circle-fill me-1" style="font-size:.55rem;vertical-align:middle"></i>FORMULA
+          </button>
+        </div>
+        <button class="btn btn-sm btn-outline-secondary" id="btnExportJSON" title="Export scenario data">
+          <i class="bi bi-download"></i> Export
+        </button>
+      </div>
+    </div>
+
+    <!-- ── Stats bar ───────────────────────────────────────────────────── -->
+    <div class="ev-stats-bar" id="rsStatsBar">
+      <div class="ev-stat-card">
+        <div class="ev-stat-label">Ideal Lap</div>
+        <div class="ev-stat-value" id="statIdealLap">—</div>
+        <div class="ev-stat-sub">seconds</div>
+      </div>
+      <div class="ev-stat-card">
+        <div class="ev-stat-label">Peak Grip Lap</div>
+        <div class="ev-stat-value" id="statPeakGripLap">—</div>
+        <div class="ev-stat-sub">lap number</div>
+      </div>
+      <div class="ev-stat-card">
+        <div class="ev-stat-label">Wear Cliff</div>
+        <div class="ev-stat-value" id="statWearCliff">—</div>
+        <div class="ev-stat-sub">lap number</div>
+      </div>
+      <div class="ev-stat-card">
+        <div class="ev-stat-label">Blister Risk</div>
+        <div class="ev-stat-value" id="statBlisterLap">—</div>
+        <div class="ev-stat-sub">from lap</div>
+      </div>
+      <div class="ev-stat-card">
+        <div class="ev-stat-label">Tyre Temp Peak</div>
+        <div class="ev-stat-value" id="statTyrePeak">—</div>
+        <div class="ev-stat-sub">°C</div>
+      </div>
+      <div class="ev-stat-card" id="statKartPressCard">
+        <div class="ev-stat-label">Hot Pressure (F)</div>
+        <div class="ev-stat-value" id="statHotPressF">—</div>
+        <div class="ev-stat-sub">bar at peak</div>
+      </div>
+      <div class="ev-stat-card" id="statFormOptCard">
+        <div class="ev-stat-label">Optimal Pit</div>
+        <div class="ev-stat-value" id="statOptPit">—</div>
+        <div class="ev-stat-sub">lap</div>
+      </div>
+      <div class="ev-stat-card">
+        <div class="ev-stat-label">Deg per Lap</div>
+        <div class="ev-stat-value" id="statDegPerLap">—</div>
+        <div class="ev-stat-sub">ms/lap</div>
+      </div>
+    </div>
+
+    <!-- ── MLO tri-pane shell ───────────────────────────────────────────── -->
+    <div class="mlo-shell" id="rsShell">
+
+      <!-- ════ LEFT PANE — Configuration ════ -->
+      <section class="mlo-pane mlo-pane-left" aria-label="Strategy configuration" style="width:280px;overflow-y:auto;">
+        <div class="mlo-pane-header">
+          <div class="mlo-title"><i class="bi bi-sliders me-1"></i>Configuration</div>
+        </div>
+        <div class="mlo-pane-content" style="padding:0;overflow-y:auto;">
+
+          <!-- Session Setup -->
+          <div class="rs-section">
+            <div class="rs-section-title">Session Setup</div>
+
+            <div class="rs-row">
+              <label for="cfgClass">Class</label>
+              <select class="form-select form-select-sm" id="cfgClass">
+                <option value="Cadet">Cadet</option>
+                <option value="Junior">Junior</option>
+                <option value="Senior OK" selected>Senior OK</option>
+                <option value="KZ">KZ / Shifter</option>
+                <option value="Rotax Max">Rotax Max</option>
+                <option value="X30">IAME X30</option>
+                <option value="Mini">Mini / Bambino</option>
+                <option value="F4">Formula 4</option>
+                <option value="F3">Formula 3</option>
+                <option value="F2">Formula 2</option>
+                <option value="Custom">Custom</option>
+              </select>
+            </div>
+
+            <div class="rs-row">
+              <label for="cfgCompound">Compound</label>
+              <select class="form-select form-select-sm" id="cfgCompound">
+                <option value="Soft">Soft</option>
+                <option value="Medium" selected>Medium</option>
+                <option value="Hard">Hard</option>
+                <option value="Wet">Wet</option>
+              </select>
+            </div>
+
+            <div class="rs-row">
+              <label for="cfgSessionType">Session</label>
+              <select class="form-select form-select-sm" id="cfgSessionType">
+                <option>Practice</option>
+                <option>Qualifying</option>
+                <option>Pre-Final</option>
+                <option>Final</option>
+                <option selected>Race</option>
+              </select>
+            </div>
+
+            <div class="rs-row">
+              <label for="cfgTotalLaps">Total Laps</label>
+              <input type="number" class="form-control form-control-sm" id="cfgTotalLaps"
+                     min="1" max="120" value="18" style="max-width:70px;"/>
+            </div>
+
+            <div class="rs-row">
+              <label for="cfgIdealLap">Ideal Lap (s)</label>
+              <input type="number" class="form-control form-control-sm" id="cfgIdealLap"
+                     min="20" max="300" step="0.1" value="55.0" style="max-width:80px;"/>
+            </div>
+          </div>
+
+          <!-- Conditions -->
+          <div class="rs-section">
+            <div class="rs-section-title">Track Conditions</div>
+
+            <div class="rs-row">
+              <label>Ambient °C</label>
+              <input type="range" id="cfgAmbient" min="0" max="45" step="1" value="18" />
+              <span class="rs-val-badge" id="lblAmbient">18°C</span>
+            </div>
+            <div class="rs-row">
+              <label>Track °C</label>
+              <input type="range" id="cfgTrack" min="10" max="70" step="1" value="28" />
+              <span class="rs-val-badge" id="lblTrack">28°C</span>
+            </div>
+
+            <div class="rs-row">
+              <label for="cfgRubber">Rubber State</label>
+              <select class="form-select form-select-sm" id="cfgRubber">
+                <option value="green">Green</option>
+                <option value="building" selected>Building</option>
+                <option value="rubbered">Rubbered In</option>
+                <option value="hot">Hot / Prime</option>
+              </select>
+            </div>
+            <div class="rs-row">
+              <label for="cfgTimeOfDay">Time of Day</label>
+              <select class="form-select form-select-sm" id="cfgTimeOfDay">
+                <option value="morning">Morning</option>
+                <option value="midday" selected>Midday</option>
+                <option value="afternoon">Afternoon</option>
+                <option value="evening">Evening</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Karting-specific -->
+          <div class="rs-section" id="secKart">
+            <div class="rs-section-title">Tyre Setup — Kart</div>
+
+            <div class="rs-row">
+              <label>Cold Tyre °C</label>
+              <input type="range" id="cfgColdTyre" min="0" max="45" step="1" value="18" />
+              <span class="rs-val-badge" id="lblColdTyre">18°C</span>
+            </div>
+            <div class="rs-row">
+              <label for="cfgLapsOnSet">Laps on Set</label>
+              <input type="number" class="form-control form-control-sm" id="cfgLapsOnSet"
+                     min="0" max="200" value="0" style="max-width:62px;" />
+            </div>
+
+            <div class="mlo-section-label mb-2 mt-1">Target Hot Pressures (bar)</div>
+            <div class="rs-pressure-grid">
+              <div class="rs-p-cell">
+                <div class="pc-lbl">FL</div>
+                <input type="range" id="cfgPFL" min="0.50" max="1.20" step="0.01" value="0.80" />
+                <div class="pc-val" id="lblPFL">0.80</div>
+              </div>
+              <div class="rs-p-cell">
+                <div class="pc-lbl">FR</div>
+                <input type="range" id="cfgPFR" min="0.50" max="1.20" step="0.01" value="0.82" />
+                <div class="pc-val" id="lblPFR">0.82</div>
+              </div>
+              <div class="rs-p-cell">
+                <div class="pc-lbl">RL</div>
+                <input type="range" id="cfgPRL" min="0.50" max="1.20" step="0.01" value="0.75" />
+                <div class="pc-val" id="lblPRL">0.75</div>
+              </div>
+              <div class="rs-p-cell">
+                <div class="pc-lbl">RR</div>
+                <input type="range" id="cfgPRR" min="0.50" max="1.20" step="0.01" value="0.78" />
+                <div class="pc-val" id="lblPRR">0.78</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Formula-specific -->
+          <div class="rs-section" id="secFormula" style="display:none;">
+            <div class="rs-section-title formula">Pit Stop — Formula</div>
+
+            <div class="rs-row">
+              <label>Pit Loss (s)</label>
+              <input type="range" id="cfgPitLoss" min="15" max="60" step="1" value="28" />
+              <span class="rs-val-badge" id="lblPitLoss">28s</span>
+            </div>
+            <div class="rs-row">
+              <label>Fuel Start (kg)</label>
+              <input type="range" id="cfgFuelStart" min="1" max="120" step="1" value="60" />
+              <span class="rs-val-badge" id="lblFuelStart">60kg</span>
+            </div>
+            <div class="rs-row">
+              <label>Burn Rate</label>
+              <input type="range" id="cfgBurnRate" min="0.5" max="5" step="0.1" value="1.8" />
+              <span class="rs-val-badge" id="lblBurnRate">1.8</span>
+            </div>
+            <div class="rs-row">
+              <label>k fuel (s/kg)</label>
+              <input type="range" id="cfgKFuel" min="0.01" max="0.10" step="0.005" value="0.035" />
+              <span class="rs-val-badge" id="lblKFuel">0.035</span>
+            </div>
+          </div>
+
+          <!-- Custom preset override (always visible) -->
+          <div class="rs-section">
+            <div class="rs-section-title">Model Override</div>
+            <details>
+              <summary style="font-size:.73rem; cursor:pointer; color:#6c757d; font-weight:600;">
+                Advanced preset values
+              </summary>
+              <div style="padding-top:8px; display:flex; flex-direction:column; gap:5px;">
+                <div class="rs-row">
+                  <label>k_base</label>
+                  <input type="number" class="form-control form-control-sm" id="cfgKBase"
+                         min="0.001" max="0.02" step="0.0001" value="0.0042" style="max-width:80px;" />
+                </div>
+                <div class="rs-row">
+                  <label>ΔT_peak (°C)</label>
+                  <input type="number" class="form-control form-control-sm" id="cfgDTPeak"
+                         min="20" max="100" step="1" value="62" style="max-width:80px;" />
+                </div>
+                <div class="rs-row">
+                  <label>τ heat (laps)</label>
+                  <input type="number" class="form-control form-control-sm" id="cfgTauHeat"
+                         min="1" max="10" step="0.1" value="3.2" style="max-width:80px;" />
+                </div>
+                <div class="rs-row">
+                  <label>Wear cliff</label>
+                  <input type="number" class="form-control form-control-sm" id="cfgWearCliff"
+                         min="0.1" max="2" step="0.01" value="0.72" style="max-width:80px;" />
+                </div>
+                <div class="rs-row">
+                  <label>n_shape</label>
+                  <input type="number" class="form-control form-control-sm" id="cfgNShape"
+                         min="0.1" max="2" step="0.05" value="0.45" style="max-width:80px;" />
+                </div>
+                <div class="rs-row">
+                  <label>Blister T (°C)</label>
+                  <input type="number" class="form-control form-control-sm" id="cfgBlistT"
+                         min="60" max="160" step="1" value="105" style="max-width:80px;" />
+                </div>
+              </div>
+            </details>
+          </div>
+
+        </div>
+      </section>
+
+      <div class="mlo-resizer" id="rsResizer1"></div>
+
+      <!-- ════ CENTRE PANE — Charts ════ -->
+      <section class="mlo-pane mlo-pane-mid" aria-label="Strategy charts">
+        <div class="mlo-pane-header" style="padding:0;">
+          <div class="rs-tabs" id="rsTabs">
+            <div class="rs-tab active" data-tab="laptime"><i class="bi bi-graph-up me-1"></i>Lap Times</div>
+            <div class="rs-tab"        data-tab="pressure"><i class="bi bi-speedometer2 me-1"></i>Tyre Pressure</div>
+            <div class="rs-tab"        data-tab="wear"><i class="bi bi-activity me-1"></i>Wear &amp; Grip</div>
+            <div class="rs-tab"        data-tab="scenario"><i class="bi bi-bar-chart-steps me-1"></i>Scenarios</div>
+            <div class="rs-tab"        data-tab="stint"><i class="bi bi-layout-text-window me-1"></i>Stint Plan</div>
+          </div>
+        </div>
+        <div class="mlo-pane-content" style="padding:0;display:flex;flex-direction:column;overflow:hidden;">
+
+          <!-- TAB: Lap Time Projection -->
+          <div class="rs-tab-panel active" id="tabLaptime" style="overflow:auto;flex:1;">
+            <div class="rs-chart-wrap">
+              <canvas id="chartLaptime"></canvas>
+            </div>
+            <div style="font-size:.7rem; color:#6c757d; padding:0 16px 10px;">
+              <span style="display:inline-flex;align-items:center;gap:4px;margin-right:14px;">
+                <span style="width:12px;height:3px;background:#0891b2;display:inline-block;border-radius:2px;"></span> Predicted pace</span>
+              <span style="display:inline-flex;align-items:center;gap:4px;margin-right:14px;">
+                <span style="width:12px;height:3px;background:#94a3b8;display:inline-block;border-radius:2px;border-style:dashed;"></span> Ideal flat</span>
+              <span style="display:inline-flex;align-items:center;gap:4px;">
+                <span style="width:12px;height:8px;background:rgba(239,68,68,.15);display:inline-block;border-radius:2px;"></span> Blister risk zone</span>
+            </div>
+          </div>
+
+          <!-- TAB: Tyre Pressure Arc -->
+          <div class="rs-tab-panel" id="tabPressure" style="overflow:auto;flex:1;">
+            <div class="rs-chart-wrap">
+              <canvas id="chartPressure"></canvas>
+            </div>
+            <div style="font-size:.7rem; color:#6c757d; padding:0 16px 10px;">
+              Dual-axis: temp (°C) left · pressure (bar) right ·
+              <span style="color:#22c55e; font-weight:700;">■</span> target window ·
+              <span style="color:#ef4444; font-weight:700;">■</span> blister zone
+            </div>
+          </div>
+
+          <!-- TAB: Wear & Grip -->
+          <div class="rs-tab-panel" id="tabWear" style="overflow:auto;flex:1;">
+            <div class="rs-chart-wrap">
+              <canvas id="chartWear"></canvas>
+            </div>
+          </div>
+
+          <!-- TAB: Scenario Comparison -->
+          <div class="rs-tab-panel" id="tabScenario" style="overflow:auto;flex:1;">
+            <div class="rs-chart-wrap" style="min-height:240px;">
+              <canvas id="chartScenario"></canvas>
+            </div>
+            <div style="overflow-x:auto; padding:0 0 12px;">
+              <table class="rs-scen-table" id="scenTable">
+                <thead>
+                  <tr>
+                    <th>Scenario</th>
+                    <th>Total Time</th>
+                    <th>vs Best</th>
+                    <th>Avg Lap</th>
+                    <th>Stops</th>
+                    <th>Confidence</th>
+                  </tr>
+                </thead>
+                <tbody id="scenTbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- TAB: Stint Planner -->
+          <div class="rs-tab-panel" id="tabStint" style="overflow:auto;flex:1;">
+            <div id="stintGantt">
+              <svg id="ganttSvg" class="gantt-svg" height="200"></svg>
+            </div>
+            <div id="ganttLegend" style="padding:0 14px 10px; font-size:.72rem; color:#6c757d;"></div>
+          </div>
+
+        </div>
+      </section>
+
+      <div class="mlo-resizer" id="rsResizer2"></div>
+
+      <!-- ════ RIGHT PANE — Intelligence ════ -->
+      <section class="mlo-pane mlo-pane-right" aria-label="Strategy intelligence" style="width:320px;overflow-y:auto;">
+        <div class="mlo-pane-header">
+          <div class="mlo-title"><i class="bi bi-lightbulb me-1"></i>Race Intelligence</div>
+        </div>
+        <div class="mlo-pane-content" style="padding:0;">
+
+          <!-- Race Briefing -->
+          <div class="rs-brief-card">
+            <div class="rs-brief-title"><i class="bi bi-file-text me-1"></i>Race Briefing</div>
+            <div class="rs-brief-text" id="rsBriefText">Configure inputs on the left to generate your race briefing.</div>
+          </div>
+
+          <!-- Alerts -->
+          <div class="rs-right-section">
+            <div class="rs-right-title"><i class="bi bi-exclamation-triangle me-1"></i>Live Alerts</div>
+            <div id="rsAlertRail"></div>
+          </div>
+
+          <!-- Kart: pressure recommendations -->
+          <div class="rs-right-section" id="secPressRec">
+            <div class="rs-right-title"><i class="bi bi-thermometer-half me-1"></i>Cold Start Pressures</div>
+            <div class="rs-prec-grid" id="precGrid">
+              <div class="rs-prec-hdr">Session</div>
+              <div class="rs-prec-hdr">FL</div>
+              <div class="rs-prec-hdr">FR</div>
+              <div class="rs-prec-hdr">RL</div>
+              <div class="rs-prec-hdr">RR</div>
+            </div>
+            <div id="precRows"></div>
+          </div>
+
+          <!-- Kart: wear gauges -->
+          <div class="rs-right-section" id="secWearGauges">
+            <div class="rs-right-title"><i class="bi bi-circle-half me-1"></i>Tyre Wear Status</div>
+            <div class="rs-wear-gauges" id="wearGauges">
+              <div class="rs-wear-cell">
+                <svg width="80" height="80" viewBox="0 0 80 80" id="gaugeFL"></svg>
+                <div class="rs-wear-lbl">FL</div>
+              </div>
+              <div class="rs-wear-cell">
+                <svg width="80" height="80" viewBox="0 0 80 80" id="gaugeFR"></svg>
+                <div class="rs-wear-lbl">FR</div>
+              </div>
+              <div class="rs-wear-cell">
+                <svg width="80" height="80" viewBox="0 0 80 80" id="gaugeRL"></svg>
+                <div class="rs-wear-lbl">RL</div>
+              </div>
+              <div class="rs-wear-cell">
+                <svg width="80" height="80" viewBox="0 0 80 80" id="gaugeRR"></svg>
+                <div class="rs-wear-lbl">RR</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Formula: pit window -->
+          <div class="rs-right-section" id="secPitWindow" style="display:none;">
+            <div class="rs-right-title"><i class="bi bi-tools me-1"></i>Pit Window</div>
+            <div class="rs-pit-grid">
+              <div class="rs-pit-cell rs-pit-earliest">
+                <div class="pit-val" id="pitEarliest">—</div>
+                <div class="pit-lbl">Earliest</div>
+              </div>
+              <div class="rs-pit-cell rs-pit-optimal">
+                <div class="pit-val" id="pitOptimal">—</div>
+                <div class="pit-lbl">Optimal</div>
+              </div>
+              <div class="rs-pit-cell rs-pit-latest">
+                <div class="pit-val" id="pitLatest">—</div>
+                <div class="pit-lbl">Latest</div>
+              </div>
+            </div>
+            <div class="rs-tactic-grid" id="tactics"></div>
+          </div>
+
+          <!-- Decision matrix -->
+          <div class="rs-right-section">
+            <div class="rs-right-title"><i class="bi bi-grid-3x3-gap me-1"></i>Decision Matrix</div>
+            <table class="rs-matrix-table" id="matrixTable">
+              <thead>
+                <tr>
+                  <th>Strategy</th>
+                  <th>Race Time</th>
+                  <th>vs Best</th>
+                  <th>Confidence</th>
+                </tr>
+              </thead>
+              <tbody id="matrixTbody"></tbody>
+            </table>
+          </div>
+
+        </div>
+      </section>
+
+    </div><!-- /rsShell -->
+  </div><!-- /rts-main -->
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script src="config.js"></script>
+  <script src="core.js"></script>
+  <script src="topnav.js?v=20260425"></script>
+  <script>
+  (function(){
+    'use strict';
+    RTS.setActiveNav();
+
+    /* ═══════════════════════════════════════════════════════════════════
+       CLASS PRESETS
+       k_base       — base wear accumulation rate
+       dT_peak      — max tyre temp rise above ambient (°C)
+       tau_heat     — thermal heat-up time constant (laps)
+       wear_cliff   — absolute wear units at the degradation cliff
+       n_shape      — grip-loss exponent (higher = sharper cliff)
+       blister_T    — tyre temp (°C) at which blister probability = 50%
+       P_gain       — pressure gain per °C above cold temp (bar/°C) ≈ P∙R/T
+       warmup_pen   — first-lap slowdown penalty (seconds)
+       tau_wu       — warmup decay constant (laps)
+    ═══════════════════════════════════════════════════════════════════ */
+    const CLASS_PRESETS = {
+      'Cadet':     { k_base:0.0028, dT_peak:54, tau_heat:2.8, wear_cliff:0.52, n_shape:0.38, blister_T: 95, P_gain:0.0110, warmup_pen:1.8, tau_wu:1.5 },
+      'Junior':    { k_base:0.0033, dT_peak:58, tau_heat:3.0, wear_cliff:0.60, n_shape:0.40, blister_T:100, P_gain:0.0112, warmup_pen:2.0, tau_wu:1.8 },
+      'Senior OK': { k_base:0.0042, dT_peak:62, tau_heat:3.2, wear_cliff:0.72, n_shape:0.45, blister_T:105, P_gain:0.0115, warmup_pen:2.2, tau_wu:2.0 },
+      'KZ':        { k_base:0.0055, dT_peak:68, tau_heat:2.5, wear_cliff:0.80, n_shape:0.50, blister_T:110, P_gain:0.0118, warmup_pen:1.5, tau_wu:1.6 },
+      'Rotax Max': { k_base:0.0038, dT_peak:60, tau_heat:3.0, wear_cliff:0.68, n_shape:0.42, blister_T:102, P_gain:0.0113, warmup_pen:2.0, tau_wu:1.9 },
+      'X30':       { k_base:0.0040, dT_peak:61, tau_heat:3.1, wear_cliff:0.70, n_shape:0.44, blister_T:103, P_gain:0.0114, warmup_pen:2.1, tau_wu:1.9 },
+      'Mini':      { k_base:0.0022, dT_peak:46, tau_heat:2.4, wear_cliff:0.44, n_shape:0.32, blister_T: 88, P_gain:0.0105, warmup_pen:1.4, tau_wu:1.3 },
+      'F4':        { k_base:0.0065, dT_peak:75, tau_heat:3.8, wear_cliff:1.10, n_shape:0.55, blister_T:115, P_gain:0.0122, warmup_pen:3.0, tau_wu:2.5 },
+      'F3':        { k_base:0.0080, dT_peak:82, tau_heat:4.2, wear_cliff:1.30, n_shape:0.60, blister_T:118, P_gain:0.0126, warmup_pen:3.5, tau_wu:2.8 },
+      'F2':        { k_base:0.0095, dT_peak:88, tau_heat:4.8, wear_cliff:1.50, n_shape:0.65, blister_T:122, P_gain:0.0130, warmup_pen:4.0, tau_wu:3.2 },
+      'Custom':    { k_base:0.0042, dT_peak:62, tau_heat:3.2, wear_cliff:0.72, n_shape:0.45, blister_T:105, P_gain:0.0115, warmup_pen:2.2, tau_wu:2.0 }
+    };
+
+    const COMPOUND_MULT = { Soft:{ k:1.30, dT:1.10 }, Medium:{ k:1.00, dT:1.00 }, Hard:{ k:0.75, dT:0.88 }, Wet:{ k:0.55, dT:0.75 } };
+    const RUBBER_GRIP   = { green:0.94, building:0.97, rubbered:1.00, hot:1.02 };
+    const TOD_AMBIENT_OFFSET = { morning:-3, midday:0, afternoon:2, evening:-1 }; // °C offset vs input
+
+    /* ═══════════════════════════════════════════════════════════════════
+       STATE
+    ═══════════════════════════════════════════════════════════════════ */
+    let mode = 'kart'; // 'kart' | 'formula'
+    let simData = null;
+    const LS_KEY = 'rts.race_strategy.config.v1';
+
+    /* ═══════════════════════════════════════════════════════════════════
+       ELEMENT REFS
+    ═══════════════════════════════════════════════════════════════════ */
+    const $ = id => document.getElementById(id);
+    const cfg = () => ({
+      klass:       $('cfgClass').value,
+      compound:    $('cfgCompound').value,
+      totalLaps:   +$('cfgTotalLaps').value,
+      idealLap:    +$('cfgIdealLap').value,
+      ambient:     +$('cfgAmbient').value,
+      track:       +$('cfgTrack').value,
+      rubber:      $('cfgRubber').value,
+      tod:         $('cfgTimeOfDay').value,
+      coldTyre:    +$('cfgColdTyre').value,
+      lapsOnSet:   +$('cfgLapsOnSet').value,
+      pFL:         +$('cfgPFL').value,
+      pFR:         +$('cfgPFR').value,
+      pRL:         +$('cfgPRL').value,
+      pRR:         +$('cfgPRR').value,
+      pitLoss:     +$('cfgPitLoss').value,
+      fuelStart:   +$('cfgFuelStart').value,
+      burnRate:    +$('cfgBurnRate').value,
+      kFuel:       +$('cfgKFuel').value,
+      // advanced overrides
+      kBase:       +$('cfgKBase').value,
+      dTPeak:      +$('cfgDTPeak').value,
+      tauHeat:     +$('cfgTauHeat').value,
+      wearCliff:   +$('cfgWearCliff').value,
+      nShape:      +$('cfgNShape').value,
+      blistT:      +$('cfgBlistT').value
+    });
+
+    /* ═══════════════════════════════════════════════════════════════════
+       MATHS ENGINE
+    ═══════════════════════════════════════════════════════════════════ */
+    function simulate(c) {
+      const preset   = CLASS_PRESETS[c.klass] || CLASS_PRESETS['Custom'];
+      const compMult = COMPOUND_MULT[c.compound] || COMPOUND_MULT['Medium'];
+      const rubGrip  = RUBBER_GRIP[c.rubber] || 1.0;
+      const todOff   = TOD_AMBIENT_OFFSET[c.tod] || 0;
+      const ambEff   = c.ambient + todOff;
+
+      // effective preset values (user overrides take priority when class=Custom or advanced panel changed)
+      const k_base     = (c.klass === 'Custom') ? c.kBase    : preset.k_base    * compMult.k;
+      const dT_peak    = (c.klass === 'Custom') ? c.dTPeak   : preset.dT_peak   * compMult.dT;
+      const tau_heat   = (c.klass === 'Custom') ? c.tauHeat  : preset.tau_heat;
+      const wear_cliff = (c.klass === 'Custom') ? c.wearCliff: preset.wear_cliff;
+      const n_shape    = (c.klass === 'Custom') ? c.nShape   : preset.n_shape;
+      const blister_T  = (c.klass === 'Custom') ? c.blistT   : preset.blister_T;
+      const warmup_pen = preset.warmup_pen || 2.0;
+      const tau_wu     = preset.tau_wu     || 2.0;
+
+      const laps      = Math.max(c.totalLaps, 2);
+      const T_cold_K  = (c.coldTyre + 273.15);
+
+      // per-corner target hot pressures
+      const hotTargets = { FL: c.pFL, FR: c.pFR, RL: c.pRL, RR: c.pRR };
+
+      // arrays indexed 1..laps
+      const tyreTempFL = [], tyreTempFR = [], tyreTempRL = [], tyreTempRR = [];
+      const tyrePresFL = [], tyrePresFR = [], tyrePresRL = [], tyrePresRR = [];
+      const wearArr    = [];
+      const gripArr    = [];
+      const lapTimes   = [];
+      const blisterArr = [];
+
+      // Positional bias: fronts run ~5% hotter near driver (steering load)
+      // Rears run ~8% hotter (drive power)
+      const tempBias  = { FL: 0.97, FR: 1.00, RL: 1.05, RR: 1.08 };
+
+      let totalWear = k_base * c.lapsOnSet; // seed with age of set
+
+      for (let lap = 1; lap <= laps; lap++) {
+        // ── Tyre Temperature (Gay-Lussac approach, exponential heat-up) ──
+        const T_rise = dT_peak * (1 - Math.exp(-lap / tau_heat));
+        // Track-to-tyre coupling: 30% track temp influence above ambient
+        const trackContrib = (c.track - ambEff) * 0.30;
+
+        const rawTemp = ambEff + trackContrib + T_rise;
+        tyreTempFL.push(rawTemp * tempBias.FL);
+        tyreTempFR.push(rawTemp * tempBias.FR);
+        tyreTempRL.push(rawTemp * tempBias.RL);
+        tyreTempRR.push(rawTemp * tempBias.RR);
+
+        // ── Tyre Pressure (Amontons'/Gay-Lussac Law: P1/T1 = P2/T2) ──
+        // Back-calculate what cold pressure gives target hot pressure given predicted temp
+        // While running, track actual hot pressure from recommended cold start
+        const tyreHotFL = T_cold_K > 0 ? (c.pFL * (tyreTempFL[lap-1] + 273.15) / T_cold_K) : c.pFL;
+        const tyreHotFR = T_cold_K > 0 ? (c.pFR * (tyreTempFR[lap-1] + 273.15) / T_cold_K) : c.pFR;
+        const tyreHotRL = T_cold_K > 0 ? (c.pRL * (tyreTempRL[lap-1] + 273.15) / T_cold_K) : c.pRL;
+        const tyreHotRR = T_cold_K > 0 ? (c.pRR * (tyreTempRR[lap-1] + 273.15) / T_cold_K) : c.pRR;
+        tyrePresFL.push(tyreHotFL);
+        tyrePresFR.push(tyreHotFR);
+        tyrePresRL.push(tyreHotRL);
+        tyrePresRR.push(tyreHotRR);
+
+        // ── Wear Accumulation (feedback: lower grip → more sliding → faster wear) ──
+        const prevGrip = gripArr.length > 0 ? gripArr[gripArr.length - 1] : (rubGrip * 0.95);
+        const v_rel    = Math.max(0.1, 1.0 - prevGrip); // relative sliding velocity proxy
+        const wear_rate = k_base * Math.pow(1 + v_rel, 1.5) * Math.max(0.4, 1 / Math.sqrt(prevGrip));
+        totalWear += wear_rate;
+        wearArr.push(totalWear);
+
+        const wear_frac = Math.min(totalWear / wear_cliff, 1.0);
+        const grip_raw  = rubGrip * Math.pow(Math.max(0, 1 - wear_frac), n_shape);
+        gripArr.push(Math.max(0.05, grip_raw));
+
+        // ── Lap Time ──
+        const degPenalty  = c.idealLap / gripArr[lap-1] - c.idealLap;
+        const warmupBonus = warmup_pen * Math.exp(-lap / tau_wu);
+        const fuelEffect  = (mode === 'formula') ? (c.fuelStart - c.burnRate * (lap - 1)) * c.kFuel : 0;
+        lapTimes.push(c.idealLap + degPenalty + warmupBonus + Math.max(0, fuelEffect));
+
+        // ── Blister Risk (sigmoid around blister temp, using rear tyre max) ──
+        const maxTemp   = Math.max(tyreTempRL[lap-1], tyreTempRR[lap-1]);
+        const bRisk     = 1 / (1 + Math.exp(-(maxTemp - blister_T) / 8));
+        blisterArr.push(bRisk);
+      }
+
+      // ── Derived statistics ──
+      let peakGripLap = 1;
+      let maxGrip = 0;
+      for (let i = 0; i < gripArr.length; i++) {
+        if (gripArr[i] > maxGrip) { maxGrip = gripArr[i]; peakGripLap = i + 1; }
+      }
+
+      let wearCliffLap = laps;
+      for (let i = 0; i < wearArr.length; i++) {
+        if (wearArr[i] / wear_cliff >= 0.85 && wearCliffLap === laps) {
+          wearCliffLap = i + 1;
+        }
+      }
+
+      let blisterLap = laps + 1;
+      for (let i = 0; i < blisterArr.length; i++) {
+        if (blisterArr[i] > 0.50 && blisterLap > laps) { blisterLap = i + 1; }
+      }
+
+      // ── Cold pressure recommendations per session slot ──
+      const sessionSlots = [
+        { label:'Morning',   todOff:-3 },
+        { label:'Midday',    todOff: 0 },
+        { label:'Afternoon', todOff:+2 },
+        { label:'Evening',   todOff:-1 }
+      ];
+      const pressureRecs = sessionSlots.map(slot => {
+        const ambSlot = c.ambient + slot.todOff;
+        // predict tyre temp at final temp (lap → ∞ → asymptote = ambSlot + trackContrib + dT_peak)
+        const trackC2 = (c.track - ambSlot) * 0.30;
+        const T_hot_pred = ambSlot + trackC2 + dT_peak;
+        const T_hot_K   = T_hot_pred + 273.15;
+        const T_cold_s  = ambSlot + 273.15;
+        // cold pressure needed = target_hot * T_cold / T_hot_pred
+        const calcCold = (hotTgt) => +(hotTgt * T_cold_s / T_hot_K).toFixed(3);
+        return {
+          label: slot.label,
+          FL: calcCold(c.pFL), FR: calcCold(c.pFR),
+          RL: calcCold(c.pRL), RR: calcCold(c.pRR),
+          hotPredFL: +(c.pFL * T_hot_K / T_cold_s).toFixed(3),
+          hotPredFR: +(c.pFR * T_hot_K / T_cold_s).toFixed(3),
+          hotPredRL: +(c.pRL * T_hot_K / T_cold_s).toFixed(3),
+          hotPredRR: +(c.pRR * T_hot_K / T_cold_s).toFixed(3)
+        };
+      });
+
+      // ── Formula pit window ──
+      const breakEvenLaps = (mode === 'formula' && lapTimes.length > 3)
+        ? Math.round(c.pitLoss / Math.max(0.05, lapTimes[Math.min(wearCliffLap, laps-1) - 1] - lapTimes[0]))
+        : null;
+      const pitEarliest = breakEvenLaps ? Math.max(1, peakGripLap) : null;
+      const pitLatest   = breakEvenLaps ? Math.min(laps - 1, wearCliffLap) : null;
+      const pitOptimal  = breakEvenLaps ? Math.round((pitEarliest + pitLatest) / 2) : null;
+
+      // ── Monte Carlo: 100-iteration scenario engine ──
+      const MC_N = 100;
+      const scenarios = buildScenarios(c, laps, lapTimes, wearCliffLap, k_base, wear_cliff);
+
+      return {
+        laps, lapTimes, gripArr, wearArr, blisterArr,
+        tyreTempFL, tyreTempFR, tyreTempRL, tyreTempRR,
+        tyrePresFL, tyrePresFR, tyrePresRL, tyrePresRR,
+        peakGripLap, wearCliffLap, blisterLap,
+        pressureRecs,
+        pitEarliest, pitOptimal, pitLatest, breakEvenLaps,
+        scenarios,
+        meta: { k_base, dT_peak, tau_heat, wear_cliff, n_shape, blister_T, ambEff }
+      };
+    }
+
+    /* ── Scenario builder ── */
+    function buildScenarios(c, laps, nomLapTimes, wearCliffLap, k_base, wear_cliff) {
+      const MC_N = 100;
+      function monteCarloTotal(lapTimesBase, pitStop, sdDeg, pSC, pitExecMean) {
+        let times = [];
+        for (let iter = 0; iter < MC_N; iter++) {
+          const degMult = 1 + (Math.random() * 2 - 1) * sdDeg;
+          const scPenalty = Math.random() < pSC ? 40 : 0;
+          const pitExec  = pitStop > 0 ? pitStop + (Math.random() - 0.5) * 3 : 0;
+          let total = 0;
+          for (let i = 0; i < laps; i++) {
+            total += nomLapTimes[i] * (1 + (nomLapTimes[i] - nomLapTimes[0]) / nomLapTimes[0] * (degMult - 1) * 0.5);
+          }
+          total += pitExec + scPenalty;
+          times.push(total);
+        }
+        const mean = times.reduce((a,b)=>a+b,0) / MC_N;
+        const sd   = Math.sqrt(times.map(t=>(t-mean)**2).reduce((a,b)=>a+b,0) / MC_N);
+        return { mean, sd };
+      }
+
+      const nominal  = monteCarloTotal(nomLapTimes, 0,    0.10, 0.25, 0);
+      const sc1      = monteCarloTotal(nomLapTimes, 0,    0.10, 0.50, 0);   // higher SC prob
+      const noStop   = monteCarloTotal(nomLapTimes, 0,    0.05, 0.25, 0);
+
+      if (mode === 'kart') {
+        // Kart: 3 pressure scenarios (conservative, nominal, aggressive)
+        const conservative = monteCarloTotal(nomLapTimes.map(t=>t+0.12), 0, 0.08, 0.25, 0);
+        const aggressive   = monteCarloTotal(nomLapTimes.map(t=>t-0.08), 0, 0.14, 0.25, 0);
+        return [
+          { name:'Conservative (+0.02 bar)', ...conservative, stops:0 },
+          { name:'Nominal Pressure',         ...nominal,       stops:0 },
+          { name:'Aggressive (−0.01 bar)',   ...aggressive,    stops:0 }
+        ];
+      } else {
+        // Formula: 1-stop early, 1-stop optimal, 1-stop late, 2-stop
+        const pit1 = c.pitLoss || 28;
+        const oneE = monteCarloTotal(nomLapTimes, pit1,     0.10, 0.25, pit1);
+        const oneO = monteCarloTotal(nomLapTimes, pit1,     0.10, 0.25, pit1);
+        const oneL = monteCarloTotal(nomLapTimes, pit1*1.02,0.10, 0.25, pit1);
+        const two  = monteCarloTotal(nomLapTimes, pit1*1.9, 0.10, 0.25, pit1);
+        return [
+          { name:'1-Stop Early',   ...oneE, stops:1 },
+          { name:'1-Stop Optimal', ...oneO, stops:1 },
+          { name:'1-Stop Late',    ...oneL, stops:1 },
+          { name:'2-Stop',         ...two,  stops:2 }
+        ];
+      }
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════
+       CHARTS
+    ═══════════════════════════════════════════════════════════════════ */
+    let chartLaptime  = null;
+    let chartPressure = null;
+    let chartWear     = null;
+    let chartScenario = null;
+
+    const CHART_DEFAULTS = {
+      responsive: true,
+      animation:  { duration: 400 },
+      plugins: {
+        legend:  { labels: { font: { size:11 }, boxWidth:12 } },
+        tooltip: { mode:'index', intersect:false,
+                   callbacks: { label: ctx => ` ${ctx.dataset.label}: ${(+ctx.raw).toFixed(3)}` } }
+      }
+    };
+
+    function mkLabels(laps) {
+      return Array.from({length: laps}, (_, i) => `L${i+1}`);
+    }
+
+    function updateChartLaptime(d) {
+      const labels    = mkLabels(d.laps);
+      const blisterBg = d.lapTimes.map((_, i) => d.blisterArr[i] > 0.3 ? 'rgba(239,68,68,0.10)' : 'transparent');
+
+      const datasets = [
+        {
+          label:'Predicted Pace',
+          data: d.lapTimes.map(t=>+t.toFixed(3)),
+          borderColor:'#0891b2', backgroundColor:'rgba(8,145,178,0.08)',
+          borderWidth:2.5, fill:true, tension:0.35, pointRadius:2
+        },
+        {
+          label:'Ideal Flat',
+          data: Array(d.laps).fill(+d.lapTimes[0].toFixed(3)),
+          borderColor:'#94a3b8', borderDash:[5,4], borderWidth:1.5,
+          pointRadius:0, fill:false
+        },
+        {
+          label:'Blister Risk Zone',
+          data: d.lapTimes.map((t,i) => d.blisterArr[i] > 0.3 ? t + 0.05 : null),
+          borderColor:'rgba(239,68,68,0.0)', backgroundColor:'rgba(239,68,68,0.12)',
+          fill:true, pointRadius:0, tension:0.35
+        }
+      ];
+
+      // Peak grip annotation line
+      const ticks = { color:'#6c757d', font:{size:10} };
+
+      if (chartLaptime) {
+        chartLaptime.data.labels   = labels;
+        chartLaptime.data.datasets = datasets;
+        chartLaptime.update();
+      } else {
+        chartLaptime = new Chart($('chartLaptime'), {
+          type:'line',
+          data:{ labels, datasets },
+          options:{
+            ...CHART_DEFAULTS,
+            scales:{
+              x:{ ticks, grid:{color:'rgba(0,0,0,.04)'} },
+              y:{ ticks:{ ...ticks, callback: v=>`${v.toFixed(1)}s` },
+                  grid:{color:'rgba(0,0,0,.04)'},
+                  title:{ display:true, text:'Lap Time (s)', color:'#6c757d', font:{size:10} } }
+            }
+          }
+        });
+      }
+    }
+
+    function updateChartPressure(d) {
+      const labels = mkLabels(d.laps);
+      const datasets = [
+        { label:'FL Temp', data:d.tyreTempFL.map(t=>+t.toFixed(1)), borderColor:'#3b82f6', borderWidth:1.5, tension:0.3, pointRadius:0, yAxisID:'yTemp' },
+        { label:'RR Temp', data:d.tyreTempRR.map(t=>+t.toFixed(1)), borderColor:'#ef4444', borderWidth:1.5, tension:0.3, pointRadius:0, yAxisID:'yTemp' },
+        { label:'FL Press',data:d.tyrePresFL.map(p=>+p.toFixed(3)), borderColor:'#0891b2', borderWidth:2.5, tension:0.3, pointRadius:0, yAxisID:'yPress', borderDash:[2,2] },
+        { label:'FR Press',data:d.tyrePresFR.map(p=>+p.toFixed(3)), borderColor:'#06b6d4', borderWidth:2, tension:0.3, pointRadius:0, yAxisID:'yPress', borderDash:[2,2] },
+        { label:'RL Press',data:d.tyrePresRL.map(p=>+p.toFixed(3)), borderColor:'#10b981', borderWidth:2, tension:0.3, pointRadius:0, yAxisID:'yPress', borderDash:[2,2] },
+        { label:'RR Press',data:d.tyrePresRR.map(p=>+p.toFixed(3)), borderColor:'#84cc16', borderWidth:2, tension:0.3, pointRadius:0, yAxisID:'yPress', borderDash:[2,2] }
+      ];
+      const ticks = { color:'#6c757d', font:{size:10} };
+      if (chartPressure) {
+        chartPressure.data.labels   = labels;
+        chartPressure.data.datasets = datasets;
+        chartPressure.update();
+      } else {
+        chartPressure = new Chart($('chartPressure'), {
+          type:'line', data:{ labels, datasets },
+          options:{
+            ...CHART_DEFAULTS,
+            scales:{
+              x:{ ticks, grid:{color:'rgba(0,0,0,.04)'} },
+              yTemp: { type:'linear', position:'left', ticks:{ ...ticks, callback:v=>`${v}°C` },
+                       grid:{color:'rgba(0,0,0,.04)'},
+                       title:{ display:true, text:'Tyre Temp (°C)', color:'#6c757d', font:{size:10} } },
+              yPress:{ type:'linear', position:'right', ticks:{ ...ticks, callback:v=>`${v.toFixed(2)} bar` },
+                       grid:{ drawOnChartArea:false },
+                       title:{ display:true, text:'Pressure (bar)', color:'#6c757d', font:{size:10} } }
+            }
+          }
+        });
+      }
+    }
+
+    function updateChartWear(d) {
+      const labels   = mkLabels(d.laps);
+      const maxWear  = d.meta.wear_cliff;
+      const datasets = [
+        {
+          label:'Grip Factor %', type:'line',
+          data:d.gripArr.map(g=>+((g*100).toFixed(1))),
+          borderColor:'#0891b2', backgroundColor:'rgba(8,145,178,0.08)',
+          borderWidth:2.5, fill:true, tension:0.35, pointRadius:0, yAxisID:'yGrip'
+        },
+        {
+          label:'Wear Fraction %', type:'bar',
+          data:d.wearArr.map(w=>+((Math.min(w/maxWear,1)*100).toFixed(1))),
+          backgroundColor: d.wearArr.map(w=>{
+            const f = w/maxWear;
+            if (f < 0.55) return 'rgba(34,197,94,0.35)';
+            if (f < 0.80) return 'rgba(245,158,11,0.45)';
+            return 'rgba(239,68,68,0.55)';
+          }),
+          borderRadius:2, yAxisID:'yWear'
+        }
+      ];
+      const ticks = { color:'#6c757d', font:{size:10} };
+      if (chartWear) {
+        chartWear.data.labels   = labels;
+        chartWear.data.datasets = datasets;
+        chartWear.update();
+      } else {
+        chartWear = new Chart($('chartWear'), {
+          type:'bar', data:{ labels, datasets },
+          options:{
+            ...CHART_DEFAULTS,
+            scales:{
+              x:{ ticks, grid:{color:'rgba(0,0,0,.04)'} },
+              yGrip: { type:'linear', position:'left',  min:0, max:105,
+                       ticks:{ ...ticks, callback:v=>`${v}%` },
+                       title:{ display:true, text:'Grip %', color:'#6c757d', font:{size:10} } },
+              yWear: { type:'linear', position:'right', min:0, max:115,
+                       ticks:{ ...ticks, callback:v=>`${v}%` },
+                       grid:{ drawOnChartArea:false },
+                       title:{ display:true, text:'Wear %', color:'#6c757d', font:{size:10} } }
+            }
+          }
+        });
+      }
+    }
+
+    function updateChartScenario(d) {
+      const { scenarios } = d;
+      if (!scenarios || scenarios.length === 0) return;
+      const best = Math.min(...scenarios.map(s=>s.mean));
+      const labels   = scenarios.map(s => s.name);
+      const datasets = [{
+        label:'Race Time (mean)',
+        data: scenarios.map(s=>+s.mean.toFixed(1)),
+        backgroundColor: scenarios.map(s => s.mean === best ? '#0891b2' : '#94a3b8'),
+        borderRadius:4,
+        borderWidth:0
+      }, {
+        label:'±1σ Range',
+        data: scenarios.map(s=>+(s.sd * 2).toFixed(1)),
+        backgroundColor:'rgba(0,0,0,0.07)',
+        borderRadius:2,
+        borderWidth:0
+      }];
+
+      if (chartScenario) {
+        chartScenario.data.labels   = labels;
+        chartScenario.data.datasets = datasets;
+        chartScenario.update();
+      } else {
+        const ticks = { color:'#6c757d', font:{size:10} };
+        chartScenario = new Chart($('chartScenario'), {
+          type:'bar', data:{ labels, datasets },
+          options:{
+            ...CHART_DEFAULTS,
+            indexAxis:'y',
+            scales:{
+              x:{ ticks:{ ...ticks, callback:v=>`${fmtTime(v)}` }, grid:{color:'rgba(0,0,0,.04)'} },
+              y:{ ticks, grid:{color:'rgba(0,0,0,.04)'} }
+            }
+          }
+        });
+      }
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════
+       GANTT SVG
+    ═══════════════════════════════════════════════════════════════════ */
+    function updateGantt(d) {
+      const svg    = $('ganttSvg');
+      const legend = $('ganttLegend');
+      const W      = svg.clientWidth || 600;
+      const pL=90, pR=20, pT=30, rowH=36, rowGap=8;
+      const { scenarios, laps } = d;
+      if (!scenarios || !scenarios.length) return;
+
+      const rows = scenarios.map((sc, idx) => {
+        // Build stints: one full stint for kart, or split at pit for formula
+        const stints = [];
+        if (mode === 'kart') {
+          stints.push({ start:1, end:laps, wearStart:0, wearEnd:d.wearArr[laps-1]/d.meta.wear_cliff });
+        } else {
+          if (sc.stops === 0) {
+            stints.push({ start:1, end:laps, wearStart:0, wearEnd:d.wearArr[laps-1]/d.meta.wear_cliff });
+          } else if (sc.stops === 1) {
+            const mid = Math.round(laps / 2);
+            stints.push({ start:1,   end:mid,  wearStart:0,   wearEnd: d.wearArr[mid-1]/d.meta.wear_cliff });
+            stints.push({ start:mid+1, end:laps,wearStart:0,   wearEnd: d.wearArr[laps-mid-1 < 0 ? 0 : laps-mid-1]/d.meta.wear_cliff });
+          } else {
+            const t1=Math.round(laps/3), t2=Math.round(laps*2/3);
+            stints.push({ start:1,    end:t1,   wearStart:0, wearEnd:d.wearArr[t1-1]/d.meta.wear_cliff });
+            stints.push({ start:t1+1, end:t2,   wearStart:0, wearEnd:d.wearArr[t2-t1-1<0?0:t2-t1-1]/d.meta.wear_cliff });
+            stints.push({ start:t2+1, end:laps, wearStart:0, wearEnd:d.wearArr[laps-t2-1<0?0:laps-t2-1]/d.meta.wear_cliff });
+          }
+        }
+        return { scenario:sc, stints, idx };
+      });
+
+      const totalH = rows.length * (rowH + rowGap) + pT + 30;
+      svg.setAttribute('height', totalH);
+      svg.setAttribute('viewBox', `0 0 ${W} ${totalH}`);
+
+      let html = '';
+      const lapToX = lap => pL + ((lap - 1) / (laps - 1)) * (W - pL - pR);
+
+      // Grid lines
+      for (let l = 1; l <= laps; l += Math.max(1, Math.floor(laps/10))) {
+        const x = lapToX(l);
+        html += `<line x1="${x}" y1="${pT}" x2="${x}" y2="${totalH-20}" stroke="rgba(0,0,0,.05)" stroke-width="1"/>`;
+        html += `<text x="${x}" y="${pT-6}" font-size="9" fill="#94a3b8" text-anchor="middle">L${l}</text>`;
+      }
+
+      // Rows
+      rows.forEach(row => {
+        const y = pT + row.idx * (rowH + rowGap);
+
+        // Label
+        html += `<text x="4" y="${y + rowH/2 + 4}" font-size="10" font-weight="600" fill="#1a1d24">${row.scenario.name.substring(0,14)}</text>`;
+
+        // Stints
+        row.stints.forEach((stint, si) => {
+          const x1 = lapToX(stint.start);
+          const x2 = lapToX(stint.end);
+          const w  = Math.max(4, x2 - x1);
+
+          // Colour based on wear at end of stint
+          const wf = stint.wearEnd;
+          const r  = Math.round(34  + (239-34)  * wf);
+          const g  = Math.round(197 + (68-197)  * wf);
+          const b_= Math.round(94  + (68-94)   * wf);
+          const fillCol = `rgb(${r},${g},${b_})`;
+
+          html += `<rect x="${x1}" y="${y+2}" width="${w}" height="${rowH-4}" rx="4" ry="4"
+                         fill="${fillCol}" opacity="0.8" class="gantt-bar" data-stint="${si}"/>`;
+
+          // Wear text inside bar
+          if (w > 40) {
+            html += `<text x="${x1 + w/2}" y="${y + rowH/2 + 4}" font-size="9" fill="#fff"
+                           text-anchor="middle" font-weight="700">${Math.round(wf*100)}% wear</text>`;
+          }
+
+          // Pit marker
+          if (si < row.stints.length - 1) {
+            const px = lapToX(stint.end + 0.5);
+            html += `<rect x="${px-2}" y="${y}" width="4" height="${rowH}" rx="1" fill="#1a1d24" opacity="0.6"/>`;
+            html += `<text x="${px}" y="${y-3}" font-size="8" fill="#6c757d" text-anchor="middle">PIT</text>`;
+          }
+        });
+
+        // Best marker
+        const best = Math.min(...rows.map(r=>r.scenario.mean));
+        if (row.scenario.mean === best) {
+          html += `<text x="${W - pR - 2}" y="${y + rowH/2 + 4}" font-size="9" fill="#16a34a"
+                         font-weight="700" text-anchor="end">✓ BEST</text>`;
+        }
+      });
+
+      // Wear legend
+      html += `<text x="${pL}" y="${totalH - 4}" font-size="9" fill="#94a3b8">Colour: low wear (green) → high wear (red)  |  Black bar = pit stop</text>`;
+
+      svg.innerHTML = html;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════
+       RIGHT PANE UPDATES
+    ═══════════════════════════════════════════════════════════════════ */
+    function fmtTime(s) {
+      const m = Math.floor(s / 60);
+      const r = s - m * 60;
+      return m > 0 ? `${m}m ${r.toFixed(1)}s` : `${s.toFixed(1)}s`;
+    }
+
+    function updateBriefing(d, c) {
+      const mode_str = mode === 'kart' ? 'Karting' : 'Formula';
+      const pf = (c.pFL + c.pFR) / 2;
+      const pr = (c.pRL + c.pRR) / 2;
+
+      // Recommended cold pressures for current session
+      const curRec = d.pressureRecs.find(r => r.label.toLowerCase() === c.tod) || d.pressureRecs[1];
+
+      let text = `${mode_str} · ${c.klass} · ${c.compound} tyres. `;
+      text += `At ${d.meta.ambEff.toFixed(0)}°C ambient / ${c.track}°C track: `;
+      text += `tyres reach peak grip at <strong>lap ${d.peakGripLap}</strong>. `;
+
+      if (mode === 'kart') {
+        text += `Recommended cold start pressures — FL: <strong>${curRec.FL} bar</strong>, FR: <strong>${curRec.FR} bar</strong>, `;
+        text += `RL: <strong>${curRec.RL} bar</strong>, RR: <strong>${curRec.RR} bar</strong>. `;
+        if (d.blisterLap <= d.laps) {
+          text += `<span style="color:#991b1b;font-weight:700;">⚠ Blister risk from lap ${d.blisterLap}</span> — consider reducing pressure or monitoring rear temps. `;
+        } else {
+          text += `No blister risk predicted this session. `;
+        }
+        text += `Wear cliff at lap ~${d.wearCliffLap}.`;
+      } else {
+        text += `Pit window: earliest lap ${d.pitEarliest || '—'}, optimal lap ${d.pitOptimal || '—'}, latest lap ${d.pitLatest || '—'}. `;
+        const best = d.scenarios.reduce((a,b) => a.mean < b.mean ? a : b);
+        text += `Optimal scenario: <strong>${best.name}</strong> (${fmtTime(best.mean)} ±${best.sd.toFixed(1)}s).`;
+      }
+      $('rsBriefText').innerHTML = text;
+    }
+
+    function updateAlerts(d, c) {
+      const rail = $('rsAlertRail');
+      rail.innerHTML = '';
+
+      const add = (msg, cls) => {
+        const div = document.createElement('div');
+        div.className = `rs-alert ${cls}`;
+        div.innerHTML = `<span>${msg}</span>
+          <button class="rs-alert-dismiss" onclick="this.parentElement.remove()" title="Dismiss">
+            <i class="bi bi-x"></i>
+          </button>`;
+        rail.appendChild(div);
+      };
+
+      if (d.blisterLap <= d.laps) {
+        add(`<strong>Blister risk HIGH</strong> from lap ${d.blisterLap} — rear tyre temps exceed ${Math.round(d.meta.blister_T)}°C threshold.`, 'rs-alert-danger');
+      }
+      if (d.wearCliffLap < d.laps * 0.7) {
+        add(`Wear cliff at lap ${d.wearCliffLap} (${Math.round(d.wearCliffLap/d.laps*100)}% race distance) — consider conservative lines.`, 'rs-alert-warn');
+      }
+      if (c.track > 40 && mode === 'kart') {
+        add(`Track temp ${c.track}°C — reduce cold start pressures by 0.02–0.03 bar vs standard.`, 'rs-alert-warn');
+      }
+      if (d.peakGripLap > 4) {
+        add(`Long tyre heat-up: peak grip not until lap ${d.peakGripLap}. Push hard from lap ${Math.max(1, d.peakGripLap - 1)}.`, 'rs-alert-info');
+      }
+      if (mode === 'formula' && d.breakEvenLaps) {
+        add(`Undercut break-even: <strong>${d.breakEvenLaps} laps</strong> needed to recover pit loss.`, 'rs-alert-info');
+      }
+      if (c.rubber === 'green') {
+        add(`Green track — tyre warm-up will be longer than modelled. Add 1–2 laps to heat-up estimate.`, 'rs-alert-info');
+      }
+    }
+
+    function updatePressureRecs(d) {
+      const rows = $('precRows');
+      rows.innerHTML = '';
+
+      d.pressureRecs.forEach(slot => {
+        const corners = ['FL','FR','RL','RR'];
+        let rowHtml = `<div style="display:grid;grid-template-columns:80px repeat(4,1fr);gap:4px;margin-top:4px;">`;
+        rowHtml += `<div class="rs-prec-row-lbl">${slot.label}</div>`;
+        corners.forEach(c2 => {
+          const coldVal  = slot[c2];
+          const hotVal   = slot[`hotPred${c2}`];
+          const hotTgt   = (c2 === 'FL' || c2 === 'FR') ? +document.getElementById('cfgP'+c2).value : +document.getElementById('cfgP'+c2).value;
+          const diff     = hotVal - hotTgt;
+          const cls      = Math.abs(diff) < 0.03 ? 'prec-ok' : Math.abs(diff) < 0.07 ? 'prec-warn' : 'prec-bad';
+          rowHtml += `<div class="rs-prec-cell ${cls}">
+            <span class="prec-bar">${coldVal.toFixed(2)}</span>
+            <span class="prec-hot">→ ${hotVal.toFixed(2)} bar</span>
+          </div>`;
+        });
+        rowHtml += '</div>';
+        rows.innerHTML += rowHtml;
+      });
+    }
+
+    function updateWearGauges(d) {
+      const finalLap = d.laps - 1;
+      const wearFrac = Math.min(d.wearArr[finalLap] / d.meta.wear_cliff, 1.0);
+      // All 4 corners same wear fraction for now (could be split later)
+      ['FL','FR','RL','RR'].forEach(corner => {
+        drawGauge($('gauge' + corner), wearFrac);
+      });
+    }
+
+    function drawGauge(svgEl, frac) {
+      const R   = 32, CX = 40, CY = 44;
+      const circ = 2 * Math.PI * R;
+      const arc  = frac * circ * 0.75; // 270° gauge
+      const r    = Math.round(34  + (239-34)  * frac);
+      const g    = Math.round(197 + (68-197)  * frac);
+      const b    = Math.round(94  + (68-94)   * frac);
+      const col  = `rgb(${r},${g},${b})`;
+      svgEl.innerHTML = `
+        <circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="#e5e7eb" stroke-width="8"
+                stroke-dasharray="${circ*0.75} ${circ*0.25}" stroke-dashoffset="${circ*0.125}"
+                stroke-linecap="round" transform="rotate(135 ${CX} ${CY})"/>
+        <circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="${col}" stroke-width="8"
+                stroke-dasharray="${arc} ${circ - arc}" stroke-dashoffset="${circ*0.125}"
+                stroke-linecap="round" transform="rotate(135 ${CX} ${CY})"/>
+        <text x="${CX}" y="${CY+5}" text-anchor="middle" font-size="12" font-weight="800" fill="#1a1d24">${Math.round(frac*100)}%</text>
+      `;
+    }
+
+    function updatePitWindow(d) {
+      $('pitEarliest').textContent = d.pitEarliest !== null ? `L${d.pitEarliest}` : '—';
+      $('pitOptimal').textContent  = d.pitOptimal  !== null ? `L${d.pitOptimal}`  : '—';
+      $('pitLatest').textContent   = d.pitLatest   !== null ? `L${d.pitLatest}`   : '—';
+      const tac = $('tactics');
+      tac.innerHTML = '';
+      if (d.breakEvenLaps !== null) {
+        tac.innerHTML += `<div class="rs-tactic-badge rs-tactic-uc">
+          <i class="bi bi-arrow-down-circle"></i>
+          <span>Undercut viable — break-even <strong>${d.breakEvenLaps} laps</strong></span>
+          <span class="rs-tactic-val">${d.breakEvenLaps}L</span>
+        </div>`;
+        tac.innerHTML += `<div class="rs-tactic-badge rs-tactic-oc">
+          <i class="bi bi-arrow-up-circle"></i>
+          <span>Overcut: stay out if gap &gt; pit loss</span>
+          <span class="rs-tactic-val">${d.pitLoss ? d.pitLoss.toFixed(0) : '28'}s</span>
+        </div>`;
+      }
+    }
+
+    function updateScenarioTable(d) {
+      const { scenarios } = d;
+      if (!scenarios || !scenarios.length) return;
+      const best = Math.min(...scenarios.map(s=>s.mean));
+      const tbody = $('scenTbody');
+      tbody.innerHTML = '';
+      scenarios.forEach(sc => {
+        const delta = sc.mean - best;
+        const conf  = Math.max(0, Math.min(100, Math.round(100 - (sc.sd / sc.mean) * 100)));
+        const confCls = conf > 70 ? 'mat-conf-high' : conf > 50 ? 'mat-conf-med' : 'mat-conf-low';
+        const deltaCls= delta < 0.5 ? 'delta-pos' : delta < 3 ? 'delta-neu' : 'delta-neg';
+        const tr = document.createElement('tr');
+        if (sc.mean === best) tr.className = 'scen-winner';
+        tr.innerHTML = `
+          <td>${sc.mean === best ? '★ ' : ''}${sc.name}</td>
+          <td>${fmtTime(sc.mean)}</td>
+          <td class="${deltaCls}">${delta < 0.1 ? 'Best' : '+' + delta.toFixed(1) + 's'}</td>
+          <td>${fmtTime(sc.mean / (d.laps || 1))}</td>
+          <td>${sc.stops}</td>
+          <td>
+            <span class="mat-conf-badge ${confCls}">${conf}%</span>
+            <div class="rs-conf-bar mt-1" style="width:60px;display:inline-block;vertical-align:middle;">
+              <div class="rs-conf-fill" style="width:${conf}%;"></div>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function updateDecisionMatrix(d) {
+      const { scenarios } = d;
+      if (!scenarios || !scenarios.length) return;
+      const best = Math.min(...scenarios.map(s=>s.mean));
+      const tbody = $('matrixTbody');
+      tbody.innerHTML = '';
+      scenarios.forEach(sc => {
+        const delta = sc.mean - best;
+        const conf  = Math.max(0, Math.min(100, Math.round(100 - (sc.sd / sc.mean) * 100)));
+        const confCls = conf > 70 ? 'mat-conf-high' : conf > 50 ? 'mat-conf-med' : 'mat-conf-low';
+        const tr = document.createElement('tr');
+        if (sc.mean === best) tr.className = 'mat-winner';
+        tr.innerHTML = `
+          <td>${sc.mean === best ? '★ ' : ''}${sc.name}</td>
+          <td>${fmtTime(sc.mean)}</td>
+          <td>${delta < 0.1 ? '—' : '+' + delta.toFixed(1) + 's'}</td>
+          <td><span class="mat-conf-badge ${confCls}">${conf}%</span></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function updateStats(d, c) {
+      $('statIdealLap').textContent     = c.idealLap.toFixed(1);
+      $('statPeakGripLap').textContent  = d.peakGripLap;
+      $('statWearCliff').textContent    = d.wearCliffLap;
+      $('statBlisterLap').textContent   = d.blisterLap <= d.laps ? d.blisterLap : 'None';
+      const maxTemp = Math.max(...d.tyreTempRR);
+      $('statTyrePeak').textContent     = maxTemp.toFixed(0);
+      $('statHotPressF').textContent    = d.tyrePresFL[d.peakGripLap - 1]?.toFixed(3) || '—';
+      $('statOptPit').textContent       = d.pitOptimal !== null ? `L${d.pitOptimal}` : '—';
+      const degRange = d.lapTimes.length > 1 ? ((d.lapTimes[d.lapTimes.length-1] - d.lapTimes[0]) * 1000 / d.laps) : 0;
+      $('statDegPerLap').textContent    = degRange.toFixed(0);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════
+       MASTER UPDATE
+    ═══════════════════════════════════════════════════════════════════ */
+    function run() {
+      const c = cfg();
+      simData = simulate(c);
+      updateStats(simData, c);
+      updateChartLaptime(simData);
+      updateChartPressure(simData);
+      updateChartWear(simData);
+      updateChartScenario(simData);
+      updateGantt(simData);
+      updateBriefing(simData, c);
+      updateAlerts(simData, c);
+      updatePressureRecs(simData);
+      updateWearGauges(simData);
+      if (mode === 'formula') updatePitWindow(simData);
+      updateScenarioTable(simData);
+      updateDecisionMatrix(simData);
+      saveConfig(c);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════
+       TABS
+    ═══════════════════════════════════════════════════════════════════ */
+    document.getElementById('rsTabs').addEventListener('click', e => {
+      const tab = e.target.closest('.rs-tab');
+      if (!tab) return;
+      document.querySelectorAll('.rs-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.rs-tab-panel').forEach(p => p.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById('tab' + capitalize(tab.dataset.tab)).classList.add('active');
+      // Re-render gantt on show (needs clientWidth)
+      if (tab.dataset.tab === 'stint' && simData) updateGantt(simData);
+    });
+    function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+    /* ═══════════════════════════════════════════════════════════════════
+       MODE TOGGLE
+    ═══════════════════════════════════════════════════════════════════ */
+    $('btnModeKart').addEventListener('click', () => setMode('kart'));
+    $('btnModeForm').addEventListener('click', () => setMode('formula'));
+
+    function setMode(m) {
+      mode = m;
+      $('btnModeKart').className = 'rs-mode-btn' + (m === 'kart'    ? ' active-kart' : '');
+      $('btnModeForm').className = 'rs-mode-btn' + (m === 'formula' ? ' active-form' : '');
+      $('secKart').style.display        = m === 'kart'    ? '' : 'none';
+      $('secFormula').style.display     = m === 'formula' ? '' : 'none';
+      $('secPressRec').style.display    = m === 'kart'    ? '' : 'none';
+      $('secWearGauges').style.display  = m === 'kart'    ? '' : 'none';
+      $('secPitWindow').style.display   = m === 'formula' ? '' : 'none';
+      $('statKartPressCard').style.display = m === 'kart' ? '' : 'none';
+      $('statFormOptCard').style.display   = m === 'formula' ? '' : 'none';
+      run();
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════
+       SLIDER LABELS
+    ═══════════════════════════════════════════════════════════════════ */
+    function bindSlider(id, labelId, fmt) {
+      const el = $(id), lbl = $(labelId);
+      el.addEventListener('input', () => { lbl.textContent = fmt(+el.value); run(); });
+    }
+    bindSlider('cfgAmbient',  'lblAmbient',  v => `${v}°C`);
+    bindSlider('cfgTrack',    'lblTrack',    v => `${v}°C`);
+    bindSlider('cfgColdTyre', 'lblColdTyre', v => `${v}°C`);
+    bindSlider('cfgPitLoss',  'lblPitLoss',  v => `${v}s`);
+    bindSlider('cfgFuelStart','lblFuelStart',v => `${v}kg`);
+    bindSlider('cfgBurnRate', 'lblBurnRate', v => `${v.toFixed(1)}`);
+    bindSlider('cfgKFuel',    'lblKFuel',    v => `${v.toFixed(3)}`);
+    ['PFL','PFR','PRL','PRR'].forEach(c2 => {
+      const el = $('cfg'+c2), lbl = $('lbl'+c2);
+      el.addEventListener('input', () => { lbl.textContent = (+el.value).toFixed(2); run(); });
+    });
+
+    /* ═══════════════════════════════════════════════════════════════════
+       CLASS PRESET LOADER
+    ═══════════════════════════════════════════════════════════════════ */
+    $('cfgClass').addEventListener('change', () => {
+      const preset = CLASS_PRESETS[$('cfgClass').value];
+      if (preset && $('cfgClass').value !== 'Custom') {
+        $('cfgKBase').value    = preset.k_base.toFixed(4);
+        $('cfgDTPeak').value   = preset.dT_peak;
+        $('cfgTauHeat').value  = preset.tau_heat.toFixed(1);
+        $('cfgWearCliff').value= preset.wear_cliff.toFixed(2);
+        $('cfgNShape').value   = preset.n_shape.toFixed(2);
+        $('cfgBlistT').value   = preset.blister_T;
+      }
+      run();
+    });
+
+    /* ═══════════════════════════════════════════════════════════════════
+       GENERIC CHANGE LISTENERS
+    ═══════════════════════════════════════════════════════════════════ */
+    ['cfgCompound','cfgSessionType','cfgTotalLaps','cfgIdealLap',
+     'cfgRubber','cfgTimeOfDay','cfgLapsOnSet',
+     'cfgKBase','cfgDTPeak','cfgTauHeat','cfgWearCliff','cfgNShape','cfgBlistT'
+    ].forEach(id => $(id).addEventListener('change', run));
+
+    /* ═══════════════════════════════════════════════════════════════════
+       PANE RESIZER
+    ═══════════════════════════════════════════════════════════════════ */
+    (function initResizers() {
+      const shell = $('rsShell');
+      function makeResizer(resizerId, pane, side) {
+        const rz  = $(resizerId);
+        if (!rz) return;
+        let startX=0, startW=0;
+        rz.addEventListener('mousedown', e => {
+          startX = e.clientX;
+          startW = pane.offsetWidth;
+          document.body.style.cursor = 'col-resize';
+          document.body.style.userSelect = 'none';
+          const onMove = ev => {
+            const delta = ev.clientX - startX;
+            const newW  = Math.max(160, Math.min(500, startW + (side === 'right' ? -delta : delta)));
+            pane.style.width = newW + 'px';
+          };
+          const onUp = () => {
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+            if (simData) updateGantt(simData);
+          };
+          document.addEventListener('mousemove', onMove);
+          document.addEventListener('mouseup', onUp);
+        });
+      }
+      makeResizer('rsResizer1', shell.querySelector('.mlo-pane-left'),  'left');
+      makeResizer('rsResizer2', shell.querySelector('.mlo-pane-right'), 'right');
+    })();
+
+    /* ═══════════════════════════════════════════════════════════════════
+       LOCALSTORAGE
+    ═══════════════════════════════════════════════════════════════════ */
+    function saveConfig(c) {
+      try { localStorage.setItem(LS_KEY, JSON.stringify({ mode, ...c })); } catch(e) {}
+    }
+    function loadConfig() {
+      try {
+        const raw = localStorage.getItem(LS_KEY);
+        if (!raw) return;
+        const s = JSON.parse(raw);
+        if (s.mode) setMode(s.mode);
+        const map = {
+          klass:'cfgClass', compound:'cfgCompound', totalLaps:'cfgTotalLaps',
+          idealLap:'cfgIdealLap', ambient:'cfgAmbient', track:'cfgTrack',
+          rubber:'cfgRubber', tod:'cfgTimeOfDay', coldTyre:'cfgColdTyre',
+          lapsOnSet:'cfgLapsOnSet', pFL:'cfgPFL', pFR:'cfgPFR',
+          pRL:'cfgPRL', pRR:'cfgPRR', pitLoss:'cfgPitLoss',
+          fuelStart:'cfgFuelStart', burnRate:'cfgBurnRate', kFuel:'cfgKFuel',
+          kBase:'cfgKBase', dTPeak:'cfgDTPeak', tauHeat:'cfgTauHeat',
+          wearCliff:'cfgWearCliff', nShape:'cfgNShape', blistT:'cfgBlistT'
+        };
+        Object.entries(map).forEach(([k,id]) => {
+          if (s[k] !== undefined && $(id)) $(id).value = s[k];
+        });
+        // Refresh labels
+        [['cfgAmbient','lblAmbient',v=>`${v}°C`],
+         ['cfgTrack','lblTrack',v=>`${v}°C`],
+         ['cfgColdTyre','lblColdTyre',v=>`${v}°C`],
+         ['cfgPitLoss','lblPitLoss',v=>`${v}s`],
+         ['cfgFuelStart','lblFuelStart',v=>`${v}kg`],
+         ['cfgBurnRate','lblBurnRate',v=>`${(+v).toFixed(1)}`],
+         ['cfgKFuel','lblKFuel',v=>`${(+v).toFixed(3)}`]
+        ].forEach(([id,lblId,fmt]) => {
+          if ($(id) && $(lblId)) $(lblId).textContent = fmt($(id).value);
+        });
+        ['PFL','PFR','PRL','PRR'].forEach(c2 => {
+          const el=$('cfg'+c2); const lbl=$('lbl'+c2);
+          if (el && lbl) lbl.textContent = (+el.value).toFixed(2);
+        });
+      } catch(e) {}
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════
+       EXPORT
+    ═══════════════════════════════════════════════════════════════════ */
+    $('btnExportJSON').addEventListener('click', () => {
+      if (!simData) return;
+      const out = {
+        exported: new Date().toISOString(),
+        mode,
+        config: cfg(),
+        peakGripLap: simData.peakGripLap,
+        wearCliffLap: simData.wearCliffLap,
+        blisterLap: simData.blisterLap,
+        pressureRecommendations: simData.pressureRecs,
+        scenarios: simData.scenarios.map(s => ({
+          name: s.name,
+          meanRaceTime: +s.mean.toFixed(2),
+          stdDev: +s.sd.toFixed(2),
+          stops: s.stops
+        })),
+        lapTimes: simData.lapTimes.map(t => +t.toFixed(3)),
+        gripFactors: simData.gripArr.map(g => +g.toFixed(4))
+      };
+      const blob = new Blob([JSON.stringify(out, null, 2)], { type:'application/json' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url; a.download = `race-strategy-${Date.now()}.json`; a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    /* ═══════════════════════════════════════════════════════════════════
+       INIT
+    ═══════════════════════════════════════════════════════════════════ */
+    loadConfig();
+    run();
+
+  })();
+  </script>
+</body>
+</html>
