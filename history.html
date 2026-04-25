@@ -142,6 +142,26 @@
     }
     .empty-state { text-align: center; padding: 60px 20px; color: #9aa0a6; }
 
+    /* ── Software update banner row ────────────────────────────────────────── */
+    .feed-item.software-update {
+      background: linear-gradient(90deg, #fffbeb 0%, #fef9f0 100%);
+      border-left: 4px solid #f59e0b;
+      border-radius: 8px;
+      margin-bottom: 4px;
+    }
+    .feed-item.software-update .feed-icon {
+      background: #fef3c7;
+    }
+    .feed-item.software-update .feed-entity-name {
+      color: #92400e;
+      font-weight: 700;
+    }
+    .action-software_update {
+      background: #fef3c7;
+      color: #92400e;
+      border: 1px solid #f59e0b;
+    }
+
     /* ── Stat trends ────────────────────────────────────────── */
     .stat-trend { font-size: .72rem; margin-top: 4px; min-height: 1.1em; }
     .trend-up   { color: #2e7d32; font-weight: 600; }
@@ -189,7 +209,7 @@
         <h1 class="h4 mb-1" style="color:#202124">Activity History</h1>
         <div class="text-secondary" style="font-size:.85rem">System-wide audit log — every action, login and change across the platform.</div>
       </div>
-      <button class="btn btn-sm btn-outline-secondary" id="btnExportCsv">⬇ Export CSV</button>
+      <button class="btn btn-sm btn-outline-secondary" id="btnExportCsv"><svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.1em;margin-right:4px"><path d="M10 3v10"/><polyline points="5 13 10 18 15 13"/><line x1="3" y1="18" x2="17" y2="18"/></svg>Export CSV</button>
     </div>
 
     <!-- Stats Bar -->
@@ -323,6 +343,7 @@
       note_added:    _I('<path d="M12 2H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V6L12 2z"/><path d="M12 2v4h4"/><path d="M7 9h6M7 12h6M7 15h4"/>'),
       mileage_added: _I('<path d="M3 14.5a7 7 0 0 1 14 0"/><line x1="10" y1="14.5" x2="14" y2="8.5"/><circle cx="10" cy="14.5" r="1.25" fill="currentColor" stroke="none"/>'),
       used:          _I('<path d="M3 18V3"/><path d="M3 3l14 5-14 5"/>'),
+      software_update: _I('<path d="M4 16l4-8 2 4 2-2 4 6"/><circle cx="15" cy="5" r="2.5"/><path d="M12.5 5H4"/>'),
     };
     const ACTION_SVGS_DEFAULT = _I('<circle cx="10" cy="10" r="5"/>');
 
@@ -414,6 +435,40 @@
       truck:      () => 'vehicles.html',
     };
 
+    // ── Software update banner ─────────────────────────────────────────────────
+    function buildSoftwareUpdateRow() {
+      const cfg = window.RTS_CONFIG;
+      if (!cfg?.buildVersion) return '';
+      const seenKey = 'rts.history.seenBuild';
+      const lastSeen = localStorage.getItem(seenKey);
+      // Mark as seen so it dims after first view (still shown, just no "NEW" ring)
+      const isNew = lastSeen !== cfg.buildVersion;
+      if (isNew) localStorage.setItem(seenKey, cfg.buildVersion);
+
+      const buildDate = cfg.buildDate ? new Date(cfg.buildDate + 'T12:00:00') : new Date();
+      const iconSvg = ACTION_SVGS.software_update;
+      const note = esc(cfg.buildNote || 'Software updated');
+      const ver  = esc(cfg.buildVersion);
+      const newBadge = isNew ? `<span style="display:inline-block;background:#f59e0b;color:#fff;font-size:.62rem;font-weight:800;padding:1px 7px;border-radius:8px;letter-spacing:.4px;text-transform:uppercase;margin-left:4px">NEW</span>` : '';
+      return `
+        <li class="feed-item software-update">
+          <div class="feed-icon icon-software_update">${iconSvg}</div>
+          <div class="feed-body">
+            <div class="feed-headline">
+              <span class="action-badge action-software_update">software update</span>
+              <span class="feed-entity-name">v${ver}</span>
+              ${newBadge}
+            </div>
+            <div class="feed-meta">${note}</div>
+          </div>
+          <div class="feed-context"></div>
+          <div class="feed-time">
+            <span class="time-hhmm">${fmtTime(buildDate)}</span>
+            <span class="time-date">${fmtDateShort(buildDate)}</span>
+          </div>
+        </li>`;
+    }
+
     // ── Feed rendering ─────────────────────────────────────────────────────────
     function renderFeed(logs) {
       const container = document.getElementById('feedContainer');
@@ -423,6 +478,8 @@
       }
 
       let html = '<ul class="timeline-feed">';
+      // Always show the software update banner at the top
+      html += buildSoftwareUpdateRow();
       let lastDay = null;
 
       for (const log of logs) {
