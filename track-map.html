@@ -125,6 +125,37 @@
 
     .tm-fl-card { background:#f5f0ff; border-color:#9333ea !important; }
 
+    /* ── Flag Status Card ─────────────────────────────────────────────────── */
+    .tm-flag-card {
+      border-radius:10px; padding:13px 14px;
+      border:2px solid; transition:background .35s,border-color .35s,box-shadow .35s;
+      position:relative; overflow:hidden;
+    }
+    .tm-fc-green      { background:#f0fdf4; border-color:#16a34a; }
+    .tm-fc-yellow     { background:#fefce8; border-color:#ca8a04; }
+    .tm-fc-red        { background:#fef2f2; border-color:#dc2626; }
+    .tm-fc-sc         { background:#fffbeb; border-color:#d97706; }
+    .tm-fc-chequered  { background:repeating-conic-gradient(#111 0% 25%,#fff 0% 50%) 0 0/14px 14px; border-color:#1a1d24; }
+    .tm-fc-waiting    { background:#eff6ff; border-color:#60a5fa; }
+    .tm-fc-qualifying { background:#f5f3ff; border-color:#7c3aed; }
+
+    .tm-fc-icon  { font-size:2.2rem; line-height:1; margin-bottom:4px; }
+    .tm-fc-label { font-size:.62rem; font-weight:700; text-transform:uppercase; letter-spacing:.1em; opacity:.7; }
+    .tm-fc-name  { font-size:1.05rem; font-weight:800; letter-spacing:.04em; line-height:1.1; margin-top:1px; }
+    .tm-fc-sub   { font-size:.72rem; margin-top:3px; opacity:.75; font-weight:600; }
+
+    .tm-fc-chequered .tm-fc-inner { position:relative; z-index:1; }
+    .tm-fc-chequered .tm-fc-overlay { position:absolute; inset:0; background:rgba(0,0,0,.38); border-radius:8px; z-index:0; }
+    .tm-fc-chequered .tm-fc-icon,
+    .tm-fc-chequered .tm-fc-name,
+    .tm-fc-chequered .tm-fc-sub,
+    .tm-fc-chequered .tm-fc-label { color:#fff; text-shadow:0 1px 4px rgba(0,0,0,.8); }
+
+    @keyframes tm-fp-yellow { 0%,100%{box-shadow:0 0 0 0 rgba(202,138,4,0)} 50%{box-shadow:0 0 20px 4px rgba(202,138,4,.45)} }
+    @keyframes tm-fp-red    { 0%,100%{box-shadow:0 0 0 0 rgba(220,38,38,0) } 50%{box-shadow:0 0 26px 6px rgba(220,38,38,.55)} }
+    .tm-fc-yellow { animation:tm-fp-yellow 1.4s ease-in-out infinite; }
+    .tm-fc-red    { animation:tm-fp-red    0.9s ease-in-out infinite; }
+
     .tm-no-timing {
       flex:1; display:flex; flex-direction:column;
       align-items:center; justify-content:center; color:#6c757d; text-align:center;
@@ -209,6 +240,16 @@
     </div>
 
     <div class="tm-right" id="tmRight">
+      <!-- Flag status card -->
+      <div class="tm-flag-card tm-fc-waiting" id="tmFlagCard">
+        <div class="tm-fc-overlay" id="tmFcOverlay" style="display:none"></div>
+        <div class="tm-fc-inner">
+          <div class="tm-fc-label">Race Flag</div>
+          <div class="tm-fc-icon" id="tmFcIcon">⚐</div>
+          <div class="tm-fc-name" id="tmFcName">NO FLAG</div>
+          <div class="tm-fc-sub"  id="tmFcSub">Waiting for session</div>
+        </div>
+      </div>
       <div class="tm-focus-card tm-fl-card" id="tmFlCard" style="display:none">
         <div class="tm-focus-hd">⬟ Fastest Lap</div>
         <div style="font-size:1.5rem;font-weight:800;color:#9333ea;font-variant-numeric:tabular-nums" id="tmFlCardTime">—</div>
@@ -507,6 +548,41 @@
       }
     }
 
+    const FLAG_CFG = {
+      green:      { cls:'tm-fc-green',      icon:'🟢', name:'GREEN FLAG',     sub:'Track clear — racing',         overlay:false },
+      yellow:     { cls:'tm-fc-yellow',     icon:'🟡', name:'YELLOW FLAG',    sub:'Caution — no overtaking',      overlay:false },
+      red:        { cls:'tm-fc-red',        icon:'🔴', name:'RED FLAG',       sub:'Session stopped',              overlay:false },
+      sc:         { cls:'tm-fc-sc',         icon:'🚗', name:'SAFETY CAR',     sub:'Safety car deployed',          overlay:false },
+      chequered:  { cls:'tm-fc-chequered',  icon:'🏁', name:'CHEQUERED FLAG', sub:'Session complete',             overlay:true  },
+      qualifying: { cls:'tm-fc-qualifying', icon:'⏱',  name:'QUALIFYING',     sub:'Hotlap session in progress',   overlay:false },
+      practice:   { cls:'tm-fc-qualifying', icon:'⏱',  name:'PRACTICE',       sub:'Practice session in progress', overlay:false },
+      waiting:    { cls:'tm-fc-waiting',    icon:'⚐',  name:'NO FLAG',        sub:'Waiting for session',          overlay:false },
+    };
+
+    function updateFlagCard(state){
+      const card    = document.getElementById('tmFlagCard');
+      const overlay = document.getElementById('tmFcOverlay');
+      const iconEl  = document.getElementById('tmFcIcon');
+      const nameEl  = document.getElementById('tmFcName');
+      const subEl   = document.getElementById('tmFcSub');
+      if(!card) return;
+      let key = 'waiting';
+      switch(state.status){
+        case 'racing':     key = 'green';      break;
+        case 'qualifying': key = 'qualifying'; break;
+        case 'practice':   key = 'practice';   break;
+        case 'paused':     key = 'yellow';     break;
+        case 'finished':   key = 'chequered';  break;
+        default:           key = 'waiting';    break;
+      }
+      const cfg = FLAG_CFG[key];
+      card.className    = 'tm-flag-card ' + cfg.cls;
+      iconEl.textContent = cfg.icon;
+      nameEl.textContent = cfg.name;
+      subEl.textContent  = cfg.sub;
+      if(overlay) overlay.style.display = cfg.overlay ? '' : 'none';
+    }
+
     function updateHeader(state){
       document.getElementById('tmSession').textContent=state.sessionName||'Live Timing';
       document.getElementById('tmClass').textContent=state.classOnTrack||'';
@@ -528,6 +604,7 @@
         finished:{cls:'finished',icon:'🏁',lbl:'FINISHED'},waiting:{cls:'waiting',icon:'◌',lbl:'WAITING'}};
       const s=sm[state.status]||sm.waiting;
       badge.className=`tm-flag ${s.cls}`;badge.textContent=`${s.icon} ${s.lbl}`;
+      updateFlagCard(state);
       // heat number card
       const heatCard=document.getElementById('tmHeatCard');
       const heatNum=document.getElementById('tmHeatNum');
