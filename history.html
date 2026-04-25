@@ -141,6 +141,42 @@
       display: flex; gap: 8px; justify-content: center; align-items: center; padding-top: 12px;
     }
     .empty-state { text-align: center; padding: 60px 20px; color: #9aa0a6; }
+
+    /* ── Stat trends ────────────────────────────────────────── */
+    .stat-trend { font-size: .72rem; margin-top: 4px; min-height: 1.1em; }
+    .trend-up   { color: #2e7d32; font-weight: 600; }
+    .trend-down { color: #c62828; font-weight: 600; }
+    .trend-flat { color: #9aa0a6; }
+
+    /* ── 7-day chart ────────────────────────────────────────── */
+    .chart-section { background: #fff; border: 1px solid #e8eaed; border-radius: 10px; padding: 14px 18px; margin-bottom: 16px; }
+    .chart-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; gap: 12px; }
+    .chart-title { font-size: .78rem; font-weight: 700; color: #3c4043; white-space: nowrap; }
+    .chart-legend { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+    .chart-legend-item { display: flex; align-items: center; gap: 3px; font-size: .67rem; color: #6d7280; }
+    .chart-legend-item span { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; display: inline-block; }
+    .chart-bars { display: flex; gap: 8px; align-items: flex-end; height: 96px; }
+    .chart-col { flex: 1; display: flex; flex-direction: column; align-items: center; }
+    .chart-bar-stack { width: 100%; display: flex; flex-direction: column-reverse; border-radius: 3px 3px 0 0; overflow: hidden; }
+    .chart-bar-seg { width: 100%; }
+    .chart-day-label { font-size: .65rem; color: #9aa0a6; margin-top: 5px; text-align: center; }
+    .chart-day-count { font-size: .67rem; color: #5f6368; font-weight: 600; margin-bottom: 3px; line-height: 1; min-height: 1em; }
+
+    /* ── Feed context column ────────────────────────────────── */
+    .feed-context {
+      flex-shrink: 0; width: 150px; display: flex; flex-direction: column;
+      align-items: flex-end; justify-content: flex-start; padding-top: 3px; gap: 5px;
+    }
+    @media (max-width: 768px) { .feed-context { display: none; } }
+    .event-badge {
+      display: inline-block; max-width: 148px; overflow: hidden; text-overflow: ellipsis;
+      white-space: nowrap; padding: 2px 9px; border-radius: 8px;
+      font-size: .68rem; font-weight: 600; background: #e8f0fe; color: #1a73e8; border: 1px solid #d2e3fc;
+    }
+    .entity-id-hint {
+      font-size: .67rem; color: #b8bfc9; font-family: monospace; max-width: 148px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
   </style>
 </head>
 <body class="page-history light-mode">
@@ -160,10 +196,12 @@
     <div class="stats-bar">
       <div class="stat-card stat-login">
         <div class="stat-value" id="statLogins">–</div>
+        <div class="stat-trend" id="trendLogins"></div>
         <div class="stat-label"><svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><circle cx="10" cy="6" r="3.5"/><path d="M3 19v-.5a7 7 0 0 1 14 0v.5"/></svg>Logins Today</div>
       </div>
       <div class="stat-card stat-total">
         <div class="stat-value" id="statTotal">–</div>
+        <div class="stat-trend" id="trendTotal"></div>
         <div class="stat-label"><svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M12 2L5 11h6l-3 7 9-9h-6z"/></svg>Actions Today</div>
       </div>
       <div class="stat-card stat-week">
@@ -172,7 +210,19 @@
       </div>
       <div class="stat-card stat-users">
         <div class="stat-value" id="statUsers">–</div>
+        <div class="stat-trend" id="trendUsers"></div>
         <div class="stat-label"><svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><circle cx="7" cy="6" r="3"/><path d="M1 19v-.5a6 6 0 0 1 12 0v.5"/><circle cx="14" cy="7" r="2.5"/><path d="M18 19v-.5a5.5 5.5 0 0 0-4-5.3"/></svg>Active Users Today</div>
+      </div>
+    </div>
+
+    <!-- 7-day Activity Chart -->
+    <div class="chart-section">
+      <div class="chart-header">
+        <span class="chart-title">Activity — Last 7 Days</span>
+        <div class="chart-legend" id="chartLegend"></div>
+      </div>
+      <div class="chart-bars" id="chartBars">
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;font-size:.8rem;color:#9aa0a6">Loading chart…</div>
       </div>
     </div>
 
@@ -394,8 +444,16 @@
         if (log.performed_by_name || log.performed_by_user_id) {
           metaParts.push(`by <strong>${esc(log.performed_by_name || log.performed_by_user_id)}</strong>`);
         }
+
+        // Context column: event badge + short entity ID
+        const ctxParts = [];
         if (log.event_name || log.event_id) {
-          metaParts.push(`· ${esc(log.event_name || log.event_id)}`);
+          ctxParts.push(`<span class="event-badge">${esc(log.event_name || log.event_id)}</span>`);
+        }
+        // Show entity_id only when it's a human-readable code (not a long UUID)
+        const eid = log.entity_id || '';
+        if (eid && eid !== log.entity_name && eid.length < 20 && !/^[0-9a-f]{8}-/i.test(eid)) {
+          ctxParts.push(`<span class="entity-id-hint">${esc(eid)}</span>`);
         }
 
         const detailHtml = renderDetails(log);
@@ -412,6 +470,7 @@
               ${metaParts.length ? `<div class="feed-meta">${metaParts.join(' ')}</div>` : ''}
               ${detailHtml}
             </div>
+            <div class="feed-context">${ctxParts.join('')}</div>
             <div class="feed-time" title="${esc(ts.toISOString())}">
               <span class="time-hhmm">${fmtTime(ts)}</span>
               <span class="time-date">${fmtDateShort(ts)}</span>
@@ -472,33 +531,119 @@
     // ── Stats bar (today's system-wide numbers) ────────────────────────────────
     async function loadStats() {
       try {
-        const todayStr = new Date().toISOString().slice(0, 10);
         const now      = new Date();
-        const dow      = now.getDay(); // 0 = Sun
+        const todayStr = now.toISOString().slice(0, 10);
+        const yest     = new Date(now); yest.setDate(now.getDate() - 1);
+        const yestStr  = yest.toISOString().slice(0, 10);
+        const dow      = now.getDay();
         const monday   = new Date(now);
         monday.setDate(now.getDate() - (dow === 0 ? 6 : dow - 1));
         monday.setHours(0, 0, 0, 0);
-        const weekStr  = monday.toISOString();
 
-        const [todayResp, weekResp] = await Promise.all([
+        const [todayResp, yestResp, weekResp] = await Promise.all([
           fetch(`${API}/activity-log?from=${todayStr}T00:00:00Z&to=${todayStr}T23:59:59Z&limit=500`, { headers: authHeaders() }),
-          fetch(`${API}/activity-log?from=${weekStr}&limit=1`, { headers: authHeaders() }),
+          fetch(`${API}/activity-log?from=${yestStr}T00:00:00Z&to=${yestStr}T23:59:59Z&limit=500`,   { headers: authHeaders() }),
+          fetch(`${API}/activity-log?from=${monday.toISOString()}&limit=1`, { headers: authHeaders() }),
         ]);
         const todayData = await todayResp.json();
+        const yestData  = await yestResp.json();
         const weekData  = await weekResp.json();
 
         const todayLogs   = todayData.logs || [];
+        const yestLogs    = yestData.logs  || [];
         const loginsToday = todayLogs.filter(l => l.action === 'login').length;
+        const loginsYest  = yestLogs.filter(l =>  l.action === 'login').length;
         const totalToday  = todayData.total ?? todayData.count ?? 0;
-        const uniqueUsers = new Set(todayLogs.map(l => l.performed_by_user_id || l.performed_by_name).filter(Boolean)).size;
+        const totalYest   = yestData.total  ?? yestData.count  ?? 0;
+        const uniqueToday = new Set(todayLogs.map(l => l.performed_by_user_id || l.performed_by_name).filter(Boolean)).size;
+        const uniqueYest  = new Set(yestLogs.map(l =>  l.performed_by_user_id || l.performed_by_name).filter(Boolean)).size;
         const actionsWeek = weekData.total  ?? weekData.count  ?? 0;
 
         document.getElementById('statLogins').textContent = loginsToday;
         document.getElementById('statTotal').textContent  = totalToday;
         document.getElementById('statWeek').textContent   = actionsWeek;
-        document.getElementById('statUsers').textContent  = uniqueUsers;
+        document.getElementById('statUsers').textContent  = uniqueToday;
+        setTrend('trendLogins', loginsToday, loginsYest);
+        setTrend('trendTotal',  totalToday,  totalYest);
+        setTrend('trendUsers',  uniqueToday, uniqueYest);
       } catch (e) {
         console.warn('Stats bar failed:', e);
+      }
+    }
+
+    function setTrend(elId, todayVal, yestVal) {
+      const el = document.getElementById(elId);
+      if (!el) return;
+      if (yestVal === 0 && todayVal === 0) { el.textContent = ''; return; }
+      if (yestVal === 0) { el.innerHTML = '<span class="trend-up">Active today</span>'; return; }
+      const pct = Math.round(((todayVal - yestVal) / yestVal) * 100);
+      if (Math.abs(pct) < 5) { el.innerHTML = '<span class="trend-flat">same as yesterday</span>'; return; }
+      const up = pct > 0;
+      el.innerHTML = `<span class="${up ? 'trend-up' : 'trend-down'}">${up ? '↑' : '↓'} ${Math.abs(pct)}% vs yesterday</span>`;
+    }
+
+    // ── 7-day activity chart ───────────────────────────────────────────────────
+    async function loadChart() {
+      try {
+        const now  = new Date();
+        const from = new Date(now);
+        from.setDate(now.getDate() - 6); from.setHours(0, 0, 0, 0);
+
+        const resp = await fetch(`${API}/activity-log?from=${from.toISOString()}&limit=1000`, { headers: authHeaders() });
+        const data = await resp.json();
+        const logs = data.logs || [];
+
+        // Build day buckets for last 7 days
+        const dayMap = {};
+        for (let i = 6; i >= 0; i--) {
+          const d = new Date(now); d.setDate(now.getDate() - i); d.setHours(12, 0, 0, 0);
+          dayMap[dayKey(d)] = { date: d, actions: {}, total: 0 };
+        }
+        for (const log of logs) {
+          const k = dayKey(new Date(log.created_at));
+          if (!dayMap[k]) continue;
+          dayMap[k].actions[log.action] = (dayMap[k].actions[log.action] || 0) + 1;
+          dayMap[k].total++;
+        }
+
+        const ACTION_COLORS = {
+          created: '#4ade80', updated: '#60a5fa', packed: '#fb923c', unpacked: '#f87171',
+          login: '#34d399', logout: '#fb7185', returned: '#6ee7b7', checked_out: '#fbbf24',
+          note_added: '#a78bfa', mileage_added: '#93c5fd', used: '#fdba74', retired: '#d1d5db',
+        };
+        const CLR_DEFAULT = '#cbd5e1';
+        const BAR_H = 80;
+        const maxTotal = Math.max(1, ...Object.values(dayMap).map(d => d.total));
+
+        let barsHtml = '';
+        for (const dk of Object.keys(dayMap).sort()) {
+          const day = dayMap[dk];
+          const barH = Math.round((day.total / maxTotal) * BAR_H);
+          const isToday = dayKey(new Date()) === dk;
+          const label = isToday ? 'Today' : day.date.toLocaleDateString('en-GB', { weekday: 'short' });
+          let segs = '';
+          for (const [a, c] of Object.entries(day.actions).sort((x, y) => y[1] - x[1])) {
+            const h = Math.round((c / maxTotal) * BAR_H);
+            segs += `<div class="chart-bar-seg" style="height:${h}px;background:${ACTION_COLORS[a] || CLR_DEFAULT}" title="${esc(a)}: ${c}"></div>`;
+          }
+          barsHtml += `
+            <div class="chart-col">
+              <div class="chart-day-count">${day.total || ''}</div>
+              <div class="chart-bar-stack" style="height:${Math.max(barH, 2)}px;">${segs}</div>
+              <div class="chart-day-label" style="${isToday ? 'color:#1a73e8;font-weight:700' : ''}">${label}</div>
+            </div>`;
+        }
+
+        document.getElementById('chartBars').innerHTML = barsHtml ||
+          '<div style="flex:1;display:flex;align-items:center;justify-content:center;font-size:.8rem;color:#9aa0a6">No data for this period</div>';
+
+        // Legend — only action types that appear in the data (max 8)
+        const usedActions = [...new Set(logs.map(l => l.action))].slice(0, 8);
+        document.getElementById('chartLegend').innerHTML = usedActions.map(a =>
+          `<span class="chart-legend-item"><span style="background:${ACTION_COLORS[a] || CLR_DEFAULT}"></span>${esc(a.replace(/_/g,' '))}</span>`
+        ).join('');
+      } catch (e) {
+        console.warn('Chart load failed:', e);
       }
     }
 
@@ -564,8 +709,7 @@
     }
 
     // ── Init ───────────────────────────────────────────────────────────────────
-    loadStats();
-    loadLogs(currentParams, 0);
+    loadStats();    loadChart();    loadLogs(currentParams, 0);
   </script>
 </body>
 </html>
