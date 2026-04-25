@@ -48,6 +48,31 @@
     .lap-table td:first-child { text-align: left; font-weight: 600; }
     .lap-table tr:hover td { background: #f8f9fa; }
     .lap-fastest { color: #7c3aed; font-weight: 700; }
+    .lap-table td.la-s-pb { background: #dcfce7; color: #15803d; font-weight: 700; border-radius: 3px; }
+    /* ── Lap Analysis full-width section ─────────────────────────────────── */
+    .lap-analysis-section { margin-top: 20px; background: #fff; border: 1px solid rgba(0,0,0,0.1); border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.06); overflow: hidden; }
+    .lap-analysis-header { background: #f8f9fa; border-bottom: 1px solid rgba(0,0,0,0.1); padding: 14px 20px; display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+    .lap-analysis-title { font-size: 0.9rem; font-weight: 700; color: #1a1d24; letter-spacing: -0.01em; }
+    .lap-analysis-stats { display: flex; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+    .la-stat { display: inline-flex; align-items: center; gap: 6px; background: #f1f3f5; border: 1px solid rgba(0,0,0,0.08); border-radius: 6px; padding: 4px 11px; font-size: 0.7rem; }
+    .la-stat-label { color: #6c757d; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+    .la-stat-value { font-weight: 700; color: #1a1d24; font-variant-numeric: tabular-nums; }
+    .la-stat-value.la-fastest { color: #7c3aed; }
+    .la-stat-value.la-avg { color: #0072a3; }
+    .la-stat-value.la-worst { color: #dc3545; }
+    .lap-analysis-table { width: 100%; font-size: 0.8rem; border-collapse: collapse; }
+    .lap-analysis-table thead { position: sticky; top: 0; background: #f8f9fa; z-index: 5; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+    .lap-analysis-table th { padding: 8px 14px; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #6c757d; border-bottom: 2px solid #dee2e6; white-space: nowrap; text-align: right; }
+    .lap-analysis-table th.la-th-center { text-align: center; }
+    .lap-analysis-table td { padding: 5px 14px; border-bottom: 1px solid rgba(0,0,0,0.04); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .lap-analysis-table td:first-child { text-align: center; font-weight: 700; font-size: 0.7rem; color: #6c757d; width: 44px; }
+    .lap-analysis-table td.la-td-center { text-align: center; }
+    .lap-analysis-table tfoot td { background: #f8f9fa !important; font-weight: 700; font-size: 0.72rem; color: #495057; border-top: 2px solid #dee2e6; border-bottom: none; padding: 7px 14px; }
+    .lap-analysis-table tbody tr:hover td { filter: brightness(0.96); cursor: default; }
+    .la-trend-up { color: #16a34a !important; font-size: 0.85rem; }
+    .la-trend-dn { color: #dc3545 !important; font-size: 0.85rem; }
+    .la-s-pb { background: #dcfce7 !important; color: #15803d !important; font-weight: 700 !important; border-radius: 3px; }
+    .la-pb-row td:nth-child(2) { outline: 2px solid rgba(124,58,237,0.35); outline-offset: -2px; border-radius: 2px; }
   </style>
 </head>
 <body class="light-mode">
@@ -170,17 +195,50 @@
               </form>
             </div>
             <div class="tab-pane fade" id="pane-str-laps" role="tabpanel">
-              <div class="d-flex justify-content-between align-items-center mb-2">
+              <div class="d-flex justify-content-between align-items-center mb-2 gap-1" style="flex-wrap:wrap;">
                 <small class="text-secondary">Fastest lap highlighted in purple.</small>
-                <label class="btn btn-sm btn-outline-secondary" style="font-size:0.75rem;">Import CSV <input type="file" id="lapFileInput" accept=".csv,.txt" style="display:none;"></label>
+                <div class="d-flex gap-1 align-items-center">
+                  <button id="btnLiveCapture" class="btn btn-sm btn-outline-success" type="button" style="font-size:0.75rem;">&#9679; Live Apex</button>
+                  <label class="btn btn-sm btn-outline-secondary" style="font-size:0.75rem;">Import CSV <input type="file" id="lapFileInput" accept=".csv,.txt" style="display:none;"></label>
+                </div>
               </div>
-              <div style="overflow-x:auto;"><table class="lap-table"><thead><tr><th>Lap</th><th>Time</th><th>S1</th><th>S2</th><th>S3</th></tr></thead><tbody id="lapTbody"></tbody></table></div>
+              <div id="liveCaptureStatus" style="display:none;font-size:0.72rem;padding:5px 8px;border-radius:5px;margin-bottom:6px;background:#f0fdf4;border:1px solid #86efac;color:#15803d;"></div>
+              <div style="overflow-x:auto;"><table class="lap-table"><thead><tr><th>Lap</th><th>Time</th><th style="text-align:center;">Delta</th><th>S1</th><th>S2</th><th>S3</th></tr></thead><tbody id="lapTbody"></tbody></table></div>
               <div class="mt-2"><button class="btn btn-sm btn-outline-danger" id="btnClearLaps" type="button">Clear all</button></div>
             </div>
           </div>
         </div>
       </section>
     </div>
+
+    <!-- ── Lap Time Analysis ─────────────────────────────────────────────── -->
+    <div id="lapAnalysisSection" class="lap-analysis-section" style="display:none;">
+      <div class="lap-analysis-header">
+        <div>
+          <div class="lap-analysis-title">Lap Time Analysis &mdash; <span id="lapAnalysisTitle"></span></div>
+          <div style="font-size:0.72rem;color:#9aa5b4;margin-top:3px;"><span id="lapAnalysisLapCount"></span></div>
+        </div>
+        <div class="lap-analysis-stats" id="lapAnalysisStats"></div>
+      </div>
+      <div style="overflow:auto;max-height:540px;">
+        <table class="lap-analysis-table">
+          <thead>
+            <tr>
+              <th style="text-align:center;width:44px;">Lap</th>
+              <th>Time</th>
+              <th class="la-th-center">Delta</th>
+              <th class="la-th-center" style="width:54px;">Trend</th>
+              <th>S1</th>
+              <th>S2</th>
+              <th>S3</th>
+            </tr>
+          </thead>
+          <tbody id="lapAnalysisTbody"></tbody>
+          <tfoot id="lapAnalysisTfoot"></tfoot>
+        </table>
+      </div>
+    </div>
+
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -190,6 +248,7 @@
   (function(){
     'use strict';
     RTS.setActiveNav();
+    const apiFetch = RTS.apiFetch.bind(RTS);
     const LS_PANES = 'rts.strategy.panes.v2';
     let sessions = [], eventsData = [], drivers = [], karts = [];
     let ui = { perspective:'all', search:'', eventFilter:'', typeFilter:'', selectedId:null };
@@ -307,20 +366,128 @@
     }
     function hydrateInspector(){
       const s=sessions.find(x=>x.id===ui.selectedId); el.inspBadge.textContent=s?(s.name||s.id||'—'):'—';
-      if (!s){ Object.values(el.f).forEach(f=>{ if(f&&f.tagName) f.value=''; }); return; }
+      if (!s){ Object.values(el.f).forEach(f=>{ if(f&&f.tagName) f.value=''; }); renderLapAnalysis([],''); return; }
       el.f.name.value=s.name||''; el.f.status.value=s.status||'Planned'; el.f.event.value=s.event_id||'';
       el.f.type.value=s.session_type||'Practice'; el.f.driver.value=s.driver_id||''; el.f.kart.value=s.kart_id||'';
       el.f.start.value=isoDatetimeLocal(s.start_time); el.f.end.value=isoDatetimeLocal(s.end_time);
       el.f.tyreSet.value=s.tyre_set||''; el.f.compound.value=s.compound||'Soft'; el.f.tyreLaps.value=s.tyre_laps||'';
       el.f.feedback.value=s.driver_feedback||''; el.f.notes.value=s.engineer_notes||'';
-      renderSetupList(s.setup_changes||[]); renderLapTimes(s.lap_times||[]);
+      renderSetupList(s.setup_changes||[]); renderLapTimes(s.lap_times||[]); renderLapAnalysis(s.lap_times||[], s.name||'');
       document.getElementById('btnViewStrEvent').href=s.event_id?'events.html?id='+s.event_id:'events.html';
     }
     function renderLapTimes(laps){
       el.lapTbody.innerHTML='';
-      if (!laps||!laps.length){ el.lapTbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:#9aa5b4;padding:12px;">No lap times recorded</td></tr>'; return; }
-      const fastest=Math.min(...laps.map(l=>l.time_ms||Infinity));
-      laps.forEach(l=>{ const fast=l.time_ms===fastest; const tr=document.createElement('tr'); tr.innerHTML=(fast?'<td class="lap-fastest">':'<td>')+l.lap+'</td>'+(fast?'<td class="lap-fastest">':'<td>')+msToTime(l.time_ms)+'</td>'+'<td>'+msToTime(l.s1_ms)+'</td><td>'+msToTime(l.s2_ms)+'</td><td>'+msToTime(l.s3_ms)+'</td>'; el.lapTbody.appendChild(tr); });
+      if(!laps||!laps.length){el.lapTbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:#9aa5b4;padding:12px;">No lap times recorded</td></tr>';return;}
+      const validMs=laps.filter(l=>l.time_ms).map(l=>l.time_ms);
+      const fastest=validMs.length?Math.min(...validMs):0;
+      const bestS1=Math.min(...laps.filter(l=>l.s1_ms).map(l=>l.s1_ms).concat([Infinity]));
+      const bestS2=Math.min(...laps.filter(l=>l.s2_ms).map(l=>l.s2_ms).concat([Infinity]));
+      const bestS3=Math.min(...laps.filter(l=>l.s3_ms).map(l=>l.s3_ms).concat([Infinity]));
+      laps.forEach(l=>{
+        const fast=l.time_ms&&l.time_ms===fastest;
+        const delta=l.time_ms&&fastest?l.time_ms-fastest:null;
+        const deltaHtml=fast?'<span style="color:#7c3aed;font-weight:800;font-size:0.68rem;">BEST</span>'
+          :(delta!=null?'<span style="color:#9aa5b4;font-size:0.72rem;">+'+(delta/1000).toFixed(3)+'s</span>':'—');
+        const s1c=l.s1_ms&&l.s1_ms===bestS1?' class="la-s-pb"':'';
+        const s2c=l.s2_ms&&l.s2_ms===bestS2?' class="la-s-pb"':'';
+        const s3c=l.s3_ms&&l.s3_ms===bestS3?' class="la-s-pb"':'';
+        const tr=document.createElement('tr');
+        tr.innerHTML='<td'+(fast?' class="lap-fastest"':'')+'>'+l.lap+'</td>'
+          +'<td'+(fast?' class="lap-fastest"':'')+'>'+msToTime(l.time_ms)+'</td>'
+          +'<td style="text-align:center;">'+deltaHtml+'</td>'
+          +'<td'+s1c+'>'+msToTime(l.s1_ms)+'</td>'
+          +'<td'+s2c+'>'+msToTime(l.s2_ms)+'</td>'
+          +'<td'+s3c+'>'+msToTime(l.s3_ms)+'</td>';
+        el.lapTbody.appendChild(tr);
+      });
+    }
+    function renderLapAnalysis(laps,sessionTitle){
+      const section=document.getElementById('lapAnalysisSection');
+      if(!section) return;
+      const valid=laps?laps.filter(l=>l.time_ms):[];
+      if(!valid.length){section.style.display='none';return;}
+      section.style.display='';
+      // Compute stats
+      const times=valid.map(l=>l.time_ms);
+      const fastest=Math.min(...times);
+      const slowest=Math.max(...times);
+      const avg=Math.round(times.reduce((a,b)=>a+b,0)/times.length);
+      const range=slowest-fastest||1;
+      const s1arr=valid.filter(l=>l.s1_ms).map(l=>l.s1_ms);
+      const s2arr=valid.filter(l=>l.s2_ms).map(l=>l.s2_ms);
+      const s3arr=valid.filter(l=>l.s3_ms).map(l=>l.s3_ms);
+      const bestS1=s1arr.length?Math.min(...s1arr):null;
+      const bestS2=s2arr.length?Math.min(...s2arr):null;
+      const bestS3=s3arr.length?Math.min(...s3arr):null;
+      const idealMs=(bestS1&&bestS2&&bestS3)?bestS1+bestS2+bestS3:null;
+      const avgDelta=(avg-fastest)/1000;
+      // Header
+      const titleEl=document.getElementById('lapAnalysisTitle');
+      const countEl=document.getElementById('lapAnalysisLapCount');
+      if(titleEl) titleEl.textContent=sessionTitle||'Session';
+      if(countEl) countEl.textContent=valid.length+' lap'+(valid.length!==1?'s':'');
+      // Stats bar
+      const statsEl=document.getElementById('lapAnalysisStats');
+      if(statsEl) statsEl.innerHTML=
+        '<div class="la-stat"><span class="la-stat-label">Best</span><span class="la-stat-value la-fastest">'+msToTime(fastest)+'</span></div>'+
+        '<div class="la-stat"><span class="la-stat-label">Avg</span><span class="la-stat-value la-avg">'+msToTime(avg)+'</span></div>'+
+        '<div class="la-stat"><span class="la-stat-label">Worst</span><span class="la-stat-value la-worst">'+msToTime(slowest)+'</span></div>'+
+        '<div class="la-stat"><span class="la-stat-label">Avg Gap</span><span class="la-stat-value" style="color:#6c757d;">+'+avgDelta.toFixed(3)+'s</span></div>'+
+        (idealMs?'<div class="la-stat"><span class="la-stat-label">Ideal Lap</span><span class="la-stat-value la-avg">'+msToTime(idealMs)+'</span></div>':'');
+      // Table rows
+      const tbody=document.getElementById('lapAnalysisTbody');
+      if(!tbody) return;
+      tbody.innerHTML='';
+      laps.forEach((l,idx)=>{
+        if(!l.time_ms) return;
+        const delta=l.time_ms-fastest;
+        const ratio=range>0?delta/range:0;
+        // Heat-map hue: green(120) → yellow(60) → red(0) based on pace relative to fastest
+        const hue=Math.round(120-ratio*120);
+        const sat=Math.round(72-ratio*18);
+        const lit=Math.round(91-ratio*7);
+        const timeBg=delta===0
+          ?'background:#f3e8ff;color:#7c3aed;font-weight:800;'
+          :'background:hsl('+hue+','+sat+'%,'+lit+'%);color:#1a1d24;font-weight:700;';
+        const deltaHtml=delta===0
+          ?'<span style="color:#7c3aed;font-weight:800;font-size:0.7rem;letter-spacing:0.02em;">FASTEST</span>'
+          :'<span style="color:#6c757d;font-size:0.78rem;">+'+(delta/1000).toFixed(3)+'s</span>';
+        // Trend vs previous valid lap
+        let trendHtml='<span style="color:#dee2e6;">—</span>';
+        const prevLap=idx>0?[...laps].slice(0,idx).reverse().find(x=>x.time_ms):null;
+        if(prevLap){
+          const diff=l.time_ms-prevLap.time_ms;
+          if(diff<=-50) trendHtml='<span class="la-trend-up">&#9650;</span>';
+          else if(diff>=50) trendHtml='<span class="la-trend-dn">&#9660;</span>';
+          else trendHtml='<span style="color:#ced4da;font-size:0.75rem;">—</span>';
+        }
+        // Sector PBs
+        const s1c=bestS1&&l.s1_ms===bestS1?' class="la-s-pb"':'';
+        const s2c=bestS2&&l.s2_ms===bestS2?' class="la-s-pb"':'';
+        const s3c=bestS3&&l.s3_ms===bestS3?' class="la-s-pb"':'';
+        const tr=document.createElement('tr');
+        if(delta===0) tr.classList.add('la-pb-row');
+        tr.innerHTML='<td>'+l.lap+'</td>'
+          +'<td style="'+timeBg+'border-radius:3px;font-variant-numeric:tabular-nums;text-align:right;">'+msToTime(l.time_ms)+'</td>'
+          +'<td class="la-td-center">'+deltaHtml+'</td>'
+          +'<td class="la-td-center">'+trendHtml+'</td>'
+          +'<td'+s1c+'>'+msToTime(l.s1_ms)+'</td>'
+          +'<td'+s2c+'>'+msToTime(l.s2_ms)+'</td>'
+          +'<td'+s3c+'>'+msToTime(l.s3_ms)+'</td>';
+        tbody.appendChild(tr);
+      });
+      // Footer summary row
+      const tfoot=document.getElementById('lapAnalysisTfoot');
+      if(!tfoot) return;
+      tfoot.innerHTML='<tr>'
+        +'<td style="text-align:center;color:#9aa5b4;font-weight:400;">—</td>'
+        +'<td style="text-align:right;"><span style="color:#7c3aed;">'+msToTime(fastest)+'</span><br><span style="font-size:0.63rem;color:#9aa5b4;font-weight:400;">Best</span></td>'
+        +'<td class="la-td-center"><span style="color:#0072a3;">'+msToTime(avg)+'</span><br><span style="font-size:0.63rem;color:#9aa5b4;font-weight:400;">Average</span></td>'
+        +'<td></td>'
+        +(bestS1?'<td style="background:#dcfce7 !important;text-align:right;color:#15803d;">'+msToTime(bestS1)+'<br><span style="font-size:0.63rem;font-weight:400;color:#16a34a;">S1 Best</span></td>':'<td></td>')
+        +(bestS2?'<td style="background:#dcfce7 !important;text-align:right;color:#15803d;">'+msToTime(bestS2)+'<br><span style="font-size:0.63rem;font-weight:400;color:#16a34a;">S2 Best</span></td>':'<td></td>')
+        +(bestS3?'<td style="background:#dcfce7 !important;text-align:right;color:#15803d;">'+msToTime(bestS3)+(idealMs?'<br><span style="font-size:0.63rem;font-weight:400;color:#0072a3;">Ideal: '+msToTime(idealMs)+'</span>':'')+'</td>':'<td></td>')
+        +'</tr>';
     }
     async function patchSession(id,updates){ return apiFetch('/api/race-sessions/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(updates)}); }
     async function saveSession(){
@@ -345,7 +512,7 @@
     }
     async function saveLapTimes(laps){
       const s=sessions.find(x=>x.id===ui.selectedId); if(!s) return;
-      try { await patchSession(s.id,{lap_times:laps}); s.lap_times=laps; renderLapTimes(laps); if(RTS.showToast) RTS.showToast('Lap times saved','success'); } catch(e){ if(RTS.showToast) RTS.showToast('Failed','error'); }
+      try { await patchSession(s.id,{lap_times:laps}); s.lap_times=laps; renderLapTimes(laps); renderLapAnalysis(laps,s.name||''); if(RTS.showToast) RTS.showToast('Lap times saved','success'); } catch(e){ if(RTS.showToast) RTS.showToast('Failed','error'); }
     }
     function render(){ renderStats(); renderLeftPane(); renderTable(); hydrateInspector(); }
     function bind(){
@@ -361,8 +528,117 @@
       el.setupList.addEventListener('click',e=>{ if(e.target.classList.contains('setup-del')) e.target.closest('.log-row').remove(); });
       document.getElementById('lapFileInput').addEventListener('change',async e=>{ const file=e.target.files[0]; if(!file) return; const text=await file.text(); const laps=parseLapCsv(text); if(laps.length){ await saveLapTimes(laps); } else if(RTS.showToast) RTS.showToast('No valid lap data','error'); e.target.value=''; });
       document.getElementById('btnClearLaps').addEventListener('click',async()=>{ if(!confirm('Clear all lap times?')) return; await saveLapTimes([]); });
+      document.getElementById('btnLiveCapture').addEventListener('click', toggleLiveCapture);
       const params=new URLSearchParams(window.location.search); const p=params.get('session'); if(p) ui.selectedId=p;
     }
+
+    // ── Live Apex Capture ────────────────────────────────────────────────────
+    let liveCapture = { active: false, lapCount: 0, driverName: '' };
+
+    function fmtTimeToMs(s) {
+      if (!s || s === '—' || s === '-') return null;
+      s = String(s).trim();
+      const parts = s.split(':');
+      if (parts.length === 2) return Math.round((parseFloat(parts[0]) * 60 + parseFloat(parts[1])) * 1000);
+      const ms = Math.round(parseFloat(s) * 1000);
+      return isNaN(ms) ? null : ms;
+    }
+
+    function updateLiveCaptureBtn() {
+      const btn = document.getElementById('btnLiveCapture');
+      const status = document.getElementById('liveCaptureStatus');
+      if (!btn) return;
+      if (liveCapture.active) {
+        btn.textContent = '⏹ Stop Live';
+        btn.classList.remove('btn-outline-success');
+        btn.classList.add('btn-success');
+        if (status) {
+          status.style.display = '';
+          status.textContent = '● Capturing live laps from Apex' + (liveCapture.driverName ? ' — ' + liveCapture.driverName : '') + ' (' + liveCapture.lapCount + ' lap' + (liveCapture.lapCount !== 1 ? 's' : '') + ' recorded)';
+        }
+      } else {
+        btn.textContent = '● Live Apex';
+        btn.classList.remove('btn-success');
+        btn.classList.add('btn-outline-success');
+        if (status) status.style.display = 'none';
+      }
+    }
+
+    function toggleLiveCapture() {
+      if (liveCapture.active) {
+        stopLiveCapture();
+      } else {
+        startLiveCapture();
+      }
+    }
+
+    function startLiveCapture() {
+      if (!window.RTSLiveTiming) {
+        if (RTS.showToast) RTS.showToast('Live Timing not active — enable it in Settings', 'error');
+        return;
+      }
+      const s = sessions.find(x => x.id === ui.selectedId);
+      if (!s) { if (RTS.showToast) RTS.showToast('Select a session first', 'error'); return; }
+
+      // Seed lap count from existing laps so we don't re-record
+      const existing = s.lap_times || [];
+      liveCapture.active = true;
+      liveCapture.lapCount = existing.length;
+      liveCapture.driverName = '';
+      liveCapture.lastApexLaps = 0; // apex laps count from timing feed
+      liveCapture.workingLaps = existing.slice(); // copy to mutate
+
+      RTSLiveTiming.onUpdate(onLiveTimingUpdate);
+      updateLiveCaptureBtn();
+      if (RTS.showToast) RTS.showToast('Live capture started', 'success');
+    }
+
+    function stopLiveCapture() {
+      liveCapture.active = false;
+      if (window.RTSLiveTiming) RTSLiveTiming.offUpdate(onLiveTimingUpdate);
+      updateLiveCaptureBtn();
+      if (RTS.showToast) RTS.showToast('Live capture stopped', 'info');
+    }
+
+    function onLiveTimingUpdate(state) {
+      if (!liveCapture.active) return;
+      const s = sessions.find(x => x.id === ui.selectedId);
+      if (!s) return;
+
+      // Find the matching driver: prefer isOurs, fall back to session driver name
+      let driver = state.ourDrivers && state.ourDrivers[0];
+      if (!driver && state.drivers && s.driver_id) {
+        const drv = drivers.find(d => d.id === s.driver_id);
+        if (drv) {
+          const nameNorm = (drv.name || '').toUpperCase().replace(/[^A-Z0-9 ]/g,' ').trim();
+          driver = state.drivers.find(d => {
+            const dn = (d.name || '').toUpperCase().replace(/[^A-Z0-9 ]/g,' ').trim();
+            return dn.includes(nameNorm.split(' ')[0]) || nameNorm.includes((dn.split(' ')[0]));
+          });
+        }
+      }
+      if (!driver) return;
+
+      liveCapture.driverName = driver.ourName || driver.name || '';
+
+      // Detect a new lap: apex lap count incremented
+      const apexLaps = parseInt(driver.laps) || 0;
+      if (apexLaps <= liveCapture.lastApexLaps) { updateLiveCaptureBtn(); return; }
+      liveCapture.lastApexLaps = apexLaps;
+
+      // lastLap is the time just completed
+      const lapMs = fmtTimeToMs(driver.lastLap);
+      if (!lapMs || lapMs < 10000) return; // sanity check — ignore implausible times < 10s
+
+      const lapNum = liveCapture.workingLaps.length + 1;
+      liveCapture.workingLaps.push({ lap: lapNum, time_ms: lapMs, s1_ms: null, s2_ms: null, s3_ms: null });
+      liveCapture.lapCount = liveCapture.workingLaps.length;
+
+      // Save & re-render
+      saveLapTimes(liveCapture.workingLaps);
+      updateLiveCaptureBtn();
+    }
+
     async function init(){ bind(); await loadAll(); populateSelects(); render(); }
     document.addEventListener('DOMContentLoaded',init);
   })();
