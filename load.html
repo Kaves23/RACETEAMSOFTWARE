@@ -105,8 +105,47 @@
     .placed-asset{background:#e6f4ea;border:1px solid #34a853;border-radius:4px;padding:8px 10px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;}
     .placed-asset-name{font-size:.8rem;font-weight:600;color:#1e7e34;}
     .placed-asset-meta{font-size:.7rem;color:#5f6368;margin-top:2px;}
-    /* Filter chips */
-    .filter-chips{display:flex;flex-wrap:wrap;gap:3px;}
+    /* Custom picker dropdowns (event + truck) */
+    .lp-picker{position:relative;display:inline-block;}
+    .lp-picker-btn{
+      display:flex;align-items:center;gap:7px;
+      padding:5px 10px;min-width:190px;
+      background:#fff;border:1.5px solid #d0d0d0;border-radius:8px;
+      font-size:.8rem;font-weight:500;color:#202124;
+      cursor:pointer;white-space:nowrap;text-align:left;
+      transition:border-color .15s,box-shadow .15s;
+    }
+    .lp-picker-btn::after{display:none!important;} /* hide BS caret */
+    .lp-picker-btn:hover{border-color:#1a73e8;color:#1a73e8;}
+    .lp-picker-btn:hover .lp-picker-icon{color:#1a73e8;}
+    .lp-picker-btn:hover .lp-picker-chevron{color:#1a73e8;}
+    .lp-picker-btn.show{border-color:#1a73e8;box-shadow:0 0 0 3px rgba(26,115,232,.13);}
+    .lp-picker-btn.show .lp-picker-chevron{transform:rotate(180deg);}
+    .lp-picker-icon{color:#1a73e8;flex-shrink:0;}
+    .lp-picker-label{flex:1;overflow:hidden;text-overflow:ellipsis;max-width:155px;}
+    .lp-picker-chevron{color:#aaa;flex-shrink:0;transition:transform .2s;}
+    .lp-picker-menu{
+      min-width:230px;font-size:.82rem;
+      padding:6px 4px;border-radius:9px;
+      border:1.5px solid #e0e0e0;
+      box-shadow:0 6px 24px rgba(0,0,0,.12);
+    }
+    .lp-picker-menu .dropdown-item{
+      border-radius:5px;padding:6px 12px;
+      display:flex;align-items:center;gap:8px;
+      color:#202124;font-weight:500;
+    }
+    .lp-picker-menu .dropdown-item:hover{background:#f0f4ff;color:#1a73e8;}
+    .lp-picker-menu .dropdown-item.active{
+      background:#e8f0fe;color:#1a73e8;font-weight:700;
+    }
+    .lp-picker-menu .dropdown-item.active::before{
+      content:"";
+      display:inline-block;width:7px;height:7px;
+      background:#1a73e8;border-radius:50%;margin-right:2px;flex-shrink:0;
+    }
+    .lp-picker-menu .dropdown-divider{margin:4px 8px;}
+    .lp-picker-menu .dropdown-header{font-size:.68rem;letter-spacing:.05em;padding:4px 12px 2px;}
     .filter-chip{padding:2px 8px;border-radius:10px;font-size:.62rem;font-weight:600;border:1px solid #dadce0;background:#f8f9fa;color:#5f6368;cursor:pointer;transition:all .12s;line-height:1.6;}
     .filter-chip:hover{border-color:#1a73e8;color:#1a73e8;}
     .filter-chip.active{background:#1a73e8;color:#fff;border-color:#1a73e8;}
@@ -142,8 +181,26 @@
         <p style="margin:5px 0 0;color:#5f6368;font-size:.9rem;font-weight:500">3D Truck Packing & Barcode Management</p>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <select id="selectEvent" class="form-select form-select-sm" style="width:180px;font-size:.8rem;padding:4px 8px"><option value="">Select Event</option></select>
-        <select id="selectTruck" class="form-select form-select-sm" style="width:180px;font-size:.8rem;padding:4px 8px"><option value="">Select Truck/Trailer</option></select>
+        <!-- Event picker -->
+        <div class="lp-picker">
+          <button class="lp-picker-btn dropdown-toggle" id="eventPickerBtn" data-bs-toggle="dropdown" aria-expanded="false">
+            <svg class="lp-picker-icon" width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="16" height="15" rx="2"/><line x1="6" y1="1" x2="6" y2="5"/><line x1="14" y1="1" x2="14" y2="5"/><line x1="2" y1="8" x2="18" y2="8"/></svg>
+            <span class="lp-picker-label" id="eventPickerLabel">— Current (Live / No Event) —</span>
+            <svg class="lp-picker-chevron" width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 8 10 13 15 8"/></svg>
+          </button>
+          <ul class="dropdown-menu lp-picker-menu" id="eventPickerMenu"></ul>
+          <input type="hidden" id="selectEvent" value="">
+        </div>
+        <!-- Truck picker -->
+        <div class="lp-picker">
+          <button class="lp-picker-btn dropdown-toggle" id="truckPickerBtn" data-bs-toggle="dropdown" aria-expanded="false">
+            <svg class="lp-picker-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v4h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+            <span class="lp-picker-label" id="truckPickerLabel">Select Truck/Trailer</span>
+            <svg class="lp-picker-chevron" width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 8 10 13 15 8"/></svg>
+          </button>
+          <ul class="dropdown-menu lp-picker-menu" id="truckPickerMenu"></ul>
+          <input type="hidden" id="selectTruck" value="">
+        </div>
         <div class="btn-group">
         <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" style="font-size:.8rem;padding:4px 12px">
           <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.15em;margin-right:4px"><circle cx="10" cy="5" r="1.5" fill="currentColor" stroke="none"/><circle cx="10" cy="10" r="1.5" fill="currentColor" stroke="none"/><circle cx="10" cy="15" r="1.5" fill="currentColor" stroke="none"/></svg>Actions

@@ -319,24 +319,71 @@ console.log('📦 load-engine.js loading...');
   function initUI() {
     boxModal = new bootstrap.Modal(document.getElementById('boxModal'));
     
-    // Populate dropdowns
-    const selectEvent = document.getElementById('selectEvent');
-    if (eventsLoadError) {
-      selectEvent.innerHTML = '<option value="">⚠ NO LOCAL DATA — DB unavailable</option>';
-      selectEvent.style.color = '#dc3545';
-      selectEvent.disabled = true;
-    } else {
-      selectEvent.innerHTML =
-        '<option value="">— Current (Live / No Event) —</option>' +
-        '<option disabled style="color:#bbb;font-size:.7rem">──────── Events ────────</option>' +
-        events.map(e => `<option value="${e.id}">${esc(e.title || e.name || 'Event')}</option>`).join('');
-      if (currentLoad.eventId) selectEvent.value = currentLoad.eventId;
+    // ── Event picker ─────────────────────────────────────────────────────
+    const selectEvent  = document.getElementById('selectEvent');   // hidden input
+    const eventMenu    = document.getElementById('eventPickerMenu');
+    const eventLabel   = document.getElementById('eventPickerLabel');
+    const eventBtn     = document.getElementById('eventPickerBtn');
+
+    function setEventValue(val, labelText) {
+      selectEvent.value = val;
+      eventLabel.textContent = labelText;
+      eventMenu.querySelectorAll('[data-ep-val]').forEach(b =>
+        b.classList.toggle('active', b.dataset.epVal === val));
     }
 
-    const selectTruck = document.getElementById('selectTruck');
-    selectTruck.innerHTML = '<option value="">Select Truck/Trailer</option>' +
-      trucks.map(t => `<option value="${t.id}">${esc(t.name)} (${esc(t.type)})</option>`).join('');
-    if (currentLoad.truckId) selectTruck.value = currentLoad.truckId;
+    if (eventsLoadError) {
+      eventBtn.disabled = true;
+      eventLabel.textContent = '⚠ DB unavailable';
+      eventBtn.style.color = '#dc3545';
+      eventBtn.style.borderColor = '#dc3545';
+    } else {
+      const eventItems = [
+        { value: '', label: '— Current (Live / No Event) —' },
+        ...events.map(e => ({ value: String(e.id), label: e.title || e.name || 'Event' }))
+      ];
+      eventMenu.innerHTML = eventItems.map(item =>
+        `<li><button class="dropdown-item" data-ep-val="${esc(item.value)}">${esc(item.label)}</button></li>`
+      ).join('');
+      const savedEvId = currentLoad.eventId ? String(currentLoad.eventId) : '';
+      const savedEvItem = eventItems.find(i => i.value === savedEvId);
+      setEventValue(savedEvId, savedEvItem ? savedEvItem.label : '— Current (Live / No Event) —');
+      eventMenu.querySelectorAll('[data-ep-val]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          setEventValue(btn.dataset.epVal, btn.textContent.trim());
+          selectEvent.dispatchEvent(new Event('change'));
+        });
+      });
+    }
+
+    // ── Truck picker ─────────────────────────────────────────────────────
+    const selectTruck  = document.getElementById('selectTruck');   // hidden input
+    const truckMenu    = document.getElementById('truckPickerMenu');
+    const truckLabel   = document.getElementById('truckPickerLabel');
+
+    function setTruckValue(val, labelText) {
+      selectTruck.value = val;
+      truckLabel.textContent = labelText;
+      truckMenu.querySelectorAll('[data-tp-val]').forEach(b =>
+        b.classList.toggle('active', b.dataset.tpVal === val));
+    }
+
+    const truckItems = [
+      { value: '', label: 'Select Truck/Trailer' },
+      ...trucks.map(t => ({ value: String(t.id), label: `${t.name} (${t.type})` }))
+    ];
+    truckMenu.innerHTML = truckItems.map(item =>
+      `<li><button class="dropdown-item" data-tp-val="${esc(item.value)}">${esc(item.label)}</button></li>`
+    ).join('');
+    const savedTrId = currentLoad.truckId ? String(currentLoad.truckId) : '';
+    const savedTrItem = truckItems.find(i => i.value === savedTrId);
+    setTruckValue(savedTrId, savedTrItem ? savedTrItem.label : 'Select Truck/Trailer');
+    truckMenu.querySelectorAll('[data-tp-val]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        setTruckValue(btn.dataset.tpVal, btn.textContent.trim());
+        selectTruck.dispatchEvent(new Event('change'));
+      });
+    });
 
     // Event listeners
     selectEvent.addEventListener('change', e => { currentLoad.eventId = e.target.value || null; saveData(); updateStats(); });
