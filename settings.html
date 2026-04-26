@@ -175,6 +175,7 @@
                 <li data-section="masterChecklists">Master Lists</li>
                 <li data-section="invCategories">Inv. Categories</li>
                 <li data-section="liveTiming">Live Timing</li>
+                <li data-section="weather">Weather</li>
               </ul>
 
               <div class="mlo-section-label mt-3">Appearance</div>
@@ -277,6 +278,9 @@
                   </li>
                   <li class="nav-item" role="presentation">
                     <button class="nav-link" id="tab-set-livetiming" data-bs-toggle="tab" data-bs-target="#paneLiveTiming" type="button" role="tab" aria-controls="paneLiveTiming" aria-selected="false">Live Timing</button>
+                  </li>
+                  <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tab-set-weather" data-bs-toggle="tab" data-bs-target="#paneWeather" type="button" role="tab" aria-controls="paneWeather" aria-selected="false">Weather</button>
                   </li>
                 </ul>
 
@@ -565,6 +569,38 @@
                   <div class="text-secondary mb-1" style="font-size:0.75rem;">Automatically matched from your drivers list once a live session is active.</div>
                   <div id="ltMatchedDriversTable" style="font-size:0.8rem;">
                     <span class="text-secondary">No session active — matches will appear here when timing data arrives.</span>
+                  </div>
+                </div>
+
+                <!-- WEATHER API KEYS -->
+                <div id="paneWeather" class="tab-pane fade" role="tabpanel" aria-labelledby="tab-set-weather">
+                  <div class="mlo-section-label mb-2">Weather Station — API Keys</div>
+                  <div class="text-secondary mb-3" style="font-size:.75rem;line-height:1.5;">
+                    The Weather Station works out-of-the-box with Open-Meteo (no key needed).
+                    Add optional keys below to unlock extra features.
+                  </div>
+                  <div class="col-12 mb-2">
+                    <label class="form-label fw-semibold">OpenWeatherMap Key <span class="text-secondary fw-normal" style="font-size:.7rem;">(One Call 3.0 — unlocks 60-min rain intensity chart)</span></label>
+                    <input type="password" class="form-control form-control-sm" id="setWxOWMKey" placeholder="Paste your OWM key here" autocomplete="off" />
+                    <div class="form-text">Free tier available at <a href="https://openweathermap.org/api" target="_blank" rel="noopener">openweathermap.org/api</a></div>
+                  </div>
+                  <div class="col-12 mb-2">
+                    <label class="form-label fw-semibold">WeatherAPI Key <span class="text-secondary fw-normal" style="font-size:.7rem;">(weatherapi.com — unlocks air quality &amp; heat index)</span></label>
+                    <input type="password" class="form-control form-control-sm" id="setWxWAPIKey" placeholder="Paste your WeatherAPI key here" autocomplete="off" />
+                    <div class="form-text">Free tier available at <a href="https://www.weatherapi.com" target="_blank" rel="noopener">weatherapi.com</a></div>
+                  </div>
+                  <div class="mlo-section-label mt-3 mb-2">Home / Fallback Location</div>
+                  <div class="text-secondary mb-2" style="font-size:.75rem;line-height:1.5;">
+                    When you open the Weather page with no previous location saved, this location loads automatically.
+                  </div>
+                  <div class="col-12 mb-2">
+                    <label class="form-label fw-semibold">Default Location</label>
+                    <input type="text" class="form-control form-control-sm" id="setWxHomeLocation" placeholder="e.g. Cape Town" autocomplete="off" />
+                    <div class="form-text">City name or circuit name. Defaults to Cape Town if left blank.</div>
+                  </div>
+                  <div class="col-12 mt-2">
+                    <button class="btn btn-sm btn-primary" id="btnSaveWxSettings" type="button">Save Weather Settings</button>
+                    <span id="wxSettingsSavedMsg" class="text-success ms-2" style="font-size:.8rem;display:none;">&#10003; Saved</span>
                   </div>
                 </div>
 
@@ -2001,6 +2037,39 @@
       }
       await renderList(); // refresh the middle-pane preview card
     });
+
+    // ── Weather API key settings ─────────────────────────────────────────
+    (function initWeatherSettings() {
+      const WX_CFG_KEY = 'rts.weather.cfg';
+      function wxCfg() { try { return JSON.parse(localStorage.getItem(WX_CFG_KEY) || '{}'); } catch { return {}; } }
+
+      // Populate existing values
+      const cfg = wxCfg();
+      const owmEl  = document.getElementById('setWxOWMKey');
+      const wapiEl = document.getElementById('setWxWAPIKey');
+      const homeEl = document.getElementById('setWxHomeLocation');
+      if (owmEl  && cfg.owmKey)       owmEl.value  = cfg.owmKey;
+      if (wapiEl && cfg.wapiKey)      wapiEl.value = cfg.wapiKey;
+      if (homeEl && cfg.homeLocation) homeEl.value = cfg.homeLocation;
+
+      const btnSave = document.getElementById('btnSaveWxSettings');
+      const savedMsg = document.getElementById('wxSettingsSavedMsg');
+      if (!btnSave) return;
+
+      btnSave.addEventListener('click', () => {
+        const cur = wxCfg();
+        const owm  = owmEl  ? owmEl.value.trim()  : '';
+        const wapi = wapiEl ? wapiEl.value.trim()  : '';
+        const home = homeEl ? homeEl.value.trim()  : '';
+        if (owm)  cur.owmKey       = owm;
+        if (wapi) cur.wapiKey      = wapi;
+        // Always save home location (blank = use Cape Town default)
+        cur.homeLocation = home;
+        localStorage.setItem(WX_CFG_KEY, JSON.stringify(cur));
+        if (savedMsg) { savedMsg.style.display = 'inline'; setTimeout(() => { savedMsg.style.display = 'none'; }, 2000); }
+      });
+    })();
+
     await renderList();
   })();
   </script>
