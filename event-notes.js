@@ -1164,85 +1164,150 @@
   };
   
   // Show add note modal
+  // ── Custom list-picker helpers ─────────────────────────────────────────────
+  window._ntSelectedListId = null;
+
+  window._ntToggleDropdown = function() {
+    const trigger  = document.getElementById('ntListTrigger');
+    const dropdown = document.getElementById('ntListDropdown');
+    if (!trigger || !dropdown) return;
+    const isOpen = dropdown.classList.contains('open');
+    if (isOpen) {
+      dropdown.classList.remove('open');
+      trigger.classList.remove('open');
+    } else {
+      dropdown.classList.add('open');
+      trigger.classList.add('open');
+    }
+  };
+
+  window._ntSelectList = function(id, label) {
+    window._ntSelectedListId = id;
+    // Sync hidden real <select>
+    const sel = document.getElementById('noteListSelect');
+    if (sel) sel.value = id;
+    // Update trigger text
+    const triggerText = document.getElementById('ntListTriggerText');
+    if (triggerText) { triggerText.textContent = label; triggerText.style.color = '#1a1d24'; }
+    // Mark selected option
+    document.querySelectorAll('#ntListDropdown .nt-list-option').forEach(el => {
+      el.classList.toggle('selected', el.dataset.id === String(id));
+    });
+    // Close
+    document.getElementById('ntListDropdown')?.classList.remove('open');
+    document.getElementById('ntListTrigger')?.classList.remove('open');
+  };
+
+  // Close dropdown on outside click
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('#noteModal .nt-list-picker')) {
+      document.getElementById('ntListDropdown')?.classList.remove('open');
+      document.getElementById('ntListTrigger')?.classList.remove('open');
+    }
+  });
+
+  function _ntBuildDropdown(preSelectId) {
+    const dropdown = document.getElementById('ntListDropdown');
+    const sel      = document.getElementById('noteListSelect');
+    if (!dropdown || !allAvailableLists.length) return;
+
+    const generalList = allAvailableLists.find(l => l.name === 'GENERAL LIST');
+    const customLists = allAvailableLists.filter(l => !l.event_id && l.name !== 'GENERAL LIST');
+    const eventLists  = allAvailableLists.filter(l => l.event_id);
+
+    let html = '';
+    // Sync hidden <select> options too
+    let selOptions = '<option value="">Select list…</option>';
+
+    if (generalList) {
+      html += `<div class="nt-list-group-label">System</div>`;
+      html += `<div class="nt-list-option${preSelectId===generalList.id?' selected':''}" data-id="${generalList.id}" onclick="window._ntSelectList('${generalList.id}','${generalList.name.replace(/'/g,"\\'")}')"><i class="bi bi-pin-fill nt-list-opt-icon"></i>${escapeHtml(generalList.name)}</div>`;
+      selOptions += `<option value="${generalList.id}">${generalList.name}</option>`;
+    }
+    if (customLists.length) {
+      html += `<div class="nt-list-group-label">Custom Lists</div>`;
+      customLists.forEach(l => {
+        const lbl = escapeHtml(l.name);
+        html += `<div class="nt-list-option${preSelectId===l.id?' selected':''}" data-id="${l.id}" onclick="window._ntSelectList('${l.id}','${l.name.replace(/'/g,"\\'")}')"><i class="bi bi-list-check nt-list-opt-icon"></i>${lbl}</div>`;
+        selOptions += `<option value="${l.id}">${l.name}</option>`;
+      });
+    }
+    if (eventLists.length) {
+      html += `<div class="nt-list-group-label">Event Lists</div>`;
+      eventLists.forEach(l => {
+        const name = l.event_name || l.name;
+        const lbl  = escapeHtml(name);
+        html += `<div class="nt-list-option${preSelectId===l.id?' selected':''}" data-id="${l.id}" onclick="window._ntSelectList('${l.id}','${name.replace(/'/g,"\\'")}')"><i class="bi bi-calendar-event nt-list-opt-icon"></i>${lbl}</div>`;
+        selOptions += `<option value="${l.id}">${name}</option>`;
+      });
+    }
+
+    dropdown.innerHTML = html;
+    if (sel) sel.innerHTML = selOptions;
+  }
+
   function showAddNoteModal() {
     if (!noteModal) {
       alert('Modal not initialized. Please refresh the page.');
       return;
     }
-    
-    const noteTextEl = document.getElementById('noteText');
-    const noteAuthorEl = document.getElementById('noteAuthor');
-    const noteListSelectEl = document.getElementById('noteListSelect');
-    
+
+    const noteTextEl   = document.getElementById('noteText');
     if (noteTextEl) noteTextEl.value = '';
-    if (noteAuthorEl) {
-      const savedName = localStorage.getItem('rts.notes.userName') || '';
-      noteAuthorEl.value = savedName;
+
+    // Pre-select current list
+    const preId = currentList ? currentList.id : null;
+    window._ntSelectedListId = preId;
+
+    // Build custom dropdown
+    _ntBuildDropdown(preId);
+
+    // Update trigger label
+    const triggerText = document.getElementById('ntListTriggerText');
+    const sel = document.getElementById('noteListSelect');
+    if (preId && currentList) {
+      if (triggerText) { triggerText.textContent = currentList.name; triggerText.style.color = '#1a1d24'; }
+      if (sel) sel.value = preId;
+    } else {
+      if (triggerText) { triggerText.textContent = 'Select list…'; triggerText.style.color = '#9aa3af'; }
+      if (sel) sel.value = '';
     }
-    
-    // Populate list dropdown
-    if (noteListSelectEl && allAvailableLists.length > 0) {
-      let options = '<option value="">Select list...</option>';
-      
-      // Group by type
-      const generalList = allAvailableLists.find(l => l.name === 'GENERAL LIST');
-      const customLists = allAvailableLists.filter(l => !l.event_id && l.name !== 'GENERAL LIST');
-      const eventLists = allAvailableLists.filter(l => l.event_id);
-      
-      if (generalList) {
-        options += `<option value="${generalList.id}">${generalList.name}</option>`;
-      }
-      
-      if (customLists.length > 0) {
-        options += '<option disabled>──────────</option>';
-        customLists.forEach(list => {
-          options += `<option value="${list.id}">${list.name}</option>`;
-        });
-      }
-      
-      if (eventLists.length > 0) {
-        options += '<option disabled>──────────</option>';
-        eventLists.forEach(list => {
-          options += `<option value="${list.id}">${list.event_name || list.name}</option>`;
-        });
-      }
-      
-      noteListSelectEl.innerHTML = options;
-      
-      // Pre-select current list if available
-      if (currentList) {
-        noteListSelectEl.value = currentList.id;
-      }
-    }
-    
+
     noteModal.show();
+    // Focus textarea after animation
+    setTimeout(() => noteTextEl?.focus(), 300);
   }
   
   // Save note
   async function saveNote() {
     const noteTextEl = document.getElementById('noteText');
-    const noteAuthorEl = document.getElementById('noteAuthor');
     const noteListSelectEl = document.getElementById('noteListSelect');
-    
+
     if (!noteTextEl) {
       alert('Form not initialized. Please refresh the page.');
       return;
     }
-    
+
     const text = noteTextEl.value.trim();
-    const author = noteAuthorEl ? noteAuthorEl.value.trim() : '';
     const selectedListId = noteListSelectEl ? noteListSelectEl.value : (currentList ? currentList.id : null);
-    
+
+    // Resolve logged-in user name from localStorage
+    let authorName = null;
+    try {
+      const u = JSON.parse(localStorage.getItem('user') || '{}');
+      authorName = u.name || u.full_name || u.username || null;
+    } catch(e) { /* ignore */ }
+
     if (!text) {
-      RTS.showToast('Please enter a note', 'warning');
+      RTS.showToast('Please enter a task', 'warning');
       return;
     }
-    
+
     if (!selectedListId) {
       RTS.showToast('Please select a list', 'warning');
       return;
     }
-    
+
     try {
       const resp = await fetch(
         `${API_BASE}/packing-lists/${selectedListId}/items`,
@@ -1256,30 +1321,23 @@
             item_name: text,
             category: 'general',
             priority: 'normal',
-            source_notes: author ? `Added by ${author}` : null,
+            source_notes: authorName ? `Added by ${authorName}` : null,
             quantity: 1,
             required: false
           })
         }
       ).then(r => r.json());
-      
+
       if (!resp.success) throw new Error('Failed to add note');
-      
-      if (author) {
-        localStorage.setItem('rts.notes.userName', author);
-      }
-      
+
       // Refresh current view
       if (currentList && currentList.id === selectedListId) {
         notes.push(resp.item);
         renderNotes();
         loadActivity();
         updateStats();
-      } else {
-        // Added to different list, just show success
-        RTS.showToast('Task added to selected list', 'success');
       }
-      
+
       if (noteModal) noteModal.hide();
       RTS.showToast('Task added', 'success');
     } catch (error) {

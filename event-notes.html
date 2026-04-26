@@ -1226,65 +1226,76 @@
     </div>
   </div>
 
+  <!-- Add Task Modal -->
+  <style>
+    #noteModal .modal-content { border:none; border-radius:0; overflow:hidden; box-shadow:0 24px 80px rgba(0,0,0,0.28); }
+    #noteModal .nt-header { background:#000; padding:18px 22px 17px; display:flex; justify-content:space-between; align-items:center; }
+    #noteModal .nt-header-left { display:flex; align-items:center; gap:11px; }
+    #noteModal .nt-icon-wrap { background:rgba(255,255,255,0.08); width:30px; height:30px; display:flex; align-items:center; justify-content:center; }
+    #noteModal .nt-title { color:#fff; font-weight:700; font-size:15px; margin:0; letter-spacing:-.1px; }
+    #noteModal .nt-close { background:none; border:none; color:rgba(255,255,255,.5); font-size:20px; line-height:1; cursor:pointer; padding:0; transition:color .15s; }
+    #noteModal .nt-close:hover { color:#fff; }
+    #noteModal .nt-body { padding:20px 22px 0; background:#fff; }
+    #noteModal .nt-label { display:block; font-size:10px; font-weight:700; color:#9aa3af; text-transform:uppercase; letter-spacing:.7px; margin-bottom:6px; }
+    #noteModal .nt-textarea { width:100%; border:1.5px solid #e4e7ec; padding:10px 12px; font-size:14px; color:#1a1d24; resize:vertical; outline:none; font-family:inherit; line-height:1.5; border-radius:0; transition:border-color .15s; box-sizing:border-box; }
+    #noteModal .nt-textarea:focus { border-color:#000; }
+    /* Custom list picker */
+    #noteModal .nt-list-picker { position:relative; margin-top:16px; margin-bottom:20px; }
+    #noteModal .nt-list-trigger { width:100%; border:1.5px solid #e4e7ec; padding:9px 36px 9px 12px; font-size:13px; color:#1a1d24; background:#fff; cursor:pointer; display:flex; align-items:center; justify-content:space-between; border-radius:0; transition:border-color .15s; user-select:none; }
+    #noteModal .nt-list-trigger:hover, #noteModal .nt-list-trigger.open { border-color:#000; }
+    #noteModal .nt-list-trigger-text { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; }
+    #noteModal .nt-list-trigger-chevron { color:#9aa3af; margin-left:8px; flex-shrink:0; transition:transform .2s; }
+    #noteModal .nt-list-trigger.open .nt-list-trigger-chevron { transform:rotate(180deg); }
+    #noteModal .nt-list-dropdown { display:none; position:absolute; top:100%; left:0; right:0; background:#fff; border:1.5px solid #000; border-top:none; z-index:9999; max-height:220px; overflow-y:auto; box-shadow:0 8px 24px rgba(0,0,0,0.12); }
+    #noteModal .nt-list-dropdown.open { display:block; }
+    #noteModal .nt-list-group-label { font-size:9px; font-weight:800; color:#9aa3af; text-transform:uppercase; letter-spacing:.8px; padding:8px 12px 4px; background:#f8f9fa; border-bottom:1px solid #f0f1f3; }
+    #noteModal .nt-list-option { padding:9px 12px; font-size:13px; color:#1a1d24; cursor:pointer; display:flex; align-items:center; gap:8px; transition:background .1s; border-bottom:1px solid #f5f6f8; }
+    #noteModal .nt-list-option:last-child { border-bottom:none; }
+    #noteModal .nt-list-option:hover { background:#f4f6fa; }
+    #noteModal .nt-list-option.selected { background:#000; color:#fff; }
+    #noteModal .nt-list-option.selected .nt-list-opt-icon { color:rgba(255,255,255,.7); }
+    #noteModal .nt-list-opt-icon { color:#9aa3af; font-size:11px; flex-shrink:0; }
+    #noteModal .nt-footer { background:#f8f9fa; border-top:1px solid #eee; padding:14px 22px; display:flex; justify-content:flex-end; gap:8px; }
+    #noteModal .nt-btn-cancel { padding:8px 18px; border:1.5px solid #dee2e6; background:#fff; font-size:13px; font-weight:600; color:#6b7a8d; cursor:pointer; border-radius:0; transition:background .15s; }
+    #noteModal .nt-btn-cancel:hover { background:#f0f1f3; }
+    #noteModal .nt-btn-add { padding:8px 20px; border:none; background:#000; font-size:13px; font-weight:700; color:#fff; cursor:pointer; display:flex; align-items:center; gap:7px; border-radius:0; transition:background .15s; }
+    #noteModal .nt-btn-add:hover { background:#222; }
+    /* Hidden real select kept for saveNote() compat */
+    #noteListSelect { display:none; }
+  </style>
+
   <div class="modal fade" id="noteModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered" style="max-width:480px;">
-      <div class="modal-content" style="border:none;border-radius:12px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.18);">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:460px;">
+      <div class="modal-content">
 
-        <!-- Header -->
-        <div class="modal-header" style="background:#1a1d24;border-bottom:none;padding:18px 22px 16px;">
-          <div style="display:flex;align-items:center;gap:10px;">
-            <span style="background:rgba(255,255,255,0.1);border-radius:8px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;">
-              <i class="bi bi-plus-lg" style="color:#fff;font-size:15px;"></i>
-            </span>
-            <h5 class="modal-title" style="color:#fff;font-weight:700;font-size:16px;margin:0;letter-spacing:-.2px;">New Task</h5>
+        <div class="nt-header">
+          <div class="nt-header-left">
+            <div class="nt-icon-wrap"><i class="bi bi-plus-lg" style="color:#fff;font-size:14px;"></i></div>
+            <h5 class="nt-title">New Task</h5>
           </div>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" style="opacity:.6;"></button>
+          <button class="nt-close" data-bs-dismiss="modal">&#x2715;</button>
         </div>
 
-        <!-- Body -->
-        <div class="modal-body" style="padding:22px;background:#fff;">
+        <div class="nt-body">
+          <label class="nt-label">Task</label>
+          <textarea id="noteText" class="nt-textarea" rows="3" placeholder="Describe the task…"></textarea>
 
-          <!-- Task name — primary field, largest -->
-          <div style="margin-bottom:16px;">
-            <label style="display:block;font-size:11px;font-weight:700;color:#6b7a8d;text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;">Task</label>
-            <textarea id="noteText" rows="3"
-              placeholder="Describe the task…"
-              style="width:100%;border:1.5px solid #dee2e6;border-radius:8px;padding:10px 12px;font-size:14px;color:#1a1d24;resize:vertical;outline:none;transition:border-color .15s;font-family:inherit;line-height:1.5;"
-              onfocus="this.style.borderColor='#0099cc'" onblur="this.style.borderColor='#dee2e6'"></textarea>
-          </div>
-
-          <!-- Two-column row: Add to List + Your Name -->
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-            <div>
-              <label style="display:block;font-size:11px;font-weight:700;color:#6b7a8d;text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;">Add to List</label>
-              <select id="noteListSelect"
-                style="width:100%;border:1.5px solid #dee2e6;border-radius:8px;padding:8px 10px;font-size:13px;color:#1a1d24;background:#fff;outline:none;cursor:pointer;transition:border-color .15s;"
-                onfocus="this.style.borderColor='#0099cc'" onblur="this.style.borderColor='#dee2e6'">
-                <option value="">Select list…</option>
-              </select>
+          <div class="nt-list-picker">
+            <label class="nt-label">Add to List</label>
+            <div class="nt-list-trigger" id="ntListTrigger" onclick="window._ntToggleDropdown()">
+              <span class="nt-list-trigger-text" id="ntListTriggerText" style="color:#9aa3af;">Select list…</span>
+              <i class="bi bi-chevron-down nt-list-trigger-chevron"></i>
             </div>
-            <div>
-              <label style="display:block;font-size:11px;font-weight:700;color:#6b7a8d;text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;">Your Name <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#aaa;">(optional)</span></label>
-              <input type="text" id="noteAuthor" placeholder="Who's adding this?"
-                style="width:100%;border:1.5px solid #dee2e6;border-radius:8px;padding:8px 10px;font-size:13px;color:#1a1d24;outline:none;transition:border-color .15s;font-family:inherit;"
-                onfocus="this.style.borderColor='#0099cc'" onblur="this.style.borderColor='#dee2e6'">
-            </div>
+            <div class="nt-list-dropdown" id="ntListDropdown"></div>
           </div>
-
         </div>
 
-        <!-- Footer -->
-        <div class="modal-footer" style="background:#f8f9fa;border-top:1px solid #eee;padding:14px 22px;gap:8px;">
-          <button type="button" data-bs-dismiss="modal"
-            style="padding:8px 18px;border:1.5px solid #dee2e6;background:#fff;border-radius:8px;font-size:13px;font-weight:600;color:#6b7a8d;cursor:pointer;transition:background .15s;"
-            onmouseover="this.style.background='#f0f1f3'" onmouseout="this.style.background='#fff'">
-            Cancel
-          </button>
-          <button type="button" onclick="window.saveNote()"
-            style="padding:8px 20px;border:none;background:#1a1d24;border-radius:8px;font-size:13px;font-weight:700;color:#fff;cursor:pointer;display:flex;align-items:center;gap:7px;letter-spacing:.1px;transition:background .15s;"
-            onmouseover="this.style.background='#2d3142'" onmouseout="this.style.background='#1a1d24'">
-            <i class="bi bi-plus-lg"></i> Add Task
-          </button>
+        <!-- Hidden real select (used by saveNote()) -->
+        <select id="noteListSelect"><option value="">Select list…</option></select>
+
+        <div class="nt-footer">
+          <button class="nt-btn-cancel" data-bs-dismiss="modal">Cancel</button>
+          <button class="nt-btn-add" onclick="window.saveNote()"><i class="bi bi-plus-lg"></i> Add Task</button>
         </div>
 
       </div>
