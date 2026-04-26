@@ -2,7 +2,7 @@
 (function() {
   'use strict';
   
-  console.log('📝 Event Notes module loading...');
+  console.log('Event Notes module loading...');
   
   RTS.setActiveNav();
   
@@ -30,7 +30,7 @@
   
   // Initialize
   async function init() {
-    console.log('🚀 Initializing Event Notes...');
+    console.log('Initializing Event Notes...');
     
     // Initialize modals (check if elements exist first)
     const selectModalEl = document.getElementById('selectEventModal');
@@ -87,7 +87,7 @@
     // Initialize drag-to-reorder
     initDragReorder();
     
-    console.log('✅ Event Notes initialized');
+    console.log('Event Notes initialized');
   }
   
   // Column resize functionality
@@ -166,7 +166,7 @@
         const total = isActive ? notes.length : '';
         const prog = isActive ? `<span class="sli-progress">${done}/${total}</span>` : '';
         html += `<div class="sidebar-list-item ${isActive ? 'active' : ''}" data-list-id="${generalList.id}" onclick="window.selectList('${generalList.id}', 'GENERAL')">
-          <span class="sli-icon">📌</span>
+          <span class="sli-icon"><i class="bi bi-pin-fill"></i></span>
           <span class="sli-name">General</span>
           ${prog}
         </div>`;
@@ -183,7 +183,7 @@
           const listColor = localStorage.getItem('rts.list.color.' + list.id) || '';
           const colorDot = listColor ? `<span class="sli-color-dot" style="background:${listColor};"></span>` : '';
           html += `<div class="sidebar-list-item ${isActive ? 'active' : ''}" data-list-id="${list.id}" onclick="window.selectList('${list.id}', 'CUSTOM')">
-            ${colorDot}<span class="sli-icon">📋</span>
+            ${colorDot}<span class="sli-icon"><i class="bi bi-list-check"></i></span>
             <span class="sli-name" title="${list.name}">${list.name}</span>
             ${prog}
             <span class="sli-actions" onclick="event.stopPropagation()">
@@ -203,7 +203,7 @@
           const prog = isActive ? `<span class="sli-progress">${done}/${total}</span>` : '';
           const safeName = (list.event_name || list.name).replace(/'/g, "\\'");
           html += `<div class="sidebar-list-item ${isActive ? 'active' : ''}" data-list-id="${list.id}" onclick="window.selectList('${list.id}', 'EVENT')">
-            <span class="sli-icon">📅</span>
+            <span class="sli-icon"><i class="bi bi-calendar-event"></i></span>
             <span class="sli-name" title="${list.event_name || list.name}">${list.event_name || list.name}</span>
             ${prog}
             <span class="sli-actions" onclick="event.stopPropagation()">
@@ -279,8 +279,8 @@
             const fromWhatsApp = task.whatsapp_message_id || (task.source_notes && task.source_notes.includes('WhatsApp'));
             
             let tags = [];
-            if (fromWhatsApp) tags.push('<span class="tag tag-whatsapp">📱</span>');
-            if (task.is_milestone) tags.push('<span class="tag tag-milestone">🏁</span>');
+            if (fromWhatsApp) tags.push('<span class="tag tag-whatsapp"><i class="bi bi-whatsapp"></i></span>');
+            if (task.is_milestone) tags.push('<span class="tag tag-milestone"><i class="bi bi-flag-fill"></i></span>');
             if (task.tags) {
               const taskTags = task.tags.split(',').map(t => t.trim()).filter(Boolean);
               taskTags.forEach(tag => tags.push(`<span class="tag">${escapeHtml(tag)}</span>`));
@@ -290,15 +290,15 @@
             
             const progress = task.progress_percent || 0;
             const priorityIcons = {
-              critical: '🔴',
-              high: '🟠',
-              normal: '⚪',
-              low: '🟢'
+              critical: '<i class="bi bi-circle-fill" style="color:#dc3545;font-size:10px;"></i>',
+              high:     '<i class="bi bi-circle-fill" style="color:#fd7e14;font-size:10px;"></i>',
+              normal:   '<i class="bi bi-circle-fill" style="color:#adb5bd;font-size:10px;"></i>',
+              low:      '<i class="bi bi-circle-fill" style="color:#28a745;font-size:10px;"></i>'
             };
             const priorityIcon = priorityIcons[task.priority] || priorityIcons.normal;
             
             const relationName = task._listName || 'Unknown';
-            const eventName = task.linked_event_id ? '🎯 [Event]' : '-';
+            const eventName = task.linked_event_id ? '<i class="bi bi-calendar2-event" style="font-size:11px;"></i> Event' : '-';
             const assignedTo = task.assigned_to_name || '-';
             
             return `
@@ -383,7 +383,7 @@
           <h6 class="text-muted mb-2" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">System Lists</h6>
           <div class="card event-card-general mb-2" style="cursor:pointer;" onclick="window.selectList('${generalList ? generalList.id : 'GENERAL'}', 'GENERAL')">
             <div class="card-body">
-              <h6 class="mb-1">📌 GENERAL LIST</h6>
+              <h6 class="mb-1"><i class="bi bi-pin-fill"></i> GENERAL LIST</h6>
               <small class="text-secondary">
                 Shared notes visible on all events
               </small>
@@ -403,7 +403,7 @@
             ${customLists.map(list => `
               <div class="card bg-light border-primary mb-2" style="cursor:pointer; border-left: 3px solid #0d6efd !important; position: relative;">
                 <div class="card-body" onclick="window.selectList('${list.id}', 'CUSTOM')">
-                  <h6 class="mb-1">📋 ${list.name}</h6>
+                  <h6 class="mb-1"><i class="bi bi-list-check"></i> ${list.name}</h6>
                   ${list.description ? `<small class="text-secondary">${list.description}</small>` : ''}
                 </div>
                 <button class="btn btn-sm btn-danger" onclick="window.deleteList('${list.id}', '${list.name}'); event.stopPropagation();" style="position: absolute; top: 8px; right: 8px; font-size: 0.7rem; padding: 2px 8px;">Delete</button>
@@ -431,7 +431,7 @@
             ${eventLists.map(list => `
               <div class="card bg-light border-secondary mb-2" style="cursor:pointer; position: relative;">
                 <div class="card-body" onclick="window.selectList('${list.id}', 'EVENT')">
-                  <h6 class="mb-1">📅 ${list.event_name || list.name}</h6>
+                  <h6 class="mb-1"><i class="bi bi-calendar-event"></i> ${list.event_name || list.name}</h6>
                   <small class="text-secondary">
                     ${list.description || 'Event packing list'}
                   </small>
@@ -687,7 +687,7 @@
     const gated = percent >= 100 && requiredPending.length > 0;
     const displayPercent = gated ? 99 : percent;
 
-    if (sStatPct) sStatPct.textContent = displayPercent + '%' + (gated ? ' ★' : '');
+    if (sStatPct) sStatPct.innerHTML = displayPercent + '%' + (gated ? ' <i class="bi bi-star-fill" style="color:#e67e00;font-size:10px;"></i>' : '');
 
     // Update sidebar progress bar
     const progressFill = document.getElementById('sidebarProgressFill');
@@ -803,7 +803,7 @@
       });
       
       if (filteredGeneral.length > 0) {
-        html += '<div class="mb-2 px-3 py-2" style="background: rgba(220,53,69,0.1); border-left: 3px solid #dc3545;"><strong class="text-danger">📌 GENERAL NOTES (on all events)</strong></div>';
+        html += '<div class="mb-2 px-3 py-2" style="background: rgba(220,53,69,0.1); border-left: 3px solid #dc3545;"><strong class="text-danger"><i class="bi bi-pin-fill"></i> GENERAL NOTES (on all events)</strong></div>';
         const generalTree = buildTree(filteredGeneral);
         html += renderTree(generalTree, true);
         
@@ -890,18 +890,18 @@
     const customStyle = styleParts.join(';');
 
     // Priority
-    const priorityIcons = { critical: '🔴', high: '🟠', normal: '⚪', low: '🟢' };
+    const priorityIcons = { critical: '<i class="bi bi-circle-fill" style="color:#dc3545;font-size:10px;"></i>', high: '<i class="bi bi-circle-fill" style="color:#fd7e14;font-size:10px;"></i>', normal: '<i class="bi bi-circle-fill" style="color:#adb5bd;font-size:10px;"></i>', low: '<i class="bi bi-circle-fill" style="color:#28a745;font-size:10px;"></i>' };
     const priorityIcon  = priorityIcons[note.priority] || priorityIcons.normal;
     const priorityClass = note.priority ? `priority-${note.priority}` : 'priority-normal';
 
     // Required star badge
     const requiredStar = note.required
-      ? `<span class="required-star" title="Required – must be done before 100%">★</span>`
+      ? `<span class="required-star" title="Required – must be done before 100%"><i class="bi bi-star-fill" style="color:#e67e00;font-size:10px;"></i></span>`
       : '';
 
     // Sign-off badge (who completed it and when)
     const signoffBadge = isDone && note.packed_by_name
-      ? `<span class="signoff-badge" title="${escapeHtml(note.packed_by_name)}${note.packed_at ? ' • ' + new Date(note.packed_at).toLocaleDateString('en-GB', {day:'2-digit',month:'short'}) : ''}">✓ ${escapeHtml(note.packed_by_name.split(' ')[0])}</span>`
+      ? `<span class="signoff-badge" title="${escapeHtml(note.packed_by_name)}${note.packed_at ? ' • ' + new Date(note.packed_at).toLocaleDateString('en-GB', {day:'2-digit',month:'short'}) : ''}"><i class="bi bi-check2"></i> ${escapeHtml(note.packed_by_name.split(' ')[0])}</span>`
       : '';
 
     // Overdue
@@ -909,7 +909,7 @@
 
     // Columns
     const relationName = isFromGeneral ? 'GENERAL' : (currentList?.name || 'Event List');
-    const eventName    = note.linked_event_id ? '🎯 [Event]' : '-';
+    const eventName    = note.linked_event_id ? '<i class="bi bi-calendar2-event" style="font-size:11px;"></i> Event' : '-';
     const progress     = note.progress_percent || 0;
     const dueDate      = note.due_date ? new Date(note.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-';
 
@@ -924,9 +924,9 @@
 
     // Tags
     let tags = [];
-    if (fromWhatsApp)    tags.push('<span class="tag tag-whatsapp">📱</span>');
-    if (isFromGeneral)   tags.push('<span class="tag tag-general">📌</span>');
-    if (note.is_milestone) tags.push('<span class="tag tag-milestone">🏁</span>');
+    if (fromWhatsApp)    tags.push('<span class="tag tag-whatsapp"><i class="bi bi-whatsapp"></i></span>');
+    if (isFromGeneral)   tags.push('<span class="tag tag-general"><i class="bi bi-pin-fill"></i></span>');
+    if (note.is_milestone) tags.push('<span class="tag tag-milestone"><i class="bi bi-flag-fill"></i></span>');
     if (note.tags) {
       note.tags.split(',').map(t => t.trim()).filter(Boolean)
         .forEach(tag => tags.push(`<span class="tag">${escapeHtml(tag)}</span>`));
@@ -934,7 +934,7 @@
 
     // Expand/collapse
     const hasChildren = note.children && note.children.length > 0;
-    const expandIcon  = hasChildren ? (note.is_expanded !== false ? '▼' : '▶') : '';
+    const expandIcon  = hasChildren ? (note.is_expanded !== false ? '<i class="bi bi-chevron-down" style="font-size:10px;"></i>' : '<i class="bi bi-chevron-right" style="font-size:10px;"></i>') : '';
 
     // Tree visual connector for child items
     const treePrefix = depth > 0
@@ -1079,7 +1079,7 @@
       loadActivity();
       updateStats();
       
-      RTS.showToast(`✅ Marked as done`, 'success');
+      RTS.showToast('Marked as done', 'success');
     } catch (error) {
       console.error('Error marking as done:', error);
       RTS.showToast('Failed to mark as done', 'error');
@@ -1190,20 +1190,20 @@
       const eventLists = allAvailableLists.filter(l => l.event_id);
       
       if (generalList) {
-        options += `<option value="${generalList.id}">📌 ${generalList.name}</option>`;
+        options += `<option value="${generalList.id}">${generalList.name}</option>`;
       }
       
       if (customLists.length > 0) {
         options += '<option disabled>──────────</option>';
         customLists.forEach(list => {
-          options += `<option value="${list.id}">📋 ${list.name}</option>`;
+          options += `<option value="${list.id}">${list.name}</option>`;
         });
       }
       
       if (eventLists.length > 0) {
         options += '<option disabled>──────────</option>';
         eventLists.forEach(list => {
-          options += `<option value="${list.id}">📅 ${list.event_name || list.name}</option>`;
+          options += `<option value="${list.id}">${list.event_name || list.name}</option>`;
         });
       }
       
@@ -1414,7 +1414,7 @@
             <div class="activity-item ${fromWhatsApp ? 'from-whatsapp' : ''}">
               <div class="time">${formatTimeAgo(a.action_at)}</div>
               <div style="font-size:13px;color:#333;">
-                ${fromWhatsApp ? '<span style="color:#25d366;">📱</span> ' : ''}
+                ${fromWhatsApp ? '<span style="color:#25d366;"><i class="bi bi-whatsapp"></i></span> ' : ''}
                 ${a.message || `${a.action_type} by ${a.action_by_name || 'Someone'}`}
               </div>
             </div>
@@ -1478,10 +1478,10 @@
     };
     const priorityColor = priorityColors[note.priority] || priorityColors.normal;
     
-    document.getElementById('detailHeader').textContent = isDone ? '✓ Task (Done)' : 'Task Details';
+    document.getElementById('detailHeader').innerHTML = isDone ? '<i class="bi bi-check2"></i> Task (Done)' : 'Task Details';
     document.getElementById('detailContent').innerHTML = `
       <div class="detail-section ds-task">
-        <div class="detail-section-hdr"><span class="dsh-icon">📋</span> Task</div>
+        <div class="detail-section-hdr"><span class="dsh-icon"><i class="bi bi-list-check"></i></span> Task</div>
         <div class="detail-field">
           <div class="detail-label">Name</div>
           <input type="text" class="detail-input" value="${escapeHtml(note.item_name)}" id="editTaskName">
@@ -1508,10 +1508,10 @@
             <div class="detail-field">
               <div class="detail-label">Priority</div>
               <select class="detail-input" id="editTaskPriority" style="border-left: 3px solid ${priorityColor};">
-                <option value="critical" ${note.priority === 'critical' ? 'selected' : ''}>🔴 Critical</option>
-                <option value="high" ${note.priority === 'high' ? 'selected' : ''}>🟠 High</option>
-                <option value="normal" ${note.priority === 'normal' ? 'selected' : ''}>⚪ Normal</option>
-                <option value="low" ${note.priority === 'low' ? 'selected' : ''}>🟢 Low</option>
+                <option value="critical" ${note.priority === 'critical' ? 'selected' : ''}>Critical</option>
+                <option value="high" ${note.priority === 'high' ? 'selected' : ''}>High</option>
+                <option value="normal" ${note.priority === 'normal' ? 'selected' : ''}>Normal</option>
+                <option value="low" ${note.priority === 'low' ? 'selected' : ''}>Low</option>
               </select>
             </div>
           </div>
@@ -1525,7 +1525,7 @@
       </div>
 
       <div class="detail-section ds-schedule">
-        <div class="detail-section-hdr"><span class="dsh-icon">📅</span> Schedule</div>
+        <div class="detail-section-hdr"><span class="dsh-icon"><i class="bi bi-calendar-event"></i></span> Schedule</div>
         <div class="row g-1">
           <div class="col-6">
             <div class="detail-field">
@@ -1562,7 +1562,7 @@
       </div>
 
       <div class="detail-section ds-people">
-        <div class="detail-section-hdr"><span class="dsh-icon">👤</span> People</div>
+        <div class="detail-section-hdr"><span class="dsh-icon"><i class="bi bi-person"></i></span> People</div>
         <div class="detail-field">
           <div class="detail-label">Assigned To</div>
           <input type="text" class="detail-input" value="${escapeHtml(note.assigned_to_name || '')}" id="editTaskAssignedTo" placeholder="Person's name">
@@ -1581,12 +1581,12 @@
             </div>
           </div>
         </div>
-        <button class="detail-button" style="width:100%;margin-top:5px;background:#25d366;color:#fff;border-color:#1da851;" onclick="window.sendWhatsAppReminder('${note.id}', ${isFromGeneral})">📱 Send WhatsApp Reminder</button>
-        <button class="detail-button" style="width:100%;margin-top:5px;background:#0078d4;color:#fff;border-color:#0063b1;" onclick="window.sendEmailReminder('${note.id}', ${isFromGeneral})">📧 Email Reminder</button>
+        <button class="detail-button" style="width:100%;margin-top:5px;background:#25d366;color:#fff;border-color:#1da851;" onclick="window.sendWhatsAppReminder('${note.id}', ${isFromGeneral})"><i class="bi bi-whatsapp"></i> Send WhatsApp Reminder</button>
+        <button class="detail-button" style="width:100%;margin-top:5px;background:#0078d4;color:#fff;border-color:#0063b1;" onclick="window.sendEmailReminder('${note.id}', ${isFromGeneral})"><i class="bi bi-envelope"></i> Email Reminder</button>
       </div>
 
       <div class="detail-section ds-meta">
-        <div class="detail-section-hdr"><span class="dsh-icon">🏷️</span> Tags & Meta</div>
+        <div class="detail-section-hdr"><span class="dsh-icon"><i class="bi bi-tags"></i></span> Tags &amp; Meta</div>
         <div class="row g-1">
           <div class="col-6">
             <div class="detail-field">
@@ -1619,16 +1619,16 @@
         </div>
         <div style="display:flex;align-items:center;gap:6px;margin-top:2px;">
           <input type="checkbox" id="editTaskMilestone" ${note.is_milestone ? 'checked' : ''} style="margin:0;cursor:pointer;">
-          <label for="editTaskMilestone" style="font-size:11px;color:#555;margin:0;cursor:pointer;">Milestone 🏁</label>
+          <label for="editTaskMilestone" style="font-size:11px;color:#555;margin:0;cursor:pointer;"><i class="bi bi-flag-fill"></i> Milestone</label>
         </div>
         <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
           <input type="checkbox" id="editTaskRequired" ${note.required ? 'checked' : ''} style="margin:0;cursor:pointer;">
-          <label for="editTaskRequired" style="font-size:11px;color:#e67e00;margin:0;cursor:pointer;font-weight:600;">★ Required (gates 100%)</label>
+          <label for="editTaskRequired" style="font-size:11px;color:#e67e00;margin:0;cursor:pointer;font-weight:600;"><i class="bi bi-star-fill" style="color:#e67e00;"></i> Required (gates 100%)</label>
         </div>
       </div>
 
       <div class="detail-section ds-appearance">
-        <div class="detail-section-hdr"><span class="dsh-icon">🎨</span> Appearance</div>
+        <div class="detail-section-hdr"><span class="dsh-icon"><i class="bi bi-palette"></i></span> Appearance</div>
         <div class="d-flex gap-3 mb-2">
           <div style="flex:1;">
             <div class="detail-label">Background</div>
@@ -1679,7 +1679,7 @@
 
       <div class="detail-section ds-subtasks">
         <div class="detail-section-hdr" style="justify-content:space-between;">
-          <span style="display:flex;align-items:center;gap:5px;"><span class="dsh-icon">☑</span> Subtasks</span>
+          <span style="display:flex;align-items:center;gap:5px;"><span class="dsh-icon"><i class="bi bi-check2-square"></i></span> Subtasks</span>
           <span style="font-size:9px;color:#28a745;font-weight:700;text-transform:none;letter-spacing:0;">${(isFromGeneral ? generalNotes : notes).filter(n => n.parent_item_id === noteId).filter(n => n.status==='packed'||n.status==='completed'||n.status==='loaded').length}/${(isFromGeneral ? generalNotes : notes).filter(n => n.parent_item_id === noteId).length} done</span>
         </div>
         <div id="subtaskList" style="margin-bottom:6px;">
@@ -1704,7 +1704,7 @@
 
       ${isDone && note.packed_by_name ? `
       <div class="detail-section" style="border-left-color:#28a745;">
-        <div class="detail-section-hdr"><span class="dsh-icon">✅</span> Completed By</div>
+        <div class="detail-section-hdr"><span class="dsh-icon"><i class="bi bi-check2-circle"></i></span> Completed By</div>
         <div style="font-size:12px;color:#1a1d24;">
           <strong>${escapeHtml(note.packed_by_name)}</strong>
           ${note.packed_at ? `<span style="color:#6b7a8d;"> · ${new Date(note.packed_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</span>` : ''}
@@ -1713,12 +1713,12 @@
       ` : ''}
 
       <div style="font-size:10px;color:#aaa;padding:2px 2px 10px;line-height:1.9;">
-        <span><strong>Source:</strong> ${fromWhatsApp ? '📱 WhatsApp' : '💻 Manual'}</span> &nbsp;
+        <span><strong>Source:</strong> ${fromWhatsApp ? '<i class="bi bi-whatsapp"></i> WhatsApp' : '<i class="bi bi-pencil-square"></i> Manual'}</span> &nbsp;
         <span><strong>Created:</strong> ${note.created_at ? new Date(note.created_at).toLocaleDateString() : '-'}</span>
         ${note.created_by_name ? `&nbsp;<span><strong>By:</strong> ${note.created_by_name}</span>` : ''}
       </div>
       <div class="detail-section" style="border-left-color:#f97316;">
-        <div class="detail-section-hdr"><span class="dsh-icon">🔗</span> Dependencies</div>
+        <div class="detail-section-hdr"><span class="dsh-icon"><i class="bi bi-link-45deg"></i></span> Dependencies</div>
         <div class="detail-field">
           <div class="detail-label">Blocked By</div>
           <select class="detail-input" id="editTaskDepSelect" onchange="window.addDependency(this,'${noteId}')">
@@ -1743,7 +1743,7 @@
       </div>
 
       <div class="detail-section" style="border-left-color:#8b5cf6;">
-        <div class="detail-section-hdr"><span class="dsh-icon">💬</span> Comments</div>
+        <div class="detail-section-hdr"><span class="dsh-icon"><i class="bi bi-chat-text"></i></span> Comments</div>
         <div id="taskCommentsSection"><div style="color:#bbb;font-size:11px;">Loading…</div></div>
         <div class="d-flex gap-2 mt-1">
           <input type="text" id="newCommentInput" placeholder="Add a comment…" class="detail-input" style="flex:1;"
@@ -1753,7 +1753,7 @@
       </div>
 
       <div class="detail-section" style="border-left-color:#0ea5e9;">
-        <div class="detail-section-hdr"><span class="dsh-icon">🔗</span> Links &amp; Attachments</div>
+        <div class="detail-section-hdr"><span class="dsh-icon"><i class="bi bi-link-45deg"></i></span> Links &amp; Attachments</div>
         <div id="taskLinksSection"><div style="color:#bbb;font-size:11px;">Loading…</div></div>
         <div class="d-flex gap-1 mt-1">
           <input type="text" id="newLinkLabelInput" placeholder="Label (opt)" class="detail-input" style="flex:0.7;">
@@ -1764,8 +1764,8 @@
       </div>
 
       <div class="d-flex gap-2">
-        <button class="detail-button detail-button-primary" style="flex:1;" onclick="window.saveTaskDetails('${note.id}', ${isFromGeneral})">💾 Save Changes</button>
-        <button class="detail-button" style="background:#dc3545;color:#fff;border-color:#c82333;" onclick="window.deleteNote('${note.id}', ${isFromGeneral})">🗑️</button>
+        <button class="detail-button detail-button-primary" style="flex:1;" onclick="window.saveTaskDetails('${note.id}', ${isFromGeneral})"><i class="bi bi-floppy"></i> Save Changes</button>
+        <button class="detail-button" style="background:#dc3545;color:#fff;border-color:#c82333;" onclick="window.deleteNote('${note.id}', ${isFromGeneral})"><i class="bi bi-trash3"></i></button>
       </div>
     `;
     
@@ -1937,7 +1937,7 @@
       loadActivity();
       
       if (RTS.showToast) {
-        RTS.showToast('✅ Task saved successfully', 'success');
+        RTS.showToast('Task saved successfully', 'success');
       }
     } catch (error) {
       console.error('Error saving task:', error);
@@ -1975,7 +1975,7 @@
     const dueStr = note.due_date
       ? ` (due ${new Date(note.due_date).toLocaleDateString('en-GB', {day:'2-digit',month:'short'})})`
       : '';
-    const message = `✅ Checklist Reminder: "${note.item_name}"${dueStr}\nList: ${currentList?.name || 'Checklist'}\nPlease ensure this task is completed.`;
+    const message = `Checklist Reminder: "${note.item_name}"${dueStr}\nList: ${currentList?.name || 'Checklist'}\nPlease ensure this task is completed.`;
 
     try {
       const resp = await fetch(`${API_BASE}/whatsapp/send-reminder`, {
@@ -1989,7 +1989,7 @@
 
       if (!resp.success) throw new Error(resp.error || 'Failed to send');
       localStorage.setItem('rts.notes.reminderPhone', phone);
-      RTS.showToast('📱 WhatsApp reminder sent!', 'success');
+      RTS.showToast('WhatsApp reminder sent!', 'success');
     } catch (error) {
       RTS.showToast('Failed to send reminder: ' + error.message, 'error');
     }
@@ -2008,7 +2008,7 @@
 
   // 100% complete celebration — confetti burst
   function triggerCelebration() {
-    RTS.showToast('🎉 List complete! 100% done!', 'success');
+    RTS.showToast('List complete! 100% done!', 'success');
     const container = document.createElement('div');
     container.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;overflow:hidden;';
     document.body.appendChild(container);
@@ -2030,7 +2030,7 @@
     _bulkSelectMode = !_bulkSelectMode;
     const btn = document.getElementById('btnBulkMode');
     const completeBtn = document.getElementById('btnBulkComplete');
-    if (btn) btn.textContent = _bulkSelectMode ? '✕ Cancel Select' : '☑ Select';
+    if (btn) btn.innerHTML = _bulkSelectMode ? '&#x00D7; Cancel Select' : '<i class="bi bi-check2-square"></i> Select';
     if (!_bulkSelectMode) {
       // Clear any existing selections
       document.querySelectorAll('.task-item.bulk-selected').forEach(r => r.classList.remove('bulk-selected'));
@@ -2090,7 +2090,7 @@
     renderNotes();
     updateStats();
     window.toggleBulkMode(); // reset bulk mode
-    if (RTS.showToast) RTS.showToast(`✅ Completed ${completed} task${completed !== 1 ? 's' : ''}`, 'success');
+    if (RTS.showToast) RTS.showToast(`Completed ${completed} task${completed !== 1 ? 's' : ''}`, 'success');
   };
 
   // ─── Clone List ─────────────────────────────────────────────────────────────
@@ -2155,7 +2155,7 @@
 
       await loadListsIntoSidebar();
       await window.selectList(newListId, 'custom');
-      if (RTS.showToast) RTS.showToast(`📋 Cloned as "${newName.trim()}"`, 'success');
+      if (RTS.showToast) RTS.showToast(`Cloned as "${newName.trim()}"`, 'success');
     } catch (e) {
       console.error('Clone error:', e);
       if (RTS.showToast) RTS.showToast('Failed to clone list', 'error');
@@ -2327,7 +2327,7 @@
       return d.getTime() === today.getTime() && n.status !== 'packed' && n.status !== 'completed' && n.status !== 'loaded';
     });
     if (!overdue.length && !dueToday.length) {
-      if (RTS.showToast) RTS.showToast('No overdue or due-today tasks 🎉', 'success');
+      if (RTS.showToast) RTS.showToast('No overdue or due-today tasks', 'success');
       return;
     }
     const fmt = n => `  • ${n.item_name}${n.assigned_to_name ? ' → ' + n.assigned_to_name : ''}${n.due_date ? ' (due ' + new Date(n.due_date).toLocaleDateString('en-GB') + ')' : ''}`;
@@ -2486,10 +2486,10 @@
     const allTasks  = [...(generalNotes || []), ...(notes || [])];
     const today     = new Date(); today.setHours(0,0,0,0);
     const columns   = [
-      { key: 'pending',     label: '⏳ Pending',     statuses: ['pending'],                cls: 'kanban-col-pending'  },
-      { key: 'in_progress', label: '🔵 In Progress', statuses: ['in_progress'],            cls: 'kanban-col-progress' },
-      { key: 'blocked',     label: '⛔ Blocked',     statuses: ['blocked'],                cls: 'kanban-col-blocked'  },
-      { key: 'done',        label: '✅ Done',         statuses: ['packed','completed','loaded'], cls: 'kanban-col-done' },
+      { key: 'pending',     label: 'Pending',      statuses: ['pending'],                cls: 'kanban-col-pending'  },
+      { key: 'in_progress', label: 'In Progress',  statuses: ['in_progress'],            cls: 'kanban-col-progress' },
+      { key: 'blocked',     label: 'Blocked',      statuses: ['blocked'],                cls: 'kanban-col-blocked'  },
+      { key: 'done',        label: 'Done',          statuses: ['packed','completed','loaded'], cls: 'kanban-col-done' },
     ];
     container.innerHTML = columns.map(col => {
       const tasks = allTasks.filter(n => col.statuses.includes(n.status || 'pending'));
@@ -2501,8 +2501,8 @@
           <div class="kc-name">${escapeHtml(n.item_name)}</div>
           <div class="kc-meta">
             ${n.priority && n.priority !== 'normal' ? `<span>${n.priority}</span>` : ''}
-            ${due ? `<span>📅 ${due}</span>` : ''}
-            ${n.assigned_to_name ? `<span>👤 ${escapeHtml(n.assigned_to_name)}</span>` : ''}
+            ${due ? `<span><i class="bi bi-calendar3" style="font-size:10px;"></i> ${due}</span>` : ''}
+            ${n.assigned_to_name ? `<span><i class="bi bi-person" style="font-size:10px;"></i> ${escapeHtml(n.assigned_to_name)}</span>` : ''}
           </div>
         </div>`;
       }).join('');
@@ -2543,9 +2543,9 @@
     const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
     let html  = `<div class="cal-wrap">
       <div class="cal-nav">
-        <button class="cal-nav-btn" onclick="renderCalendar(${month===0?year-1:year},${month===0?11:month-1})">◀</button>
+        <button class="cal-nav-btn" onclick="renderCalendar(${month===0?year-1:year},${month===0?11:month-1})"><i class="bi bi-chevron-left"></i></button>
         <h3>${monthName}</h3>
-        <button class="cal-nav-btn" onclick="renderCalendar(${month===11?year+1:year},${month===11?0:month+1})">▶</button>
+        <button class="cal-nav-btn" onclick="renderCalendar(${month===11?year+1:year},${month===11?0:month+1})"><i class="bi bi-chevron-right"></i></button>
       </div>
       <div class="cal-grid">`;
     html += DAYS.map(d => `<div class="cal-day-hdr">${d}</div>`).join('');
@@ -2644,7 +2644,7 @@
           status:          'pending'
         })
       });
-      if (r.ok && RTS.showToast) RTS.showToast(`🔁 Recurring task scheduled for ${nextDue || 'next occurrence'}`, 'success');
+      if (r.ok && RTS.showToast) RTS.showToast(`Recurring task scheduled for ${nextDue || 'next occurrence'}`, 'success');
     } catch(e) { console.error('recurrence spawn:', e); }
   };
 
@@ -2709,7 +2709,7 @@
       } catch(e) { fail++; }
     }
     bootstrap.Modal.getInstance(document.getElementById('bulkSpawnModal'))?.hide();
-    if (RTS.showToast) RTS.showToast(`✅ Spawned to ${ok} event${ok!==1?'s':''}${fail?' ('+fail+' failed)':''}`, ok ? 'success' : 'error');
+    if (RTS.showToast) RTS.showToast(`Spawned to ${ok} event${ok!==1?'s':''}${fail?' ('+fail+' failed)':''}`, ok ? 'success' : 'error');
   };
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -2772,7 +2772,7 @@
           if (i >= 0) Object.assign(nl[i], resp.item);
           renderNotes(); updateStats();
         }
-        RTS.showToast(`↩ Undone: ${action.desc}`, 'success');
+        RTS.showToast(`Undone: ${action.desc}`, 'success');
       } else if (action.type === 'field_change') {
         const nl   = action.isFromGeneral ? generalNotes : notes;
         const note = nl.find(n => n.id === action.noteId);
@@ -2789,7 +2789,7 @@
           const sel = document.querySelector('.task-item.selected');
           if (sel?.dataset.noteId === action.noteId) window.selectTask(action.noteId, action.isFromGeneral);
         }
-        RTS.showToast(`↩ Undone: ${action.desc}`, 'success');
+        RTS.showToast(`Undone: ${action.desc}`, 'success');
       }
     } catch(e) { console.error('Undo error:', e); RTS.showToast('Undo failed', 'error'); }
   };
@@ -2872,11 +2872,16 @@
     evt.stopPropagation();
     const note = (isFromGeneral ? generalNotes : notes).find(n => n.id === noteId);
     const cur  = note?.priority || 'normal';
-    const opts = [['critical','🔴','Critical'],['high','🟠','High'],['normal','⚪','Normal'],['low','🟢','Low']];
+    const opts = [
+      ['critical','<i class="bi bi-circle-fill" style="color:#dc3545;font-size:10px;"></i>','Critical'],
+      ['high',    '<i class="bi bi-circle-fill" style="color:#fd7e14;font-size:10px;"></i>','High'],
+      ['normal',  '<i class="bi bi-circle-fill" style="color:#adb5bd;font-size:10px;"></i>','Normal'],
+      ['low',     '<i class="bi bi-circle-fill" style="color:#28a745;font-size:10px;"></i>','Low']
+    ];
     _openInlinePopup(el,
       `<div style="font-size:9px;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;font-weight:700;">Priority</div>` +
       opts.map(([v,i,l]) =>
-        `<div onclick="window._applyIP('${noteId}',${isFromGeneral},'${v}',event)" style="padding:4px 8px;cursor:pointer;border-radius:3px;display:flex;align-items:center;gap:6px;${v===cur?'background:rgba(0,153,204,.1);font-weight:600;':''}">${i} ${l}${v===cur?' ✓':''}</div>`
+        `<div onclick="window._applyIP('${noteId}',${isFromGeneral},'${v}',event)" style="padding:4px 8px;cursor:pointer;border-radius:3px;display:flex;align-items:center;gap:6px;${v===cur?'background:rgba(0,153,204,.1);font-weight:600;':''}">${i} ${l}${v===cur?' <i class="bi bi-check2"></i>':''}</div>`
       ).join('')
     );
   };
@@ -2890,8 +2895,8 @@
       `<div style="font-size:9px;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;font-weight:700;">Assign To</div>
        <input type="text" id="_ie_a" value="${cur}" placeholder="Name(s), comma-sep" style="width:210px;padding:4px 7px;border:1px solid #c8d0da;border-radius:3px;font-size:12px;outline:none;display:block;margin-bottom:5px;" onkeydown="if(event.key==='Enter'){event.stopPropagation();window._applyIA('${noteId}',${isFromGeneral});}">
        <div style="display:flex;gap:5px;justify-content:flex-end;">
-         <button onclick="window._closeInlinePopup();event.stopPropagation();" style="padding:2px 8px;border:1px solid #ddd;background:#fff;border-radius:3px;cursor:pointer;font-size:11px;">✕</button>
-         <button onclick="window._applyIA('${noteId}',${isFromGeneral});event.stopPropagation();" style="padding:2px 8px;background:#0099cc;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;">✓ Save</button>
+         <button onclick="window._closeInlinePopup();event.stopPropagation();" style="padding:2px 8px;border:1px solid #ddd;background:#fff;border-radius:3px;cursor:pointer;font-size:11px;">×</button>
+         <button onclick="window._applyIA('${noteId}',${isFromGeneral});event.stopPropagation();" style="padding:2px 8px;background:#0099cc;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;">Save</button>
        </div>`
     );
     setTimeout(() => document.getElementById('_ie_a')?.focus(), 50);
@@ -2907,7 +2912,7 @@
        <input type="date" id="_ie_d" value="${cur}" style="width:180px;padding:4px 7px;border:1px solid #c8d0da;border-radius:3px;font-size:12px;outline:none;display:block;margin-bottom:5px;" onkeydown="if(event.key==='Enter'){event.stopPropagation();window._applyID('${noteId}',${isFromGeneral});}">
        <div style="display:flex;gap:5px;justify-content:flex-end;">
          <button onclick="window._applyID('${noteId}',${isFromGeneral},true);event.stopPropagation();" style="padding:2px 8px;border:1px solid #ddd;background:#fff;border-radius:3px;cursor:pointer;font-size:11px;">Clear</button>
-         <button onclick="window._applyID('${noteId}',${isFromGeneral});event.stopPropagation();" style="padding:2px 8px;background:#0099cc;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;">✓ Set</button>
+         <button onclick="window._applyID('${noteId}',${isFromGeneral});event.stopPropagation();" style="padding:2px 8px;background:#0099cc;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;">Set</button>
        </div>`
     );
     setTimeout(() => document.getElementById('_ie_d')?.focus(), 50);
@@ -2994,7 +2999,7 @@
     window.toggleBulkMode();
     ['bulkAssignee','bulkDueDate','bulkTags'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     ['bulkPriority','bulkStatus'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-    RTS.showToast(`✅ Updated ${ok} task${ok!==1?'s':''}${fail?' ('+fail+' failed)':''}`, ok ? 'success' : 'error');
+    RTS.showToast(`Updated ${ok} task${ok!==1?'s':''}${fail?' ('+fail+' failed)':''}`, ok ? 'success' : 'error');
   };
 
   // ── 5. PASTE-TO-TASKS ───────────────────────────────────────────────────────
@@ -3038,7 +3043,7 @@
     }
     bootstrap.Modal.getInstance(document.getElementById('pasteTasksModal'))?.hide();
     renderNotes(); updateStats();
-    RTS.showToast(`✅ Imported ${ok} task${ok!==1?'s':''}${fail?' ('+fail+' failed)':''}`, ok ? 'success' : 'error');
+    RTS.showToast(`Imported ${ok} task${ok!==1?'s':''}${fail?' ('+fail+' failed)':''}`, ok ? 'success' : 'error');
   };
 
   // ── 6. PUSH NOTIFICATIONS ───────────────────────────────────────────────────
@@ -3048,7 +3053,7 @@
     const btn  = document.getElementById('btnNotify');
     if (perm === 'granted') {
       if (btn) { btn.style.background = '#28a745'; btn.style.color = '#fff'; btn.title = 'Notifications on — click to check overdue'; }
-      RTS.showToast('🔔 Notifications enabled!', 'success');
+      RTS.showToast('Notifications enabled!', 'success');
       window._checkOverdue();
     } else {
       RTS.showToast('Notifications permission denied', 'error');
@@ -3059,10 +3064,10 @@
     const now = new Date();
     const all = [...(generalNotes||[]), ...(notes||[])];
     const ov  = all.filter(n => !['packed','loaded','completed'].includes(n.status) && n.due_date && new Date(n.due_date) < now);
-    if (!ov.length) { RTS.showToast('✅ No overdue tasks!', 'success'); return; }
+    if (!ov.length) { RTS.showToast('No overdue tasks!', 'success'); return; }
     const body = ov.slice(0,4).map(n => `• ${n.item_name}`).join('\n') + (ov.length > 4 ? `\n… +${ov.length-4} more` : '');
-    try { new Notification(`⚠️ ${ov.length} overdue task${ov.length!==1?'s':''}`, { body, tag: 'rts-overdue', requireInteraction: true }); } catch(e) { console.warn('Notification:', e); }
-    RTS.showToast(`⚠️ ${ov.length} overdue task${ov.length!==1?'s':''}`, 'warning');
+    try { new Notification(`${ov.length} overdue task${ov.length!==1?'s':''}`, { body, tag: 'rts-overdue', requireInteraction: true }); } catch(e) { console.warn('Notification:', e); }
+    RTS.showToast(`${ov.length} overdue task${ov.length!==1?'s':''}`, 'warning');
   };
   // Init notification button state on load
   setTimeout(() => {
@@ -3087,7 +3092,7 @@
       newDate = d.toISOString().slice(0, 10);
     }
     await _inlineUpdateField(noteId, isFromGeneral, { due_date: newDate }, `snoozed → ${newDate}`);
-    RTS.showToast(`⏰ Snoozed to ${newDate}`, 'success');
+    RTS.showToast(`Snoozed to ${newDate}`, 'success');
   };
 
   // ── 8. SAVED SMART VIEWS ────────────────────────────────────────────────────
@@ -3102,7 +3107,7 @@
     if (!views.length) { el.innerHTML = '<div style="padding:4px 10px;font-size:11px;color:#aaa;font-style:italic;">No saved views yet</div>'; return; }
     el.innerHTML = views.map((v, i) =>
       `<div class="sidebar-item" onclick="window.loadSavedView(${i})" style="padding-right:4px;">
-         <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(v.name)}">🔖 ${escapeHtml(v.name)}</span>
+         <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(v.name)}"><i class="bi bi-bookmark-fill" style="font-size:10px;color:#0099cc;"></i> ${escapeHtml(v.name)}</span>
          <button onclick="event.stopPropagation();window.deleteSavedView(${i})" style="background:none;border:none;color:#bbb;cursor:pointer;font-size:14px;padding:0 2px;line-height:1;" title="Delete">×</button>
        </div>`
     ).join('');
@@ -3114,7 +3119,7 @@
     const views = _svLoad();
     views.push({ name: name.trim(), filter: currentFilter, chip: _chipFilter, search: _searchQuery, groupBy: _groupBy });
     _svSave(views); _renderSavedViews();
-    RTS.showToast(`🔖 Saved "${name.trim()}"`, 'success');
+    RTS.showToast(`Saved "${name.trim()}"`, 'success');
   };
   window.loadSavedView = function(idx) {
     const v = _svLoad()[idx];
@@ -3128,7 +3133,7 @@
     const s = document.getElementById('taskSearch');    if (s) s.value = _searchQuery;
     const g = document.getElementById('groupBySelect'); if (g) g.value = _groupBy;
     renderNotes();
-    RTS.showToast(`🔖 Loaded "${v.name}"`, 'success');
+    RTS.showToast(`Loaded "${v.name}"`, 'success');
   };
   window.deleteSavedView = function(idx) { const views = _svLoad(); views.splice(idx, 1); _svSave(views); _renderSavedViews(); };
   setTimeout(_renderSavedViews, 600);
@@ -3139,7 +3144,12 @@
   window._buildGroupedHTML = function(filtered, isFromGeneral) {
     const grouped = {}, order = [];
     const PRIO_ORDER  = ['critical','high','normal','low'];
-    const PRIO_LABELS = { critical:'🔴 Critical', high:'🟠 High', normal:'⚪ Normal', low:'🟢 Low' };
+    const PRIO_LABELS = {
+      critical: '<i class="bi bi-circle-fill" style="color:#dc3545;font-size:9px;margin-right:4px;"></i>Critical',
+      high:     '<i class="bi bi-circle-fill" style="color:#fd7e14;font-size:9px;margin-right:4px;"></i>High',
+      normal:   '<i class="bi bi-circle-fill" style="color:#adb5bd;font-size:9px;margin-right:4px;"></i>Normal',
+      low:      '<i class="bi bi-circle-fill" style="color:#28a745;font-size:9px;margin-right:4px;"></i>Low'
+    };
     filtered.forEach(n => {
       let key;
       if      (_groupBy === 'priority') key = n.priority || 'normal';
@@ -3177,11 +3187,11 @@
     dayOrder.forEach(key => {
       const { label, tasks } = byDay[key];
       const done = tasks.filter(n => ['packed','completed','loaded'].includes(n.status)).length;
-      html += `<div class="group-section-header group-day-header"><span class="gsh-label">📅 ${label}</span><span class="gsh-count">${tasks.length ? done+'/'+tasks.length : 'no tasks'}</span></div>`;
+      html += `<div class="group-section-header group-day-header"><span class="gsh-label"><i class="bi bi-calendar3" style="font-size:11px;"></i> ${label}</span><span class="gsh-count">${tasks.length ? done+'/'+tasks.length : 'no tasks'}</span></div>`;
       if (tasks.length) html += renderTree(buildTree(tasks), false);
     });
     if (!html.includes('task-item')) {
-      html = '<div style="text-align:center;padding:32px 20px;color:#aaa;font-size:13px;">No tasks due in the next 7&nbsp;days 🎉</div>';
+      html = '<div style="text-align:center;padding:32px 20px;color:#aaa;font-size:13px;">No tasks due in the next 7&nbsp;days</div>';
     }
     return html;
   };
