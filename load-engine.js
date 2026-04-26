@@ -642,11 +642,20 @@ console.log('📦 load-engine.js loading...');
     else if (tab === 'assets' && key === 'status'){ filterAssetStatus = value; renderAssets();    }
     else if (tab === 'inventory')                 { filterInvCat      = value; renderInventory(); }
 
-    // Update active chip visual
-    const group = tab === 'assets' ? `assets_${key}` : `${tab}_cat`;
-    document.querySelectorAll(`[data-filter-group="${group}"]`).forEach(el => {
-      el.classList.toggle('active', el.dataset.filterValue === value);
-    });
+    // Sync dropdown selects
+    if (tab === 'boxes') {
+      const sel = document.getElementById('filterBoxSelect');
+      if (sel) sel.value = value;
+    } else if (tab === 'assets' && key === 'type') {
+      const sel = document.getElementById('filterAssetTypeSelect');
+      if (sel) sel.value = value;
+    } else if (tab === 'assets' && key === 'status') {
+      const sel = document.getElementById('filterAssetStatusSelect');
+      if (sel) sel.value = value;
+    } else if (tab === 'inventory') {
+      const sel = document.getElementById('filterInvSelect');
+      if (sel) sel.value = value;
+    }
   }
 
   // ========== TAB SWITCHING ==========
@@ -781,13 +790,13 @@ console.log('📦 load-engine.js loading...');
       currentLoad.placements.filter(p => p.type === 'inventory').map(p => p.inventoryId)
     );
 
-    // Build dynamic category chips
-    const chipsEl = document.getElementById('filterInventoryChips');
-    if (chipsEl) {
+    // Build dynamic category options in the inventory select
+    const selEl = document.getElementById('filterInvSelect');
+    if (selEl) {
       const cats = [...new Set(inventory.map(i => i.category).filter(Boolean))].sort();
-      chipsEl.innerHTML =
-        `<button class="filter-chip${filterInvCat === 'all' ? ' active' : ''}" data-filter-group="inventory_cat" data-filter-value="all" onclick="LoadEngine.setFilter('inventory','cat','all')">All</button>` +
-        cats.map(c => `<button class="filter-chip${filterInvCat === c ? ' active' : ''}" data-filter-group="inventory_cat" data-filter-value="${esc(c)}" onclick="LoadEngine.setFilter('inventory','cat',${JSON.stringify(c)})">${esc(c)}</button>`).join('');
+      selEl.innerHTML = '<option value="all">All categories</option>' +
+        cats.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+      selEl.value = filterInvCat;
     }
 
     let sorted = [...inventory];

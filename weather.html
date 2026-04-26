@@ -238,6 +238,7 @@
             <div class="mlo-section-label mb-1">Location</div>
             <div class="wx-location-row">
               <input type="text" class="form-control form-control-sm" id="wxLocationInput" placeholder="Circuit name or city…" />
+              <button class="btn btn-sm btn-outline-secondary" id="btnWxGeolocate" title="Use my current location" style="padding:3px 9px;white-space:nowrap;">📍</button>
               <button class="btn btn-sm btn-primary" id="btnWxGo" style="background:#0ea5e9;border-color:#0ea5e9;">Go</button>
             </div>
           </div>
@@ -1417,17 +1418,74 @@
 
     // Sync DB settings first (pulls weather.owmKey, weather.wapiKey, weather.homeLocation
     // into rts.settings.v1 so wxCfg() can read them) then proceed with page load.
+
+    // Reverse-geocode coords → city name via Nominatim
+    async function reverseGeocode(lat, lon) {
+      try {
+        const r = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`,
+          { headers: { 'Accept': 'application/json', 'Accept-Language': 'en' } }
+        );
+        if (!r.ok) return null;
+        const d = await r.json();
+        return d.address
+          ? (d.address.city || d.address.town || d.address.village || d.address.county || d.display_name.split(',')[0])
+          : d.display_name.split(',')[0];
+      } catch { return null; }
+    }
+
+    // Trigger browser geolocation and load weather
+    function geolocateAndLoad() {
+      if (!navigator.geolocation) return false;
+      navigator.geolocation.getCurrentPosition(
+        async pos => {
+          const { latitude: lat, longitude: lon } = pos.coords;
+          wxState.lat = lat;
+          wxState.lon = lon;
+          const name = await reverseGeocode(lat, lon) || 'My Location';
+          wxState.locationName = name;
+          document.getElementById('wxLocationInput').value = name;
+          loadWeather();
+        },
+        () => { /* permission denied or error — caller handles fallback */ },
+        { timeout: 6000, maximumAge: 300000 }
+      );
+      return true;
+    }
+
+    document.getElementById('btnWxGeolocate').addEventListener('click', () => geolocateAndLoad());
+
     function proceed() {
       const cfg = wxCfg();
 
-      // Restore last location, or fall back to home location from settings, or Cape Town
+      // Restore last location, or try geolocation, or fall back to home/Cape Town
       if (cfg.lastLat && cfg.lastLon) {
         wxState.lat  = cfg.lastLat;
         wxState.lon  = cfg.lastLon;
         wxState.locationName = cfg.lastName || '';
         if (cfg.lastQuery) document.getElementById('wxLocationInput').value = cfg.lastQuery;
         loadWeather();
+      } else if (navigator.geolocation) {
+        // Try to get current position; fall back to homeLocation/Cape Town on any error
+        navigator.geolocation.getCurrentPosition(
+          async pos => {
+            const { latitude: lat, longitude: lon } = pos.coords;
+            wxState.lat = lat;
+            wxState.lon = lon;
+            const name = await reverseGeocode(lat, lon) || 'My Location';
+            wxState.locationName = name;
+            document.getElementById('wxLocationInput').value = name;
+            loadWeather();
+          },
+          () => loadFromHome(cfg),
+          { timeout: 6000, maximumAge: 300000 }
+        );
       } else {
+        loadFromHome(cfg);
+      }
+    }
+
+    function loadFromHome(cfg) {
         // No previous location — geocode home location from settings (default: Cape Town)
         const homeQuery = (cfg.homeLocation && cfg.homeLocation.trim()) ? cfg.homeLocation.trim() : 'Cape Town';
         document.getElementById('wxLocationInput').value = homeQuery;
@@ -1444,7 +1502,6 @@
           document.getElementById('wxLocationInput').value = 'Cape Town';
           loadWeather();
         });
-      }
     }
 
     if (window.RTS && typeof RTS.syncSettingsFromDB === 'function') {
