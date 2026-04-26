@@ -23,6 +23,7 @@
   let _searchQuery = '';
   let _bulkSelectMode = false;
   let _celebratedList = null;
+  let _groupBy = 'none';
   
   // Bootstrap modals
   let selectEventModal, noteModal, createListModal;
@@ -723,13 +724,23 @@
       // Status filters
       if (currentFilter === 'pending') return note.status === 'pending';
       if (currentFilter === 'done') return note.status === 'packed' || note.status === 'loaded' || note.status === 'completed';
-      
+
       // WhatsApp filter
       if (currentFilter === 'whatsapp') {
         const fromWhatsApp = note.whatsapp_message_id || (note.source_notes && note.source_notes.includes('WhatsApp'));
         return fromWhatsApp;
       }
-      
+
+      // Next 7 days rolling view
+      if (currentFilter === '7days') {
+        const now7 = new Date(); now7.setHours(0,0,0,0);
+        const end7 = new Date(); end7.setDate(end7.getDate()+7); end7.setHours(23,59,59,999);
+        const done7 = note.status === 'packed' || note.status === 'loaded' || note.status === 'completed';
+        if (done7 || !note.due_date) return false;
+        const d = new Date(note.due_date);
+        return d >= now7 && d <= end7;
+      }
+
       return true;
     });
 
@@ -802,14 +813,20 @@
       }
     }
     
-    // Show event-specific notes as tree
+    // Show event-specific notes as tree (with optional group-by or 7-day view)
     if (filtered.length > 0) {
-      const eventTree = buildTree(filtered);
-      html += renderTree(eventTree, false);
+      if (currentFilter === '7days' && window._render7DaysGrouped) {
+        html += window._render7DaysGrouped(filtered);
+      } else if (_groupBy && _groupBy !== 'none' && window._buildGroupedHTML) {
+        html += window._buildGroupedHTML(filtered, false);
+      } else {
+        const eventTree = buildTree(filtered);
+        html += renderTree(eventTree, false);
+      }
     } else if (!html) {
       html = '<div class="text-center text-secondary py-5"><div>No notes match current filter</div></div>';
     }
-    
+
     document.getElementById('taskList').innerHTML = html || '<div class="text-center py-5" style="color:#999;"><div>No tasks yet</div></div>';
   }
   
@@ -945,7 +962,7 @@
                  style="margin:0 4px;flex-shrink:0;">
           ${requiredStar}<span class="task-name-text" style="${isDone ? 'text-decoration:line-through;color:#999;' : ''}">${escapeHtml(note.item_name)}</span>${signoffBadge}
         </div>
-        <div class="task-col task-flag-col" title="${note.priority}">${priorityIcon}</div>
+        <div class="task-col task-flag-col" title="${note.priority} — click to change" onclick="window.showInlinePriority('${note.id}',${isFromGeneral},this,event)" style="cursor:pointer;">${priorityIcon}</div>
         <div class="task-col task-relation-col">${escapeHtml(relationName)}</div>
         <div class="task-col task-event-col">${eventName}</div>
         <div class="task-col task-progress-col">
@@ -956,8 +973,11 @@
             <span style="font-size:10px;color:#666;min-width:28px;">${progress}%</span>
           </div>
         </div>
-        <div class="task-col task-date-col ${isOverdue ? 'overdue' : ''}">${dueDate}</div>
-        <div class="task-col task-assigned-col">${avatarHtml}</div>
+        <div class="task-col task-date-col ${isOverdue ? 'overdue' : ''}">
+          <span onclick="window.showInlineDueDate('${note.id}',${isFromGeneral},this,event)" style="cursor:pointer;" title="Click to set due date">${dueDate}</span>
+          ${isOverdue && !isDone ? `<span class="snooze-btns"><button class="snooze-btn" onclick="window.snoozeTask('${note.id}',4,${isFromGeneral},event)" title="Snooze +4 hours">+4h</button><button class="snooze-btn" onclick="window.snoozeTask('${note.id}','tomorrow',${isFromGeneral},event)" title="Snooze to tomorrow">Tmrw</button></span>` : ''}
+        </div>
+        <div class="task-col task-assigned-col" onclick="window.showInlineAssignee('${note.id}',${isFromGeneral},this,event)" style="cursor:pointer;" title="Click to assign">${avatarHtml}</div>
         <div class="task-col task-tags-col">${tags.join(' ')}</div>
       </div>
     `;
@@ -2713,6 +2733,469 @@
   // Also tag general notes with _isGeneral flag so kanban/calendar can use it
   const _origLoadNotesList = loadNotesList;
   // (notes array is already in scope; flag them for kanban/calendar display)
+
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // POWER FEATURES — Phase 1
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // ── 1. UNDO STACK ──────────────────────────────────────────────────────────
+  const _undoStack = [];
+  const _UNDO_MAX  = 20;
+
+  function _pushUndo(action) {
+    _undoStack.push(action);
+    if (_undoStack.length > _UNDO_MAX) _undoStack.shift();
+    const btn = document.getElementById('btnUndo');
+    if (btn) { btn.disabled = false; btn.title = `Undo: ${action.desc}  (⌘Z / Ctrl+Z)`; }
+  }
+
+  window.undoLast = async function() {
+    if (!_undoStack.length) return;
+    const action = _undoStack.pop();
+    const btn = document.getElementById('btnUndo');
+    if (btn) {
+      btn.disabled = _undoStack.length === 0;
+      btn.title = _undoStack.length > 0 ? `Undo: ${_undoStack[_undoStack.length-1].desc} (⌘Z)` : 'Nothing to undo (⌘Z)';
+    }
+    try {
+      if (action.type === 'mark_done') {
+        const listId = await getListIdForNote(action.isFromGeneral);
+        const resp = await fetch(`${API_BASE}/packing-lists/${listId}/items/${action.noteId}/mark-pending`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` },
+          body: JSON.stringify({ unmarked_by_name: 'Undo' })
+        }).then(r => r.json());
+        if (resp.success) {
+          const nl = action.isFromGeneral ? generalNotes : notes;
+          const i  = nl.findIndex(n => n.id === action.noteId);
+          if (i >= 0) Object.assign(nl[i], resp.item);
+          renderNotes(); updateStats();
+        }
+        RTS.showToast(`↩ Undone: ${action.desc}`, 'success');
+      } else if (action.type === 'field_change') {
+        const nl   = action.isFromGeneral ? generalNotes : notes;
+        const note = nl.find(n => n.id === action.noteId);
+        if (!note) return;
+        const r = await fetch(`${API_BASE}/packing-lists/${note.packing_list_id}/items/${action.noteId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` },
+          body: JSON.stringify(action.prevState)
+        }).then(r => r.json());
+        if (r.success) {
+          const i = nl.findIndex(n => n.id === action.noteId);
+          if (i >= 0) Object.assign(nl[i], r.item);
+          renderNotes(); updateStats();
+          const sel = document.querySelector('.task-item.selected');
+          if (sel?.dataset.noteId === action.noteId) window.selectTask(action.noteId, action.isFromGeneral);
+        }
+        RTS.showToast(`↩ Undone: ${action.desc}`, 'success');
+      }
+    } catch(e) { console.error('Undo error:', e); RTS.showToast('Undo failed', 'error'); }
+  };
+
+  // Wrap markAsDone to record undo state
+  (function() {
+    const _orig = window.markAsDone;
+    window.markAsDone = async function(noteId, isFromGeneral = false) {
+      const nl   = isFromGeneral ? generalNotes : notes;
+      const prev = nl.find(n => n.id === noteId);
+      const wasDone = prev && ['packed','completed','loaded'].includes(prev.status);
+      await _orig(noteId, isFromGeneral);
+      if (prev && !wasDone) _pushUndo({ type: 'mark_done', noteId, isFromGeneral, desc: `"${prev.item_name}"` });
+    };
+  })();
+
+  // Wrap saveTaskDetails to record undo state
+  (function() {
+    const _origSave = window.saveTaskDetails;
+    window.saveTaskDetails = async function(noteId, isFromGeneral = false) {
+      const nl   = isFromGeneral ? generalNotes : notes;
+      const prev = nl.find(n => n.id === noteId);
+      const prevState = prev ? { ...prev } : null;
+      await _origSave(noteId, isFromGeneral);
+      if (prevState) _pushUndo({ type: 'field_change', noteId, isFromGeneral, prevState, desc: `edit "${prevState.item_name}"` });
+    };
+  })();
+
+  // ── 2. KEYBOARD SHORTCUTS ───────────────────────────────────────────────────
+  document.addEventListener('keydown', function(e) {
+    const tag = document.activeElement?.tagName?.toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+    if (document.querySelector('.modal.show')) return;
+    const cmd = e.metaKey || e.ctrlKey;
+    if (cmd && e.key === 'z')   { e.preventDefault(); window.undoLast(); return; }
+    if (e.key === '?')           { e.preventDefault(); window.showKeyboardHelp(); return; }
+    if (e.key === 'n' && !cmd)   { e.preventDefault(); window.showAddTaskModal(); return; }
+    if (e.key === '/' && !cmd)   { e.preventDefault(); document.getElementById('taskSearch')?.focus(); return; }
+    if (e.key === 'Escape')      { document.querySelectorAll('.task-item.selected').forEach(r => r.classList.remove('selected')); _closeInlinePopup(); return; }
+    const selRow   = document.querySelector('.task-item.selected');
+    const selId    = selRow?.dataset.noteId;
+    const selFromG = selRow?.querySelector('.task-bulk-cb')?.dataset.fromGeneral === 'true';
+    if (!selId) return;
+    if (e.key === ' ')                            { e.preventDefault(); window.toggleNote(selId, selFromG); return; }
+    if (e.key === 'e')                            { e.preventDefault(); window.selectTask(selId, selFromG); return; }
+    if ((e.key === 'Delete' || e.key === 'Backspace') && !cmd) { e.preventDefault(); window.deleteNote(selId, selFromG); return; }
+    const pmap = {'1':'critical','2':'high','3':'normal','4':'low'};
+    if (pmap[e.key]) { e.preventDefault(); _inlineUpdateField(selId, selFromG, { priority: pmap[e.key] }, `priority → ${pmap[e.key]}`); }
+  });
+
+  window.showKeyboardHelp = function() {
+    const modal = document.getElementById('keyboardHelpModal');
+    if (modal) new bootstrap.Modal(modal).show();
+  };
+
+  // ── 3. INLINE EDITING ───────────────────────────────────────────────────────
+  const _iePopup = document.createElement('div');
+  _iePopup.id = 'inlineEditPopup';
+  _iePopup.style.cssText = 'display:none;position:fixed;background:#fff;border:1px solid #d0d6df;border-radius:6px;padding:8px 10px;box-shadow:0 4px 16px rgba(0,0,0,0.18);z-index:9000;min-width:160px;font-size:12px;';
+  document.body.appendChild(_iePopup);
+
+  function _closeInlinePopup() { _iePopup.style.display = 'none'; }
+  window._closeInlinePopup = _closeInlinePopup;
+
+  document.addEventListener('click', function(e) {
+    if (_iePopup.style.display !== 'none' && !_iePopup.contains(e.target)) _closeInlinePopup();
+  });
+
+  function _openInlinePopup(el, html) {
+    const rect = el.getBoundingClientRect();
+    _iePopup.innerHTML = html;
+    _iePopup.style.display = 'block';
+    let top = rect.bottom + 4, left = rect.left;
+    if (left + 230 > window.innerWidth)  left = window.innerWidth - 240;
+    if (top  + 220 > window.innerHeight) top  = rect.top - 215;
+    _iePopup.style.top = top + 'px'; _iePopup.style.left = left + 'px';
+  }
+
+  window.showInlinePriority = function(noteId, isFromGeneral, el, evt) {
+    evt.stopPropagation();
+    const note = (isFromGeneral ? generalNotes : notes).find(n => n.id === noteId);
+    const cur  = note?.priority || 'normal';
+    const opts = [['critical','🔴','Critical'],['high','🟠','High'],['normal','⚪','Normal'],['low','🟢','Low']];
+    _openInlinePopup(el,
+      `<div style="font-size:9px;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;font-weight:700;">Priority</div>` +
+      opts.map(([v,i,l]) =>
+        `<div onclick="window._applyIP('${noteId}',${isFromGeneral},'${v}',event)" style="padding:4px 8px;cursor:pointer;border-radius:3px;display:flex;align-items:center;gap:6px;${v===cur?'background:rgba(0,153,204,.1);font-weight:600;':''}">${i} ${l}${v===cur?' ✓':''}</div>`
+      ).join('')
+    );
+  };
+  window._applyIP = function(noteId, fg, priority, evt) { evt.stopPropagation(); _closeInlinePopup(); _inlineUpdateField(noteId, fg, { priority }, `priority → ${priority}`); };
+
+  window.showInlineAssignee = function(noteId, isFromGeneral, el, evt) {
+    evt.stopPropagation();
+    const note = (isFromGeneral ? generalNotes : notes).find(n => n.id === noteId);
+    const cur  = escapeHtml(note?.assigned_to_name || '');
+    _openInlinePopup(el,
+      `<div style="font-size:9px;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;font-weight:700;">Assign To</div>
+       <input type="text" id="_ie_a" value="${cur}" placeholder="Name(s), comma-sep" style="width:210px;padding:4px 7px;border:1px solid #c8d0da;border-radius:3px;font-size:12px;outline:none;display:block;margin-bottom:5px;" onkeydown="if(event.key==='Enter'){event.stopPropagation();window._applyIA('${noteId}',${isFromGeneral});}">
+       <div style="display:flex;gap:5px;justify-content:flex-end;">
+         <button onclick="window._closeInlinePopup();event.stopPropagation();" style="padding:2px 8px;border:1px solid #ddd;background:#fff;border-radius:3px;cursor:pointer;font-size:11px;">✕</button>
+         <button onclick="window._applyIA('${noteId}',${isFromGeneral});event.stopPropagation();" style="padding:2px 8px;background:#0099cc;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;">✓ Save</button>
+       </div>`
+    );
+    setTimeout(() => document.getElementById('_ie_a')?.focus(), 50);
+  };
+  window._applyIA = function(noteId, fg) { const v = document.getElementById('_ie_a')?.value ?? ''; _closeInlinePopup(); _inlineUpdateField(noteId, fg, { assigned_to_name: v }, `assignee → "${v||'none'}"`); };
+
+  window.showInlineDueDate = function(noteId, isFromGeneral, el, evt) {
+    evt.stopPropagation();
+    const note = (isFromGeneral ? generalNotes : notes).find(n => n.id === noteId);
+    const cur  = note?.due_date || '';
+    _openInlinePopup(el,
+      `<div style="font-size:9px;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;font-weight:700;">Due Date</div>
+       <input type="date" id="_ie_d" value="${cur}" style="width:180px;padding:4px 7px;border:1px solid #c8d0da;border-radius:3px;font-size:12px;outline:none;display:block;margin-bottom:5px;" onkeydown="if(event.key==='Enter'){event.stopPropagation();window._applyID('${noteId}',${isFromGeneral});}">
+       <div style="display:flex;gap:5px;justify-content:flex-end;">
+         <button onclick="window._applyID('${noteId}',${isFromGeneral},true);event.stopPropagation();" style="padding:2px 8px;border:1px solid #ddd;background:#fff;border-radius:3px;cursor:pointer;font-size:11px;">Clear</button>
+         <button onclick="window._applyID('${noteId}',${isFromGeneral});event.stopPropagation();" style="padding:2px 8px;background:#0099cc;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;">✓ Set</button>
+       </div>`
+    );
+    setTimeout(() => document.getElementById('_ie_d')?.focus(), 50);
+  };
+  window._applyID = function(noteId, fg, clear = false) { const v = clear ? null : (document.getElementById('_ie_d')?.value || null); _closeInlinePopup(); _inlineUpdateField(noteId, fg, { due_date: v }, `due date → ${v||'cleared'}`); };
+
+  async function _inlineUpdateField(noteId, isFromGeneral, fields, desc) {
+    const nl   = isFromGeneral ? generalNotes : notes;
+    const note = nl.find(n => n.id === noteId);
+    if (!note) return;
+    const prevState = {};
+    Object.keys(fields).forEach(k => { prevState[k] = note[k]; });
+    try {
+      const r = await fetch(`${API_BASE}/packing-lists/${note.packing_list_id}/items/${noteId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` },
+        body: JSON.stringify(fields)
+      }).then(r => r.json());
+      if (r.success) {
+        const i = nl.findIndex(n => n.id === noteId);
+        if (i >= 0) Object.assign(nl[i], r.item);
+        renderNotes(); updateStats();
+        _pushUndo({ type: 'field_change', noteId, isFromGeneral, prevState, desc });
+        const sel = document.querySelector('.task-item.selected');
+        if (sel?.dataset.noteId === noteId) window.selectTask(noteId, isFromGeneral);
+      }
+    } catch(e) { console.error('Inline edit error:', e); RTS.showToast('Failed to update', 'error'); }
+  }
+
+  // ── 4. BULK EDIT ────────────────────────────────────────────────────────────
+  (function() {
+    const _origToggle = window.toggleBulkMode;
+    window.toggleBulkMode = function() {
+      _origToggle();
+      if (!_bulkSelectMode) {
+        const bar = document.getElementById('bulkEditBar');
+        if (bar) bar.style.display = 'none';
+      }
+    };
+    const _origHandle = window.handleTaskCheckbox;
+    window.handleTaskCheckbox = function(noteId, isFromGeneral, el) {
+      _origHandle(noteId, isFromGeneral, el);
+      const count   = document.querySelectorAll('.task-item.bulk-selected').length;
+      const bar     = document.getElementById('bulkEditBar');
+      const countEl = document.getElementById('bulkEditCount');
+      if (bar)     bar.style.display     = (_bulkSelectMode && count > 0) ? 'flex' : 'none';
+      if (countEl) countEl.textContent   = count;
+    };
+  })();
+
+  window.applyBulkEdit = async function() {
+    const rows = [...document.querySelectorAll('.task-item.bulk-selected')];
+    if (!rows.length) return;
+    const updates  = {};
+    const assignee = document.getElementById('bulkAssignee')?.value.trim();
+    const priority = document.getElementById('bulkPriority')?.value;
+    const status   = document.getElementById('bulkStatus')?.value;
+    const dueDate  = document.getElementById('bulkDueDate')?.value;
+    const tags     = document.getElementById('bulkTags')?.value.trim();
+    if (assignee) updates.assigned_to_name = assignee;
+    if (priority) updates.priority  = priority;
+    if (status)   updates.status    = status;
+    if (dueDate)  updates.due_date  = dueDate;
+    if (tags)     updates.tags      = tags;
+    if (!Object.keys(updates).length) { RTS.showToast('Set at least one field to update', 'warning'); return; }
+    const token = localStorage.getItem('auth_token');
+    let ok = 0, fail = 0;
+    for (const row of rows) {
+      const nId = row.dataset.noteId;
+      const fg  = row.querySelector('.task-bulk-cb')?.dataset.fromGeneral === 'true';
+      const nl  = fg ? generalNotes : notes;
+      const n   = nl.find(x => x.id === nId);
+      if (!n) continue;
+      try {
+        const r = await fetch(`${API_BASE}/packing-lists/${n.packing_list_id}/items/${nId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify(updates)
+        }).then(r => r.json());
+        if (r.success) { const i = nl.findIndex(x => x.id === nId); if (i >= 0) Object.assign(nl[i], r.item); ok++; } else fail++;
+      } catch(e) { fail++; }
+    }
+    renderNotes(); updateStats();
+    window.toggleBulkMode();
+    ['bulkAssignee','bulkDueDate','bulkTags'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    ['bulkPriority','bulkStatus'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    RTS.showToast(`✅ Updated ${ok} task${ok!==1?'s':''}${fail?' ('+fail+' failed)':''}`, ok ? 'success' : 'error');
+  };
+
+  // ── 5. PASTE-TO-TASKS ───────────────────────────────────────────────────────
+  window.showPasteModal = function() {
+    if (!currentList) { RTS.showToast('Select a list first', 'warning'); return; }
+    const modal = document.getElementById('pasteTasksModal');
+    if (modal) {
+      document.getElementById('pasteText').value   = '';
+      document.getElementById('pastePreview').innerHTML = '';
+      new bootstrap.Modal(modal).show();
+    }
+  };
+  window.previewPaste = function() {
+    const lines = (document.getElementById('pasteText')?.value || '').split('\n')
+      .map(l => l.replace(/^[-•*>\s]+/, '').trim()).filter(Boolean);
+    const el = document.getElementById('pastePreview');
+    if (!el) return;
+    el.innerHTML = lines.length
+      ? `<div style="font-size:11px;color:#666;margin-bottom:4px;">${lines.length} task${lines.length!==1?'s':''} to import:</div>`
+        + lines.map((l,i) => `<div style="padding:3px 6px;background:#f8f9fa;border-radius:3px;margin-bottom:2px;font-size:11px;display:flex;gap:6px;"><span style="color:#28a745;font-weight:700;min-width:16px;">${i+1}</span><span>${escapeHtml(l)}</span></div>`).join('')
+      : '';
+  };
+  window.importPastedTasks = async function() {
+    const text     = document.getElementById('pasteText')?.value   || '';
+    const priority = document.getElementById('pastePriority')?.value || 'normal';
+    const category = document.getElementById('pasteCategory')?.value?.trim() || 'general';
+    const lines    = text.split('\n').map(l => l.replace(/^[-•*>\s]+/, '').trim()).filter(Boolean);
+    if (!lines.length) { RTS.showToast('Nothing to import', 'warning'); return; }
+    if (!currentList)  { RTS.showToast('Select a list first', 'warning'); return; }
+    const token = localStorage.getItem('auth_token');
+    let ok = 0, fail = 0;
+    for (let i = 0; i < lines.length; i++) {
+      try {
+        const r = await fetch(`${API_BASE}/packing-lists/${currentList.id}/items`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ item_name: lines[i], priority, category, quantity: 1, required: false, sort_order: (notes.length + i) * 10 })
+        }).then(r => r.json());
+        if (r.success) { notes.push(r.item); ok++; } else fail++;
+      } catch(e) { fail++; }
+    }
+    bootstrap.Modal.getInstance(document.getElementById('pasteTasksModal'))?.hide();
+    renderNotes(); updateStats();
+    RTS.showToast(`✅ Imported ${ok} task${ok!==1?'s':''}${fail?' ('+fail+' failed)':''}`, ok ? 'success' : 'error');
+  };
+
+  // ── 6. PUSH NOTIFICATIONS ───────────────────────────────────────────────────
+  window.setupNotifications = async function() {
+    if (!('Notification' in window)) { RTS.showToast('Notifications not supported in this browser', 'error'); return; }
+    const perm = await Notification.requestPermission();
+    const btn  = document.getElementById('btnNotify');
+    if (perm === 'granted') {
+      if (btn) { btn.style.background = '#28a745'; btn.style.color = '#fff'; btn.title = 'Notifications on — click to check overdue'; }
+      RTS.showToast('🔔 Notifications enabled!', 'success');
+      window._checkOverdue();
+    } else {
+      RTS.showToast('Notifications permission denied', 'error');
+    }
+  };
+  window._checkOverdue = function() {
+    if (!('Notification' in window) || Notification.permission !== 'granted') { RTS.showToast('Enable notifications first', 'warning'); return; }
+    const now = new Date();
+    const all = [...(generalNotes||[]), ...(notes||[])];
+    const ov  = all.filter(n => !['packed','loaded','completed'].includes(n.status) && n.due_date && new Date(n.due_date) < now);
+    if (!ov.length) { RTS.showToast('✅ No overdue tasks!', 'success'); return; }
+    const body = ov.slice(0,4).map(n => `• ${n.item_name}`).join('\n') + (ov.length > 4 ? `\n… +${ov.length-4} more` : '');
+    try { new Notification(`⚠️ ${ov.length} overdue task${ov.length!==1?'s':''}`, { body, tag: 'rts-overdue', requireInteraction: true }); } catch(e) { console.warn('Notification:', e); }
+    RTS.showToast(`⚠️ ${ov.length} overdue task${ov.length!==1?'s':''}`, 'warning');
+  };
+  // Init notification button state on load
+  setTimeout(() => {
+    const btn = document.getElementById('btnNotify');
+    if (btn && 'Notification' in window && Notification.permission === 'granted') {
+      btn.style.background = '#28a745'; btn.style.color = '#fff';
+    }
+  }, 800);
+
+  // ── 7. SNOOZE TASKS ─────────────────────────────────────────────────────────
+  window.snoozeTask = async function(noteId, amount, isFromGeneral, evt) {
+    evt.stopPropagation();
+    const noteList = isFromGeneral ? generalNotes : notes;
+    const note     = noteList.find(n => n.id === noteId);
+    if (!note) return;
+    let newDate;
+    if (amount === 'tomorrow') {
+      const d = new Date(); d.setDate(d.getDate() + 1);
+      newDate = d.toISOString().slice(0, 10);
+    } else {
+      const d = new Date(); d.setHours(d.getHours() + amount);
+      newDate = d.toISOString().slice(0, 10);
+    }
+    await _inlineUpdateField(noteId, isFromGeneral, { due_date: newDate }, `snoozed → ${newDate}`);
+    RTS.showToast(`⏰ Snoozed to ${newDate}`, 'success');
+  };
+
+  // ── 8. SAVED SMART VIEWS ────────────────────────────────────────────────────
+  const _SV_KEY = 'rts.savedViews';
+  function _svLoad() { try { return JSON.parse(localStorage.getItem(_SV_KEY) || '[]'); } catch { return []; } }
+  function _svSave(v) { localStorage.setItem(_SV_KEY, JSON.stringify(v)); }
+
+  function _renderSavedViews() {
+    const el = document.getElementById('savedViewsList');
+    if (!el) return;
+    const views = _svLoad();
+    if (!views.length) { el.innerHTML = '<div style="padding:4px 10px;font-size:11px;color:#aaa;font-style:italic;">No saved views yet</div>'; return; }
+    el.innerHTML = views.map((v, i) =>
+      `<div class="sidebar-item" onclick="window.loadSavedView(${i})" style="padding-right:4px;">
+         <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(v.name)}">🔖 ${escapeHtml(v.name)}</span>
+         <button onclick="event.stopPropagation();window.deleteSavedView(${i})" style="background:none;border:none;color:#bbb;cursor:pointer;font-size:14px;padding:0 2px;line-height:1;" title="Delete">×</button>
+       </div>`
+    ).join('');
+  }
+
+  window.saveCurrentView = function() {
+    const name = prompt('Name for this smart view:', '');
+    if (!name?.trim()) return;
+    const views = _svLoad();
+    views.push({ name: name.trim(), filter: currentFilter, chip: _chipFilter, search: _searchQuery, groupBy: _groupBy });
+    _svSave(views); _renderSavedViews();
+    RTS.showToast(`🔖 Saved "${name.trim()}"`, 'success');
+  };
+  window.loadSavedView = function(idx) {
+    const v = _svLoad()[idx];
+    if (!v) return;
+    currentFilter = v.filter  || 'all';
+    _chipFilter   = v.chip    || 'all';
+    _searchQuery  = v.search  || '';
+    _groupBy      = v.groupBy || 'none';
+    document.querySelectorAll('.sidebar-item[data-view]').forEach(el => el.classList.toggle('active', el.dataset.view === currentFilter));
+    document.querySelectorAll('.filter-chip').forEach(el => el.classList.toggle('active', el.dataset.chip === _chipFilter));
+    const s = document.getElementById('taskSearch');    if (s) s.value = _searchQuery;
+    const g = document.getElementById('groupBySelect'); if (g) g.value = _groupBy;
+    renderNotes();
+    RTS.showToast(`🔖 Loaded "${v.name}"`, 'success');
+  };
+  window.deleteSavedView = function(idx) { const views = _svLoad(); views.splice(idx, 1); _svSave(views); _renderSavedViews(); };
+  setTimeout(_renderSavedViews, 600);
+
+  // ── 9. GROUP BY ─────────────────────────────────────────────────────────────
+  window.setGroupBy = function(val) { _groupBy = val || 'none'; renderNotes(); };
+
+  window._buildGroupedHTML = function(filtered, isFromGeneral) {
+    const grouped = {}, order = [];
+    const PRIO_ORDER  = ['critical','high','normal','low'];
+    const PRIO_LABELS = { critical:'🔴 Critical', high:'🟠 High', normal:'⚪ Normal', low:'🟢 Low' };
+    filtered.forEach(n => {
+      let key;
+      if      (_groupBy === 'priority') key = n.priority || 'normal';
+      else if (_groupBy === 'category') key = n.category?.trim() || 'Uncategorised';
+      else if (_groupBy === 'assignee') key = n.assigned_to_name ? n.assigned_to_name.split(',')[0].trim() : 'Unassigned';
+      else key = 'All';
+      if (!grouped[key]) { grouped[key] = []; order.push(key); }
+      grouped[key].push(n);
+    });
+    const sortedKeys = _groupBy === 'priority' ? PRIO_ORDER.filter(k => grouped[k]) : order;
+    let html = '';
+    sortedKeys.forEach(key => {
+      const tasks = grouped[key];
+      const label = _groupBy === 'priority' ? (PRIO_LABELS[key] || key) : key;
+      const done  = tasks.filter(n => ['packed','completed','loaded'].includes(n.status)).length;
+      html += `<div class="group-section-header"><span class="gsh-label">${escapeHtml(label)}</span><span class="gsh-count">${done}/${tasks.length}</span></div>`;
+      html += renderTree(buildTree(tasks), isFromGeneral);
+    });
+    return html;
+  };
+
+  // ── 10. NEXT 7 DAYS VIEW ────────────────────────────────────────────────────
+  window._render7DaysGrouped = function(filtered) {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const byDay = {}, dayOrder = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(today); d.setDate(today.getDate() + i);
+      const key   = d.toISOString().slice(0, 10);
+      const label = i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : d.toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'short' });
+      byDay[key]  = { label, tasks: [] };
+      dayOrder.push(key);
+    }
+    filtered.forEach(n => { const k = n.due_date?.slice(0, 10); if (byDay[k]) byDay[k].tasks.push(n); });
+    let html = '';
+    dayOrder.forEach(key => {
+      const { label, tasks } = byDay[key];
+      const done = tasks.filter(n => ['packed','completed','loaded'].includes(n.status)).length;
+      html += `<div class="group-section-header group-day-header"><span class="gsh-label">📅 ${label}</span><span class="gsh-count">${tasks.length ? done+'/'+tasks.length : 'no tasks'}</span></div>`;
+      if (tasks.length) html += renderTree(buildTree(tasks), false);
+    });
+    if (!html.includes('task-item')) {
+      html = '<div style="text-align:center;padding:32px 20px;color:#aaa;font-size:13px;">No tasks due in the next 7&nbsp;days 🎉</div>';
+    }
+    return html;
+  };
+
+  // Extend switchView to handle '7days'
+  (function() {
+    const _origSwitch = window.switchView;
+    window.switchView = function(view) {
+      currentFilter = view;
+      document.querySelectorAll('.sidebar-item, .sidebar-list-item').forEach(item => item.classList.remove('active'));
+      document.querySelector(`.sidebar-item[data-view="${view}"]`)?.classList.add('active');
+      renderNotes();
+    };
+  })();
 
   // Start
   if (document.readyState === 'loading') {

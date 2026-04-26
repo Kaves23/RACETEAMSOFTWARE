@@ -977,6 +977,48 @@
     .dep-tags { display:flex; gap:3px; flex-wrap:wrap; margin-top:4px; }
     .dep-tag  { background:#fff3e0; color:#9a3412; border-radius:3px; padding:2px 7px; font-size:10px; font-weight:600; display:inline-flex; align-items:center; gap:3px; }
     .dep-tag .dep-x { background:none; border:none; color:#9a3412; cursor:pointer; font-size:11px; padding:0; line-height:1; }
+
+    /* ── Snooze buttons on overdue rows ── */
+    .snooze-btns { display:inline-flex; gap:2px; margin-left:4px; vertical-align:middle; }
+    .snooze-btn {
+      font-size:9px; padding:1px 4px; border:1px solid #ffc107; background:#fff8e1; color:#856404;
+      border-radius:3px; cursor:pointer; white-space:nowrap; line-height:1.4;
+    }
+    .snooze-btn:hover { background:#ffc107; color:#000; }
+
+    /* ── Group-by / 7-day section headers ── */
+    .group-section-header {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:5px 10px 4px; margin-top:4px;
+      background:#f0f4f8; border-left:3px solid #0099cc;
+      border-bottom:1px solid #e2e8f0;
+      font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:#4a5568;
+    }
+    .group-section-header:first-child { margin-top:0; }
+    .group-day-header { border-left-color:#e67e00; }
+    .gsh-label { flex:1; }
+    .gsh-count { color:#28a745; font-size:10px; font-weight:700; white-space:nowrap; }
+
+    /* ── Bulk edit bar ── */
+    .bulk-edit-bar {
+      display:none; padding:5px 10px; gap:6px; align-items:center; flex-wrap:wrap;
+      background:#e8f4fd; border-bottom:1px solid #b3d4f0; font-size:11px;
+    }
+    .bulk-edit-bar .be-label { font-weight:700; color:#1565c0; white-space:nowrap; }
+    .bulk-edit-bar input, .bulk-edit-bar select {
+      padding:3px 7px; border:1px solid #b0c4de; border-radius:3px; font-size:11px;
+      background:#fff; outline:none; height:24px;
+    }
+    .bulk-edit-bar input:focus, .bulk-edit-bar select:focus { border-color:#0099cc; }
+    .bulk-edit-btn {
+      padding:3px 10px; background:#0099cc; color:#fff; border:none; border-radius:3px;
+      cursor:pointer; font-size:11px; white-space:nowrap; height:24px;
+    }
+    .bulk-edit-btn:hover { background:#007aa3; }
+
+    /* ── Keyboard shortcut help ── */
+    .kbd-table td { padding:3px 8px; font-size:12px; border-bottom:1px solid #f0f0f0; }
+    .kbd-table td:first-child { font-family:monospace; background:#f5f5f5; border-radius:3px; font-weight:700; white-space:nowrap; }
   </style>
 </head>
 <body class="light-mode">
@@ -1041,6 +1083,18 @@
           <div id="dynamicLists"></div>
         </div>
 
+        <!-- SMART VIEWS card -->
+        <div class="sidebar-section-card">
+          <div class="sidebar-header" style="display:flex;justify-content:space-between;align-items:center;">
+            <span>Smart Views</span>
+            <button onclick="window.saveCurrentView()" style="background:none;border:none;cursor:pointer;font-size:16px;padding:0 2px;color:#0099cc;line-height:1;font-weight:700;" title="Save current view as smart view">+</button>
+          </div>
+          <div class="sidebar-item" data-view="7days" onclick="window.switchView('7days')">
+            <span>📅 Next 7 Days</span>
+          </div>
+          <div id="savedViewsList"></div>
+        </div>
+
       </div>
     </div>
 
@@ -1058,6 +1112,16 @@
         <button onclick="window.sendEmailDigest()" title="Email overdue/due-today digest" style="background:#f8f9fa;color:#1a1d24;border-color:#d0d3d8;"><svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.1em;margin-right:4px"><rect x="2" y="4" width="16" height="13" rx="1"/><path d="M2 4l8 7 8-7"/></svg>Digest</button>
         <button onclick="window.showBulkSpawnModal()" title="Spawn this list to multiple events" style="background:#f8f9fa;color:#1a1d24;border-color:#d0d3d8;"><svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.1em;margin-right:4px"><path d="M16 3l3 3-3 3M3 6h16"/><path d="M4 17l-3-3 3-3M17 14H1"/></svg>Spawn</button>
         <button onclick="window.printChecklist()" title="Print checklist" style="background:#f8f9fa;color:#1a1d24;border-color:#d0d3d8;"><svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.1em;margin-right:4px"><path d="M5 8H3a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1h2"/><path d="M15 8h2a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-2"/><rect x="5" y="3" width="10" height="5"/><rect x="5" y="12" width="10" height="5"/></svg>Print</button>
+        <button id="btnUndo" onclick="window.undoLast()" title="Nothing to undo (⌘Z)" disabled style="background:#f8f9fa;color:#aaa;border-color:#d0d3d8;">↩ Undo</button>
+        <button onclick="window.showPasteModal()" title="Paste a bullet list as tasks" style="background:#f8f9fa;color:#1a1d24;border-color:#d0d3d8;">📋 Paste</button>
+        <select id="groupBySelect" onchange="window.setGroupBy(this.value)" title="Group tasks by field" style="padding:4px 6px;font-size:11px;border:1px solid #e0e0e0;border-radius:3px;background:#f8f9fa;color:#1a1d24;cursor:pointer;height:28px;">
+          <option value="none">Group by…</option>
+          <option value="priority">Priority</option>
+          <option value="category">Category</option>
+          <option value="assignee">Assignee</option>
+        </select>
+        <button id="btnNotify" onclick="window.setupNotifications()" title="Enable push notifications for overdue tasks" style="background:#f8f9fa;color:#1a1d24;border-color:#d0d3d8;">🔔</button>
+        <button onclick="window.showKeyboardHelp()" title="Keyboard shortcuts" style="background:#f8f9fa;color:#888;border-color:#d0d3d8;padding:6px 8px;font-size:11px;">?</button>
         <input type="text" id="taskSearch" placeholder="Search tasks…"
                style="padding:4px 10px;font-size:12px;border:1px solid #e0e0e0;border-radius:3px;width:190px;outline:none;"
                oninput="window.filterTasks(this.value)">
@@ -1072,6 +1136,29 @@
         <span class="filter-chip chip-critical" data-chip="critical" onclick="window.setChipFilter('critical')"><svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.1em;margin-right:3px"><circle cx="10" cy="10" r="7.5"/><path d="M10 6v5"/><circle cx="10" cy="14.5" r=".75" fill="currentColor" stroke="none"/></svg>Critical</span>
         <span class="filter-chip chip-blocked" data-chip="blocked" onclick="window.setChipFilter('blocked')"><svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.1em;margin-right:3px"><circle cx="10" cy="10" r="7.5"/><path d="M5 5l10 10"/></svg>Blocked</span>
         <span class="filter-chip chip-required" data-chip="required" onclick="window.setChipFilter('required')">★ Required</span>
+      </div>
+
+      <!-- Bulk Edit Bar (shown when tasks are selected in bulk mode) -->
+      <div id="bulkEditBar" class="bulk-edit-bar">
+        <span class="be-label">Bulk Edit <span id="bulkEditCount">0</span> tasks:</span>
+        <input  type="text"   id="bulkAssignee" placeholder="Assignee…"      style="width:110px;">
+        <select id="bulkPriority">
+          <option value="">Priority…</option>
+          <option value="critical">🔴 Critical</option>
+          <option value="high">🟠 High</option>
+          <option value="normal">⚪ Normal</option>
+          <option value="low">🟢 Low</option>
+        </select>
+        <select id="bulkStatus">
+          <option value="">Status…</option>
+          <option value="pending">Pending</option>
+          <option value="in_progress">In Progress</option>
+          <option value="completed">Completed</option>
+          <option value="blocked">Blocked</option>
+        </select>
+        <input  type="date"   id="bulkDueDate"                               style="width:130px;">
+        <input  type="text"   id="bulkTags"    placeholder="Tags (comma-sep)" style="width:130px;">
+        <button class="bulk-edit-btn" onclick="window.applyBulkEdit()">Apply to <span id="bulkEditCount2"></span> tasks</button>
       </div>
 
       <!-- Print Header (hidden on screen, shown on print) -->
@@ -1226,6 +1313,79 @@
           <span id="spawnSelectedCount" style="font-size:12px;color:#666;margin-right:auto;">0 events selected</span>
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
           <button type="button" class="btn btn-primary" onclick="window.executeBulkSpawn()"><svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.1em;margin-right:4px"><path d="M16 3l3 3-3 3M3 6h16"/><path d="M4 17l-3-3 3-3M17 14H1"/></svg>Spawn to Selected</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Paste-to-Tasks Modal -->
+  <div class="modal fade" id="pasteTasksModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">📋 Paste List as Tasks</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p style="font-size:13px;color:#555;margin-bottom:8px;">Paste any bullet list — one line per task. Dashes, bullets (•), asterisks (*) are stripped automatically.</p>
+          <div class="row g-2 mb-2">
+            <div class="col-6">
+              <label style="font-size:11px;font-weight:600;color:#555;text-transform:uppercase;">Priority for all</label>
+              <select class="form-select form-select-sm" id="pastePriority">
+                <option value="normal">⚪ Normal</option>
+                <option value="critical">🔴 Critical</option>
+                <option value="high">🟠 High</option>
+                <option value="low">🟢 Low</option>
+              </select>
+            </div>
+            <div class="col-6">
+              <label style="font-size:11px;font-weight:600;color:#555;text-transform:uppercase;">Category</label>
+              <input type="text" class="form-control form-control-sm" id="pasteCategory" placeholder="e.g. Setup, Logistics…">
+            </div>
+          </div>
+          <textarea class="form-control" id="pasteText" rows="8" placeholder="Paste your list here, e.g.:
+- Set up timing screens
+- Check fuel loads
+- Brief drivers on track limits
+• Prepare tyre allocation sheets
+* Contact hotels for late check-out" oninput="window.previewPaste()" style="font-size:13px;font-family:monospace;"></textarea>
+          <div id="pastePreview" style="margin-top:8px;max-height:200px;overflow-y:auto;"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" onclick="window.importPastedTasks()">Import Tasks</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Keyboard Shortcuts Help Modal -->
+  <div class="modal fade" id="keyboardHelpModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">⌨️ Keyboard Shortcuts</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body" style="font-size:13px;">
+          <table class="kbd-table w-100">
+            <tr><td>N</td><td>New task</td></tr>
+            <tr><td>/</td><td>Focus search bar</td></tr>
+            <tr><td>Space</td><td>Toggle selected task done/pending</td></tr>
+            <tr><td>E</td><td>Open detail panel for selected task</td></tr>
+            <tr><td>Delete / Backspace</td><td>Delete selected task</td></tr>
+            <tr><td>⌘Z / Ctrl+Z</td><td>Undo last action</td></tr>
+            <tr><td>1</td><td>Set priority → Critical 🔴</td></tr>
+            <tr><td>2</td><td>Set priority → High 🟠</td></tr>
+            <tr><td>3</td><td>Set priority → Normal ⚪</td></tr>
+            <tr><td>4</td><td>Set priority → Low 🟢</td></tr>
+            <tr><td>Escape</td><td>Deselect task / close popups</td></tr>
+            <tr><td>?</td><td>Show this help</td></tr>
+          </table>
+          <p class="mt-3 mb-0" style="font-size:11px;color:#888;">Click a priority icon 🔴/🟠/⚪/🟢 to change priority inline. Click the due date to set a date. Click the assignee avatar to reassign.</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
         </div>
       </div>
     </div>
