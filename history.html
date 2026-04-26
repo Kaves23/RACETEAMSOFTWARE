@@ -197,6 +197,24 @@
       font-size: .67rem; color: #b8bfc9; font-family: monospace; max-width: 148px;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
+
+    /* ── Git commit rows ────────────────────────────────────────── */
+    .feed-item.git-commit {
+      background: linear-gradient(90deg, #f0f4ff 0%, #f8f9ff 100%);
+      border-left: 4px solid #4f46e5;
+      border-radius: 8px;
+      margin-bottom: 4px;
+    }
+    .feed-item.git-commit .feed-icon { background: #e0e7ff; color: #4f46e5; }
+    .feed-item.git-commit .feed-entity-name { color: #312e81; font-family: 'Courier New', monospace; font-size: .78rem; }
+    .action-git_commit { background: #e0e7ff; color: #312e81; border: 1px solid #a5b4fc; }
+    .git-commit-subject { font-size: .8rem; color: #1e1b4b; margin-top: 3px; line-height: 1.4; }
+    .git-commit-prefix { font-weight: 700; }
+    .git-commit-prefix.feat { color: #059669; }
+    .git-commit-prefix.fix  { color: #dc2626; }
+    .git-commit-prefix.style{ color: #7c3aed; }
+    .git-commit-prefix.refactor{ color: #d97706; }
+    .git-commit-prefix.chore{ color: #6b7280; }
   </style>
 </head>
 <body class="page-history light-mode">
@@ -295,6 +313,15 @@
           <button class="btn btn-sm btn-primary flex-fill" id="btnFilter">Filter</button>
           <button class="btn btn-sm btn-outline-secondary" id="btnClear" title="Clear filters">✕</button>
         </div>
+        <div class="col-12" style="margin-top:4px">
+          <div class="form-check form-switch d-inline-flex align-items-center gap-2" style="margin:0">
+            <input class="form-check-input" type="checkbox" id="toggleCommits" checked style="cursor:pointer">
+            <label class="form-check-label" for="toggleCommits" style="font-size:.78rem;cursor:pointer;color:#4f46e5;font-weight:600">
+              <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.1em;margin-right:3px"><circle cx="10" cy="10" r="2.5"/><path d="M2 10h5.5M12.5 10H18"/></svg>
+              Show git commits
+            </label>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -344,6 +371,7 @@
       mileage_added: _I('<path d="M3 14.5a7 7 0 0 1 14 0"/><line x1="10" y1="14.5" x2="14" y2="8.5"/><circle cx="10" cy="14.5" r="1.25" fill="currentColor" stroke="none"/>'),
       used:          _I('<path d="M3 18V3"/><path d="M3 3l14 5-14 5"/>'),
       software_update: _I('<path d="M4 16l4-8 2 4 2-2 4 6"/><circle cx="15" cy="5" r="2.5"/><path d="M12.5 5H4"/>'),
+      git_commit:      _I('<circle cx="10" cy="10" r="2.5"/><path d="M2 10h5.5M12.5 10H18"/><circle cx="10" cy="10" r="5.5" stroke-dasharray="2 2"/>'),
     };
     const ACTION_SVGS_DEFAULT = _I('<circle cx="10" cy="10" r="5"/>');
 
@@ -435,6 +463,51 @@
       truck:      () => 'vehicles.html',
     };
 
+    // ── Git commits ────────────────────────────────────────────────────────────
+    let gitCommits = [];  // populated once on load
+
+    async function loadGitCommits() {
+      try {
+        const resp = await fetch('git-log.json?v=' + Date.now());
+        if (!resp.ok) return;
+        gitCommits = await resp.json();
+      } catch (e) {
+        console.warn('git-log.json not available', e);
+      }
+    }
+
+    function buildCommitRow(commit) {
+      const ts = new Date(commit.date);
+      const iconSvg = ACTION_SVGS.git_commit;
+      const subject = commit.subject || '';
+      // Detect conventional commit prefix (feat:, fix:, style:, etc.)
+      const prefixMatch = subject.match(/^(feat|fix|style|refactor|chore|docs|test|perf)(\(.+?\))?(!)?:/);
+      let subjectHtml;
+      if (prefixMatch) {
+        const tag = prefixMatch[1];
+        const rest = esc(subject.slice(prefixMatch[0].length).trim());
+        subjectHtml = `<span class="git-commit-prefix ${tag}">${esc(prefixMatch[0])}</span> ${rest}`;
+      } else {
+        subjectHtml = esc(subject);
+      }
+      return `
+        <li class="feed-item git-commit">
+          <div class="feed-icon icon-git_commit">${iconSvg}</div>
+          <div class="feed-body">
+            <div class="feed-headline">
+              <span class="action-badge action-git_commit">git commit</span>
+              <span class="feed-entity-name">${esc(commit.hash)}</span>
+            </div>
+            <div class="git-commit-subject">${subjectHtml}</div>
+          </div>
+          <div class="feed-context"></div>
+          <div class="feed-time" title="${esc(ts.toISOString())}">
+            <span class="time-hhmm">${fmtTime(ts)}</span>
+            <span class="time-date">${fmtDateShort(ts)}</span>
+          </div>
+        </li>`;
+    }
+
     // ── Software update banner ─────────────────────────────────────────────────
     function buildSoftwareUpdateRow() {
       const cfg = window.RTS_CONFIG;
@@ -472,7 +545,25 @@
     // ── Feed rendering ─────────────────────────────────────────────────────────
     function renderFeed(logs) {
       const container = document.getElementById('feedContainer');
-      if (!logs.length) {
+      const showCommits = document.getElementById('toggleCommits')?.checked !== false;
+
+      // Merge audit logs + git commits into one sorted array (newest first)
+      const combined = [...logs.map(l => ({ type: 'log', ts: new Date(l.created_at), data: l }))];
+      if (showCommits) {
+        // Filter commits to date range of current logs page OR show all if no logs
+        const logStart = logs.length ? new Date(logs[logs.length - 1].created_at) : null;
+        const logEnd   = logs.length ? new Date(logs[0].created_at) : null;
+        gitCommits.forEach(c => {
+          const ct = new Date(c.date);
+          // Always include if no logs; otherwise include if commit falls in the displayed date window
+          if (!logStart || (ct >= logStart && ct <= new Date(logEnd.getTime() + 86400000))) {
+            combined.push({ type: 'commit', ts: ct, data: c });
+          }
+        });
+      }
+      combined.sort((a, b) => b.ts - a.ts);
+
+      if (!combined.length) {
         container.innerHTML = '<div class="empty-state"><div style="display:flex;justify-content:center;margin-bottom:12px"><svg width="52" height="52" viewBox="0 0 20 20" fill="none" stroke="#c0c4cc" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 13h4l2 3h4l2-3h4"/><path d="M2 13V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v8"/></svg></div><h5 class="mt-0">No activity found</h5><p>Try adjusting the filters above.</p></div>';
         return;
       }
@@ -482,13 +573,18 @@
       html += buildSoftwareUpdateRow();
       let lastDay = null;
 
-      for (const log of logs) {
-        const ts  = new Date(log.created_at);
-        const dk  = dayKey(ts);
+      for (const entry of combined) {
+        const ts = entry.ts;
+        const dk = dayKey(ts);
         if (dk !== lastDay) {
           lastDay = dk;
           html += `<li class="day-divider"><span>${esc(fmtDayHeading(ts))}</span></li>`;
         }
+        if (entry.type === 'commit') {
+          html += buildCommitRow(entry.data);
+          continue;
+        }
+        const log = entry.data;
 
         const iconSvg    = ACTION_SVGS[log.action] || ACTION_SVGS_DEFAULT;
         const entityName = esc(log.entity_name || log.entity_id || '—');
@@ -575,7 +671,8 @@
         const total  = result.total ?? result.count ?? 0;
         currentTotal  = total;
         currentOffset = offset;
-        renderFeed(result.logs || []);
+        lastLogs = result.logs || [];
+        renderFeed(lastLogs);
         renderPagination();
         const pageEnd = offset + (result.logs?.length || 0);
         const range   = total > LIMIT ? ` (showing ${offset + 1}–${pageEnd})` : '';
@@ -766,8 +863,15 @@
     }
 
     // ── Init ───────────────────────────────────────────────────────────────────
-    loadStats();    loadChart();    loadLogs(currentParams, 0);
+    document.getElementById('toggleCommits').addEventListener('change', () => {
+      renderFeed(lastLogs);
+    });
+
+    let lastLogs = [];
+
+    loadStats();
+    loadChart();
+    loadGitCommits().then(() => loadLogs(currentParams, 0));
   </script>
 </body>
 </html>
-  <style>
