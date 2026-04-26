@@ -641,7 +641,16 @@
 
   /* ── Helpers ────────────────────────────────────────────────────────────── */
   function wxCfg() {
-    try { return JSON.parse(localStorage.getItem(CFG_KEY) || '{}'); } catch { return {}; }
+    // Merge DB-synced RTS settings (weather namespace) with local weather cfg.
+    // DB keys take priority so all users share them once an admin saves in Settings.
+    const local = (function(){ try { return JSON.parse(localStorage.getItem(CFG_KEY) || '{}'); } catch { return {}; } })();
+    const rtsWx = (window.RTS && typeof RTS.getSettings === 'function') ? (RTS.getSettings().weather || {}) : {};
+    // RTS DB keys override local; last location stays local-only (per-user)
+    return Object.assign({}, local, {
+      owmKey:       rtsWx.owmKey       || local.owmKey       || '',
+      wapiKey:      rtsWx.wapiKey      || local.wapiKey      || '',
+      homeLocation: rtsWx.homeLocation || local.homeLocation || ''
+    });
   }
   function saveCfg(obj) {
     localStorage.setItem(CFG_KEY, JSON.stringify(obj));
@@ -1406,32 +1415,42 @@
       initTriPaneResizers(document.getElementById('wxShell'), 'rts.wx.panes');
     }
 
-    const cfg = wxCfg();
+    // Sync DB settings first (pulls weather.owmKey, weather.wapiKey, weather.homeLocation
+    // into rts.settings.v1 so wxCfg() can read them) then proceed with page load.
+    function proceed() {
+      const cfg = wxCfg();
 
-    // Restore last location, or fall back to home location from settings, or Cape Town
-    if (cfg.lastLat && cfg.lastLon) {
-      wxState.lat  = cfg.lastLat;
-      wxState.lon  = cfg.lastLon;
-      wxState.locationName = cfg.lastName || '';
-      if (cfg.lastQuery) document.getElementById('wxLocationInput').value = cfg.lastQuery;
-      loadWeather();
+      // Restore last location, or fall back to home location from settings, or Cape Town
+      if (cfg.lastLat && cfg.lastLon) {
+        wxState.lat  = cfg.lastLat;
+        wxState.lon  = cfg.lastLon;
+        wxState.locationName = cfg.lastName || '';
+        if (cfg.lastQuery) document.getElementById('wxLocationInput').value = cfg.lastQuery;
+        loadWeather();
+      } else {
+        // No previous location — geocode home location from settings (default: Cape Town)
+        const homeQuery = (cfg.homeLocation && cfg.homeLocation.trim()) ? cfg.homeLocation.trim() : 'Cape Town';
+        document.getElementById('wxLocationInput').value = homeQuery;
+        geocode(homeQuery).then(geo => {
+          wxState.lat  = geo.lat;
+          wxState.lon  = geo.lon;
+          wxState.locationName = geo.name;
+          loadWeather();
+        }).catch(() => {
+          // Hard-coded fallback: Cape Town CBD
+          wxState.lat  = -33.9249;
+          wxState.lon  =  18.4241;
+          wxState.locationName = 'Cape Town';
+          document.getElementById('wxLocationInput').value = 'Cape Town';
+          loadWeather();
+        });
+      }
+    }
+
+    if (window.RTS && typeof RTS.syncSettingsFromDB === 'function') {
+      RTS.syncSettingsFromDB().then(proceed).catch(proceed);
     } else {
-      // No previous location — geocode home location from settings (default: Cape Town)
-      const homeQuery = (cfg.homeLocation && cfg.homeLocation.trim()) ? cfg.homeLocation.trim() : 'Cape Town';
-      document.getElementById('wxLocationInput').value = homeQuery;
-      geocode(homeQuery).then(geo => {
-        wxState.lat  = geo.lat;
-        wxState.lon  = geo.lon;
-        wxState.locationName = geo.name;
-        loadWeather();
-      }).catch(() => {
-        // Hard-coded fallback: Cape Town CBD
-        wxState.lat  = -33.9249;
-        wxState.lon  =  18.4241;
-        wxState.locationName = 'Cape Town';
-        document.getElementById('wxLocationInput').value = 'Cape Town';
-        loadWeather();
-      });
+      proceed();
     }
 
     // Auto-refresh every 10 minutes

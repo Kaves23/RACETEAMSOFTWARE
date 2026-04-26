@@ -2043,29 +2043,42 @@
       const WX_CFG_KEY = 'rts.weather.cfg';
       function wxCfg() { try { return JSON.parse(localStorage.getItem(WX_CFG_KEY) || '{}'); } catch { return {}; } }
 
-      // Populate existing values
-      const cfg = wxCfg();
+      // Populate existing values — prefer DB-synced RTS settings, fall back to local weather cfg
+      const rtsWx = (window.RTS && typeof RTS.getSettings === 'function') ? (RTS.getSettings().weather || {}) : {};
+      const cfg    = wxCfg();
       const owmEl  = document.getElementById('setWxOWMKey');
       const wapiEl = document.getElementById('setWxWAPIKey');
       const homeEl = document.getElementById('setWxHomeLocation');
-      if (owmEl  && cfg.owmKey)       owmEl.value  = cfg.owmKey;
-      if (wapiEl && cfg.wapiKey)      wapiEl.value = cfg.wapiKey;
-      if (homeEl && cfg.homeLocation) homeEl.value = cfg.homeLocation;
+      if (owmEl)  owmEl.value  = rtsWx.owmKey       || cfg.owmKey       || '';
+      if (wapiEl) wapiEl.value = rtsWx.wapiKey      || cfg.wapiKey      || '';
+      if (homeEl) homeEl.value = rtsWx.homeLocation  || cfg.homeLocation || '';
 
-      const btnSave = document.getElementById('btnSaveWxSettings');
+      const btnSave  = document.getElementById('btnSaveWxSettings');
       const savedMsg = document.getElementById('wxSettingsSavedMsg');
       if (!btnSave) return;
 
-      btnSave.addEventListener('click', () => {
-        const cur = wxCfg();
+      btnSave.addEventListener('click', async () => {
         const owm  = owmEl  ? owmEl.value.trim()  : '';
         const wapi = wapiEl ? wapiEl.value.trim()  : '';
         const home = homeEl ? homeEl.value.trim()  : '';
+
+        // 1. Save to local rts.weather.cfg (instant, no auth needed)
+        const cur = wxCfg();
         if (owm)  cur.owmKey       = owm;
         if (wapi) cur.wapiKey      = wapi;
-        // Always save home location (blank = use Cape Town default)
         cur.homeLocation = home;
         localStorage.setItem(WX_CFG_KEY, JSON.stringify(cur));
+
+        // 2. Persist to DB via the shared settings endpoint so all users get the keys
+        const dbPatch = { weather: { homeLocation: home } };
+        if (owm)  dbPatch.weather.owmKey  = owm;
+        if (wapi) dbPatch.weather.wapiKey = wapi;
+        try {
+          await saveBrandingToDB(dbPatch);
+        } catch(e) {
+          console.warn('Weather settings DB save failed:', e.message);
+        }
+
         if (savedMsg) { savedMsg.style.display = 'inline'; setTimeout(() => { savedMsg.style.display = 'none'; }, 2000); }
       });
     })();
