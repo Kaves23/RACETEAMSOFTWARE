@@ -129,13 +129,19 @@ router.put('/:id', async (req, res, next) => {
       registration, name, truck_type,
       dimensions_length_m, dimensions_width_m, dimensions_height_m,
       max_weight_kg, status, notes,
-      // new fleet fields
+      // fleet fields
       make, model, year, colour, fuel_type, current_odometer_km,
       service_interval_km, service_interval_months,
       last_service_date, last_service_km, next_service_date, next_service_km,
       insurance_expiry, insurance_notes,
       roadworthy_expiry, roadworthy_notes,
-      licence_disc_expiry
+      licence_disc_expiry,
+      // NATIS / licence disc document fields
+      vin, engine_number, licence_number, series, vehicle_description,
+      vehicle_category, registered_owner, drive_type,
+      tare_weight_kg, gvm_kg,
+      licence_disc_paid_date, licence_disc_amount_paid,
+      control_number, registering_authority, nvc
     } = req.body;
 
     const result = await pool.query(
@@ -166,6 +172,21 @@ router.put('/:id', async (req, res, next) => {
          roadworthy_expiry     = $25,
          roadworthy_notes      = $26,
          licence_disc_expiry   = $27,
+         vin                        = $28,
+         engine_number              = $29,
+         licence_number             = $30,
+         series                     = $31,
+         vehicle_description        = $32,
+         vehicle_category           = $33,
+         registered_owner           = $34,
+         drive_type                 = $35,
+         tare_weight_kg             = $36,
+         gvm_kg                     = $37,
+         licence_disc_paid_date     = $38,
+         licence_disc_amount_paid   = $39,
+         control_number             = $40,
+         registering_authority      = $41,
+         nvc                        = $42,
          updated_at            = NOW()
        WHERE id = $1
        RETURNING *`,
@@ -179,7 +200,13 @@ router.put('/:id', async (req, res, next) => {
        next_service_date ?? null, next_service_km ?? null,
        insurance_expiry ?? null, insurance_notes ?? null,
        roadworthy_expiry ?? null, roadworthy_notes ?? null,
-       licence_disc_expiry ?? null]
+       licence_disc_expiry ?? null,
+       vin ?? null, engine_number ?? null, licence_number ?? null,
+       series ?? null, vehicle_description ?? null, vehicle_category ?? null,
+       registered_owner ?? null, drive_type ?? null,
+       tare_weight_kg ?? null, gvm_kg ?? null,
+       licence_disc_paid_date ?? null, licence_disc_amount_paid ?? null,
+       control_number ?? null, registering_authority ?? null, nvc ?? null]
     );
     if (result.rows.length === 0) return res.status(404).json({ success: false, error: 'Vehicle not found' });
     res.json({ success: true, truck: result.rows[0] });
