@@ -31,6 +31,32 @@
     /* ── Left pane ─────────────────────────────────────────────────────── */
     .wx-location-row { display:flex; gap:6px; }
     .wx-location-row input { flex:1; }
+
+    /* GPS locate button */
+    #btnWxGeolocate {
+      flex-shrink:0;
+      width:32px;
+      height:31px;
+      padding:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      border-radius:6px;
+      border:1.5px solid #0ea5e9;
+      background:#f0f9ff;
+      color:#0ea5e9;
+      cursor:pointer;
+      transition:background .15s,color .15s,transform .1s;
+    }
+    #btnWxGeolocate:hover  { background:#0ea5e9; color:#fff; }
+    #btnWxGeolocate:active { transform:scale(.93); }
+    #btnWxGeolocate.locating {
+      border-color:#f59e0b;
+      background:#fffbeb;
+      color:#f59e0b;
+      animation:wxGpsPulse 0.8s ease-in-out infinite alternate;
+    }
+    @keyframes wxGpsPulse { from { opacity:1; } to { opacity:.4; } }
     .wx-condition-block { text-align:center; padding:16px 8px 8px; }
     .wx-condition-icon  { font-size:3.2rem; line-height:1; }
     .wx-condition-desc  { font-size:.95rem; font-weight:600; color:#1a1d24; margin-top:4px; }
@@ -238,7 +264,16 @@
             <div class="mlo-section-label mb-1">Location</div>
             <div class="wx-location-row">
               <input type="text" class="form-control form-control-sm" id="wxLocationInput" placeholder="Circuit name or city…" />
-              <button class="btn btn-sm btn-outline-secondary" id="btnWxGeolocate" title="Use my current location" style="padding:3px 9px;white-space:nowrap;">📍</button>
+              <button id="btnWxGeolocate" title="Use my current location" aria-label="Use my current location">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="3"/>
+                  <line x1="12" y1="2" x2="12" y2="5"/>
+                  <line x1="12" y1="19" x2="12" y2="22"/>
+                  <line x1="2" y1="12" x2="5" y2="12"/>
+                  <line x1="19" y1="12" x2="22" y2="12"/>
+                  <circle cx="12" cy="12" r="7"/>
+                </svg>
+              </button>
               <button class="btn btn-sm btn-primary" id="btnWxGo" style="background:#0ea5e9;border-color:#0ea5e9;">Go</button>
             </div>
           </div>
@@ -1437,8 +1472,11 @@
     // Trigger browser geolocation and load weather
     function geolocateAndLoad() {
       if (!navigator.geolocation) return false;
+      const btn = document.getElementById('btnWxGeolocate');
+      btn.classList.add('locating');
       navigator.geolocation.getCurrentPosition(
         async pos => {
+          btn.classList.remove('locating');
           const { latitude: lat, longitude: lon } = pos.coords;
           wxState.lat = lat;
           wxState.lon = lon;
@@ -1447,7 +1485,10 @@
           document.getElementById('wxLocationInput').value = name;
           loadWeather();
         },
-        () => { /* permission denied or error — caller handles fallback */ },
+        () => {
+          btn.classList.remove('locating');
+          /* permission denied or error — caller handles fallback */
+        },
         { timeout: 6000, maximumAge: 300000 }
       );
       return true;
