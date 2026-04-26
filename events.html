@@ -48,24 +48,29 @@
       align-items: center !important;
       font-size: 0.83rem !important;
       font-weight: 500 !important;
-      padding-left: 10px !important;
+      padding-left: 12px !important;
       margin-bottom: 2px !important;
       border-radius: 5px !important;
-      border: 1px solid rgba(0,0,0,0.08) !important;
+      border: 1px solid rgba(0,0,0,0.06) !important;
       box-shadow: none !important;
       color: #1a1d24 !important;
       white-space: nowrap !important;
       overflow: hidden !important;
       text-overflow: ellipsis !important;
       cursor: pointer !important;
+      transition: filter 0.1s !important;
     }
-    #evShell .mlo-pane-left .ev-pastel li.active,
-    #evShell .mlo-pane-left .pastel-tree li.active {
+    #evShell .mlo-pane-left .ev-pastel li:hover,
+    #evShell .mlo-pane-left .pastel-tree li:hover { filter: brightness(0.95) !important; }
+    /* Smart lists (All Events, Upcoming, Past) – blue active */
+    #evShell #evPerspectiveList li.active {
       background: rgba(0,153,204,0.1) !important;
       border-color: rgba(0,153,204,0.35) !important;
       color: #0072a3 !important;
       font-weight: 700 !important;
     }
+    /* Venue items – active weight only; background/border set inline by JS */
+    #evShell #evVenueList li.active { font-weight: 700 !important; }
 
     /* ── FILTER ROW CONTROLS ─────────────────────────────────────── */
     #evShell .form-control, #evShell .form-select {
@@ -129,6 +134,35 @@
     #evShell .ev-sub-table .form-select, #evShell .ev-sub-table .form-control { font-size: 0.78rem; }
     /* Wrap a class for the table containers */
     .ev-table-wrap { border: 1px solid #dee2e6; border-radius: 6px; overflow: hidden; }
+
+    /* ── INSPECTOR SUMMARY BANNER ───────────────────────────────── */
+    #evInspectorSummary {
+      background: linear-gradient(135deg, #f8fafd 0%, #f0f4fa 100%);
+      border: 1px solid #e0e7ef;
+      border-radius: 7px;
+      padding: 10px 12px;
+      margin-bottom: 10px;
+    }
+    #evInspectorSummary .ev-ins-title {
+      font-size: 0.9rem; font-weight: 700; color: #1a1d24;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    #evInspectorSummary .ev-ins-meta {
+      font-size: 0.74rem; color: #6c757d; margin-top: 3px;
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    }
+    /* ── INSPECTOR FORM SECTION HEADS ───────────────────────────── */
+    .ev-form-section-head {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 0.67rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.06em; color: #9aa5b4;
+      padding: 8px 0 3px; border-bottom: 1px solid #e9ecef;
+      margin-top: 4px;
+    }
+    .ev-form-section-head svg { flex-shrink: 0; }
+    /* ── ACTION BUTTON ROW ────────────────────────────────────────── */
+    .ev-action-row { display: flex; gap: 6px; padding-top: 6px; border-top: 1px solid #e9ecef; }
+    .ev-action-row .btn { font-size: 0.8rem; padding: 5px 14px; display: inline-flex; align-items: center; gap: 5px; }
 
     /* ── PRINT OVERLAY (hides everything except the print sheet) ─── */
     @media print {
@@ -195,10 +229,10 @@
 
         <!-- Stats Bar -->
         <div class="ev-stats-bar">
-          <div class="ev-stat-card"><div class="ev-stat-label">📅 Total Events</div><div class="ev-stat-value" id="statEvTotal">0</div></div>
-          <div class="ev-stat-card"><div class="ev-stat-label">🔜 Upcoming</div><div class="ev-stat-value" id="statEvUpcoming">0</div></div>
-          <div class="ev-stat-card"><div class="ev-stat-label">✅ Past</div><div class="ev-stat-value" id="statEvPast">0</div></div>
-          <div class="ev-stat-card"><div class="ev-stat-label">📆 This Month</div><div class="ev-stat-value" id="statEvMonth">0</div></div>
+          <div class="ev-stat-card"><div class="ev-stat-label"><svg width="11" height="11" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.1em;margin-right:4px"><rect x="2" y="3" width="16" height="16" rx="2"/><path d="M14 1v4M6 1v4M2 9h16"/></svg>Total Events</div><div class="ev-stat-value" id="statEvTotal">0</div></div>
+          <div class="ev-stat-card"><div class="ev-stat-label"><svg width="11" height="11" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.1em;margin-right:4px"><path d="M10 2a8 8 0 1 1 0 16A8 8 0 0 1 10 2z"/><path d="M10 6v4l3 2"/></svg>Upcoming</div><div class="ev-stat-value" id="statEvUpcoming">0</div></div>
+          <div class="ev-stat-card"><div class="ev-stat-label"><svg width="11" height="11" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.1em;margin-right:4px"><path d="M10 2a8 8 0 1 1 0 16A8 8 0 0 1 10 2z"/><path d="M6.5 10.5l2.5 2.5 4-4.5"/></svg>Past</div><div class="ev-stat-value" id="statEvPast">0</div></div>
+          <div class="ev-stat-card"><div class="ev-stat-label"><svg width="11" height="11" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.1em;margin-right:4px"><rect x="2" y="3" width="16" height="16" rx="2"/><path d="M14 1v4M6 1v4M2 9h16M6 13h2v2H6z"/></svg>This Month</div><div class="ev-stat-value" id="statEvMonth">0</div></div>
         </div>
 
         <div class="mlo-shell" id="evShell">
@@ -278,6 +312,18 @@
               </div>
             </div>
             <div class="mlo-pane-content">
+              <!-- Event summary banner (populated by JS on selection) -->
+              <div id="evInspectorSummary" style="display:none;">
+                <div style="display:flex;align-items:center;gap:7px;margin-bottom:4px;">
+                  <span id="evSummaryPill" class="ev-type-pill" style="font-size:0.65rem;">—</span>
+                  <span class="ev-ins-title" id="evSummaryTitle">—</span>
+                </div>
+                <div class="ev-ins-meta">
+                  <svg width="10" height="10" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="16" height="16" rx="2"/><path d="M14 1v4M6 1v4M2 9h16"/></svg>
+                  <span id="evSummaryDates">—</span>
+                  <span id="evSummaryVenue" style="color:#0099cc;"></span>
+                </div>
+              </div>
               <ul class="nav nav-tabs nav-dark mb-2" id="evTabs" role="tablist">
                 <li class="nav-item" role="presentation">
                   <button class="nav-link active" id="tab-event" data-bs-toggle="tab" data-bs-target="#pane-event" type="button" role="tab" aria-controls="pane-event" aria-selected="true">Event</button>
@@ -300,6 +346,8 @@
                     <label class="form-label">Event title</label>
                     <input id="f_ev_title" class="form-control form-control-sm" type="text" placeholder="ROK Nationals – Round 1">
                   </div>
+
+                  <div class="col-12 ev-form-section-head"><svg width="10" height="10" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="16" height="16" rx="2"/><path d="M14 1v4M6 1v4M2 9h16"/></svg> Dates &amp; Classification</div>
 
                   <div class="col-6">
                     <label class="form-label">Start date</label>
@@ -332,6 +380,8 @@
                     <label class="form-label">Summary / brief</label>
                     <textarea id="f_ev_brief" class="form-control form-control-sm" rows="3" placeholder="Key timetable items, goals, constraints, sponsor deliverables…"></textarea>
                   </div>
+
+                  <div class="col-12 ev-form-section-head"><svg width="10" height="10" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="7" r="4"/><path d="M2 18c0-4 3.6-6 8-6s8 2 8 6"/></svg> Team</div>
 
                   <div class="col-12">
                     <label class="form-label">Drivers attending</label>
@@ -374,6 +424,8 @@
                     </div>
                   </div>
 
+                  <div class="col-12 ev-form-section-head"><svg width="10" height="10" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h14M3 10h14M3 15h14"/></svg> Documents &amp; Calendar</div>
+
                   <div class="col-12">
                     <label class="form-label">Event documents</label>
                     <div id="evDocsList" class="d-grid gap-1"></div>
@@ -399,16 +451,16 @@
                     </div>
                   </div>
 
-                  <div class="col-12 d-flex gap-1 mt-1">
-                    <button class="btn btn-sm btn-primary mlo-btn" id="btnSaveEv" type="button">Save</button>
-                    <button class="btn btn-sm btn-outline-secondary" id="btnDupEv" type="button">Duplicate</button>
-                    <button class="btn btn-sm btn-outline-danger mlo-btn" id="btnDelEv" type="button">Delete</button>
+                  <div class="col-12 ev-action-row">
+                    <button class="btn btn-sm btn-primary" id="btnSaveEv" type="button"><svg width="11" height="11" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.1em"><path d="M4 16V9h12v7a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1zM8 9V4h4v5"/></svg> Save</button>
+                    <button class="btn btn-sm btn-outline-secondary" id="btnDupEv" type="button"><svg width="11" height="11" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.1em"><rect x="7" y="7" width="10" height="10" rx="1"/><path d="M4 13H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v1"/></svg> Duplicate</button>
+                    <button class="btn btn-sm btn-outline-danger" id="btnDelEv" type="button" style="margin-left:auto;"><svg width="11" height="11" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.1em"><path d="M4 6h12m-2 0V4a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1v2m2 0v9m4-9v9"/></svg> Delete</button>
                   </div>
 
-                  <div class="col-12" style="margin-top:0.35rem;">
-                    <div class="text-secondary" style="font-size:0.75rem;">
-                      <div><span style="opacity:0.7;">Created:</span> <span id="evMetaCreated">—</span></div>
-                      <div><span style="opacity:0.7;">Updated:</span> <span id="evMetaUpdated">—</span></div>
+                  <div class="col-12" style="margin-top:0.35rem;padding-top:6px;border-top:1px solid #f0f0f0;">
+                    <div style="font-size:0.7rem;color:#9aa5b4;display:flex;gap:12px;">
+                      <span><svg width="9" height="9" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.1em;margin-right:2px"><circle cx="10" cy="10" r="8"/><path d="M10 6v4l2.5 2"/></svg>Created: <span id="evMetaCreated">—</span></span>
+                      <span>Updated: <span id="evMetaUpdated">—</span></span>
                     </div>
                   </div>
                 </div>
@@ -455,8 +507,8 @@
                       <div id="runplan_countdown" class="rp-countdown">Next: —</div>
                     </div>
                     <div class="rp-print-btns">
-                      <button class="rp-print-btn client" id="btn_rp_print_client" type="button">⬡ Print Client</button>
-                      <button class="rp-print-btn internal" id="btn_rp_print_internal" type="button">⬡ Print Internal</button>
+                      <button class="rp-print-btn client" id="btn_rp_print_client" type="button"><svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.1em;margin-right:4px"><path d="M5 7V3h10v4"/><path d="M5 13H3a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-2"/><rect x="5" y="12" width="10" height="5" rx="1"/><path d="M5 9h1"/></svg>Print Client</button>
+                      <button class="rp-print-btn internal" id="btn_rp_print_internal" type="button"><svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.1em;margin-right:4px"><path d="M5 7V3h10v4"/><path d="M5 13H3a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-2"/><rect x="5" y="12" width="10" height="5" rx="1"/><path d="M5 9h1"/></svg>Print Internal</button>
                     </div>
                   </div>
 
@@ -1480,13 +1532,17 @@
       const venuesList = venues.map(v=>v.name).filter(Boolean).sort();
       // left tree
       els.venueList.innerHTML = '';
-      const pastel = ['#b8dce8','#c2e6c8','#ffd9b0','#c9c9eb','#f2c6dd','#b5e5e8','#ddedb5','#f5d0c5','#c5dcf0'];
+      const venueColors = ['#0ea5e9','#22c55e','#f97316','#a855f7','#ec4899','#14b8a6','#eab308','#3b82f6','#ef4444'];
       venuesList.forEach((v, idx) => {
         const li = document.createElement('li');
         li.textContent = v;
-        li.classList.toggle('active', ui.venueFocus===v);
-        li.style.background = pastel[idx % pastel.length];
+        const vc = venueColors[idx % venueColors.length];
+        const isActive = ui.venueFocus === v;
+        li.classList.toggle('active', isActive);
+        li.style.background = `linear-gradient(90deg, ${vc} 3px, ${vc}${isActive ? '28' : '10'} 3px)`;
+        li.style.borderColor = isActive ? vc + '55' : 'rgba(0,0,0,0.06)';
         li.setAttribute('data-venue', v);
+        li.setAttribute('data-vc', vc);
         li.addEventListener('click', ()=>{ ui.venueFocus = (ui.venueFocus===v?'':v); saveAll(); render(); });
         els.venueList.appendChild(li);
       });
@@ -1914,13 +1970,32 @@
 
     function loadInspector() {
       const ev = getSelected();
+      const summary = document.getElementById('evInspectorSummary');
       if(!ev) {
         els.inspectorBadge.textContent = '—';
+        if (summary) summary.style.display = 'none';
         return;
       }
       ensureRunbook(ev);
       refreshInspectorOptions();
       els.inspectorBadge.textContent = String(ev.id);
+      // Populate summary banner
+      if (summary) {
+        summary.style.display = '';
+        const typeColors = typeColorMap();
+        const pill = document.getElementById('evSummaryPill');
+        if (pill) { pill.textContent = ev.type || '—'; pill.style.background = typeColors[ev.type] || '#6c757d'; }
+        const titleEl = document.getElementById('evSummaryTitle');
+        if (titleEl) titleEl.textContent = ev.title || '—';
+        const datesEl = document.getElementById('evSummaryDates');
+        if (datesEl) {
+          const s = ev.start ? ev.start.slice(0,10) : '';
+          const e = ev.end ? ev.end.slice(0,10) : '';
+          datesEl.textContent = s && e && s !== e ? `${s} → ${e}` : (s || '—');
+        }
+        const venueEl = document.getElementById('evSummaryVenue');
+        if (venueEl) venueEl.textContent = ev.venue ? `• ${ev.venue}` : '';
+      }
 
       els.f_title.value = ev.title||'';
       els.f_start.value = ev.start ? (ev.start.includes('T') ? ev.start.slice(0,10) : ev.start) : '';
