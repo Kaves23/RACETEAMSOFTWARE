@@ -56,7 +56,7 @@ router.get('/', async (req, res, next) => {
       pool.query(`
         SELECT
           inv.id, inv.sku, inv.name, inv.category, inv.quantity,
-          inv.quantity_unit, inv.reorder_point,
+          inv.unit, inv.min_quantity,
           inv.shopify_variant_id, inv.shopify_product_id,
           inv.location_id, l.name AS location_name
         FROM inventory inv
