@@ -80,10 +80,11 @@ console.log('📦 load-engine.js loading...');
             // item may be undefined for inventory-type rows — fall back to the
             // item_name / item_barcode / item_type columns returned by the
             // box-contents JOIN query (which already covers both tables)
-            const name    = item ? item.name     : c.item_name;
-            const barcode = item ? item.barcode  : c.item_barcode;
-            const type    = item ? item.item_type : c.item_type;
-            const serial  = item ? item.serial_number : (c.serial_number || null);
+            const baseName = item ? item.name     : c.item_name;
+            const barcode  = item ? item.barcode  : c.item_barcode;
+            const type     = item ? item.item_type : c.item_type;
+            const serial   = item ? item.serial_number : (c.serial_number || null);
+            const name     = c.variant_label ? `${baseName} \u2013 ${c.variant_label}` : baseName;
             if (!name) return null;
             contentsItems.push({
               id:       item ? item.id : c.item_id,
