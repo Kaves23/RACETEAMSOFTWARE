@@ -1752,7 +1752,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
         isPacked = allPacked; isPackedStyle = allPacked ? 'opacity:0.4' : ''; isPackedClass = allPacked ? 'in-box' : '';
         draggable = !allPacked; cursorStyle = allPacked ? 'cursor:not-allowed' : 'cursor:move';
         const totalQty = item.totalQuantity || 0, packedQty = item.packedQuantity || 0, availQty = item.availableQuantity || 0;
-        quantityInfo = `<div style="font-size:.75rem;color:#5f6368;margin-top:3px;font-weight:600">📦 Qty: <span style="color:#34a853">${availQty} available</span> / <span style="color:#ea4335">${packedQty} packed</span> / <span style="color:#1a73e8">${totalQty} total</span></div>`;
+        quantityInfo = `<span style="color:#34a853;font-weight:700">${availQty}</span><span style="color:#9aa0a6"> av</span> <span style="color:#9aa0a6">/</span> <span style="color:#ea4335;font-weight:700">${packedQty}</span><span style="color:#9aa0a6"> pk</span> <span style="color:#9aa0a6">/</span> <span style="color:#1a73e8;font-weight:700">${totalQty}</span><span style="color:#9aa0a6"> tot</span>`;
       } else {
         isPacked = !!item.currentBoxId; isPackedStyle = isPacked ? 'opacity:0.4' : ''; isPackedClass = isPacked ? 'in-box' : '';
         draggable = !isPacked; cursorStyle = isPacked ? 'cursor:not-allowed' : 'cursor:move';
@@ -1765,24 +1765,24 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       const typeName = assetTypeObj ? assetTypeObj.name : (item.itemType || item.type || 'equipment');
       const serialNum = item.serialNumber || 'No S/N';
       return `
-        <div class="item-card ${isPackedClass} ${selectedClass}" draggable="${draggable}" data-item-id="${item.id}" data-item-type="${item.type}" style="position:relative;padding:8px!important;padding-left:26px!important;${cursorStyle}">
-          <input type="checkbox" class="item-checkbox" data-item-id="${item.id}" onclick="event.stopPropagation(); toggleItemSelection('${item.id}')" ${isSelected ? 'checked' : ''}>
+        <div class="item-card ${isPackedClass} ${selectedClass}" draggable="${draggable}" data-item-id="${item.id}" data-item-type="${item.type}" style="position:relative;padding:4px 6px 4px 22px!important;${cursorStyle}">
+          <input type="checkbox" class="item-checkbox" data-item-id="${item.id}" onclick="event.stopPropagation(); toggleItemSelection('${item.id}')" ${isSelected ? 'checked' : ''} style="position:absolute;left:3px;top:50%;transform:translateY(-50%);margin:0">
           <div style="${isPackedStyle}">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-            <div class="item-barcode" style="font-family:monospace;font-size:.7rem;font-weight:700;color:#1a73e8">${esc(item.barcode)}</div>
-            <div class="item-category ${categoryClass}" style="font-size:.65rem;padding:2px 6px">${esc(item.category || 'Uncategorized')}</div>
+            <div style="display:flex;align-items:baseline;gap:5px;min-width:0;margin-bottom:1px">
+              <span style="font-family:monospace;font-size:.67rem;font-weight:700;color:#1a73e8;white-space:nowrap;flex-shrink:0">${esc(item.barcode)}</span>
+              <span style="font-size:.78rem;color:#202124;font-weight:600;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0">${esc(item.name)}</span>
+              <span class="item-category ${(item.category||'').toLowerCase().replace(/\s+/g,'-')}" style="font-size:.58rem;padding:1px 4px;flex-shrink:0;white-space:nowrap">${esc(item.category || '—')}</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:4px;font-size:.62rem;flex-wrap:nowrap;min-width:0">
+              <span style="background:${typeColor};color:white;font-weight:500;padding:1px 4px;border-radius:3px;white-space:nowrap;flex-shrink:0">${esc(typeName)}</span>
+              ${item.shopify_variant_id ? '<span style="background:#96bf48;color:#fff;font-weight:600;padding:1px 4px;border-radius:3px;flex-shrink:0">SHOPIFY</span>' : ''}
+              ${item.hasVariants ? '<span style="background:#e65100;color:#fff;font-weight:600;padding:1px 4px;border-radius:3px;flex-shrink:0">SIZES</span>' : ''}
+              <span style="color:#5f6368;font-family:monospace;white-space:nowrap;flex-shrink:0"><b>SN:</b>${esc(serialNum)}</span>
+              ${quantityInfo ? `<span style="margin-left:auto;white-space:nowrap;flex-shrink:0">${quantityInfo}</span>` : ''}
+              ${isPacked ? `<span style="margin-left:auto;color:#ea4335;font-weight:700;white-space:nowrap;flex-shrink:0">IN ${esc(boxName)}</span>` : ''}
+            </div>
           </div>
-          <div class="item-name" style="font-size:.8rem;color:#202124;font-weight:600;margin-bottom:4px;line-height:1.3">${esc(item.name)}</div>
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:3px">
-            <span style="background:${typeColor};color:white;font-weight:500;padding:3px 8px;border-radius:4px;font-size:.65rem;white-space:nowrap">${esc(typeName)}</span>
-            ${item.shopify_variant_id ? '<span style="background:#96bf48;color:#fff;font-weight:600;padding:2px 6px;border-radius:4px;font-size:.6rem">SHOPIFY</span>' : ''}
-            ${item.hasVariants ? '<span style="background:#e65100;color:#fff;font-weight:600;padding:2px 6px;border-radius:4px;font-size:.6rem">📐 SIZES</span>' : ''}
-            <div style="font-size:.65rem;color:#5f6368;display:flex;gap:4px"><span style="font-weight:600">S/N:</span><span style="font-family:monospace">${esc(serialNum)}</span></div>
-          </div>
-          ${quantityInfo}
-          ${isPacked ? `<div style="font-size:.65rem;color:#ea4335;font-weight:600">📦 In ${esc(boxName)}</div>` : ''}
-          </div>
-          ${isPacked ? `<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:2"><div style="background:rgba(220,53,69,0.88);color:#fff;font-weight:900;font-size:.8rem;padding:4px 14px;border-radius:4px;letter-spacing:2px;box-shadow:0 1px 4px rgba(0,0,0,.3)">PACKED</div></div>` : ''}
+          ${isPacked ? `<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:2"><div style="background:rgba(220,53,69,0.88);color:#fff;font-weight:900;font-size:.8rem;padding:3px 12px;border-radius:4px;letter-spacing:2px;box-shadow:0 1px 4px rgba(0,0,0,.3)">PACKED</div></div>` : ''}
         </div>
       `;
     }).join('');
