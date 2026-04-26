@@ -2514,28 +2514,36 @@
     const show = id => { const el=document.getElementById(id); if(el) el.style.display=''; };
     const hide = id => { const el=document.getElementById(id); if(el) el.style.display='none'; };
 
+    const btnBack = document.getElementById('btnBackToList');
     if (mode === 'kanban') {
       hide('taskList'); hide('taskHeader'); if(chipBar) chipBar.style.display='none';
       if(kanban) kanban.style.display='flex'; hide('calendarView');
       if(btnK) btnK.style.background='#1a73e8'; if(btnK) btnK.style.color='#fff';
       if(btnC) { btnC.style.background=''; btnC.style.color=''; }
+      if(btnBack) btnBack.style.display='';
       renderKanban();
     } else if (mode === 'calendar') {
       hide('taskList'); hide('taskHeader'); if(chipBar) chipBar.style.display='none';
       hide('kanbanView'); if(calendar) calendar.style.display='flex';
       if(btnC) btnC.style.background='#1a73e8'; if(btnC) btnC.style.color='#fff';
       if(btnK) { btnK.style.background=''; btnK.style.color=''; }
+      if(btnBack) btnBack.style.display='';
       renderCalendar(window._calYear || new Date().getFullYear(), window._calMonth || new Date().getMonth());
     } else {
       show('taskList'); show('taskHeader'); if(chipBar) chipBar.style.display='';
       hide('kanbanView'); hide('calendarView');
       if(btnK) { btnK.style.background=''; btnK.style.color=''; }
       if(btnC) { btnC.style.background=''; btnC.style.color=''; }
+      if(btnBack) btnBack.style.display='none';
     }
   }
 
   window._showKanbanView = function() {
     setMainView(_activeView === 'kanban' ? 'list' : 'kanban');
+  };
+
+  window._backToList = function() {
+    setMainView('list');
   };
 
   function renderKanban() {
