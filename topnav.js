@@ -817,6 +817,17 @@
             </div>
           </div>
         </div>`;
+      // Inject scoped styles so modal buttons are readable even on pages
+      // that set `button{color:#202124!important}` (e.g. box-packing.html)
+      const _rtsScanStyle = document.createElement('style');
+      _rtsScanStyle.textContent = [
+        '#rtsScanModal .rts-sa{background:#21262d!important;color:#c9d1d9!important;border:1px solid #30363d!important;border-radius:5px!important;padding:5px 12px!important;font-size:0.77rem!important;cursor:pointer!important;white-space:nowrap!important;}',
+        '#rtsScanModal .rts-sa:hover{border-color:#388bfd!important;color:#79c0ff!important;}',
+        '#rtsScanModal{color:#e6edf3!important;}',
+        '#rtsScanResults{background:#0d1117!important;}'
+      ].join('');
+      document.head.appendChild(_rtsScanStyle);
+
       const scanTmpDiv = document.createElement('div');
       scanTmpDiv.innerHTML = scanModalHtml.trim();
       host.appendChild(scanTmpDiv.firstChild);
@@ -850,9 +861,7 @@
       function actionBtn(label, onClick){
         const b = document.createElement('button');
         b.type = 'button'; b.textContent = label;
-        b.style.cssText = 'background:#21262d;color:#c9d1d9;border:1px solid #30363d;border-radius:5px;padding:5px 12px;font-size:0.77rem;cursor:pointer;white-space:nowrap;transition:border-color .12s,color .12s;';
-        b.addEventListener('mouseenter',()=>{ b.style.borderColor='#388bfd'; b.style.color='#79c0ff'; });
-        b.addEventListener('mouseleave',()=>{ b.style.borderColor='#30363d'; b.style.color='#c9d1d9'; });
+        b.className = 'rts-sa';
         b.addEventListener('click', onClick);
         return b;
       }
