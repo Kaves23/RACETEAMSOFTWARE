@@ -2,9 +2,9 @@
 // Include this before core.js on pages where you want to override defaults.
 window.RTS_CONFIG = {
   // Software build version — updated on every deployment
-  buildVersion: '55ea997',
-  buildDate:    '2026-04-25',
-  buildNote:    'style: deep shadow on nav letter glyphs for blacker-than-black effect',
+  buildVersion: 'f3f906b',
+  buildDate:    '2026-04-26',
+  buildNote:    'Race sessions & lap times persist to DB; live timing URL synced for all users; box packing compact cards; event notes Add Task modal redesign',
   // API Configuration
   api: {
     baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)
