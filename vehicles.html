@@ -51,6 +51,13 @@
     .vehicle-drawer { border-top: 1px solid #e8eaed; margin-top: 10px; padding-top: 12px; display: none; }
     .vehicle-drawer.open { display: block; }
     .drawer-tabs .nav-link { font-size: .8rem; padding: 4px 12px; }
+    /* ── Vehicle details tab ── */
+    .vd-section { margin-bottom: .85rem; }
+    .vd-section-title { font-size: .7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: #6c757d; margin-bottom: .35rem; border-bottom: 1px solid #e9ecef; padding-bottom: .2rem; }
+    .vd-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .15rem .75rem; }
+    .vd-row { display: flex; gap: .4rem; font-size: .8rem; line-height: 1.5; }
+    .vd-label { color: #6c757d; min-width: 145px; flex-shrink: 0; }
+    .vd-val { color: #212529; font-weight: 500; word-break: break-word; }
 
     /* ── Data tables ── */
     .fleet-table { font-size: .82rem; }
@@ -811,13 +818,13 @@
             </div>
             <div class="vehicle-drawer" id="drawer-${esc(v.id)}">
               <ul class="nav drawer-tabs mb-2">
-                <li class="nav-item"><button class="nav-link active" data-drawer="${esc(v.id)}" data-dtab="service">${ico('wrench')} Service History</button></li>
+                <li class="nav-item"><button class="nav-link active" data-drawer="${esc(v.id)}" data-dtab="details"><i class="bi bi-card-list"></i> Details</button></li>
+                <li class="nav-item"><button class="nav-link" data-drawer="${esc(v.id)}" data-dtab="service">${ico('wrench')} Service History</button></li>
                 <li class="nav-item"><button class="nav-link" data-drawer="${esc(v.id)}" data-dtab="trips">${ico('route')} Trips</button></li>
                 <li class="nav-item"><button class="nav-link" data-drawer="${esc(v.id)}" data-dtab="fuel">${ico('fuel')} Fuel</button></li>
               </ul>
-              <div id="dtab-${esc(v.id)}-service" class="dtab-panel">
-                <p class="text-secondary" style="font-size:.8rem">Click to load…</p>
-              </div>
+              <div id="dtab-${esc(v.id)}-details" class="dtab-panel"></div>
+              <div id="dtab-${esc(v.id)}-service" class="dtab-panel" style="display:none"></div>
               <div id="dtab-${esc(v.id)}-trips" class="dtab-panel" style="display:none"></div>
               <div id="dtab-${esc(v.id)}-fuel" class="dtab-panel" style="display:none"></div>
             </div>
@@ -869,6 +876,82 @@
       const heads = { headers: { Authorization: 'Bearer ' + localStorage.getItem('auth_token') } };
       const v = vehicles.find(x => x.id === vid);
       const vName = v ? esc(v.name || v.registration) : vid;
+
+      if (tab === 'details') {
+        if (!v) { el.innerHTML = `<p class="text-secondary" style="font-size:.8rem">Vehicle not found.</p>`; return; }
+        const vdr = (label, val) => {
+          const display = (val !== null && val !== undefined && val !== '') ? val : '<span class="text-secondary">—</span>';
+          return `<div class="vd-row"><span class="vd-label">${label}</span><span class="vd-val">${display}</span></div>`;
+        };
+        const compDate = d => {
+          if (!d) return '<span class="text-secondary">—</span>';
+          const dt = new Date(d), t = today(), soon = new Date(t); soon.setDate(soon.getDate()+30);
+          const str = fmtDate(d);
+          if (dt < t) return `<span style="color:#dc3545;font-weight:600">${str} ⚠ Expired</span>`;
+          if (dt <= soon) return `<span style="color:#fd7e14;font-weight:600">${str} · Expiring soon</span>`;
+          return `<span style="color:#198754">${str}</span>`;
+        };
+        const dimStr = [v.dimensions_length_m, v.dimensions_width_m, v.dimensions_height_m].every(x => x != null)
+          ? `${v.dimensions_length_m} × ${v.dimensions_width_m} × ${v.dimensions_height_m} m` : null;
+        el.innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.85rem">
+            <strong style="font-size:.85rem;color:#212529">${esc(v.name || v.registration)}</strong>
+            <button class="btn btn-sm btn-outline-secondary" onclick="event.stopPropagation();openEditModal('${vid}')">
+              <i class="bi bi-pencil-fill"></i> Edit
+            </button>
+          </div>
+          <div class="vd-section">
+            <div class="vd-section-title">Identity</div>
+            <div class="vd-grid">
+              ${vdr('Registration', esc(v.registration))}
+              ${vdr('Name / Nickname', esc(v.name))}
+              ${vdr('Type', esc(v.truck_type))}
+              ${vdr('Make', esc(v.make))}
+              ${vdr('Model', esc(v.model))}
+              ${vdr('Year', esc(v.year))}
+              ${vdr('Colour', esc(v.colour))}
+              ${vdr('Fuel Type', esc(v.fuel_type))}
+            </div>
+          </div>
+          <div class="vd-section">
+            <div class="vd-section-title">NATIS</div>
+            <div class="vd-grid">
+              ${vdr('VIN', esc(v.vin))}
+              ${vdr('Engine Number', esc(v.engine_number))}
+              ${vdr('Licence Number', esc(v.licence_number))}
+              ${vdr('Series', esc(v.series))}
+              ${vdr('Vehicle Description', esc(v.vehicle_description))}
+              ${vdr('Vehicle Category', esc(v.vehicle_category))}
+              ${vdr('Registered Owner', esc(v.registered_owner))}
+              ${vdr('Drive Type', esc(v.drive_type))}
+            </div>
+          </div>
+          <div class="vd-section">
+            <div class="vd-section-title">Capacity</div>
+            <div class="vd-grid">
+              ${vdr('Tare Weight', v.tare_weight_kg != null ? fmtNum(v.tare_weight_kg)+' kg' : null)}
+              ${vdr('GVM', v.gvm_kg != null ? fmtNum(v.gvm_kg)+' kg' : null)}
+              ${vdr('Max Load', v.max_weight_kg != null ? fmtNum(v.max_weight_kg)+' kg' : null)}
+              ${vdr('Dimensions (L×W×H)', dimStr)}
+            </div>
+          </div>
+          <div class="vd-section">
+            <div class="vd-section-title">Compliance</div>
+            <div class="vd-grid">
+              ${vdr('Roadworthy Expiry', compDate(v.roadworthy_expiry))}
+              ${vdr('Licence Disc Expiry', compDate(v.licence_disc_expiry))}
+              ${vdr('Insurance Expiry', compDate(v.insurance_expiry))}
+              ${vdr('Disc Paid Date', v.licence_disc_paid_date ? fmtDate(v.licence_disc_paid_date) : null)}
+              ${vdr('Disc Amount Paid', v.licence_disc_amount_paid != null ? 'R '+fmtNum(v.licence_disc_amount_paid,2) : null)}
+              ${vdr('Control Number', esc(v.control_number))}
+              ${vdr('Registering Authority', esc(v.registering_authority))}
+              ${vdr('NVC', esc(v.nvc))}
+            </div>
+          </div>
+          ${v.notes ? `<div class="vd-section"><div class="vd-section-title">Notes</div><div style="font-size:.8rem;color:#495057">${esc(v.notes)}</div></div>` : ''}
+        `;
+        return;
+      }
 
       if (tab === 'service') {
         try {
