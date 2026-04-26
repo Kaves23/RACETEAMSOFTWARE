@@ -3687,10 +3687,10 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
         total = a + b + c;
       }
       return { a, b, c, total,
-        html: `<span style="background:#e8f5e9;color:#2e7d32;padding:1px 5px;border-radius:3px;font-weight:700;margin-right:2px">A:${a}</span>` +
-              `<span style="background:#fff8e1;color:#f57f17;padding:1px 5px;border-radius:3px;font-weight:700;margin-right:2px">B:${b}</span>` +
-              `<span style="background:#ffebee;color:#c62828;padding:1px 5px;border-radius:3px;font-weight:700">C:${c}</span>` +
-              `<span style="margin-left:4px;color:#9aa0a6">(${total} total)</span>`
+        html: `<span style="display:inline-flex;align-items:center;gap:3px;background:#e8f5e9;color:#2e7d32;padding:2px 7px;border-radius:4px;font-weight:700;font-size:.72rem;margin-right:3px">A <span style='font-weight:500'>${a}</span></span>` +
+              `<span style="display:inline-flex;align-items:center;gap:3px;background:#fff8e1;color:#e65100;padding:2px 7px;border-radius:4px;font-weight:700;font-size:.72rem;margin-right:3px">B <span style='font-weight:500'>${b}</span></span>` +
+              `<span style="display:inline-flex;align-items:center;gap:3px;background:#ffebee;color:#c62828;padding:2px 7px;border-radius:4px;font-weight:700;font-size:.72rem;">C <span style='font-weight:500'>${c}</span></span>` +
+              `<span style="margin-left:5px;font-size:.72rem;color:#9aa0a6;font-weight:500">${total} total</span>`
       };
     }
 
@@ -3698,13 +3698,13 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       return variants.map(v => {
         const { html, total } = stockCells(v, locName);
         return `
-          <div style="display:grid;grid-template-columns:80px 1fr 80px;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid #f0f0f0">
-            <strong style="font-size:.85rem;color:#202124">${v.label}</strong>
-            <span class="vpm-stock-cell" data-vid="${v.id}" style="font-size:.72rem;color:#5f6368">${html}</span>
+          <div class="vpm-row">
+            <span class="vpm-size-label">${v.label}</span>
+            <span class="vpm-stock-cell" data-vid="${v.id}">${html}</span>
             <input type="number" min="0" max="${total}" value="0" placeholder="0"
+                   class="vpm-qty-input"
                    data-variant-id="${v.id}" data-variant-label="${v.label.replace(/"/g, '&quot;')}"
-                   style="padding:4px 6px;border:1px solid #d0d0d0;border-radius:4px;font-size:.8rem;width:100%;text-align:center"
-                   oninput="this.style.borderColor=parseInt(this.value)>0?'#1a73e8':'#d0d0d0'">
+                   oninput="this.classList.toggle('has-qty',parseInt(this.value)>0)">
           </div>`;
       }).join('');
     }
@@ -3725,31 +3725,56 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
           return `<option value="${name}">${name}</option>`;
         }).join('');
 
+    // SVG icon snippets
+    const _svgRuler = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l18-18"/><line x1="7.5" y1="3" x2="7.5" y2="7.5"/><line x1="3" y1="7.5" x2="7.5" y2="7.5"/><line x1="12" y1="3" x2="12" y2="6"/><line x1="3" y1="12" x2="6" y2="12"/><line x1="16.5" y1="3" x2="16.5" y2="7.5"/><line x1="3" y1="16.5" x2="7.5" y2="16.5"/></svg>`;
+    const _svgArrow = `<svg width="11" height="11" viewBox="0 0 20 20" fill="none" stroke="rgba(255,255,255,.65)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="10" x2="16" y2="10"/><polyline points="11 5 16 10 11 15"/></svg>`;
+    const _svgPin   = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>`;
+    const _svgClose = `<svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="4" y1="4" x2="16" y2="16"/><line x1="16" y1="4" x2="4" y2="16"/></svg>`;
+    const _svgPack  = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>`;
+    const _svgItem  = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.7)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-4 0v2"/><path d="M8 7V5a2 2 0 0 0-4 0v2"/></svg>`;
+
     overlay.innerHTML = `
-      <div style="background:#fff;border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.25);max-width:480px;width:90%;max-height:80vh;overflow:hidden;display:flex;flex-direction:column">
-        <div style="padding:14px 18px;background:#1a73e8;color:#fff;border-radius:10px 10px 0 0;display:flex;justify-content:space-between;align-items:center">
-          <div>
-            <div style="font-weight:700;font-size:.95rem">📐 Pack by Size</div>
-            <div style="font-size:.75rem;opacity:.85">${item.name} → ${box.name}</div>
-          </div>
-          <button id="${modalId}_cancel" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:.8rem">Cancel</button>
+    <style>
+      #${modalId}_dlg{background:#fff;border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.3);max-width:500px;width:92%;max-height:84vh;overflow:hidden;display:flex;flex-direction:column;font-family:inherit;animation:vpmIn .18s ease}
+      @keyframes vpmIn{from{opacity:0;transform:scale(.96) translateY(8px)}to{opacity:1;transform:none}}
+      #${modalId}_dlg .vpm-hd{padding:16px 20px 14px;background:linear-gradient(135deg,#1967d2 0%,#1a73e8 100%);color:#fff;border-radius:14px 14px 0 0;display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+      #${modalId}_dlg .vpm-ttl{display:flex;align-items:center;gap:8px;font-weight:700;font-size:1rem;letter-spacing:-.01em}
+      #${modalId}_dlg .vpm-sub{display:flex;align-items:center;gap:5px;font-size:.76rem;opacity:.8;margin-top:5px;font-weight:400}
+      #${modalId}_cancel{display:flex;align-items:center;gap:5px;background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.3);color:#fff;border-radius:7px;padding:5px 12px;cursor:pointer;font-size:.78rem;font-weight:600;transition:background .15s;flex-shrink:0}
+      #${modalId}_cancel:hover{background:rgba(255,255,255,.26)}
+      #${modalId}_dlg .vpm-loc{padding:10px 20px;border-bottom:1px solid #e8eaed;background:#f8f9fa;display:flex;align-items:center;gap:10px}
+      #${modalId}_dlg .vpm-loc label{display:flex;align-items:center;gap:5px;font-size:.7rem;font-weight:700;color:#546e7a;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
+      #${modalId}_loc{flex:1;padding:6px 10px;border:1.5px solid #d0d0d0;border-radius:7px;font-size:.82rem;color:#202124;background:#fff;outline:none;transition:border-color .15s}
+      #${modalId}_loc:focus{border-color:#1a73e8;box-shadow:0 0 0 3px rgba(26,115,232,.12)}
+      #${modalId}_dlg .vpm-th{display:grid;grid-template-columns:76px 1fr 88px;gap:10px;padding:8px 20px;border-bottom:2px solid #e8eaed;font-size:.64rem;font-weight:700;color:#78909c;text-transform:uppercase;letter-spacing:.07em;background:#fafbfc}
+      #${modalId}_dlg .vpm-body{overflow-y:auto;flex:1;padding:2px 20px 10px}
+      #${modalId}_dlg .vpm-row{display:grid;grid-template-columns:76px 1fr 88px;gap:10px;align-items:center;padding:7px 0;border-bottom:1px solid #f1f3f4}
+      #${modalId}_dlg .vpm-row:last-child{border-bottom:none}
+      #${modalId}_dlg .vpm-sz{font-size:.9rem;font-weight:700;color:#202124;letter-spacing:-.01em}
+      #${modalId}_dlg .vpm-qty{width:100%;padding:5px 6px;border:1.5px solid #d8d8d8;border-radius:6px;font-size:.85rem;text-align:center;font-weight:600;color:#202124;background:#fafafa;outline:none;transition:border-color .15s,background .15s,box-shadow .15s}
+      #${modalId}_dlg .vpm-qty:focus{border-color:#1a73e8;background:#fff;box-shadow:0 0 0 3px rgba(26,115,232,.12)}
+      #${modalId}_dlg .vpm-qty.has-qty{border-color:#1a73e8;background:#e8f0fe;color:#1967d2}
+      #${modalId}_dlg .vpm-ft{padding:12px 20px;border-top:1px solid #e8eaed;background:#fafbfc;border-radius:0 0 14px 14px;display:flex;justify-content:flex-end}
+      #${modalId}_confirm{display:flex;align-items:center;gap:7px;background:linear-gradient(135deg,#1967d2 0%,#1a73e8 100%);color:#fff;border:none;padding:9px 22px;border-radius:8px;font-weight:700;cursor:pointer;font-size:.85rem;box-shadow:0 2px 10px rgba(26,115,232,.35);transition:opacity .15s,transform .1s}
+      #${modalId}_confirm:hover{opacity:.91}
+      #${modalId}_confirm:active{transform:scale(.97)}
+    </style>
+    <div id="${modalId}_dlg">
+      <div class="vpm-hd">
+        <div>
+          <div class="vpm-ttl">${_svgRuler} Pack by Size</div>
+          <div class="vpm-sub">${_svgItem} ${item.name} ${_svgArrow} ${box.name}</div>
         </div>
-        <div style="padding:10px 18px;border-bottom:1px solid #e8eaed;background:#f8f9fa;display:flex;align-items:center;gap:10px">
-          <label style="font-size:.72rem;font-weight:700;color:#4a5568;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap">From Location</label>
-          <select id="${modalId}_loc" style="flex:1;padding:5px 8px;border:1px solid #d0d0d0;border-radius:6px;font-size:.8rem;color:#202124">
-            ${locOptions}
-          </select>
-        </div>
-        <div style="overflow-y:auto;flex:1;padding:12px 18px">
-          <div style="display:grid;grid-template-columns:80px 1fr 80px;gap:8px;padding:4px 0 8px;border-bottom:2px solid #e0e0e0;font-size:.65rem;font-weight:700;color:#5f6368;text-transform:uppercase">
-            <span>Size</span><span>Stock</span><span>Pack Qty</span>
-          </div>
-          <div id="${modalId}_rows">${buildVariantRows('')}</div>
-        </div>
-        <div style="padding:12px 18px;border-top:1px solid #e0e0e0;display:flex;justify-content:flex-end;gap:8px">
-          <button id="${modalId}_confirm" style="background:#1a73e8;color:#fff;border:none;padding:8px 20px;border-radius:6px;font-weight:600;cursor:pointer;font-size:.85rem">Pack Selected Sizes</button>
-        </div>
-      </div>`;
+        <button id="${modalId}_cancel">${_svgClose} Cancel</button>
+      </div>
+      <div class="vpm-loc">
+        <label>${_svgPin} From Location</label>
+        <select id="${modalId}_loc">${locOptions}</select>
+      </div>
+      <div class="vpm-th"><span>Size</span><span>Stock</span><span>Pack Qty</span></div>
+      <div class="vpm-body"><div id="${modalId}_rows">${buildVariantRows('')}</div></div>
+      <div class="vpm-ft"><button id="${modalId}_confirm">${_svgPack} Pack Selected Sizes</button></div>
+    </div>`;
 
     document.body.appendChild(overlay);
 
@@ -3790,7 +3815,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
             warn = document.createElement('p');
             warn.id = `${modalId}_locwarn`;
             warn.style.cssText = 'margin:4px 0 0;font-size:.75rem;color:#c62828;font-weight:600';
-            warn.textContent = '⚠ Please select a location before packing.';
+            warn.textContent = 'Please select a location before packing.';
             locSel.parentElement.insertAdjacentElement('afterend', warn);
           }
           return;
