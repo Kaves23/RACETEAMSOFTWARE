@@ -117,6 +117,20 @@
     #loadTooltip .tt-row{display:flex;gap:6px;margin-bottom:2px;}
     #loadTooltip .tt-key{color:#9e9e9e;min-width:62px;font-size:.7rem;flex-shrink:0;}
     #loadTooltip .tt-val{color:#202124;font-size:.72rem;word-break:break-word;}
+    /* Zone Minimap */
+    .zone-minimap-strip{background:#f0f2f5;border-bottom:1px solid #e0e0e0;padding:8px 15px;display:none;}
+    .zone-minimap-strip.visible{display:flex;align-items:center;gap:12px;}
+    .zone-minimap-inner{display:flex;flex-direction:column;gap:0;font-size:.6rem;font-weight:700;color:#5f6368;}
+    .zone-minimap-label{text-align:center;font-size:.55rem;font-weight:700;color:#9e9e9e;letter-spacing:.08em;text-transform:uppercase;margin:2px 0;}
+    .zone-minimap-row{display:flex;gap:2px;}
+    .zone-minimap-cell{width:32px;height:22px;border:1.5px solid #bbb;border-radius:3px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;color:#5f6368;transition:background .2s;}
+    .zone-minimap-cell.has-boxes{background:#e8f0fe;border-color:#1a73e8;color:#1967d2;}
+    .zone-minimap-cell.empty{background:#fff;border-color:#d0d0d0;border-style:dashed;}
+    .zone-minimap-note{font-size:.62rem;color:#9e9e9e;line-height:1.5;max-width:160px;}
+    /* Empty zone placeholder */
+    .empty-zone-placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px 10px;color:#bbb;gap:6px;border:2px dashed #d8d8d8;border-radius:6px;margin:4px 0;}
+    .empty-zone-placeholder svg{opacity:.4;}
+    .empty-zone-placeholder span{font-size:.72rem;font-weight:500;letter-spacing:.01em;}
   </style>
 </head>
 <body class="page-load light-mode">
@@ -130,11 +144,20 @@
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <select id="selectEvent" class="form-select form-select-sm" style="width:180px;font-size:.8rem;padding:4px 8px"><option value="">Select Event</option></select>
         <select id="selectTruck" class="form-select form-select-sm" style="width:180px;font-size:.8rem;padding:4px 8px"><option value="">Select Truck/Trailer</option></select>
-        <button class="btn btn-sm btn-primary" id="btnSaveLoad" style="font-size:.8rem;padding:4px 12px"><svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.15em;margin-right:4px"><path d="M4 2h10l4 4v13a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/><path d="M6 2v6h8V2"/><path d="M5 13h10v5H5z"/></svg>Save Draft</button>
-        <button class="btn btn-sm btn-success" id="btnFinaliseLoad" style="font-size:.8rem;padding:4px 12px" title="Mark this load as completed and save to history"><svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.15em;margin-right:4px"><path d="M3 10l5 5L18 5"/></svg>Finalise</button>
-        <button class="btn btn-sm btn-outline-secondary" id="btnViewHistory" style="font-size:.8rem;padding:4px 12px"><svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.15em;margin-right:4px"><circle cx="10" cy="10" r="7.5"/><path d="M10 6v4l2.5 2.5"/></svg>History</button>
-        <button class="btn btn-sm btn-outline-secondary" id="btnClearLoad" style="font-size:.8rem;padding:4px 12px"><svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.15em;margin-right:4px"><path d="M3 6h14"/><path d="M5 6l1 11h8l1-11"/><path d="M8 6V4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2"/></svg>Clear</button>
-        <button class="btn btn-sm btn-outline-primary" id="btnPrintBarcodes" style="font-size:.8rem;padding:4px 12px"><svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.15em;margin-right:4px"><path d="M5 8H3a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1h2"/><path d="M15 8h2a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-2"/><rect x="5" y="3" width="10" height="5"/><rect x="5" y="12" width="10" height="5"/></svg>Print</button>
+        <div class="btn-group">
+        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" style="font-size:.8rem;padding:4px 12px">
+          <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.15em;margin-right:4px"><circle cx="10" cy="5" r="1.5" fill="currentColor" stroke="none"/><circle cx="10" cy="10" r="1.5" fill="currentColor" stroke="none"/><circle cx="10" cy="15" r="1.5" fill="currentColor" stroke="none"/></svg>Actions
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end" style="font-size:.82rem;min-width:170px">
+          <li><button class="dropdown-item" id="btnSaveLoad"><svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.15em;margin-right:6px"><path d="M4 2h10l4 4v13a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/><path d="M6 2v6h8V2"/><path d="M5 13h10v5H5z"/></svg>Save Draft</button></li>
+          <li><button class="dropdown-item text-success fw-semibold" id="btnFinaliseLoad"><svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.15em;margin-right:6px"><path d="M3 10l5 5L18 5"/></svg>Finalise Load</button></li>
+          <li><hr class="dropdown-divider"></li>
+          <li><button class="dropdown-item" id="btnViewHistory"><svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.15em;margin-right:6px"><circle cx="10" cy="10" r="7.5"/><path d="M10 6v4l2.5 2.5"/></svg>History</button></li>
+          <li><button class="dropdown-item" id="btnPrintBarcodes"><svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.15em;margin-right:6px"><path d="M5 8H3a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1h2"/><path d="M15 8h2a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-2"/><rect x="5" y="3" width="10" height="5"/><rect x="5" y="12" width="10" height="5"/></svg>Print Barcodes</button></li>
+          <li><hr class="dropdown-divider"></li>
+          <li><button class="dropdown-item text-danger" id="btnClearLoad"><svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.15em;margin-right:6px"><path d="M3 6h14"/><path d="M5 6l1 11h8l1-11"/><path d="M8 6V4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2"/></svg>Clear Load</button></li>
+        </ul>
+        </div>
         <button class="btn btn-sm btn-success" id="btnExportPackingList" style="font-size:.8rem;padding:4px 12px"><svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.15em;margin-right:4px"><path d="M4 16h12"/><path d="M10 3v9"/><path d="M6 9l4 4 4-4"/></svg>Export Packing List</button>
       </div>
     </div>
@@ -172,7 +195,7 @@
           <input type="text" id="searchBoxes" class="form-control form-control-sm" placeholder="Search boxes or items..." style="font-size:.75rem;padding:4px 8px">
           <input type="text" id="searchAssets" class="form-control form-control-sm" placeholder="Search assets..." style="font-size:.75rem;padding:4px 8px;display:none" oninput="LoadEngine.renderAssets()">
           <input type="text" id="searchInventory" class="form-control form-control-sm" placeholder="Search inventory..." style="font-size:.75rem;padding:4px 8px;display:none" oninput="LoadEngine.renderInventory()">
-          <div id="boxesHint" style="font-size:.65rem;color:#5f6368;margin-top:4px;font-style:italic">In 3D: matches = spring green, others = gray</div>
+          <div id="boxesHint" style="font-size:.65rem;color:#5f6368;margin-top:4px;font-style:italic">Drag boxes into a truck zone · 3D: matched = spring green</div>
           <div id="assetsHint" style="font-size:.65rem;color:#5f6368;margin-top:4px;font-style:italic;display:none">Drag assets into truck zones. Race fleet items shown first.</div>
           <div id="inventoryHint" style="font-size:.65rem;color:#5f6368;margin-top:4px;font-style:italic;display:none">Drag inventory items into truck zones.</div>
           <!-- Boxes filter -->
@@ -219,7 +242,12 @@
       </div>
       <div class="truck-viewer">
         <div class="viewer-header">
-          <h3 style="margin:0;font-size:1rem">Truck Layout</h3>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <h3 style="margin:0;font-size:1rem">Truck Layout</h3>
+            <button onclick="LoadEngine.toggleMinimap()" id="btnToggleMinimap" class="btn btn-sm btn-outline-secondary" style="font-size:.7rem;padding:2px 8px;line-height:1.5;">
+              <svg width="11" height="11" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.1em;margin-right:3px"><rect x="2" y="2" width="7" height="7" rx="1"/><rect x="11" y="2" width="7" height="7" rx="1"/><rect x="2" y="11" width="7" height="7" rx="1"/><rect x="11" y="11" width="7" height="7" rx="1"/></svg>Zone Map
+            </button>
+          </div>
           <div class="viewer-controls">
             <div class="view-toggle">
               <button id="btn2DView" class="active">2D Layout</button>
@@ -227,6 +255,26 @@
             </div>
             <button class="btn btn-sm btn-outline-light" id="btnOptimize"><svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.1em;margin-right:4px"><path d="M10 2l2.5 5.5H18l-4.5 3.5 1.5 5.5L10 13l-5 3.5 1.5-5.5L2 7.5h5.5z"/></svg>Auto Optimize</button>
           </div>
+        </div>
+        <!-- Zone orientation minimap -->
+        <div class="zone-minimap-strip" id="zoneMinimap">
+          <div class="zone-minimap-inner">
+            <div class="zone-minimap-label">← Front of truck</div>
+            <div class="zone-minimap-row">
+              <div class="zone-minimap-cell" id="mm1" title="Grid 1">1</div>
+              <div class="zone-minimap-cell" id="mm3" title="Grid 3">3</div>
+              <div class="zone-minimap-cell" id="mm5" title="Grid 5">5</div>
+              <div class="zone-minimap-cell" id="mm7" title="Grid 7">7</div>
+            </div>
+            <div class="zone-minimap-row">
+              <div class="zone-minimap-cell" id="mm2" title="Grid 2">2</div>
+              <div class="zone-minimap-cell" id="mm4" title="Grid 4">4</div>
+              <div class="zone-minimap-cell" id="mm6" title="Grid 6">6</div>
+              <div class="zone-minimap-cell" id="mm8" title="Grid 8">8</div>
+            </div>
+            <div class="zone-minimap-label">Rear of truck →</div>
+          </div>
+          <div class="zone-minimap-note">Blue = has boxes · Dashed = empty<br>Cols 1–4 = front to rear · Rows = left/right sides</div>
         </div>
         <div id="view2D" class="truck-2d-view">
           <!-- loading state shown until init() completes -->

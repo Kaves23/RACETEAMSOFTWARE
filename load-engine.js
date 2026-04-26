@@ -405,6 +405,16 @@ console.log('📦 load-engine.js loading...');
     document.getElementById('searchBoxes').addEventListener('input', handleSearch);
 
     setupDragAndDrop();
+
+    // Restore minimap visibility from previous session
+    try {
+      if (localStorage.getItem('lp_showmap') === '1') {
+        const strip = document.getElementById('zoneMinimap');
+        const btn   = document.getElementById('btnToggleMinimap');
+        if (strip) { strip.classList.add('visible'); if (btn) btn.classList.add('active'); }
+        updateMinimap();
+      }
+    } catch(e) {}
   }
 
   // ========== BOX EXPANSION & INTERACTION ==========
@@ -1002,7 +1012,11 @@ console.log('📦 load-engine.js loading...');
             <div class="capacity-fill ${capacityClass}" style="width:${Math.min(weightPercent, 100)}%;background:${zoneColor}"></div>
           </div>
           <div style="max-height:180px;overflow-y:auto;transition:max-height .3s ease;">
-            ${boxesHtml}${assetsHtml}${inventoryHtml}${(!boxesHtml && !assetsHtml && !inventoryHtml) ? '<div style="font-size:.75rem;color:#9e9e9e;text-align:center;padding:12px;opacity:0.6;">Empty Zone</div>' : ''}
+            ${boxesHtml}${assetsHtml}${inventoryHtml}${(!boxesHtml && !assetsHtml && !inventoryHtml) ? `
+            <div class="empty-zone-placeholder">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8L12 3 3 8v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg>
+              <span>Drop boxes here</span>
+            </div>` : ''}
           </div>
         </div>
       `;
@@ -1013,6 +1027,8 @@ console.log('📦 load-engine.js loading...');
     
     // Re-attach drag and drop listeners to new elements
     attachZoneDragListeners();
+    // Keep minimap in sync
+    updateMinimap();
   }
 
   function updateZoneCapacity(zone) {
@@ -1034,8 +1050,8 @@ console.log('📦 load-engine.js loading...');
     boxPlacements.forEach(p => {
       const box = getBox(p.boxId);
       if (box) {
-        totalWeight += box.weight;
-        totalVolume += (box.length * box.width * box.height) / 1000000;
+        totalWeight += parseFloat(box.weight) || 0;
+        totalVolume += ((parseFloat(box.length)||0) * (parseFloat(box.width)||0) * (parseFloat(box.height)||0)) / 1000000;
       }
     });
 
@@ -1052,15 +1068,25 @@ console.log('📦 load-engine.js loading...');
       const volumePercent = (totalVolume / truckVolume) * 100;
       document.getElementById('statVolume').textContent = `${volumePercent.toFixed(1)}%`;
       document.getElementById('statVolumeValue').textContent = `${totalVolume.toFixed(2)} / ${truckVolume.toFixed(2)} m³`;
+      // Color weight stat based on % of truck max
+      const weightPct = (totalWeight / truck.maxWeight) * 100;
+      const wtEl = document.getElementById('statWeight');
+      wtEl.style.color = weightPct > 80 ? '#f9ab00' : totalWeight > 0 ? '#1e8e3e' : '#1a73e8';
+      const volEl = document.getElementById('statVolume');
+      volEl.style.color = volumePercent > 80 ? '#f9ab00' : totalVolume > 0 ? '#1e8e3e' : '#1a73e8';
     } else {
       document.getElementById('statWeightLimit').textContent = 'Select a truck';
       document.getElementById('statVolume').textContent = 'N/A';
       document.getElementById('statVolumeValue').textContent = 'Select a truck';
+      document.getElementById('statWeight').style.color = '#1a73e8';
+      document.getElementById('statVolume').style.color = '#1a73e8';
     }
 
     document.getElementById('statStatus').textContent = currentLoad.status || 'Draft';
     const updated = currentLoad.updatedAt ? new Date(currentLoad.updatedAt).toLocaleString() : 'Never';
-    document.getElementById('statUpdated').textContent = updated;
+    const updatedEl = document.getElementById('statUpdated');
+    updatedEl.textContent = updated;
+    updatedEl.style.color = updated === 'Never' ? '#e37400' : '#888';
     updateWeightBalanceBar();
   }
 
@@ -2574,6 +2600,31 @@ console.log('📦 load-engine.js loading...');
   }
 
   // ========== PUBLIC API ==========
+  // ========== ZONE MINIMAP ==========
+  function updateMinimap() {
+    // Update minimap cells to show which zones have boxes
+    const truck = getTruck();
+    if (!truck) return;
+    for (let i = 1; i <= 8; i++) {
+      const cell = document.getElementById('mm' + i);
+      if (!cell) continue;
+      const zoneKey = 'zone_' + i;
+      const hasBoxes = currentLoad.placements.some(p => p.zone === zoneKey);
+      cell.classList.toggle('has-boxes', hasBoxes);
+      cell.classList.toggle('empty', !hasBoxes);
+    }
+  }
+
+  function toggleMinimap() {
+    const strip = document.getElementById('zoneMinimap');
+    const btn   = document.getElementById('btnToggleMinimap');
+    if (!strip) return;
+    const visible = strip.classList.toggle('visible');
+    if (btn) btn.classList.toggle('active', visible);
+    try { localStorage.setItem('lp_showmap', visible ? '1' : '0'); } catch(e) {}
+    if (visible) updateMinimap();
+  }
+
   window.LoadEngine = {
     init,
     selectBox,
@@ -2589,7 +2640,8 @@ console.log('📦 load-engine.js loading...');
     renderAssets,
     renderInventory,
     exportPackingListCSV,
-    exportPackingListPDF
+    exportPackingListPDF,
+    toggleMinimap
   };
 
   // Auto-initialize on DOM ready
