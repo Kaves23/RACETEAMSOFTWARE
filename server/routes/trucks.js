@@ -16,6 +16,11 @@ router.get('/', async (req, res, next) => {
              last_service_date, last_service_km, next_service_date, next_service_km,
              insurance_expiry, insurance_notes,
              roadworthy_expiry, roadworthy_notes, licence_disc_expiry,
+             vin, engine_number, licence_number, series, vehicle_description,
+             vehicle_category, registered_owner, drive_type,
+             tare_weight_kg, gvm_kg,
+             licence_disc_paid_date, licence_disc_amount_paid,
+             control_number, registering_authority, nvc,
              created_at, updated_at
       FROM trucks
       WHERE 1=1
