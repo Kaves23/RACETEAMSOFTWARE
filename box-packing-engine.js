@@ -3346,7 +3346,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   }
 
   // ========== HISTORY ==========
-  function addHistory(boxId, action, details) {
+  function addHistory(boxId, action, details, extra) {
     const entry = {
       id: RTS.uid('history'),
       boxId: boxId,
@@ -3356,44 +3356,101 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       timestamp: new Date().toISOString()
     };
     boxHistory.push(entry);
+    // Persist to DB (fire-and-forget — never blocks UI)
+    try {
+      const u = JSON.parse(localStorage.getItem('user') || '{}');
+      fetch('/api/history', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}` },
+        body: JSON.stringify({ kind: 'boxes', id: boxId, action, note: details, by: u.id || null, ...(extra || {}) })
+      }).catch(() => {});
+    } catch (_) {}
   }
 
-  function showHistory() {
+  async function showHistory() {
     if (!currentBoxId) {
       showToast('Please select a box first', 'warning');
       return;
     }
-
     const box = getBox(currentBoxId);
-    const history = boxHistory.filter(h => h.boxId === currentBoxId).sort((a, b) => 
-      new Date(b.timestamp) - new Date(a.timestamp)
-    );
-
-    const html = `
-      <h6 style="margin-bottom:15px">History for: ${esc(box.name)} (${esc(box.barcode)})</h6>
-      ${history.map(entry => `
-        <div class="history-entry">
-          <div class="history-time">${new Date(entry.timestamp).toLocaleString()}</div>
-          <div class="history-action"><strong>${formatAction(entry.action)}:</strong> ${esc(entry.details)}</div>
-          <div class="history-location">📍 ${esc(entry.location)}</div>
-        </div>
-      `).join('')}
-      ${history.length === 0 ? '<div style="text-align:center;padding:30px;color:#5f6368">No history entries</div>' : ''}
-    `;
-
-    document.getElementById('historyContent').innerHTML = html;
+    document.getElementById('historyContent').innerHTML =
+      '<div style="text-align:center;padding:32px;color:#9e9e9e"><div class="spinner-border spinner-border-sm text-primary"></div><div style="margin-top:8px;font-size:.85rem">Loading history\u2026</div></div>';
     historyModal.show();
+    try {
+      const resp = await fetch(`/api/history/boxes/${currentBoxId}`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}` }
+      });
+      const data = await resp.json();
+      if (data.ok && data.history && data.history.length > 0) {
+        renderHistoryHtml(box, data.history);
+      } else {
+        renderHistoryHtml(box,
+          boxHistory.filter(h => h.boxId === currentBoxId)
+            .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)));
+      }
+    } catch (_) {
+      renderHistoryHtml(box,
+        boxHistory.filter(h => h.boxId === currentBoxId)
+          .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)));
+    }
+  }
+
+  function renderHistoryHtml(box, history) {
+    const svgClock = `<svg width="11" height="11" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="7.5"/><path d="M10 6v4l2.5 2.5"/></svg>`;
+    const svgUser  = `<svg width="11" height="11" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="7" r="3.5"/><path d="M2 17a8 8 0 0 1 16 0"/></svg>`;
+    const svgTruck = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v4h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>`;
+    const ACTION_META = {
+      'created':            { label: 'Box Created',         color: '#34a853' },
+      'item_added':         { label: 'Item Packed In',       color: '#1a73e8' },
+      'item_removed':       { label: 'Item Removed',         color: '#f57c00' },
+      'box_emptied':        { label: 'Box Emptied',          color: '#ea4335' },
+      'loaded_to_truck':    { label: 'Added to Load Plan',   color: '#0f9d58' },
+      'removed_from_truck': { label: 'Removed from Plan',    color: '#9e9e9e' },
+      'scanned':            { label: 'Scanned onto Truck',   color: '#1a73e8' },
+      'unloaded':           { label: 'Scanned off Truck',    color: '#f57c00' },
+      'location_changed':   { label: 'Location Changed',     color: '#9c27b0' },
+      'status_changed':     { label: 'Status Changed',       color: '#607d8b' },
+    };
+    const headerHtml = `
+      <div class="bx-hist-header">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+        <div><strong>${esc(box.name)}</strong> <span style="font-size:.75rem;color:#9e9e9e">${esc(box.barcode || '')}</span></div>
+      </div>`;
+    if (history.length === 0) {
+      document.getElementById('historyContent').innerHTML = headerHtml +
+        `<div class="bx-hist-empty"><p style="margin:0">No history recorded yet.<br><span style="font-size:.75rem">Packing, loading and scanning events will appear here.</span></p></div>`;
+      return;
+    }
+    const rowsHtml = history.map(entry => {
+      const meta  = ACTION_META[entry.action] || { label: entry.action, color: '#9e9e9e' };
+      const who   = entry.user_name || '';
+      const truck = entry.to_truck_name || entry.from_truck_name || '';
+      const when  = new Date(entry.timestamp).toLocaleString('en-ZA', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+      return `
+        <div class="bx-hist-row">
+          <div class="bx-hist-dot" style="background:${meta.color}"></div>
+          <div class="bx-hist-content">
+            <div class="bx-hist-label" style="color:${meta.color}">${meta.label}</div>
+            ${entry.details ? `<div class="bx-hist-detail">${esc(entry.details)}</div>` : ''}
+            <div class="bx-hist-meta">
+              <span>${svgClock} ${esc(when)}</span>
+              ${who   ? `<span>${svgUser} ${esc(who)}</span>` : ''}
+              ${truck ? `<span>${svgTruck} ${esc(truck)}</span>` : ''}
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+    document.getElementById('historyContent').innerHTML = headerHtml + `<div class="bx-hist-timeline">${rowsHtml}</div>`;
   }
 
   function formatAction(action) {
-    const actions = {
-      'created': '✨ Created',
-      'item_added': '➕ Item Added',
-      'item_removed': '➖ Item Removed',
-      'location_changed': '📍 Location Changed',
-      'status_changed': '🔄 Status Changed'
+    const map = {
+      'created': 'Created', 'item_added': 'Item Added', 'item_removed': 'Item Removed',
+      'location_changed': 'Location Changed', 'status_changed': 'Status Changed',
+      'loaded_to_truck': 'Loaded onto Truck', 'removed_from_truck': 'Removed from Truck',
+      'scanned': 'Scanned', 'unloaded': 'Unloaded', 'box_emptied': 'Box Emptied'
     };
-    return actions[action] || action;
+    return map[action] || action;
   }
 
   // ========== PRINTING ==========

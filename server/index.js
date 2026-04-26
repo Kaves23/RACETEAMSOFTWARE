@@ -359,14 +359,24 @@ app.post('/api/:collection/create', requireAuth, async (req, res) => {
 // Lifecycle history logging for inventory/assets/etc. - PROTECTED
 app.post('/api/history', requireAuth, async (req, res) => {
   try {
-    const { kind, id, action, by, eventId, note, tsMs } = req.body || {};
+    const { kind, id, action, by, note, tsMs, from_truck_id, to_truck_id, previous_status, new_status } = req.body || {};
     if (!kind || !id || !action) return res.status(400).json({ ok:false, error:'missing kind/id/action' });
-    const entry = { action, by: by||'admin', eventId: eventId||'', note: note||'', tsMs: Number(tsMs||Date.now()) };
+    const entry = { action, by: by||null, note: note||'', tsMs: Number(tsMs||Date.now()), from_truck_id: from_truck_id||null, to_truck_id: to_truck_id||null, previous_status: previous_status||null, new_status: new_status||null };
     const out = await db.logHistory(kind, id, entry);
     res.json({ ok:true, result: out });
   } catch (err) {
     console.error('POST /api/history error', err);
     res.status(500).json({ ok:false, error: String(err) });
+  }
+});
+
+app.get('/api/history/boxes/:id', requireAuth, async (req, res) => {
+  try {
+    const rows = await db.getBoxHistory(req.params.id);
+    res.json({ ok: true, history: rows });
+  } catch (err) {
+    console.error('GET /api/history/boxes error', err);
+    res.status(500).json({ ok: false, error: String(err) });
   }
 });
 

@@ -137,6 +137,13 @@ router.post('/confirm', async (req, res, next) => {
 
         const zone = planCheck.rows.length > 0 ? planCheck.rows[0].truck_zone : null;
 
+        // Record scan event in box_history (fire-and-forget)
+        pool.query(
+          `INSERT INTO box_history (id, box_id, action, details, to_truck_id, new_status, performed_by_user_id, timestamp)
+           VALUES (gen_random_uuid(), $1, 'scanned', $2, $3, 'in_transit', $4, NOW())`,
+          [box.id, `Scanned onto truck${zone ? ` — Zone ${zone}` : ''}`, truck_id, req.user?.userId || null]
+        ).catch(() => {});
+
         return res.json({
           success: true, type: 'box', status: 'loaded',
           name: box.name, barcode: box.barcode, zone,
@@ -156,6 +163,14 @@ router.post('/confirm', async (req, res, next) => {
             [box.id]
           );
         }
+
+        // Record unload event in box_history (fire-and-forget)
+        pool.query(
+          `INSERT INTO box_history (id, box_id, action, details, from_truck_id, new_status, performed_by_user_id, timestamp)
+           VALUES (gen_random_uuid(), $1, 'unloaded', 'Scanned off truck', $2, 'available', $3, NOW())`,
+          [box.id, box.current_truck_id || truck_id, req.user?.userId || null]
+        ).catch(() => {});
+
         return res.json({
           success: true, type: 'box', status: 'unloaded',
           name: box.name, barcode: box.barcode,

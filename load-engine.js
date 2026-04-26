@@ -1260,15 +1260,37 @@ console.log('📦 load-engine.js loading...');
     currentLoad.updatedAt = new Date().toISOString();
     saveData();
     renderAll();
+    // Record load plan event in box history (fire-and-forget)
+    try {
+      const _t  = trucks.find(t => String(t.id) === String(currentLoad.truckId));
+      const _cu = JSON.parse(localStorage.getItem('user') || '{}');
+      fetch('/api/history', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}` },
+        body: JSON.stringify({ kind: 'boxes', id: boxId, action: 'loaded_to_truck',
+          note: `Added to load plan for ${_t ? _t.name : 'truck'} — Zone ${zone}`,
+          by: _cu.id || null, to_truck_id: currentLoad.truckId || null, new_status: 'in_transit' })
+      }).catch(() => {});
+    } catch (_) {}
   }
-
-  function removeBox(boxId) {
     const index = currentLoad.placements.findIndex(p => p.boxId === boxId);
     if (index !== -1) {
       currentLoad.placements.splice(index, 1);
       currentLoad.updatedAt = new Date().toISOString();
       saveData();
       renderAll();
+      // Record removal event in box history (fire-and-forget)
+      try {
+        const _t  = trucks.find(t => String(t.id) === String(currentLoad.truckId));
+        const _cu = JSON.parse(localStorage.getItem('user') || '{}');
+        fetch('/api/history', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}` },
+          body: JSON.stringify({ kind: 'boxes', id: boxId, action: 'removed_from_truck',
+            note: `Removed from ${_t ? _t.name : 'truck'} load plan`,
+            by: _cu.id || null, from_truck_id: currentLoad.truckId || null, previous_status: 'in_transit' })
+        }).catch(() => {});
+      } catch (_) {}
     }
   }
 

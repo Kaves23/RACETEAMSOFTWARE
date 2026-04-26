@@ -68,12 +68,13 @@ async function logHistory(kind, id, entry) {
     const result = await query(sql, [historyId, id, action, note, by, timestamp]);
     return result.rows[0];
   } else if (kind === 'boxes') {
+    const { from_truck_id, to_truck_id, previous_status, new_status } = entry;
     const sql = `
-      INSERT INTO box_history (id, box_id, action, details, performed_by_user_id, timestamp)
-      VALUES ($1, $2, $3, $4, $5, $6)
+      INSERT INTO box_history (id, box_id, action, details, from_truck_id, to_truck_id, previous_status, new_status, performed_by_user_id, timestamp)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       RETURNING *
     `;
-    const result = await query(sql, [historyId, id, action, note, by, timestamp]);
+    const result = await query(sql, [historyId, id, action, note||null, from_truck_id||null, to_truck_id||null, previous_status||null, new_status||null, by||null, timestamp]);
     return result.rows[0];
   } else if (kind === 'trucks') {
     const sql = `
@@ -185,12 +186,31 @@ async function createOne(tableName, data) {
   return data;
 }
 
+async function getBoxHistory(boxId) {
+  const sql = `
+    SELECT
+      bh.id, bh.action, bh.details, bh.previous_status, bh.new_status, bh.timestamp,
+      COALESCE(u.full_name, u.username) AS user_name,
+      ft.name AS from_truck_name,
+      tt.name AS to_truck_name
+    FROM box_history bh
+    LEFT JOIN users  u  ON u.id  = bh.performed_by_user_id
+    LEFT JOIN trucks ft ON ft.id = bh.from_truck_id
+    LEFT JOIN trucks tt ON tt.id = bh.to_truck_id
+    WHERE bh.box_id = $1
+    ORDER BY bh.timestamp DESC
+    LIMIT 200
+  `;
+  return (await query(sql, [boxId])).rows;
+}
+
 module.exports = {
   pool,
   query,
   testConnection,
   closePool,
   logHistory,
+  getBoxHistory,
   getAll,
   getSettings,
   saveSettings,
