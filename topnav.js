@@ -776,36 +776,41 @@
       }
     } catch(_e) { /* non-fatal */ }
 
-    // ── Global Barcode Scanner ────────────────────────────────────────────────
+    // ── Global Barcode Scanner ─────────────────────────────────────────────
     // Press SPACE from any page (when not typing) → scan overlay opens.
-    // Scan or type a barcode/name → lookup hits /api/lookup → shows cards with
-    // type-specific quick-action buttons (box / item / inventory).
+    // Type or scan any box / asset / inventory barcode or name to get
+    // item-specific quick actions and inline history.
     try {
+      const _scanReadySvg = '<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#30363d" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:0 auto 10px;"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3"/><path d="M17 17v3h3"/><path d="M14 20h3"/></svg>';
       const scanModalHtml = `
         <div class="modal fade" id="rtsScanModal" tabindex="-1" aria-hidden="true">
-          <div class="modal-dialog modal-dialog-centered" style="max-width:580px;">
+          <div class="modal-dialog modal-dialog-centered" style="max-width:600px;">
             <div class="modal-content" style="background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:12px;overflow:hidden;">
               <div class="modal-body p-0">
-                <div style="background:#161b22;padding:20px;border-bottom:1px solid #30363d;">
-                  <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-                    <span style="font-size:1.4rem;">📡</span>
-                    <span style="font-size:1.05rem;font-weight:700;color:#e6edf3;">Quick Scan</span>
-                    <span style="margin-left:auto;font-size:0.73rem;color:#8b949e;">SPACE to open &nbsp;·&nbsp; ESC to close</span>
+                <div style="background:#161b22;padding:18px 20px 14px;border-bottom:1px solid #30363d;">
+                  <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#388bfd" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M7.76 7.76a6 6 0 0 0 0 8.49"/><path d="M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+                    <span style="font-size:1rem;font-weight:700;color:#e6edf3;">Quick Scan</span>
+                    <span style="margin-left:auto;font-size:0.71rem;color:#8b949e;">SPACE to open &middot; ESC to close</span>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" style="margin:0;"></button>
                   </div>
                   <div style="position:relative;">
-                    <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);pointer-events:none;">🔍</span>
+                    <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);pointer-events:none;color:#8b949e;line-height:0;">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                    </span>
                     <input id="rtsScanInput" type="text" autocomplete="off" autocorrect="off" spellcheck="false"
-                      placeholder="Scan barcode or type a name…"
+                      placeholder="Scan barcode or type box / asset name…"
                       style="width:100%;padding:10px 38px 10px 34px;background:#0d1117;color:#e6edf3;border:1.5px solid #388bfd;border-radius:6px;font-size:1rem;outline:none;box-sizing:border-box;"/>
-                    <span id="rtsScanSpinner" style="position:absolute;right:11px;top:50%;transform:translateY(-50%);display:none;font-size:0.85rem;">⏳</span>
+                    <span id="rtsScanSpinner" style="position:absolute;right:11px;top:50%;transform:translateY(-50%);display:none;line-height:0;">
+                      <span class="spinner-border" style="width:14px;height:14px;border-width:2px;color:#388bfd;"></span>
+                    </span>
                   </div>
-                  <div style="font-size:0.73rem;color:#8b949e;margin-top:6px;">Scan a box, asset, or inventory barcode / QR code. Press Enter to search.</div>
+                  <div style="font-size:0.72rem;color:#8b949e;margin-top:6px;">Box &middot; Asset &middot; Inventory — scan or type. Results appear live.</div>
                 </div>
-                <div id="rtsScanResults" style="max-height:58vh;overflow-y:auto;padding:12px 14px;">
-                  <div id="rtsScanEmpty" style="text-align:center;padding:36px 0;color:#8b949e;">
-                    <div style="font-size:2.2rem;margin-bottom:8px;">📷</div>
-                    <div style="font-size:0.9rem;">Ready to scan</div>
+                <div id="rtsScanResults" style="max-height:62vh;overflow-y:auto;padding:12px 14px;">
+                  <div id="rtsScanEmpty" style="text-align:center;padding:40px 0;color:#8b949e;">
+                    ${_scanReadySvg}
+                    <div style="font-size:0.88rem;">Ready to scan</div>
                   </div>
                 </div>
               </div>
@@ -823,58 +828,106 @@
       const scanEmpty     = document.getElementById('rtsScanEmpty');
       const scanModal     = (scanModalEl && window.bootstrap) ? new bootstrap.Modal(scanModalEl, { backdrop: true }) : null;
 
-      // XSS-safe escaping reused inside scanner scope
+      // XSS-safe escaping
       function sEsc(s){ return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
       function statusBadge(status){
-        const s = String(status||'').toLowerCase();
-        const cls = {active:'success',available:'success',packed:'primary',loaded:'primary',in_use:'warning',maintenance:'warning',missing:'danger',retired:'secondary',returned:'secondary',on_truck:'info'}[s] || 'secondary';
-        return `<span class="badge bg-${cls}" style="font-size:0.68rem;">${sEsc(status||'—')}</span>`;
+        const s = String(status||'').toLowerCase().replace(/_/g,' ');
+        const colors = { active:'#2ea044', available:'#2ea044', packed:'#388bfd', loaded:'#388bfd',
+          'in transit':'#388bfd', 'in use':'#d29922', maintenance:'#d29922',
+          missing:'#f85149', retired:'#6e7681', returned:'#6e7681', 'on truck':'#58a6ff' };
+        const c = colors[s] || '#6e7681';
+        return `<span style="background:${c}22;color:${c};font-size:0.67rem;font-weight:700;padding:2px 8px;border-radius:10px;border:1px solid ${c}55;white-space:nowrap;">${sEsc(s||'—')}</span>`;
       }
       function typePill(type){
-        const icons = {box:'📦',item:'🔧',inventory:'🛒'};
-        const cols  = {box:'#1c6efb',item:'#8957e5',inventory:'#2ea044'};
-        return `<span style="background:${cols[type]||'#555'};color:#fff;font-size:0.65rem;font-weight:700;padding:2px 7px;border-radius:10px;letter-spacing:.05em;text-transform:uppercase;">${icons[type]||''} ${type}</span>`;
+        const cfg = {
+          box:       { label:'BOX',   bg:'#1c6efb22', color:'#58a6ff', border:'#1c6efb55' },
+          item:      { label:'ASSET', bg:'#8957e522', color:'#d2a8ff', border:'#8957e555' },
+          inventory: { label:'STOCK', bg:'#2ea04422', color:'#7ee787', border:'#2ea04455' }
+        }[type] || { label:type.toUpperCase(), bg:'#55555522', color:'#8b949e', border:'#55555555' };
+        return `<span style="background:${cfg.bg};color:${cfg.color};border:1px solid ${cfg.border};font-size:0.64rem;font-weight:700;padding:2px 8px;border-radius:10px;letter-spacing:.06em;">${cfg.label}</span>`;
       }
       function actionBtn(label, onClick){
         const b = document.createElement('button');
         b.type = 'button'; b.textContent = label;
-        b.style.cssText = 'background:#21262d;color:#e6edf3;border:1px solid #30363d;border-radius:5px;padding:5px 12px;font-size:0.78rem;cursor:pointer;white-space:nowrap;';
+        b.style.cssText = 'background:#21262d;color:#c9d1d9;border:1px solid #30363d;border-radius:5px;padding:5px 12px;font-size:0.77rem;cursor:pointer;white-space:nowrap;transition:border-color .12s,color .12s;';
         b.addEventListener('mouseenter',()=>{ b.style.borderColor='#388bfd'; b.style.color='#79c0ff'; });
-        b.addEventListener('mouseleave',()=>{ b.style.borderColor='#30363d'; b.style.color='#e6edf3'; });
+        b.addEventListener('mouseleave',()=>{ b.style.borderColor='#30363d'; b.style.color='#c9d1d9'; });
         b.addEventListener('click', onClick);
         return b;
       }
       function goPage(url){ try { const _el=document.getElementById('rtsScanModal'); if(_el&&window.bootstrap) bootstrap.Modal.getOrCreateInstance(_el).hide(); } catch(_e){} window.location.href = url; }
 
-      async function expandHistory(btn, itemId, card){
-        btn.textContent = '⏳'; btn.disabled = true;
+      // Inline history — supports boxes (/api/history/boxes/:id) and items (/api/items/:id/history)
+      async function expandHistory(btn, itemId, itemType, card){
+        btn.innerHTML = '<span class="spinner-border" style="width:10px;height:10px;border-width:2px;color:#388bfd;vertical-align:middle;"></span>';
+        btn.disabled = true;
         try {
           const token = localStorage.getItem('auth_token') || '';
-          const r   = await fetch(`/api/items/${encodeURIComponent(itemId)}/history`, { headers:{'Authorization':'Bearer '+token} });
+          const url   = itemType === 'box'
+            ? `/api/history/boxes/${encodeURIComponent(itemId)}`
+            : `/api/items/${encodeURIComponent(itemId)}/history`;
+          const r    = await fetch(url, { headers:{ 'Authorization':'Bearer '+token } });
           const data = await r.json();
-          const hist = (data.history||[]).slice(0,6);
-          if (!hist.length){ btn.textContent = 'No history'; return; }
+          const hist = (data.history || []).slice(0, 8);
+
+          if (!hist.length){ btn.textContent = 'No history'; btn.disabled = false; return; }
+
+          const ACTION_LABELS = {
+            created:'Box Created', item_added:'Item Packed In', item_removed:'Item Removed',
+            box_emptied:'Box Emptied', loaded_to_truck:'Added to Load Plan',
+            removed_from_truck:'Removed from Plan', scanned:'Scanned onto Truck',
+            unloaded:'Scanned off Truck', location_changed:'Location Changed', status_changed:'Status Changed'
+          };
+          const ACTION_COLORS = {
+            created:'#2ea044', item_added:'#388bfd', item_removed:'#d29922',
+            box_emptied:'#f85149', loaded_to_truck:'#2ea044', removed_from_truck:'#6e7681',
+            scanned:'#388bfd', unloaded:'#d29922', location_changed:'#bc8cff', status_changed:'#6e7681'
+          };
+
           const wrap = document.createElement('div');
-          wrap.style.cssText = 'margin-top:8px;padding:8px;background:#0d1117;border-radius:4px;font-size:0.73rem;color:#8b949e;';
-          hist.forEach(h => {
-            const row = document.createElement('div');
-            row.style.cssText = 'padding:3px 0;border-bottom:1px solid #21262d;';
-            const ts = h.timestamp ? new Date(h.timestamp).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : '—';
-            row.innerHTML = `<span style="color:#e6edf3;">${sEsc(h.action||'—')}</span>${h.details?` <span style="color:#8b949e;">${sEsc(h.details)}</span>`:''}<span style="float:right;">${ts}</span>`;
+          wrap.style.cssText = 'background:#0d1117;border-radius:6px;padding:10px 12px;margin-top:8px;border:1px solid #21262d;';
+          const title = document.createElement('div');
+          title.style.cssText = 'font-size:0.68rem;font-weight:700;color:#6e7681;text-transform:uppercase;letter-spacing:.07em;margin-bottom:7px;';
+          title.textContent = 'Recent History';
+          wrap.appendChild(title);
+
+          hist.forEach((h, i) => {
+            const row   = document.createElement('div');
+            row.style.cssText = `padding:5px 0;${i < hist.length-1 ? 'border-bottom:1px solid #161b22;' : ''}`;
+            const act   = h.action || '—';
+            const label = ACTION_LABELS[act] || act;
+            const color = ACTION_COLORS[act] || '#8b949e';
+            const ts    = h.timestamp ? new Date(h.timestamp).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : '—';
+            const who   = h.user_name || '';
+            const truck = h.to_truck_name || h.from_truck_name || '';
+            row.innerHTML = `
+              <div style="display:flex;align-items:baseline;gap:6px;">
+                <span style="width:7px;height:7px;min-width:7px;border-radius:50%;background:${color};display:inline-block;margin-top:3px;flex-shrink:0;"></span>
+                <span style="color:#e6edf3;font-size:0.76rem;font-weight:600;flex:1;">${sEsc(label)}</span>
+                <span style="color:#6e7681;font-size:0.69rem;white-space:nowrap;">${sEsc(ts)}</span>
+              </div>
+              ${h.details?`<div style="font-size:0.71rem;color:#8b949e;margin-left:13px;margin-top:1px;">${sEsc(h.details)}</div>`:''}
+              ${(who||truck)?`<div style="font-size:0.69rem;color:#6e7681;margin-left:13px;">${truck?sEsc(truck)+(who?' · ':''):''}${who?sEsc(who):''}</div>`:''}
+            `;
             wrap.appendChild(row);
           });
+
           btn.style.display = 'none';
           card.appendChild(wrap);
-        } catch(_e){ btn.textContent = '⚠️ Failed'; }
+        } catch(_e){ btn.innerHTML = ''; btn.textContent = 'History unavailable'; btn.disabled = false; }
       }
 
       function renderScanResults(results, query){
         if (!scanResultsEl) return;
-        // Remove all old result cards (keep #rtsScanEmpty)
         Array.from(scanResultsEl.children).forEach(c => { if (c.id !== 'rtsScanEmpty') c.remove(); });
         if (!results || !results.length){
-          if (scanEmpty){ scanEmpty.style.display=''; scanEmpty.innerHTML=`<div style="font-size:2.2rem;margin-bottom:8px;">🔍</div><div style="font-size:0.9rem;">No results for <strong>${sEsc(query)}</strong></div>`; }
+          if (scanEmpty){
+            scanEmpty.style.display='';
+            scanEmpty.innerHTML = '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#30363d" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:0 auto 10px;"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>'
+              + `<div style="font-size:0.9rem;">No results for <strong style="color:#e6edf3;">${sEsc(query)}</strong></div>`
+              + '<div style="font-size:0.75rem;margin-top:5px;color:#6e7681;">This item may only exist locally — try Box Packing or Assets</div>';
+          }
           return;
         }
         if (scanEmpty) scanEmpty.style.display = 'none';
@@ -883,43 +936,46 @@
           const card = document.createElement('div');
           card.style.cssText = 'background:#161b22;border:1px solid #30363d;border-radius:8px;padding:14px 16px;margin-bottom:10px;';
 
-          let infoLine='', subStr='', nameStr='';
+          let subHtml='', metaHtml='', nameStr='';
           if (type === 'box') {
             nameStr  = r.name || r.barcode || '—';
-            const loc     = r.location_name ? `📍 ${sEsc(r.location_name)}` : '📍 No location';
-            const truck   = r.truck_name   ? ` &nbsp;·&nbsp; 🚛 ${sEsc(r.truck_name)}`   : '';
-            const driver  = r.driver_name  ? ` &nbsp;·&nbsp; 👤 ${sEsc(r.driver_name)}`  : '';
-            infoLine = loc + truck + driver;
-            subStr   = `${r.barcode?`<span style="font-family:monospace;font-size:0.78rem;color:#8b949e;">${sEsc(r.barcode)}</span> &nbsp;`:''}${statusBadge(r.status)} &nbsp;<span style="font-size:0.75rem;color:#8b949e;">Items: ${r.item_count||0}</span>`;
+            const truckSpan  = r.truck_name  ? ` <span style="color:#58a6ff;font-weight:600;">· on ${sEsc(r.truck_name)}</span>` : '';
+            const driverSpan = r.driver_name ? ` <span style="color:#8b949e;">· ${sEsc(r.driver_name)}</span>` : '';
+            subHtml  = (r.barcode?`<span style="font-family:monospace;font-size:0.77rem;color:#8b949e;background:#0d1117;padding:1px 6px;border-radius:3px;margin-right:5px;">${sEsc(r.barcode)}</span>`:'')
+              + statusBadge(r.status)
+              + (r.item_count!=null?` <span style="font-size:0.74rem;color:#6e7681;margin-left:4px;">${r.item_count} item${r.item_count!==1?'s':''}</span>`:'');
+            metaHtml = `<div style="font-size:0.77rem;margin-top:4px;color:#8b949e;">${r.location_name?sEsc(r.location_name):'No location'}${truckSpan}${driverSpan}</div>`;
           } else if (type === 'item') {
             nameStr  = r.name || '—';
-            infoLine = (r.box_name ? `📦 In box: ${sEsc(r.box_name)}` : (r.location_name ? `📍 ${sEsc(r.location_name)}` : '📍 No location'))
-                     + (r.assigned_staff_name ? ` &nbsp;·&nbsp; 👤 ${sEsc(r.assigned_staff_name)}` : '');
-            subStr   = `${r.barcode?`<span style="font-family:monospace;font-size:0.78rem;color:#8b949e;">${sEsc(r.barcode)}</span> &nbsp;`:''}${statusBadge(r.status)} &nbsp;<span style="font-size:0.75rem;color:#8b949e;text-transform:capitalize;">${sEsc(r.item_type||'')} · ${sEsc(r.category||'—')}</span>`;
+            const locTxt    = r.box_name ? `In box: ${sEsc(r.box_name)}` : (r.location_name ? sEsc(r.location_name) : 'No location');
+            const staffSpan = r.assigned_staff_name ? ` <span>· ${sEsc(r.assigned_staff_name)}</span>` : '';
+            subHtml  = (r.barcode?`<span style="font-family:monospace;font-size:0.77rem;color:#8b949e;background:#0d1117;padding:1px 6px;border-radius:3px;margin-right:5px;">${sEsc(r.barcode)}</span>`:'')
+              + statusBadge(r.status)
+              + (r.item_type?` <span style="font-size:0.74rem;color:#6e7681;margin-left:4px;text-transform:capitalize;">${sEsc(r.item_type)} · ${sEsc(r.category||'—')}</span>`:'');
+            metaHtml = `<div style="font-size:0.77rem;margin-top:4px;color:#8b949e;">${locTxt}${staffSpan}</div>`;
           } else {
             nameStr  = r.name || '—';
-            infoLine = (r.location_name ? `📍 ${sEsc(r.location_name)}` : '📍 No location')
-                     + ` &nbsp;·&nbsp; Qty: <strong style="color:#e6edf3">${r.quantity||0}${r.quantity_unit?' '+sEsc(r.quantity_unit):''}</strong>`;
-            subStr   = r.sku ? `<span style="font-family:monospace;font-size:0.78rem;color:#8b949e;">SKU: ${sEsc(r.sku)}</span>` : '';
+            subHtml  = r.sku ? `<span style="font-family:monospace;font-size:0.77rem;color:#8b949e;background:#0d1117;padding:1px 6px;border-radius:3px;">SKU: ${sEsc(r.sku)}</span>` : '';
+            metaHtml = `<div style="font-size:0.77rem;margin-top:4px;color:#8b949e;">${r.location_name?sEsc(r.location_name):'No location'} <span style="color:#2ea044;font-weight:700;margin-left:6px;">Qty: ${r.quantity!=null?r.quantity:'—'}${r.quantity_unit?' '+sEsc(r.quantity_unit):''}</span></div>`;
           }
 
           card.innerHTML = `
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
               ${typePill(type)}
-              <span style="font-size:1rem;font-weight:600;color:#e6edf3;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${sEsc(nameStr)}">${sEsc(nameStr)}</span>
+              <span style="font-size:0.93rem;font-weight:700;color:#c9d1d9;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${sEsc(nameStr)}">${sEsc(nameStr)}</span>
             </div>
-            ${subStr?`<div style="margin-bottom:5px;">${subStr}</div>`:''}
-            <div style="font-size:0.78rem;color:#8b949e;margin-bottom:10px;">${infoLine}</div>
-            <div class="rts-scan-actions" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+            ${subHtml?`<div style="margin-bottom:3px;">${subHtml}</div>`:''}
+            ${metaHtml}
+            <div class="rts-scan-actions" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;"></div>
           `;
 
           const act = card.querySelector('.rts-scan-actions');
           if (type === 'box') {
-            act.appendChild(actionBtn('📦 Box Packing',  () => goPage('box-packing.html')));
-            act.appendChild(actionBtn('🚛 Scan to Load', () => goPage('scan-load.html')));
-            act.appendChild(actionBtn('📋 Load Plan',    () => goPage('load.html')));
+            act.appendChild(actionBtn('Box Packing',  () => goPage('box-packing.html')));
+            act.appendChild(actionBtn('Load Plan',    () => goPage('load.html')));
+            act.appendChild(actionBtn('Scan to Load', () => goPage('scan-load.html')));
             if (r.barcode){
-              act.appendChild(actionBtn('🖨️ Print Label', () => {
+              act.appendChild(actionBtn('Print Label', () => {
                 const qr  = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(r.barcode)}&size=140x140`;
                 const win = window.open('','_blank','width=420,height=300,toolbar=0,menubar=0');
                 if (!win) return;
@@ -927,18 +983,20 @@
                   <style>body{margin:0;display:flex;flex-direction:column;align-items:center;font-family:monospace;padding:16px;}
                   img{max-width:140px;margin:6px 0;}h2{font-size:1.4rem;margin:4px 0;}p{font-size:0.9rem;margin:2px 0;color:#555;}</style>
                   </head><body><img src="${qr}"/><h2>${sEsc(r.barcode)}</h2><p>${sEsc(r.name)}</p>
-                  <script>window.onload=function(){window.print();}<\/script></body></html>`);
+                  <script>window.onload=function(){window.print();}` + `<\/script></body></html>`);
                 win.document.close();
               }));
             }
+            const histBtnBox = actionBtn('History', () => expandHistory(histBtnBox, r.id, 'box', card));
+            act.appendChild(histBtnBox);
           } else if (type === 'item') {
-            act.appendChild(actionBtn('🔧 View in Assets', () => goPage('assets.html')));
-            act.appendChild(actionBtn('📦 Box Packing',    () => goPage('box-packing.html')));
-            const histBtn = actionBtn('📋 History', () => expandHistory(histBtn, r.id, card));
-            act.appendChild(histBtn);
+            act.appendChild(actionBtn('View in Assets', () => goPage('assets.html')));
+            act.appendChild(actionBtn('Box Packing',    () => goPage('box-packing.html')));
+            const histBtnItem = actionBtn('History', () => expandHistory(histBtnItem, r.id, 'item', card));
+            act.appendChild(histBtnItem);
           } else {
-            act.appendChild(actionBtn('🛒 View Inventory', () => goPage('inventory.html')));
-            act.appendChild(actionBtn('📦 Box Packing',    () => goPage('box-packing.html')));
+            act.appendChild(actionBtn('View Stock',  () => goPage('inventory.html')));
+            act.appendChild(actionBtn('Box Packing', () => goPage('box-packing.html')));
           }
 
           scanResultsEl.insertBefore(card, scanEmpty);
@@ -948,7 +1006,10 @@
       async function doScan(q){
         if (!q) return;
         if (scanSpinner) scanSpinner.style.display = '';
-        if (scanEmpty){ scanEmpty.style.display=''; scanEmpty.innerHTML=`<div style="font-size:2rem;margin-bottom:8px;">⏳</div><div style="font-size:0.9rem;">Searching…</div>`; }
+        if (scanEmpty){
+          scanEmpty.style.display='';
+          scanEmpty.innerHTML = '<span class="spinner-border" style="width:20px;height:20px;border-width:2px;color:#388bfd;"></span><div style="font-size:0.88rem;margin-top:10px;color:#8b949e;">Searching…</div>';
+        }
         Array.from(scanResultsEl.children).forEach(c => { if (c.id !== 'rtsScanEmpty') c.remove(); });
         try {
           const token = localStorage.getItem('auth_token') || '';
@@ -956,7 +1017,7 @@
           const data  = await resp.json();
           renderScanResults(data.results || [], q);
         } catch(_e){
-          if (scanEmpty){ scanEmpty.style.display=''; scanEmpty.innerHTML=`<div style="font-size:1.6rem;margin-bottom:8px;">⚠️</div><div>Lookup failed. Check connection.</div>`; }
+          if (scanEmpty){ scanEmpty.style.display=''; scanEmpty.innerHTML='<div style="font-size:0.88rem;color:#f85149;">Lookup failed — check connection</div>'; }
         } finally {
           if (scanSpinner) scanSpinner.style.display = 'none';
         }
@@ -964,7 +1025,7 @@
 
       let scanDebounce = null;
       if (scanInput){
-        // Enter: fire immediately (barcode scanners always send Enter at end)
+        // Enter: fire immediately (barcode scanners always append Enter)
         scanInput.addEventListener('keydown', (e) => {
           if (e.key !== 'Enter') return;
           e.preventDefault();
@@ -972,11 +1033,11 @@
           const q = scanInput.value.trim();
           if (q) doScan(q);
         });
-        // Live typing: debounced search for manual use
+        // Live typing: debounced 380ms
         scanInput.addEventListener('input', () => {
           clearTimeout(scanDebounce);
           const q = scanInput.value.trim();
-          if (q.length >= 2) scanDebounce = setTimeout(() => doScan(q), 420);
+          if (q.length >= 2) scanDebounce = setTimeout(() => doScan(q), 380);
         });
       }
 
@@ -984,7 +1045,10 @@
       if (scanModalEl){
         scanModalEl.addEventListener('show.bs.modal', () => {
           if (scanInput) scanInput.value = '';
-          if (scanEmpty){ scanEmpty.style.display=''; scanEmpty.innerHTML=`<div style="font-size:2.2rem;margin-bottom:8px;">📷</div><div style="font-size:0.9rem;">Ready to scan</div>`; }
+          if (scanEmpty){
+            scanEmpty.style.display='';
+            scanEmpty.innerHTML = '<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#30363d" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:0 auto 10px;"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3"/><path d="M17 17v3h3"/><path d="M14 20h3"/></svg><div style="font-size:0.88rem;">Ready to scan</div>';
+          }
           Array.from(scanResultsEl.children).forEach(c => { if (c.id !== 'rtsScanEmpty') c.remove(); });
           if (scanSpinner) scanSpinner.style.display = 'none';
         });
@@ -992,7 +1056,6 @@
       }
 
     } catch(_e) { /* non-fatal */ }
-
     // ── Live Timing ──────────────────────────────────────────────────────────
     try {
       function getLtSettings() {
