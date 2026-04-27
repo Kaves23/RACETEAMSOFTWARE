@@ -49,7 +49,10 @@ router.get('/:id', async (req, res, next) => {
 
 // POST /api/project-plans — create plan
 router.post('/', async (req, res, next) => {
-  const { name, event_id, start_date, end_date, color, description } = req.body;
+  const {
+    name, event_id, start_date, end_date, color, description,
+    project_type, owner_staff_id, risk_level, priority
+  } = req.body;
   if (!name || !name.trim()) {
     return res.status(400).json({ success: false, error: 'name is required' });
   }
@@ -59,8 +62,10 @@ router.post('/', async (req, res, next) => {
     await client.query('BEGIN');
     const id = crypto.randomUUID();
     const result = await client.query(`
-      INSERT INTO project_plans (id, name, event_id, start_date, end_date, color, description, created_by_user_id)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      INSERT INTO project_plans
+        (id, name, event_id, start_date, end_date, color, description,
+         project_type, owner_staff_id, risk_level, priority, created_by_user_id)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
       RETURNING *
     `, [
       id,
@@ -70,6 +75,10 @@ router.post('/', async (req, res, next) => {
       end_date || null,
       color || '#a64dff',
       description || null,
+      project_type || null,
+      owner_staff_id || null,
+      risk_level || null,
+      priority || 'medium',
       req.user?.id || null
     ]);
     await client.query('COMMIT');
@@ -84,7 +93,10 @@ router.post('/', async (req, res, next) => {
 
 // PUT /api/project-plans/:id — update plan
 router.put('/:id', async (req, res, next) => {
-  const { name, event_id, start_date, end_date, color, status, description } = req.body;
+  const {
+    name, event_id, start_date, end_date, color, status, description,
+    project_type, owner_staff_id, risk_level, priority, actual_end_date
+  } = req.body;
   let client;
   try {
     client = await pool.connect();
@@ -96,15 +108,20 @@ router.put('/:id', async (req, res, next) => {
     }
     const result = await client.query(`
       UPDATE project_plans SET
-        name        = COALESCE($1, name),
-        event_id    = $2,
-        start_date  = $3,
-        end_date    = $4,
-        color       = COALESCE($5, color),
-        status      = COALESCE($6, status),
-        description = $7,
-        updated_at  = NOW()
-      WHERE id = $8
+        name            = COALESCE($1, name),
+        event_id        = $2,
+        start_date      = $3,
+        end_date        = $4,
+        color           = COALESCE($5, color),
+        status          = COALESCE($6, status),
+        description     = $7,
+        project_type    = COALESCE($8, project_type),
+        owner_staff_id  = COALESCE($9, owner_staff_id),
+        risk_level      = COALESCE($10, risk_level),
+        priority        = COALESCE($11, priority),
+        actual_end_date = $12,
+        updated_at      = NOW()
+      WHERE id = $13
       RETURNING *
     `, [
       name?.trim() || null,
@@ -114,6 +131,11 @@ router.put('/:id', async (req, res, next) => {
       color || null,
       status || null,
       description !== undefined ? (description || null) : undefined,
+      project_type || null,
+      owner_staff_id || null,
+      risk_level || null,
+      priority || null,
+      actual_end_date !== undefined ? (actual_end_date || null) : undefined,
       req.params.id
     ]);
     await client.query('COMMIT');
@@ -398,6 +420,110 @@ router.delete('/task-links/:linkId', async (req, res, next) => {
     next(error);
   } finally {
     if (client) client.release();
+  }
+});
+
+// ──────────────────────────────────────────────────────────────────
+// TASK ASSIGNMENTS (secondary / additional assignees)
+// ──────────────────────────────────────────────────────────────────
+
+// GET /api/project-plans/tasks/:taskId/assignments
+router.get('/tasks/:taskId/assignments', async (req, res, next) => {
+  try {
+    const result = await pool.query(`
+      SELECT a.*, u.name AS user_name, u.email AS user_email
+      FROM project_task_assignments a
+      LEFT JOIN users u ON u.id = a.user_id
+      WHERE a.task_id = $1
+      ORDER BY a.is_primary DESC, a.created_at ASC
+    `, [req.params.taskId]);
+    res.json({ success: true, data: result.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/project-plans/task-assignments
+router.post('/task-assignments', async (req, res, next) => {
+  const { task_id, user_id, role_on_task, is_primary } = req.body;
+  if (!task_id || !user_id) {
+    return res.status(400).json({ success: false, error: 'task_id and user_id are required' });
+  }
+  try {
+    const id = crypto.randomUUID();
+    const result = await pool.query(`
+      INSERT INTO project_task_assignments (id, task_id, user_id, role_on_task, is_primary)
+      VALUES ($1, $2, $3, $4, $5)
+      ON CONFLICT DO NOTHING
+      RETURNING *
+    `, [id, task_id, user_id, role_on_task || null, is_primary || false]);
+    res.status(201).json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// DELETE /api/project-plans/task-assignments/:id
+router.delete('/task-assignments/:id', async (req, res, next) => {
+  try {
+    const result = await pool.query(
+      'DELETE FROM project_task_assignments WHERE id = $1 RETURNING id',
+      [req.params.id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Assignment not found' });
+    }
+    res.json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ──────────────────────────────────────────────────────────────────
+// PROJECT DETAIL (for project-detail.html)
+// GET /api/project-plans/:id/detail — plan + task stats + linked event
+// ──────────────────────────────────────────────────────────────────
+router.get('/:id/detail', async (req, res, next) => {
+  try {
+    const planRes = await pool.query(`
+      SELECT p.*,
+             e.name      AS event_name,
+             e.start_date AS event_start_date,
+             e.end_date   AS event_end_date,
+             u.name       AS owner_name
+      FROM project_plans p
+      LEFT JOIN events e ON e.id = p.event_id
+      LEFT JOIN users  u ON u.id = p.owner_staff_id
+      WHERE p.id = $1
+    `, [req.params.id]);
+
+    if (planRes.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Plan not found' });
+    }
+
+    const statsRes = await pool.query(`
+      SELECT
+        COUNT(*)                                                          AS total_tasks,
+        COUNT(*) FILTER (WHERE status = 'completed')                     AS completed_tasks,
+        COUNT(*) FILTER (WHERE status = 'blocked')                       AS blocked_tasks,
+        COUNT(*) FILTER (WHERE status NOT IN ('completed','cancelled')
+                          AND end_date < CURRENT_DATE)                   AS overdue_tasks,
+        COUNT(*) FILTER (WHERE status NOT IN ('completed','cancelled')
+                          AND priority = 'critical')                     AS critical_tasks,
+        ROUND(AVG(progress))                                             AS avg_progress
+      FROM project_tasks
+      WHERE plan_id = $1 AND parent_task_id IS NULL
+    `, [req.params.id]);
+
+    res.json({
+      success: true,
+      data: {
+        plan: planRes.rows[0],
+        stats: statsRes.rows[0]
+      }
+    });
+  } catch (error) {
+    next(error);
   }
 });
 

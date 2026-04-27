@@ -1273,6 +1273,8 @@ console.log('📦 load-engine.js loading...');
       }).catch(() => {});
     } catch (_) {}
   }
+
+  function removeBox(boxId) {
     const index = currentLoad.placements.findIndex(p => p.boxId === boxId);
     if (index !== -1) {
       currentLoad.placements.splice(index, 1);

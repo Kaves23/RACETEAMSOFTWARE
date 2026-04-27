@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Race Team OS — Project Detail</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="style.css?v=20260420" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    body.light-mode { background: #f5f7fa; color: #111; font-family: 'Inter','Segoe UI',sans-serif; }
+
+    /* ─── SECTION TAB BAR (shared with project-management.html) ─── */
+    #pm-section-tabs {
+      display: flex; align-items: center; gap: 0;
+      background: #fff; border-bottom: 2px solid #e0e3ea;
+      padding: 0 16px; height: 38px; flex-shrink: 0;
+      font-family: 'Inter','Segoe UI',sans-serif; z-index: 100; position: relative;
+    }
+    .pm-stab {
+      display: flex; align-items: center; gap: 6px;
+      padding: 0 14px; height: 38px; font-size: 12px; font-weight: 500;
+      color: #6b7a8d; text-decoration: none;
+      border-bottom: 2px solid transparent; margin-bottom: -2px;
+      cursor: pointer; transition: color .15s, border-color .15s;
+      white-space: nowrap; user-select: none;
+    }
+    .pm-stab:hover { color: #a64dff; text-decoration: none; }
+    .pm-stab.active { color: #a64dff; border-bottom-color: #a64dff; font-weight: 700; }
+    .pm-stab-sep { width: 1px; height: 18px; background: #e0e3ea; margin: 0 4px; }
+
+    /* ─── PROJECT HEADER ─────────────────────────────────────────── */
+    #pd-header {
+      background: #fff; border-bottom: 1px solid #e0e3ea;
+      padding: 14px 24px 12px;
+    }
+    #pd-breadcrumb {
+      font-size: 11px; color: #8a9ab0; margin-bottom: 6px;
+    }
+    #pd-breadcrumb a { color: #a64dff; text-decoration: none; }
+    #pd-breadcrumb a:hover { text-decoration: underline; }
+    #pd-title-row {
+      display: flex; align-items: center; gap: 12px;
+    }
+    #pd-color-dot {
+      width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0;
+    }
+    #pd-title {
+      font-size: 20px; font-weight: 700; color: #1a1d24;
+      flex: 1; margin: 0; line-height: 1.2;
+    }
+    #pd-header-actions {
+      display: flex; gap: 8px; align-items: center;
+    }
+    .pd-btn {
+      font-size: 11px; padding: 5px 12px; border-radius: 5px;
+      border: 1px solid #d0d3d8; background: #f5f7fa; color: #444;
+      cursor: pointer; font-weight: 500;
+    }
+    .pd-btn:hover { background: #e8e0f8; border-color: #a64dff; color: #a64dff; }
+    .pd-btn.primary { background: #a64dff; color: #fff; border-color: #a64dff; }
+    .pd-btn.primary:hover { background: #8e3de0; }
+    .pd-btn.danger { color: #e74c3c; border-color: #e74c3c; }
+    .pd-btn.danger:hover { background: #fdf0ef; }
+
+    /* Status + meta pills */
+    #pd-meta-row {
+      display: flex; align-items: center; gap: 8px;
+      margin-top: 8px; flex-wrap: wrap;
+    }
+    .pd-badge {
+      font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 600;
+    }
+    .pd-badge.status-active   { background: #d4edda; color: #186a30; }
+    .pd-badge.status-planned  { background: #cce5ff; color: #004085; }
+    .pd-badge.status-on_hold  { background: #fff3cd; color: #856404; }
+    .pd-badge.status-completed{ background: #e2e3e5; color: #383d41; }
+    .pd-badge.status-cancelled{ background: #f8d7da; color: #721c24; }
+    .pd-badge.type-badge      { background: #e8e0f8; color: #7b2fff; }
+    .pd-badge.risk-low        { background: #d4edda; color: #186a30; }
+    .pd-badge.risk-medium     { background: #fff3cd; color: #856404; }
+    .pd-badge.risk-high       { background: #ffe0cc; color: #b84d00; }
+    .pd-badge.risk-critical   { background: #f8d7da; color: #721c24; }
+    .pd-meta-text { font-size: 11px; color: #8a9ab0; }
+
+    /* ─── SUB-TAB BAR ────────────────────────────────────────────── */
+    #pd-tabs {
+      display: flex; align-items: center;
+      background: #fff; border-bottom: 1px solid #e0e3ea;
+      padding: 0 24px; height: 40px;
+    }
+    .pd-tab {
+      padding: 0 16px; height: 40px; display: flex; align-items: center;
+      font-size: 12px; font-weight: 500; color: #6b7a8d;
+      border-bottom: 2px solid transparent; margin-bottom: -1px;
+      cursor: pointer; transition: color .15s, border-color .15s;
+      white-space: nowrap; user-select: none;
+    }
+    .pd-tab:hover { color: #a64dff; }
+    .pd-tab.active { color: #a64dff; border-bottom-color: #a64dff; font-weight: 700; }
+
+    /* ─── CONTENT AREA ───────────────────────────────────────────── */
+    #pd-content {
+      height: calc(100vh - var(--rts-topbar-h,52px) - 38px - 60px - 40px);
+      overflow: hidden; display: flex; flex-direction: column;
+    }
+    .pd-pane { display: none; flex: 1; overflow: auto; padding: 20px 24px; }
+    .pd-pane.active { display: block; }
+
+    /* ─── STATS CARDS ────────────────────────────────────────────── */
+    #pd-stats-row {
+      display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap;
+    }
+    .pd-stat-card {
+      background: #fff; border: 1px solid #e0e3ea; border-radius: 8px;
+      padding: 12px 16px; min-width: 120px; flex: 1;
+      box-shadow: 0 1px 3px rgba(0,0,0,.05);
+    }
+    .pd-stat-card .pd-stat-val {
+      font-size: 22px; font-weight: 700; color: #1a1d24; line-height: 1;
+    }
+    .pd-stat-card .pd-stat-lbl {
+      font-size: 10px; color: #8a9ab0; font-weight: 600;
+      text-transform: uppercase; letter-spacing: .05em; margin-top: 3px;
+    }
+    .pd-stat-card.stat-danger .pd-stat-val { color: #e74c3c; }
+    .pd-stat-card.stat-warn .pd-stat-val   { color: #e67e22; }
+    .pd-stat-card.stat-ok .pd-stat-val     { color: #27ae60; }
+
+    /* ─── OVERVIEW LAYOUT ────────────────────────────────────────── */
+    .pd-overview-grid {
+      display: grid; grid-template-columns: 1fr 320px; gap: 16px;
+    }
+    @media (max-width: 900px) { .pd-overview-grid { grid-template-columns: 1fr; } }
+    .pd-card {
+      background: #fff; border: 1px solid #e0e3ea; border-radius: 8px;
+      padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.05); margin-bottom: 16px;
+    }
+    .pd-card h6 {
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .07em; color: #8a9ab0; margin: 0 0 10px;
+    }
+    .pd-field-row {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      font-size: 12px; padding: 5px 0; border-bottom: 1px solid #f0f2f6;
+    }
+    .pd-field-row:last-child { border-bottom: none; }
+    .pd-field-lbl { color: #8a9ab0; flex-shrink: 0; min-width: 110px; font-size: 11px; }
+    .pd-field-val { color: #222; text-align: right; font-weight: 500; }
+
+    /* Progress bar */
+    .pd-progress-bar-wrap {
+      background: #e0e3ea; border-radius: 5px; height: 8px;
+      overflow: hidden; margin-top: 6px;
+    }
+    .pd-progress-fill { height: 100%; background: #a64dff; border-radius: 5px; transition: width .4s; }
+
+    /* health indicator */
+    .pd-health-indicator {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 12px; border-radius: 7px; font-size: 12px; font-weight: 600;
+      margin-bottom: 12px;
+    }
+    .pd-health-indicator.health-green  { background: #d4edda; color: #186a30; }
+    .pd-health-indicator.health-amber  { background: #fff3cd; color: #856404; }
+    .pd-health-indicator.health-red    { background: #f8d7da; color: #721c24; }
+    .pd-health-indicator .health-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .health-green .health-dot  { background: #27ae60; }
+    .health-amber .health-dot  { background: #f39c12; }
+    .health-red .health-dot    { background: #e74c3c; }
+
+    /* Linked event card */
+    .pd-event-card {
+      display: flex; align-items: center; gap: 10px;
+      background: #f0f2f6; border: 1px solid #e0e3ea;
+      border-radius: 7px; padding: 10px 14px;
+      cursor: pointer; transition: background .1s;
+      text-decoration: none; color: inherit;
+      margin-bottom: 12px;
+    }
+    .pd-event-card:hover { background: #e8e0f8; border-color: #a64dff; }
+    .pd-event-card-icon { font-size: 20px; }
+    .pd-event-card-name { font-size: 13px; font-weight: 600; color: #1a1d24; }
+    .pd-event-card-date { font-size: 11px; color: #8a9ab0; }
+
+    /* ─── STUB PANES ─────────────────────────────────────────────── */
+    .pd-stub {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 10px; color: #aaa; font-size: 13px;
+    }
+    .pd-stub svg { opacity: .3; }
+    .pd-stub strong { color: #888; font-size: 15px; }
+    .pd-stub p { font-size: 12px; color: #aaa; margin: 0; text-align: center; max-width: 360px; }
+    .pd-stub a { color: #a64dff; }
+
+    /* ─── EDIT MODAL ─────────────────────────────────────────────── */
+    .pd-modal-overlay {
+      display: none; position: fixed; inset: 0; z-index: 2000;
+      background: rgba(0,0,0,.45); align-items: center; justify-content: center;
+    }
+    .pd-modal-overlay.open { display: flex; }
+    .pd-modal {
+      background: #fff; border-radius: 10px; padding: 22px 24px;
+      min-width: 480px; max-width: 580px; box-shadow: 0 8px 40px rgba(0,0,0,.2);
+    }
+    .pd-modal h5 { font-size: 15px; font-weight: 700; margin: 0 0 16px; }
+    .pd-modal label {
+      display: block; font-size: 11px; font-weight: 600; color: #555;
+      text-transform: uppercase; letter-spacing: .05em; margin-bottom: 12px;
+    }
+    .pd-modal label input,
+    .pd-modal label select,
+    .pd-modal label textarea {
+      display: block; width: 100%; margin-top: 3px;
+      font-size: 12px; border: 1px solid #cdd3db; border-radius: 5px;
+      padding: 6px 9px; outline: none; font-family: inherit;
+    }
+    .pd-modal label input:focus,
+    .pd-modal label select:focus,
+    .pd-modal label textarea:focus { border-color: #a64dff; }
+    .pd-modal-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .pd-modal-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+    .pd-modal-footer button {
+      font-size: 12px; padding: 6px 16px; border-radius: 5px;
+      border: 1px solid #d0d3d8; background: #f5f7fa; cursor: pointer;
+    }
+    .pd-modal-footer button.primary { background: #a64dff; color: #fff; border-color: #a64dff; }
+    .pd-modal-footer button.danger  { color: #e74c3c; border-color: #e74c3c; }
+
+    /* Toast */
+    #pd-toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: #1a1d24; color: #fff; padding: 9px 20px; border-radius: 7px;
+      font-size: 12px; font-weight: 500; z-index: 9999;
+      opacity: 0; transition: opacity .2s; pointer-events: none;
+    }
+    #pd-toast.show { opacity: 1; }
+  </style>
+</head>
+<body class="light-mode">
+  <div id="rtsTopNav"></div>
+
+  <!-- ─── SECTION TAB BAR ─────────────────────────────────────── -->
+  <div id="pm-section-tabs">
+    <a class="pm-stab" href="project-management.html">
+      <span>📊</span> Dashboard
+    </a>
+    <a class="pm-stab active" href="project-management.html?tab=projects">
+      <span>📁</span> Projects
+    </a>
+    <div class="pm-stab-sep"></div>
+    <a class="pm-stab" href="project-management.html">
+      <span>📅</span> Gantt
+    </a>
+    <a class="pm-stab" href="event-notes.html">
+      <span>✅</span> Tasks
+    </a>
+    <div class="pm-stab-sep"></div>
+    <a class="pm-stab" href="project-management.html">
+      <span>👥</span> Workload
+    </a>
+    <a class="pm-stab" href="project-management.html">
+      <span>📈</span> Reports
+    </a>
+  </div>
+
+  <!-- ─── PROJECT HEADER ───────────────────────────────────────── -->
+  <div id="pd-header">
+    <div id="pd-breadcrumb">
+      <a href="project-management.html?tab=projects">← Projects</a>
+    </div>
+    <div id="pd-title-row">
+      <div id="pd-color-dot"></div>
+      <h1 id="pd-title">Loading…</h1>
+      <div id="pd-header-actions">
+        <button class="pd-btn" onclick="openEditModal()">✏️ Edit</button>
+        <button class="pd-btn" id="pd-gantt-btn" onclick="openInGantt()">📅 Open in Gantt</button>
+      </div>
+    </div>
+    <div id="pd-meta-row">
+      <span id="pd-status-badge" class="pd-badge"></span>
+      <span id="pd-type-badge" class="pd-badge type-badge" style="display:none"></span>
+      <span id="pd-risk-badge" class="pd-badge" style="display:none"></span>
+      <span id="pd-priority-meta" class="pd-meta-text"></span>
+      <span id="pd-owner-meta" class="pd-meta-text"></span>
+      <span id="pd-dates-meta" class="pd-meta-text"></span>
+    </div>
+  </div>
+
+  <!-- ─── SUB-TABS ─────────────────────────────────────────────── -->
+  <div id="pd-tabs">
+    <div class="pd-tab active" data-tab="overview" onclick="pdSwitchTab('overview')">Overview</div>
+    <div class="pd-tab" data-tab="gantt" onclick="pdSwitchTab('gantt')">Gantt</div>
+    <div class="pd-tab" data-tab="tasks" onclick="pdSwitchTab('tasks')">Tasks</div>
+    <div class="pd-tab" data-tab="resources" onclick="pdSwitchTab('resources')">Resources</div>
+    <div class="pd-tab" data-tab="risks" onclick="pdSwitchTab('risks')">Risks &amp; Issues</div>
+    <div class="pd-tab" data-tab="documents" onclick="pdSwitchTab('documents')">Documents</div>
+    <div class="pd-tab" data-tab="activity" onclick="pdSwitchTab('activity')">Activity</div>
+  </div>
+
+  <!-- ─── TAB CONTENT ──────────────────────────────────────────── -->
+  <div id="pd-content">
+
+    <!-- OVERVIEW -->
+    <div class="pd-pane active" id="pd-pane-overview">
+      <!-- Stats row -->
+      <div id="pd-stats-row">
+        <div class="pd-stat-card" id="pds-total"><div class="pd-stat-val">—</div><div class="pd-stat-lbl">Total Tasks</div></div>
+        <div class="pd-stat-card stat-ok" id="pds-done"><div class="pd-stat-val">—</div><div class="pd-stat-lbl">Completed</div></div>
+        <div class="pd-stat-card stat-danger" id="pds-overdue"><div class="pd-stat-val">—</div><div class="pd-stat-lbl">Overdue</div></div>
+        <div class="pd-stat-card stat-warn" id="pds-blocked"><div class="pd-stat-val">—</div><div class="pd-stat-lbl">Blocked</div></div>
+        <div class="pd-stat-card stat-danger" id="pds-critical"><div class="pd-stat-val">—</div><div class="pd-stat-lbl">Critical</div></div>
+      </div>
+
+      <div class="pd-overview-grid">
+        <!-- Left col -->
+        <div>
+          <!-- Health indicator -->
+          <div id="pd-health-indicator" class="pd-health-indicator health-green">
+            <div class="health-dot"></div>
+            <span id="pd-health-text">Loading…</span>
+          </div>
+
+          <!-- Linked event card -->
+          <div id="pd-event-card-wrap"></div>
+
+          <!-- Project details card -->
+          <div class="pd-card">
+            <h6>Project Details</h6>
+            <div id="pd-details-fields"></div>
+          </div>
+
+          <!-- Description -->
+          <div class="pd-card" id="pd-desc-card" style="display:none">
+            <h6>Description</h6>
+            <p id="pd-description" style="font-size:13px;color:#222;margin:0;line-height:1.6;white-space:pre-wrap;"></p>
+          </div>
+        </div>
+
+        <!-- Right col -->
+        <div>
+          <!-- Progress card -->
+          <div class="pd-card">
+            <h6>Progress</h6>
+            <div style="font-size:28px;font-weight:700;color:#a64dff;line-height:1;" id="pd-progress-pct">—%</div>
+            <div class="pd-progress-bar-wrap" style="margin-top:8px;">
+              <div class="pd-progress-fill" id="pd-progress-fill" style="width:0%"></div>
+            </div>
+            <div style="font-size:10px;color:#8a9ab0;margin-top:6px;" id="pd-progress-label">—</div>
+          </div>
+
+          <!-- Quick actions card -->
+          <div class="pd-card">
+            <h6>Quick Actions</h6>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <button class="pd-btn" style="width:100%;text-align:left;" onclick="openInGantt()">📅 Open in Gantt view</button>
+              <button class="pd-btn" style="width:100%;text-align:left;" onclick="pdSwitchTab('tasks')">✅ View tasks</button>
+              <button class="pd-btn" style="width:100%;text-align:left;" onclick="pdSwitchTab('risks')">⚠️ View risks &amp; issues</button>
+              <button class="pd-btn" style="width:100%;text-align:left;" onclick="openEditModal()">✏️ Edit project details</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div><!-- /overview -->
+
+    <!-- GANTT -->
+    <div class="pd-pane" id="pd-pane-gantt">
+      <div class="pd-stub">
+        <svg width="56" height="56" viewBox="0 0 56 56" fill="none"><rect x="4" y="14" width="48" height="28" rx="4" fill="#d0c0f0"/><rect x="10" y="20" width="22" height="6" rx="3" fill="#a064e0"/><rect x="20" y="30" width="28" height="6" rx="3" fill="#a064e0"/></svg>
+        <strong>Gantt View</strong>
+        <p>Click the button below to open this project in the full Gantt editor.</p>
+        <button class="pd-btn primary" onclick="openInGantt()" style="margin-top:8px;">Open in Gantt</button>
+      </div>
+    </div><!-- /gantt -->
+
+    <!-- TASKS -->
+    <div class="pd-pane" id="pd-pane-tasks">
+      <div class="pd-stub">
+        <svg width="56" height="56" viewBox="0 0 56 56" fill="none"><rect x="6" y="10" width="44" height="36" rx="4" fill="#d0c0f0"/><rect x="12" y="18" width="6" height="6" rx="2" fill="#a064e0"/><rect x="22" y="20" width="24" height="3" rx="1.5" fill="#a064e0"/><rect x="12" y="28" width="6" height="6" rx="2" fill="#a064e0"/><rect x="22" y="30" width="18" height="3" rx="1.5" fill="#a064e0"/></svg>
+        <strong>Tasks</strong>
+        <p id="pd-tasks-link-text">View and manage checklist tasks for this project's event in the Tasks section.</p>
+        <button id="pd-go-tasks-btn" class="pd-btn primary" style="margin-top:8px;" onclick="goToTasks()">Open Tasks</button>
+      </div>
+    </div><!-- /tasks -->
+
+    <!-- RESOURCES -->
+    <div class="pd-pane" id="pd-pane-resources">
+      <div class="pd-stub">
+        <svg width="56" height="56" viewBox="0 0 56 56" fill="none"><circle cx="18" cy="18" r="9" fill="#d0c0f0"/><circle cx="38" cy="18" r="9" fill="#d0c0f0"/><rect x="6" y="34" width="20" height="6" rx="3" fill="#a064e0"/><rect x="30" y="34" width="20" height="6" rx="3" fill="#a064e0"/></svg>
+        <strong>Resources</strong>
+        <p>Staff and driver assignment, capacity planning, and workload visibility coming in Phase 7.</p>
+      </div>
+    </div><!-- /resources -->
+
+    <!-- RISKS & ISSUES -->
+    <div class="pd-pane" id="pd-pane-risks">
+      <div class="pd-stub">
+        <svg width="56" height="56" viewBox="0 0 56 56" fill="none"><path d="M28 8 L50 44 H6 Z" fill="#d0c0f0"/><rect x="26" y="22" width="4" height="12" rx="2" fill="#a064e0"/><rect x="26" y="37" width="4" height="4" rx="2" fill="#a064e0"/></svg>
+        <strong>Risks &amp; Issues</strong>
+        <p>Per-project risk register and issue tracker coming in Phase 8.<br>Track probability, impact, mitigations and outstanding issues.</p>
+      </div>
+    </div><!-- /risks -->
+
+    <!-- DOCUMENTS -->
+    <div class="pd-pane" id="pd-pane-documents">
+      <div class="pd-stub">
+        <svg width="56" height="56" viewBox="0 0 56 56" fill="none"><rect x="10" y="6" width="36" height="44" rx="4" fill="#d0c0f0"/><rect x="16" y="16" width="24" height="3" rx="1.5" fill="#a064e0"/><rect x="16" y="23" width="18" height="3" rx="1.5" fill="#a064e0"/><rect x="16" y="30" width="20" height="3" rx="1.5" fill="#a064e0"/></svg>
+        <strong>Documents</strong>
+        <p>Document attachments per project and per task coming in a later phase.</p>
+      </div>
+    </div><!-- /documents -->
+
+    <!-- ACTIVITY -->
+    <div class="pd-pane" id="pd-pane-activity">
+      <div class="pd-stub">
+        <svg width="56" height="56" viewBox="0 0 56 56" fill="none"><circle cx="10" cy="14" r="4" fill="#d0c0f0"/><rect x="18" y="12" width="30" height="4" rx="2" fill="#a064e0"/><circle cx="10" cy="28" r="4" fill="#d0c0f0"/><rect x="18" y="26" width="22" height="4" rx="2" fill="#a064e0"/><circle cx="10" cy="42" r="4" fill="#d0c0f0"/><rect x="18" y="40" width="26" height="4" rx="2" fill="#a064e0"/></svg>
+        <strong>Activity Log</strong>
+        <p>Full change history and comments coming in a later phase.</p>
+      </div>
+    </div><!-- /activity -->
+
+  </div><!-- /pd-content -->
+
+  <!-- ─── EDIT MODAL ───────────────────────────────────────────── -->
+  <div class="pd-modal-overlay" id="pd-edit-modal">
+    <div class="pd-modal">
+      <h5>Edit Project</h5>
+      <label>Project Name *<input type="text" id="pe-name" placeholder="Project name"></label>
+      <div class="pd-modal-grid2">
+        <label>Project Type
+          <select id="pe-type">
+            <option value="">— Select type —</option>
+            <option value="event_preparation">Event Preparation</option>
+            <option value="logistics">Logistics</option>
+            <option value="sporting">Sporting</option>
+            <option value="technical">Technical</option>
+            <option value="marketing">Marketing / Media</option>
+            <option value="staff_planning">Staff Planning</option>
+            <option value="driver_admin">Driver Administration</option>
+            <option value="venue">Venue</option>
+            <option value="compliance">Compliance / Regulatory</option>
+            <option value="post_event">Post-Event Review</option>
+            <option value="internal">Internal</option>
+          </select>
+        </label>
+        <label>Status
+          <select id="pe-status">
+            <option value="planned">Planned</option>
+            <option value="active">Active</option>
+            <option value="on_hold">On Hold</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </label>
+      </div>
+      <div class="pd-modal-grid2">
+        <label>Priority
+          <select id="pe-priority">
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+            <option value="critical">Critical</option>
+          </select>
+        </label>
+        <label>Risk Level
+          <select id="pe-risk">
+            <option value="">— None —</option>
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+            <option value="critical">Critical</option>
+          </select>
+        </label>
+      </div>
+      <div class="pd-modal-grid2">
+        <label>Start Date<input type="date" id="pe-start"></label>
+        <label>Target End Date<input type="date" id="pe-end"></label>
+      </div>
+      <label>Colour
+        <div style="display:flex;gap:8px;align-items:center;margin-top:4px;">
+          <input type="color" id="pe-color" value="#a64dff" style="width:40px;height:30px;padding:1px;border-radius:4px;border:1px solid #cdd3db;cursor:pointer;">
+          <span style="font-size:11px;color:#777">Project accent colour</span>
+        </div>
+      </label>
+      <label>Description<textarea id="pe-desc" rows="3" placeholder="Optional description…"></textarea></label>
+      <div class="pd-modal-footer">
+        <button class="danger" onclick="deleteProject()">Delete Project</button>
+        <button onclick="closeEditModal()">Cancel</button>
+        <button class="primary" onclick="saveProject()">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="pd-toast"></div>
+
+  <script src="config.js"></script>
+  <script src="core.js"></script>
+  <script src="topnav.js?v=20260420"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+  // ─────────────────────────────────────────────────────────────────
+  //  STATE
+  // ─────────────────────────────────────────────────────────────────
+  const PD = {
+    planId: null,
+    plan: null,
+    stats: null,
+  };
+
+  // ─────────────────────────────────────────────────────────────────
+  //  UTILITIES
+  // ─────────────────────────────────────────────────────────────────
+  function TOKEN() {
+    return localStorage.getItem('auth_token') || localStorage.getItem('token') || '';
+  }
+
+  async function api(path, opts = {}) {
+    const resp = await fetch(path, {
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN()}` },
+      ...opts
+    });
+    if (resp.status === 401) { window.location.href = '/login.html'; return; }
+    return resp.json();
+  }
+
+  function esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function fmtDate(d) {
+    if (!d) return '—';
+    return new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+  }
+
+  function showToast(msg, duration = 2500) {
+    const t = document.getElementById('pd-toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), duration);
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  //  TAB SWITCHING
+  // ─────────────────────────────────────────────────────────────────
+  const PD_TABS = ['overview','gantt','tasks','resources','risks','documents','activity'];
+
+  function pdSwitchTab(name) {
+    PD_TABS.forEach(t => {
+      document.querySelector(`.pd-tab[data-tab="${t}"]`)?.classList.toggle('active', t === name);
+      document.getElementById(`pd-pane-${t}`)?.classList.toggle('active', t === name);
+    });
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  //  LOAD PLAN DETAIL
+  // ─────────────────────────────────────────────────────────────────
+  async function loadDetail() {
+    const data = await api(`/api/project-plans/${PD.planId}/detail`);
+    if (!data?.success) {
+      document.getElementById('pd-title').textContent = 'Project not found';
+      return;
+    }
+    PD.plan  = data.data.plan;
+    PD.stats = data.data.stats;
+    renderHeader();
+    renderStats();
+    renderOverview();
+  }
+
+  function renderHeader() {
+    const p = PD.plan;
+    document.title = `${p.name} — Race Team OS`;
+
+    // Color dot
+    document.getElementById('pd-color-dot').style.background = p.color || '#a64dff';
+    document.getElementById('pd-title').textContent = p.name;
+
+    // Status badge
+    const sBadge = document.getElementById('pd-status-badge');
+    const status = p.status || 'planned';
+    sBadge.textContent = status.replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase());
+    sBadge.className = `pd-badge status-${status}`;
+
+    // Type badge
+    const typeMap = {
+      event_preparation:'Event Prep', logistics:'Logistics', sporting:'Sporting',
+      technical:'Technical', marketing:'Marketing', staff_planning:'Staff',
+      driver_admin:'Driver Admin', venue:'Venue', compliance:'Compliance',
+      post_event:'Post-Event', internal:'Internal',
+    };
+    const tBadge = document.getElementById('pd-type-badge');
+    if (p.project_type) {
+      tBadge.textContent = typeMap[p.project_type] || p.project_type;
+      tBadge.style.display = '';
+    }
+
+    // Risk badge
+    const rBadge = document.getElementById('pd-risk-badge');
+    if (p.risk_level) {
+      rBadge.textContent = `${p.risk_level.charAt(0).toUpperCase()+p.risk_level.slice(1)} Risk`;
+      rBadge.className = `pd-badge risk-${p.risk_level}`;
+      rBadge.style.display = '';
+    }
+
+    // Meta text
+    const priority = p.priority;
+    document.getElementById('pd-priority-meta').textContent = priority ? `Priority: ${priority.charAt(0).toUpperCase()+priority.slice(1)}` : '';
+    document.getElementById('pd-owner-meta').textContent = p.owner_name ? `Owner: ${p.owner_name}` : '';
+    const dateStr = [p.start_date && fmtDate(p.start_date), p.end_date && fmtDate(p.end_date)].filter(Boolean).join(' → ');
+    document.getElementById('pd-dates-meta').textContent = dateStr || '';
+  }
+
+  function renderStats() {
+    const s = PD.stats;
+    document.querySelector('#pds-total .pd-stat-val').textContent  = s.total_tasks    ?? '—';
+    document.querySelector('#pds-done .pd-stat-val').textContent   = s.completed_tasks ?? '—';
+    document.querySelector('#pds-overdue .pd-stat-val').textContent= s.overdue_tasks  ?? '—';
+    document.querySelector('#pds-blocked .pd-stat-val').textContent= s.blocked_tasks  ?? '—';
+    document.querySelector('#pds-critical .pd-stat-val').textContent= s.critical_tasks ?? '—';
+  }
+
+  function renderOverview() {
+    const p = PD.plan;
+    const s = PD.stats;
+
+    // Health indicator
+    const overdue  = Number(s.overdue_tasks)  || 0;
+    const blocked  = Number(s.blocked_tasks)  || 0;
+    const critical = Number(s.critical_tasks) || 0;
+    const hi = document.getElementById('pd-health-indicator');
+    const ht = document.getElementById('pd-health-text');
+    if (overdue >= 3 || blocked >= 2 || critical >= 3) {
+      hi.className = 'pd-health-indicator health-red';
+      ht.textContent = `⚠️ At Risk — ${overdue} overdue, ${blocked} blocked`;
+    } else if (overdue >= 1 || blocked >= 1 || critical >= 1) {
+      hi.className = 'pd-health-indicator health-amber';
+      ht.textContent = `Attention needed — ${overdue} overdue, ${blocked} blocked`;
+    } else {
+      hi.className = 'pd-health-indicator health-green';
+      ht.textContent = 'On Track — no overdue or blocked tasks';
+    }
+
+    // Linked event card
+    const ecWrap = document.getElementById('pd-event-card-wrap');
+    if (p.event_id && p.event_name) {
+      const evDateStr = p.event_start_date ? fmtDate(p.event_start_date) : '';
+      ecWrap.innerHTML = `<a class="pd-event-card" href="events.html" title="View event">
+        <span class="pd-event-card-icon">🏁</span>
+        <div>
+          <div class="pd-event-card-name">${esc(p.event_name)}</div>
+          ${evDateStr ? `<div class="pd-event-card-date">${evDateStr}</div>` : ''}
+        </div>
+        <span style="margin-left:auto;color:#a64dff;font-size:11px;">View event →</span>
+      </a>`;
+    } else {
+      ecWrap.innerHTML = `<div style="font-size:11px;color:#8a9ab0;margin-bottom:12px;">Standalone project — not linked to a specific event.</div>`;
+    }
+
+    // Details fields
+    const fields = [
+      ['Type',        (p.project_type||'').replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase()) || '—'],
+      ['Status',      (p.status||'').replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase()) || '—'],
+      ['Priority',    (p.priority||'').replace(/\b\w/g, c => c.toUpperCase()) || '—'],
+      ['Risk Level',  p.risk_level ? p.risk_level.charAt(0).toUpperCase()+p.risk_level.slice(1) : '—'],
+      ['Owner',       p.owner_name || '—'],
+      ['Start Date',  fmtDate(p.start_date)],
+      ['Target End',  fmtDate(p.end_date)],
+      ['Actual End',  fmtDate(p.actual_end_date)],
+      ['Created',     fmtDate(p.created_at)],
+      ['Linked Event',p.event_name || 'Standalone'],
+    ];
+    document.getElementById('pd-details-fields').innerHTML = fields.map(([l,v]) =>
+      `<div class="pd-field-row"><span class="pd-field-lbl">${esc(l)}</span><span class="pd-field-val">${esc(v)}</span></div>`
+    ).join('');
+
+    // Progress
+    const prog = Math.min(100, Math.max(0, Number(s.avg_progress) || 0));
+    document.getElementById('pd-progress-pct').textContent = `${prog}%`;
+    document.getElementById('pd-progress-fill').style.width = `${prog}%`;
+    const total = Number(s.total_tasks) || 0;
+    const done  = Number(s.completed_tasks) || 0;
+    document.getElementById('pd-progress-label').textContent = `${done} of ${total} tasks completed`;
+
+    // Description
+    const descCard = document.getElementById('pd-desc-card');
+    if (p.description) {
+      document.getElementById('pd-description').textContent = p.description;
+      descCard.style.display = '';
+    } else {
+      descCard.style.display = 'none';
+    }
+
+    // Update tasks link button
+    const tasksUrlBase = p.event_id ? `event-notes.html?event_id=${encodeURIComponent(p.event_id)}` : 'event-notes.html';
+    document.getElementById('pd-go-tasks-btn').onclick = () => { window.location.href = tasksUrlBase; };
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  //  GANTT LINK
+  // ─────────────────────────────────────────────────────────────────
+  function openInGantt() {
+    window.location.href = `project-management.html?plan=${PD.planId}`;
+  }
+
+  function goToTasks() {
+    const p = PD.plan;
+    const url = p?.event_id ? `event-notes.html?event_id=${encodeURIComponent(p.event_id)}` : 'event-notes.html';
+    window.location.href = url;
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  //  SECTION TAB BAR — update Projects link to reactivate projects tab
+  // ─────────────────────────────────────────────────────────────────
+  function updateSectionNav() {
+    // Replace generic href with parameter-driven link for the Projects tab
+    document.querySelectorAll('#pm-section-tabs a').forEach(a => {
+      if (a.textContent.trim().includes('Projects')) {
+        a.href = 'project-management.html?tab=projects';
+      }
+    });
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  //  EDIT MODAL
+  // ─────────────────────────────────────────────────────────────────
+  function openEditModal() {
+    const p = PD.plan;
+    if (!p) return;
+    document.getElementById('pe-name').value    = p.name || '';
+    document.getElementById('pe-type').value    = p.project_type || '';
+    document.getElementById('pe-status').value  = p.status || 'planned';
+    document.getElementById('pe-priority').value= p.priority || 'medium';
+    document.getElementById('pe-risk').value    = p.risk_level || '';
+    document.getElementById('pe-start').value   = p.start_date ? p.start_date.slice(0,10) : '';
+    document.getElementById('pe-end').value     = p.end_date ? p.end_date.slice(0,10) : '';
+    document.getElementById('pe-color').value   = p.color || '#a64dff';
+    document.getElementById('pe-desc').value    = p.description || '';
+    document.getElementById('pd-edit-modal').classList.add('open');
+  }
+
+  function closeEditModal() {
+    document.getElementById('pd-edit-modal').classList.remove('open');
+  }
+
+  async function saveProject() {
+    const name = document.getElementById('pe-name').value.trim();
+    if (!name) { showToast('Project name is required'); return; }
+
+    const body = {
+      name,
+      project_type:   document.getElementById('pe-type').value || null,
+      status:         document.getElementById('pe-status').value,
+      priority:       document.getElementById('pe-priority').value,
+      risk_level:     document.getElementById('pe-risk').value || null,
+      start_date:     document.getElementById('pe-start').value || null,
+      end_date:       document.getElementById('pe-end').value || null,
+      color:          document.getElementById('pe-color').value,
+      description:    document.getElementById('pe-desc').value || null,
+    };
+
+    const res = await api(`/api/project-plans/${PD.planId}`, {
+      method: 'PUT',
+      body: JSON.stringify(body)
+    });
+
+    if (res?.success) {
+      closeEditModal();
+      showToast('Project saved');
+      await loadDetail();
+    } else {
+      showToast('Error saving project: ' + (res?.error || 'unknown'));
+    }
+  }
+
+  async function deleteProject() {
+    if (!confirm(`Delete project "${PD.plan?.name}"? This will also delete all tasks and links. This cannot be undone.`)) return;
+    const res = await api(`/api/project-plans/${PD.planId}`, { method: 'DELETE' });
+    if (res?.success) {
+      window.location.href = 'project-management.html?tab=projects';
+    } else {
+      showToast('Error deleting project: ' + (res?.error || 'unknown'));
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  //  INIT
+  // ─────────────────────────────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', () => {
+    if (!TOKEN()) { window.location.href = '/login.html'; return; }
+
+    const params = new URLSearchParams(window.location.search);
+    PD.planId = params.get('id');
+    if (!PD.planId) {
+      document.getElementById('pd-title').textContent = 'No project ID specified';
+      return;
+    }
+
+    updateSectionNav();
+    loadDetail();
+
+    // Close modal on overlay click
+    document.getElementById('pd-edit-modal').addEventListener('click', function(e) {
+      if (e.target === this) closeEditModal();
+    });
+  });
+  </script>
+</body>
+</html>
