@@ -18,9 +18,9 @@
     .ev-stat-value { font-size:1.5rem; font-weight:700; color:#1a1d24; line-height:1.2; }
 
     /* ── Layout ────────────────────────────────────────────── */
-    .cal-layout { display:flex; gap:14px; align-items:flex-start; }
-    .cal-sidebar { width:220px; flex-shrink:0; }
-    .cal-main { flex:1; min-width:0; }
+    .cal-layout { display:flex; gap:14px; align-items:flex-start; min-height:calc(100vh - 258px); }
+    .cal-sidebar { width:220px; flex-shrink:0; align-self:flex-start; }
+    .cal-main { flex:1; min-width:0; display:flex; flex-direction:column; }
     .cal-sidebar-card { background:#fff; border:1px solid rgba(0,0,0,.1); border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,.06); padding:14px; margin-bottom:12px; }
     .cal-sidebar-title { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:#6c757d; margin-bottom:8px; }
 
@@ -81,7 +81,7 @@
     .cal-grid { background:#fff; border:1px solid rgba(0,0,0,.1); border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,.06); overflow:hidden; }
     .cal-grid-head { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); border-bottom:2px solid #dee2e6; }
     .cal-grid-head-cell { padding:8px 4px; text-align:center; font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#6c757d; }
-    .cal-grid-body { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); }
+    .cal-grid-body { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); flex:1; align-content:stretch; }
     .cal-cell { min-height:100px; min-width:0; overflow:hidden; border-right:1px solid rgba(0,0,0,.06); border-bottom:1px solid rgba(0,0,0,.06); padding:4px; box-sizing:border-box; }
     .cal-cell:nth-child(7n) { border-right:none; }
     .cal-cell.other-month { background:#fafbfc; }
@@ -267,8 +267,8 @@
         </div>
 
         <!-- Month view -->
-        <div id="viewMonth">
-          <div class="cal-grid">
+        <div id="viewMonth" style="flex:1;display:flex;flex-direction:column;">
+          <div class="cal-grid" style="flex:1;display:flex;flex-direction:column;">
             <div class="cal-grid-head">
               <div class="cal-grid-head-cell">Mon</div>
               <div class="cal-grid-head-cell">Tue</div>
@@ -1112,21 +1112,30 @@
   // ═══════════════════════════════════════════════════════════
   // Natural language quick-add
   // ═══════════════════════════════════════════════════════════
-  const CIRCUIT_ALIASES = {
-    'red star':'Red Star Raceway','redstar':'Red Star Raceway',
-    'killarney':'Killarney Kart Track',
-    'idube':'iDube Kart Circuit',
-    'formula k':'Formula K','formulak':'Formula K',
-    'zwartkops':'Zwartkops Kart Circuit',
-    'rheebok':'Rheebok',
-  };
-  const SERIES_ALIASES = {
-    'national':'National Weekend','nationals':'National Weekend',
-    'regional':'Regional Weekend','regionals':'Regional Weekend',
-    'test':'Test Day','test day':'Test Day',
-    'promo':'Promo / Media','media':'Promo / Media',
-    'travel':'Travel Day','camp':'Camp',
-  };
+  // Ordered longest-first so 'test day' matches before 'test', 'red star' before 'star', etc.
+  const CIRCUIT_PATTERNS = [
+    ['red star raceway','Red Star Raceway'],['red star','Red Star Raceway'],['redstar','Red Star Raceway'],
+    ['killarney kart track','Killarney Kart Track'],['killarney','Killarney Kart Track'],
+    ['idube kart circuit','iDube Kart Circuit'],['idube','iDube Kart Circuit'],
+    ['formula k','Formula K'],['formulak','Formula K'],
+    ['zwartkops kart circuit','Zwartkops Kart Circuit'],['zwartkops','Zwartkops Kart Circuit'],
+    ['rheebok','Rheebok'],
+  ];
+  const SERIES_PATTERNS = [
+    ['national weekend','National Weekend'],['nationals weekend','National Weekend'],
+    ['regional weekend','Regional Weekend'],['regionals weekend','Regional Weekend'],
+    ['test day','Test Day'],['test days','Test Day'],
+    ['promo / media','Promo / Media'],['promo media','Promo / Media'],
+    ['international trip','International Trip'],
+    ['travel day','Travel Day'],
+    ['national','National Weekend'],['nationals','National Weekend'],
+    ['regional','Regional Weekend'],['regionals','Regional Weekend'],
+    ['test','Test Day'],
+    ['promo','Promo / Media'],['media day','Promo / Media'],
+    ['international','International Trip'],
+    ['travel','Travel Day'],
+    ['camp','Camp'],
+  ];
   const M_NAMES_ALL = ['january','february','march','april','may','june','july','august','september','october','november','december','jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
 
   function parseQuickAdd(input) {
@@ -1170,21 +1179,30 @@
         }
       }
     }
-    // Find circuit
-    for (const [alias,full] of Object.entries(CIRCUIT_ALIASES)) {
+    // Find circuit (longest-match-first)
+    for (const [alias,full] of CIRCUIT_PATTERNS) {
       if (s.includes(alias)) { result.circuit=full; break; }
     }
-    // Find series
-    for (const [alias,full] of Object.entries(SERIES_ALIASES)) {
+    // Find series (longest-match-first)
+    for (const [alias,full] of SERIES_PATTERNS) {
       if (s.includes(alias)) { result.series=full; break; }
     }
-    // Build event name from remaining tokens after stripping known parts
+    // Build event name: strip all recognised tokens from the original input
     let clean = input;
-    if (result.start_date) clean = clean.replace(/((\d{1,2})\s*[-–]\s*(\d{1,2})\s+\w+|\d{1,2}\s+\w+|\w+\s+\d{1,2}(?:\s*[-–]\s*\d{1,2})?)\s*(\d{4})?/gi,'');
-    for (const alias of Object.keys(CIRCUIT_ALIASES)) clean = clean.replace(new RegExp(alias,'gi'),'');
-    for (const alias of Object.keys(SERIES_ALIASES)) clean = clean.replace(new RegExp(alias,'gi'),'');
-    result.event_name = clean.replace(/\s+/g,' ').trim() ||
-      [result.series, result.circuit].filter(Boolean).join(' – ') || 'New Event';
+    // 1. Strip the matched date span precisely using month-name anchoring
+    const DATE_STRIP = /\b(?:(?:\d{1,2}\s*[-–]\s*)?\d{1,2}\s+(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)(?:\s+\d{4})?|(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+\d{1,2}(?:\s*[-–]\s*\d{1,2})?(?:\s+\d{4})?)\b/gi;
+    clean = clean.replace(DATE_STRIP, '');
+    // 2. Strip any bare 4-digit year left over
+    clean = clean.replace(/\b\d{4}\b/g, '');
+    // 3. Strip circuit and series tokens (longest-first, word-boundary safe)
+    for (const [alias] of CIRCUIT_PATTERNS) clean = clean.replace(new RegExp('(?:^|\\s)'+alias.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(?:\\s|$)','gi'),' ');
+    for (const [alias] of SERIES_PATTERNS) clean = clean.replace(new RegExp('(?:^|\\s)'+alias.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(?:\\s|$)','gi'),' ');
+    const leftover = clean.replace(/\s+/g,' ').trim();
+    // Use leftover only when it's a real phrase (>3 chars); otherwise fall back to series/circuit
+    result.event_name = (leftover.length > 3 ? leftover : null)
+      || [result.series, result.circuit].filter(Boolean).join(' – ')
+      || leftover
+      || 'New Event';
     return result;
   }
 
