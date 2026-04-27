@@ -3848,6 +3848,7 @@
         const r = await fetch('/api/events', { headers: { Authorization: `Bearer ${TOKEN()}` } });
         if (r.ok) {
           _pmdAllEvents = await r.json();
+          if (!Array.isArray(_pmdAllEvents)) _pmdAllEvents = _pmdAllEvents.data || [];
           const sel = document.getElementById('pmd-f-event');
           if (sel) {
             _pmdAllEvents.forEach(ev => {
@@ -3865,7 +3866,8 @@
     try {
       const r = await fetch('/api/project-plans', { headers: { Authorization: `Bearer ${TOKEN()}` } });
       if (!r.ok) throw new Error(r.status);
-      _pmdAllPlans = await r.json();
+      const body = await r.json();
+      _pmdAllPlans = Array.isArray(body) ? body : (body.data || []);
     } catch (e) {
       document.getElementById('pmd-health-grid').innerHTML = '<div class="pmd-empty">Failed to load projects.</div>';
       return;
