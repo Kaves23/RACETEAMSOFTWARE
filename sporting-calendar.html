@@ -5,29 +5,79 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Race Team OS – Sporting Calendar</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
-  <link href="style.css?v=20260422" rel="stylesheet" />
+  <link href="style.css?v=20260427" rel="stylesheet" />
   <style>
+    /* ── Base ──────────────────────────────────────────────── */
     body { background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%); min-height:100vh; }
-    .ev-stats-bar { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+
+    /* ── Stats bar ─────────────────────────────────────────── */
+    .ev-stats-bar { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:12px; }
     .ev-stat-card { background:#fff; border:1px solid rgba(0,0,0,.1); border-radius:8px; padding:10px 16px; box-shadow:0 2px 4px rgba(0,0,0,.06); min-width:100px; }
     .ev-stat-label { font-size:.7rem; color:#6c757d; font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
     .ev-stat-value { font-size:1.5rem; font-weight:700; color:#1a1d24; line-height:1.2; }
+    .ev-stat-value { font-size:1.5rem; font-weight:700; color:#1a1d24; line-height:1.2; }
+
+    /* ── Layout ────────────────────────────────────────────── */
     .cal-layout { display:flex; gap:14px; align-items:flex-start; }
-    .cal-sidebar { width:210px; flex-shrink:0; }
+    .cal-sidebar { width:220px; flex-shrink:0; }
     .cal-main { flex:1; min-width:0; }
     .cal-sidebar-card { background:#fff; border:1px solid rgba(0,0,0,.1); border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,.06); padding:14px; margin-bottom:12px; }
     .cal-sidebar-title { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:#6c757d; margin-bottom:8px; }
+
+    /* ── Mini calendar ─────────────────────────────────────── */
+    .mini-cal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+    .mini-cal-label { font-size:.82rem; font-weight:700; color:#1a1d24; }
+    .mini-cal-nav { background:none; border:none; color:#6c757d; cursor:pointer; font-size:.85rem; padding:0 4px; line-height:1; }
+    .mini-cal-nav:hover { color:#a64dff; }
+    .mini-cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:1px; }
+    .mini-cal-dh { font-size:.62rem; font-weight:700; color:#9ca3af; text-align:center; padding:1px 0; text-transform:uppercase; }
+    .mini-cal-day { font-size:.72rem; text-align:center; padding:3px 1px; border-radius:4px; cursor:pointer; color:#374151; line-height:1.4; }
+    .mini-cal-day:hover { background:#f3f4f6; }
+    .mini-cal-day.other { color:#d1d5db; cursor:default; }
+    .mini-cal-day.today { background:#a64dff; color:#fff; border-radius:50%; }
+    .mini-cal-day.has-event { font-weight:700; color:#a64dff; }
+    .mini-cal-day.today.has-event { color:#fff; }
+    .mini-cal-day.selected { background:#e9d5ff; border-radius:50%; font-weight:700; }
+    .mini-cal-day.today.selected { background:#a64dff; }
+
+    /* ── Up Next panel ─────────────────────────────────────── */
+    .upnext-item { display:flex; gap:8px; align-items:flex-start; padding:5px 0; border-bottom:1px solid #f3f4f6; }
+    .upnext-item:last-child { border-bottom:none; }
+    .upnext-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; margin-top:4px; }
+    .upnext-name { font-size:.78rem; font-weight:600; color:#1a1d24; line-height:1.3; }
+    .upnext-meta { font-size:.7rem; color:#6c757d; }
+    .upnext-countdown { font-size:.68rem; font-weight:700; color:#a64dff; white-space:nowrap; margin-left:auto; flex-shrink:0; }
+    .upnext-empty { font-size:.78rem; color:#9ca3af; font-style:italic; }
+
+    /* ── Type legend ───────────────────────────────────────── */
     .type-legend-item { display:flex; align-items:center; gap:8px; padding:4px 6px; border-radius:5px; cursor:pointer; font-size:.82rem; font-weight:500; color:#1a1d24; transition:background .1s; }
     .type-legend-item:hover { background:#f1f3f5; }
     .type-legend-item.hidden { opacity:.35; }
     .type-dot { width:11px; height:11px; border-radius:50%; flex-shrink:0; }
     .type-count { margin-left:auto; font-size:.72rem; color:#6c757d; font-weight:600; }
-    .cal-month-header { background:#fff; border:1px solid rgba(0,0,0,.1); border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,.06); padding:12px 16px; margin-bottom:10px; display:flex; align-items:center; gap:12px; }
-    .cal-month-label { font-size:1.15rem; font-weight:700; color:#1a1d24; flex:1; text-align:center; }
-    .cal-nav-btn { background:#f1f3f5; border:1px solid rgba(0,0,0,.1); border-radius:6px; width:32px; height:32px; display:flex; align-items:center; justify-content:center; cursor:pointer; color:#495057; font-size:.9rem; }
+
+    /* ── View toggle + header bar ──────────────────────────── */
+    .cal-toolbar { background:#fff; border:1px solid rgba(0,0,0,.1); border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,.06); padding:10px 14px; margin-bottom:10px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    .cal-month-label { font-size:1.1rem; font-weight:700; color:#1a1d24; flex:1; min-width:160px; }
+    .cal-nav-btn { background:#f1f3f5; border:1px solid rgba(0,0,0,.1); border-radius:6px; width:30px; height:30px; display:flex; align-items:center; justify-content:center; cursor:pointer; color:#495057; font-size:.85rem; flex-shrink:0; }
     .cal-nav-btn:hover { background:#e2e6ea; }
-    .cal-today-btn { font-size:.78rem; font-weight:600; background:#f1f3f5; border:1px solid rgba(0,0,0,.1); border-radius:6px; padding:4px 12px; cursor:pointer; color:#495057; }
+    .cal-today-btn { font-size:.76rem; font-weight:600; background:#f1f3f5; border:1px solid rgba(0,0,0,.1); border-radius:6px; padding:4px 11px; cursor:pointer; color:#495057; white-space:nowrap; }
     .cal-today-btn:hover { background:#e2e6ea; }
+    .view-toggle { display:flex; gap:3px; }
+    .view-btn { font-size:.72rem; font-weight:600; padding:4px 10px; border-radius:5px; cursor:pointer; border:1px solid rgba(0,0,0,.1); background:#f1f3f5; color:#495057; white-space:nowrap; }
+    .view-btn:hover { background:#e2e6ea; }
+    .view-btn.active { background:#a64dff; color:#fff; border-color:#a64dff; }
+    .cal-set-select { font-size:.75rem; border:1px solid rgba(0,0,0,.12); border-radius:6px; padding:4px 8px; color:#374151; background:#fff; cursor:pointer; }
+
+    /* ── Quick-add bar ─────────────────────────────────────── */
+    .quick-add-bar { display:flex; gap:8px; margin-bottom:10px; align-items:center; }
+    .quick-add-input { flex:1; border:1px solid rgba(0,0,0,.13); border-radius:7px; padding:7px 12px; font-size:.83rem; color:#1a1d24; outline:none; background:#fff; }
+    .quick-add-input:focus { border-color:#a64dff; box-shadow:0 0 0 3px rgba(166,77,255,.12); }
+    .quick-add-btn { font-size:.78rem; font-weight:600; padding:7px 14px; border-radius:7px; background:#a64dff; color:#fff; border:none; cursor:pointer; white-space:nowrap; }
+    .quick-add-btn:hover { background:#8b3de8; }
+    .quick-add-hint { font-size:.7rem; color:#9ca3af; }
+
+    /* ── Month grid ────────────────────────────────────────── */
     .cal-grid { background:#fff; border:1px solid rgba(0,0,0,.1); border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,.06); overflow:hidden; }
     .cal-grid-head { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); border-bottom:2px solid #dee2e6; }
     .cal-grid-head-cell { padding:8px 4px; text-align:center; font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#6c757d; }
@@ -43,12 +93,64 @@
     .cal-ev-pill:hover { filter:brightness(.88); }
     .cal-ev-more { font-size:.67rem; color:#6c757d; padding:1px 4px; cursor:pointer; }
     .cal-ev-more:hover { color:#a64dff; }
-    .cal-popup { position:fixed; background:#fff; border:1px solid rgba(0,0,0,.15); border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,.15); padding:14px 16px; z-index:9999; min-width:240px; max-width:300px; }
+    .wx-badge { display:inline-flex; align-items:center; gap:2px; font-size:.63rem; color:#64748b; margin-top:1px; opacity:.85; }
+    .wx-badge .wx-icon { font-size:.75rem; }
+
+    /* ── Week view ─────────────────────────────────────────── */
+    .week-grid { background:#fff; border:1px solid rgba(0,0,0,.1); border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,.06); overflow:hidden; }
+    .week-grid-head { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); border-bottom:2px solid #dee2e6; }
+    .week-head-cell { padding:8px 6px 6px; text-align:center; }
+    .week-head-day { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#6c757d; }
+    .week-head-date { font-size:1.1rem; font-weight:700; color:#374151; margin-top:1px; width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:2px auto 0; }
+    .week-head-date.today { background:#a64dff; color:#fff; }
+    .week-body { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); min-height:140px; }
+    .week-cell { border-right:1px solid rgba(0,0,0,.06); padding:5px 4px; min-height:140px; }
+    .week-cell:last-child { border-right:none; }
+    .week-cell.today { background:rgba(166,77,255,.04); }
+
+    /* ── List / agenda view ────────────────────────────────── */
+    .list-view { background:#fff; border:1px solid rgba(0,0,0,.1); border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,.06); overflow:hidden; }
+    .list-month-group { border-bottom:1px solid #f3f4f6; }
+    .list-month-header { font-size:.78rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#6c757d; background:#f9fafb; padding:8px 16px; border-bottom:1px solid #f3f4f6; }
+    .list-row { display:flex; align-items:flex-start; gap:12px; padding:9px 16px; border-bottom:1px solid #f8f9fa; cursor:pointer; transition:background .1s; }
+    .list-row:hover { background:#faf5ff; }
+    .list-row:last-child { border-bottom:none; }
+    .list-date-col { min-width:52px; text-align:center; flex-shrink:0; }
+    .list-date-day { font-size:1.25rem; font-weight:800; color:#1a1d24; line-height:1; }
+    .list-date-month { font-size:.65rem; font-weight:600; text-transform:uppercase; color:#9ca3af; letter-spacing:.04em; }
+    .list-color-bar { width:4px; border-radius:2px; align-self:stretch; flex-shrink:0; min-height:34px; }
+    .list-event-name { font-size:.86rem; font-weight:700; color:#1a1d24; margin-bottom:2px; }
+    .list-event-meta { font-size:.73rem; color:#6c757d; }
+    .list-event-range { font-size:.72rem; color:#9ca3af; margin-left:auto; flex-shrink:0; white-space:nowrap; }
+    .list-empty { padding:32px 16px; text-align:center; color:#9ca3af; font-size:.85rem; }
+
+    /* ── Season view ───────────────────────────────────────── */
+    .season-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+    .season-month-card { background:#fff; border:1px solid rgba(0,0,0,.1); border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,.06); padding:10px; }
+    .season-month-name { font-size:.75rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:#6c757d; margin-bottom:6px; display:flex; align-items:center; justify-content:space-between; }
+    .season-month-name.has-events { color:#a64dff; }
+    .season-ev-count { font-size:.68rem; font-weight:700; background:#f3e8ff; color:#7c3aed; border-radius:10px; padding:1px 7px; }
+    .season-mini-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:1px; }
+    .season-mini-dh { font-size:.55rem; text-align:center; color:#d1d5db; font-weight:600; }
+    .season-mini-day { font-size:.6rem; text-align:center; padding:2px 1px; border-radius:3px; color:#6b7280; cursor:default; }
+    .season-mini-day.other { color:#e5e7eb; }
+    .season-mini-day.today { background:#a64dff; color:#fff; border-radius:50%; }
+    .season-mini-day.has-event { background:#a64dff22; color:#7c3aed; font-weight:700; border-radius:3px; cursor:pointer; }
+    .season-mini-day.has-event.today { background:#a64dff; color:#fff; }
+    @media (max-width:768px) { .season-grid { grid-template-columns:repeat(2,1fr); } }
+    @media (max-width:480px) { .season-grid { grid-template-columns:1fr; } }
+
+    /* ── Event popup ───────────────────────────────────────── */
+    .cal-popup { position:fixed; background:#fff; border:1px solid rgba(0,0,0,.15); border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,.15); padding:14px 16px; z-index:9999; min-width:240px; max-width:310px; }
     .cal-popup-title { font-size:.92rem; font-weight:700; color:#1a1d24; margin-bottom:6px; padding-right:20px; }
     .cal-popup-row { font-size:.78rem; color:#495057; margin-bottom:3px; display:flex; gap:6px; }
     .cal-popup-row b { color:#1a1d24; min-width:60px; flex-shrink:0; }
     .cal-popup-close { position:absolute; top:8px; right:10px; font-size:1rem; cursor:pointer; color:#6c757d; line-height:1; }
-    .cal-popup-open { display:inline-block; margin-top:8px; font-size:.75rem; font-weight:600; color:#a64dff; cursor:pointer; text-decoration:underline; }
+    .cal-popup-actions { display:flex; gap:8px; margin-top:10px; padding-top:8px; border-top:1px solid #f3f4f6; }
+    .cal-popup-btn { font-size:.72rem; font-weight:600; padding:4px 10px; border-radius:5px; cursor:pointer; border:1px solid rgba(0,0,0,.1); background:#f1f3f5; color:#374151; text-decoration:none; }
+    .cal-popup-btn:hover { background:#e2e6ea; }
+    .cal-popup-btn.primary { background:#a64dff; color:#fff; border-color:#a64dff; }
+    .cal-popup-btn.primary:hover { background:#8b3de8; }
     .status-chip { display:inline-block; padding:1px 7px; border-radius:20px; font-size:.69rem; font-weight:600; }
     .sc-scheduled  { background:#dbeafe; color:#1e40af; }
     .sc-confirmed  { background:#d1fae5; color:#065f46; }
@@ -57,269 +159,1124 @@
     .sc-open       { background:#d1fae5; color:#065f46; }
     .sc-planned    { background:#dbeafe; color:#1e40af; }
     .sc-elapsed    { background:#f3f4f6; color:#6b7280; }
+
+    /* ── Quick-add modal ────────────────────────────────────── */
+    .qa-modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:10000; display:flex; align-items:center; justify-content:center; }
+    .qa-modal { background:#fff; border-radius:12px; box-shadow:0 12px 40px rgba(0,0,0,.2); padding:20px 22px; width:100%; max-width:480px; }
+    .qa-modal h6 { font-size:.92rem; font-weight:700; margin-bottom:12px; color:#1a1d24; }
+    .qa-modal label { font-size:.78rem; font-weight:600; color:#374151; margin-bottom:3px; display:block; }
+    .qa-modal input, .qa-modal select { font-size:.82rem; }
+    .qa-modal-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:14px; }
   </style>
 </head>
 <body class="light-mode">
   <div id="rtsTopNav"></div>
-  <div class="rts-version-badge">v1</div>
+  <div class="rts-version-badge">v2</div>
   <div class="rts-main container-fluid">
 
-    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+    <!-- ── Page header ───────────────────────────────────── -->
+    <div class="pt-3 pb-2 mb-2 border-bottom d-flex justify-content-between align-items-end flex-wrap gap-2">
       <div>
         <h1 class="h4 mb-1">Sporting Calendar</h1>
-        <div class="text-secondary" style="font-size:.85rem;">Season overview — all events shown on a monthly grid.</div>
+        <div class="text-secondary" style="font-size:.85rem;">Season overview — all events at a glance.</div>
       </div>
-      <div class="d-flex gap-2 align-items-center">
+      <div class="d-flex gap-2 align-items-center flex-wrap">
+        <button class="btn btn-sm btn-outline-secondary" id="btnExportICS" title="Download .ics file">
+          ↓ Export .ics
+        </button>
+        <button class="btn btn-sm btn-outline-secondary" id="btnCopySubscribe" title="Copy webcal:// subscribe link">
+          ⊕ Subscribe Link
+        </button>
         <a href="events.html" class="btn btn-sm btn-outline-secondary">Manage Events →</a>
       </div>
     </div>
 
+    <!-- ── Stats bar ─────────────────────────────────────── -->
     <div class="ev-stats-bar">
-      <div class="ev-stat-card"><div class="ev-stat-label">Total Events</div><div class="ev-stat-value" id="statTotal">0</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">Remaining</div><div class="ev-stat-value" id="statRemaining">0</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">This Month</div><div class="ev-stat-value" id="statThisMonth">0</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">Completed</div><div class="ev-stat-value" id="statCompleted">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Total Events</div><div class="ev-stat-value" id="statTotal">—</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Remaining</div><div class="ev-stat-value" id="statRemaining">—</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">This Month</div><div class="ev-stat-value" id="statThisMonth">—</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">Completed</div><div class="ev-stat-value" id="statCompleted">—</div></div>
+      <div class="ev-stat-card" id="statNextCard" style="cursor:pointer;" title="Jump to next event">
+        <div class="ev-stat-label">Next Event</div>
+        <div class="ev-stat-value" id="statNext" style="font-size:.95rem;">—</div>
+      </div>
     </div>
 
+    <!-- ── Quick-add bar ─────────────────────────────────── -->
+    <div class="quick-add-bar">
+      <input class="quick-add-input" id="quickAddInput" type="text"
+        placeholder='Quick add: "Test Day Red Star 15 May" or "National Round Killarney 20-22 Jun"' />
+      <button class="quick-add-btn" id="quickAddBtn">+ Add Event</button>
+    </div>
+
+    <!-- ── Main layout ────────────────────────────────────── -->
     <div class="cal-layout">
+
+      <!-- Sidebar -->
       <aside class="cal-sidebar">
+
+        <!-- Mini calendar -->
         <div class="cal-sidebar-card">
-          <div class="cal-sidebar-title">Event Types <span style="font-size:.65rem;font-weight:400;color:#adb5bd;">(click to hide)</span></div>
+          <div class="mini-cal-header">
+            <button class="mini-cal-nav" id="miniPrev">‹</button>
+            <div class="mini-cal-label" id="miniLabel">—</div>
+            <button class="mini-cal-nav" id="miniNext">›</button>
+          </div>
+          <div class="mini-cal-grid" id="miniCal"></div>
+        </div>
+
+        <!-- Up Next -->
+        <div class="cal-sidebar-card">
+          <div class="cal-sidebar-title">Up Next</div>
+          <div id="upNextList"></div>
+        </div>
+
+        <!-- Calendar Sets -->
+        <div class="cal-sidebar-card">
+          <div class="cal-sidebar-title">Calendar Sets</div>
+          <div id="calSetsPanel" style="display:flex;flex-direction:column;gap:3px;"></div>
+          <button class="btn btn-sm btn-outline-secondary w-100 mt-2" style="font-size:.72rem;" id="btnManageSets">Manage Sets →</button>
+        </div>
+
+        <!-- Type legend -->
+        <div class="cal-sidebar-card">
+          <div class="cal-sidebar-title">Series / Types <span style="font-size:.65rem;font-weight:400;color:#adb5bd;">(click to hide)</span></div>
           <div id="legendList"></div>
         </div>
-        <div class="cal-sidebar-card">
-          <div class="cal-sidebar-title">Jump To</div>
-          <div id="quickJump" style="display:flex;flex-direction:column;gap:2px;"></div>
-        </div>
+
       </aside>
 
+      <!-- Main view area -->
       <div class="cal-main">
-        <div class="cal-month-header">
+
+        <!-- Toolbar -->
+        <div class="cal-toolbar">
           <div class="cal-nav-btn" id="btnPrevYear" title="Previous year">«</div>
           <div class="cal-nav-btn" id="btnPrev">‹</div>
           <div class="cal-month-label" id="monthLabel">—</div>
           <div class="cal-nav-btn" id="btnNext">›</div>
           <div class="cal-nav-btn" id="btnNextYear" title="Next year">»</div>
           <div class="cal-today-btn" id="btnToday">Today</div>
-        </div>
-        <div class="cal-grid">
-          <div class="cal-grid-head">
-            <div class="cal-grid-head-cell">Mon</div>
-            <div class="cal-grid-head-cell">Tue</div>
-            <div class="cal-grid-head-cell">Wed</div>
-            <div class="cal-grid-head-cell">Thu</div>
-            <div class="cal-grid-head-cell">Fri</div>
-            <div class="cal-grid-head-cell">Sat</div>
-            <div class="cal-grid-head-cell">Sun</div>
+          <div class="view-toggle ms-auto">
+            <div class="view-btn active" data-view="month">Month</div>
+            <div class="view-btn" data-view="week">Week</div>
+            <div class="view-btn" data-view="list">List</div>
+            <div class="view-btn" data-view="season">Season</div>
           </div>
-          <div class="cal-grid-body" id="calBody"></div>
         </div>
+
+        <!-- Month view -->
+        <div id="viewMonth">
+          <div class="cal-grid">
+            <div class="cal-grid-head">
+              <div class="cal-grid-head-cell">Mon</div>
+              <div class="cal-grid-head-cell">Tue</div>
+              <div class="cal-grid-head-cell">Wed</div>
+              <div class="cal-grid-head-cell">Thu</div>
+              <div class="cal-grid-head-cell">Fri</div>
+              <div class="cal-grid-head-cell">Sat</div>
+              <div class="cal-grid-head-cell">Sun</div>
+            </div>
+            <div class="cal-grid-body" id="calBody"></div>
+          </div>
+        </div>
+
+        <!-- Week view -->
+        <div id="viewWeek" style="display:none;">
+          <div class="week-grid">
+            <div class="week-grid-head" id="weekHead"></div>
+            <div class="week-body" id="weekBody"></div>
+          </div>
+        </div>
+
+        <!-- List view -->
+        <div id="viewList" style="display:none;">
+          <div class="list-view" id="listBody"></div>
+        </div>
+
+        <!-- Season view -->
+        <div id="viewSeason" style="display:none;">
+          <div class="season-grid" id="seasonBody"></div>
+        </div>
+
       </div>
     </div>
   </div>
 
+  <!-- ── Event popup ────────────────────────────────────────── -->
   <div class="cal-popup" id="evPopup" style="display:none;">
     <span class="cal-popup-close" id="popupClose">✕</span>
     <div class="cal-popup-title" id="popupTitle"></div>
     <div id="popupBody"></div>
-    <div class="cal-popup-open" id="popupOpenLink">Open events page →</div>
+    <div class="cal-popup-actions" id="popupActions"></div>
+  </div>
+
+  <!-- ── Quick-add modal ────────────────────────────────────── -->
+  <div class="qa-modal-backdrop" id="qaModal" style="display:none;">
+    <div class="qa-modal">
+      <h6>Add Event</h6>
+      <div class="row g-2">
+        <div class="col-12">
+          <label>Event Name</label>
+          <input class="form-control form-control-sm" id="qa_name" type="text" />
+        </div>
+        <div class="col-6">
+          <label>Series</label>
+          <input class="form-control form-control-sm" id="qa_series" type="text" placeholder="National / Regional / Test..." />
+        </div>
+        <div class="col-6">
+          <label>Circuit / Venue</label>
+          <input class="form-control form-control-sm" id="qa_circuit" type="text" />
+        </div>
+        <div class="col-6">
+          <label>Start Date</label>
+          <input class="form-control form-control-sm" id="qa_start" type="date" />
+        </div>
+        <div class="col-6">
+          <label>End Date</label>
+          <input class="form-control form-control-sm" id="qa_end" type="date" />
+        </div>
+        <div class="col-6">
+          <label>Country</label>
+          <input class="form-control form-control-sm" id="qa_country" type="text" />
+        </div>
+        <div class="col-6">
+          <label>Status</label>
+          <select class="form-select form-select-sm" id="qa_status">
+            <option value="scheduled">Scheduled</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="planned">Planned</option>
+          </select>
+        </div>
+      </div>
+      <div class="qa-modal-actions">
+        <button class="btn btn-sm btn-outline-secondary" id="qaCancel">Cancel</button>
+        <button class="btn btn-sm btn-primary" id="qaSave">Save Event</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Calendar Set editor modal ─────────────────────────── -->
+  <div class="qa-modal-backdrop" id="setModal" style="display:none;">
+    <div class="qa-modal" style="max-width:400px;">
+      <h6>Calendar Sets</h6>
+      <div class="text-secondary mb-2" style="font-size:.75rem;">
+        Named filters you can switch between. Each set remembers which series are hidden.
+      </div>
+      <div id="setEditorList" style="max-height:220px;overflow-y:auto;margin-bottom:10px;"></div>
+      <div class="d-flex gap-2">
+        <input class="form-control form-control-sm" id="setNewName" type="text" placeholder="New set name…" style="flex:1;" />
+        <button class="btn btn-sm btn-primary" id="setAddBtn">+ Save Current</button>
+      </div>
+      <div class="qa-modal-actions">
+        <button class="btn btn-sm btn-outline-secondary" id="setModalClose">Close</button>
+      </div>
+    </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="core.js"></script>
-  <script src="topnav.js?v=20260422"></script>
+  <script src="topnav.js?v=20260427"></script>
   <script>
-    const TYPE_COLORS = {
-      'Practice':           '#3b82f6',
-      'Race/Event':         '#e32636',
-      'Race Weekend':       '#dc2626',
-      'Travel':             '#6b7280',
-      'Travel Day':         '#9ca3af',
-      'Camp':               '#16a34a',
-      'Regional Weekend':   '#f59e0b',
-      'National Weekend':   '#7c3aed',
-      'International Trip': '#0891b2',
-      'Test Day':           '#10b981',
-      'Promo / Media':      '#ec4899',
-    };
-    function typeColor(t) { return TYPE_COLORS[t] || '#a64dff'; }
+  // ═══════════════════════════════════════════════════════════
+  // Constants & shared state
+  // ═══════════════════════════════════════════════════════════
+  const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const MN3 = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const DAY3 = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
-    let allEvents = [];
-    let viewYear, viewMonth;
-    let hiddenTypes = new Set();
+  const SERIES_COLORS = {
+    'National':           '#7c3aed',
+    'National Weekend':   '#7c3aed',
+    'Regional':           '#f59e0b',
+    'Regional Weekend':   '#f59e0b',
+    'Test Day':           '#10b981',
+    'Test':               '#10b981',
+    'Promo / Media':      '#ec4899',
+    'Promo':              '#ec4899',
+    'International':      '#0891b2',
+    'International Trip': '#0891b2',
+    'Travel':             '#6b7280',
+    'Travel Day':         '#9ca3af',
+    'Camp':               '#16a34a',
+    'Race Weekend':       '#e32636',
+    'Race/Event':         '#e32636',
+    'Practice':           '#3b82f6',
+  };
+  function seriesColor(s) {
+    if (!s) return '#a64dff';
+    const k = Object.keys(SERIES_COLORS).find(k => s.toLowerCase().includes(k.toLowerCase()));
+    return k ? SERIES_COLORS[k] : '#a64dff';
+  }
 
-    function toISO(v) {
-      if (!v) return '';
-      return String(v).includes('T') ? String(v).slice(0,10) : String(v);
-    }
+  let allEvents = [];
+  let viewMode  = 'month';
+  let viewYear, viewMonth;
+  let miniYear, miniMonth;
+  let hiddenSeries = new Set();
+  let weatherCache = {}; // iso → {icon,hi,lo}
+  const WX_CFG_KEY = 'rts.weather.cfg';
+  const SC_SETS_KEY = 'rts.sporting.sets';
 
-    function esc(s) {
-      return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-    }
+  // ═══════════════════════════════════════════════════════════
+  // Helpers
+  // ═══════════════════════════════════════════════════════════
+  function toISO(v) {
+    if (!v) return '';
+    const s = String(v);
+    return s.includes('T') ? s.slice(0,10) : s;
+  }
+  function esc(s) {
+    return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function fmtDate(iso) {
+    if (!iso) return '';
+    const [y,m,d] = iso.split('-');
+    return `${parseInt(d)} ${MN3[parseInt(m)-1]} ${y}`;
+  }
+  function daysUntil(iso) {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const t = new Date(iso+'T00:00:00'); t.setHours(0,0,0,0);
+    return Math.round((t-today)/86400000);
+  }
+  function countdown(iso) {
+    const d = daysUntil(iso);
+    if (d < 0)  return 'Past';
+    if (d === 0) return 'Today!';
+    if (d === 1) return 'Tomorrow';
+    if (d < 7)  return `${d}d away`;
+    if (d < 30) return `${Math.round(d/7)}w away`;
+    return `${Math.round(d/30)}mo`;
+  }
+  function wxCfg() { try { return JSON.parse(localStorage.getItem(WX_CFG_KEY)||'{}'); } catch { return {}; } }
+  function getSets() { try { return JSON.parse(localStorage.getItem(SC_SETS_KEY)||'[]'); } catch { return []; } }
+  function saveSets(sets) { localStorage.setItem(SC_SETS_KEY, JSON.stringify(sets)); }
+  function getAuthHeaders() {
+    const t = localStorage.getItem('auth_token');
+    return t ? { 'Authorization': `Bearer ${t}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
+  }
 
-    async function loadEvents() {
-      try {
-        const res = await fetch('/api/events');
-        if (res.ok) {
-          const data = await res.json();
-          allEvents = Array.isArray(data) ? data : (data.items || []);
-        }
-      } catch(e) { allEvents = []; }
-      updateStats();
-      buildLegend();
-      buildQuickJump();
-      renderGrid();
-    }
+  function visibleEvents() {
+    return allEvents.filter(e => {
+      const s = e.series || e.event_type || e.type || 'Other';
+      return !hiddenSeries.has(s);
+    });
+  }
 
-    function updateStats() {
-      const today = new Date().toISOString().slice(0,10);
-      document.getElementById('statTotal').textContent = allEvents.length;
-      document.getElementById('statRemaining').textContent =
-        allEvents.filter(e => toISO(e.start_date||e.start||'') >= today && (e.status||'').toLowerCase() !== 'cancelled').length;
-      document.getElementById('statCompleted').textContent =
-        allEvents.filter(e => ['completed','elapsed'].includes((e.status||'').toLowerCase())).length;
-      const y = new Date().getFullYear(), m = String(new Date().getMonth()+1).padStart(2,'0');
-      document.getElementById('statThisMonth').textContent =
-        allEvents.filter(e => toISO(e.start_date||e.start||'').startsWith(`${y}-${m}`)).length;
-    }
-
-    function buildLegend() {
-      const counts = {};
-      allEvents.forEach(e => { const t = e.event_type||e.type||'Other'; counts[t]=(counts[t]||0)+1; });
-      const el = document.getElementById('legendList');
-      el.innerHTML = '';
-      Object.entries(counts).sort((a,b)=>b[1]-a[1]).forEach(([t,c]) => {
-        const div = document.createElement('div');
-        div.className = 'type-legend-item'+(hiddenTypes.has(t)?' hidden':'');
-        div.dataset.type = t;
-        div.innerHTML = `<span class="type-dot" style="background:${typeColor(t)}"></span><span>${esc(t)}</span><span class="type-count">${c}</span>`;
-        div.addEventListener('click', () => { if(hiddenTypes.has(t)) hiddenTypes.delete(t); else hiddenTypes.add(t); buildLegend(); renderGrid(); });
-        el.appendChild(div);
-      });
-    }
-
-    function buildQuickJump() {
-      const months = {};
-      allEvents.forEach(e => { const d=toISO(e.start_date||e.start||''); if(d) { const k=d.slice(0,7); months[k]=(months[k]||0)+1; } });
-      const el = document.getElementById('quickJump');
-      el.innerHTML = '';
-      const MN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-      Object.keys(months).sort().forEach(key => {
-        const [y,m] = key.split('-');
-        const btn = document.createElement('div');
-        btn.style.cssText = 'font-size:.78rem;font-weight:500;color:#495057;padding:3px 8px;border-radius:5px;cursor:pointer;display:flex;justify-content:space-between;';
-        btn.innerHTML = `<span>${MN[parseInt(m,10)-1]} ${y}</span><span style="color:#a64dff;font-weight:700;">${months[key]}</span>`;
-        btn.addEventListener('click', () => { viewYear=parseInt(y); viewMonth=parseInt(m,10)-1; renderGrid(); });
-        btn.addEventListener('mouseenter', () => btn.style.background='#f1f3f5');
-        btn.addEventListener('mouseleave', () => btn.style.background='');
-        el.appendChild(btn);
-      });
-    }
-
-    const MONTH_NAMES=['January','February','March','April','May','June','July','August','September','October','November','December'];
-
-    function renderGrid() {
-      document.getElementById('monthLabel').textContent = `${MONTH_NAMES[viewMonth]} ${viewYear}`;
-      const firstDay = new Date(viewYear, viewMonth, 1);
-      const startOffset = (firstDay.getDay()+6)%7; // Mon=0
-      const daysInMonth = new Date(viewYear, viewMonth+1, 0).getDate();
-      const totalCells = Math.ceil((startOffset+daysInMonth)/7)*7;
-      const todayISO = new Date().toISOString().slice(0,10);
-
-      // Build date→events map
-      const cellMap = {};
-      allEvents.filter(e => !hiddenTypes.has(e.event_type||e.type||'Other')).forEach(ev => {
-        const s = toISO(ev.start_date||ev.start||'');
-        const end = toISO(ev.end_date||ev.end||'')||s;
-        if (!s) return;
-        let cur = new Date(s+'T12:00:00');
-        const endD = new Date(end+'T12:00:00');
-        const totalDays = Math.round((endD-cur)/86400000)+1;
-        let idx=0;
-        while(cur<=endD) {
-          const iso = cur.toISOString().slice(0,10);
-          if(!cellMap[iso]) cellMap[iso]=[];
-          let pos = totalDays===1?'single':(idx===0?'start':(idx===totalDays-1?'end':'mid'));
-          cellMap[iso].push({ev,pos});
-          cur.setDate(cur.getDate()+1); idx++;
-        }
-      });
-
-      const body = document.getElementById('calBody');
-      body.innerHTML = '';
-      for(let i=0;i<totalCells;i++) {
-        const offset = i-startOffset;
-        const isOther = offset<0||offset>=daysInMonth;
-        const date = new Date(viewYear, viewMonth, offset+1);
-        const iso = date.toISOString().slice(0,10);
-        const isToday = iso===todayISO;
-
-        const cell = document.createElement('div');
-        cell.className='cal-cell'+(isOther?' other-month':'')+(isToday?' today':'');
-
-        const dn = document.createElement('div');
-        dn.className='cal-day-num';
-        dn.textContent = date.getDate();
-        cell.appendChild(dn);
-
-        const evs = cellMap[iso]||[];
-        evs.slice(0,3).forEach(({ev,pos}) => {
-          const col = typeColor(ev.event_type||ev.type||'Other');
-          const pill = document.createElement('div');
-          pill.className='cal-ev-pill';
-          pill.style.background=col; pill.style.color='#fff';
-          // show name only on first day of a multi-day event
-          pill.textContent = (pos==='single'||pos==='start') ? (ev.name||ev.event_name||'—') : '\u00A0';
-          if(pos==='mid'||pos==='end') { pill.style.opacity='.7'; pill.style.borderRadius='0'; }
-          if(pos==='start') pill.style.borderRadius='4px 0 0 4px';
-          if(pos==='end')   { pill.style.borderRadius='0 4px 4px 0'; pill.style.opacity='.7'; }
-          pill.title = ev.name||ev.event_name||'';
-          pill.addEventListener('click', ev2 => { ev2.stopPropagation(); showPopup(ev, ev2); });
-          cell.appendChild(pill);
+  // ═══════════════════════════════════════════════════════════
+  // Data loading
+  // ═══════════════════════════════════════════════════════════
+  async function loadEvents() {
+    try {
+      const res = await fetch('/api/sporting-calendar', { headers: getAuthHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        allEvents = Array.isArray(data) ? data : (data.items || []);
+        // Sort by start_date ascending
+        allEvents.sort((a,b) => {
+          const da = toISO(a.start_date||''), db = toISO(b.start_date||'');
+          return da < db ? -1 : da > db ? 1 : 0;
         });
-        if(evs.length>3) {
-          const more=document.createElement('div');
-          more.className='cal-ev-more';
-          more.textContent=`+${evs.length-3} more`;
-          cell.appendChild(more);
+      }
+    } catch(e) { allEvents = []; }
+    updateStats();
+    buildLegend();
+    buildCalSets();
+    buildUpNext();
+    buildMiniCal();
+    renderView();
+    fetchWeatherForUpcoming();
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // Stats
+  // ═══════════════════════════════════════════════════════════
+  function updateStats() {
+    const today = new Date().toISOString().slice(0,10);
+    const y = today.slice(0,4), m = today.slice(0,7);
+    const vis = visibleEvents();
+    document.getElementById('statTotal').textContent     = vis.length;
+    document.getElementById('statRemaining').textContent = vis.filter(e => toISO(e.start_date||'') >= today && (e.status||'').toLowerCase() !== 'cancelled').length;
+    document.getElementById('statCompleted').textContent = vis.filter(e => ['completed','elapsed'].includes((e.status||'').toLowerCase())).length;
+    document.getElementById('statThisMonth').textContent = vis.filter(e => toISO(e.start_date||'').startsWith(m)).length;
+    const next = vis.find(e => toISO(e.start_date||'') >= today && (e.status||'').toLowerCase() !== 'cancelled');
+    if (next) {
+      const d = daysUntil(toISO(next.start_date||''));
+      document.getElementById('statNext').textContent = d === 0 ? 'Today' : d === 1 ? 'Tomorrow' : `${d} days`;
+      document.getElementById('statNextCard').title = next.event_name || next.name || '';
+      document.getElementById('statNextCard').onclick = () => {
+        const iso = toISO(next.start_date||'');
+        viewYear = parseInt(iso.slice(0,4));
+        viewMonth = parseInt(iso.slice(5,7))-1;
+        setView('month');
+      };
+    } else {
+      document.getElementById('statNext').textContent = '—';
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // Type/Series Legend
+  // ═══════════════════════════════════════════════════════════
+  function buildLegend() {
+    const counts = {};
+    allEvents.forEach(e => { const t = e.series||e.event_type||e.type||'Other'; counts[t]=(counts[t]||0)+1; });
+    const el = document.getElementById('legendList');
+    el.innerHTML = '';
+    Object.entries(counts).sort((a,b)=>b[1]-a[1]).forEach(([t,c]) => {
+      const div = document.createElement('div');
+      div.className = 'type-legend-item'+(hiddenSeries.has(t)?' hidden':'');
+      div.dataset.type = t;
+      div.innerHTML = `<span class="type-dot" style="background:${seriesColor(t)}"></span><span>${esc(t)}</span><span class="type-count">${c}</span>`;
+      div.addEventListener('click', () => {
+        if (hiddenSeries.has(t)) hiddenSeries.delete(t); else hiddenSeries.add(t);
+        buildLegend(); updateStats(); buildUpNext(); renderView();
+      });
+      el.appendChild(div);
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // Calendar Sets
+  // ═══════════════════════════════════════════════════════════
+  function buildCalSets() {
+    const sets = getSets();
+    const el = document.getElementById('calSetsPanel');
+    el.innerHTML = '';
+    // "All Events" built-in
+    const all = document.createElement('div');
+    all.className = 'type-legend-item';
+    all.style.cursor = 'pointer';
+    all.innerHTML = `<span class="type-dot" style="background:#a64dff"></span><span style="font-weight:600;">All Events</span>`;
+    all.addEventListener('click', () => { hiddenSeries.clear(); buildLegend(); updateStats(); buildUpNext(); renderView(); });
+    el.appendChild(all);
+    sets.forEach(set => {
+      const row = document.createElement('div');
+      row.className = 'type-legend-item';
+      row.style.cursor = 'pointer';
+      const hiddenList = Array.isArray(set.hiddenSeries) ? set.hiddenSeries : [];
+      row.innerHTML = `<span class="type-dot" style="background:#6b7280"></span><span>${esc(set.name)}</span>`;
+      row.addEventListener('click', () => {
+        hiddenSeries = new Set(hiddenList);
+        buildLegend(); updateStats(); buildUpNext(); renderView();
+      });
+      el.appendChild(row);
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // Up Next panel
+  // ═══════════════════════════════════════════════════════════
+  function buildUpNext() {
+    const today = new Date().toISOString().slice(0,10);
+    const upcoming = visibleEvents()
+      .filter(e => toISO(e.start_date||'') >= today && (e.status||'').toLowerCase() !== 'cancelled')
+      .slice(0,5);
+    const el = document.getElementById('upNextList');
+    if (!upcoming.length) { el.innerHTML = '<div class="upnext-empty">No upcoming events</div>'; return; }
+    el.innerHTML = '';
+    upcoming.forEach(ev => {
+      const iso = toISO(ev.start_date||'');
+      const col = seriesColor(ev.series||ev.event_type||ev.type||'');
+      const div = document.createElement('div');
+      div.className = 'upnext-item';
+      div.style.cursor = 'pointer';
+      div.innerHTML = `
+        <span class="upnext-dot" style="background:${col}"></span>
+        <div style="flex:1;min-width:0;">
+          <div class="upnext-name">${esc(ev.event_name||ev.name||'—')}</div>
+          <div class="upnext-meta">${fmtDate(iso)}${ev.circuit ? ' · '+esc(ev.circuit) : ''}</div>
+        </div>
+        <span class="upnext-countdown">${countdown(iso)}</span>`;
+      div.addEventListener('click', () => {
+        viewYear = parseInt(iso.slice(0,4));
+        viewMonth = parseInt(iso.slice(5,7))-1;
+        setView('month');
+      });
+      el.appendChild(div);
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // Mini calendar
+  // ═══════════════════════════════════════════════════════════
+  function buildMiniCal() {
+    document.getElementById('miniLabel').textContent = `${MN3[miniMonth]} ${miniYear}`;
+    const eventDates = new Set();
+    allEvents.forEach(e => {
+      const s = toISO(e.start_date||''), en = toISO(e.end_date||'')||s;
+      if (!s) return;
+      let cur = new Date(s+'T12:00:00'), end = new Date(en+'T12:00:00');
+      while (cur <= end) { eventDates.add(cur.toISOString().slice(0,10)); cur.setDate(cur.getDate()+1); }
+    });
+    const todayISO = new Date().toISOString().slice(0,10);
+    const selectedISO = viewMode==='month' ? `${viewYear}-${String(viewMonth+1).padStart(2,'0')}-01` : null;
+    const firstDay = new Date(miniYear, miniMonth, 1);
+    const startOffset = (firstDay.getDay()+6)%7;
+    const daysInMonth = new Date(miniYear, miniMonth+1, 0).getDate();
+    const totalCells = Math.ceil((startOffset+daysInMonth)/7)*7;
+    const el = document.getElementById('miniCal');
+    el.innerHTML = '';
+    DAY3.forEach(d => { const h=document.createElement('div'); h.className='mini-cal-dh'; h.textContent=d[0]; el.appendChild(h); });
+    for (let i=0; i<totalCells; i++) {
+      const offset = i-startOffset;
+      const isOther = offset<0||offset>=daysInMonth;
+      const date = new Date(miniYear, miniMonth, offset+1);
+      const iso = date.toISOString().slice(0,10);
+      const d = document.createElement('div');
+      const classes = ['mini-cal-day'];
+      if (isOther) classes.push('other');
+      if (!isOther && iso===todayISO) classes.push('today');
+      if (!isOther && eventDates.has(iso)) classes.push('has-event');
+      if (!isOther && viewMode==='month' && date.getFullYear()===viewYear && date.getMonth()===viewMonth) classes.push('selected');
+      d.className = classes.join(' ');
+      d.textContent = date.getDate();
+      if (!isOther) {
+        d.addEventListener('click', () => {
+          viewYear = date.getFullYear();
+          viewMonth = date.getMonth();
+          setView('month');
+        });
+      }
+      el.appendChild(d);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // Weather integration (reuses existing OWM key from settings)
+  // ═══════════════════════════════════════════════════════════
+  const WX_ICONS = { 'Clear':'☀️','Clouds':'⛅','Rain':'🌧️','Drizzle':'🌦️','Thunderstorm':'⛈️','Snow':'❄️','Mist':'🌫️','Fog':'🌫️','Haze':'🌫️' };
+
+  async function fetchWeatherForUpcoming() {
+    const cfg = wxCfg();
+    const key = cfg.owmKey || cfg.owm_key || '';
+    if (!key) return;
+    const today = new Date().toISOString().slice(0,10);
+    const cutoff = new Date(); cutoff.setDate(cutoff.getDate()+14);
+    const cutoffISO = cutoff.toISOString().slice(0,10);
+    const toFetch = allEvents.filter(e => {
+      const iso = toISO(e.start_date||'');
+      return iso >= today && iso <= cutoffISO && (e.circuit||e.city||e.country);
+    });
+    for (const ev of toFetch) {
+      const iso = toISO(ev.start_date||'');
+      if (weatherCache[iso]) continue;
+      const location = encodeURIComponent(ev.circuit||ev.city||ev.country||'');
+      try {
+        // Geocode
+        const geoRes = await fetch(`https://api.openweathermap.org/geo/1.0/direct?q=${location}&limit=1&appid=${key}`);
+        if (!geoRes.ok) continue;
+        const geo = await geoRes.json();
+        if (!geo.length) continue;
+        const { lat, lon } = geo[0];
+        // Forecast
+        const fcRes = await fetch(`https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&units=metric&cnt=3&appid=${key}`);
+        if (!fcRes.ok) continue;
+        const fc = await fcRes.json();
+        const days = fc.list || [];
+        if (!days.length) continue;
+        const hi = Math.round(Math.max(...days.map(d=>d.main.temp_max)));
+        const lo = Math.round(Math.min(...days.map(d=>d.main.temp_min)));
+        const main = days[0].weather[0].main;
+        weatherCache[iso] = { icon: WX_ICONS[main]||'🌡️', hi, lo };
+      } catch { /* skip */ }
+    }
+    // Re-render cells with weather data
+    renderView();
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // View management
+  // ═══════════════════════════════════════════════════════════
+  function setView(mode) {
+    viewMode = mode;
+    document.querySelectorAll('.view-btn').forEach(b => b.classList.toggle('active', b.dataset.view===mode));
+    ['month','week','list','season'].forEach(v => {
+      document.getElementById('view'+v[0].toUpperCase()+v.slice(1)).style.display = v===mode ? '' : 'none';
+    });
+    buildMiniCal();
+    renderView();
+    updateNavLabel();
+  }
+
+  function updateNavLabel() {
+    const el = document.getElementById('monthLabel');
+    if (viewMode==='month') el.textContent = `${MONTH_NAMES[viewMonth]} ${viewYear}`;
+    else if (viewMode==='week') {
+      const mon = getWeekStart();
+      const sun = new Date(mon); sun.setDate(sun.getDate()+6);
+      el.textContent = `${fmtDate(mon.toISOString().slice(0,10))} – ${fmtDate(sun.toISOString().slice(0,10))}`;
+    }
+    else if (viewMode==='list') el.textContent = `${MONTH_NAMES[viewMonth]} ${viewYear} – Season`;
+    else if (viewMode==='season') el.textContent = `${viewYear} Season`;
+  }
+
+  function renderView() {
+    updateNavLabel();
+    if (viewMode==='month')  renderMonth();
+    else if (viewMode==='week')   renderWeek();
+    else if (viewMode==='list')   renderList();
+    else if (viewMode==='season') renderSeason();
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // Month view
+  // ═══════════════════════════════════════════════════════════
+  function buildCellMap(evs) {
+    const cellMap = {};
+    evs.forEach(ev => {
+      const s = toISO(ev.start_date||ev.start||'');
+      const end = toISO(ev.end_date||ev.end||'')||s;
+      if (!s) return;
+      let cur = new Date(s+'T12:00:00');
+      const endD = new Date(end+'T12:00:00');
+      const totalDays = Math.round((endD-cur)/86400000)+1;
+      let idx=0;
+      while (cur<=endD) {
+        const iso = cur.toISOString().slice(0,10);
+        if (!cellMap[iso]) cellMap[iso]=[];
+        const pos = totalDays===1?'single':(idx===0?'start':(idx===totalDays-1?'end':'mid'));
+        cellMap[iso].push({ev,pos});
+        cur.setDate(cur.getDate()+1); idx++;
+      }
+    });
+    return cellMap;
+  }
+
+  function renderMonth() {
+    const firstDay = new Date(viewYear, viewMonth, 1);
+    const startOffset = (firstDay.getDay()+6)%7;
+    const daysInMonth = new Date(viewYear, viewMonth+1, 0).getDate();
+    const totalCells = Math.ceil((startOffset+daysInMonth)/7)*7;
+    const todayISO = new Date().toISOString().slice(0,10);
+    const cellMap = buildCellMap(visibleEvents());
+    const body = document.getElementById('calBody');
+    body.innerHTML = '';
+    for (let i=0; i<totalCells; i++) {
+      const offset = i-startOffset;
+      const isOther = offset<0||offset>=daysInMonth;
+      const date = new Date(viewYear, viewMonth, offset+1);
+      const iso = date.toISOString().slice(0,10);
+      const isToday = iso===todayISO;
+      const cell = document.createElement('div');
+      cell.className = 'cal-cell'+(isOther?' other-month':'')+(isToday?' today':'');
+      const dn = document.createElement('div');
+      dn.className = 'cal-day-num';
+      dn.textContent = date.getDate();
+      cell.appendChild(dn);
+      const evs = cellMap[iso]||[];
+      evs.slice(0,3).forEach(({ev,pos}) => {
+        const col = seriesColor(ev.series||ev.event_type||ev.type||'Other');
+        const pill = document.createElement('div');
+        pill.className = 'cal-ev-pill';
+        pill.style.background = col; pill.style.color = '#fff';
+        pill.textContent = (pos==='single'||pos==='start') ? (ev.event_name||ev.name||'—') : '\u00A0';
+        if (pos==='mid'||pos==='end') { pill.style.opacity='.7'; pill.style.borderRadius='0'; }
+        if (pos==='start') pill.style.borderRadius='4px 0 0 4px';
+        if (pos==='end')   { pill.style.borderRadius='0 4px 4px 0'; pill.style.opacity='.7'; }
+        pill.title = ev.event_name||ev.name||'';
+        pill.addEventListener('click', ev2 => { ev2.stopPropagation(); showPopup(ev, ev2); });
+        cell.appendChild(pill);
+      });
+      if (evs.length>3) {
+        const more = document.createElement('div');
+        more.className = 'cal-ev-more';
+        more.textContent = `+${evs.length-3} more`;
+        more.addEventListener('click', ev2 => { ev2.stopPropagation(); showPopup(evs[3].ev, ev2); });
+        cell.appendChild(more);
+      }
+      // Weather badge
+      const wx = weatherCache[iso];
+      if (wx && !isOther) {
+        const badge = document.createElement('div');
+        badge.className = 'wx-badge';
+        badge.innerHTML = `<span class="wx-icon">${wx.icon}</span><span>${wx.hi}°/${wx.lo}°</span>`;
+        cell.appendChild(badge);
+      }
+      body.appendChild(cell);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // Week view
+  // ═══════════════════════════════════════════════════════════
+  function getWeekStart() {
+    // Week containing viewYear/viewMonth/1 (or current week if not set)
+    const ref = new Date(viewYear, viewMonth, 1);
+    const dow = (ref.getDay()+6)%7; // Mon=0
+    const mon = new Date(ref); mon.setDate(ref.getDate()-dow);
+    return mon;
+  }
+
+  function renderWeek() {
+    const mon = getWeekStart();
+    const todayISO = new Date().toISOString().slice(0,10);
+    const cellMap = buildCellMap(visibleEvents());
+    const headEl = document.getElementById('weekHead');
+    const bodyEl = document.getElementById('weekBody');
+    headEl.innerHTML = '';
+    bodyEl.innerHTML = '';
+    for (let d=0; d<7; d++) {
+      const date = new Date(mon); date.setDate(mon.getDate()+d);
+      const iso = date.toISOString().slice(0,10);
+      const isToday = iso===todayISO;
+      // Header
+      const hc = document.createElement('div');
+      hc.className = 'week-head-cell';
+      hc.innerHTML = `<div class="week-head-day">${DAY3[d]}</div><div class="week-head-date${isToday?' today':''}">${date.getDate()}</div>`;
+      hc.querySelector('.week-head-date').style.cssText = isToday?'background:#a64dff;color:#fff;':'';
+      headEl.appendChild(hc);
+      // Body
+      const bc = document.createElement('div');
+      bc.className = 'week-cell'+(isToday?' today':'');
+      (cellMap[iso]||[]).forEach(({ev,pos}) => {
+        if (pos==='single'||pos==='start') {
+          const col = seriesColor(ev.series||ev.event_type||ev.type||'');
+          const pill = document.createElement('div');
+          pill.className = 'cal-ev-pill';
+          pill.style.background = col; pill.style.color = '#fff';
+          pill.textContent = ev.event_name||ev.name||'—';
+          pill.addEventListener('click', ev2 => { ev2.stopPropagation(); showPopup(ev, ev2); });
+          bc.appendChild(pill);
         }
-        body.appendChild(cell);
+      });
+      const wx = weatherCache[iso];
+      if (wx) {
+        const badge = document.createElement('div');
+        badge.className = 'wx-badge';
+        badge.innerHTML = `<span class="wx-icon">${wx.icon}</span><span>${wx.hi}°/${wx.lo}°</span>`;
+        bc.appendChild(badge);
+      }
+      bodyEl.appendChild(bc);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // List / agenda view
+  // ═══════════════════════════════════════════════════════════
+  function renderList() {
+    const evs = visibleEvents().filter(e => toISO(e.start_date||'') !== '');
+    const grouped = {};
+    evs.forEach(ev => {
+      const k = toISO(ev.start_date||'').slice(0,7);
+      if (!grouped[k]) grouped[k] = [];
+      grouped[k].push(ev);
+    });
+    const el = document.getElementById('listBody');
+    el.innerHTML = '';
+    const keys = Object.keys(grouped).sort();
+    if (!keys.length) { el.innerHTML = '<div class="list-empty">No events to display.</div>'; return; }
+    keys.forEach(ym => {
+      const [y,m] = ym.split('-');
+      const grp = document.createElement('div');
+      grp.className = 'list-month-group';
+      const hdr = document.createElement('div');
+      hdr.className = 'list-month-header';
+      hdr.textContent = `${MONTH_NAMES[parseInt(m)-1]} ${y}`;
+      grp.appendChild(hdr);
+      grouped[ym].forEach(ev => {
+        const iso = toISO(ev.start_date||'');
+        const endISO = toISO(ev.end_date||'')||iso;
+        const col = seriesColor(ev.series||ev.event_type||ev.type||'');
+        const status = ev.status||'';
+        const scClass = 'sc-'+status.toLowerCase().replace(/\s+/g,'-');
+        const row = document.createElement('div');
+        row.className = 'list-row';
+        const dm = iso.split('-');
+        const multiDay = endISO && endISO!==iso;
+        row.innerHTML = `
+          <div class="list-date-col">
+            <div class="list-date-day">${parseInt(dm[2])}</div>
+            <div class="list-date-month">${MN3[parseInt(dm[1])-1]}</div>
+          </div>
+          <div class="list-color-bar" style="background:${col}"></div>
+          <div style="flex:1;min-width:0;">
+            <div class="list-event-name">${esc(ev.event_name||ev.name||'—')}</div>
+            <div class="list-event-meta">
+              ${ev.series?`<span class="fw-600" style="color:${col}">${esc(ev.series)}</span> · `:''}
+              ${ev.circuit?esc(ev.circuit)+' · ':''}
+              ${ev.country?esc(ev.country):''}
+              ${status?`<span class="status-chip ${scClass} ms-1">${esc(status)}</span>`:''}
+            </div>
+          </div>
+          ${multiDay?`<div class="list-event-range">${fmtDate(iso)} – ${fmtDate(endISO)}</div>`:''}
+        `;
+        row.addEventListener('click', ev2 => { ev2.stopPropagation(); showPopup(ev, ev2); });
+        grp.appendChild(row);
+      });
+      el.appendChild(grp);
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // Season view
+  // ═══════════════════════════════════════════════════════════
+  function renderSeason() {
+    const evs = visibleEvents();
+    const todayISO = new Date().toISOString().slice(0,10);
+    // Build date→events map for the whole year
+    const dateMap = {};
+    evs.forEach(ev => {
+      const s = toISO(ev.start_date||''), en = toISO(ev.end_date||'')||s;
+      if (!s) return;
+      let cur = new Date(s+'T12:00:00'), end = new Date(en+'T12:00:00');
+      while (cur<=end) {
+        const iso = cur.toISOString().slice(0,10);
+        if (!dateMap[iso]) dateMap[iso]=[];
+        dateMap[iso].push(ev);
+        cur.setDate(cur.getDate()+1);
+      }
+    });
+    const el = document.getElementById('seasonBody');
+    el.innerHTML = '';
+    for (let mo=0; mo<12; mo++) {
+      const evCount = evs.filter(e => toISO(e.start_date||'').startsWith(`${viewYear}-${String(mo+1).padStart(2,'0')}`)).length;
+      const card = document.createElement('div');
+      card.className = 'season-month-card';
+      const hasMo = evCount>0;
+      card.innerHTML = `
+        <div class="season-month-name${hasMo?' has-events':''}">
+          ${MN3[mo]} ${viewYear}
+          ${hasMo?`<span class="season-ev-count">${evCount}</span>`:''}
+        </div>
+        <div class="season-mini-grid" id="sm_${mo}"></div>`;
+      el.appendChild(card);
+      const grid = card.querySelector(`#sm_${mo}`);
+      DAY3.forEach(d => { const h=document.createElement('div'); h.className='season-mini-dh'; h.textContent=d[0]; grid.appendChild(h); });
+      const fd = new Date(viewYear,mo,1);
+      const off = (fd.getDay()+6)%7;
+      const dim = new Date(viewYear,mo+1,0).getDate();
+      const tc = Math.ceil((off+dim)/7)*7;
+      for (let i=0;i<tc;i++) {
+        const ofs=i-off;
+        const isOth=ofs<0||ofs>=dim;
+        const date=new Date(viewYear,mo,ofs+1);
+        const iso=date.toISOString().slice(0,10);
+        const dc=document.createElement('div');
+        const classes=['season-mini-day'];
+        if(isOth) classes.push('other');
+        else {
+          if(iso===todayISO) classes.push('today');
+          if(dateMap[iso]) { classes.push('has-event'); }
+        }
+        dc.className=classes.join(' ');
+        dc.textContent=isOth?'':date.getDate();
+        if(!isOth&&dateMap[iso]) {
+          dc.title = dateMap[iso].map(e=>e.event_name||e.name||'').join(', ');
+          dc.addEventListener('click', ev2 => {
+            viewYear=date.getFullYear(); viewMonth=date.getMonth();
+            setView('month');
+          });
+        }
+        grid.appendChild(dc);
       }
     }
+  }
 
-    function showPopup(ev, mouseEvent) {
-      const popup = document.getElementById('evPopup');
-      const col = typeColor(ev.event_type||ev.type||'Other');
-      document.getElementById('popupTitle').textContent = ev.name||ev.event_name||'—';
-      document.getElementById('popupTitle').style.color = col;
-      const s=toISO(ev.start_date||ev.start||''), e=toISO(ev.end_date||ev.end||'');
-      const status=ev.status||'';
-      const scClass='sc-'+status.toLowerCase().replace(/\s+/g,'-');
-      document.getElementById('popupBody').innerHTML = `
-        ${ev.event_type||ev.type?`<div class="cal-popup-row"><b>Type</b><span>${esc(ev.event_type||ev.type)}</span></div>`:''}
-        ${s?`<div class="cal-popup-row"><b>Dates</b><span>${s}${e&&e!==s?' → '+e:''}</span></div>`:''}
-        ${ev.circuit?`<div class="cal-popup-row"><b>Circuit</b><span>${esc(ev.circuit)}</span></div>`:''}
-        ${ev.country?`<div class="cal-popup-row"><b>Country</b><span>${esc(ev.country)}</span></div>`:''}
-        ${status?`<div class="cal-popup-row"><b>Status</b><span class="status-chip ${scClass}">${esc(status)}</span></div>`:''}
-      `;
-      document.getElementById('popupOpenLink').onclick = () => window.location.href='events.html';
-      popup.style.display='block';
-      let x=mouseEvent.clientX+12, y=mouseEvent.clientY+12;
-      if(x+300>window.innerWidth-10) x=mouseEvent.clientX-312;
-      if(y+200>window.innerHeight-10) y=mouseEvent.clientY-212;
-      popup.style.left=x+'px'; popup.style.top=y+'px';
+  // ═══════════════════════════════════════════════════════════
+  // Event popup
+  // ═══════════════════════════════════════════════════════════
+  function showPopup(ev, mouseEvent) {
+    const popup = document.getElementById('evPopup');
+    const col = seriesColor(ev.series||ev.event_type||ev.type||'');
+    document.getElementById('popupTitle').textContent = ev.event_name||ev.name||'—';
+    document.getElementById('popupTitle').style.color = col;
+    const s = toISO(ev.start_date||ev.start||'');
+    const e = toISO(ev.end_date||ev.end||'');
+    const status = ev.status||'';
+    const scClass = 'sc-'+status.toLowerCase().replace(/\s+/g,'-');
+    const wx = weatherCache[s];
+    document.getElementById('popupBody').innerHTML = `
+      ${ev.series||ev.event_type?`<div class="cal-popup-row"><b>Series</b><span>${esc(ev.series||ev.event_type||ev.type)}</span></div>`:''}
+      ${ev.round_number?`<div class="cal-popup-row"><b>Round</b><span>${esc(ev.round_number)}</span></div>`:''}
+      ${s?`<div class="cal-popup-row"><b>Dates</b><span>${fmtDate(s)}${e&&e!==s?' – '+fmtDate(e):''}</span></div>`:''}
+      ${ev.circuit?`<div class="cal-popup-row"><b>Circuit</b><span>${esc(ev.circuit)}</span></div>`:''}
+      ${ev.city?`<div class="cal-popup-row"><b>City</b><span>${esc(ev.city)}</span></div>`:''}
+      ${ev.country?`<div class="cal-popup-row"><b>Country</b><span>${esc(ev.country)}</span></div>`:''}
+      ${status?`<div class="cal-popup-row"><b>Status</b><span class="status-chip ${scClass}">${esc(status)}</span></div>`:''}
+      ${ev.notes?`<div class="cal-popup-row" style="flex-direction:column;"><b>Notes</b><span style="margin-top:2px;">${esc(ev.notes)}</span></div>`:''}
+      ${wx?`<div class="cal-popup-row"><b>Weather</b><span>${wx.icon} ${wx.hi}° / ${wx.lo}°</span></div>`:''}
+    `;
+    document.getElementById('popupActions').innerHTML = `
+      <a class="cal-popup-btn" href="events.html" title="Manage all events">All Events</a>
+      <span class="cal-popup-btn" id="popupICS" title="Download event as .ics">⬇ .ics</span>
+    `;
+    document.getElementById('popupICS').addEventListener('click', () => downloadICS([ev]));
+    popup.style.display = 'block';
+    let x = mouseEvent.clientX+14, y = mouseEvent.clientY+14;
+    if (x+320>window.innerWidth-10)  x = mouseEvent.clientX-330;
+    if (y+280>window.innerHeight-10) y = mouseEvent.clientY-290;
+    popup.style.left = x+'px'; popup.style.top = y+'px';
+  }
+
+  document.getElementById('popupClose').addEventListener('click', () => { document.getElementById('evPopup').style.display='none'; });
+  document.addEventListener('click', ev => {
+    const p = document.getElementById('evPopup');
+    if (p.style.display!=='none' && !p.contains(ev.target)) p.style.display='none';
+  });
+
+  // ═══════════════════════════════════════════════════════════
+  // Navigation
+  // ═══════════════════════════════════════════════════════════
+  function navPrev() {
+    if (viewMode==='season') { viewYear--; renderView(); return; }
+    if (viewMode==='week') { const m=getWeekStart(); m.setDate(m.getDate()-7); viewYear=m.getFullYear(); viewMonth=m.getMonth(); renderView(); return; }
+    viewMonth--; if(viewMonth<0){viewMonth=11;viewYear--;} miniYear=viewYear; miniMonth=viewMonth; buildMiniCal(); renderView();
+  }
+  function navNext() {
+    if (viewMode==='season') { viewYear++; renderView(); return; }
+    if (viewMode==='week') { const m=getWeekStart(); m.setDate(m.getDate()+7); viewYear=m.getFullYear(); viewMonth=m.getMonth(); renderView(); return; }
+    viewMonth++; if(viewMonth>11){viewMonth=0;viewYear++;} miniYear=viewYear; miniMonth=viewMonth; buildMiniCal(); renderView();
+  }
+
+  document.getElementById('btnPrev').addEventListener('click', navPrev);
+  document.getElementById('btnNext').addEventListener('click', navNext);
+  document.getElementById('btnPrevYear').addEventListener('click', ()=>{ viewYear--; miniYear--; buildMiniCal(); renderView(); });
+  document.getElementById('btnNextYear').addEventListener('click', ()=>{ viewYear++; miniYear++; buildMiniCal(); renderView(); });
+  document.getElementById('btnToday').addEventListener('click', ()=>{ const n=new Date(); viewYear=n.getFullYear(); viewMonth=n.getMonth(); miniYear=viewYear; miniMonth=viewMonth; buildMiniCal(); renderView(); });
+  document.getElementById('miniPrev').addEventListener('click', ()=>{ miniMonth--; if(miniMonth<0){miniMonth=11;miniYear--;} buildMiniCal(); });
+  document.getElementById('miniNext').addEventListener('click', ()=>{ miniMonth++; if(miniMonth>11){miniMonth=0;miniYear++;} buildMiniCal(); });
+
+  document.querySelectorAll('.view-btn').forEach(b => {
+    b.addEventListener('click', () => setView(b.dataset.view));
+  });
+
+  // ═══════════════════════════════════════════════════════════
+  // iCal export
+  // ═══════════════════════════════════════════════════════════
+  function toICSDate(iso) {
+    return (iso||'').replace(/-/g,'')+'T000000Z';
+  }
+  function escICS(s) { return String(s||'').replace(/,/g,'\\,').replace(/;/g,'\\;').replace(/\n/g,'\\n'); }
+
+  function generateICS(evs) {
+    const lines = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//Race Team OS//Sporting Calendar//EN',
+      'CALSCALE:GREGORIAN',
+      'METHOD:PUBLISH',
+      'X-WR-CALNAME:Race Team Sporting Calendar',
+      'X-WR-TIMEZONE:Africa/Johannesburg',
+    ];
+    evs.forEach(ev => {
+      const uid = (ev.id||Math.random().toString(36).slice(2))+'@raceteaos';
+      const s = (toISO(ev.start_date||'')||new Date().toISOString().slice(0,10)).replace(/-/g,'');
+      const e = (toISO(ev.end_date||'')||toISO(ev.start_date||'')).replace(/-/g,'');
+      // DTEND for all-day is exclusive, so add 1 day
+      const endDate = new Date(e.slice(0,4)+'-'+e.slice(4,6)+'-'+e.slice(6,8)+'T00:00:00');
+      endDate.setDate(endDate.getDate()+1);
+      const eStr = endDate.toISOString().slice(0,10).replace(/-/g,'');
+      lines.push('BEGIN:VEVENT');
+      lines.push(`UID:${uid}`);
+      lines.push(`DTSTART;VALUE=DATE:${s}`);
+      lines.push(`DTEND;VALUE=DATE:${eStr}`);
+      lines.push(`SUMMARY:${escICS(ev.event_name||ev.name||'Event')}`);
+      if (ev.circuit||ev.city||ev.country) lines.push(`LOCATION:${escICS([ev.circuit,ev.city,ev.country].filter(Boolean).join(', '))}`);
+      if (ev.series)  lines.push(`CATEGORIES:${escICS(ev.series)}`);
+      if (ev.notes)   lines.push(`DESCRIPTION:${escICS(ev.notes)}`);
+      if (ev.status)  lines.push(`STATUS:${ev.status.toUpperCase()==='CANCELLED'?'CANCELLED':'CONFIRMED'}`);
+      lines.push('END:VEVENT');
+    });
+    lines.push('END:VCALENDAR');
+    return lines.join('\r\n');
+  }
+
+  function downloadICS(evs) {
+    const data = generateICS(evs||visibleEvents());
+    const blob = new Blob([data], {type:'text/calendar;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'sporting-calendar.ics';
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(url), 1000);
+  }
+
+  document.getElementById('btnExportICS').addEventListener('click', ()=>downloadICS());
+
+  document.getElementById('btnCopySubscribe').addEventListener('click', () => {
+    const url = window.location.origin+'/api/sporting-calendar.ics';
+    const webcal = url.replace(/^https?/, 'webcal');
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(webcal).then(() => {
+        const b = document.getElementById('btnCopySubscribe');
+        b.textContent = '✓ Copied!';
+        setTimeout(()=>{ b.textContent='⊕ Subscribe Link'; }, 2000);
+      });
+    } else {
+      prompt('Copy this webcal:// link to subscribe:', webcal);
     }
+  });
 
-    document.getElementById('popupClose').addEventListener('click', () => { document.getElementById('evPopup').style.display='none'; });
-    document.addEventListener('click', e => { const p=document.getElementById('evPopup'); if(p.style.display!=='none'&&!p.contains(e.target)) p.style.display='none'; });
-    document.getElementById('btnPrev').addEventListener('click', ()=>{ viewMonth--; if(viewMonth<0){viewMonth=11;viewYear--;} renderGrid(); });
-    document.getElementById('btnNext').addEventListener('click', ()=>{ viewMonth++; if(viewMonth>11){viewMonth=0;viewYear++;} renderGrid(); });
-    document.getElementById('btnPrevYear').addEventListener('click', ()=>{ viewYear--; renderGrid(); });
-    document.getElementById('btnNextYear').addEventListener('click', ()=>{ viewYear++; renderGrid(); });
-    document.getElementById('btnToday').addEventListener('click', ()=>{ const n=new Date(); viewYear=n.getFullYear(); viewMonth=n.getMonth(); renderGrid(); });
+  // ═══════════════════════════════════════════════════════════
+  // Natural language quick-add
+  // ═══════════════════════════════════════════════════════════
+  const CIRCUIT_ALIASES = {
+    'red star':'Red Star Raceway','redstar':'Red Star Raceway',
+    'killarney':'Killarney Kart Track',
+    'idube':'iDube Kart Circuit',
+    'formula k':'Formula K','formulak':'Formula K',
+    'zwartkops':'Zwartkops Kart Circuit',
+    'rheebok':'Rheebok',
+  };
+  const SERIES_ALIASES = {
+    'national':'National Weekend','nationals':'National Weekend',
+    'regional':'Regional Weekend','regionals':'Regional Weekend',
+    'test':'Test Day','test day':'Test Day',
+    'promo':'Promo / Media','media':'Promo / Media',
+    'travel':'Travel Day','camp':'Camp',
+  };
+  const M_NAMES_ALL = ['january','february','march','april','may','june','july','august','september','october','november','december','jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
 
-    const n=new Date(); viewYear=n.getFullYear(); viewMonth=n.getMonth();
-    loadEvents();
+  function parseQuickAdd(input) {
+    const s = input.toLowerCase().trim();
+    const result = { event_name:'', series:'', circuit:'', start_date:'', end_date:'', country:'' };
+    // Find date range: "20-22 jun" or "20 jun" or "jun 20"
+    const rangeRe = /(\d{1,2})\s*[-–]\s*(\d{1,2})\s+(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s*(\d{4})?/i;
+    const singleRe = /(\d{1,2})\s+(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s*(\d{4})?/i;
+    const altRe = /(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{1,2})(?:\s*[-–]\s*(\d{1,2}))?\s*(\d{4})?/i;
+    const curYear = new Date().getFullYear();
+
+    function monthNum(str) {
+      const abbr = str.toLowerCase().slice(0,3);
+      const full = M_NAMES_ALL.find(m=>m.startsWith(abbr));
+      if (!full) return null;
+      const idx = M_NAMES_ALL.indexOf(full);
+      return (idx >= 12 ? idx-12 : idx)+1;
+    }
+    function pad(n){ return String(n).padStart(2,'0'); }
+    function makeDate(y,m,d){ return `${y}-${pad(m)}-${pad(d)}`; }
+
+    let matched = s.match(rangeRe);
+    if (matched) {
+      const [,d1,d2,mon,,yr] = matched;
+      const mo = monthNum(mon), y = parseInt(yr||curYear);
+      result.start_date = makeDate(y,mo,parseInt(d1));
+      result.end_date   = makeDate(y,mo,parseInt(d2));
+    } else {
+      matched = s.match(singleRe);
+      if (matched) {
+        const [,d1,mon,yr] = matched;
+        const mo = monthNum(mon), y = parseInt(yr||curYear);
+        result.start_date = result.end_date = makeDate(y,mo,parseInt(d1));
+      } else {
+        matched = s.match(altRe);
+        if (matched) {
+          const [,mon,d1,d2,yr] = matched;
+          const mo = monthNum(mon), y = parseInt(yr||curYear);
+          result.start_date = makeDate(y,mo,parseInt(d1));
+          result.end_date   = d2 ? makeDate(y,mo,parseInt(d2)) : result.start_date;
+        }
+      }
+    }
+    // Find circuit
+    for (const [alias,full] of Object.entries(CIRCUIT_ALIASES)) {
+      if (s.includes(alias)) { result.circuit=full; break; }
+    }
+    // Find series
+    for (const [alias,full] of Object.entries(SERIES_ALIASES)) {
+      if (s.includes(alias)) { result.series=full; break; }
+    }
+    // Build event name from remaining tokens after stripping known parts
+    let clean = input;
+    if (result.start_date) clean = clean.replace(/((\d{1,2})\s*[-–]\s*(\d{1,2})\s+\w+|\d{1,2}\s+\w+|\w+\s+\d{1,2}(?:\s*[-–]\s*\d{1,2})?)\s*(\d{4})?/gi,'');
+    for (const alias of Object.keys(CIRCUIT_ALIASES)) clean = clean.replace(new RegExp(alias,'gi'),'');
+    for (const alias of Object.keys(SERIES_ALIASES)) clean = clean.replace(new RegExp(alias,'gi'),'');
+    result.event_name = clean.replace(/\s+/g,' ').trim() ||
+      [result.series, result.circuit].filter(Boolean).join(' – ') || 'New Event';
+    return result;
+  }
+
+  function openQuickAddModal(prefill) {
+    const m = document.getElementById('qaModal');
+    document.getElementById('qa_name').value   = prefill.event_name || '';
+    document.getElementById('qa_series').value = prefill.series    || '';
+    document.getElementById('qa_circuit').value= prefill.circuit   || '';
+    document.getElementById('qa_start').value  = prefill.start_date|| '';
+    document.getElementById('qa_end').value    = prefill.end_date  || '';
+    document.getElementById('qa_country').value= prefill.country   || '';
+    document.getElementById('qa_status').value = 'scheduled';
+    m.style.display = 'flex';
+    document.getElementById('qa_name').focus();
+  }
+
+  document.getElementById('quickAddBtn').addEventListener('click', () => {
+    const val = document.getElementById('quickAddInput').value.trim();
+    openQuickAddModal(val ? parseQuickAdd(val) : {});
+  });
+  document.getElementById('quickAddInput').addEventListener('keydown', ev => {
+    if (ev.key==='Enter') document.getElementById('quickAddBtn').click();
+  });
+  document.getElementById('qaCancel').addEventListener('click', ()=>{ document.getElementById('qaModal').style.display='none'; document.getElementById('quickAddInput').value=''; });
+  document.getElementById('qaSave').addEventListener('click', async () => {
+    const payload = {
+      event_name: document.getElementById('qa_name').value.trim(),
+      series:  document.getElementById('qa_series').value.trim(),
+      circuit: document.getElementById('qa_circuit').value.trim(),
+      start_date: document.getElementById('qa_start').value,
+      end_date:   document.getElementById('qa_end').value,
+      country: document.getElementById('qa_country').value.trim(),
+      status:  document.getElementById('qa_status').value,
+    };
+    if (!payload.event_name || !payload.start_date) {
+      alert('Event name and start date are required.');
+      return;
+    }
+    try {
+      const res = await fetch('/api/sporting-calendar', { method:'POST', headers: getAuthHeaders(), body: JSON.stringify(payload) });
+      if (!res.ok) throw new Error(await res.text());
+      document.getElementById('qaModal').style.display='none';
+      document.getElementById('quickAddInput').value='';
+      await loadEvents();
+    } catch(e) { alert('Failed to save: '+e.message); }
+  });
+
+  // ═══════════════════════════════════════════════════════════
+  // Calendar Set editor
+  // ═══════════════════════════════════════════════════════════
+  function renderSetEditor() {
+    const sets = getSets();
+    const el = document.getElementById('setEditorList');
+    el.innerHTML = '';
+    if (!sets.length) { el.innerHTML='<div style="font-size:.78rem;color:#9ca3af;padding:4px 0;">No sets saved yet.</div>'; return; }
+    sets.forEach((set, idx) => {
+      const row = document.createElement('div');
+      row.style.cssText='display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #f3f4f6;';
+      row.innerHTML=`<span style="flex:1;font-size:.82rem;font-weight:600;">${esc(set.name)}</span><span style="font-size:.72rem;color:#9ca3af;">${(set.hiddenSeries||[]).length} hidden</span><button class="btn btn-sm btn-outline-danger" style="padding:2px 7px;font-size:.7rem;">×</button>`;
+      row.querySelector('button').addEventListener('click', () => { sets.splice(idx,1); saveSets(sets); buildCalSets(); renderSetEditor(); });
+      el.appendChild(row);
+    });
+  }
+
+  document.getElementById('btnManageSets').addEventListener('click', ()=>{
+    renderSetEditor();
+    document.getElementById('setModal').style.display='flex';
+  });
+  document.getElementById('setAddBtn').addEventListener('click', ()=>{
+    const name = document.getElementById('setNewName').value.trim();
+    if (!name) { document.getElementById('setNewName').focus(); return; }
+    const sets = getSets();
+    sets.push({ name, hiddenSeries: [...hiddenSeries] });
+    saveSets(sets);
+    buildCalSets();
+    renderSetEditor();
+    document.getElementById('setNewName').value='';
+  });
+  document.getElementById('setModalClose').addEventListener('click', ()=>{ document.getElementById('setModal').style.display='none'; });
+
+  // Close modals on backdrop click
+  ['qaModal','setModal'].forEach(id => {
+    document.getElementById(id).addEventListener('click', ev => { if (ev.target===document.getElementById(id)) document.getElementById(id).style.display='none'; });
+  });
+
+  // ═══════════════════════════════════════════════════════════
+  // Init
+  // ═══════════════════════════════════════════════════════════
+  const _now = new Date();
+  viewYear = miniYear = _now.getFullYear();
+  viewMonth = miniMonth = _now.getMonth();
+  loadEvents();
   </script>
 </body>
 </html>

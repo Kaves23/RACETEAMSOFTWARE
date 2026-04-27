@@ -176,6 +176,7 @@
                 <li data-section="invCategories">Inv. Categories</li>
                 <li data-section="liveTiming">Live Timing</li>
                 <li data-section="weather">Weather</li>
+                <li data-section="sportingCal">Sporting Calendar</li>
               </ul>
 
               <div class="mlo-section-label mt-3">Appearance</div>
@@ -281,6 +282,9 @@
                   </li>
                   <li class="nav-item" role="presentation">
                     <button class="nav-link" id="tab-set-weather" data-bs-toggle="tab" data-bs-target="#paneWeather" type="button" role="tab" aria-controls="paneWeather" aria-selected="false">Weather</button>
+                  </li>
+                  <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tab-set-sportingcal" data-bs-toggle="tab" data-bs-target="#paneSportingCal" type="button" role="tab" aria-controls="paneSportingCal" aria-selected="false">Sporting Cal</button>
                   </li>
                 </ul>
 
@@ -657,6 +661,48 @@
                   <div class="col-12 d-flex gap-1">
                     <button class="btn btn-sm btn-outline-secondary mlo-btn" id="btnDriveTest" type="button">Test Drive Picker</button>
                     <button class="btn btn-sm btn-outline-secondary mlo-btn" id="btnDriveReset" type="button">Reset Token</button>
+                  </div>
+                </div>
+
+                <!-- SPORTING CALENDAR -->
+                <div id="paneSportingCal" class="tab-pane fade" role="tabpanel" aria-labelledby="tab-set-sportingcal">
+                  <div class="mlo-section-label mb-2">Sporting Calendar Settings</div>
+                  <div class="col-12 mb-2">
+                    <label class="form-label fw-semibold">Default View</label>
+                    <select class="form-select form-select-sm" id="sc_defaultView">
+                      <option value="month">Month</option>
+                      <option value="week">Week</option>
+                      <option value="list">List (Agenda)</option>
+                      <option value="season">Season</option>
+                    </select>
+                    <div class="form-text">Which view opens when you navigate to the Sporting Calendar.</div>
+                  </div>
+                  <div class="col-12 mb-3">
+                    <label class="form-label fw-semibold">Home Timezone</label>
+                    <input class="form-control form-control-sm" id="sc_timezone" type="text" placeholder="Africa/Johannesburg" />
+                    <div class="form-text">Used in .ics exports and event time display. Must be a valid IANA timezone name.</div>
+                  </div>
+
+                  <div class="mlo-section-label mb-1">External iCal Feeds</div>
+                  <div class="text-secondary mb-2" style="font-size:.75rem;line-height:1.5;">
+                    Subscribe to external championship calendars (FIA, WSK, etc.). Fetched via the server proxy to avoid CORS issues.
+                    Events show as a separate overlay layer in the calendar.
+                  </div>
+                  <div id="sc_feedsList" style="margin-bottom:8px;"></div>
+                  <div class="d-flex gap-2 mb-1">
+                    <input class="form-control form-control-sm" id="sc_feedLabel" type="text" placeholder="Feed label (e.g. WSK)" style="max-width:130px;" />
+                    <input class="form-control form-control-sm" id="sc_feedUrl" type="url" placeholder="https://..." style="flex:1;" />
+                    <button class="btn btn-sm btn-outline-secondary" id="sc_addFeed" type="button">+ Add</button>
+                  </div>
+                  <div class="form-text mb-3">URLs must be public .ics / iCal feeds. Up to 5 feeds supported.</div>
+
+                  <div class="col-12 mt-2">
+                    <button class="btn btn-sm btn-primary" id="btnSaveSportingCal" type="button">Save Sporting Calendar Settings</button>
+                    <span id="scSettingsSavedMsg" class="text-success ms-2" style="font-size:.8rem;display:none;">&#10003; Saved</span>
+                  </div>
+                  <div class="text-secondary mt-2" style="font-size:.75rem;">
+                    Calendar Sets (named filter presets) are managed directly on the
+                    <a href="sporting-calendar.html">Sporting Calendar</a> page via the sidebar.
                   </div>
                 </div>
 
@@ -2081,6 +2127,78 @@
 
         if (savedMsg) { savedMsg.style.display = 'inline'; setTimeout(() => { savedMsg.style.display = 'none'; }, 2000); }
       });
+    })();
+
+    // ── Sporting Calendar settings ───────────────────────────────────────
+    (function initSportingCalSettings() {
+      const SC_KEY = 'rts.sporting.cfg';
+      function scCfg() { try { return JSON.parse(localStorage.getItem(SC_KEY)||'{}'); } catch { return {}; } }
+      function saveCfg(obj) { localStorage.setItem(SC_KEY, JSON.stringify(obj)); }
+
+      function renderFeeds(feeds) {
+        const el = document.getElementById('sc_feedsList');
+        if (!el) return;
+        if (!feeds.length) { el.innerHTML = '<div style="font-size:.75rem;color:#9ca3af;margin-bottom:4px;">No feeds added yet.</div>'; return; }
+        el.innerHTML = '';
+        feeds.forEach((f, i) => {
+          const row = document.createElement('div');
+          row.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:.78rem;';
+          row.innerHTML = `<span style="min-width:80px;font-weight:600;">${f.label||''}</span><span style="flex:1;color:#6b7280;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${f.url||''}">${f.url||''}</span><button class="btn btn-sm btn-outline-danger" style="padding:1px 7px;font-size:.7rem;" data-idx="${i}">×</button>`;
+          row.querySelector('button').addEventListener('click', () => {
+            const cfg = scCfg(); cfg.externalFeeds = (cfg.externalFeeds||[]).filter((_,j)=>j!==i);
+            saveCfg(cfg); renderFeeds(cfg.externalFeeds||[]);
+          });
+          el.appendChild(row);
+        });
+      }
+
+      // Populate
+      const cfg = scCfg();
+      const vEl = document.getElementById('sc_defaultView');
+      const tzEl = document.getElementById('sc_timezone');
+      if (vEl)  vEl.value  = cfg.defaultView || 'month';
+      if (tzEl) tzEl.value = cfg.homeTimezone || 'Africa/Johannesburg';
+      renderFeeds(cfg.externalFeeds || []);
+
+      // Add feed
+      const addBtn = document.getElementById('sc_addFeed');
+      if (addBtn) {
+        addBtn.addEventListener('click', () => {
+          const label = (document.getElementById('sc_feedLabel').value||'').trim();
+          const url   = (document.getElementById('sc_feedUrl').value||'').trim();
+          if (!url) { document.getElementById('sc_feedUrl').focus(); return; }
+          const cur = scCfg();
+          if ((cur.externalFeeds||[]).length >= 5) { alert('Maximum 5 external feeds supported.'); return; }
+          cur.externalFeeds = [...(cur.externalFeeds||[]), { label: label||'Feed', url }];
+          saveCfg(cur);
+          renderFeeds(cur.externalFeeds);
+          document.getElementById('sc_feedLabel').value = '';
+          document.getElementById('sc_feedUrl').value   = '';
+        });
+      }
+
+      // Save
+      const btnSave  = document.getElementById('btnSaveSportingCal');
+      const savedMsg = document.getElementById('scSettingsSavedMsg');
+      if (btnSave) {
+        btnSave.addEventListener('click', () => {
+          const cur = scCfg();
+          if (vEl)  cur.defaultView   = vEl.value;
+          if (tzEl) cur.homeTimezone  = tzEl.value.trim() || 'Africa/Johannesburg';
+          saveCfg(cur);
+          if (savedMsg) { savedMsg.style.display='inline'; setTimeout(()=>{ savedMsg.style.display='none'; }, 2000); }
+        });
+      }
+
+      // Section nav
+      const li = document.querySelector('[data-section="sportingCal"]');
+      if (li) {
+        li.addEventListener('click', () => {
+          document.querySelectorAll('.mlo-tree li').forEach(el=>el.classList.remove('active'));
+          li.classList.add('active');
+          document.getElementById('tab-set-sportingcal')?.click();
+        });
+      }
     })();
 
     await renderList();

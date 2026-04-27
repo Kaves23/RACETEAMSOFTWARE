@@ -203,7 +203,10 @@ app.use('/api/task-comments', requireAuth, require('./routes/task-comments'));
 app.use('/api/task-links',    requireAuth, require('./routes/task-links'));
 
 // Phase 1 — Sporting
-app.use('/api/sporting-calendar', requireAuth, require('./routes/sporting-calendar'));
+// Public .ics feed — no auth so Apple/Google Calendar can subscribe without a token
+const sportingCalRoutes = require('./routes/sporting-calendar');
+app.get('/api/sporting-calendar.ics', sportingCalRoutes.handleICS);
+app.use('/api/sporting-calendar', requireAuth, sportingCalRoutes);
 app.use('/api/entries',           requireAuth, require('./routes/entries'));
 app.use('/api/regulations',       requireAuth, require('./routes/regulations'));
 app.use('/api/penalties',         requireAuth, require('./routes/penalties'));

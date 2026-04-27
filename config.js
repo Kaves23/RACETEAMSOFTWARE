@@ -30,7 +30,18 @@ window.RTS_CONFIG = {
       { code:'Promo / Media', color:'#a855f7' },
       { code:'International Trip', color:'#22c55e' },
       { code:'Travel Day', color:'#facc15' }
-    ]
+    ],
+    sportingCalendar: {
+      defaultView:   'month',            // month | week | list | season
+      homeTimezone:  'Africa/Johannesburg',
+      // External iCal feeds to overlay on the calendar (stored in rts.sporting.cfg)
+      externalFeeds: [
+        // { label: 'WSK',  url: 'https://...' },
+        // { label: 'FIA',  url: 'https://...' }
+      ],
+      // Calendar sets (named filter presets) are stored in rts.sporting.sets (localStorage)
+      // and managed on the Sporting Calendar page sidebar.
+    }
   }
 };
 
