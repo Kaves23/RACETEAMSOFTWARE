@@ -14,7 +14,16 @@ router.get('/', async (req, res, next) => {
       SELECT p.*,
              e.name AS event_name,
              e.start_date AS event_start_date,
-             COUNT(t.id) AS task_count
+             COUNT(t.id) AS task_count,
+             COUNT(t.id) FILTER (WHERE t.status NOT IN ('completed','cancelled')) AS active_task_count,
+             COUNT(t.id) FILTER (WHERE t.status = 'completed') AS completed_task_count,
+             COUNT(t.id) FILTER (WHERE t.status IN ('blocked','waiting_on')) AS blocked_tasks,
+             COUNT(t.id) FILTER (WHERE t.priority = 'critical' AND t.status NOT IN ('completed','cancelled')) AS critical_tasks,
+             COUNT(t.id) FILTER (
+               WHERE t.end_date < CURRENT_DATE
+                 AND t.status NOT IN ('completed','cancelled')
+             ) AS overdue_tasks,
+             ROUND(AVG(CASE WHEN t.id IS NOT NULL THEN COALESCE(t.progress, 0) END), 1) AS avg_progress
       FROM project_plans p
       LEFT JOIN events e ON e.id = p.event_id
       LEFT JOIN project_tasks t ON t.plan_id = p.id
@@ -22,6 +31,36 @@ router.get('/', async (req, res, next) => {
       ORDER BY e.start_date ASC NULLS LAST, p.created_at DESC
     `);
     res.json({ success: true, data: result.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/project-plans/workload?weeks=8 — per-user task load by ISO week
+router.get('/workload', async (req, res, next) => {
+  const weeks = Math.min(parseInt(req.query.weeks, 10) || 8, 26);
+  try {
+    const result = await pool.query(`
+      SELECT
+        t.id,
+        t.title,
+        t.start_date,
+        t.end_date,
+        t.status,
+        t.priority,
+        t.assignee_user_id,
+        u.full_name  AS assignee_name,
+        p.id         AS plan_id,
+        p.name       AS plan_name
+      FROM project_tasks t
+      JOIN project_plans p ON p.id = t.plan_id
+      LEFT JOIN users u ON u.id = t.assignee_user_id
+      WHERE t.assignee_user_id IS NOT NULL
+        AND t.status NOT IN ('completed','cancelled')
+        AND t.end_date IS NOT NULL
+      ORDER BY t.end_date ASC
+    `);
+    res.json({ success: true, data: result.rows, weeks });
   } catch (error) {
     next(error);
   }
