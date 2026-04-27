@@ -18,9 +18,9 @@
     .ev-stat-value { font-size:1.5rem; font-weight:700; color:#1a1d24; line-height:1.2; }
 
     /* ── Layout ────────────────────────────────────────────── */
-    .cal-layout { display:flex; gap:14px; align-items:flex-start; min-height:calc(100vh - 258px); }
-    .cal-sidebar { width:220px; flex-shrink:0; align-self:flex-start; }
-    .cal-main { flex:1; min-width:0; display:flex; flex-direction:column; }
+    .cal-layout { display:flex; gap:14px; align-items:flex-start; height:calc(100vh - 258px); }
+    .cal-sidebar { width:220px; flex-shrink:0; align-self:flex-start; overflow-y:auto; max-height:100%; }
+    .cal-main { flex:1; min-width:0; display:flex; flex-direction:column; min-height:0; overflow:hidden; }
     .cal-sidebar-card { background:#fff; border:1px solid rgba(0,0,0,.1); border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,.06); padding:14px; margin-bottom:12px; }
     .cal-sidebar-title { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:#6c757d; margin-bottom:8px; }
 
@@ -78,7 +78,8 @@
     .quick-add-hint { font-size:.7rem; color:#9ca3af; }
 
     /* ── Month grid ────────────────────────────────────────── */
-    .cal-grid { background:#fff; border:1px solid rgba(0,0,0,.1); border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,.06); overflow:hidden; }
+    #viewMonth, #viewWeek { flex:1; flex-direction:column; min-height:0; overflow:hidden; }
+    .cal-grid { background:#fff; border:1px solid rgba(0,0,0,.1); border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,.06); overflow:hidden; flex:1; display:flex; flex-direction:column; }
     .cal-grid-head { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); border-bottom:2px solid #dee2e6; }
     .cal-grid-head-cell { padding:8px 4px; text-align:center; font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#6c757d; }
     .cal-grid-body { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); flex:1; align-content:stretch; }
@@ -97,14 +98,14 @@
     .wx-badge .wx-icon { font-size:.75rem; }
 
     /* ── Week view ─────────────────────────────────────────── */
-    .week-grid { background:#fff; border:1px solid rgba(0,0,0,.1); border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,.06); overflow:hidden; }
-    .week-grid-head { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); border-bottom:2px solid #dee2e6; }
+    .week-grid { background:#fff; border:1px solid rgba(0,0,0,.1); border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,.06); overflow:hidden; display:flex; flex-direction:column; flex:1; }
+    .week-grid-head { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); border-bottom:2px solid #dee2e6; flex-shrink:0; }
     .week-head-cell { padding:8px 6px 6px; text-align:center; }
     .week-head-day { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#6c757d; }
     .week-head-date { font-size:1.1rem; font-weight:700; color:#374151; margin-top:1px; width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:2px auto 0; }
     .week-head-date.today { background:#a64dff; color:#fff; }
-    .week-body { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); min-height:140px; }
-    .week-cell { border-right:1px solid rgba(0,0,0,.06); padding:5px 4px; min-height:140px; }
+    .week-body { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); flex:1; align-content:stretch; min-height:140px; }
+    .week-cell { border-right:1px solid rgba(0,0,0,.06); padding:5px 4px; min-height:0; }
     .week-cell:last-child { border-right:none; }
     .week-cell.today { background:rgba(166,77,255,.04); }
 
@@ -267,7 +268,7 @@
         </div>
 
         <!-- Month view -->
-        <div id="viewMonth" style="flex:1;display:flex;flex-direction:column;">
+        <div id="viewMonth">
           <div class="cal-grid" style="flex:1;display:flex;flex-direction:column;">
             <div class="cal-grid-head">
               <div class="cal-grid-head-cell">Mon</div>
@@ -713,11 +714,13 @@
   // ═══════════════════════════════════════════════════════════
   // View management
   // ═══════════════════════════════════════════════════════════
+  // flex views need display:flex when shown; others use block
+  const VIEW_DISPLAY = { month:'flex', week:'flex', list:'block', season:'block' };
   function setView(mode) {
     viewMode = mode;
     document.querySelectorAll('.view-btn').forEach(b => b.classList.toggle('active', b.dataset.view===mode));
     ['month','week','list','season'].forEach(v => {
-      document.getElementById('view'+v[0].toUpperCase()+v.slice(1)).style.display = v===mode ? '' : 'none';
+      document.getElementById('view'+v[0].toUpperCase()+v.slice(1)).style.display = v===mode ? VIEW_DISPLAY[v] : 'none';
     });
     buildMiniCal();
     renderView();
