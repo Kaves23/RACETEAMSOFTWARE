@@ -247,7 +247,8 @@ router.put('/tasks/:taskId', async (req, res, next) => {
     parent_task_id, title, description,
     start_date, end_date, progress, color,
     assignee_user_id, priority, status, is_milestone,
-    linked_entity_type, linked_entity_id, sort_order
+    linked_entity_type, linked_entity_id, sort_order,
+    department, task_type, actual_start_date, actual_end_date, blocker_reason
   } = req.body;
   let client;
   try {
@@ -274,8 +275,13 @@ router.put('/tasks/:taskId', async (req, res, next) => {
         linked_entity_type  = $12,
         linked_entity_id    = $13,
         sort_order          = COALESCE($14, sort_order),
+        department          = COALESCE($15, department),
+        task_type           = COALESCE($16, task_type),
+        actual_start_date   = $17,
+        actual_end_date     = $18,
+        blocker_reason      = $19,
         updated_at          = NOW()
-      WHERE id = $15
+      WHERE id = $20
       RETURNING *
     `, [
       parent_task_id !== undefined ? (parent_task_id || null) : undefined,
@@ -292,6 +298,11 @@ router.put('/tasks/:taskId', async (req, res, next) => {
       linked_entity_type !== undefined ? (linked_entity_type || null) : undefined,
       linked_entity_id !== undefined ? (linked_entity_id || null) : undefined,
       sort_order ?? null,
+      department !== undefined ? (department || null) : undefined,
+      task_type !== undefined ? (task_type || null) : undefined,
+      actual_start_date !== undefined ? (actual_start_date || null) : undefined,
+      actual_end_date !== undefined ? (actual_end_date || null) : undefined,
+      blocker_reason !== undefined ? (blocker_reason || null) : undefined,
       req.params.taskId
     ]);
     await client.query('COMMIT');
@@ -505,7 +516,7 @@ router.get('/:id/detail', async (req, res, next) => {
       SELECT
         COUNT(*)                                                          AS total_tasks,
         COUNT(*) FILTER (WHERE status = 'completed')                     AS completed_tasks,
-        COUNT(*) FILTER (WHERE status = 'blocked')                       AS blocked_tasks,
+        COUNT(*) FILTER (WHERE status IN ('blocked','waiting_on'))       AS blocked_tasks,
         COUNT(*) FILTER (WHERE status NOT IN ('completed','cancelled')
                           AND end_date < CURRENT_DATE)                   AS overdue_tasks,
         COUNT(*) FILTER (WHERE status NOT IN ('completed','cancelled')

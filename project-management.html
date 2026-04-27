@@ -1183,7 +1183,9 @@
           <select id="tf-status">
             <option value="not_started">Not Started</option>
             <option value="in_progress">In Progress</option>
+            <option value="waiting_on">Waiting On</option>
             <option value="blocked">Blocked</option>
+            <option value="deferred">Deferred</option>
             <option value="completed">Completed</option>
             <option value="cancelled">Cancelled</option>
           </select>
@@ -1247,10 +1249,12 @@
           <div class="pm-insp-two-col">
             <div class="pm-insp-field">
               <label>Status</label>
-              <select id="pi-status">
+              <select id="pi-status" onchange="piToggleBlocker()">
                 <option value="not_started">Not Started</option>
                 <option value="in_progress">In Progress</option>
+                <option value="waiting_on">Waiting On</option>
                 <option value="blocked">Blocked</option>
+                <option value="deferred">Deferred</option>
                 <option value="completed">Completed</option>
                 <option value="cancelled">Cancelled</option>
               </select>
@@ -1272,10 +1276,62 @@
         </div>
         <div class="pm-insp-divider"></div>
         <div>
+          <div class="pm-insp-section-title">Department & Type</div>
+          <div class="pm-insp-two-col">
+            <div class="pm-insp-field">
+              <label>Department</label>
+              <select id="pi-dept">
+                <option value="">— None —</option>
+                <option value="engineering">Engineering</option>
+                <option value="aerodynamics">Aerodynamics</option>
+                <option value="chassis">Chassis</option>
+                <option value="powertrain">Powertrain</option>
+                <option value="electronics">Electronics</option>
+                <option value="logistics">Logistics</option>
+                <option value="operations">Operations</option>
+                <option value="sporting">Sporting</option>
+                <option value="finance">Finance</option>
+                <option value="marketing">Marketing</option>
+                <option value="hr">HR</option>
+                <option value="management">Management</option>
+                <option value="medical">Medical</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div class="pm-insp-field">
+              <label>Task Type</label>
+              <select id="pi-task-type">
+                <option value="">— None —</option>
+                <option value="design">Design</option>
+                <option value="build">Build</option>
+                <option value="test">Test</option>
+                <option value="review">Review / Approval</option>
+                <option value="procurement">Procurement</option>
+                <option value="logistics">Logistics</option>
+                <option value="admin">Admin</option>
+                <option value="communication">Communication</option>
+                <option value="analysis">Analysis</option>
+                <option value="milestone">Milestone</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div id="pi-blocker-row" style="display:none;">
+          <div class="pm-insp-field">
+            <label>Blocker Reason</label>
+            <textarea id="pi-blocker-reason" rows="2" style="resize:vertical;" placeholder="Describe what is blocking this task…"></textarea>
+          </div>
+        </div>
+        <div class="pm-insp-divider"></div>
+        <div>
           <div class="pm-insp-section-title">Dates</div>
           <div class="pm-insp-two-col">
-            <div class="pm-insp-field"><label>Start</label><input id="pi-start" type="date"></div>
-            <div class="pm-insp-field"><label>End</label><input id="pi-end" type="date"></div>
+            <div class="pm-insp-field"><label>Planned Start</label><input id="pi-start" type="date"></div>
+            <div class="pm-insp-field"><label>Planned End</label><input id="pi-end" type="date"></div>
+          </div>
+          <div class="pm-insp-two-col" style="margin-top:6px;">
+            <div class="pm-insp-field"><label>Actual Start</label><input id="pi-actual-start" type="date"></div>
+            <div class="pm-insp-field"><label>Actual End</label><input id="pi-actual-end" type="date"></div>
           </div>
         </div>
         <div class="pm-insp-field">
@@ -1363,6 +1419,8 @@
     { type: 'box',            label: 'Boxes',          endpoint: '/api/boxes',                  nameField: 'name' },
     { type: 'driver',         label: 'Drivers',        endpoint: '/api/collections/drivers',    nameField: 'name' },
     { type: 'truck',          label: 'Trucks',         endpoint: '/api/trucks',                 nameField: 'name' },
+    { type: 'staff',          label: 'Staff',          endpoint: '/api/staff',                  nameField: 'full_name' },
+    { type: 'supplier',       label: 'Suppliers',      endpoint: '/api/suppliers',              nameField: 'name' },
     { type: 'load_plan',      label: 'Load Plans',     endpoint: '/api/load-plans',             nameField: 'name' },
     { type: 'inventory',      label: 'Inventory',      endpoint: '/api/inventory',              nameField: 'name' },
     { type: 'purchase_order', label: 'Orders',         endpoint: '/api/collections/orders',     nameField: 'po_number' },
@@ -1698,7 +1756,7 @@
     } else if (state.chipFilter === 'nodates') {
       visibleTasks = visibleTasks.filter(t => !t.start_date && !t.end_date);
     } else if (state.chipFilter === 'blocked') {
-      visibleTasks = visibleTasks.filter(t => t.status === 'blocked');
+      visibleTasks = visibleTasks.filter(t => t.status === 'blocked' || t.status === 'waiting_on');
     } else if (state.chipFilter === 'mine') {
       visibleTasks = visibleTasks.filter(t => me && t.assignee_user_id === me.id);
     }
@@ -1721,7 +1779,7 @@
     const overdue  = tasks.filter(t => t.end_date && parseDateLocal(t.end_date) < today && t.status !== 'completed').length;
     const nodates  = tasks.filter(t => !t.start_date && !t.end_date).length;
     const unassign = tasks.filter(t => !t.assignee_user_id).length;
-    const blocked  = tasks.filter(t => t.status === 'blocked').length;
+    const blocked  = tasks.filter(t => t.status === 'blocked' || t.status === 'waiting_on').length;
     const el = id => document.getElementById(id);
     if (el('ph-overdue'))    el('ph-overdue').textContent    = `${overdue} overdue`;
     if (el('ph-nodates'))    el('ph-nodates').textContent    = `${nodates} no dates`;
@@ -2299,10 +2357,16 @@
     document.getElementById('pi-progress-val').textContent = task.progress || 0;
     document.getElementById('pi-start').value = task.start_date ? fmtDate(task.start_date) : '';
     document.getElementById('pi-end').value = task.end_date ? fmtDate(task.end_date) : '';
+    document.getElementById('pi-actual-start').value = task.actual_start_date ? fmtDate(task.actual_start_date) : '';
+    document.getElementById('pi-actual-end').value = task.actual_end_date ? fmtDate(task.actual_end_date) : '';
+    document.getElementById('pi-dept').value = task.department || '';
+    document.getElementById('pi-task-type').value = task.task_type || '';
+    document.getElementById('pi-blocker-reason').value = task.blocker_reason || '';
     document.getElementById('pi-color').value = task.color || '#a64dff';
     document.getElementById('pi-inherit-color').checked = !task.color;
     document.getElementById('pi-milestone').checked = !!task.is_milestone;
     document.getElementById('pi-desc').value = task.description || '';
+    piToggleBlocker();
 
     // Color swatches
     const swEl = document.getElementById('pi-color-swatches');
@@ -2344,6 +2408,11 @@
   function closeInspector() {
     document.getElementById('pm-inspector').classList.remove('visible');
     state.inspectorTaskId = null;
+  }
+
+  function piToggleBlocker() {
+    const status = document.getElementById('pi-status').value;
+    document.getElementById('pi-blocker-row').style.display = status === 'blocked' ? '' : 'none';
   }
 
   function renderInspectorCurrentLink(task) {
@@ -2399,6 +2468,11 @@
       progress: parseInt(document.getElementById('pi-progress').value, 10),
       start_date: document.getElementById('pi-start').value || null,
       end_date: document.getElementById('pi-end').value || null,
+      actual_start_date: document.getElementById('pi-actual-start').value || null,
+      actual_end_date: document.getElementById('pi-actual-end').value || null,
+      department: document.getElementById('pi-dept').value || null,
+      task_type: document.getElementById('pi-task-type').value || null,
+      blocker_reason: document.getElementById('pi-blocker-reason').value.trim() || null,
       color: inheritColor ? null : document.getElementById('pi-color').value,
       assignee_user_id: document.getElementById('pi-assignee').value || null,
       parent_task_id: document.getElementById('pm-insp-parent-select').value || null,
