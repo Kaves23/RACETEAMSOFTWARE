@@ -469,16 +469,40 @@
   // ═══════════════════════════════════════════════════════════
   async function loadEvents() {
     try {
-      const res = await fetch('/api/sporting-calendar', { headers: getAuthHeaders() });
-      if (res.ok) {
-        const data = await res.json();
-        allEvents = Array.isArray(data) ? data : (data.items || []);
-        // Sort by start_date ascending
-        allEvents.sort((a,b) => {
-          const da = toISO(a.start_date||''), db = toISO(b.start_date||'');
-          return da < db ? -1 : da > db ? 1 : 0;
-        });
-      }
+      const [calRes, evRes] = await Promise.all([
+        fetch('/api/sporting-calendar',    { headers: getAuthHeaders() }),
+        fetch('/api/collections/events',   { headers: getAuthHeaders() }),
+      ]);
+      const calData  = calRes.ok  ? await calRes.json()  : [];
+      const evData   = evRes.ok   ? await evRes.json()   : [];
+
+      const calRows  = Array.isArray(calData) ? calData : (calData.items || []);
+      const evRows   = Array.isArray(evData)  ? evData  : (evData.items  || []);
+
+      // Map events-table rows to sporting-calendar shape; mark as _source:'events' (read-only)
+      const mapped = evRows.map(e => ({
+        id:          'ev_' + e.id,
+        event_name:  e.name || e.title || '',
+        series:      e.event_type || '',
+        circuit:     e.circuit || e.venue || '',
+        country:     e.country || '',
+        city:        e.city || '',
+        start_date:  e.start_date || e.start || '',
+        end_date:    e.end_date   || e.end   || e.start_date || e.start || '',
+        status:      e.status || 'scheduled',
+        notes:       e.notes || '',
+        _source:     'events',   // marks it read-only in the calendar
+      }));
+
+      // Deduplicate: if a sporting_calendar row shares the same start_date + name as an events row, prefer sporting_calendar
+      const calKeys = new Set(calRows.map(r => toISO(r.start_date||'') + '|' + (r.event_name||'').toLowerCase()));
+      const filtered = mapped.filter(m => !calKeys.has(toISO(m.start_date||'') + '|' + (m.event_name||'').toLowerCase()));
+
+      allEvents = [...calRows, ...filtered];
+      allEvents.sort((a,b) => {
+        const da = toISO(a.start_date||''), db = toISO(b.start_date||'');
+        return da < db ? -1 : da > db ? 1 : 0;
+      });
     } catch(e) { allEvents = []; }
     updateStats();
     buildLegend();
@@ -999,7 +1023,10 @@
       ${wx?`<div class="cal-popup-row"><b>Weather</b><span>${wx.icon} ${wx.hi}° / ${wx.lo}°</span></div>`:''}
     `;
     document.getElementById('popupActions').innerHTML = `
-      <a class="cal-popup-btn" href="events.html" title="Manage all events">All Events</a>
+      ${ev._source==='events'
+        ? `<a class="cal-popup-btn" href="events.html" title="Edit in Sporting › Events" style="background:#f3e8ff;color:#7c3aed;">✏ Edit in Events</a>`
+        : `<a class="cal-popup-btn" href="events.html" title="Manage all events">All Events</a>`
+      }
       <span class="cal-popup-btn" id="popupICS" title="Download event as .ics">⬇ .ics</span>
     `;
     document.getElementById('popupICS').addEventListener('click', () => downloadICS([ev]));
