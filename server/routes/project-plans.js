@@ -538,4 +538,83 @@ router.get('/:id/detail', async (req, res, next) => {
   }
 });
 
+// ──────────────────────────────────────────────────────────────────
+// BASELINES
+// ──────────────────────────────────────────────────────────────────
+
+// POST /api/project-plans/:id/baselines — snapshot current tasks into a new baseline
+router.post('/:id/baselines', async (req, res, next) => {
+  const { name } = req.body;
+  if (!name?.trim()) return res.status(400).json({ success: false, error: 'name is required' });
+  let client;
+  try {
+    client = await pool.connect();
+    await client.query('BEGIN');
+    const planCheck = await client.query('SELECT id FROM project_plans WHERE id = $1', [req.params.id]);
+    if (planCheck.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ success: false, error: 'Plan not found' });
+    }
+    const bl = await client.query(
+      `INSERT INTO project_baselines (plan_id, name, created_by) VALUES ($1,$2,$3) RETURNING *`,
+      [req.params.id, name.trim(), req.user?.id || null]
+    );
+    const baseline = bl.rows[0];
+    // Snapshot all tasks
+    const tasks = await client.query(
+      `SELECT id, start_date, end_date, progress, is_milestone FROM project_tasks WHERE plan_id = $1`,
+      [req.params.id]
+    );
+    if (tasks.rows.length > 0) {
+      const vals = tasks.rows.map((_, i) => `($1,$${i*4+2},$${i*4+3},$${i*4+4},$${i*4+5})`).join(',');
+      const params = [baseline.id];
+      tasks.rows.forEach(t => params.push(t.id, t.start_date || null, t.end_date || null, t.progress || 0, !!t.is_milestone));
+      await client.query(
+        `INSERT INTO project_baseline_tasks (baseline_id,task_id,planned_start,planned_end,planned_progress,is_milestone) VALUES ${vals}`,
+        params
+      );
+    }
+    await client.query('COMMIT');
+    res.json({ success: true, data: baseline });
+  } catch (error) {
+    if (client) { try { await client.query('ROLLBACK'); } catch (_) {} }
+    next(error);
+  } finally {
+    if (client) client.release();
+  }
+});
+
+// GET /api/project-plans/:id/baselines — list baselines for a plan
+router.get('/:id/baselines', async (req, res, next) => {
+  try {
+    const result = await pool.query(
+      `SELECT b.*, u.full_name AS created_by_name
+       FROM project_baselines b
+       LEFT JOIN users u ON u.id = b.created_by
+       WHERE b.plan_id = $1
+       ORDER BY b.created_at DESC`,
+      [req.params.id]
+    );
+    res.json({ success: true, data: result.rows });
+  } catch (error) { next(error); }
+});
+
+// GET /api/project-plans/:id/baselines/latest — most recent baseline with task snapshots
+router.get('/:id/baselines/latest', async (req, res, next) => {
+  try {
+    const blRes = await pool.query(
+      `SELECT id FROM project_baselines WHERE plan_id = $1 ORDER BY created_at DESC LIMIT 1`,
+      [req.params.id]
+    );
+    if (blRes.rows.length === 0) return res.json({ success: true, data: null, tasks: [] });
+    const baselineId = blRes.rows[0].id;
+    const tasksRes = await pool.query(
+      `SELECT task_id, planned_start, planned_end, planned_progress, is_milestone
+       FROM project_baseline_tasks WHERE baseline_id = $1`,
+      [baselineId]
+    );
+    res.json({ success: true, data: { id: baselineId }, tasks: tasksRes.rows });
+  } catch (error) { next(error); }
+});
+
 module.exports = router;

@@ -594,6 +594,46 @@
     .entity-chip-inventory { background: #d0f0f0; color: #006060; }
     .entity-chip-purchase_order { background: #ffeedd; color: #803000; }
     .entity-chip-user      { background: #f0e8ff; color: #5020a0; }
+    .entity-chip-staff     { background: #e0f0ff; color: #003a80; }
+    .entity-chip-supplier  { background: #fff0e0; color: #804000; }
+    .entity-dot-staff      { background: #2980b9; }
+    .entity-dot-supplier   { background: #e67e22; }
+
+    /* ─── LINK CONFIG MODAL ───────────────────────────────────────── */
+    #pm-link-cfg-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+      z-index: 1100; display: flex; align-items: center; justify-content: center;
+    }
+    #pm-link-cfg-modal {
+      background: #fff; border-radius: 10px; padding: 24px; min-width: 320px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.22);
+    }
+    #pm-link-cfg-modal h6 { font-size: 14px; font-weight: 700; margin: 0 0 16px; }
+    #pm-link-cfg-modal label { font-size: 11px; font-weight: 600; color: #555; display: block; margin-bottom: 4px; }
+    #pm-link-cfg-modal select, #pm-link-cfg-modal input[type=number] {
+      width: 100%; padding: 6px 8px; border: 1px solid #cdd3db; border-radius: 5px;
+      font-size: 12px; margin-bottom: 12px;
+    }
+    .pm-link-cfg-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+    .pm-link-cfg-actions button { padding: 6px 16px; border-radius: 5px; font-size: 12px; cursor: pointer; border: none; }
+    .pm-link-cfg-actions .pm-btn-confirm { background: #a64dff; color: #fff; }
+    .pm-link-cfg-actions .pm-btn-cancel  { background: #eee; color: #444; }
+
+    /* ─── BASELINE BAR + ACTUAL BAR ──────────────────────────────── */
+    .pm-baseline-bar {
+      position: absolute; top: 50%; transform: translateY(-50%);
+      height: 10px; border-radius: 0; pointer-events: none; z-index: 1;
+      border: 2px dashed rgba(100,100,100,0.45); background: rgba(150,150,150,0.08);
+    }
+    .pm-actual-bar {
+      position: absolute; bottom: 1px; height: 3px; border-radius: 2px;
+      background: rgba(0,0,0,0.4); pointer-events: none; z-index: 3;
+    }
+
+    /* ─── FULL-SCREEN MODE ────────────────────────────────────────── */
+    body.pm-fullscreen .rts-topbar { display: none !important; }
+    body.pm-fullscreen #pm-section-tabs { display: none !important; }
+    body.pm-fullscreen #pm-shell { height: 100vh !important; margin-top: 0 !important; }
 
     .entity-dot-event     { background: #3498db; }
     .entity-dot-item      { background: #2ecc71; }
@@ -944,13 +984,17 @@
         <button class="pm-zoom-btn" data-zoom="day">Day</button>
         <button class="pm-zoom-btn active" data-zoom="week">Week</button>
         <button class="pm-zoom-btn" data-zoom="month">Month</button>
+        <button class="pm-zoom-btn" data-zoom="quarter">Quarter</button>
         <div class="pm-toolbar-sep"></div>
         <button class="pm-toolbar-btn" id="pm-today-btn">⬤ Today</button>
         <div class="pm-toolbar-sep"></div>
         <button class="pm-toolbar-btn primary" id="btn-add-task">+ Task</button>
         <button class="pm-toolbar-btn" id="pm-link-mode-btn" title="Draw dependency arrows between tasks">⤳ Link</button>
         <button class="pm-toolbar-btn" id="pm-critical-btn" title="Highlight critical path">🔴 Critical Path</button>
+        <button class="pm-toolbar-btn" id="pm-baseline-save-btn" title="Save current schedule as baseline snapshot">📸 Baseline</button>
+        <button class="pm-toolbar-btn" id="pm-baseline-show-btn" title="Toggle baseline overlay">📊 Base View</button>
         <button class="pm-toolbar-btn" id="pm-print-btn" title="Print task outline">🖨️ Print</button>
+        <button class="pm-toolbar-btn" id="pm-fullscreen-btn" title="Toggle full-screen mode">⛶ Full Screen</button>
         <div class="pm-toolbar-sep"></div>
         <input type="text" id="pm-task-search" placeholder="🔍 Search tasks…"
           style="padding:3px 8px;font-size:11px;border:1px solid #d0d3d8;border-radius:4px;width:160px;outline:none;"
@@ -1216,6 +1260,42 @@
     </div>
   </div>
 
+  <!-- ─── LINK CONFIG MODAL ─────────────────────────────── -->
+  <div id="pm-link-cfg-overlay" style="display:none;">
+    <div id="pm-link-cfg-modal">
+      <h6>Configure Dependency</h6>
+      <label>Dependency Type
+        <select id="pm-lc-type">
+          <option value="finish_to_start">Finish → Start (FS — most common)</option>
+          <option value="start_to_start">Start → Start (SS)</option>
+          <option value="finish_to_finish">Finish → Finish (FF)</option>
+          <option value="start_to_finish">Start → Finish (SF)</option>
+        </select>
+      </label>
+      <label>Lag / Lead Days <small style="color:#888;font-weight:400;">(negative = lead time)</small>
+        <input type="number" id="pm-lc-lag" value="0" min="-365" max="365">
+      </label>
+      <div class="pm-link-cfg-actions">
+        <button class="pm-btn-cancel" onclick="cancelLinkCfg()">Cancel</button>
+        <button class="pm-btn-confirm" onclick="confirmLinkCfg()">Create Link</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── BASELINE NAME PROMPT ──────────────────────────── -->
+  <div class="pm-modal-overlay" id="pm-baseline-modal" style="display:none;">
+    <div class="pm-modal" style="min-width:340px;">
+      <h5>Save Baseline Snapshot</h5>
+      <label>Snapshot Name
+        <input type="text" id="pm-baseline-name" placeholder="e.g. Baseline 1 – Pre-Season" style="width:100%;margin-top:4px;">
+      </label>
+      <div class="pm-modal-footer" style="margin-top:16px;">
+        <button class="pm-btn-secondary" onclick="document.getElementById('pm-baseline-modal').style.display='none'">Cancel</button>
+        <button class="pm-btn-primary" onclick="confirmSaveBaseline()">Save Baseline</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ─── ENTITY LINKER MODAL ──────────────────────────── -->
   <div class="pm-modal-overlay" id="pm-entity-modal" style="display:none">
     <div class="pm-modal" style="min-width:440px">
@@ -1428,7 +1508,7 @@
   ];
 
   // Zoom config: pxPerDay
-  const ZOOM = { day: 28, week: 8, month: 3.2 };
+  const ZOOM = { day: 28, week: 8, month: 3.2, quarter: 1.8 };
 
   let state = {
     plans: [],
@@ -1436,7 +1516,7 @@
     tasks: [],          // flat array for active plan
     links: [],          // dependency links for active plan
     users: [],
-    zoom: 'week',       // 'day' | 'week' | 'month'
+    zoom: 'week',       // 'day' | 'week' | 'month' | 'quarter'
     collapsed: new Set(), // task IDs that are collapsed
     selectedTaskId: null,
     linkMode: false,
@@ -1457,6 +1537,10 @@
     searchQuery: '',
     criticalPath: new Set(),
     showCritical: false,
+    showBaseline: false,     // toggle baseline ghost bars
+    baselineTasks: {},       // taskId → { planned_start, planned_end, planned_progress }
+    pendingLinkFrom: null,
+    pendingLinkTo: null,
   };
 
   // ════════════════════════════════════════════════════════════════
@@ -1867,6 +1951,23 @@
 
       const isCritical = state.criticalPath.has(task.id);
       const indentBorderColor = depth > 0 ? taskColor(task) : 'transparent';
+
+      // Dependency constraint warning: predecessor overdue relative to this task's start
+      const hasDepWarn = task.start_date && state.links
+        .filter(l => l.to_task_id === task.id)
+        .some(l => {
+          const pred = state.tasks.find(t => t.id === l.from_task_id);
+          if (!pred) return false;
+          const lt = l.link_type || 'finish_to_start';
+          try {
+            if (lt === 'start_to_start' || lt === 'start_to_finish') {
+              return pred.start_date && parseDateLocal(pred.start_date) > parseDateLocal(task.start_date);
+            }
+            return pred.end_date && parseDateLocal(pred.end_date) > parseDateLocal(task.start_date);
+          } catch { return false; }
+        });
+      const depWarn = hasDepWarn ? `<span title="Predecessor constraint conflict" style="color:#ff6b35;font-size:10px;flex-shrink:0;">⚠</span>` : '';
+
       return `<div class="pm-task-row${selected}${isMilestone?' milestone-row':''}${isCompleted?' completed-row':''}${isCritical?' critical-row':''}"
                    data-task-id="${task.id}" tabindex="0"
                    style="border-left:3px solid ${indentBorderColor};">
@@ -1876,6 +1977,7 @@
           <span class="pm-task-name-indent" style="width:${indentPx}px;flex-shrink:0;"></span>
           ${colorDot}
           <span class="pm-task-title-text" data-edit-title="${task.id}" title="${esc(task.title)}">${esc(task.title)}</span>
+          ${depWarn}
           ${entityChip}
         </div>
         <div class="pm-dur">${durStr(task)}</div>
@@ -1939,10 +2041,60 @@
       return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     }
 
-    // ── Row 2: per-day cells OR per-week blocks
+    // ── Row 2: per-day cells OR per-week OR per-month blocks
     let row2Html = '', row2Class;
+    let topRowHtml = monthsHtml; // default top row = months, override for quarter
 
-    if (state.zoom === 'month') {
+    if (state.zoom === 'quarter') {
+      // Top row: Quarter groups (Q1 Jan-Mar, Q2 Apr-Jun, Q3 Jul-Sep, Q4 Oct-Dec)
+      const QUARTER_MONTHS = [[0,1,2],[3,4,5],[6,7,8],[9,10,11]];
+      let quarterTopHtml = '';
+      let qAccum = []; let qYear = -1; let qQ = -1;
+      for (let i = 0; i <= state.ganttTotalDays; i++) {
+        const d = addDays(start, i);
+        const yr = d.getFullYear();
+        const q = Math.floor(d.getMonth() / 3);
+        if (yr !== qYear || q !== qQ) {
+          if (qQ !== -1 && qAccum.length) {
+            const w = qAccum.length * px;
+            quarterTopHtml += `<div class="pm-header-month-cell" style="width:${w}px;min-width:${w}px;font-weight:700;">Q${qQ+1} ${qYear}</div>`;
+          }
+          qAccum = []; qYear = yr; qQ = q;
+        }
+        if (i < state.ganttTotalDays) qAccum.push(i);
+      }
+      if (qAccum.length) {
+        const w = qAccum.length * px;
+        quarterTopHtml += `<div class="pm-header-month-cell" style="width:${w}px;min-width:${w}px;font-weight:700;">Q${qQ+1} ${qYear}</div>`;
+      }
+      topRowHtml = quarterTopHtml;
+
+      // Bottom row: Monthly cells
+      row2Class = 'pm-header-weeks';
+      let mAccum2 = []; let prevM2 = -1;
+      for (let i = 0; i <= state.ganttTotalDays; i++) {
+        const d = addDays(start, i);
+        const m = d.getMonth();
+        if (m !== prevM2) {
+          if (prevM2 !== -1 && mAccum2.length) {
+            const w = mAccum2.length * px;
+            const firstD = addDays(start, mAccum2[0]);
+            const lbl = firstD.toLocaleString('default', { month: 'short' });
+            const hasToday = mAccum2.some(idx => addDays(start, idx).getTime() === today.getTime());
+            row2Html += `<div class="pm-header-week-cell${hasToday?' today-col':''}" style="width:${w}px;min-width:${w}px;">${lbl}</div>`;
+          }
+          mAccum2 = []; prevM2 = m;
+        }
+        if (i < state.ganttTotalDays) mAccum2.push(i);
+      }
+      if (mAccum2.length) {
+        const w = mAccum2.length * px;
+        const firstD = addDays(start, mAccum2[0]);
+        const lbl = firstD.toLocaleString('default', { month: 'short' });
+        const hasToday = mAccum2.some(idx => addDays(start, idx).getTime() === today.getTime());
+        row2Html += `<div class="pm-header-week-cell${hasToday?' today-col':''}" style="width:${w}px;min-width:${w}px;">${lbl}</div>`;
+      }
+    } else if (state.zoom === 'month') {
       // Weekly blocks (run from current day until next Monday)
       row2Class = 'pm-header-weeks';
       let i = 0;
@@ -2000,7 +2152,7 @@
     }
 
     document.getElementById('pm-chart-header').innerHTML = `
-      <div class="pm-header-months" style="width:${W}px;">${monthsHtml}</div>
+      <div class="pm-header-months" style="width:${W}px;">${topRowHtml}</div>
       <div class="${row2Class}" style="width:${W}px;height:22px;">${row2Html}</div>
     `;
     // Sync outline header height to match chart header so task rows align
@@ -2024,14 +2176,14 @@
       if (isWeekend(d)) {
         weekendHtml += `<div class="pm-col-weekend" style="left:${i*px}px;width:${px}px;"></div>`;
       }
-      // Gridlines: every day (day zoom), every Monday (week zoom), every 1st (month zoom)
+      // Gridlines: every day (day zoom), every Monday (week zoom), every 1st (month/quarter zoom)
       if (state.zoom === 'day') {
         weekendHtml += `<div class="pm-col-gridline" style="left:${i*px}px;"></div>`;
       } else if (state.zoom === 'week') {
         if (d.getDay() === 1) { // Monday
           weekendHtml += `<div class="pm-col-gridline major" style="left:${i*px}px;"></div>`;
         }
-      } else { // month zoom
+      } else { // month or quarter zoom
         if (d.getDate() === 1) {
           weekendHtml += `<div class="pm-col-gridline major" style="left:${i*px}px;"></div>`;
         }
@@ -2077,9 +2229,33 @@
           <div class="pm-bar-label" style="font-style:italic;opacity:0.8;">no dates</div>
         </div>`;
       }
+
+      // Actual bar (Phase 4 actual dates)
+      let actualBarHtml = '';
+      if (task.actual_start_date && !task.is_milestone) {
+        const ax  = dayToX(parseDateLocal(task.actual_start_date));
+        const ax2 = task.actual_end_date ? dayToX(parseDateLocal(task.actual_end_date)) : ax + pxPerDay() * 3;
+        const aw  = Math.max(4, ax2 - ax);
+        actualBarHtml = `<div class="pm-actual-bar" style="left:${ax}px;width:${aw}px;" title="Actual: ${task.actual_start_date}→${task.actual_end_date||'ongoing'}"></div>`;
+      }
+
+      // Baseline ghost bar
+      let baselineBarHtml = '';
+      if (state.showBaseline && state.baselineTasks[task.id] && !task.is_milestone) {
+        const bt = state.baselineTasks[task.id];
+        if (bt.planned_start && bt.planned_end) {
+          const bx  = dayToX(parseDateLocal(bt.planned_start));
+          const bx2 = dayToX(parseDateLocal(bt.planned_end));
+          const bw  = Math.max(4, bx2 - bx);
+          baselineBarHtml = `<div class="pm-baseline-bar" style="left:${bx}px;width:${bw}px;" title="Baseline: ${bt.planned_start}→${bt.planned_end}"></div>`;
+        }
+      }
+
       const selected = task.id === state.selectedTaskId ? ' selected' : '';
       return `<div class="pm-chart-row${selected}" style="width:${W}px;" data-task-id="${task.id}">
+        ${baselineBarHtml}
         ${barHtml}
+        ${actualBarHtml}
       </div>`;
     }).join('');
 
@@ -2119,14 +2295,52 @@
       if (fromIdx < 0 || toIdx < 0) return '';
       const fromTask = visibleTasks[fromIdx];
       const toTask   = visibleTasks[toIdx];
-      if (!fromTask.end_date || !toTask.start_date) return '';
-      const x1 = dayToX(parseDateLocal(fromTask.end_date));
-      const y1 = fromIdx * 16 + 8;
-      const x2 = dayToX(parseDateLocal(toTask.start_date));
-      const y2 = toIdx * 16 + 8;
+      const lt = link.link_type || 'finish_to_start';
+
+      // Determine anchor points based on link type
+      let x1, x2;
+      const midRow = idx => idx * 16 + 8;
+      const y1 = midRow(fromIdx);
+      const y2 = midRow(toIdx);
+      const COLORS = { finish_to_start: 'rgba(0,0,0,0.3)', start_to_start: '#3498db', finish_to_finish: '#e67e22', start_to_finish: '#8e44ad' };
+      const stroke = COLORS[lt] || COLORS.finish_to_start;
+
+      if (lt === 'finish_to_start') {
+        if (!fromTask.end_date || !toTask.start_date) return '';
+        x1 = dayToX(parseDateLocal(fromTask.end_date));
+        x2 = dayToX(parseDateLocal(toTask.start_date));
+      } else if (lt === 'start_to_start') {
+        if (!fromTask.start_date || !toTask.start_date) return '';
+        x1 = dayToX(parseDateLocal(fromTask.start_date));
+        x2 = dayToX(parseDateLocal(toTask.start_date));
+      } else if (lt === 'finish_to_finish') {
+        if (!fromTask.end_date || !toTask.end_date) return '';
+        x1 = dayToX(parseDateLocal(fromTask.end_date));
+        x2 = dayToX(parseDateLocal(toTask.end_date));
+      } else if (lt === 'start_to_finish') {
+        if (!fromTask.start_date || !toTask.end_date) return '';
+        x1 = dayToX(parseDateLocal(fromTask.start_date));
+        x2 = dayToX(parseDateLocal(toTask.end_date));
+      } else {
+        if (!fromTask.end_date || !toTask.start_date) return '';
+        x1 = dayToX(parseDateLocal(fromTask.end_date));
+        x2 = dayToX(parseDateLocal(toTask.start_date));
+      }
+
       const cx = (x1 + x2) / 2;
-      return `<path class="pm-dep-arrow" d="M${x1},${y1} C${cx},${y1} ${cx},${y2} ${x2},${y2}" marker-end="url(#arrowhead)"/>`;
+      const markerId = `arrowhead-${lt.replace(/_/g,'-')}`;
+      return `<path class="pm-dep-arrow" d="M${x1},${y1} C${cx},${y1} ${cx},${y2} ${x2},${y2}" marker-end="url(#${markerId})" stroke="${stroke}" stroke-width="1.5" fill="none"/>`;
+    }).filter(Boolean).join('');
+
+    // Ensure markers exist for each type
+    const DEFS_EXTRA = ['finish-to-start','start-to-start','finish-to-finish','start-to-finish'].map((lt, i) => {
+      const fills = ['rgba(0,0,0,0.3)','#3498db','#e67e22','#8e44ad'];
+      return `<marker id="arrowhead-${lt}" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="${fills[i]}"/></marker>`;
     }).join('');
+    const defsEl = svg.querySelector('defs');
+    if (defsEl && !defsEl.querySelector('#arrowhead-finish-to-start')) {
+      defsEl.insertAdjacentHTML('beforeend', DEFS_EXTRA);
+    }
 
     // Re-append arrows to existing SVG content
     const existing = svg.querySelectorAll('.pm-dep-arrow,.pm-dep-arrow-preview:not(.preview-live)');
@@ -2698,7 +2912,7 @@
           highlightLinkFrom(taskId);
         } else {
           if (taskId !== state.linkFromId) {
-            createDependencyLink(state.linkFromId, taskId);
+            openLinkConfigModal(state.linkFromId, taskId);
           }
           state.linkFromId = null;
           clearLinkHighlight();
@@ -2788,15 +3002,75 @@
     });
   }
 
-  async function createDependencyLink(fromId, toId) {
+  async function createDependencyLink(fromId, toId, linkType = 'finish_to_start', lagDays = 0) {
     try {
       const res = await api(`${API}/project-plans/task-links`, {
         method: 'POST',
-        body: JSON.stringify({ from_task_id: fromId, to_task_id: toId, link_type: 'finish_to_start' })
+        body: JSON.stringify({ from_task_id: fromId, to_task_id: toId, link_type: linkType, lag_days: lagDays })
       });
       state.links.push(res.data);
       renderArrows(buildVisibleTasks());
     } catch(e) { console.error('Link error', e); }
+  }
+
+  function openLinkConfigModal(fromId, toId) {
+    state.pendingLinkFrom = fromId;
+    state.pendingLinkTo = toId;
+    document.getElementById('pm-lc-type').value = 'finish_to_start';
+    document.getElementById('pm-lc-lag').value = '0';
+    document.getElementById('pm-link-cfg-overlay').style.display = 'flex';
+  }
+
+  function cancelLinkCfg() {
+    document.getElementById('pm-link-cfg-overlay').style.display = 'none';
+    state.pendingLinkFrom = null;
+    state.pendingLinkTo = null;
+  }
+
+  async function confirmLinkCfg() {
+    const fromId = state.pendingLinkFrom;
+    const toId   = state.pendingLinkTo;
+    cancelLinkCfg();
+    if (!fromId || !toId) return;
+    const linkType = document.getElementById('pm-lc-type').value;
+    const lagDays  = parseInt(document.getElementById('pm-lc-lag').value, 10) || 0;
+    await createDependencyLink(fromId, toId, linkType, lagDays);
+  }
+
+  async function saveBaseline() {
+    if (!state.activePlanId) return;
+    document.getElementById('pm-baseline-name').value = `Baseline ${new Date().toLocaleDateString()}`;
+    document.getElementById('pm-baseline-modal').style.display = 'flex';
+  }
+
+  async function confirmSaveBaseline() {
+    const name = document.getElementById('pm-baseline-name').value.trim() || `Baseline ${new Date().toLocaleDateString()}`;
+    document.getElementById('pm-baseline-modal').style.display = 'none';
+    try {
+      await api(`${API}/project-plans/${state.activePlanId}/baselines`, {
+        method: 'POST',
+        body: JSON.stringify({ name })
+      });
+      (window.RTS?.showToast || ((m) => alert(m)))('Baseline saved!', 'success');
+    } catch(e) { (window.RTS?.showToast || ((m) => alert(m)))('Failed to save baseline', 'error'); }
+  }
+
+  async function toggleBaselineView() {
+    state.showBaseline = !state.showBaseline;
+    const btn = document.getElementById('pm-baseline-show-btn');
+    btn.classList.toggle('active', state.showBaseline);
+    if (state.showBaseline && state.activePlanId) {
+      try {
+        const data = await api(`${API}/project-plans/${state.activePlanId}/baselines/latest`);
+        state.baselineTasks = {};
+        (data.tasks || []).forEach(bt => {
+          state.baselineTasks[bt.task_id] = bt;
+        });
+      } catch { state.baselineTasks = {}; state.showBaseline = false; btn.classList.remove('active'); }
+    } else {
+      state.baselineTasks = {};
+    }
+    renderAll();
   }
 
   function highlightLinkFrom(taskId) {
@@ -3059,6 +3333,25 @@
       state.showCritical = !state.showCritical;
       document.getElementById('pm-critical-btn').classList.toggle('active', state.showCritical);
       renderAll();
+    });
+
+    // Baseline buttons
+    document.getElementById('pm-baseline-save-btn').addEventListener('click', saveBaseline);
+    document.getElementById('pm-baseline-show-btn').addEventListener('click', toggleBaselineView);
+
+    // Full-screen toggle
+    document.getElementById('pm-fullscreen-btn').addEventListener('click', () => {
+      document.body.classList.toggle('pm-fullscreen');
+      const fs = document.body.classList.contains('pm-fullscreen');
+      document.getElementById('pm-fullscreen-btn').textContent = fs ? '✕ Exit Full Screen' : '⛶ Full Screen';
+      document.getElementById('pm-fullscreen-btn').classList.toggle('active', fs);
+    });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && document.body.classList.contains('pm-fullscreen')) {
+        document.body.classList.remove('pm-fullscreen');
+        document.getElementById('pm-fullscreen-btn').textContent = '⛶ Full Screen';
+        document.getElementById('pm-fullscreen-btn').classList.remove('active');
+      }
     });
 
     // Print button
