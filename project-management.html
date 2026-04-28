@@ -477,6 +477,7 @@
       pointer-events: none;
     }
     .pm-bar-wrap.completed-bar .pm-bar-label { color: #fff; }
+    .pm-bar-wrap:not(.link-mode) .pm-bar-label:hover { background: rgba(255,255,255,0.15); border-radius: 2px; }
     .pm-bar-label {
       position: absolute; inset: 0;
       display: flex; align-items: center;
@@ -2523,7 +2524,8 @@
         barHtml = `<div class="pm-bar-wrap ${state.linkMode ? 'link-mode' : ''}${critClass}${doneClass}"
             style="left:${x}px;width:${w}px;background:${color};"
             data-task-id="${task.id}"
-            data-x="${x}" data-w="${w}">
+            data-x="${x}" data-w="${w}"
+            title="Click to select · Double-click to rename · Double-click outside label to open details">
           <div class="pm-bar-progress" style="width:${prog}%;background:${color};"></div>
           <div class="pm-bar-label">${esc(task.title)}</div>
           <div class="pm-bar-resize-handle" data-resize-task="${task.id}"></div>
@@ -3822,16 +3824,70 @@
       }
     });
 
-    // Chart: click row to select
+    // Chart: single-click selects row; double-click opens inspector
     document.getElementById('pm-chart-body-scroll').addEventListener('click', e => {
+      if (e.detail > 1) return; // ignore as part of dblclick
       const row = e.target.closest('.pm-chart-row[data-task-id]');
       const bar = e.target.closest('.pm-bar-wrap,.pm-milestone-diamond');
       if (bar || row) {
         const taskId = (bar || row).dataset.taskId;
         state.selectedTaskId = taskId;
+        if (state.linkMode) {
+          const task = state.tasks.find(t => t.id === taskId);
+          if (task) openInspector(task);
+        } else {
+          renderAll();
+        }
+      }
+    });
+
+    // Chart: double-click bar → open inspector and focus title for quick rename
+    document.getElementById('pm-chart-body-scroll').addEventListener('dblclick', e => {
+      // Double-click on bar label → inline rename directly in bar
+      const label = e.target.closest('.pm-bar-label');
+      const bar = e.target.closest('.pm-bar-wrap');
+      if (label && bar) {
+        e.stopPropagation();
+        const taskId = bar.dataset.taskId;
+        label.contentEditable = 'true';
+        label.style.cssText += ';cursor:text;outline:1px solid rgba(255,255,255,0.6);border-radius:2px;';
+        label.focus();
+        const sel = window.getSelection(); sel.selectAllChildren(label);
+        const done = () => {
+          label.contentEditable = 'false';
+          label.style.cursor = '';
+          label.style.outline = '';
+          saveTaskTitle(taskId, label.textContent);
+        };
+        label.addEventListener('blur', done, { once: true });
+        label.addEventListener('keydown', ev => {
+          if (ev.key === 'Enter') { ev.preventDefault(); label.blur(); }
+          if (ev.key === 'Escape') {
+            const task = state.tasks.find(t => t.id === taskId);
+            label.textContent = task?.title || '';
+            label.contentEditable = 'false';
+          }
+        });
+        return;
+      }
+      // Double-click elsewhere on bar → open inspector, focus title
+      if (bar) {
+        const taskId = bar.dataset.taskId;
         const task = state.tasks.find(t => t.id === taskId);
-        if (task && !state.linkMode) openInspector(task);
-        else renderAll();
+        if (task) {
+          openInspector(task);
+          requestAnimationFrame(() => {
+            const inp = document.getElementById('pm-insp-title-input');
+            if (inp) { inp.focus(); inp.select(); }
+          });
+        }
+        return;
+      }
+      // Double-click on milestone or chart row → open inspector
+      const row = e.target.closest('.pm-chart-row[data-task-id],.pm-milestone-diamond');
+      if (row) {
+        const task = state.tasks.find(t => t.id === row.dataset.taskId);
+        if (task) openInspector(task);
       }
     });
 
