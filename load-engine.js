@@ -1325,14 +1325,40 @@ console.log('📦 load-engine.js loading...');
       if (index !== -1) currentLoad.placements.splice(index, 1);
     }
 
-    // If moving to another truck, add to that truck's load
+    // If moving to another truck, add to that truck's DB draft
     if (opts.action === 'move_truck' && opts.truckId) {
-      const savedLoads = JSON.parse(localStorage.getItem('rts_loads') || '{}');
-      if (!savedLoads[opts.truckId]) savedLoads[opts.truckId] = { truckId: opts.truckId, placements: [], updatedAt: new Date().toISOString() };
-      if (type === 'box') savedLoads[opts.truckId].placements.push({ boxId: id, zone: 'A', timestamp: new Date().toISOString() });
-      if (type === 'asset') savedLoads[opts.truckId].placements.push({ type: 'asset', assetId: id, zone: 'A', timestamp: new Date().toISOString() });
-      if (type === 'inventory') savedLoads[opts.truckId].placements.push({ type: 'inventory', inventoryId: id, zone: 'A', timestamp: new Date().toISOString() });
-      localStorage.setItem('rts_loads', JSON.stringify(savedLoads));
+      const newPlacement = type === 'box'
+        ? { boxId: id, zone: 'A', timestamp: new Date().toISOString() }
+        : type === 'asset'
+          ? { type: 'asset', assetId: id, zone: 'A', timestamp: new Date().toISOString() }
+          : { type: 'inventory', inventoryId: id, zone: 'A', timestamp: new Date().toISOString() };
+
+      // Load destination truck's current draft, merge, and save
+      (async () => {
+        try {
+          let destPlacements = [];
+          if (window.RTS_API) {
+            const draft = await window.RTS_API.getLoadPlanDraft(opts.truckId);
+            destPlacements = (draft && draft.placements) ? draft.placements : [];
+          }
+          // Avoid duplicate
+          const alreadyThere = destPlacements.some(p =>
+            (type === 'box' && p.boxId === id) ||
+            (type === 'asset' && p.assetId === id) ||
+            (type === 'inventory' && p.inventoryId === id)
+          );
+          if (!alreadyThere) destPlacements.push(newPlacement);
+          if (window.RTS_API) {
+            await window.RTS_API.saveLoadPlanDraft({
+              truck_id: opts.truckId,
+              event_id: currentLoad.eventId || null,
+              placements: destPlacements
+            });
+          }
+        } catch (e) {
+          console.warn('Failed to add item to destination truck load:', e);
+        }
+      })();
     }
 
     currentLoad.updatedAt = new Date().toISOString();
