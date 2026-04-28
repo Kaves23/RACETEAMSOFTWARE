@@ -923,9 +923,20 @@ console.log('📦 load-engine.js loading...');
     
     sortedZoneKeys.forEach((zoneKey) => {
       const zone = truck.zones[zoneKey];
-      const placements = currentLoad.placements.filter(p => p.zone === zoneKey && p.type !== 'asset');
-      const assetPlacements     = currentLoad.placements.filter(p => p.zone === zoneKey && p.type === 'asset');
-      const inventoryPlacements = currentLoad.placements.filter(p => p.zone === zoneKey && p.type === 'inventory');
+      // Items with an unrecognised zone (e.g. 'A') fall into grid-1
+      const isFirstZone = zoneKey === sortedZoneKeys[0];
+      const placements = currentLoad.placements.filter(p => {
+        if (p.type === 'asset' || p.type === 'inventory') return false;
+        return p.zone === zoneKey || (isFirstZone && !sortedZoneKeys.includes(p.zone));
+      });
+      const assetPlacements = currentLoad.placements.filter(p => {
+        if (p.type !== 'asset') return false;
+        return p.zone === zoneKey || (isFirstZone && !sortedZoneKeys.includes(p.zone));
+      });
+      const inventoryPlacements = currentLoad.placements.filter(p => {
+        if (p.type !== 'inventory') return false;
+        return p.zone === zoneKey || (isFirstZone && !sortedZoneKeys.includes(p.zone));
+      });
       const gridNum = parseInt(zoneKey.replace('grid-', ''));
       const zoneColor = gridColors[(gridNum - 1) % gridColors.length];
       
@@ -1328,10 +1339,10 @@ console.log('📦 load-engine.js loading...');
     // If moving to another truck, add to that truck's DB draft
     if (opts.action === 'move_truck' && opts.truckId) {
       const newPlacement = type === 'box'
-        ? { boxId: id, zone: 'A', timestamp: new Date().toISOString() }
+        ? { boxId: id, zone: 'grid-1', timestamp: new Date().toISOString() }
         : type === 'asset'
-          ? { type: 'asset', assetId: id, zone: 'A', timestamp: new Date().toISOString() }
-          : { type: 'inventory', inventoryId: id, zone: 'A', timestamp: new Date().toISOString() };
+          ? { type: 'asset', assetId: id, zone: 'grid-1', timestamp: new Date().toISOString() }
+          : { type: 'inventory', inventoryId: id, zone: 'grid-1', timestamp: new Date().toISOString() };
 
       // Load destination truck's current draft, merge, and save
       (async () => {
