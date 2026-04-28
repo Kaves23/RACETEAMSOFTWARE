@@ -90,6 +90,23 @@ app.use((req, res, next) => {
 // Simple health
 app.get('/api/health', (req, res) => res.json({ ok: true, ts: new Date().toISOString() }));
 
+// ── Auto-run project-module migrations on startup (all use IF NOT EXISTS — safe to re-run) ──
+(async () => {
+  const fs   = require('fs');
+  const path = require('path');
+  const pending = ['071_projects_module_phase2.sql', '072_project_baselines.sql'];
+  for (const f of pending) {
+    const fp = path.join(__dirname, 'migrations', f);
+    if (!fs.existsSync(fp)) continue;
+    try {
+      await db.pool.query(fs.readFileSync(fp, 'utf8'));
+      console.log(`✅ Migration applied: ${f}`);
+    } catch (e) {
+      console.warn(`⚠️ Migration ${f}: ${e.message}`);
+    }
+  }
+})();
+
 // Auth routes (public - no authentication required)
 const { router: authRouter, requireAuth } = require('./routes/auth');
 app.use('/api/auth', authRouter);

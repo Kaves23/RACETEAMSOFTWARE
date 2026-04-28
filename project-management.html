@@ -273,7 +273,8 @@
       border-left: 3px solid #a64dff;
     }
     .pm-task-row.milestone-row { font-style: italic; }
-    .pm-task-row.completed-row { opacity: 0.55; }
+    .pm-task-row.completed-row { opacity: 0.75; }
+    .pm-task-row.completed-row .pm-task-title-text { color: #27ae60; text-decoration: line-through; text-decoration-color: #27ae6080; }
 
     .pm-expand-btn {
       background: none; border: none; padding: 0;
@@ -475,6 +476,7 @@
       opacity: 0.5;
       pointer-events: none;
     }
+    .pm-bar-wrap.completed-bar .pm-bar-label { color: #fff; }
     .pm-bar-label {
       position: absolute; inset: 0;
       display: flex; align-items: center;
@@ -1931,6 +1933,7 @@
 
   // Compute effective color for a task (inherit from root parent, lighten by depth)
   function taskColor(task) {
+    if (task.status === 'completed') return '#27ae60';
     if (task.color) return task.color;
     if (!task.parent_task_id) return '#cccccc';
     const root = getTaskRoot(task);
@@ -2516,7 +2519,8 @@
         const w = Math.max(4, x2 - x);
         const prog = task.progress || 0;
         const critClass = state.criticalPath.has(task.id) ? ' pm-bar-critical' : '';
-        barHtml = `<div class="pm-bar-wrap ${state.linkMode ? 'link-mode' : ''}${critClass}"
+        const doneClass = task.status === 'completed' ? ' completed-bar' : '';
+        barHtml = `<div class="pm-bar-wrap ${state.linkMode ? 'link-mode' : ''}${critClass}${doneClass}"
             style="left:${x}px;width:${w}px;background:${color};"
             data-task-id="${task.id}"
             data-x="${x}" data-w="${w}">
