@@ -988,7 +988,7 @@ console.log('📦 load-engine.js loading...');
                 </div>
                 <div style="display:flex;align-items:center;gap:4px;">
                   <span class="placed-box-expand-icon">▼</span>
-                  <button class="btn-remove-box" onclick="event.stopPropagation();rflShow('box','${box.id}',${JSON.stringify(box.name||box.barcode||'Box')})" title="Remove from load">×</button>
+                  <button class="btn-remove-box" onclick="event.stopPropagation();rflShow('box','${box.id}')" title="Remove from load">×</button>
                 </div>
               </div>
               <div class="placed-box-contents">
@@ -1017,7 +1017,7 @@ console.log('📦 load-engine.js loading...');
               <div class="placed-asset-name">🔧 ${esc(asset.name)}</div>
               <div class="placed-asset-meta">${esc(asset.barcode || '')}${asset.category ? ' · ' + esc(asset.category) : ''}</div>
             </div>
-            <button class="btn-remove-box" onclick="rflShow('asset','${asset.id}',${JSON.stringify(asset.name||'Asset')})" title="Remove from load">×</button>
+            <button class="btn-remove-box" onclick="rflShow('asset','${asset.id}')" title="Remove from load">×</button>
           </div>`;
       }).join('');
 
@@ -1034,7 +1034,7 @@ console.log('📦 load-engine.js loading...');
               <div class="placed-asset-name" style="color:#6a1b9a;">🗃️ ${esc(item.name)}</div>
               <div class="placed-asset-meta">${esc(item.sku || '')}${item.category ? ' · ' + esc(item.category) : ''}${item.quantity !== undefined ? ' · Qty: ' + item.quantity : ''}</div>
             </div>
-            <button class="btn-remove-box" onclick="rflShow('inventory','${item.id}',${JSON.stringify(item.name||'Item')})" title="Remove from load">×</button>
+            <button class="btn-remove-box" onclick="rflShow('inventory','${item.id}')" title="Remove from load">×</button>
           </div>`;
       }).join('');
 
@@ -2761,6 +2761,21 @@ console.log('📦 load-engine.js loading...');
     doRemove,
     getTruckList: () => trucks,
     getCurrentTruckId: () => currentLoad.truckId,
+    getItemLabel: (type, id) => {
+      if (type === 'box') {
+        const b = boxes.find(b => String(b.id) === String(id));
+        return b ? (b.name || b.barcode || 'Box') : `Box ${id}`;
+      }
+      if (type === 'asset') {
+        const a = assets.find(a => String(a.id) === String(id));
+        return a ? (a.name || a.barcode || 'Asset') : `Asset ${id}`;
+      }
+      if (type === 'inventory') {
+        const i = inventory.find(i => String(i.id) === String(id));
+        return i ? (i.name || i.sku || 'Item') : `Item ${id}`;
+      }
+      return id;
+    },
     toggleBoxExpand,
     switchTab,
     setFilter,
