@@ -1337,9 +1337,16 @@ console.log('📦 load-engine.js loading...');
       (async () => {
         try {
           let destPlacements = [];
+          let destEventId = currentLoad.eventId || null;
           if (window.RTS_API) {
             const draft = await window.RTS_API.getLoadPlanDraft(opts.truckId);
-            destPlacements = (draft && draft.placements) ? draft.placements : [];
+            console.log('Dest truck draft:', JSON.stringify(draft));
+            if (draft && Array.isArray(draft.placements)) {
+              destPlacements = draft.placements;
+            }
+            if (draft && draft.plan && draft.plan.event_id) {
+              destEventId = draft.plan.event_id;
+            }
           }
           // Avoid duplicate
           const alreadyThere = destPlacements.some(p =>
@@ -1349,14 +1356,15 @@ console.log('📦 load-engine.js loading...');
           );
           if (!alreadyThere) destPlacements.push(newPlacement);
           if (window.RTS_API) {
-            await window.RTS_API.saveLoadPlanDraft({
+            const result = await window.RTS_API.saveLoadPlanDraft({
               truck_id: opts.truckId,
-              event_id: currentLoad.eventId || null,
+              event_id: destEventId,
               placements: destPlacements
             });
+            console.log('Saved to dest truck:', JSON.stringify(result));
           }
         } catch (e) {
-          console.warn('Failed to add item to destination truck load:', e);
+          console.error('Failed to add item to destination truck load:', e);
         }
       })();
     }
