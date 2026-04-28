@@ -511,6 +511,7 @@
       overflow: visible;
     }
     .pm-dep-arrow { fill: none; stroke: rgba(0,0,0,0.28); stroke-width: 1.5; marker-end: url(#arrowhead); }
+    .pm-dep-arrow-violated { stroke: #e74c3c !important; stroke-width: 2 !important; stroke-dasharray: 5 3; }
     .pm-dep-arrow-preview { fill: none; stroke: #a64dff; stroke-width: 1.5; stroke-dasharray: 4 3; }
 
     /* ─── MODALS ──────────────────────────────────────────────────── */
@@ -1154,7 +1155,8 @@
         <button class="pm-toolbar-btn" id="pm-today-btn">Today</button>
         <div class="pm-toolbar-sep"></div>
         <button class="pm-toolbar-btn primary" id="btn-add-task">+ Task</button>
-        <button class="pm-toolbar-btn" id="pm-link-mode-btn" title="Draw dependency arrows between tasks">Link</button>
+        <button class="pm-toolbar-btn" id="pm-link-mode-btn" title="Draw Finish→Start dependency arrows between tasks (click: predecessor → successor)">&#x1F517; Link</button>
+        <span id="pm-link-status" style="display:none;font-size:11px;color:#ff6b35;font-weight:600;align-self:center;padding:0 6px;background:#fff3ee;border-radius:4px;border:1px solid #ff6b35;white-space:nowrap;"></span>
         <button class="pm-toolbar-btn" id="pm-critical-btn" title="Highlight critical path">Critical Path</button>
         <button class="pm-toolbar-btn" id="pm-baseline-save-btn" title="Save current schedule as baseline snapshot">Baseline</button>
         <button class="pm-toolbar-btn" id="pm-baseline-show-btn" title="Toggle baseline overlay">Base View</button>
@@ -2623,6 +2625,9 @@
         if (!fromTask.end_date || !toTask.start_date) return '';
         x1 = dayToX(parseDateLocal(fromTask.end_date));
         x2 = dayToX(parseDateLocal(toTask.start_date));
+        // Violated constraint: successor starts before predecessor ends
+        const violated = parseDateLocal(toTask.start_date) <= parseDateLocal(fromTask.end_date);
+        return `<path class="pm-dep-arrow${violated ? ' pm-dep-arrow-violated' : ''}" d="M${x1},${y1} C${cx},${y1} ${cx},${y2} ${x2},${y2}" marker-end="url(#arrowhead-${violated?'violated':'finish-to-start'})" stroke="${violated ? '#e74c3c' : stroke}" stroke-width="${violated ? 2 : 1.5}" fill="none" title="${violated ? '⚠ Constraint violated' : ''}"/>`;
       } else if (lt === 'start_to_start') {
         if (!fromTask.start_date || !toTask.start_date) return '';
         x1 = dayToX(parseDateLocal(fromTask.start_date));
@@ -2647,12 +2652,12 @@
     }).filter(Boolean).join('');
 
     // Ensure markers exist for each type
-    const DEFS_EXTRA = ['finish-to-start','start-to-start','finish-to-finish','start-to-finish'].map((lt, i) => {
-      const fills = ['rgba(0,0,0,0.3)','#3498db','#e67e22','#8e44ad'];
+    const DEFS_EXTRA = ['finish-to-start','start-to-start','finish-to-finish','start-to-finish','violated'].map((lt, i) => {
+      const fills = ['rgba(0,0,0,0.3)','#3498db','#e67e22','#8e44ad','#e74c3c'];
       return `<marker id="arrowhead-${lt}" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="${fills[i]}"/></marker>`;
     }).join('');
     const defsEl = svg.querySelector('defs');
-    if (defsEl && !defsEl.querySelector('#arrowhead-finish-to-start')) {
+    if (defsEl && !defsEl.querySelector('#arrowhead-violated')) {
       defsEl.insertAdjacentHTML('beforeend', DEFS_EXTRA);
     }
 
@@ -3171,6 +3176,8 @@
     if (task) task[field] = value || null;
     computeGanttRange();
     renderAll();
+    // Cascade FS constraints after date edit
+    if (field === 'end_date' || field === 'start_date') await enforceFS(taskId);
   }
 
   // Indent / Outdent
@@ -3218,18 +3225,35 @@
       const milestoneEl = e.target.closest('.pm-milestone-diamond');
 
       if (state.linkMode) {
-        // In link mode: clicking bar sets from_task, then click another to create link
+        // In link mode: click = set predecessor, click again = create FS link immediately
+        // Shift+click = open config modal for advanced link type / lag
         const taskId = (barEl||milestoneEl)?.dataset.taskId;
         if (!taskId) return;
         if (!state.linkFromId) {
           state.linkFromId = taskId;
           highlightLinkFrom(taskId);
+          const t = state.tasks.find(t => t.id === taskId);
+          setLinkStatus(`Predecessor: "${t?.title||taskId}" — now click the successor task`);
         } else {
           if (taskId !== state.linkFromId) {
-            openLinkConfigModal(state.linkFromId, taskId);
+            if (e.shiftKey) {
+              openLinkConfigModal(state.linkFromId, taskId);
+            } else {
+              const fId = state.linkFromId;
+              clearLinkHighlight();
+              state.linkFromId = null;
+              setLinkStatus('Linking…');
+              await createDependencyLink(fId, taskId, 'finish_to_start', 0);
+              await enforceFS(fId);
+              setLinkStatus('Link created! Click another task to keep linking, or click Link to exit.');
+              setTimeout(() => { if (state.linkMode) setLinkStatus('Click a task to set predecessor'); }, 2500);
+            }
+          } else {
+            // Clicked same task — cancel selection
+            clearLinkHighlight();
+            state.linkFromId = null;
+            setLinkStatus('Click a task to set predecessor');
           }
-          state.linkFromId = null;
-          clearLinkHighlight();
         }
         return;
       }
@@ -3266,6 +3290,40 @@
     });
 
     chartBodyScroll.addEventListener('pointermove', e => {
+      // Live preview arrow in link mode
+      if (state.linkMode && state.linkFromId) {
+        const svg = document.getElementById('pm-arrows-svg');
+        if (svg) {
+          const fromTask = state.tasks.find(t => t.id === state.linkFromId);
+          if (fromTask?.end_date) {
+            const svgRect = svg.getBoundingClientRect();
+            const scrollEl = document.getElementById('pm-chart-body-scroll');
+            const scrollLeft = scrollEl ? scrollEl.scrollLeft : 0;
+            const visibleTasks = buildVisibleTasks();
+            const fromIdx = visibleTasks.findIndex(t => t.id === state.linkFromId);
+            const x1 = dayToX(parseDateLocal(fromTask.end_date));
+            const y1 = fromIdx * 16 + 8;
+            const x2 = e.clientX - svgRect.left + scrollLeft;
+            const y2 = e.clientY - svgRect.top;
+            const cx = (x1 + x2) / 2;
+            // Hover target highlight
+            const hoverBar = e.target.closest('.pm-bar-wrap,.pm-milestone-diamond');
+            document.querySelectorAll('.pm-bar-wrap,.pm-chart-row').forEach(el => {
+              if (el.dataset.taskId && el.dataset.taskId !== state.linkFromId) {
+                el.style.outline = (hoverBar && el.dataset.taskId === hoverBar.dataset.taskId) ? '2px solid #27ae60' : '';
+              }
+            });
+            let prev = svg.querySelector('.pm-dep-arrow-preview.preview-live');
+            if (!prev) {
+              prev = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+              prev.setAttribute('class', 'pm-dep-arrow-preview preview-live');
+              prev.setAttribute('marker-end', 'url(#arrowhead-preview)');
+              svg.appendChild(prev);
+            }
+            prev.setAttribute('d', `M${x1},${y1} C${cx},${y1} ${cx},${y2} ${x2},${y2}`);
+          }
+        }
+      }
       if (!dragState) return;
       const dx = e.clientX - dragState.startX;
       const daysDelta = Math.round(dx / pxPerDay());
@@ -3312,6 +3370,7 @@
       renderAll();
       try {
         await api(`${API}/project-plans/tasks/${taskId}`, { method:'PUT', body: JSON.stringify(body) });
+        await enforceFS(taskId); // cascade FS constraints after drag
       } catch { await loadPlan(state.activePlanId); }
     });
   }
@@ -3325,6 +3384,46 @@
       state.links.push(res.data);
       renderArrows(buildVisibleTasks());
     } catch(e) { console.error('Link error', e); }
+  }
+
+  // ── Finish-to-Start constraint enforcement ──────────────────────
+  // After task `changedId` has its dates updated, push any FS successors forward
+  // Cascades through the chain (successor → its successors, etc.)
+  async function enforceFS(changedId, _visited = new Set()) {
+    if (_visited.has(changedId)) return; // cycle guard
+    _visited.add(changedId);
+    const fsLinks = state.links.filter(l => l.from_task_id === changedId && (l.link_type || 'finish_to_start') === 'finish_to_start');
+    for (const link of fsLinks) {
+      const pred = state.tasks.find(t => t.id === link.from_task_id);
+      const succ = state.tasks.find(t => t.id === link.to_task_id);
+      if (!pred?.end_date || !succ) continue;
+      const lag = link.lag_days || 0;
+      const minStart = addDays(parseDateLocal(pred.end_date), lag + 1);
+      const curStart = succ.start_date ? parseDateLocal(succ.start_date) : null;
+      if (!curStart || curStart < minStart) {
+        const duration = (succ.start_date && succ.end_date)
+          ? Math.round((parseDateLocal(succ.end_date) - parseDateLocal(succ.start_date)) / 86400000)
+          : null;
+        const newStart = fmtDate(minStart);
+        const newEnd   = duration !== null ? fmtDate(addDays(minStart, duration)) : null;
+        succ.start_date = newStart;
+        if (newEnd) succ.end_date = newEnd;
+        const body = { start_date: newStart, ...(newEnd ? { end_date: newEnd } : {}) };
+        try {
+          await api(`${API}/project-plans/tasks/${succ.id}`, { method:'PUT', body: JSON.stringify(body) });
+        } catch(err) { console.warn('enforceFS save failed', err); }
+        await enforceFS(succ.id, _visited); // cascade
+      }
+    }
+    computeGanttRange();
+    renderAll();
+  }
+
+  function setLinkStatus(msg) {
+    const el = document.getElementById('pm-link-status');
+    if (!el) return;
+    el.textContent = msg;
+    el.style.display = msg ? 'inline-flex' : 'none';
   }
 
   function openLinkConfigModal(fromId, toId) {
@@ -3636,10 +3735,19 @@
       state.linkMode = !state.linkMode;
       state.linkFromId = null;
       clearLinkHighlight();
+      // Remove any live preview arrows
+      document.querySelectorAll('.pm-dep-arrow-preview.preview-live').forEach(el => el.remove());
       document.getElementById('pm-link-mode-btn').classList.toggle('active', state.linkMode);
       document.getElementById('pm-link-mode-btn').title = state.linkMode
-        ? 'Link Mode ON — click a bar, then click another to create dependency. Click again to exit.'
-        : 'Draw dependency arrows between tasks';
+        ? 'Link Mode ON — click a bar, then click another to create FS link. Shift+click for advanced options. Click Link again to exit.'
+        : 'Draw Finish→Start dependency arrows between tasks';
+      if (state.linkMode) {
+        setLinkStatus('Click a task bar to set the predecessor');
+        renderAll(); // refresh bar classes to show link-mode cursor
+      } else {
+        setLinkStatus('');
+        renderAll();
+      }
     });
 
     // Critical path toggle
@@ -3980,10 +4088,21 @@
       } else if (e.key === 'Delete' || e.key === 'Backspace') {
         deleteTask(state.selectedTaskId);
       } else if (e.key === 'Escape') {
-        state.linkMode = false;
-        state.linkFromId = null;
-        clearLinkHighlight();
-        document.getElementById('pm-link-mode-btn').classList.remove('active');
+        if (state.linkMode && state.linkFromId) {
+          // First Escape cancels pending selection; second exits link mode
+          state.linkFromId = null;
+          clearLinkHighlight();
+          document.querySelectorAll('.pm-dep-arrow-preview.preview-live').forEach(el => el.remove());
+          setLinkStatus('Click a task bar to set the predecessor');
+        } else {
+          state.linkMode = false;
+          state.linkFromId = null;
+          clearLinkHighlight();
+          document.querySelectorAll('.pm-dep-arrow-preview.preview-live').forEach(el => el.remove());
+          document.getElementById('pm-link-mode-btn').classList.remove('active');
+          setLinkStatus('');
+          renderAll();
+        }
       }
     });
   }
