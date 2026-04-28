@@ -940,7 +940,7 @@ console.log('📦 load-engine.js loading...');
             <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:6px 8px;margin-bottom:4px;">
               <div style="font-size:.7rem;font-weight:700;color:#856404;">⚠ Box not found</div>
               <div style="font-size:.65rem;color:#856404;">ID: ${esc(p.boxId)}</div>
-              <button style="font-size:.65rem;margin-top:4px;padding:1px 6px;background:#dc3545;color:#fff;border:none;border-radius:3px;cursor:pointer;" onclick="LoadEngine.removeBox('${p.boxId}')">Remove from plan</button>
+              <button style="font-size:.65rem;margin-top:4px;padding:1px 6px;background:#dc3545;color:#fff;border:none;border-radius:3px;cursor:pointer;" onclick="rflShow('box','${p.boxId}','Box ${esc(p.boxId)}')">Remove from plan</button>
             </div>
           `;
         }
@@ -988,7 +988,7 @@ console.log('📦 load-engine.js loading...');
                 </div>
                 <div style="display:flex;align-items:center;gap:4px;">
                   <span class="placed-box-expand-icon">▼</span>
-                  <button class="btn-remove-box" onclick="event.stopPropagation();LoadEngine.removeBox('${box.id}')">×</button>
+                  <button class="btn-remove-box" onclick="event.stopPropagation();rflShow('box','${box.id}',${JSON.stringify(box.name||box.barcode||'Box')})" title="Remove from load">×</button>
                 </div>
               </div>
               <div class="placed-box-contents">
@@ -1009,7 +1009,7 @@ console.log('📦 load-engine.js loading...');
         if (!asset) return `
           <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:4px;padding:5px 8px;margin-bottom:4px;">
             <div style="font-size:.7rem;font-weight:700;color:#856404;">⚠ Asset not found</div>
-            <button style="font-size:.65rem;margin-top:2px;padding:1px 6px;background:#dc3545;color:#fff;border:none;border-radius:3px;cursor:pointer;" onclick="LoadEngine.removeAsset('${p.assetId}')">Remove</button>
+            <button style="font-size:.65rem;margin-top:2px;padding:1px 6px;background:#dc3545;color:#fff;border:none;border-radius:3px;cursor:pointer;" onclick="rflShow('asset','${p.assetId}','Asset ${esc(p.assetId)}')">Remove</button>
           </div>`;
         return `
           <div class="placed-asset">
@@ -1017,7 +1017,7 @@ console.log('📦 load-engine.js loading...');
               <div class="placed-asset-name">🔧 ${esc(asset.name)}</div>
               <div class="placed-asset-meta">${esc(asset.barcode || '')}${asset.category ? ' · ' + esc(asset.category) : ''}</div>
             </div>
-            <button class="btn-remove-box" onclick="LoadEngine.removeAsset('${asset.id}')">×</button>
+            <button class="btn-remove-box" onclick="rflShow('asset','${asset.id}',${JSON.stringify(asset.name||'Asset')})" title="Remove from load">×</button>
           </div>`;
       }).join('');
 
@@ -1026,7 +1026,7 @@ console.log('📦 load-engine.js loading...');
         if (!item) return `
           <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:4px;padding:5px 8px;margin-bottom:4px;">
             <div style="font-size:.7rem;font-weight:700;color:#856404;">⚠ Item not found</div>
-            <button style="font-size:.65rem;margin-top:2px;padding:1px 6px;background:#dc3545;color:#fff;border:none;border-radius:3px;cursor:pointer;" onclick="LoadEngine.removeInventory('${p.inventoryId}')">Remove</button>
+            <button style="font-size:.65rem;margin-top:2px;padding:1px 6px;background:#dc3545;color:#fff;border:none;border-radius:3px;cursor:pointer;" onclick="rflShow('inventory','${p.inventoryId}','Item ${esc(p.inventoryId)}')">Remove</button>
           </div>`;
         return `
           <div class="placed-asset" style="border-color:#9c27b0;background:#f3e5f5;">
@@ -1034,7 +1034,7 @@ console.log('📦 load-engine.js loading...');
               <div class="placed-asset-name" style="color:#6a1b9a;">🗃️ ${esc(item.name)}</div>
               <div class="placed-asset-meta">${esc(item.sku || '')}${item.category ? ' · ' + esc(item.category) : ''}${item.quantity !== undefined ? ' · Qty: ' + item.quantity : ''}</div>
             </div>
-            <button class="btn-remove-box" onclick="LoadEngine.removeInventory('${item.id}')">×</button>
+            <button class="btn-remove-box" onclick="rflShow('inventory','${item.id}',${JSON.stringify(item.name||'Item')})" title="Remove from load">×</button>
           </div>`;
       }).join('');
 
@@ -1294,6 +1294,50 @@ console.log('📦 load-engine.js loading...');
         }).catch(() => {});
       } catch (_) {}
     }
+  }
+
+  // Called by the modal after the user has chosen a destination
+  function doRemove(type, id, opts) {
+    // opts = { action: 'unpack', location } OR { action: 'move_truck', truckId }
+    const _t  = trucks.find(t => String(t.id) === String(currentLoad.truckId));
+    const _cu = JSON.parse(localStorage.getItem('user') || '{}');
+    const note = opts.action === 'move_truck'
+      ? `Moved to ${trucks.find(t => String(t.id) === String(opts.truckId))?.name || opts.truckId} from ${_t?.name || 'truck'}`
+      : `Unpacked to ${opts.location} from ${_t?.name || 'truck'}`;
+
+    if (type === 'box') {
+      const index = currentLoad.placements.findIndex(p => p.boxId === id);
+      if (index !== -1) currentLoad.placements.splice(index, 1);
+      try {
+        fetch('/api/history', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}` },
+          body: JSON.stringify({ kind: 'boxes', id, action: opts.action === 'move_truck' ? 'moved_to_truck' : 'removed_from_truck',
+            note, by: _cu.id || null, from_truck_id: currentLoad.truckId || null,
+            to_truck_id: opts.truckId || null, to_location: opts.location || null, previous_status: 'in_transit' })
+        }).catch(() => {});
+      } catch (_) {}
+    } else if (type === 'asset') {
+      const index = currentLoad.placements.findIndex(p => p.type === 'asset' && p.assetId === id);
+      if (index !== -1) currentLoad.placements.splice(index, 1);
+    } else if (type === 'inventory') {
+      const index = currentLoad.placements.findIndex(p => p.type === 'inventory' && p.inventoryId === id);
+      if (index !== -1) currentLoad.placements.splice(index, 1);
+    }
+
+    // If moving to another truck, add to that truck's load
+    if (opts.action === 'move_truck' && opts.truckId) {
+      const savedLoads = JSON.parse(localStorage.getItem('rts_loads') || '{}');
+      if (!savedLoads[opts.truckId]) savedLoads[opts.truckId] = { truckId: opts.truckId, placements: [], updatedAt: new Date().toISOString() };
+      if (type === 'box') savedLoads[opts.truckId].placements.push({ boxId: id, zone: 'A', timestamp: new Date().toISOString() });
+      if (type === 'asset') savedLoads[opts.truckId].placements.push({ type: 'asset', assetId: id, zone: 'A', timestamp: new Date().toISOString() });
+      if (type === 'inventory') savedLoads[opts.truckId].placements.push({ type: 'inventory', inventoryId: id, zone: 'A', timestamp: new Date().toISOString() });
+      localStorage.setItem('rts_loads', JSON.stringify(savedLoads));
+    }
+
+    currentLoad.updatedAt = new Date().toISOString();
+    saveData();
+    renderAll();
   }
 
   function placeAsset(assetId, zone) {
@@ -2268,10 +2312,10 @@ console.log('📦 load-engine.js loading...');
         case 'Delete':
         case 'Backspace':
           e.preventDefault();
-          if (confirm(`Remove box ${selected3DBoxId} from truck?`)) {
-            removeBox(selected3DBoxId);
+          if (selected3DBoxId) {
+            const _b3 = boxes.find(b => b.id === selected3DBoxId);
+            rflShow('box', selected3DBoxId, _b3 ? (_b3.name || _b3.barcode || selected3DBoxId) : selected3DBoxId);
             selected3DBoxId = null;
-            console.log('🗑️ Removed box');
           }
           moved = true;
           break;
@@ -2714,6 +2758,9 @@ console.log('📦 load-engine.js loading...');
     removeInventory,
     placeInventory,
     showBoxModal,
+    doRemove,
+    getTruckList: () => trucks,
+    getCurrentTruckId: () => currentLoad.truckId,
     toggleBoxExpand,
     switchTab,
     setFilter,
