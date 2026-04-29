@@ -1335,7 +1335,7 @@ console.log('📦 load-engine.js loading...');
     const _cu = JSON.parse(localStorage.getItem('user') || '{}');
     const note = opts.action === 'move_truck'
       ? `Moved to ${trucks.find(t => String(t.id) === String(opts.truckId))?.name || opts.truckId} from ${_t?.name || 'truck'}`
-      : `Unpacked to ${opts.location} from ${_t?.name || 'truck'}`;
+      : `Unpacked to ${opts.locationName || opts.location} from ${_t?.name || 'truck'}`;
 
     if (type === 'box') {
       const index = currentLoad.placements.findIndex(p => p.boxId === id);
@@ -3074,6 +3074,7 @@ console.log('📦 load-engine.js loading...');
     doRemove,
     getTruckList: () => trucks,
     getCurrentTruckId: () => currentLoad.truckId,
+    getLocationList: () => locations,
     getItemLabel: (type, id) => {
       if (type === 'box') {
         const b = boxes.find(b => String(b.id) === String(id));

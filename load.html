@@ -504,12 +504,6 @@
             <label style="font-size:.78rem;font-weight:600;color:#444;display:block;margin-bottom:4px">Unpack to:</label>
             <select id="rfl-location-select" style="width:100%;padding:5px 8px;border:1px solid #ccc;border-radius:4px;font-size:.83rem">
               <option value="">-- Select location --</option>
-              <option value="warehouse">Warehouse</option>
-              <option value="workshop">Workshop</option>
-              <option value="garage">Garage</option>
-              <option value="paddock">Paddock</option>
-              <option value="hospitality">Hospitality</option>
-              <option value="other">Other / Unspecified</option>
             </select>
           </div>
 
@@ -539,6 +533,23 @@
       _rflTab = 'location';
       const displayLabel = label || (LoadEngine.getItemLabel ? LoadEngine.getItemLabel(type, id) : id);
       document.getElementById('rfl-item-name').textContent = displayLabel;
+      // Populate locations from LoadEngine
+      const locSel = document.getElementById('rfl-location-select');
+      locSel.innerHTML = '<option value="">-- Select location --</option>';
+      const locs = LoadEngine.getLocationList ? LoadEngine.getLocationList() : [];
+      if (locs.length > 0) {
+        locs.forEach(l => {
+          const o = document.createElement('option');
+          o.value = l.id;
+          o.textContent = l.name;
+          locSel.appendChild(o);
+        });
+      } else {
+        // Fallback if locations not loaded yet
+        [['warehouse','Warehouse'],['workshop','Workshop'],['garage','Garage'],['paddock','Paddock'],['hospitality','Hospitality'],['other','Other / Unspecified']].forEach(([v,n]) => {
+          const o = document.createElement('option'); o.value = v; o.textContent = n; locSel.appendChild(o);
+        });
+      }
       // Populate trucks from LoadEngine
       const sel = document.getElementById('rfl-truck-select');
       sel.innerHTML = '<option value="">-- Select vehicle --</option>';
@@ -573,9 +584,11 @@
       if (!_rflPending) return;
       const modal = bootstrap.Modal.getInstance(document.getElementById('removeFromLoadModal'));
       if (_rflTab === 'location') {
-        const loc = document.getElementById('rfl-location-select').value;
+        const locSel = document.getElementById('rfl-location-select');
+        const loc = locSel.value;
         if (!loc) { alert('Please select a location.'); return; }
-        LoadEngine.doRemove(_rflPending.type, _rflPending.id, { action: 'unpack', location: loc });
+        const locName = locSel.options[locSel.selectedIndex]?.textContent || loc;
+        LoadEngine.doRemove(_rflPending.type, _rflPending.id, { action: 'unpack', location: loc, locationName: locName });
       } else {
         const truckId = document.getElementById('rfl-truck-select').value;
         if (!truckId) { alert('Please select a vehicle.'); return; }
