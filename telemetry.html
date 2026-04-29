@@ -59,7 +59,14 @@
     .ch-group-hdr { padding:.4rem .85rem; font-size:.7rem; font-weight:700; text-transform:uppercase; color:#7c3aed; background:#f9f5ff; letter-spacing:.05em; cursor:pointer; display:flex; justify-content:space-between; }
     .ch-item { display:flex; align-items:center; padding:.3rem .85rem .3rem 1.1rem; gap:.5rem; cursor:pointer; font-size:.79rem; color:#374151; transition:background .1s; }
     .ch-item:hover { background:#f5f3ff; }
-    .ch-item.active { background:#ede9fe; font-weight:600; color:#7c3aed; }
+    .ch-item.active, .ch-item.pinned { background:#ede9fe; font-weight:600; color:#7c3aed; }
+    .pin-btn { opacity:0; background:none; border:none; padding:0 .25rem; color:#9ca3af; cursor:pointer; font-size:.75rem; transition:opacity .15s; line-height:1; flex-shrink:0; }
+    .ch-item:hover .pin-btn, .ch-item.pinned .pin-btn { opacity:1; }
+    .ch-item.pinned .pin-btn { color:#7c3aed; }
+    .chart-legend { display:flex; gap:.6rem; flex-wrap:wrap; margin-bottom:.4rem; font-size:.74rem; min-height:1.1rem; }
+    .chart-legend-item { display:flex; align-items:center; gap:.25rem; }
+    .chart-legend-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+    .chart-legend-val { font-family:monospace; font-weight:700; color:#1f2937; min-width:44px; }
     .ch-swatch { width:10px; height:10px; border-radius:2px; flex-shrink:0; }
 
     /* ─── Chart area ──────────────────────────────────────────────────────── */
@@ -180,10 +187,7 @@
         <div id="tabChannels">
           <div id="loadingState" class="d-none"><span class="spinner-border" style="color:#7c3aed"></span><span>Loading…</span></div>
           <div id="emptyState"><i class="bi bi-activity"></i><p>Select a session and pick laps &amp; channels to analyse</p></div>
-          <div id="mainChartWrap" class="chart-card d-none">
-            <div class="chart-title" id="mainChartTitle">—</div>
-            <div class="uplot-wrap" id="mainChartEl"></div>
-          </div>
+          <div id="pinnedChartsWrap"></div>
           <div id="speedChart" class="chart-card d-none">
             <div class="chart-title">GPS Speed <span class="units">km/h</span></div>
             <div class="uplot-wrap" id="speedChartEl"></div>
@@ -379,14 +383,14 @@ let compareSessionId = null;
 let sessionData   = null;   // { session, laps, channels }
 let compareData   = null;
 let insights      = [];
-let activeLaps    = [];     // array of lap_index (max 8)
-let activeChannel = null;   // { group, channel_index }
+let activeLaps      = [];     // array of lap_index (max 8)
+let pinnedChannels  = [];     // channels shown as stacked charts, max 4
 let activeCompareLap = null;
 
 const LAP_COLORS = ['#7c3aed','#e74c3c','#2ecc71','#3498db','#f39c12','#1abc9c','#9b59b6','#e67e22'];
 
 // uPlot instances (so we can destroy/recreate)
-let uMain = null, uSpeed = null, uThrottle = null, uDelta = null;
+let uPinned = [], uSpeed = null, uThrottle = null, uDelta = null;
 let uCompSpeed = null, uCompThrottle = null;
 
 const compareModal = new bootstrap.Modal(document.getElementById('compareModal'));
@@ -428,7 +432,7 @@ document.getElementById('sessionPicker').onchange = function() {
 async function loadSession(id) {
   sessionId = id;
   activeLaps = [];
-  activeChannel = null;
+  pinnedChannels = [];
   destroyCharts();
   document.getElementById('emptyState').style.display = 'none';
   showLoading(true);
@@ -598,24 +602,32 @@ function buildChannelList() {
 
     const list = document.createElement('div');
     groups[cat].forEach(ch => {
-      const isAct = activeChannel && activeChannel.group === ch.channel_group && activeChannel.channel_index === ch.channel_index;
+      const isPinned = pinnedChannels.some(p => p.group === ch.channel_group && p.channel_index === ch.channel_index);
       const item = document.createElement('div');
-      item.className = 'ch-item' + (isAct ? ' active' : '');
+      item.className = 'ch-item' + (isPinned ? ' pinned' : '');
       item.dataset.group = ch.channel_group;
       item.dataset.idx   = ch.channel_index;
       item.innerHTML = `
         <span class="ch-swatch" style="background:${ch.default_color}"></span>
-        <span>${esc(ch.name)}</span>
-        ${ch.units ? `<span class="text-muted" style="font-size:.7rem">${esc(ch.units)}</span>` : ''}`;
-      item.addEventListener('click', () => selectChannel(ch));
+        <span class="flex-grow-1">${esc(ch.name)}</span>
+        ${ch.units ? `<span class="text-muted me-1" style="font-size:.7rem">${esc(ch.units)}</span>` : ''}
+        <button class="pin-btn" title="${isPinned ? 'Unpin' : 'Pin channel'}"><i class="bi bi-pin${isPinned ? '-fill' : ''}"></i></button>`;
+      item.addEventListener('click', () => togglePinnedChannel(ch));
       list.appendChild(item);
     });
     el.appendChild(list);
   });
 }
 
-function selectChannel(ch) {
-  activeChannel = { group: ch.channel_group, channel_index: ch.channel_index };
+function togglePinnedChannel(ch) {
+  const chKey = `${ch.channel_group}_${ch.channel_index}`;
+  const idx = pinnedChannels.findIndex(p => `${p.group}_${p.channel_index}` === chKey);
+  if (idx >= 0) {
+    pinnedChannels.splice(idx, 1);
+  } else {
+    if (pinnedChannels.length >= 4) pinnedChannels.shift(); // drop oldest when at limit
+    pinnedChannels.push({ group: ch.channel_group, channel_index: ch.channel_index });
+  }
   buildChannelList();
   updateChannelRightPanel(ch);
   refreshCharts();
@@ -649,26 +661,26 @@ async function refreshCharts() {
 
   showLoading(true);
   try {
-    // Build series for the active channel
-    const seriesData = { t: null, series: [] };
-    let chInfo = null;
+    // Render each pinned channel as a stacked chart card
+    destroyPinnedCharts();
+    const pinnedWrap = document.getElementById('pinnedChartsWrap');
+    pinnedWrap.innerHTML = '';
 
-    if (activeChannel) {
-      chInfo = sessionData.channels.find(c => c.channel_group === activeChannel.group && c.channel_index === activeChannel.channel_index);
-
+    for (const pin of pinnedChannels) {
+      const chInfo = sessionData.channels.find(c => c.channel_group === pin.group && c.channel_index === pin.channel_index);
+      if (!chInfo) continue;
+      const seriesData = { t: null, series: [] };
       for (const lapIdx of activeLaps) {
-        const r = await aGet(`${API}/${sessionId}/channels/${activeChannel.group}/${activeChannel.channel_index}/samples?lap=${lapIdx}`);
-        if (!r.data) continue;
-        const { times, values } = r.data;
-        if (!times?.length) continue;
-        if (!seriesData.t) seriesData.t = times;
-        seriesData.series.push({ lapIdx, values, color: LAP_COLORS[activeLaps.indexOf(lapIdx) % LAP_COLORS.length] });
+        const r = await aGet(`${API}/${sessionId}/channels/${pin.group}/${pin.channel_index}/samples?lap=${lapIdx}`);
+        if (!r.data?.times?.length) continue;
+        if (!seriesData.t) seriesData.t = r.data.times;
+        seriesData.series.push({ lapIdx, values: r.data.values, color: LAP_COLORS[activeLaps.indexOf(lapIdx) % LAP_COLORS.length] });
       }
+      if (seriesData.series.length) renderPinnedChart(seriesData, chInfo, pinnedWrap);
     }
 
-    // Main chart
-    if (chInfo && seriesData.series.length) {
-      renderMainChart(seriesData, chInfo);
+    if (pinnedChannels.length === 0) {
+      pinnedWrap.innerHTML = '<div class="text-muted small text-center py-3" style="color:#9ca3af"><i class="bi bi-pin me-1"></i>Click any channel in the left panel to chart it here (up to 4)</div>';
     }
 
     // Always load Speed + TPS sub-charts
@@ -676,35 +688,59 @@ async function refreshCharts() {
     await renderDeltaChart();
 
     document.getElementById('emptyState').style.display = 'none';
-    document.getElementById('mainChartWrap').classList.toggle('d-none', !chInfo || !seriesData.series.length);
     document.getElementById('deltaChart').classList.remove('d-none');
   } finally {
     showLoading(false);
   }
 }
 
-function renderMainChart(data, ch) {
-  destroyChart('uMain');
-  const el = document.getElementById('mainChartEl');
-  el.innerHTML = '';
-  const wrap = el.getBoundingClientRect();
-  const w = Math.max(wrap.width || 800, 400);
+function renderPinnedChart(data, ch, container) {
+  const card = document.createElement('div');
+  card.className = 'chart-card mb-2';
 
-  const times = data.t;
-  const uData = [times, ...data.series.map(s => s.values)];
+  // Header: title + live legend
+  const header = document.createElement('div');
+  header.className = 'd-flex align-items-center gap-2 mb-1 flex-wrap';
+  header.innerHTML = `<span class="chart-title mb-0">${esc(ch.name)} <span class="units">${esc(ch.units || '')}</span></span>`;
+  const legendEl = document.createElement('div');
+  legendEl.className = 'chart-legend ms-1';
+  data.series.forEach(s => {
+    legendEl.innerHTML += `<span class="chart-legend-item"><span class="chart-legend-dot" style="background:${s.color}"></span><span style="color:#6b7280;font-size:.72rem">L${s.lapIdx+1}</span><span class="chart-legend-val" id="lv_${ch.channel_group}_${ch.channel_index}_${s.lapIdx}">—</span></span>`;
+  });
+  header.appendChild(legendEl);
+  card.appendChild(header);
 
+  const el = document.createElement('div');
+  el.className = 'uplot-wrap';
+  card.appendChild(el);
+  container.appendChild(card);
+
+  const w = Math.max((container.getBoundingClientRect().width || 860) - 40, 400);
+  const uData = [data.t, ...data.series.map(s => s.values)];
   const opts = {
     width: w, height: 200,
     cursor: { sync: { key: 'rts-cursor' } },
     series: [
       { label: 'Time' },
-      ...data.series.map((s, i) => ({ label: `L${s.lapIdx+1}`, stroke: s.color, width: 1.5 })),
+      ...data.series.map(s => ({ label: `L${s.lapIdx+1}`, stroke: s.color, width: 1.5 })),
     ],
-    axes: [{ label: 'Time (s)' }, { label: `${ch.name} (${ch.units})`, size: 60 }],
-    scales: { x: { time: false }, y: {} },
+    axes: [{ label: 'Time (s)' }, { label: `${ch.name}${ch.units ? ' ('+ch.units+')' : ''}`, size: 60 }],
+    scales: { x: { time: false } },
+    hooks: {
+      setCursor: [u => {
+        const { idx } = u.cursor;
+        data.series.forEach((s, si) => {
+          const valEl = document.getElementById(`lv_${ch.channel_group}_${ch.channel_index}_${s.lapIdx}`);
+          if (!valEl) return;
+          if (idx == null) { valEl.textContent = '—'; return; }
+          const v = u.data[si + 1]?.[idx];
+          valEl.textContent = v != null ? Number(v).toFixed(2) : '—';
+        });
+      }]
+    }
   };
-  uMain = new uPlot(opts, uData, el);
-  document.getElementById('mainChartTitle').innerHTML = `${esc(ch.name)} <span class="units">${esc(ch.units || '')}</span>`;
+  const u = new uPlot(opts, uData, el);
+  uPinned.push(u);
 }
 
 async function renderSubCharts() {
@@ -794,8 +830,16 @@ async function renderDeltaChart() {
   uDelta = new uPlot(opts, uData, el);
 }
 
+function destroyPinnedCharts() {
+  uPinned.forEach(u => { try { u.destroy(); } catch (_) {} });
+  uPinned = [];
+}
+
 function destroyCharts() {
-  ['uMain','uSpeed','uThrottle','uDelta','uCompSpeed','uCompThrottle'].forEach(k => destroyChart(k));
+  destroyPinnedCharts();
+  ['uSpeed','uThrottle','uDelta','uCompSpeed','uCompThrottle'].forEach(k => destroyChart(k));
+  const w = document.getElementById('pinnedChartsWrap');
+  if (w) w.innerHTML = '';
 }
 
 function findChannel(re) {
@@ -808,13 +852,14 @@ async function renderTrackMap() {
   const ctx2   = canvas.getContext('2d');
   const status = document.getElementById('mapStatus');
 
-  // Need at least one active lap with GPS
-  const gpsLat = sessionData?.channels?.find(c => /^(gps_?lat|latitude)/i.test(c.name));
-  const gpsLon = sessionData?.channels?.find(c => /^(gps_?lon|longitude)/i.test(c.name));
-  const gpsSpd = sessionData?.channels?.find(c => /^(gps_speed|speed)/i.test(c.name));
+  // Match lat/lon coordinate channels; explicitly exclude LatAcc/LonAcc (those are accelerations)
+  const gpsLat = sessionData?.channels?.find(c => /lat(itude)?$/i.test(c.name));
+  const gpsLon = sessionData?.channels?.find(c => /lon(gitude)?$/i.test(c.name));
+  const gpsSpd = sessionData?.channels?.find(c => /^(gps_?speed|speed$)/i.test(c.name));
 
-  if (!gpsLat || !gpsLon || !activeLaps.length) {
-    status.textContent = 'No GPS channels found or no active laps.';
+  if (!activeLaps.length) { status.textContent = 'Select a lap to render the track map.'; return; }
+  if (!gpsLat || !gpsLon) {
+    status.textContent = 'No GPS latitude/longitude channels found. AiM XRK files need GPS position channels (not just GPS_LatAcc/GPS_LonAcc which are accelerations).';
     return;
   }
 
@@ -831,6 +876,13 @@ async function renderTrackMap() {
     const spds = spdR.data?.values;
 
     if (!lats?.length || !lons?.length) { status.textContent = 'No GPS data for this lap.'; return; }
+    // Validate values look like geographic coordinates, not raw acceleration data
+    const latInRange = lats.some(v => v !== 0 && Math.abs(v) <= 90);
+    const lonInRange = lons.some(v => v !== 0 && Math.abs(v) <= 180);
+    if (!latInRange || !lonInRange) {
+      status.textContent = 'GPS channels found but data is not geographic coordinates (values outside ±90/±180). This XRK file may only contain GPS-derived channels (speed, acceleration) without raw position data.';
+      return;
+    }
 
     // Map lat/lon → canvas coords
     const minLat = Math.min(...lats), maxLat = Math.max(...lats);
@@ -1092,6 +1144,14 @@ function toggleSection(id) {
 function esc(s) { return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function fmtLap(s) { const m=Math.floor(s/60); return `${m}:${String((s%60).toFixed(3)).padStart(6,'0')}`; }
 function fmtDur(s) { const m=Math.floor(s/60),sc=Math.floor(s%60); return `${m}m ${sc}s`; }
+
+// ── Responsive chart resize ────────────────────────────────────────────────
+new ResizeObserver(() => {
+  const w = Math.max((document.getElementById('chartArea')?.getBoundingClientRect().width || 860) - 40, 400);
+  [...uPinned, window.uSpeed, window.uThrottle, window.uDelta, window.uCompSpeed, window.uCompThrottle].forEach(u => {
+    if (u) try { u.setSize({ width: w, height: u.height }); } catch (_) {}
+  });
+}).observe(document.getElementById('centerPanel'));
 
 // ── Start ─────────────────────────────────────────────────────────────────
 init().catch(console.error);
