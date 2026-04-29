@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS drive_imports (
   file_size        BIGINT,                        -- bytes
   file_modified_at TIMESTAMPTZ,                   -- Drive modifiedTime
   imported_at      TIMESTAMPTZ DEFAULT NOW(),
-  event_id         INTEGER     REFERENCES events(id) ON DELETE SET NULL,
+  event_id         TEXT        REFERENCES events(id) ON DELETE SET NULL,
   status           TEXT        NOT NULL DEFAULT 'new',  -- new | reviewed | skipped
   notes            TEXT,
   -- CSV/TXT export metadata (Race Studio 3 channel exports)
