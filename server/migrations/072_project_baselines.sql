@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS project_baselines (
   id          UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
   plan_id     TEXT        NOT NULL REFERENCES project_plans(id) ON DELETE CASCADE,
   name        TEXT        NOT NULL,
-  created_by  INTEGER     REFERENCES users(id) ON DELETE SET NULL,
+  created_by  VARCHAR(36) REFERENCES users(id) ON DELETE SET NULL,
   created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
