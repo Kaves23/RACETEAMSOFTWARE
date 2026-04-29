@@ -131,12 +131,12 @@ function fmtLap(s) {
 }
 
 // ── Helper: store parsed results in DB ─────────────────────────────────────
-async function storeParseResults(sessionId, parsed, sampleDataMap) {
+async function storeParseResults(sessionId, parsed) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
-    const { session, laps, channels } = parsed;
+    const { session, laps, channels, samples } = parsed;
 
     // Update session metadata
     await client.query(
@@ -167,7 +167,8 @@ async function storeParseResults(sessionId, parsed, sampleDataMap) {
       );
     }
 
-    // Upsert channels + samples
+    // Upsert channels — collect ID map keyed by `${group}_${channelIndex}` for sample inserts
+    const channelIdMap = {};
     for (const ch of channels) {
       const { rows: [row] } = await client.query(
         `INSERT INTO telemetry_channels
@@ -192,20 +193,22 @@ async function storeParseResults(sessionId, parsed, sampleDataMap) {
           ch.category, ch.default_color
         ]
       );
+      channelIdMap[`${ch.channel_group}_${ch.channel_index}`] = row.id;
+    }
 
-      // If sample data is available inline (CSV), store it for lap_index = null (whole session)
-      if (sampleDataMap && sampleDataMap[ch.channel_index]) {
-        const { t, v } = sampleDataMap[ch.channel_index];
-        await client.query(
-          `INSERT INTO telemetry_samples (channel_id, lap_index, sample_count, times, values)
-           VALUES ($1, NULL, $2, $3::jsonb, $4::jsonb)
-           ON CONFLICT (channel_id, lap_index) DO UPDATE SET
-             sample_count = EXCLUDED.sample_count,
-             times        = EXCLUDED.times,
-             values       = EXCLUDED.values`,
-          [row.id, t.length, JSON.stringify(t), JSON.stringify(v)]
-        );
-      }
+    // Insert all samples (XRK: one row per channel per lap; CSV: one row per channel, lap_index=NULL)
+    for (const s of (samples || [])) {
+      const chanId = channelIdMap[`${s.group}_${s.channelIndex}`];
+      if (!chanId) continue;
+      await client.query(
+        `INSERT INTO telemetry_samples (channel_id, lap_index, sample_count, times, values)
+         VALUES ($1,$2,$3,$4::jsonb,$5::jsonb)
+         ON CONFLICT (channel_id, lap_index) DO UPDATE SET
+           sample_count = EXCLUDED.sample_count,
+           times        = EXCLUDED.times,
+           values       = EXCLUDED.values`,
+        [chanId, s.lapIndex ?? null, s.t.length, JSON.stringify(s.t), JSON.stringify(s.v)]
+      );
     }
 
     await client.query('COMMIT');
@@ -363,34 +366,9 @@ router.get('/:id/channels/:group/:channelIndex/samples', async (req, res, next) 
       });
     }
 
-    // Live parse if file still on disk
-    const { rows: [sess] } = await pool.query(`SELECT file_path FROM telemetry_sessions WHERE id=$1`, [sessionId]);
-    if (!sess || !sess.file_path || !fs.existsSync(sess.file_path)) {
-      return res.status(404).json({ error: 'Sample data not cached and source file unavailable. Re-upload to regenerate.' });
-    }
-
-    // Only XRK groups supported for live parse
-    if (group === 'csv') {
-      return res.status(404).json({ error: 'CSV samples not cached. Re-upload file.' });
-    }
-
-    const { t, v, min, max } = await xrk.getChannelSamples(sess.file_path, group, channelIndex, lapIndex);
-
-    // Cache it asynchronously
-    pool.query(
-      `INSERT INTO telemetry_samples (channel_id, lap_index, sample_count, times, values)
-       VALUES ($1,$2,$3,$4::jsonb,$5::jsonb)
-       ON CONFLICT (channel_id, lap_index) DO UPDATE SET sample_count=EXCLUDED.sample_count, times=EXCLUDED.times, values=EXCLUDED.values`,
-      [ch.id, lapIndex, t.length, JSON.stringify(t), JSON.stringify(v)]
-    ).catch(e => console.error('[telemetry] cache write error:', e.message));
-
-    // Update channel min/max
-    pool.query(
-      `UPDATE telemetry_channels SET value_min=LEAST(COALESCE(value_min,999999),$1), value_max=GREATEST(COALESCE(value_max,-999999),$2) WHERE id=$3`,
-      [min, max, ch.id]
-    ).catch(() => {});
-
-    res.json({ success: true, data: { channel_id: ch.id, group, channel_index: channelIndex, name: ch.name, units: ch.units, lap: lapIndex, times: t, values: v, value_min: min, value_max: max, sample_count: t.length } });
+    // All samples are stored in the DB at upload time (parseXrkFull / parseCSV both store upfront).
+    // If not cached, the file has already been deleted — re-upload required.
+    return res.status(404).json({ error: 'Sample data not cached and source file unavailable. Re-upload to regenerate.' });
   } catch (err) { next(err); }
 });
 
@@ -471,16 +449,11 @@ router.post('/upload', upload.single('file'), async (req, res, next) => {
       const isBinaryFormat = ['xrk', 'xrz', 'drk'].includes(ext);
 
       let parsed = null;
-      let sampleDataMap = null;
 
       if (isTextFormat) {
         // CSV/TXT: parse fully in-process
         const content = fs.readFileSync(filePath, 'utf8');
-        const result = xrk.parseCSV(content);
-        parsed       = result;
-        sampleDataMap = result.sampleData;
-        // Mark as csv_only
-        parsed.session._parse_status = 'csv_only';
+        parsed = xrk.parseCSV(content);
       } else if (isBinaryFormat) {
         if (!xrk.dllAvailable()) {
           await pool.query(
@@ -489,8 +462,7 @@ router.post('/upload', upload.single('file'), async (req, res, next) => {
           );
           return;
         }
-        parsed = await xrk.parseXrk(filePath);
-        parsed.session._parse_status = 'parsed';
+        parsed = await xrk.parseXrkFull(filePath);
       } else {
         await pool.query(
           `UPDATE telemetry_sessions SET parse_status='error', parse_error='Unsupported file format' WHERE id=$1`,
@@ -499,9 +471,9 @@ router.post('/upload', upload.single('file'), async (req, res, next) => {
         return;
       }
 
-      await storeParseResults(sessionId, parsed, sampleDataMap);
+      await storeParseResults(sessionId, parsed);
 
-      // Override parse_status if CSV
+      // Override parse_status to csv_only for text uploads
       if (isTextFormat) {
         await pool.query(`UPDATE telemetry_sessions SET parse_status='csv_only' WHERE id=$1`, [sessionId]);
       }
@@ -509,11 +481,9 @@ router.post('/upload', upload.single('file'), async (req, res, next) => {
       // Run insights
       await computeInsights(sessionId);
 
-      // Clean up file (CSV — parsed into DB; XRK files kept for on-demand sample fetch)
-      if (isTextFormat) {
-        fs.unlink(filePath, () => {});
-        await pool.query(`UPDATE telemetry_sessions SET file_path=NULL WHERE id=$1`, [sessionId]);
-      }
+      // Delete source file and clear file_path — all data is now in the DB
+      fs.unlink(filePath, () => {});
+      await pool.query(`UPDATE telemetry_sessions SET file_path=NULL WHERE id=$1`, [sessionId]);
 
     } catch (err) {
       console.error(`[telemetry] parse error session ${sessionId}:`, err.message);

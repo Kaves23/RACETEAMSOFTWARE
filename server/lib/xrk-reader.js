@@ -111,9 +111,10 @@ function loadDll() {
       lib.fn[`get_${p}channel_name`]            = lib.func(`get_${p}channel_name`,            'string', ['int', 'int']);
       lib.fn[`get_${p}channel_units`]           = lib.func(`get_${p}channel_units`,           'string', ['int', 'int']);
       lib.fn[`get_${p}channel_samples_count`]   = lib.func(`get_${p}channel_samples_count`,   'int',    ['int', 'int']);
-      lib.fn[`get_${p}channel_samples`]         = lib.func(`get_${p}channel_samples`,         'int',    ['int', 'int', koffi.out(koffi.array('double', 1)), koffi.out(koffi.array('double', 1)), 'int']);
+      // 'void *' params: koffi passes raw TypedArray buffer pointer — C writes directly into Float64Array memory
+      lib.fn[`get_${p}channel_samples`]         = lib.func(`get_${p}channel_samples`,         'int',    ['int', 'int', 'void *', 'void *', 'int']);
       lib.fn[`get_lap_${p}channel_samples_count`] = lib.func(`get_lap_${p}channel_samples_count`, 'int', ['int', 'int', 'int']);
-      lib.fn[`get_lap_${p}channel_samples`]     = lib.func(`get_lap_${p}channel_samples`,     'int',    ['int', 'int', 'int', koffi.out(koffi.array('double', 1)), koffi.out(koffi.array('double', 1)), 'int']);
+      lib.fn[`get_lap_${p}channel_samples`]     = lib.func(`get_lap_${p}channel_samples`,     'int',    ['int', 'int', 'int', 'void *', 'void *', 'int']);
     }
 
     dllLib       = lib;
@@ -336,13 +337,139 @@ async function parseXrk(absPath) {
   });
 }
 
+// ── Safe min/max for TypedArrays — avoids Math.min(...largeArray) stack overflow
+function typedMinMax(arr, n) {
+  let min = Infinity, max = -Infinity;
+  for (let i = 0; i < n; i++) {
+    if (arr[i] < min) min = arr[i];
+    if (arr[i] > max) max = arr[i];
+  }
+  return { min: isFinite(min) ? min : 0, max: isFinite(max) ? max : 0 };
+}
+
 /**
- * Fetch LTTB-downsampled samples for one channel.
- * @param {string} absPath
- * @param {string} group  - 'logged' | 'gps' | 'gps_raw'
- * @param {number} channelIndex
- * @param {number|null} lapIndex - null = whole session
- * @returns {{ t: number[], v: number[], min: number, max: number }}
+ * Open an XRK/XRZ/DRK file ONCE and read ALL channels × ALL laps in a single
+ * DLL session. All sample data is LTTB-downsampled to 500 pts and returned inline.
+ * The caller should delete the source file and set file_path=NULL after storing results.
+ *
+ * Returns { session, laps, channels, samples }
+ * where samples = [{ group, channelIndex, lapIndex, t: number[], v: number[], min, max }]
+ */
+async function parseXrkFull(absPath) {
+  if (!dllAvailable) throw new Error('AiM DLL not available. Set AIM_XRK_LIB env var on the server.');
+
+  return withDll(() => {
+    const fn  = dllLib.fn;
+    const idx = fn.open_file(absPath);
+    if (!idx || idx <= 0) throw new Error(`open_file returned ${idx} — file may be corrupt or unsupported`);
+
+    try {
+      // ── Date / time ───────────────────────────────────────────────────
+      let startedAt = null;
+      try {
+        const tmPtr = fn.get_date_and_time(idx);
+        if (tmPtr) {
+          const tm = koffi.decode(tmPtr, 'struct_tm');
+          const d  = new Date(tm.tm_year + 1900, tm.tm_mon, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+          if (!isNaN(d.getTime())) startedAt = d.toISOString();
+        }
+      } catch (_) {}
+
+      // ── Metadata ──────────────────────────────────────────────────────
+      const session = {
+        racer_name:   fn.get_racer_name(idx)        || '',
+        vehicle_name: fn.get_vehicle_name(idx)       || '',
+        track_name:   fn.get_track_name(idx)         || '',
+        championship: fn.get_championship_name(idx)  || '',
+        venue_type:   fn.get_venue_type_name(idx)    || '',
+        started_at:   startedAt,
+      };
+
+      // ── Laps ──────────────────────────────────────────────────────────
+      const lapCount = fn.get_laps_count(idx) || 0;
+      const laps = [];
+      for (let k = 0; k < lapCount; k++) {
+        const startBuf = [0.0], durBuf = [0.0];
+        try {
+          const rc = fn.get_lap_info(idx, k, startBuf, durBuf);
+          if (rc > 0) laps.push({ lap_index: k, start_s: startBuf[0], duration_s: durBuf[0], is_outlap: false, is_inlap: false });
+        } catch (_) {}
+      }
+      if (laps.length > 2) {
+        const sorted = laps.map(l => l.duration_s).slice().sort((a, b) => a - b);
+        const mid    = Math.floor(sorted.length / 2);
+        const median = sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+        laps[0].is_outlap               = laps[0].duration_s              > median * 1.5;
+        laps[laps.length - 1].is_inlap  = laps[laps.length - 1].duration_s > median * 1.5;
+      }
+      const totalDuration = laps.reduce((s, l) => s + l.duration_s, 0);
+
+      // ── Channels ──────────────────────────────────────────────────────
+      const channels    = [];
+      const chanMetaMap = {}; // `${group}_${c}` → channel object (for updating min/max)
+
+      for (const [group, prefix] of Object.entries(GROUP_PREFIX)) {
+        const n = fn[`get_${prefix}channels_count`](idx) || 0;
+        for (let c = 0; c < n; c++) {
+          const name   = fn[`get_${prefix}channel_name`](idx, c)  || `CH_${c}`;
+          const units  = fn[`get_${prefix}channel_units`](idx, c) || '';
+          const sc     = fn[`get_${prefix}channel_samples_count`](idx, c) || 0;
+          const rateHz = totalDuration > 0 ? parseFloat((sc / totalDuration).toFixed(2)) : null;
+          const ch = {
+            channel_group: group, channel_index: c,
+            name, units, sample_count: sc, sample_rate_hz: rateHz,
+            value_min: null, value_max: null,
+            category: categorizeChannel(name), default_color: defaultChannelColor(name),
+          };
+          channels.push(ch);
+          chanMetaMap[`${group}_${c}`] = ch;
+        }
+      }
+
+      // ── All samples — file stays open for this entire block ────────────
+      const samples = [];
+      for (const [group, prefix] of Object.entries(GROUP_PREFIX)) {
+        const n = fn[`get_${prefix}channels_count`](idx) || 0;
+        for (let c = 0; c < n; c++) {
+          for (let lapIdx = 0; lapIdx < lapCount; lapIdx++) {
+            let nSamples = 0;
+            try { nSamples = fn[`get_lap_${prefix}channel_samples_count`](idx, lapIdx, c) || 0; } catch (_) { continue; }
+            if (nSamples <= 0) continue;
+
+            // Float64Array passed via 'void *' — C writes directly into the underlying buffer
+            const timeBuf = new Float64Array(nSamples);
+            const valBuf  = new Float64Array(nSamples);
+            let rc = 0;
+            try { rc = fn[`get_lap_${prefix}channel_samples`](idx, lapIdx, c, timeBuf, valBuf, nSamples); } catch (_) { continue; }
+            if (rc <= 0) continue;
+
+            const { min, max } = typedMinMax(valBuf, nSamples);
+            const { t, v }     = lttb(timeBuf, valBuf, 500);
+
+            // Accumulate aggregate min/max on the channel metadata
+            const meta = chanMetaMap[`${group}_${c}`];
+            if (meta) {
+              meta.value_min = meta.value_min == null ? min : Math.min(meta.value_min, min);
+              meta.value_max = meta.value_max == null ? max : Math.max(meta.value_max, max);
+            }
+            samples.push({ group, channelIndex: c, lapIndex: lapIdx, t, v, min, max });
+          }
+        }
+      }
+
+      return {
+        session: { ...session, duration_s: parseFloat(totalDuration.toFixed(3)) },
+        laps, channels, samples,
+      };
+
+    } finally {
+      try { fn.close_file_i(idx); } catch (_) {}
+    }
+  });
+}
+
+/**
+ * @deprecated Use parseXrkFull — this returns no sample data and the file must stay on disk.
  */
 async function getChannelSamples(absPath, group, channelIndex, lapIndex) {
   if (!dllAvailable) throw new Error('AiM DLL not available');
@@ -498,16 +625,17 @@ function parseCSV(content) {
   }
 
   // Build channels and sample data (skip time column and lap column)
-  const channels    = [];
-  const sampleData  = {};
-  let channelIndex  = 0;
+  const channels   = [];
+  const samples    = [];  // [{ group, channelIndex, lapIndex: null, t, v, min, max }]
+  let channelIndex = 0;
 
   for (let c = 0; c < colCount; c++) {
     if (c === timeColIdx || c === lapColIdx) continue;
     const { name, units } = parsedHeaders[c];
     const vals = allValues[c];
-    const min  = vals.length ? Math.min(...vals) : 0;
-    const max  = vals.length ? Math.max(...vals) : 0;
+    let min = Infinity, max = -Infinity;
+    for (const v of vals) { if (v < min) min = v; if (v > max) max = v; }
+    if (!isFinite(min)) { min = 0; max = 0; }
     const rateHz = duration > 0 ? parseFloat((rowCount / duration).toFixed(2)) : null;
 
     channels.push({
@@ -523,7 +651,9 @@ function parseCSV(content) {
       default_color:  defaultChannelColor(name),
     });
 
-    sampleData[channelIndex] = lttb(times, vals, 500);
+    const { t, v } = lttb(times, vals, 500);
+    // lapIndex: null = whole session (CSV has no per-lap breakdown by default)
+    samples.push({ group: 'csv', channelIndex, lapIndex: null, t, v, min, max });
     channelIndex++;
   }
 
@@ -545,15 +675,14 @@ function parseCSV(content) {
     },
     laps,
     channels,
-    sampleData,  // { channelIndex: { t: [], v: [] } }
+    samples,  // [{ group: 'csv', channelIndex, lapIndex: null, t, v, min, max }]
   };
 }
 
 // ── Exports ────────────────────────────────────────────────────────────────
 module.exports = {
   dllAvailable: () => dllAvailable,
-  parseXrk,
-  getChannelSamples,
+  parseXrkFull,
   parseCSV,
   lttb,
   categorizeChannel,
