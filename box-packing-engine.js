@@ -3470,97 +3470,313 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
-    const label = box.barcode || box.name;
-    const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=400x400&margin=4&data=' + encodeURIComponent(label);
+    const label       = box.barcode || box.name;
+    const qrUrl       = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=2&data=' + encodeURIComponent(label);
+    const locationName = (allLocations.find(l => String(l.id) === String(box.location)))?.name || box.location || '—';
+    const now          = new Date();
+    const printedAt    = now.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+                       + ' at '
+                       + now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 
-    const contentRows = contents.map(c => {
+    // Build contents table rows — group by item so duplicates show correct qty
+    let rowNum = 0;
+    const tableRows = contents.map(c => {
       const item = getItem(c.itemId, c.itemType);
-      return item ? `<div class="item">• ${escHtml(item.name)} <span class="item-bc">(${escHtml(item.barcode)})</span></div>` : '';
+      if (!item) return '';
+      rowNum++;
+      const qty = c.quantityPacked || 1;
+      const qtyCell = qty > 1
+        ? `<td class="qty qty-multi">${qty}</td>`
+        : `<td class="qty">${qty}</td>`;
+      const stripe = rowNum % 2 === 0 ? ' class="stripe"' : '';
+      return `<tr${stripe}>
+          <td class="row-num">${rowNum}</td>
+          <td class="item-name">${escHtml(item.name)}</td>
+          <td class="item-cat">${escHtml(item.category || '—')}</td>
+          <td class="item-bc-cell"><span class="mono">${escHtml(item.barcode || '—')}</span></td>
+          ${qtyCell}
+        </tr>`;
     }).join('');
+
+    const totalLines = rowNum;
+    const totalUnits = contents.reduce((sum, c) => sum + (c.quantityPacked || 1), 0);
 
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Box Label — ${escHtml(label)}</title>
+  <title>Packing Manifest — ${escHtml(box.name)}</title>
   <style>
-    * { margin:0; padding:0; box-sizing:border-box; }
-    body { font-family: Arial, Helvetica, sans-serif; background:#fff; }
-    .label {
-      width: 180mm;
-      margin: 10mm auto;
-      border: 2px solid #000;
-      border-radius: 3mm;
-      padding: 8mm 10mm;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 5mm;
+    @page { size: A4; margin: 15mm; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 9.5pt;
+      color: #1a1f2e;
+      background: #fff;
     }
-    .logo-row {
+
+    /* ── Header ─────────────────────────────────────────── */
+    .page-header {
+      background: #1a1f2e;
+      color: #fff;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      width: 100%;
+      padding: 5mm 7mm;
+      border-radius: 2mm 2mm 0 0;
     }
-    .logo-kokoro { max-height: 14mm; max-width: 40mm; object-fit: contain; }
-    .logo-ftw    { max-height: 10mm; max-width: 32mm; object-fit: contain; }
-    .box-name {
-      font-size: 16pt;
-      font-weight: 800;
+    .page-header .logo-left  { max-height: 10mm; max-width: 36mm; object-fit: contain; }
+    .page-header .logo-right { max-height: 10mm; max-width: 36mm; object-fit: contain; }
+    .page-header .doc-title  {
       text-align: center;
+      flex: 1;
+      padding: 0 6mm;
+    }
+    .page-header .doc-title h1 {
+      font-size: 14pt;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      line-height: 1.1;
+    }
+    .page-header .doc-title p {
+      font-size: 8pt;
+      opacity: 0.7;
+      margin-top: 1.5mm;
       letter-spacing: 0.5px;
     }
-    .qr-img { width: 52mm; height: 52mm; display: block; }
-    .barcode-text {
-      font-size: 13pt;
-      font-weight: 700;
-      letter-spacing: 2px;
-      color: #000;
+
+    /* ── Box identity row ────────────────────────────────── */
+    .identity-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 5mm 7mm 4mm;
+      border-left: 1px solid #d0d4de;
+      border-right: 1px solid #d0d4de;
+      background: #f7f8fa;
     }
-    .details {
-      width: 100%;
-      border-top: 1px solid #ccc;
-      padding-top: 4mm;
+    .box-title { line-height: 1.25; }
+    .box-title .box-name {
+      font-size: 18pt;
+      font-weight: 800;
+      color: #1a1f2e;
+    }
+    .box-title .box-barcode {
+      font-family: 'Courier New', Courier, monospace;
       font-size: 9.5pt;
-      line-height: 1.7;
+      color: #555;
+      margin-top: 1.5mm;
+      letter-spacing: 1px;
     }
-    .contents {
-      width: 100%;
-      border-top: 1px solid #ccc;
-      padding-top: 4mm;
+    .qr-block {
+      text-align: center;
+    }
+    .qr-block img {
+      width: 22mm;
+      height: 22mm;
+      display: block;
+    }
+    .qr-block .qr-label {
+      font-size: 6.5pt;
+      color: #888;
+      margin-top: 1mm;
+      letter-spacing: 0.5px;
+    }
+
+    /* ── Metadata grid ───────────────────────────────────── */
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0;
+      border: 1px solid #d0d4de;
+      border-top: none;
+    }
+    .meta-cell {
+      padding: 2.5mm 4mm;
+      border-right: 1px solid #d0d4de;
+      border-bottom: 1px solid #d0d4de;
+    }
+    .meta-cell:nth-child(3n) { border-right: none; }
+    .meta-cell .meta-key {
+      font-size: 7pt;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: #888;
+      margin-bottom: 0.8mm;
+    }
+    .meta-cell .meta-val {
       font-size: 9pt;
-      line-height: 1.6;
+      font-weight: 600;
+      color: #1a1f2e;
     }
-    .contents-header { font-weight: 700; margin-bottom: 2mm; }
-    .item { margin-bottom: 1.5mm; }
-    .item-bc { color: #555; font-size: 8.5pt; }
+
+    /* ── Section heading ─────────────────────────────────── */
+    .section-heading {
+      background: #1a1f2e;
+      color: #fff;
+      padding: 2mm 4mm;
+      font-size: 8pt;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-top: 5mm;
+    }
+
+    /* ── Contents table ──────────────────────────────────── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 9pt;
+    }
+    thead th {
+      background: #eef0f5;
+      padding: 2mm 3mm;
+      text-align: left;
+      font-size: 7.5pt;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #444;
+      border-bottom: 1.5px solid #c8ccd8;
+    }
+    thead th.qty, tbody td.qty { text-align: center; width: 12mm; }
+    thead th.row-num, tbody td.row-num { text-align: center; width: 9mm; color: #aaa; }
+    tbody td {
+      padding: 2.2mm 3mm;
+      vertical-align: middle;
+      border-bottom: 1px solid #e8eaf0;
+      color: #1a1f2e;
+    }
+    tbody tr.stripe td { background: #f9fafc; }
+    td.item-name { font-weight: 600; }
+    td.item-cat  { color: #666; font-size: 8.5pt; }
+    td.item-bc-cell .mono {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 8pt;
+      color: #555;
+      letter-spacing: 0.5px;
+    }
+    td.qty      { font-size: 9pt; font-weight: 500; }
+    td.qty-multi {
+      font-weight: 800;
+      color: #1a4db5;
+      background: #e8effe;
+      border-radius: 2px;
+    }
+    .empty-row td {
+      text-align: center;
+      color: #aaa;
+      font-style: italic;
+      padding: 5mm;
+    }
+
+    /* ── Footer ──────────────────────────────────────────── */
+    .doc-footer {
+      margin-top: 5mm;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      padding: 3mm 0 0;
+      border-top: 2px solid #1a1f2e;
+      font-size: 8pt;
+      color: #555;
+    }
+    .doc-footer .totals { font-weight: 600; color: #1a1f2e; font-size: 9pt; }
+    .doc-footer .brand  { text-align: right; }
+    .doc-footer .brand strong { display: block; color: #1a1f2e; }
+
     @media print {
-      body { margin: 0; }
-      .label { margin: 8mm auto; border: 1.5pt solid #000; }
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     }
   </style>
 </head>
 <body>
-  <div class="label">
-    <div class="logo-row">
-      <img src="${KOKORO_LOGO}" class="logo-kokoro" alt="Kokoro Racing">
-      <img src="${FTW_LOGO}" class="logo-ftw" alt="FTW Motorsport">
+
+  <!-- Header -->
+  <div class="page-header">
+    <img src="${KOKORO_LOGO}" class="logo-left" alt="Kokoro Racing">
+    <div class="doc-title">
+      <h1>Packing Manifest</h1>
+      <p>Race Team Software — Logistics &amp; Equipment</p>
     </div>
-    <div class="box-name">${escHtml(box.name)}</div>
-    <img src="${qrUrl}" class="qr-img" alt="QR ${escHtml(label)}">
-    <div class="barcode-text">${escHtml(label)}</div>
-    <div class="details">
-      <div><strong>Dimensions:</strong> ${escHtml(box.length)} × ${escHtml(box.width)} × ${escHtml(box.height)} cm</div>
-      <div><strong>Weight Capacity:</strong> ${escHtml(String(box.weightCapacity))} kg</div>
-      <div><strong>Location:</strong> ${escHtml(box.location)}</div>
-      <div><strong>Items Inside:</strong> ${contents.length}</div>
-    </div>
-    ${contentRows ? `<div class="contents"><div class="contents-header">Contents:</div>${contentRows}</div>` : ''}
+    <img src="${FTW_LOGO}" class="logo-right" alt="FTW Motorsport">
   </div>
+
+  <!-- Box identity -->
+  <div class="identity-row">
+    <div class="box-title">
+      <div class="box-name">${escHtml(box.name)}</div>
+      <div class="box-barcode">${escHtml(label)}</div>
+    </div>
+    <div class="qr-block">
+      <img src="${qrUrl}" alt="QR ${escHtml(label)}">
+      <div class="qr-label">SCAN TO TRACK</div>
+    </div>
+  </div>
+
+  <!-- Metadata grid -->
+  <div class="meta-grid">
+    <div class="meta-cell">
+      <div class="meta-key">Location</div>
+      <div class="meta-val">${escHtml(locationName)}</div>
+    </div>
+    <div class="meta-cell">
+      <div class="meta-key">Box Type</div>
+      <div class="meta-val">${escHtml((box.boxType || 'Standard').replace(/^\w/, c => c.toUpperCase()))}</div>
+    </div>
+    <div class="meta-cell">
+      <div class="meta-key">Assigned Driver</div>
+      <div class="meta-val">${escHtml(box.assignedDriverName || '—')}</div>
+    </div>
+    <div class="meta-cell">
+      <div class="meta-key">Dimensions</div>
+      <div class="meta-val">${escHtml(String(box.length || '—'))} × ${escHtml(String(box.width || '—'))} × ${escHtml(String(box.height || '—'))} cm</div>
+    </div>
+    <div class="meta-cell">
+      <div class="meta-key">Weight Capacity</div>
+      <div class="meta-val">${escHtml(String(box.weightCapacity || '—'))} kg</div>
+    </div>
+    <div class="meta-cell">
+      <div class="meta-key">Status</div>
+      <div class="meta-val">${escHtml((box.status || 'Available').replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase()))}</div>
+    </div>
+    <div class="meta-cell" style="grid-column: 1 / -1; border-right: none;">
+      <div class="meta-key">Date &amp; Time Printed</div>
+      <div class="meta-val">${escHtml(printedAt)}</div>
+    </div>
+  </div>
+
+  <!-- Contents -->
+  <div class="section-heading">Box Contents — ${totalLines} line item${totalLines !== 1 ? 's' : ''}</div>
+  <table>
+    <thead>
+      <tr>
+        <th class="row-num">#</th>
+        <th>Item Name</th>
+        <th>Category</th>
+        <th>Barcode / Ref</th>
+        <th class="qty">Qty</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${tableRows || '<tr class="empty-row"><td colspan="5">No items packed in this box</td></tr>'}
+    </tbody>
+  </table>
+
+  <!-- Footer -->
+  <div class="doc-footer">
+    <div class="totals">Total: ${totalLines} line item${totalLines !== 1 ? 's' : ''} &mdash; ${totalUnits} unit${totalUnits !== 1 ? 's' : ''}</div>
+    <div class="brand">
+      <strong>Race Team Software</strong>
+      Printed ${escHtml(printedAt)}
+    </div>
+  </div>
+
   <script>
     window.addEventListener('load', function() {
-      setTimeout(function() { window.print(); }, 400);
+      setTimeout(function() { window.print(); }, 500);
     });
   <\/script>
 </body>
