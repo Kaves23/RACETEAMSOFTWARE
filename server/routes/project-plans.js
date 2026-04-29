@@ -14,21 +14,44 @@ router.get('/', async (req, res, next) => {
       SELECT p.*,
              e.name AS event_name,
              e.start_date AS event_start_date,
-             COUNT(t.id) AS task_count,
-             COUNT(t.id) FILTER (WHERE t.status NOT IN ('completed','cancelled')) AS active_task_count,
-             COUNT(t.id) FILTER (WHERE t.status = 'completed') AS completed_task_count,
-             COUNT(t.id) FILTER (WHERE t.status IN ('blocked','waiting_on')) AS blocked_tasks,
-             COUNT(t.id) FILTER (WHERE t.priority = 'critical' AND t.status NOT IN ('completed','cancelled')) AS critical_tasks,
-             COUNT(t.id) FILTER (
-               WHERE t.end_date < CURRENT_DATE
-                 AND t.status NOT IN ('completed','cancelled')
-             ) AS overdue_tasks,
-             ROUND(AVG(CASE WHEN t.id IS NOT NULL THEN COALESCE(t.progress, 0) END), 1) AS avg_progress
+             COUNT(t.id) AS task_count
       FROM project_plans p
       LEFT JOIN events e ON e.id = p.event_id
       LEFT JOIN project_tasks t ON t.plan_id = p.id
       GROUP BY p.id, e.name, e.start_date
       ORDER BY e.start_date ASC NULLS LAST, p.created_at DESC
+    `);
+    res.json({ success: true, data: result.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/project-plans/milestones — all milestones across all plans
+router.get('/milestones', async (req, res, next) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        t.id,
+        t.title,
+        t.start_date,
+        t.end_date,
+        t.status,
+        t.progress,
+        t.priority,
+        t.color,
+        t.is_milestone,
+        t.plan_id,
+        t.assignee_user_id,
+        t.description,
+        p.name       AS plan_name,
+        p.status     AS plan_status,
+        u.full_name  AS assignee_name
+      FROM project_tasks t
+      JOIN project_plans p ON p.id = t.plan_id
+      LEFT JOIN users u ON u.id = t.assignee_user_id
+      WHERE t.is_milestone = true
+      ORDER BY t.start_date ASC NULLS LAST, t.created_at ASC
     `);
     res.json({ success: true, data: result.rows });
   } catch (error) {

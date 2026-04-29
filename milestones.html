@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Race Team OS — Milestones</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="style.css?v=20260420" rel="stylesheet">
+  <style>
+    body.light-mode { background: #f5f7fa; color: #111; font-family: 'Inter','Segoe UI',sans-serif; }
+    * { box-sizing: border-box; }
+
+    /* ── PAGE SHELL ─────────────────────────────────────────────── */
+    #ms-shell {
+      display: flex;
+      flex-direction: column;
+      height: calc(100vh - var(--rts-topbar-h, 52px));
+      overflow: hidden;
+    }
+    #ms-header {
+      padding: 14px 20px 0;
+      background: #fff;
+      border-bottom: 1px solid #e0e4ea;
+      flex-shrink: 0;
+    }
+    #ms-header h4 {
+      font-size: 16px;
+      font-weight: 700;
+      margin: 0 0 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    #ms-header h4 .ms-diamond-icon {
+      width: 18px; height: 18px;
+      background: #a64dff;
+      transform: rotate(45deg);
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+
+    /* ── STATS BAR ──────────────────────────────────────────────── */
+    #ms-stats {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .ms-stat {
+      padding: 5px 14px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .ms-stat.all      { background: #f0f0f0; color: #444; border-color: #ddd; }
+    .ms-stat.overdue  { background: #fdecea; color: #c0392b; border-color: #f5c6c6; }
+    .ms-stat.thisweek { background: #fff3e0; color: #d35400; border-color: #f5d0a2; }
+    .ms-stat.soon     { background: #f3eaff; color: #7b2ff7; border-color: #d4b3ff; }
+    .ms-stat.done     { background: #e8f8f0; color: #1e8449; border-color: #b2dfcc; }
+    .ms-stat.active, .ms-stat:hover { filter: brightness(0.93); border-color: currentColor; }
+
+    /* ── TOOLBAR ─────────────────────────────────────────────────── */
+    #ms-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      background: #fff;
+      border-bottom: 1px solid #e0e4ea;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+    .ms-tb-select, .ms-tb-input {
+      height: 30px;
+      font-size: 12px;
+      border: 1px solid #cdd3db;
+      border-radius: 6px;
+      padding: 0 10px;
+      background: #fafbfc;
+      color: #333;
+      outline: none;
+    }
+    .ms-tb-select:focus, .ms-tb-input:focus { border-color: #a64dff; }
+    .ms-tb-input { width: 200px; }
+    #ms-search { flex: 1; max-width: 240px; }
+    .ms-tb-sep { width: 1px; height: 20px; background: #dde1e7; margin: 0 2px; }
+    .ms-view-btn {
+      height: 30px;
+      padding: 0 12px;
+      font-size: 12px;
+      font-weight: 600;
+      border: 1px solid #cdd3db;
+      border-radius: 6px;
+      background: #f5f7fa;
+      color: #555;
+      cursor: pointer;
+    }
+    .ms-view-btn.active { background: #a64dff; color: #fff; border-color: #a64dff; }
+    .ms-add-btn {
+      height: 30px;
+      padding: 0 14px;
+      font-size: 12px;
+      font-weight: 700;
+      border: none;
+      border-radius: 6px;
+      background: #a64dff;
+      color: #fff;
+      cursor: pointer;
+      margin-left: auto;
+    }
+    .ms-add-btn:hover { background: #8e3de0; }
+
+    /* ── MAIN SCROLL AREA ─────────────────────────────────────────── */
+    #ms-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+    }
+
+    /* ── TIMELINE VIEW ────────────────────────────────────────────── */
+    .ms-month-group { margin-bottom: 28px; }
+    .ms-month-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #888;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .ms-month-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: #e0e4ea;
+    }
+    .ms-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: #fff;
+      border-radius: 10px;
+      border: 1px solid #e0e4ea;
+      border-left: 4px solid #a64dff;
+      padding: 10px 14px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: box-shadow 0.15s, border-left-color 0.15s;
+      position: relative;
+    }
+    .ms-card:hover { box-shadow: 0 3px 10px rgba(0,0,0,0.08); }
+    .ms-card.overdue { border-left-color: #e74c3c; background: #fffafa; }
+    .ms-card.completed { border-left-color: #27ae60; opacity: 0.75; }
+    .ms-card.completed .ms-card-title { text-decoration: line-through; color: #27ae60; }
+    .ms-card-diamond {
+      width: 14px; height: 14px;
+      border-radius: 2px;
+      transform: rotate(45deg);
+      flex-shrink: 0;
+    }
+    .ms-card-main { flex: 1; min-width: 0; }
+    .ms-card-title {
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .ms-card-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 3px;
+      flex-wrap: wrap;
+    }
+    .ms-plan-badge {
+      font-size: 10px;
+      font-weight: 700;
+      background: #f0eaff;
+      color: #7b2ff7;
+      border-radius: 4px;
+      padding: 1px 7px;
+      white-space: nowrap;
+      text-decoration: none;
+      transition: background 0.12s;
+    }
+    .ms-plan-badge:hover { background: #ddd0ff; color: #5a1fc0; }
+    .ms-card-date { font-size: 11px; color: #666; white-space: nowrap; }
+    .ms-card-date.overdue { color: #e74c3c; font-weight: 700; }
+    .ms-owner-chip {
+      font-size: 10px;
+      background: #f5f7fa;
+      color: #555;
+      border-radius: 10px;
+      padding: 1px 8px;
+      border: 1px solid #e0e4ea;
+      white-space: nowrap;
+    }
+    .ms-card-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+    .ms-status-pill {
+      font-size: 10px;
+      font-weight: 700;
+      border-radius: 10px;
+      padding: 2px 9px;
+      cursor: pointer;
+      border: none;
+      white-space: nowrap;
+    }
+    .ms-st-not_started   { background: #f0f0f0; color: #555; }
+    .ms-st-in_progress   { background: #e0f0ff; color: #1a6fb5; }
+    .ms-st-completed     { background: #e0f8ec; color: #1e8449; }
+    .ms-st-blocked       { background: #fdecea; color: #c0392b; }
+    .ms-st-waiting_on    { background: #fff3e0; color: #d35400; }
+    .ms-st-deferred      { background: #f5f5f5; color: #888; }
+    .ms-days-away {
+      font-size: 11px;
+      color: #888;
+      white-space: nowrap;
+      min-width: 52px;
+      text-align: right;
+    }
+    .ms-days-away.overdue { color: #e74c3c; font-weight: 700; }
+    .ms-days-away.today   { color: #d35400; font-weight: 700; }
+
+    /* ── TABLE VIEW ───────────────────────────────────────────────── */
+    #ms-table-view { display: none; }
+    .ms-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      font-size: 12px;
+      background: #fff;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid #e0e4ea;
+    }
+    .ms-table thead th {
+      background: #f8f9fa;
+      padding: 8px 12px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #666;
+      border-bottom: 1px solid #e0e4ea;
+      cursor: pointer;
+      white-space: nowrap;
+      user-select: none;
+    }
+    .ms-table thead th:hover { background: #f0eaff; color: #7b2ff7; }
+    .ms-table thead th.sorted { color: #a64dff; }
+    .ms-table tbody tr {
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    .ms-table tbody tr:hover { background: #f8f4ff; }
+    .ms-table tbody tr.overdue  { background: #fffafa; }
+    .ms-table tbody tr.completed { opacity: 0.7; }
+    .ms-table td {
+      padding: 8px 12px;
+      border-bottom: 1px solid #f0f0f0;
+      vertical-align: middle;
+    }
+    .ms-table tr:last-child td { border-bottom: none; }
+    .ms-table-title { display: flex; align-items: center; gap: 7px; font-weight: 600; }
+    .ms-table-title .ms-diamond-sm {
+      width: 10px; height: 10px;
+      border-radius: 1px;
+      transform: rotate(45deg);
+      flex-shrink: 0;
+    }
+    .ms-table-title.completed-title { text-decoration: line-through; color: #27ae60; }
+    .ms-progress-mini { height: 4px; background: #eee; border-radius: 2px; min-width: 60px; }
+    .ms-progress-fill { height: 4px; border-radius: 2px; }
+    .ms-priority-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
+    .pr-critical { background: #e74c3c; }
+    .pr-high     { background: #ff6b35; }
+    .pr-medium   { background: #f39c12; }
+    .pr-low      { background: #3498db; }
+
+    /* ── EMPTY STATE ─────────────────────────────────────────────── */
+    #ms-empty {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 80px 20px;
+      color: #aaa;
+      text-align: center;
+    }
+    #ms-empty .ms-empty-diamond {
+      width: 48px; height: 48px;
+      border-radius: 6px;
+      background: #e8d8ff;
+      transform: rotate(45deg);
+      margin: 0 auto 24px;
+    }
+    #ms-empty h5 { font-size: 16px; color: #666; margin-bottom: 6px; }
+    #ms-empty p  { font-size: 13px; color: #aaa; }
+
+    /* ── LOADING ─────────────────────────────────────────────────── */
+    #ms-loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 80px;
+      color: #999;
+      gap: 10px;
+    }
+    .ms-spinner {
+      width: 18px; height: 18px;
+      border: 2px solid #e0e4ea;
+      border-top-color: #a64dff;
+      border-radius: 50%;
+      animation: ms-spin 0.7s linear infinite;
+    }
+    @keyframes ms-spin { to { transform: rotate(360deg); } }
+
+    /* ── ADD MILESTONE MODAL ─────────────────────────────────────── */
+    #ms-modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 9999;
+      align-items: center;
+      justify-content: center;
+    }
+    #ms-modal {
+      background: #fff;
+      border-radius: 14px;
+      padding: 24px 28px;
+      width: 480px;
+      max-width: 95vw;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+    }
+    #ms-modal h5 {
+      font-size: 15px;
+      font-weight: 700;
+      margin: 0 0 18px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    #ms-modal h5 .ms-diamond-icon { background: #a64dff; }
+    .ms-form-row { margin-bottom: 14px; }
+    .ms-form-row label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      color: #555;
+      margin-bottom: 4px;
+    }
+    .ms-form-row input, .ms-form-row select, .ms-form-row textarea {
+      width: 100%;
+      padding: 7px 10px;
+      border: 1px solid #cdd3db;
+      border-radius: 7px;
+      font-size: 13px;
+      background: #fafbfc;
+      color: #222;
+      outline: none;
+    }
+    .ms-form-row input:focus, .ms-form-row select:focus, .ms-form-row textarea:focus {
+      border-color: #a64dff;
+    }
+    .ms-form-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .ms-modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 6px; }
+    .ms-btn-cancel {
+      padding: 8px 18px; border-radius: 7px; font-size: 13px; font-weight: 600;
+      background: #f0f0f0; color: #555; border: none; cursor: pointer;
+    }
+    .ms-btn-save {
+      padding: 8px 22px; border-radius: 7px; font-size: 13px; font-weight: 700;
+      background: #a64dff; color: #fff; border: none; cursor: pointer;
+    }
+    .ms-btn-save:hover { background: #8e3de0; }
+    .ms-btn-save:disabled { opacity: 0.6; cursor: not-allowed; }
+  </style>
+</head>
+<body class="light-mode">
+<div id="rtsTopNav"></div>
+
+<!-- ── ADD MILESTONE MODAL ──────────────────────────────────────────── -->
+<div id="ms-modal-overlay">
+  <div id="ms-modal">
+    <h5>
+      <span class="ms-diamond-icon" style="width:16px;height:16px;border-radius:2px;transform:rotate(45deg);display:inline-block;flex-shrink:0;"></span>
+      Add Milestone
+    </h5>
+    <div class="ms-form-row">
+      <label>Milestone Title *</label>
+      <input type="text" id="ms-f-title" placeholder="e.g. Car ready for shakedown" autocomplete="off">
+    </div>
+    <div class="ms-form-row">
+      <label>Project *</label>
+      <select id="ms-f-plan"></select>
+    </div>
+    <div class="ms-form-2col">
+      <div class="ms-form-row">
+        <label>Due Date *</label>
+        <input type="date" id="ms-f-date">
+      </div>
+      <div class="ms-form-row">
+        <label>Priority</label>
+        <select id="ms-f-priority">
+          <option value="low">Low</option>
+          <option value="medium" selected>Medium</option>
+          <option value="high">High</option>
+          <option value="critical">Critical</option>
+        </select>
+      </div>
+    </div>
+    <div class="ms-form-row">
+      <label>Owner</label>
+      <select id="ms-f-owner">
+        <option value="">— Unassigned —</option>
+      </select>
+    </div>
+    <div class="ms-form-row">
+      <label>Description</label>
+      <textarea id="ms-f-desc" rows="2" placeholder="Optional notes…"></textarea>
+    </div>
+    <div class="ms-modal-actions">
+      <button class="ms-btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="ms-btn-save" id="ms-save-btn" onclick="saveMilestone()">Create Milestone</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── PAGE SHELL ───────────────────────────────────────────────────── -->
+<div id="ms-shell">
+
+  <!-- Header -->
+  <div id="ms-header">
+    <h4>
+      <span class="ms-diamond-icon"></span>
+      Milestones
+      <span id="ms-total-count" style="font-size:12px;font-weight:400;color:#888;margin-left:4px;"></span>
+    </h4>
+    <!-- Stats bar -->
+    <div id="ms-stats">
+      <span class="ms-stat all active"    data-filter="all"      id="stat-all">All <strong id="cnt-all">—</strong></span>
+      <span class="ms-stat overdue"       data-filter="overdue"  id="stat-overdue">Overdue <strong id="cnt-overdue">—</strong></span>
+      <span class="ms-stat thisweek"      data-filter="thisweek" id="stat-thisweek">This Week <strong id="cnt-thisweek">—</strong></span>
+      <span class="ms-stat soon"          data-filter="soon"     id="stat-soon">Next 30 Days <strong id="cnt-soon">—</strong></span>
+      <span class="ms-stat done"          data-filter="done"     id="stat-done">Completed <strong id="cnt-done">—</strong></span>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div id="ms-toolbar">
+    <select class="ms-tb-select" id="ms-plan-filter" style="max-width:220px;" onchange="applyFilters()">
+      <option value="">All Projects</option>
+    </select>
+    <input type="text" class="ms-tb-input" id="ms-search" placeholder="Search milestones…" oninput="applyFilters()">
+    <div class="ms-tb-sep"></div>
+    <button class="ms-view-btn active" id="btn-timeline" onclick="setView('timeline')">Timeline</button>
+    <button class="ms-view-btn" id="btn-table" onclick="setView('table')">Table</button>
+    <button class="ms-add-btn" onclick="openModal()">+ Add Milestone</button>
+  </div>
+
+  <!-- Body -->
+  <div id="ms-body">
+    <div id="ms-loading"><div class="ms-spinner"></div> Loading milestones…</div>
+    <div id="ms-timeline-view"></div>
+    <div id="ms-table-view"></div>
+    <div id="ms-empty">
+      <div class="ms-empty-diamond"></div>
+      <h5>No milestones found</h5>
+      <p>Add milestones from the Gantt (toggle "Milestone" on any task) or use + Add Milestone above.</p>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="config.js?v=20260420"></script>
+<script src="core.js?v=20260420"></script>
+<script src="topnav.js?v=20260420"></script>
+<script src="auth-check.js?v=20260420"></script>
+<script>
+  const API = (window.RTS_CONFIG?.apiBase || '') + '/api';
+  const TOKEN = () => localStorage.getItem('auth_token');
+  const authHdr = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN()}` });
+
+  let allMilestones = [];
+  let allPlans      = [];
+  let allUsers      = [];
+  let activeFilter  = 'all';
+  let activeView    = 'timeline';
+  let sortCol       = 'date';
+  let sortDir       = 1;
+
+  // ── HELPERS ──────────────────────────────────────────────────────
+  function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+  function today0() { const d = new Date(); d.setHours(0,0,0,0); return d; }
+
+  function parseDate(s) {
+    if (!s) return null;
+    const d = new Date(s.slice(0,10) + 'T00:00:00');
+    return isNaN(d) ? null : d;
+  }
+
+  function fmtDate(s) {
+    const d = parseDate(s);
+    if (!d) return '—';
+    return d.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
+  }
+
+  function daysAway(s) {
+    const d = parseDate(s);
+    if (!d) return null;
+    return Math.round((d - today0()) / 86400000);
+  }
+
+  function daysLabel(n) {
+    if (n === null) return '—';
+    if (n < 0) return `${Math.abs(n)}d overdue`;
+    if (n === 0) return 'Today!';
+    if (n === 1) return 'Tomorrow';
+    return `in ${n}d`;
+  }
+
+  function milestoneColor(m) {
+    if (m.color) return m.color;
+    const COLORS = { critical:'#e74c3c', high:'#ff6b35', medium:'#a64dff', low:'#3498db' };
+    return COLORS[m.priority] || '#a64dff';
+  }
+
+  function isOverdue(m) {
+    const d = parseDate(m.start_date || m.end_date);
+    return d && d < today0() && m.status !== 'completed';
+  }
+
+  function isThisWeek(m) {
+    const d = parseDate(m.start_date || m.end_date);
+    if (!d) return false;
+    const t = today0();
+    const end = new Date(t); end.setDate(t.getDate() + 7);
+    return d >= t && d < end && m.status !== 'completed';
+  }
+
+  function isSoon(m) {
+    const d = parseDate(m.start_date || m.end_date);
+    if (!d) return false;
+    const t = today0();
+    const end = new Date(t); end.setDate(t.getDate() + 30);
+    return d >= t && d < end && m.status !== 'completed';
+  }
+
+  async function apiFetch(url, opts = {}) {
+    const r = await fetch(url, { ...opts, headers: { ...authHdr(), ...(opts.headers || {}) } });
+    if (r.status === 401) { window.location.href = '/login.html'; throw new Error('Unauthorized'); }
+    return r.json();
+  }
+
+  // ── LOAD DATA ────────────────────────────────────────────────────
+  async function init() {
+    try {
+      const [msRes, plansRes, usersRes] = await Promise.all([
+        apiFetch(`${API}/project-plans/milestones`),
+        apiFetch(`${API}/project-plans`),
+        apiFetch(`${API}/auth/users`)
+      ]);
+      allMilestones = msRes.data || [];
+      allPlans      = plansRes.data || [];
+      allUsers      = usersRes.data || usersRes.users || [];
+
+      populatePlanFilter();
+      populateModalPlans();
+      populateModalUsers();
+      updateStats();
+      applyFilters();
+
+      document.getElementById('ms-loading').style.display = 'none';
+    } catch (e) {
+      console.error('Milestones load error', e);
+      document.getElementById('ms-loading').innerHTML = '<span style="color:#e74c3c">Failed to load milestones. Please refresh.</span>';
+    }
+  }
+
+  function populatePlanFilter() {
+    const sel = document.getElementById('ms-plan-filter');
+    allPlans.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = p.name;
+      sel.appendChild(opt);
+    });
+  }
+
+  function populateModalPlans() {
+    const sel = document.getElementById('ms-f-plan');
+    sel.innerHTML = '<option value="">— Select project —</option>';
+    allPlans.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = p.name;
+      sel.appendChild(opt);
+    });
+  }
+
+  function populateModalUsers() {
+    const sel = document.getElementById('ms-f-owner');
+    sel.innerHTML = '<option value="">— Unassigned —</option>';
+    allUsers.forEach(u => {
+      const opt = document.createElement('option');
+      opt.value = u.id;
+      opt.textContent = u.full_name || u.name || u.username || `User ${u.id}`;
+      sel.appendChild(opt);
+    });
+  }
+
+  // ── STATS ────────────────────────────────────────────────────────
+  function updateStats() {
+    const total   = allMilestones.length;
+    const overdue = allMilestones.filter(isOverdue).length;
+    const week    = allMilestones.filter(isThisWeek).length;
+    const soon    = allMilestones.filter(isSoon).length;
+    const done    = allMilestones.filter(m => m.status === 'completed').length;
+    document.getElementById('cnt-all').textContent      = total;
+    document.getElementById('cnt-overdue').textContent  = overdue;
+    document.getElementById('cnt-thisweek').textContent = week;
+    document.getElementById('cnt-soon').textContent     = soon;
+    document.getElementById('cnt-done').textContent     = done;
+    document.getElementById('ms-total-count').textContent = `(${total})`;
+  }
+
+  // ── FILTER & RENDER ──────────────────────────────────────────────
+  function applyFilters() {
+    const planId = document.getElementById('ms-plan-filter').value;
+    const search = document.getElementById('ms-search').value.trim().toLowerCase();
+
+    let list = allMilestones.filter(m => {
+      if (planId && m.plan_id !== planId) return false;
+      if (search && !m.title.toLowerCase().includes(search) && !(m.plan_name||'').toLowerCase().includes(search)) return false;
+      return true;
+    });
+
+    // Status filter pill
+    if (activeFilter === 'overdue')  list = list.filter(isOverdue);
+    if (activeFilter === 'thisweek') list = list.filter(isThisWeek);
+    if (activeFilter === 'soon')     list = list.filter(isSoon);
+    if (activeFilter === 'done')     list = list.filter(m => m.status === 'completed');
+
+    if (activeView === 'timeline') renderTimeline(list);
+    else renderTable(list);
+  }
+
+  // ── TIMELINE VIEW ────────────────────────────────────────────────
+  function renderTimeline(list) {
+    const container = document.getElementById('ms-timeline-view');
+    const tableView = document.getElementById('ms-table-view');
+    const emptyEl   = document.getElementById('ms-empty');
+
+    container.style.display = '';
+    tableView.style.display = 'none';
+
+    if (!list.length) {
+      container.innerHTML = '';
+      emptyEl.style.display = 'flex';
+      return;
+    }
+    emptyEl.style.display = 'none';
+
+    // Group by month
+    const groups = {};
+    const NO_DATE_KEY = 'No Date Set';
+    list.forEach(m => {
+      const d = parseDate(m.start_date || m.end_date);
+      const key = d ? d.toLocaleDateString('en-GB', { month:'long', year:'numeric' }) : NO_DATE_KEY;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(m);
+    });
+
+    // Sort keys chronologically
+    const sortedKeys = Object.keys(groups).sort((a, b) => {
+      if (a === NO_DATE_KEY) return 1;
+      if (b === NO_DATE_KEY) return -1;
+      return new Date('1 ' + a) - new Date('1 ' + b);
+    });
+
+    container.innerHTML = sortedKeys.map(key => {
+      const items = groups[key];
+      const cards = items.map(m => buildCard(m)).join('');
+      return `<div class="ms-month-group">
+        <div class="ms-month-label">${esc(key)} <span style="color:#bbb;font-weight:400;font-size:10px;">${items.length}</span></div>
+        ${cards}
+      </div>`;
+    }).join('');
+
+    // Status pill click handlers
+    container.querySelectorAll('.ms-status-pill').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const id = btn.dataset.id;
+        quickToggleStatus(id, btn);
+      });
+    });
+
+    // Card click → Gantt
+    container.querySelectorAll('.ms-card[data-plan-id]').forEach(card => {
+      card.addEventListener('click', () => {
+        const planId = card.dataset.planId;
+        window.location.href = `project-management.html?tab=gantt&plan=${planId}`;
+      });
+    });
+  }
+
+  function buildCard(m) {
+    const color   = milestoneColor(m);
+    const overdue = isOverdue(m);
+    const done    = m.status === 'completed';
+    const days    = daysAway(m.start_date || m.end_date);
+    const statusLabel = { not_started:'Not Started', in_progress:'In Progress', completed:'Done', blocked:'Blocked', waiting_on:'Waiting', deferred:'Deferred', cancelled:'Cancelled' };
+
+    return `<div class="ms-card${overdue?' overdue':''}${done?' completed':''}" data-plan-id="${esc(m.plan_id)}" data-id="${esc(m.id)}">
+      <div class="ms-card-diamond" style="background:${esc(color)};"></div>
+      <div class="ms-card-main">
+        <div class="ms-card-title">${esc(m.title)}</div>
+        <div class="ms-card-meta">
+          <a class="ms-plan-badge" href="project-management.html?tab=gantt&plan=${esc(m.plan_id)}" onclick="event.stopPropagation()">${esc(m.plan_name||'Unknown Project')}</a>
+          <span class="ms-card-date${overdue?' overdue':''}">${fmtDate(m.start_date || m.end_date)}</span>
+          ${m.assignee_name ? `<span class="ms-owner-chip">👤 ${esc(m.assignee_name)}</span>` : ''}
+        </div>
+      </div>
+      <div class="ms-card-right">
+        <span class="ms-days-away${overdue?' overdue':''}${days===0?' today':''}">${daysLabel(days)}</span>
+        <button class="ms-status-pill ms-st-${esc(m.status||'not_started')}" data-id="${esc(m.id)}" title="Click to toggle complete">${esc(statusLabel[m.status]||m.status||'Not Started')}</button>
+      </div>
+    </div>`;
+  }
+
+  // ── TABLE VIEW ────────────────────────────────────────────────────
+  const TABLE_COLS = [
+    { key:'title',    label:'Milestone' },
+    { key:'plan',     label:'Project' },
+    { key:'date',     label:'Due Date' },
+    { key:'daysaway', label:'Days Away' },
+    { key:'owner',    label:'Owner' },
+    { key:'priority', label:'Priority' },
+    { key:'status',   label:'Status' },
+    { key:'progress', label:'Progress' }
+  ];
+
+  function renderTable(list) {
+    const container = document.getElementById('ms-table-view');
+    const timelineView = document.getElementById('ms-timeline-view');
+    const emptyEl = document.getElementById('ms-empty');
+
+    timelineView.style.display = 'none';
+    container.style.display = '';
+
+    if (!list.length) {
+      container.innerHTML = '';
+      emptyEl.style.display = 'flex';
+      return;
+    }
+    emptyEl.style.display = 'none';
+
+    // Sort
+    const sorted = [...list].sort((a, b) => {
+      let va, vb;
+      if (sortCol === 'date')    { va = a.start_date || a.end_date || 'z'; vb = b.start_date || b.end_date || 'z'; }
+      else if (sortCol === 'plan')     { va = a.plan_name || ''; vb = b.plan_name || ''; }
+      else if (sortCol === 'daysaway') { va = daysAway(a.start_date||a.end_date)??9999; vb = daysAway(b.start_date||b.end_date)??9999; }
+      else if (sortCol === 'title')    { va = a.title||''; vb = b.title||''; }
+      else if (sortCol === 'owner')    { va = a.assignee_name||''; vb = b.assignee_name||''; }
+      else if (sortCol === 'priority') { va = ['critical','high','medium','low'].indexOf(a.priority); vb = ['critical','high','medium','low'].indexOf(b.priority); }
+      else if (sortCol === 'status')   { va = a.status||''; vb = b.status||''; }
+      else if (sortCol === 'progress') { va = a.progress||0; vb = b.progress||0; }
+      else { va = 0; vb = 0; }
+      if (va < vb) return -1 * sortDir;
+      if (va > vb) return 1 * sortDir;
+      return 0;
+    });
+
+    const PRIORITY_LABEL = { critical:'Critical', high:'High', medium:'Medium', low:'Low' };
+    const STATUS_LABEL   = { not_started:'Not Started', in_progress:'In Progress', completed:'Done', blocked:'Blocked', waiting_on:'Waiting', deferred:'Deferred' };
+
+    const headers = TABLE_COLS.map(c => {
+      const arrow = sortCol === c.key ? (sortDir === 1 ? ' ▲' : ' ▼') : '';
+      return `<th data-col="${c.key}" class="${sortCol===c.key?'sorted':''}">${c.label}${arrow}</th>`;
+    }).join('');
+
+    const rows = sorted.map(m => {
+      const overdue = isOverdue(m);
+      const done    = m.status === 'completed';
+      const days    = daysAway(m.start_date || m.end_date);
+      const color   = milestoneColor(m);
+      const prog    = m.progress || 0;
+      return `<tr class="${overdue?'overdue':''}${done?' completed':''}" data-id="${esc(m.id)}" data-plan-id="${esc(m.plan_id)}">
+        <td>
+          <div class="ms-table-title${done?' completed-title':''}">
+            <span class="ms-diamond-sm" style="background:${esc(color)};"></span>
+            ${esc(m.title)}
+          </div>
+        </td>
+        <td><a class="ms-plan-badge" href="project-management.html?tab=gantt&plan=${esc(m.plan_id)}">${esc(m.plan_name||'—')}</a></td>
+        <td style="${overdue?'color:#e74c3c;font-weight:700;':''}${!m.start_date&&!m.end_date?'color:#aaa;':''}">${fmtDate(m.start_date||m.end_date)}</td>
+        <td class="ms-days-away${overdue?' overdue':''}${days===0?' today':''}">${daysLabel(days)}</td>
+        <td>${esc(m.assignee_name||'—')}</td>
+        <td><span class="ms-priority-dot pr-${esc(m.priority||'medium')}"></span>${esc(PRIORITY_LABEL[m.priority]||m.priority||'—')}</td>
+        <td>
+          <button class="ms-status-pill ms-st-${esc(m.status||'not_started')}" data-id="${esc(m.id)}" title="Click to toggle complete">
+            ${esc(STATUS_LABEL[m.status]||m.status||'Not Started')}
+          </button>
+        </td>
+        <td>
+          <div class="ms-progress-mini">
+            <div class="ms-progress-fill" style="width:${prog}%;background:${esc(color)};"></div>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+
+    container.innerHTML = `<table class="ms-table">
+      <thead><tr>${headers}</tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+
+    // Sort click
+    container.querySelectorAll('th[data-col]').forEach(th => {
+      th.addEventListener('click', () => {
+        if (sortCol === th.dataset.col) sortDir *= -1;
+        else { sortCol = th.dataset.col; sortDir = 1; }
+        applyFilters();
+      });
+    });
+
+    // Row click → Gantt
+    container.querySelectorAll('tr[data-plan-id]').forEach(row => {
+      row.addEventListener('click', e => {
+        if (e.target.closest('.ms-status-pill,.ms-plan-badge')) return;
+        window.location.href = `project-management.html?tab=gantt&plan=${row.dataset.planId}`;
+      });
+    });
+
+    // Status toggle
+    container.querySelectorAll('.ms-status-pill').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        quickToggleStatus(btn.dataset.id, btn);
+      });
+    });
+  }
+
+  // ── QUICK STATUS TOGGLE ──────────────────────────────────────────
+  async function quickToggleStatus(id, btn) {
+    const m = allMilestones.find(x => x.id === id);
+    if (!m) return;
+    const newStatus = m.status === 'completed' ? 'not_started' : 'completed';
+    const prev = m.status;
+    m.status = newStatus;
+    try {
+      await apiFetch(`${API}/project-plans/tasks/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: newStatus })
+      });
+      updateStats();
+      applyFilters();
+    } catch (e) {
+      m.status = prev;
+      applyFilters();
+      if (window.RTS?.showToast) RTS.showToast('Failed to update status', 'error');
+    }
+  }
+
+  // ── VIEW TOGGLE ──────────────────────────────────────────────────
+  function setView(v) {
+    activeView = v;
+    document.getElementById('btn-timeline').classList.toggle('active', v === 'timeline');
+    document.getElementById('btn-table').classList.toggle('active', v === 'table');
+    applyFilters();
+  }
+
+  // ── STAT PILL FILTER ─────────────────────────────────────────────
+  document.querySelectorAll('.ms-stat').forEach(el => {
+    el.addEventListener('click', () => {
+      document.querySelectorAll('.ms-stat').forEach(x => x.classList.remove('active'));
+      el.classList.add('active');
+      activeFilter = el.dataset.filter;
+      applyFilters();
+    });
+  });
+
+  // ── ADD MILESTONE MODAL ──────────────────────────────────────────
+  function openModal() {
+    document.getElementById('ms-f-title').value = '';
+    document.getElementById('ms-f-desc').value  = '';
+    document.getElementById('ms-f-date').value  = '';
+    document.getElementById('ms-f-priority').value = 'medium';
+    document.getElementById('ms-f-owner').value = '';
+    document.getElementById('ms-f-plan').value  = '';
+    document.getElementById('ms-modal-overlay').style.display = 'flex';
+    setTimeout(() => document.getElementById('ms-f-title').focus(), 80);
+  }
+
+  function closeModal() {
+    document.getElementById('ms-modal-overlay').style.display = 'none';
+  }
+
+  document.getElementById('ms-modal-overlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('ms-modal-overlay')) closeModal();
+  });
+
+  async function saveMilestone() {
+    const title  = document.getElementById('ms-f-title').value.trim();
+    const planId = document.getElementById('ms-f-plan').value;
+    const date   = document.getElementById('ms-f-date').value;
+
+    if (!title)  { document.getElementById('ms-f-title').focus(); return; }
+    if (!planId) { document.getElementById('ms-f-plan').focus(); return; }
+    if (!date)   { document.getElementById('ms-f-date').focus(); return; }
+
+    const saveBtn = document.getElementById('ms-save-btn');
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving…';
+
+    try {
+      const body = {
+        plan_id:           planId,
+        title:             title,
+        start_date:        date,
+        end_date:          date,
+        is_milestone:      true,
+        priority:          document.getElementById('ms-f-priority').value,
+        assignee_user_id:  document.getElementById('ms-f-owner').value || null,
+        description:       document.getElementById('ms-f-desc').value.trim() || null,
+        status:            'not_started',
+        sort_order:        9999
+      };
+      const res = await apiFetch(`${API}/project-plans/tasks`, {
+        method: 'POST',
+        body: JSON.stringify(body)
+      });
+      if (res.data) {
+        const plan = allPlans.find(p => p.id === planId);
+        const owner = allUsers.find(u => String(u.id) === String(body.assignee_user_id));
+        allMilestones.push({
+          ...res.data,
+          plan_name:     plan?.name || '—',
+          assignee_name: owner?.full_name || owner?.name || null
+        });
+        updateStats();
+        applyFilters();
+        closeModal();
+        if (window.RTS?.showToast) RTS.showToast(`Milestone "${title}" created`, 'success');
+      }
+    } catch (e) {
+      if (window.RTS?.showToast) RTS.showToast('Failed to create milestone', 'error');
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Create Milestone';
+    }
+  }
+
+  // Enter key in modal
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeModal();
+    if (e.key === 'Enter' && document.getElementById('ms-modal-overlay').style.display === 'flex') {
+      const tag = document.activeElement?.tagName;
+      if (tag !== 'TEXTAREA' && tag !== 'SELECT') saveMilestone();
+    }
+  });
+
+  // ── BOOT ─────────────────────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', () => {
+    if (window.authReady) {
+      window.authReady.then(init);
+    } else {
+      init();
+    }
+  });
+</script>
+</body>
+</html>
