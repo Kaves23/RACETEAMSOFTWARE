@@ -104,27 +104,37 @@ router.put('/draft', async (req, res, next) => {
     const assetPlacements = placements.filter(p => p.type === 'asset' || (p.assetId && !p.boxId));
     const invPlacements   = placements.filter(p => p.type === 'inventory' || (p.inventoryId && !p.boxId));
 
-    // Bulk INSERT box placements using unnest
+    // Bulk INSERT box placements — filter to only box IDs that exist in the boxes table
     if (boxPlacements.length > 0) {
-      const planIds   = boxPlacements.map(() => planId);
-      const boxIds    = boxPlacements.map(p => p.boxId);
-      const zones     = boxPlacements.map(p => p.zone || null);
-      const xs        = boxPlacements.map(p => p.position?.x || 0);
-      const ys        = boxPlacements.map(p => p.position?.y || 0);
-      const zs        = boxPlacements.map(p => p.position?.z || 0);
-      const orders    = boxPlacements.map((_, i) => i + 1);
-      const addedAts  = boxPlacements.map(p => p.timestamp || new Date().toISOString());
-
-      await client.query(
-        `INSERT INTO load_plan_boxes
-           (load_plan_id, box_id, truck_zone, position_x, position_y, position_z, load_order, added_at)
-         SELECT * FROM unnest(
-           $1::text[], $2::text[], $3::text[],
-           $4::float[], $5::float[], $6::float[],
-           $7::int[], $8::timestamptz[]
-         )`,
-        [planIds, boxIds, zones, xs, ys, zs, orders, addedAts]
+      const candidateIds = boxPlacements.map(p => p.boxId).filter(Boolean);
+      const existsResult = await client.query(
+        `SELECT id FROM boxes WHERE id = ANY($1::text[])`,
+        [candidateIds]
       );
+      const validIds = new Set(existsResult.rows.map(r => r.id));
+      const validPlacements = boxPlacements.filter(p => validIds.has(p.boxId));
+
+      if (validPlacements.length > 0) {
+        const planIds   = validPlacements.map(() => planId);
+        const boxIds    = validPlacements.map(p => p.boxId);
+        const zones     = validPlacements.map(p => p.zone || null);
+        const xs        = validPlacements.map(p => p.position?.x || 0);
+        const ys        = validPlacements.map(p => p.position?.y || 0);
+        const zs        = validPlacements.map(p => p.position?.z || 0);
+        const orders    = validPlacements.map((_, i) => i + 1);
+        const addedAts  = validPlacements.map(p => p.timestamp || new Date().toISOString());
+
+        await client.query(
+          `INSERT INTO load_plan_boxes
+             (load_plan_id, box_id, truck_zone, position_x, position_y, position_z, load_order, added_at)
+           SELECT * FROM unnest(
+             $1::text[], $2::text[], $3::text[],
+             $4::float[], $5::float[], $6::float[],
+             $7::int[], $8::timestamptz[]
+           )`,
+          [planIds, boxIds, zones, xs, ys, zs, orders, addedAts]
+        );
+      }
     }
 
     // Replace asset / inventory placements

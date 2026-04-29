@@ -208,9 +208,7 @@ console.log('📦 load-engine.js loading...');
       const draftResp = await window.RTS_API.getLoadPlanDraft(defaultTruckId);
       if (draftResp && draftResp.success && draftResp.plan) {
         const plan = draftResp.plan;
-        const placements = draftResp.placements || [];
-        // All placements are kept — if a box is missing from the list it will
-        // show a "box data missing" card rather than silently disappearing.
+        const placements = purgeOrphanPlacements(draftResp.placements || []);
         currentLoad = {
           id: plan.id,
           eventId: plan.event_id || null,
@@ -253,6 +251,22 @@ console.log('📦 load-engine.js loading...');
         <div style="font-size:2rem;margin-bottom:12px;">⚠️</div>
         <strong>Error loading data</strong><br><span style="color:#6c757d;font-size:.9rem">${message}</span></div>`;
     }
+  }
+
+  function purgeOrphanPlacements(placements) {
+    // Remove any box placements whose box ID doesn't exist in the loaded boxes array.
+    // This prevents FK constraint failures when a box was deleted after being added to a plan.
+    const knownBoxIds = new Set(boxes.map(b => String(b.id)));
+    const before = placements.length;
+    const clean = placements.filter(p => {
+      if (p.type === 'asset' || p.type === 'inventory') return true; // keep non-box placements
+      if (!p.boxId) return true;
+      return knownBoxIds.has(String(p.boxId));
+    });
+    if (clean.length < before) {
+      console.warn(`Purged ${before - clean.length} orphan placement(s) — box(es) no longer in DB`);
+    }
+    return clean;
   }
 
   function createEmptyLoad() {
@@ -406,7 +420,7 @@ console.log('📦 load-engine.js loading...');
               id: resp.plan.id,
               eventId: resp.plan.event_id || null,
               truckId: resp.plan.truck_id,
-              placements: resp.placements || [],
+              placements: purgeOrphanPlacements(resp.placements || []),
               status: resp.plan.status || 'Draft',
               createdAt: resp.plan.created_at,
               updatedAt: resp.plan.updated_at
