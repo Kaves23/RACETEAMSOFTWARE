@@ -94,7 +94,7 @@ app.get('/api/health', (req, res) => res.json({ ok: true, ts: new Date().toISOSt
 (async () => {
   const fs   = require('fs');
   const path = require('path');
-  const pending = ['071_projects_module_phase2.sql', '072_project_baselines.sql', '073_drive_imports.sql'];
+  const pending = ['071_projects_module_phase2.sql', '072_project_baselines.sql', '073_drive_imports.sql', '074_telemetry_sessions.sql'];
   for (const f of pending) {
     const fp = path.join(__dirname, 'migrations', f);
     if (!fs.existsSync(fp)) continue;
@@ -313,6 +313,7 @@ app.use('/api/kpi-metrics',          requireAuth, require('./routes/kpi-metrics'
 const driveImport = require('./routes/drive-import');
 app.use('/api/drive-import', driveImport.publicRouter);
 app.use('/api/drive-import', requireAuth, driveImport.privateRouter);
+app.use('/api/telemetry',    requireAuth, require('./routes/telemetry'));
 
 // Notifications — stock alerts, email dispatch - PROTECTED
 app.use('/api/notifications', requireAuth, require('./routes/notifications'));

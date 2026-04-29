@@ -55,7 +55,9 @@
       { href: 'engineering-notes.html', label: 'Eng Notes',        key: 'N' },
       { href: 'strategy.html',          label: 'Strategy',         key: 'S' },
       { href: 'results.html',           label: 'Results',          key: 'L' },
-      { href: 'drive-import.html',      label: 'Drive Import',     key: 'I' }
+      { href: 'telemetry-sessions.html', label: 'Data Sessions',    key: 'Z' },
+      { href: 'telemetry.html',          label: 'Telemetry',        key: 'Y' },
+      { href: 'drive-import.html',       label: 'Drive Import',     key: 'I' }
     ]},
     { label: 'Reliability', items: [
       { href: 'reliability-dashboard.html',  label: 'Overview',          key: 'O' },

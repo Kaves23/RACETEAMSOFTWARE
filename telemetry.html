@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Telemetry Analyzer</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="style.css?v=20260420">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uplot@1.6.31/dist/uPlot.min.css">
+  <style>
+    /* ─── Layout ──────────────────────────────────────────────────────────── */
+    html,body { height:100%; margin:0; background:#f0edf7; }
+    body.light-mode { background:#f0edf7; }
+    #appShell { display:flex; height:100vh; flex-direction:column; overflow:hidden; }
+    #topBar   { flex:0 0 auto; }
+    #mainRow  { display:flex; flex:1 1 0; overflow:hidden; }
+
+    /* Left panel */
+    #leftPanel { width:260px; flex:0 0 260px; background:#fff; border-right:1px solid #e5e7eb; overflow-y:auto; display:flex; flex-direction:column; transition:width .2s; }
+    #leftPanel.collapsed { width:0; overflow:hidden; }
+
+    /* Center */
+    #centerPanel { flex:1 1 0; display:flex; flex-direction:column; overflow:hidden; min-width:0; }
+
+    /* Right panel */
+    #rightPanel { width:260px; flex:0 0 260px; background:#fff; border-left:1px solid #e5e7eb; overflow-y:auto; transition:width .2s; }
+    #rightPanel.collapsed { width:0; overflow:hidden; }
+
+    /* ─── Top toolbar ─────────────────────────────────────────────────────── */
+    #topBar { background:#7c3aed; color:#fff; padding:.5rem 1rem; display:flex; align-items:center; gap:.75rem; flex-wrap:wrap; }
+    #topBar .sep { border-left:1px solid rgba(255,255,255,.3); height:1.4rem; }
+    .tb-btn { background:rgba(255,255,255,.15); border:none; color:#fff; border-radius:6px; padding:.25rem .7rem; font-size:.82rem; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:.3rem; white-space:nowrap; }
+    .tb-btn:hover { background:rgba(255,255,255,.25); }
+    #sessionLabel { font-weight:700; font-size:.9rem; max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .tabs-bar { background:#fff; border-bottom:2px solid #e5e7eb; display:flex; gap:0; padding:0 1rem; }
+    .tab-btn { border:none; background:none; padding:.6rem 1.1rem; font-size:.82rem; font-weight:600; color:#6b7280; cursor:pointer; border-bottom:3px solid transparent; margin-bottom:-2px; transition:color .15s,border-color .15s; }
+    .tab-btn.active { color:#7c3aed; border-bottom-color:#7c3aed; }
+
+    /* ─── Left panel internals ────────────────────────────────────────────── */
+    .lp-section { border-bottom:1px solid #f3f4f6; }
+    .lp-section-hdr { padding:.6rem .85rem; font-size:.75rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:#9ca3af; display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none; }
+    .lp-section-hdr:hover { background:#f9fafb; }
+    .lp-session-info { padding:.75rem .85rem; font-size:.8rem; color:#374151; }
+    .lp-session-info strong { display:block; font-size:.85rem; color:#1f2937; margin-bottom:.25rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+    /* Lap list */
+    .lap-item { display:flex; align-items:center; padding:.35rem .85rem; font-size:.8rem; cursor:pointer; border-left:3px solid transparent; transition:background .1s; gap:.4rem; }
+    .lap-item:hover { background:#f5f3ff; }
+    .lap-item.active { border-left-color:#7c3aed; background:#ede9fe; }
+    .lap-swatch { width:12px; height:12px; border-radius:3px; flex-shrink:0; }
+    .lap-time { font-weight:700; font-family:monospace; font-size:.8rem; flex:1; }
+    .lap-gap  { font-size:.72rem; font-weight:600; }
+    .gap-green { color:#16a34a; }
+    .gap-red   { color:#dc2626; }
+    .lap-badge { font-size:.62rem; padding:.1em .35em; border-radius:3px; background:#e5e7eb; color:#6b7280; font-weight:600; }
+
+    /* Channel sidebar */
+    .ch-group-hdr { padding:.4rem .85rem; font-size:.7rem; font-weight:700; text-transform:uppercase; color:#7c3aed; background:#f9f5ff; letter-spacing:.05em; cursor:pointer; display:flex; justify-content:space-between; }
+    .ch-item { display:flex; align-items:center; padding:.3rem .85rem .3rem 1.1rem; gap:.5rem; cursor:pointer; font-size:.79rem; color:#374151; transition:background .1s; }
+    .ch-item:hover { background:#f5f3ff; }
+    .ch-item.active { background:#ede9fe; font-weight:600; color:#7c3aed; }
+    .ch-swatch { width:10px; height:10px; border-radius:2px; flex-shrink:0; }
+
+    /* ─── Chart area ──────────────────────────────────────────────────────── */
+    #chartArea { flex:1 1 0; overflow:auto; padding:.75rem 1rem; display:flex; flex-direction:column; gap:.75rem; }
+    .chart-card { background:#fff; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,.07); padding:1rem; }
+    .chart-title { font-size:.78rem; font-weight:700; color:#374151; margin-bottom:.5rem; display:flex; align-items:center; gap:.4rem; }
+    .chart-title .units { font-weight:400; color:#9ca3af; }
+    .uplot-wrap { width:100%; overflow:hidden; }
+    #deltaTip { font-size:.72rem; text-align:center; color:#6b7280; padding:.25rem; }
+
+    /* ─── Track map ───────────────────────────────────────────────────────── */
+    #trackMapCanvas { border-radius:10px; cursor:crosshair; max-width:100%; }
+    .map-legend { display:flex; gap:1rem; flex-wrap:wrap; margin-top:.5rem; font-size:.75rem; }
+    .map-legend-item { display:flex; align-items:center; gap:.3rem; }
+    .map-legend-swatch { width:24px; height:5px; border-radius:2px; }
+
+    /* ─── Lap times tab ───────────────────────────────────────────────────── */
+    .lt-stats { display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:1rem; }
+    .lt-stat  { background:#fff; border-radius:8px; padding:.6rem 1rem; box-shadow:0 2px 6px rgba(0,0,0,.07); min-width:120px; border-top:3px solid #7c3aed; }
+    .lt-stat-label { font-size:.7rem; text-transform:uppercase; color:#9ca3af; font-weight:600; }
+    .lt-stat-value { font-size:1.4rem; font-weight:800; color:#1f2937; }
+    .lt-bar-row { display:flex; align-items:center; gap:.5rem; margin-bottom:.25rem; font-size:.78rem; }
+    .lt-bar-bg  { flex:1; height:8px; background:#f3f4f6; border-radius:4px; overflow:hidden; }
+    .lt-bar-fill { height:100%; border-radius:4px; background:#7c3aed; transition:width .3s; }
+    .lt-bar-time { font-family:monospace; font-weight:700; min-width:60px; text-align:right; }
+    .lt-bar-gap  { font-size:.7rem; min-width:55px; text-align:right; color:#9ca3af; }
+
+    /* ─── Insights tab ────────────────────────────────────────────────────── */
+    .insight-card { background:#fff; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,.07); padding:.85rem 1rem; display:flex; gap:.75rem; align-items:flex-start; margin-bottom:.6rem; border-left:4px solid #e5e7eb; }
+    .insight-card.sv-good     { border-left-color:#16a34a; }
+    .insight-card.sv-info     { border-left-color:#2563eb; }
+    .insight-card.sv-warning  { border-left-color:#d97706; }
+    .insight-card.sv-critical { border-left-color:#dc2626; }
+    .insight-icon { font-size:1.3rem; line-height:1; margin-top:.1rem; }
+    .insight-title { font-weight:700; font-size:.87rem; color:#1f2937; }
+    .insight-detail { font-size:.78rem; color:#6b7280; margin-top:.15rem; }
+    .insight-value { font-size:.78rem; font-family:monospace; font-weight:600; color:#374151; margin-top:.2rem; }
+
+    /* ─── Right panel ─────────────────────────────────────────────────────── */
+    .rp-section { padding:.75rem .85rem; border-bottom:1px solid #f3f4f6; }
+    .rp-label { font-size:.68rem; text-transform:uppercase; color:#9ca3af; font-weight:600; letter-spacing:.05em; margin-bottom:.15rem; }
+    .rp-value { font-size:.83rem; font-weight:600; color:#1f2937; }
+
+    /* ─── Loading / empty states ──────────────────────────────────────────── */
+    #loadingState,#emptyState { display:flex; align-items:center; justify-content:center; height:100%; flex-direction:column; gap:1rem; color:#9ca3af; }
+    #loadingState i, #emptyState i { font-size:3rem; opacity:.3; }
+
+    .compare-banner { background:#f5f3ff; border:1px solid #c4b5fd; border-radius:8px; padding:.5rem .85rem; font-size:.8rem; display:flex; align-items:center; gap:.5rem; }
+  </style>
+</head>
+<body class="light-mode">
+<div id="appShell">
+
+  <!-- Top nav -->
+  <div id="rtsTopNav"></div>
+
+  <!-- Toolbar -->
+  <div id="topBar">
+    <button class="tb-btn" id="btnToggleLeft" title="Toggle left panel"><i class="bi bi-layout-sidebar"></i></button>
+    <span id="sessionLabel">No session loaded</span>
+    <div class="sep"></div>
+    <select class="form-select form-select-sm" id="sessionPicker" style="width:auto;min-width:180px;font-size:.82rem;padding:.25rem .7rem">
+      <option value="">Select session…</option>
+    </select>
+    <button class="tb-btn" id="btnCompare" title="Compare with another session"><i class="bi bi-layers me-1"></i>Compare</button>
+    <div class="sep"></div>
+    <span id="compareBadge" class="d-none" style="font-size:.78rem;opacity:.85">vs <span id="compareLabel"></span>
+      <button class="tb-btn ms-1" onclick="clearCompare()" style="padding:.15rem .4rem"><i class="bi bi-x"></i></button>
+    </span>
+    <div class="ms-auto"></div>
+    <button class="tb-btn" id="btnToggleRight" title="Toggle right panel"><i class="bi bi-layout-sidebar-reverse"></i></button>
+  </div>
+
+  <!-- Main row -->
+  <div id="mainRow">
+
+    <!-- Left panel -->
+    <div id="leftPanel">
+      <!-- Session info -->
+      <div class="lp-section">
+        <div class="lp-section-hdr">Session Info</div>
+        <div class="lp-session-info" id="lpSessionInfo">
+          <em class="text-muted">No session loaded</em>
+        </div>
+      </div>
+
+      <!-- Lap list -->
+      <div class="lp-section" id="lapSection">
+        <div class="lp-section-hdr" onclick="toggleSection('lapList')">
+          Laps
+          <span id="lapActiveCount" class="badge rounded-pill" style="background:#7c3aed;font-size:.65rem">0/8</span>
+        </div>
+        <div id="lapList"></div>
+      </div>
+
+      <!-- Channel sidebar (only visible on Channels tab) -->
+      <div class="lp-section flex-grow-1" id="channelSidebar">
+        <div class="lp-section-hdr" onclick="toggleSection('channelList')">Channels</div>
+        <div id="channelList"></div>
+      </div>
+    </div>
+
+    <!-- Center panel -->
+    <div id="centerPanel">
+      <!-- Tab bar -->
+      <div class="tabs-bar">
+        <button class="tab-btn active" data-tab="channels"    onclick="switchTab('channels')">   <i class="bi bi-graph-up me-1"></i>Channels</button>
+        <button class="tab-btn"        data-tab="trackmap"    onclick="switchTab('trackmap')">    <i class="bi bi-geo-alt me-1"></i>Track Map</button>
+        <button class="tab-btn"        data-tab="laptimes"    onclick="switchTab('laptimes')">    <i class="bi bi-stopwatch me-1"></i>Lap Times</button>
+        <button class="tab-btn"        data-tab="comparison"  onclick="switchTab('comparison')">  <i class="bi bi-layers me-1"></i>Comparison</button>
+        <button class="tab-btn"        data-tab="insights"    onclick="switchTab('insights')">    <i class="bi bi-lightbulb me-1"></i>Insights</button>
+      </div>
+
+      <!-- Tab panes -->
+      <div id="chartArea">
+
+        <!-- CHANNELS -->
+        <div id="tabChannels">
+          <div id="loadingState" class="d-none"><span class="spinner-border" style="color:#7c3aed"></span><span>Loading…</span></div>
+          <div id="emptyState"><i class="bi bi-activity"></i><p>Select a session and pick laps &amp; channels to analyse</p></div>
+          <div id="mainChartWrap" class="chart-card d-none">
+            <div class="chart-title" id="mainChartTitle">—</div>
+            <div class="uplot-wrap" id="mainChartEl"></div>
+          </div>
+          <div id="speedChart" class="chart-card d-none">
+            <div class="chart-title">GPS Speed <span class="units">km/h</span></div>
+            <div class="uplot-wrap" id="speedChartEl"></div>
+          </div>
+          <div id="throttleChart" class="chart-card d-none">
+            <div class="chart-title">Throttle <span class="units">%</span></div>
+            <div class="uplot-wrap" id="throttleChartEl"></div>
+          </div>
+          <div id="deltaChart" class="chart-card d-none">
+            <div class="chart-title">Δ Time vs Best <span class="units">s</span></div>
+            <div class="uplot-wrap" id="deltaChartEl"></div>
+            <div id="deltaTip">Positive = slower than best lap · Negative = faster than best lap</div>
+          </div>
+        </div>
+
+        <!-- TRACK MAP -->
+        <div id="tabTrackmap" class="d-none">
+          <div class="chart-card">
+            <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
+              <div class="chart-title mb-0">Track Map</div>
+              <div class="d-flex gap-2 align-items-center flex-wrap">
+                <label class="form-label small mb-0 fw-semibold">Colour by</label>
+                <select class="form-select form-select-sm" id="mapColorBy" onchange="renderTrackMap()" style="width:auto">
+                  <option value="speed">Speed</option>
+                  <option value="throttle">Throttle</option>
+                  <option value="brake">Brake</option>
+                </select>
+              </div>
+            </div>
+            <canvas id="trackMapCanvas" width="800" height="500"></canvas>
+            <div class="map-legend">
+              <div class="map-legend-item"><div class="map-legend-swatch" style="background:linear-gradient(to right,#2563eb,#16a34a,#f59e0b,#dc2626)"></div><span>Low → High</span></div>
+            </div>
+            <div id="mapStatus" class="text-muted small mt-2">Select a lap with GPS data to render the track map.</div>
+          </div>
+        </div>
+
+        <!-- LAP TIMES -->
+        <div id="tabLaptimes" class="d-none">
+          <div class="lt-stats" id="ltStats"></div>
+          <div class="chart-card">
+            <div class="chart-title">Lap Time Comparison</div>
+            <div id="ltBars"></div>
+          </div>
+          <div class="chart-card mt-2" id="ltTableCard">
+            <div class="chart-title">Lap Table</div>
+            <div style="overflow-x:auto">
+              <table class="table table-sm" id="ltTable">
+                <thead><tr>
+                  <th>Lap</th><th>Time</th><th>Gap</th><th>%</th><th>Max Speed</th><th>Max RPM</th><th>Flag</th>
+                </tr></thead>
+                <tbody id="ltTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- COMPARISON -->
+        <div id="tabComparison" class="d-none">
+          <div id="compareEmptyState" class="text-center py-5 text-muted">
+            <i class="bi bi-layers" style="font-size:3rem;opacity:.3"></i>
+            <p class="mt-2">Click <strong>Compare</strong> in the toolbar and select a second session to overlay data.</p>
+          </div>
+          <div id="compareContent" class="d-none">
+            <div class="compare-banner mb-3">
+              <i class="bi bi-layers text-muted"></i>
+              <span id="compareBannerText">—</span>
+            </div>
+            <div class="chart-card mb-2">
+              <div class="chart-title">Speed Comparison</div>
+              <div class="uplot-wrap" id="compareSpeedEl"></div>
+            </div>
+            <div class="chart-card mb-2">
+              <div class="chart-title">Throttle Comparison</div>
+              <div class="uplot-wrap" id="compareThrottleEl"></div>
+            </div>
+            <div id="compareStatsWrap" class="chart-card">
+              <div class="chart-title">Delta Stats</div>
+              <div id="compareStats"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- INSIGHTS -->
+        <div id="tabInsights" class="d-none">
+          <div id="insightsContainer"></div>
+          <div id="insightsEmpty" class="text-center py-5 text-muted d-none">
+            <i class="bi bi-lightbulb" style="font-size:3rem;opacity:.3"></i>
+            <p class="mt-2">No insights available for this session yet.</p>
+          </div>
+          <!-- Cross-links -->
+          <div id="crossLinks" class="d-none chart-card mt-2">
+            <div class="chart-title"><i class="bi bi-link-45deg me-1"></i>Related Pages</div>
+            <div id="crossLinksBody" class="d-flex flex-wrap gap-2 mt-1"></div>
+          </div>
+          <!-- Export to Debrief -->
+          <div class="chart-card mt-2 d-none" id="exportDebriefCard">
+            <div class="chart-title"><i class="bi bi-file-earmark-arrow-up me-1"></i>Export to Debrief</div>
+            <p class="small text-muted">Create a new debrief entry pre-filled with insights from this session.</p>
+            <button class="btn btn-sm" style="background:#7c3aed;color:#fff" onclick="exportToDebrief()">Export Insights to Debrief</button>
+          </div>
+        </div>
+
+      </div><!-- /chartArea -->
+    </div><!-- /centerPanel -->
+
+    <!-- Right panel -->
+    <div id="rightPanel">
+      <div class="rp-section">
+        <div class="rp-label">Active Session</div>
+        <div class="rp-value" id="rpSessionName">—</div>
+      </div>
+      <div class="rp-section">
+        <div class="rp-label">Track</div>
+        <div class="rp-value" id="rpTrack">—</div>
+      </div>
+      <div class="rp-section">
+        <div class="rp-label">Vehicle</div>
+        <div class="rp-value" id="rpVehicle">—</div>
+      </div>
+      <div class="rp-section">
+        <div class="rp-label">Driver</div>
+        <div class="rp-value" id="rpDriver">—</div>
+      </div>
+      <div class="rp-section">
+        <div class="rp-label">Best Lap</div>
+        <div class="rp-value" id="rpBestLap">—</div>
+      </div>
+      <div class="rp-section">
+        <div class="rp-label">Laps</div>
+        <div class="rp-value" id="rpLaps">—</div>
+      </div>
+      <div class="rp-section">
+        <div class="rp-label">Duration</div>
+        <div class="rp-value" id="rpDuration">—</div>
+      </div>
+      <div class="rp-section" id="rpChannelInfo" style="display:none">
+        <div class="rp-label">Channel</div>
+        <div class="rp-value" id="rpChannelName">—</div>
+        <div class="text-muted" style="font-size:.75rem" id="rpChannelStats">—</div>
+      </div>
+      <div class="rp-section">
+        <div class="rp-label">Quick Annotate</div>
+        <textarea class="form-control form-control-sm mt-1" id="rpAnnotation" rows="3" placeholder="Add engineering note…" style="font-size:.78rem"></textarea>
+        <button class="btn btn-sm mt-1 w-100" style="background:#7c3aed;color:#fff;font-size:.78rem" onclick="saveAnnotation()">Save Note</button>
+      </div>
+      <div class="rp-section">
+        <div class="rp-label">Context Links</div>
+        <div id="rpContextLinks" class="d-flex flex-column gap-1 mt-1"></div>
+      </div>
+    </div>
+
+  </div><!-- /mainRow -->
+</div><!-- /appShell -->
+
+<!-- Compare picker modal -->
+<div class="modal fade" id="compareModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-layers me-2"></i>Compare Session</h5>
+        <button class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <label class="form-label small fw-semibold">Select a second session</label>
+        <select class="form-select" id="compareSessionPicker">
+          <option value="">— Select —</option>
+        </select>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-sm fw-semibold" style="background:#7c3aed;color:#fff" onclick="confirmCompare()">Compare</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/uplot@1.6.31/dist/uPlot.iife.min.js"></script>
+<script src="config.js"></script>
+<script src="auth-check.js"></script>
+<script src="topnav.js"></script>
+<script>
+// ── Config ─────────────────────────────────────────────────────────────────
+const API  = (window.RTS_CONFIG?.api?.baseURL || '/api') + '/telemetry';
+const AAPI = (window.RTS_CONFIG?.api?.baseURL || '/api');
+const auth = () => ({ 'Authorization': 'Bearer ' + localStorage.getItem('rts_token'), 'Content-Type': 'application/json' });
+const aGet = url => fetch(url, { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('rts_token') } }).then(r => r.json());
+
+// ── State ──────────────────────────────────────────────────────────────────
+let sessionId     = null;
+let compareSessionId = null;
+let sessionData   = null;   // { session, laps, channels }
+let compareData   = null;
+let insights      = [];
+let activeLaps    = [];     // array of lap_index (max 8)
+let activeChannel = null;   // { group, channel_index }
+let activeCompareLap = null;
+
+const LAP_COLORS = ['#7c3aed','#e74c3c','#2ecc71','#3498db','#f39c12','#1abc9c','#9b59b6','#e67e22'];
+
+// uPlot instances (so we can destroy/recreate)
+let uMain = null, uSpeed = null, uThrottle = null, uDelta = null;
+let uCompSpeed = null, uCompThrottle = null;
+
+const compareModal = new bootstrap.Modal(document.getElementById('compareModal'));
+
+// ── Init ───────────────────────────────────────────────────────────────────
+async function init() {
+  // Parse URL params
+  const params = new URLSearchParams(location.search);
+  const urlSession  = params.get('session');
+  const urlCompare  = params.get('compare');
+
+  // Load session list for picker
+  const allR = await aGet(API);
+  const allSessions = (allR.data || []).filter(s => ['parsed','csv_only'].includes(s.parse_status));
+  populateSessionPicker(allSessions);
+
+  if (urlSession) {
+    await loadSession(parseInt(urlSession, 10));
+  }
+  if (urlCompare) {
+    await loadCompareSession(parseInt(urlCompare, 10));
+  }
+}
+
+function populateSessionPicker(sessions) {
+  const sel = document.getElementById('sessionPicker');
+  const cmp = document.getElementById('compareSessionPicker');
+  const opt = sessions.map(s => `<option value="${s.id}">${esc(s.filename)} ${s.track_name ? '· '+esc(s.track_name) : ''} ${s.driver_name ? '· '+esc(s.driver_name) : ''}</option>`).join('');
+  sel.innerHTML  = '<option value="">Select session…</option>' + opt;
+  cmp.innerHTML  = '<option value="">— Select —</option>'      + opt;
+  sel.value = sessionId || '';
+}
+
+document.getElementById('sessionPicker').onchange = function() {
+  if (this.value) loadSession(parseInt(this.value,10));
+};
+
+// ── Session loading ─────────────────────────────────────────────────────────
+async function loadSession(id) {
+  sessionId = id;
+  activeLaps = [];
+  activeChannel = null;
+  destroyCharts();
+  document.getElementById('emptyState').style.display = 'none';
+  showLoading(true);
+
+  try {
+    const [dr, ir] = await Promise.all([
+      aGet(`${API}/${id}`),
+      aGet(`${API}/${id}/insights`),
+    ]);
+    sessionData = dr.data;
+    insights    = ir.data || [];
+
+    updateSessionUI();
+    buildLapList();
+    buildChannelList();
+    updateRightPanel();
+    renderLapTimesTab();
+    renderInsightsTab();
+
+    // Auto-select best lap
+    if (sessionData.session.best_lap_index != null) {
+      toggleLap(sessionData.session.best_lap_index);
+    } else if (sessionData.laps.length > 0) {
+      toggleLap(0);
+    }
+
+    // Update URL
+    const u = new URL(location.href);
+    u.searchParams.set('session', id);
+    if (compareSessionId) u.searchParams.set('compare', compareSessionId);
+    history.replaceState({}, '', u);
+
+  } finally {
+    showLoading(false);
+  }
+}
+
+async function loadCompareSession(id) {
+  compareSessionId = id;
+  try {
+    const dr = await aGet(`${API}/${id}`);
+    compareData = dr.data;
+    document.getElementById('compareBadge').classList.remove('d-none');
+    document.getElementById('compareLabel').textContent = compareData.session.filename || `Session ${id}`;
+    document.getElementById('compareBannerText').textContent =
+      `Comparing: ${sessionData?.session?.filename || 'Session A'} vs ${compareData.session.filename || 'Session B'}`;
+    document.getElementById('compareContent').classList.remove('d-none');
+    document.getElementById('compareEmptyState').classList.add('d-none');
+    if (currentTab === 'comparison') renderComparisonTab();
+  } catch (e) { alert('Failed to load compare session: ' + e.message); }
+}
+
+function clearCompare() {
+  compareSessionId = null;
+  compareData = null;
+  document.getElementById('compareBadge').classList.add('d-none');
+  document.getElementById('compareContent').classList.add('d-none');
+  document.getElementById('compareEmptyState').classList.remove('d-none');
+  destroyChart('uCompSpeed'); destroyChart('uCompThrottle');
+}
+
+// ── UI updates ──────────────────────────────────────────────────────────────
+function updateSessionUI() {
+  const s = sessionData.session;
+  document.getElementById('sessionLabel').textContent    = s.filename || `Session ${sessionId}`;
+  document.getElementById('sessionPicker').value         = sessionId;
+  document.getElementById('lpSessionInfo').innerHTML     = `
+    <strong title="${esc(s.filename)}">${esc(s.filename)}</strong>
+    <div><i class="bi bi-geo-alt me-1 text-muted"></i>${esc(s.track_name || '—')}</div>
+    <div><i class="bi bi-car-front me-1 text-muted"></i>${esc(s.vehicle_name || '—')}</div>
+    <div><i class="bi bi-person me-1 text-muted"></i>${esc(s.driver_name || s.racer_name || '—')}</div>`;
+  updateRightPanel(s);
+}
+
+function updateRightPanel(s) {
+  s = s || sessionData?.session;
+  if (!s) return;
+  document.getElementById('rpSessionName').textContent = s.filename || '—';
+  document.getElementById('rpTrack').textContent       = s.track_name   || '—';
+  document.getElementById('rpVehicle').textContent     = s.vehicle_name || '—';
+  document.getElementById('rpDriver').textContent      = s.driver_name  || s.racer_name || '—';
+  document.getElementById('rpBestLap').textContent     = s.best_lap_s != null ? fmtLap(s.best_lap_s) : '—';
+  document.getElementById('rpLaps').textContent        = sessionData?.laps?.length ?? '—';
+  document.getElementById('rpDuration').textContent    = s.duration_s ? fmtDur(s.duration_s) : '—';
+
+  // Context links
+  const ctx = document.getElementById('rpContextLinks');
+  ctx.innerHTML = '';
+  if (s.event_id) {
+    ctx.innerHTML += `<a href="debriefs.html?event=${s.event_id}" class="btn btn-sm btn-outline-secondary btn-sm"><i class="bi bi-clipboard me-1"></i>Debriefs</a>`;
+    ctx.innerHTML += `<a href="benchmarking.html?event=${s.event_id}" class="btn btn-sm btn-outline-secondary btn-sm"><i class="bi bi-bar-chart me-1"></i>Benchmarking</a>`;
+    ctx.innerHTML += `<a href="engineering-notes.html?event=${s.event_id}" class="btn btn-sm btn-outline-secondary btn-sm"><i class="bi bi-wrench me-1"></i>Eng Notes</a>`;
+  }
+  ctx.innerHTML += `<a href="telemetry-sessions.html" class="btn btn-sm btn-outline-secondary btn-sm"><i class="bi bi-list me-1"></i>All Sessions</a>`;
+}
+
+// ── Lap list ────────────────────────────────────────────────────────────────
+function buildLapList() {
+  const el = document.getElementById('lapList');
+  el.innerHTML = '';
+  if (!sessionData?.laps) return;
+
+  const laps = sessionData.laps;
+  const bestDur = laps.reduce((b, l) => !l.is_outlap && !l.is_inlap && l.duration_s < b ? l.duration_s : b, Infinity);
+
+  laps.forEach((l, idx) => {
+    const color = LAP_COLORS[idx % LAP_COLORS.length];
+    const isActive = activeLaps.includes(l.lap_index);
+    const gap = isFinite(bestDur) && !l.is_outlap && !l.is_inlap ? l.duration_s - bestDur : null;
+
+    const div = document.createElement('div');
+    div.className = 'lap-item' + (isActive ? ' active' : '');
+    div.id = `lapItem_${l.lap_index}`;
+    div.innerHTML = `
+      <span class="lap-swatch" style="background:${color}"></span>
+      <span class="fw-semibold" style="min-width:22px;font-size:.75rem">L${l.lap_index + 1}</span>
+      <span class="lap-time">${fmtLap(l.duration_s)}</span>
+      ${gap != null ? `<span class="lap-gap ${gap < 0.001 ? 'gap-green' : 'gap-red'}">${gap < 0.001 ? 'BEST' : '+' + gap.toFixed(3)}</span>` : ''}
+      ${l.is_outlap ? '<span class="lap-badge">OUT</span>' : ''}
+      ${l.is_inlap  ? '<span class="lap-badge">IN</span>'  : ''}`;
+    div.addEventListener('click', () => toggleLap(l.lap_index));
+    el.appendChild(div);
+  });
+  updateLapCount();
+}
+
+function toggleLap(lapIndex) {
+  if (activeLaps.includes(lapIndex)) {
+    activeLaps = activeLaps.filter(i => i !== lapIndex);
+  } else {
+    if (activeLaps.length >= 8) return;
+    activeLaps.push(lapIndex);
+  }
+  buildLapList();
+  refreshCharts();
+}
+
+function updateLapCount() {
+  document.getElementById('lapActiveCount').textContent = `${activeLaps.length}/8`;
+}
+
+// ── Channel list ────────────────────────────────────────────────────────────
+function buildChannelList() {
+  const el = document.getElementById('channelList');
+  el.innerHTML = '';
+  if (!sessionData?.channels) return;
+
+  // Group by category
+  const groups = {};
+  sessionData.channels.forEach(ch => {
+    const cat = ch.category || 'Misc';
+    if (!groups[cat]) groups[cat] = [];
+    groups[cat].push(ch);
+  });
+
+  const catOrder = ['Engine','GPS','Accelerometers','Brakes','Suspension','Temperature','Misc'];
+  catOrder.forEach(cat => {
+    if (!groups[cat]) return;
+    const hdr = document.createElement('div');
+    hdr.className = 'ch-group-hdr';
+    hdr.innerHTML = `${cat} <i class="bi bi-chevron-down"></i>`;
+    hdr.addEventListener('click', () => {
+      const list = hdr.nextElementSibling;
+      list.style.display = list.style.display === 'none' ? '' : 'none';
+    });
+    el.appendChild(hdr);
+
+    const list = document.createElement('div');
+    groups[cat].forEach(ch => {
+      const isAct = activeChannel && activeChannel.group === ch.channel_group && activeChannel.channel_index === ch.channel_index;
+      const item = document.createElement('div');
+      item.className = 'ch-item' + (isAct ? ' active' : '');
+      item.dataset.group = ch.channel_group;
+      item.dataset.idx   = ch.channel_index;
+      item.innerHTML = `
+        <span class="ch-swatch" style="background:${ch.default_color}"></span>
+        <span>${esc(ch.name)}</span>
+        ${ch.units ? `<span class="text-muted" style="font-size:.7rem">${esc(ch.units)}</span>` : ''}`;
+      item.addEventListener('click', () => selectChannel(ch));
+      list.appendChild(item);
+    });
+    el.appendChild(list);
+  });
+}
+
+function selectChannel(ch) {
+  activeChannel = { group: ch.channel_group, channel_index: ch.channel_index };
+  buildChannelList();
+  updateChannelRightPanel(ch);
+  refreshCharts();
+}
+
+function updateChannelRightPanel(ch) {
+  document.getElementById('rpChannelInfo').style.display = '';
+  document.getElementById('rpChannelName').textContent   = `${ch.name} ${ch.units ? '['+ch.units+']' : ''}`;
+  document.getElementById('rpChannelStats').textContent  = `Min: ${ch.value_min ?? '?'}  Max: ${ch.value_max ?? '?'}`;
+}
+
+// ── Tabs ────────────────────────────────────────────────────────────────────
+let currentTab = 'channels';
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  ['channels','trackmap','laptimes','comparison','insights'].forEach(t => {
+    document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1))?.classList.toggle('d-none', t !== tab);
+  });
+  // Show/hide channel sidebar
+  document.getElementById('channelSidebar').style.display = tab === 'channels' ? '' : 'none';
+
+  if (tab === 'trackmap')   renderTrackMap();
+  if (tab === 'comparison' && compareData) renderComparisonTab();
+}
+
+// ── Chart refresh ─────────────────────────────────────────────────────────--
+async function refreshCharts() {
+  if (!sessionId || !activeLaps.length) return;
+  if (currentTab !== 'channels') return;
+
+  showLoading(true);
+  try {
+    // Build series for the active channel
+    const seriesData = { t: null, series: [] };
+    let chInfo = null;
+
+    if (activeChannel) {
+      chInfo = sessionData.channels.find(c => c.channel_group === activeChannel.group && c.channel_index === activeChannel.channel_index);
+
+      for (const lapIdx of activeLaps) {
+        const r = await aGet(`${API}/${sessionId}/channels/${activeChannel.group}/${activeChannel.channel_index}/samples?lap=${lapIdx}`);
+        if (!r.data) continue;
+        const { times, values } = r.data;
+        if (!times?.length) continue;
+        if (!seriesData.t) seriesData.t = times;
+        seriesData.series.push({ lapIdx, values, color: LAP_COLORS[activeLaps.indexOf(lapIdx) % LAP_COLORS.length] });
+      }
+    }
+
+    // Main chart
+    if (chInfo && seriesData.series.length) {
+      renderMainChart(seriesData, chInfo);
+    }
+
+    // Always load Speed + TPS sub-charts
+    await renderSubCharts();
+    await renderDeltaChart();
+
+    document.getElementById('emptyState').style.display = 'none';
+    document.getElementById('mainChartWrap').classList.toggle('d-none', !chInfo || !seriesData.series.length);
+    document.getElementById('deltaChart').classList.remove('d-none');
+  } finally {
+    showLoading(false);
+  }
+}
+
+function renderMainChart(data, ch) {
+  destroyChart('uMain');
+  const el = document.getElementById('mainChartEl');
+  el.innerHTML = '';
+  const wrap = el.getBoundingClientRect();
+  const w = Math.max(wrap.width || 800, 400);
+
+  const times = data.t;
+  const uData = [times, ...data.series.map(s => s.values)];
+
+  const opts = {
+    width: w, height: 200,
+    cursor: { sync: { key: 'rts-cursor' } },
+    series: [
+      { label: 'Time' },
+      ...data.series.map((s, i) => ({ label: `L${s.lapIdx+1}`, stroke: s.color, width: 1.5 })),
+    ],
+    axes: [{ label: 'Time (s)' }, { label: `${ch.name} (${ch.units})`, size: 60 }],
+    scales: { x: { time: false }, y: {} },
+  };
+  uMain = new uPlot(opts, uData, el);
+  document.getElementById('mainChartTitle').innerHTML = `${esc(ch.name)} <span class="units">${esc(ch.units || '')}</span>`;
+}
+
+async function renderSubCharts() {
+  const speedCh    = findChannel(/^(gps_speed|speed)$/i);
+  const throttleCh = findChannel(/^(tps|throttle)$/i);
+
+  if (speedCh) {
+    const seriesData = await buildSubSeries(speedCh);
+    if (seriesData) { renderSubChart('uSpeed','speedChartEl',seriesData,'Speed','km/h'); document.getElementById('speedChart').classList.remove('d-none'); }
+  }
+  if (throttleCh) {
+    const seriesData = await buildSubSeries(throttleCh);
+    if (seriesData) { renderSubChart('uThrottle','throttleChartEl',seriesData,'Throttle','%'); document.getElementById('throttleChart').classList.remove('d-none'); }
+  }
+}
+
+async function buildSubSeries(ch) {
+  const result = { t: null, series: [] };
+  for (const lapIdx of activeLaps) {
+    const r = await aGet(`${API}/${sessionId}/channels/${ch.channel_group}/${ch.channel_index}/samples?lap=${lapIdx}`);
+    if (!r.data?.times?.length) continue;
+    if (!result.t) result.t = r.data.times;
+    result.series.push({ lapIdx, values: r.data.values, color: LAP_COLORS[activeLaps.indexOf(lapIdx) % LAP_COLORS.length] });
+  }
+  return result.series.length ? result : null;
+}
+
+function renderSubChart(uVar, elId, data, label, units) {
+  if (window[uVar]) { window[uVar].destroy(); window[uVar] = null; }
+  const el = document.getElementById(elId);
+  el.innerHTML = '';
+  const uData = [data.t, ...data.series.map(s => s.values)];
+  const opts = {
+    width: Math.max(el.getBoundingClientRect().width || 800, 400), height: 140,
+    cursor: { sync: { key: 'rts-cursor' } },
+    series: [{ label: 'Time' }, ...data.series.map(s => ({ label: `L${s.lapIdx+1}`, stroke: s.color, width: 1.5 }))],
+    axes: [{ label: 'Time (s)' }, { label: `${label} (${units})`, size: 55 }],
+    scales: { x: { time: false } },
+  };
+  window[uVar] = new uPlot(opts, uData, el);
+}
+
+function destroyChart(varName) {
+  if (window[varName]) { window[varName].destroy(); window[varName] = null; }
+}
+
+async function renderDeltaChart() {
+  destroyChart('uDelta');
+  const el = document.getElementById('deltaChartEl');
+  el.innerHTML = '';
+  if (activeLaps.length < 2) return;
+
+  const speedCh = findChannel(/^(gps_speed|speed)$/i);
+  if (!speedCh) return;
+
+  const allSeries = [];
+  for (const lapIdx of activeLaps) {
+    const r = await aGet(`${API}/${sessionId}/channels/${speedCh.channel_group}/${speedCh.channel_index}/samples?lap=${lapIdx}`);
+    if (r.data?.times?.length) allSeries.push({ lapIdx, times: r.data.times, values: r.data.values });
+  }
+  if (allSeries.length < 2) return;
+
+  // Use first active lap as reference, interpolate delta
+  const ref = allSeries[0];
+  const times = ref.times;
+  const uData = [times];
+  const series = [{ label: 'Time' }];
+
+  for (let i = 1; i < allSeries.length; i++) {
+    const lapIdx = allSeries[i].lapIdx;
+    // Compute cumulative distance-based delta (simplified: time delta at each sample)
+    const tDelta = times.map((t, j) => {
+      // Very simple: t / ref speed vs same t on comp speed — use scaled time offset
+      return t - (ref.times[j] || t);
+    });
+    uData.push(tDelta);
+    series.push({ label: `L${lapIdx+1} Δ`, stroke: LAP_COLORS[i % LAP_COLORS.length], width: 1.5 });
+  }
+  if (uData.length < 2) return;
+
+  const opts = {
+    width: Math.max(el.getBoundingClientRect().width || 800, 400), height: 120,
+    cursor: { sync: { key: 'rts-cursor' } },
+    series, axes: [{ label: 'Time (s)' }, { label: 'Δ Time (s)', size: 55 }],
+    scales: { x: { time: false } },
+  };
+  uDelta = new uPlot(opts, uData, el);
+}
+
+function destroyCharts() {
+  ['uMain','uSpeed','uThrottle','uDelta','uCompSpeed','uCompThrottle'].forEach(k => destroyChart(k));
+}
+
+function findChannel(re) {
+  return sessionData?.channels?.find(c => re.test(c.name));
+}
+
+// ── Track map ───────────────────────────────────────────────────────────────
+async function renderTrackMap() {
+  const canvas = document.getElementById('trackMapCanvas');
+  const ctx2   = canvas.getContext('2d');
+  const status = document.getElementById('mapStatus');
+
+  // Need at least one active lap with GPS
+  const gpsLat = sessionData?.channels?.find(c => /^(gps_?lat|latitude)/i.test(c.name));
+  const gpsLon = sessionData?.channels?.find(c => /^(gps_?lon|longitude)/i.test(c.name));
+  const gpsSpd = sessionData?.channels?.find(c => /^(gps_speed|speed)/i.test(c.name));
+
+  if (!gpsLat || !gpsLon || !activeLaps.length) {
+    status.textContent = 'No GPS channels found or no active laps.';
+    return;
+  }
+
+  const lapIdx = activeLaps[0];
+  try {
+    const [latR, lonR, spdR] = await Promise.all([
+      aGet(`${API}/${sessionId}/channels/${gpsLat.channel_group}/${gpsLat.channel_index}/samples?lap=${lapIdx}`),
+      aGet(`${API}/${sessionId}/channels/${gpsLon.channel_group}/${gpsLon.channel_index}/samples?lap=${lapIdx}`),
+      gpsSpd ? aGet(`${API}/${sessionId}/channels/${gpsSpd.channel_group}/${gpsSpd.channel_index}/samples?lap=${lapIdx}`) : Promise.resolve({ data: null }),
+    ]);
+
+    const lats = latR.data?.values;
+    const lons = lonR.data?.values;
+    const spds = spdR.data?.values;
+
+    if (!lats?.length || !lons?.length) { status.textContent = 'No GPS data for this lap.'; return; }
+
+    // Map lat/lon → canvas coords
+    const minLat = Math.min(...lats), maxLat = Math.max(...lats);
+    const minLon = Math.min(...lons), maxLon = Math.max(...lons);
+    const pad = 40;
+    const w = canvas.width - pad*2, h = canvas.height - pad*2;
+    const toX = lon => pad + (lon - minLon) / (maxLon - minLon || 1) * w;
+    const toY = lat => pad + (1 - (lat - minLat) / (maxLat - minLat || 1)) * h;
+
+    const colorBy  = document.getElementById('mapColorBy').value;
+    const colorVals = colorBy === 'speed' ? spds : null;
+    const minV = colorVals ? Math.min(...colorVals) : 0;
+    const maxV = colorVals ? Math.max(...colorVals) : 1;
+
+    ctx2.clearRect(0, 0, canvas.width, canvas.height);
+    ctx2.fillStyle = '#f9f5ff';
+    ctx2.fillRect(0, 0, canvas.width, canvas.height);
+
+    for (let i = 1; i < lats.length; i++) {
+      const t = colorVals ? (colorVals[i] - minV) / (maxV - minV || 1) : 0.5;
+      ctx2.beginPath();
+      ctx2.strokeStyle = speedColor(t);
+      ctx2.lineWidth = 3;
+      ctx2.moveTo(toX(lons[i-1]), toY(lats[i-1]));
+      ctx2.lineTo(toX(lons[i]),   toY(lats[i]));
+      ctx2.stroke();
+    }
+
+    // Start dot
+    ctx2.beginPath();
+    ctx2.arc(toX(lons[0]), toY(lats[0]), 6, 0, Math.PI*2);
+    ctx2.fillStyle = '#16a34a'; ctx2.fill();
+
+    status.textContent = `Track map — Lap ${lapIdx+1} · ${lats.length} GPS points`;
+  } catch (e) { status.textContent = 'Error: ' + e.message; }
+}
+
+function speedColor(t) {
+  // Blue → Green → Yellow → Red
+  if (t < 0.33)      return interpolateColor('#2563eb','#16a34a', t / 0.33);
+  else if (t < 0.66) return interpolateColor('#16a34a','#f59e0b', (t-0.33) / 0.33);
+  else               return interpolateColor('#f59e0b','#dc2626', (t-0.66) / 0.34);
+}
+
+function interpolateColor(a, b, t) {
+  const ah = parseInt(a.slice(1),16), bh = parseInt(b.slice(1),16);
+  const r = Math.round(((ah>>16)&0xff) * (1-t) + ((bh>>16)&0xff) * t);
+  const g = Math.round(((ah>>8)&0xff)  * (1-t) + ((bh>>8)&0xff)  * t);
+  const bl= Math.round((ah&0xff)       * (1-t) + (bh&0xff)       * t);
+  return `rgb(${r},${g},${bl})`;
+}
+
+// ── Lap Times tab ────────────────────────────────────────────────────────────
+function renderLapTimesTab() {
+  if (!sessionData?.laps?.length) return;
+  const laps = sessionData.laps;
+  const valid = laps.filter(l => !l.is_outlap && !l.is_inlap);
+  const durs  = valid.map(l => l.duration_s);
+  const best  = Math.min(...durs);
+  const worst = Math.max(...durs);
+  const mean  = durs.reduce((s,d)=>s+d,0) / (durs.length||1);
+  const std   = Math.sqrt(durs.map(d=>(d-mean)**2).reduce((s,d)=>s+d,0) / (durs.length||1));
+
+  document.getElementById('ltStats').innerHTML = `
+    <div class="lt-stat"><div class="lt-stat-label">Best</div><div class="lt-stat-value">${fmtLap(best)}</div></div>
+    <div class="lt-stat"><div class="lt-stat-label">Mean</div><div class="lt-stat-value">${fmtLap(mean)}</div></div>
+    <div class="lt-stat"><div class="lt-stat-label">Worst</div><div class="lt-stat-value">${fmtLap(worst)}</div></div>
+    <div class="lt-stat"><div class="lt-stat-label">Std Dev</div><div class="lt-stat-value">${std.toFixed(3)}s</div></div>
+    <div class="lt-stat"><div class="lt-stat-label">Valid Laps</div><div class="lt-stat-value">${valid.length}</div></div>`;
+
+  // Bars
+  const range = worst - best || 1;
+  const bars  = document.getElementById('ltBars');
+  bars.innerHTML = laps.map(l => {
+    const gap  = l.duration_s - best;
+    const pct  = Math.min((l.duration_s - best) / range * 100, 100);
+    const col  = LAP_COLORS[l.lap_index % LAP_COLORS.length];
+    return `<div class="lt-bar-row">
+      <span style="min-width:32px;font-size:.75rem;font-weight:700;color:${col}">L${l.lap_index+1}</span>
+      <div class="lt-bar-bg"><div class="lt-bar-fill" style="width:${100-pct}%;background:${col}"></div></div>
+      <span class="lt-bar-time">${fmtLap(l.duration_s)}</span>
+      <span class="lt-bar-gap">${gap < 0.001 ? '<span class="text-success fw-bold">BEST</span>' : '+'+gap.toFixed(3)+'s'}</span>
+    </div>`;
+  }).join('');
+
+  // Table
+  const tbody = document.getElementById('ltTableBody');
+  tbody.innerHTML = laps.map(l => {
+    const gap = l.duration_s - best;
+    const pct = best > 0 ? (gap / best * 100).toFixed(2) + '%' : '—';
+    return `<tr${l.lap_index === sessionData.session.best_lap_index ? ' class="table-success"' : ''}>
+      <td class="fw-bold">L${l.lap_index+1}</td>
+      <td class="font-monospace">${fmtLap(l.duration_s)}</td>
+      <td class="${gap < 0.001 ? 'text-success fw-bold' : 'text-danger'}">${gap < 0.001 ? 'BEST' : '+'+gap.toFixed(3)}</td>
+      <td class="text-muted small">${gap < 0.001 ? '—' : pct}</td>
+      <td class="small">${l.max_speed_kph != null ? parseFloat(l.max_speed_kph).toFixed(1)+' km/h' : '—'}</td>
+      <td class="small">${l.max_rpm != null ? Math.round(l.max_rpm) : '—'}</td>
+      <td>${l.is_outlap ? '<span class="badge bg-secondary">OUT</span>' : l.is_inlap ? '<span class="badge bg-secondary">IN</span>' : ''}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Insights tab ─────────────────────────────────────────────────────────────
+function renderInsightsTab() {
+  const container = document.getElementById('insightsContainer');
+  const empty     = document.getElementById('insightsEmpty');
+  if (!insights.length) { empty.classList.remove('d-none'); container.innerHTML = ''; return; }
+  empty.classList.add('d-none');
+
+  const icons = { good:'bi-check-circle-fill text-success', info:'bi-info-circle-fill text-primary', warning:'bi-exclamation-triangle-fill text-warning', critical:'bi-x-circle-fill text-danger' };
+  container.innerHTML = insights.map(ins => `
+    <div class="insight-card sv-${ins.severity}">
+      <i class="bi ${icons[ins.severity] || 'bi-circle'} insight-icon"></i>
+      <div>
+        <div class="insight-title">${esc(ins.title)}</div>
+        ${ins.detail ? `<div class="insight-detail">${esc(ins.detail)}</div>` : ''}
+        ${ins.value_num != null ? `<div class="insight-value">${ins.value_num} ${esc(ins.unit||'')}</div>` : ''}
+      </div>
+    </div>`).join('');
+
+  // Cross-links
+  const s = sessionData?.session;
+  if (s?.event_id) {
+    document.getElementById('crossLinks').classList.remove('d-none');
+    const clb = document.getElementById('crossLinksBody');
+    clb.innerHTML = `
+      <a href="debriefs.html?event=${s.event_id}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-clipboard me-1"></i>Debriefs</a>
+      <a href="benchmarking.html?event=${s.event_id}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-bar-chart me-1"></i>Benchmarking</a>
+      <a href="engineering-notes.html?event=${s.event_id}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-wrench me-1"></i>Eng Notes</a>
+      <a href="performance.html?event=${s.event_id}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-speedometer me-1"></i>Performance</a>`;
+    document.getElementById('exportDebriefCard').classList.remove('d-none');
+  }
+}
+
+async function exportToDebrief() {
+  if (!sessionData) return;
+  const s = sessionData.session;
+  const summary = insights.map(i => `• [${i.severity.toUpperCase()}] ${i.title}${i.detail ? ' — '+i.detail : ''}`).join('\n');
+  const url = `debriefs.html?event=${s.event_id||''}&prefill=${encodeURIComponent('Telemetry insights from '+s.filename+':\n\n'+summary)}`;
+  window.open(url, '_blank');
+}
+
+// ── Comparison tab ───────────────────────────────────────────────────────────
+async function renderComparisonTab() {
+  if (!compareData) return;
+  const s1 = sessionData.session, s2 = compareData.session;
+
+  // Best lap for each
+  const bestLap1 = s1.best_lap_index ?? 0;
+  const bestLap2 = s2.best_lap_index ?? 0;
+
+  const speedCh1 = sessionData.channels?.find(c => /^(gps_speed|speed)/i.test(c.name));
+  const speedCh2 = compareData.channels?.find(c => /^(gps_speed|speed)/i.test(c.name));
+  const thCh1    = sessionData.channels?.find(c => /^(tps|throttle)/i.test(c.name));
+  const thCh2    = compareData.channels?.find(c => /^(tps|throttle)/i.test(c.name));
+
+  if (speedCh1 && speedCh2) {
+    const [r1, r2] = await Promise.all([
+      aGet(`${API}/${sessionId}/channels/${speedCh1.channel_group}/${speedCh1.channel_index}/samples?lap=${bestLap1}`),
+      aGet(`${API}/${compareSessionId}/channels/${speedCh2.channel_group}/${speedCh2.channel_index}/samples?lap=${bestLap2}`),
+    ]);
+    if (r1.data && r2.data) {
+      renderCompChart('uCompSpeed','compareSpeedEl',r1.data, r2.data, 'Speed','km/h');
+    }
+  }
+  if (thCh1 && thCh2) {
+    const [r1, r2] = await Promise.all([
+      aGet(`${API}/${sessionId}/channels/${thCh1.channel_group}/${thCh1.channel_index}/samples?lap=${bestLap1}`),
+      aGet(`${API}/${compareSessionId}/channels/${thCh2.channel_group}/${thCh2.channel_index}/samples?lap=${bestLap2}`),
+    ]);
+    if (r1.data && r2.data) {
+      renderCompChart('uCompThrottle','compareThrottleEl',r1.data, r2.data, 'Throttle','%');
+    }
+  }
+
+  // Delta stats table
+  const el = document.getElementById('compareStats');
+  const laps1 = sessionData.laps || [], laps2 = compareData.laps || [];
+  const best1 = s1.best_lap_s, best2 = s2.best_lap_s;
+  el.innerHTML = `
+    <table class="table table-sm table-bordered" style="font-size:.82rem">
+      <tr><th></th><th>${esc(s1.filename)}</th><th>${esc(s2.filename)}</th><th>Δ</th></tr>
+      <tr><td>Best Lap</td><td class="font-monospace">${best1 != null ? fmtLap(best1) : '—'}</td><td class="font-monospace">${best2 != null ? fmtLap(best2) : '—'}</td>
+          <td class="${best1 != null && best2 != null ? (best1<best2?'text-success':'text-danger') : ''}">
+            ${best1 != null && best2 != null ? (best1<best2?'-':'+')+Math.abs(best1-best2).toFixed(3)+'s' : '—'}</td></tr>
+      <tr><td>Laps</td><td>${laps1.length}</td><td>${laps2.length}</td><td>—</td></tr>
+      <tr><td>Track</td><td>${esc(s1.track_name||'—')}</td><td>${esc(s2.track_name||'—')}</td><td>—</td></tr>
+      <tr><td>Vehicle</td><td>${esc(s1.vehicle_name||'—')}</td><td>${esc(s2.vehicle_name||'—')}</td><td>—</td></tr>
+    </table>`;
+}
+
+function renderCompChart(uVar, elId, d1, d2, label, units) {
+  destroyChart(uVar);
+  const el = document.getElementById(elId);
+  el.innerHTML = '';
+  const t1 = d1.times, v1 = d1.values, t2 = d2.times, v2 = d2.values;
+  if (!t1?.length) return;
+  const uData  = [t1, v1, v2];
+  const opts = {
+    width: Math.max(el.getBoundingClientRect().width || 800, 400), height: 160,
+    series: [{ label:'Time' }, { label: label+' A', stroke:'#7c3aed', width:1.5 }, { label: label+' B', stroke:'#e74c3c', width:1.5, dash:[4,2] }],
+    axes:   [{ label:'Time (s)' }, { label:`${label} (${units})`, size:55 }],
+    scales: { x: { time: false } },
+  };
+  window[uVar] = new uPlot(opts, uData, el);
+}
+
+// ── Toolbar actions ──────────────────────────────────────────────────────────
+document.getElementById('btnToggleLeft').addEventListener('click', () => {
+  document.getElementById('leftPanel').classList.toggle('collapsed');
+});
+document.getElementById('btnToggleRight').addEventListener('click', () => {
+  document.getElementById('rightPanel').classList.toggle('collapsed');
+});
+document.getElementById('btnCompare').addEventListener('click', () => {
+  compareModal.show();
+});
+
+async function confirmCompare() {
+  const val = document.getElementById('compareSessionPicker').value;
+  if (!val) return;
+  compareModal.hide();
+  await loadCompareSession(parseInt(val,10));
+  if (currentTab !== 'comparison') switchTab('comparison');
+}
+
+// ── Quick annotate ────────────────────────────────────────────────────────────
+async function saveAnnotation() {
+  const note = document.getElementById('rpAnnotation').value.trim();
+  if (!note || !sessionId) return;
+  const s = sessionData?.session;
+  const body = {
+    note,
+    event_id:   s?.event_id  || null,
+    session_id: sessionId,
+    source:     'telemetry',
+  };
+  try {
+    const r = await fetch(`${AAPI}/engineering-notes`, { method:'POST', headers: auth(), body: JSON.stringify(body) });
+    if (!r.ok) throw new Error((await r.json()).error || r.statusText);
+    document.getElementById('rpAnnotation').value = '';
+    alert('Engineering note saved.');
+  } catch (e) {
+    // Fallback: just update telemetry session notes field
+    await fetch(`${API}/${sessionId}`, { method:'PUT', headers: auth(), body: JSON.stringify({ notes: note }) });
+    document.getElementById('rpAnnotation').value = '';
+    alert('Note saved to session.');
+  }
+}
+
+// ── Misc helpers ────────────────────────────────────────────────────────────
+function showLoading(v) {
+  document.getElementById('loadingState').classList.toggle('d-none', !v);
+}
+function toggleSection(id) {
+  const el = document.getElementById(id);
+  if (el) el.style.display = el.style.display === 'none' ? '' : 'none';
+}
+function esc(s) { return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function fmtLap(s) { const m=Math.floor(s/60); return `${m}:${String((s%60).toFixed(3)).padStart(6,'0')}`; }
+function fmtDur(s) { const m=Math.floor(s/60),sc=Math.floor(s%60); return `${m}m ${sc}s`; }
+
+// ── Start ─────────────────────────────────────────────────────────────────
+init().catch(console.error);
+</script>
+</body>
+</html>

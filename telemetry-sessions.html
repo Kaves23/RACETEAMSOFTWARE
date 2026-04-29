@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Data Sessions – Telemetry</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="style.css?v=20260420">
+  <style>
+    body { background: linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%); min-height:100vh; }
+    .rts-main { padding:1.5rem; }
+    .page-title { font-weight:800; color:#7c3aed; letter-spacing:-.01em; }
+
+    /* stat cards */
+    .ev-stats-bar { display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:1.5rem; }
+    .ev-stat-card { background:#fff; border-radius:10px; padding:1rem 1.5rem; box-shadow:0 2px 8px rgba(0,0,0,.08); min-width:130px; border-top:4px solid #7c3aed; }
+    .ev-stat-label { font-size:.72rem; text-transform:uppercase; color:#6b7280; font-weight:600; letter-spacing:.05em; }
+    .ev-stat-value { font-size:1.8rem; font-weight:800; color:#1f2937; line-height:1.1; }
+
+    /* filter bar */
+    .filter-bar { background:#fff; border-radius:10px; padding:.9rem 1.25rem; box-shadow:0 2px 8px rgba(0,0,0,.08); margin-bottom:1.25rem; display:flex; gap:1rem; flex-wrap:wrap; align-items:flex-end; }
+
+    /* table */
+    .table-wrapper { background:#fff; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,.08); overflow:hidden; }
+    .table { margin:0; }
+    .table thead th { background:#7c3aed; color:#fff; font-size:.75rem; text-transform:uppercase; letter-spacing:.05em; border:none; padding:.7rem 1rem; white-space:nowrap; }
+    .table tbody tr.data-row { cursor:pointer; transition:background .15s; }
+    .table tbody tr.data-row:hover { background:#f5f3ff; }
+    .table tbody tr.data-row.selected { background:#ede9fe !important; }
+    .table tbody td { padding:.6rem 1rem; vertical-align:middle; font-size:.875rem; border-color:#f3f4f6; }
+
+    tr.detail-strip td { background:#f5f3ff; border-top:none; padding:1.1rem 1.25rem; }
+    .detail-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:.75rem; }
+    .detail-item label { display:block; font-size:.7rem; text-transform:uppercase; color:#9ca3af; font-weight:600; margin-bottom:.1rem; }
+    .detail-item span { font-weight:600; color:#1f2937; font-size:.85rem; }
+
+    /* badges */
+    .fmt-badge { font-size:.7rem; padding:.2em .55em; border-radius:4px; font-weight:700; text-transform:uppercase; }
+    .fmt-xrk  { background:#7c3aed; color:#fff; }
+    .fmt-xrz  { background:#6d28d9; color:#fff; }
+    .fmt-drk  { background:#4c1d95; color:#fff; }
+    .fmt-csv  { background:#0891b2; color:#fff; }
+    .fmt-txt  { background:#0891b2; color:#fff; }
+
+    .status-badge { font-size:.7rem; padding:.2em .55em; border-radius:4px; font-weight:700; }
+    .st-parsed   { background:#d1fae5; color:#065f46; }
+    .st-csv_only { background:#dbeafe; color:#1e40af; }
+    .st-pending  { background:#fef3c7; color:#92400e; }
+    .st-parsing  { background:#e0f2fe; color:#0369a1; }
+    .st-error    { background:#fee2e2; color:#991b1b; }
+
+    /* DLL banner */
+    #dllBanner { border-radius:10px; border-left:5px solid #f59e0b; }
+
+    /* upload drop zone */
+    #dropZone { border:2px dashed #c4b5fd; border-radius:12px; padding:2.5rem; text-align:center; cursor:pointer; transition:border-color .2s, background .2s; }
+    #dropZone:hover, #dropZone.drag-over { border-color:#7c3aed; background:#faf5ff; }
+    #dropZone i { font-size:2.2rem; color:#7c3aed; }
+
+    /* upload progress */
+    .upload-progress-bar { height:6px; border-radius:3px; transition:width .3s; }
+
+    /* insights chips on row */
+    .insight-chips { display:flex; flex-wrap:wrap; gap:.25rem; }
+    .insight-chip { font-size:.68rem; padding:.15em .45em; border-radius:4px; font-weight:600; }
+    .ic-good     { background:#d1fae5; color:#065f46; }
+    .ic-info     { background:#dbeafe; color:#1e40af; }
+    .ic-warning  { background:#fef3c7; color:#92400e; }
+    .ic-critical { background:#fee2e2; color:#991b1b; }
+  </style>
+</head>
+<body class="light-mode">
+<div id="rtsTopNav"></div>
+<div class="rts-main container-fluid">
+
+  <!-- header -->
+  <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <h2 class="page-title mb-0"><i class="bi bi-activity me-2"></i>Data Sessions</h2>
+    <div class="d-flex gap-2">
+      <button class="btn btn-sm fw-semibold" style="background:#7c3aed;color:#fff" onclick="showUploadModal()">
+        <i class="bi bi-cloud-upload me-1"></i>Upload Session
+      </button>
+    </div>
+  </div>
+
+  <!-- DLL banner (hidden by default) -->
+  <div id="dllBanner" class="alert alert-warning d-none mb-3" role="alert">
+    <strong><i class="bi bi-info-circle me-1"></i>XRK/DRK support not active.</strong>
+    The AiM DLL is not installed on the server — CSV uploads work fully.
+    To enable <code>.xrk / .xrz / .drk</code> parsing, set the <code>AIM_XRK_LIB</code> environment variable on the server.
+    <a href="https://github.com/bmc-labs/xdrk" target="_blank" rel="noopener" class="alert-link ms-1">Download library</a>
+  </div>
+
+  <!-- stats -->
+  <div class="ev-stats-bar">
+    <div class="ev-stat-card"><div class="ev-stat-label">Total</div><div class="ev-stat-value" id="kpiTotal">—</div></div>
+    <div class="ev-stat-card"><div class="ev-stat-label">Parsed</div><div class="ev-stat-value" id="kpiParsed">—</div></div>
+    <div class="ev-stat-card"><div class="ev-stat-label">CSV Only</div><div class="ev-stat-value" id="kpiCsv">—</div></div>
+    <div class="ev-stat-card"><div class="ev-stat-label">Pending</div><div class="ev-stat-value" id="kpiPending">—</div></div>
+    <div class="ev-stat-card"><div class="ev-stat-label">Error</div><div class="ev-stat-value" id="kpiError">—</div></div>
+  </div>
+
+  <!-- filter bar -->
+  <div class="filter-bar">
+    <div>
+      <label class="form-label small fw-semibold mb-1">Event</label>
+      <select class="form-select form-select-sm" id="filterEvent" onchange="applyFilters()" style="min-width:160px">
+        <option value="">All Events</option>
+      </select>
+    </div>
+    <div>
+      <label class="form-label small fw-semibold mb-1">Driver</label>
+      <select class="form-select form-select-sm" id="filterDriver" onchange="applyFilters()" style="min-width:140px">
+        <option value="">All Drivers</option>
+      </select>
+    </div>
+    <div>
+      <label class="form-label small fw-semibold mb-1">Status</label>
+      <select class="form-select form-select-sm" id="filterStatus" onchange="applyFilters()">
+        <option value="">All</option>
+        <option value="parsed">Parsed</option>
+        <option value="csv_only">CSV Only</option>
+        <option value="pending">Pending</option>
+        <option value="parsing">Parsing</option>
+        <option value="error">Error</option>
+      </select>
+    </div>
+    <div>
+      <label class="form-label small fw-semibold mb-1">Search</label>
+      <input type="search" class="form-control form-control-sm" id="filterSearch" placeholder="Filename, track, driver…" oninput="applyFilters()" style="min-width:180px">
+    </div>
+    <div class="ms-auto align-self-end">
+      <button class="btn btn-sm btn-outline-secondary" onclick="clearFilters()"><i class="bi bi-x-circle me-1"></i>Clear</button>
+    </div>
+  </div>
+
+  <!-- table -->
+  <div class="table-wrapper">
+    <table class="table table-hover" id="sessionsTable">
+      <thead>
+        <tr>
+          <th>File</th>
+          <th>Format</th>
+          <th>Date</th>
+          <th>Track</th>
+          <th>Vehicle</th>
+          <th>Driver</th>
+          <th>Event</th>
+          <th>Laps</th>
+          <th>Best Lap</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="sessionsBody"></tbody>
+    </table>
+    <div id="emptyState" class="text-center py-5 text-muted d-none">
+      <i class="bi bi-activity" style="font-size:2.5rem;opacity:.3"></i>
+      <p class="mt-2 mb-0">No data sessions yet — upload a file to get started.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ── Upload Modal ────────────────────────────────────────────────────────── -->
+<div class="modal fade" id="uploadModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header" style="background:#7c3aed;color:#fff">
+        <h5 class="modal-title"><i class="bi bi-cloud-upload me-2"></i>Upload Telemetry Session</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="dropZone" onclick="document.getElementById('fileInput').click()">
+          <input type="file" id="fileInput" class="d-none" accept=".xrk,.xrz,.drk,.csv,.txt" onchange="handleFileSelect(this.files)">
+          <i class="bi bi-file-earmark-arrow-up d-block mb-2"></i>
+          <p class="mb-1 fw-semibold">Drop file here or click to browse</p>
+          <p class="text-muted small mb-0">Supported: .xrk .xrz .drk (AiM) · .csv .txt (Race Studio export)</p>
+        </div>
+        <div id="selectedFile" class="d-none mt-3 p-2 bg-light rounded d-flex align-items-center gap-2">
+          <i class="bi bi-file-earmark-zip text-muted"></i>
+          <span id="selectedFileName" class="fw-semibold small flex-grow-1"></span>
+          <span id="selectedFileSize" class="text-muted small"></span>
+          <button class="btn btn-sm btn-outline-secondary" onclick="clearSelectedFile()"><i class="bi bi-x"></i></button>
+        </div>
+        <div class="row g-3 mt-2">
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Event (optional)</label>
+            <select class="form-select form-select-sm" id="uploadEvent"></select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Driver (optional)</label>
+            <select class="form-select form-select-sm" id="uploadDriver"></select>
+          </div>
+        </div>
+        <div id="uploadProgress" class="d-none mt-3">
+          <div class="d-flex justify-content-between small mb-1">
+            <span id="uploadProgressLabel">Uploading…</span>
+            <span id="uploadProgressPct">0%</span>
+          </div>
+          <div class="progress" style="height:6px">
+            <div class="progress-bar upload-progress-bar" style="background:#7c3aed;width:0%" id="uploadProgressBar"></div>
+          </div>
+          <p class="small text-muted mt-1 mb-0" id="uploadStatusMsg"></p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-sm fw-semibold" style="background:#7c3aed;color:#fff" id="uploadBtn" onclick="doUpload()" disabled>
+          <i class="bi bi-upload me-1"></i>Upload
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Link Modal ─────────────────────────────────────────────────────────── -->
+<div class="modal fade" id="linkModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-link-45deg me-2"></i>Link Session</h5>
+        <button class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="small text-muted">Associate this data session with an event, driver, and kart.</p>
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">Event</label>
+          <select class="form-select form-select-sm" id="linkEvent"></select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">Driver</label>
+          <select class="form-select form-select-sm" id="linkDriver"></select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">Kart</label>
+          <select class="form-select form-select-sm" id="linkKart"></select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">Notes</label>
+          <textarea class="form-control form-control-sm" id="linkNotes" rows="2" placeholder="Optional notes…"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-sm fw-semibold" style="background:#7c3aed;color:#fff" id="linkSaveBtn" onclick="saveLinkModal()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="config.js"></script>
+<script src="auth-check.js"></script>
+<script src="topnav.js"></script>
+<script>
+const API = (window.RTS_CONFIG?.api?.baseURL || '/api') + '/telemetry';
+const AUTH = () => ({ 'Authorization': 'Bearer ' + localStorage.getItem('rts_token'), 'Content-Type': 'application/json' });
+const BARE_AUTH = () => ({ 'Authorization': 'Bearer ' + localStorage.getItem('rts_token') });
+
+let allSessions = [];
+let events = [], drivers = [], karts = [];
+let currentLinkId = null;
+let pollTimer = null;
+let selectedFile = null;
+
+const uploadModal = new bootstrap.Modal(document.getElementById('uploadModal'));
+const linkModal   = new bootstrap.Modal(document.getElementById('linkModal'));
+
+// ── Bootstrap ────────────────────────────────────────────────────────────────
+async function init() {
+  await Promise.all([checkDllStatus(), loadDropdowns(), loadSessions()]);
+  setupDropZone();
+}
+
+async function checkDllStatus() {
+  try {
+    const r = await fetch(API + '/dll-status', { headers: BARE_AUTH() });
+    const d = await r.json();
+    if (!d.available) document.getElementById('dllBanner').classList.remove('d-none');
+  } catch (_) {}
+}
+
+async function loadDropdowns() {
+  try {
+    const [er, dr, kr] = await Promise.all([
+      fetch(API + '/events',  { headers: BARE_AUTH() }).then(r => r.json()),
+      fetch(API + '/drivers', { headers: BARE_AUTH() }).then(r => r.json()),
+      fetch(API + '/cars',    { headers: BARE_AUTH() }).then(r => r.json()),
+    ]);
+    events  = er.data || [];
+    drivers = dr.data || [];
+    karts   = kr.data || [];
+
+    const eventSel = document.getElementById('filterEvent');
+    events.forEach(e => { eventSel.innerHTML += `<option value="${e.id}">${e.name}</option>`; });
+
+    const driverSel = document.getElementById('filterDriver');
+    drivers.forEach(d => { driverSel.innerHTML += `<option value="${d.id}">${d.name}</option>`; });
+
+    populateUploadDropdowns();
+  } catch (e) { console.error('loadDropdowns', e); }
+}
+
+function populateUploadDropdowns() {
+  const ue = document.getElementById('uploadEvent');
+  const ud = document.getElementById('uploadDriver');
+  ue.innerHTML = '<option value="">— None —</option>' + events.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+  ud.innerHTML = '<option value="">— None —</option>' + drivers.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+
+  const le = document.getElementById('linkEvent');
+  const ld = document.getElementById('linkDriver');
+  const lk = document.getElementById('linkKart');
+  le.innerHTML = '<option value="">— None —</option>' + events.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+  ld.innerHTML = '<option value="">— None —</option>' + drivers.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+  lk.innerHTML = '<option value="">— None —</option>' + karts.map(k => `<option value="${k.id}">${k.name}</option>`).join('');
+}
+
+async function loadSessions() {
+  try {
+    const r = await fetch(API, { headers: BARE_AUTH() });
+    const d = await r.json();
+    allSessions = d.data || [];
+    renderStats();
+    applyFilters();
+    schedulePollIfNeeded();
+  } catch (e) { console.error('loadSessions', e); }
+}
+
+function schedulePollIfNeeded() {
+  clearTimeout(pollTimer);
+  const needsPoll = allSessions.some(s => s.parse_status === 'pending' || s.parse_status === 'parsing');
+  if (needsPoll) pollTimer = setTimeout(loadSessions, 3000);
+}
+
+// ── Stats ────────────────────────────────────────────────────────────────────
+function renderStats() {
+  const t = allSessions.length;
+  const p = allSessions.filter(s => s.parse_status === 'parsed').length;
+  const c = allSessions.filter(s => s.parse_status === 'csv_only').length;
+  const pe = allSessions.filter(s => ['pending','parsing'].includes(s.parse_status)).length;
+  const er = allSessions.filter(s => s.parse_status === 'error').length;
+  document.getElementById('kpiTotal').textContent   = t;
+  document.getElementById('kpiParsed').textContent  = p;
+  document.getElementById('kpiCsv').textContent     = c;
+  document.getElementById('kpiPending').textContent = pe;
+  document.getElementById('kpiError').textContent   = er;
+}
+
+// ── Filters ──────────────────────────────────────────────────────────────────
+function applyFilters() {
+  const evId  = document.getElementById('filterEvent').value;
+  const drId  = document.getElementById('filterDriver').value;
+  const st    = document.getElementById('filterStatus').value;
+  const q     = document.getElementById('filterSearch').value.toLowerCase().trim();
+
+  const filtered = allSessions.filter(s => {
+    if (evId && String(s.event_id) !== evId) return false;
+    if (drId && String(s.driver_id) !== drId) return false;
+    if (st   && s.parse_status !== st) return false;
+    if (q) {
+      const hay = `${s.filename} ${s.track_name || ''} ${s.vehicle_name || ''} ${s.racer_name || ''} ${s.driver_name || ''} ${s.event_name || ''}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  renderTable(filtered);
+}
+
+function clearFilters() {
+  document.getElementById('filterEvent').value  = '';
+  document.getElementById('filterDriver').value = '';
+  document.getElementById('filterStatus').value = '';
+  document.getElementById('filterSearch').value = '';
+  applyFilters();
+}
+
+// ── Table ────────────────────────────────────────────────────────────────────
+let openDetailRow = null;
+
+function renderTable(sessions) {
+  const body = document.getElementById('sessionsBody');
+  const empty = document.getElementById('emptyState');
+  body.innerHTML = '';
+  if (!sessions.length) { empty.classList.remove('d-none'); return; }
+  empty.classList.add('d-none');
+
+  sessions.forEach(s => {
+    const row = document.createElement('tr');
+    row.className = 'data-row';
+    row.dataset.id = s.id;
+    row.innerHTML = `
+      <td>
+        <div class="fw-semibold small" style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(s.filename)}">${esc(s.filename)}</div>
+        ${s.drive_import_link ? `<a href="${esc(s.drive_import_link)}" target="_blank" class="small text-muted" onclick="event.stopPropagation()"><i class="bi bi-google me-1"></i>Drive</a>` : ''}
+      </td>
+      <td><span class="fmt-badge fmt-${s.file_format}">${s.file_format?.toUpperCase()}</span></td>
+      <td class="small">${s.started_at ? fmtDate(s.started_at) : (s.event_date ? fmtDate(s.event_date) : '—')}</td>
+      <td class="small">${esc(s.track_name || '—')}</td>
+      <td class="small">${esc(s.vehicle_name || '—')}</td>
+      <td class="small">
+        ${s.driver_color ? `<span class="me-1" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${esc(s.driver_color)}"></span>` : ''}
+        ${esc(s.driver_name || s.racer_name || '—')}
+      </td>
+      <td class="small">${esc(s.event_name || '—')}</td>
+      <td class="small text-center">${s.lap_count ?? '—'}</td>
+      <td class="small text-center">${s.best_lap_s != null ? fmtLap(s.best_lap_s) : '—'}</td>
+      <td><span class="status-badge st-${s.parse_status}">${statusLabel(s.parse_status)}</span></td>
+      <td class="text-end" style="white-space:nowrap">
+        ${['parsed','csv_only'].includes(s.parse_status)
+          ? `<a href="telemetry.html?session=${s.id}" class="btn btn-sm btn-outline-secondary btn-sm me-1" title="Open in Analyzer" onclick="event.stopPropagation()"><i class="bi bi-graph-up"></i></a>`
+          : ''}
+        <button class="btn btn-sm btn-outline-secondary me-1" title="Link / Edit" onclick="event.stopPropagation();openLinkModal(${s.id})"><i class="bi bi-link-45deg"></i></button>
+        <button class="btn btn-sm btn-outline-danger" title="Delete" onclick="event.stopPropagation();deleteSession(${s.id},this)"><i class="bi bi-trash"></i></button>
+      </td>`;
+    row.addEventListener('click', () => toggleDetail(s, row));
+    body.appendChild(row);
+  });
+}
+
+async function toggleDetail(s, row) {
+  // Close existing
+  const existing = document.querySelector('tr.detail-strip');
+  if (existing) existing.remove();
+  document.querySelectorAll('.data-row.selected').forEach(r => r.classList.remove('selected'));
+
+  if (openDetailRow === row) { openDetailRow = null; return; }
+  openDetailRow = row;
+  row.classList.add('selected');
+
+  // Load detail
+  const detail = document.createElement('tr');
+  detail.className = 'detail-strip';
+  detail.innerHTML = `<td colspan="11"><div class="text-muted small text-center py-2"><span class="spinner-border spinner-border-sm me-1"></span>Loading…</div></td>`;
+  row.insertAdjacentElement('afterend', detail);
+
+  try {
+    const [dr, ir] = await Promise.all([
+      fetch(`${API}/${s.id}`, { headers: BARE_AUTH() }).then(r => r.json()),
+      fetch(`${API}/${s.id}/insights`, { headers: BARE_AUTH() }).then(r => r.json()),
+    ]);
+    const data     = dr.data || {};
+    const laps     = data.laps     || [];
+    const channels = data.channels || [];
+    const insights = ir.data  || [];
+
+    const bestDur = laps.reduce((b, l) => (!l.is_outlap && !l.is_inlap && l.duration_s < b ? l.duration_s : b), Infinity);
+
+    detail.querySelector('td').innerHTML = `
+      <div class="detail-grid mb-3">
+        <div class="detail-item"><label>Track</label><span>${esc(s.track_name || '—')}</span></div>
+        <div class="detail-item"><label>Vehicle</label><span>${esc(s.vehicle_name || '—')}</span></div>
+        <div class="detail-item"><label>Driver</label><span>${esc(s.driver_name || s.racer_name || '—')}</span></div>
+        <div class="detail-item"><label>Laps</label><span>${laps.length}</span></div>
+        <div class="detail-item"><label>Channels</label><span>${channels.length}</span></div>
+        <div class="detail-item"><label>Duration</label><span>${s.duration_s ? fmtDur(s.duration_s) : '—'}</span></div>
+        <div class="detail-item"><label>Best Lap</label><span>${s.best_lap_s != null ? fmtLap(s.best_lap_s) : '—'}</span></div>
+        <div class="detail-item"><label>File Format</label><span>${(s.file_format || '').toUpperCase()}</span></div>
+        <div class="detail-item"><label>Size</label><span>${s.file_size ? fmtBytes(s.file_size) : '—'}</span></div>
+        ${s.notes ? `<div class="detail-item" style="grid-column:1/-1"><label>Notes</label><span>${esc(s.notes)}</span></div>` : ''}
+      </div>
+
+      ${laps.length ? `
+      <div class="mb-3">
+        <div class="fw-semibold small mb-2">Laps</div>
+        <div style="display:flex;gap:.4rem;flex-wrap:wrap">
+          ${laps.map(l => {
+            const gap  = isFinite(bestDur) && !l.is_outlap && !l.is_inlap ? l.duration_s - bestDur : null;
+            const cls  = gap === null ? 'bg-light text-muted' : gap < 0.001 ? 'bg-success text-white' : 'bg-light text-dark';
+            const badge = l.is_outlap ? ' <span class="badge bg-secondary" style="font-size:.6rem">OUT</span>' : l.is_inlap ? ' <span class="badge bg-secondary" style="font-size:.6rem">IN</span>' : '';
+            return `<div class="rounded px-2 py-1 ${cls}" style="font-size:.78rem;font-weight:600">
+              L${l.lap_index+1} ${fmtLap(l.duration_s)}${badge}${gap != null && gap > 0.001 ? `<span style="color:#dc2626;font-size:.68rem"> +${gap.toFixed(3)}s</span>` : ''}
+            </div>`;
+          }).join('')}
+        </div>
+      </div>` : ''}
+
+      ${insights.length ? `
+      <div class="mb-3">
+        <div class="fw-semibold small mb-2">Insights</div>
+        <div class="insight-chips">
+          ${insights.slice(0,12).map(i => `<span class="insight-chip ic-${i.severity}" title="${esc(i.detail||'')}">${esc(i.title)}</span>`).join('')}
+          ${insights.length > 12 ? `<span class="insight-chip ic-info">+${insights.length-12} more</span>` : ''}
+        </div>
+      </div>` : ''}
+
+      <div class="d-flex gap-2 mt-1">
+        ${['parsed','csv_only'].includes(s.parse_status)
+          ? `<a href="telemetry.html?session=${s.id}" class="btn btn-sm fw-semibold" style="background:#7c3aed;color:#fff"><i class="bi bi-graph-up me-1"></i>Open in Analyzer</a>`
+          : ''}
+        <button class="btn btn-sm btn-outline-secondary" onclick="openLinkModal(${s.id})"><i class="bi bi-link-45deg me-1"></i>Link / Edit</button>
+      </div>`;
+  } catch (e) {
+    detail.querySelector('td').innerHTML = `<div class="text-danger small">${esc(e.message)}</div>`;
+  }
+}
+
+// ── Link / Edit modal ────────────────────────────────────────────────────────
+function openLinkModal(id) {
+  currentLinkId = id;
+  const s = allSessions.find(x => x.id === id);
+  if (!s) return;
+  document.getElementById('linkEvent').value  = s.event_id  || '';
+  document.getElementById('linkDriver').value = s.driver_id || '';
+  document.getElementById('linkKart').value   = s.kart_item_id || '';
+  document.getElementById('linkNotes').value  = s.notes || '';
+  linkModal.show();
+}
+
+async function saveLinkModal() {
+  const btn = document.getElementById('linkSaveBtn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const body = {
+      event_id:     document.getElementById('linkEvent').value  || null,
+      driver_id:    document.getElementById('linkDriver').value || null,
+      kart_item_id: document.getElementById('linkKart').value   || null,
+      notes:        document.getElementById('linkNotes').value  || null,
+    };
+    const r = await fetch(`${API}/${currentLinkId}`, { method:'PUT', headers: AUTH(), body: JSON.stringify(body) });
+    if (!r.ok) throw new Error((await r.json()).error || r.statusText);
+    linkModal.hide();
+    await loadSessions();
+  } catch (e) {
+    alert('Error: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Save';
+  }
+}
+
+// ── Delete ────────────────────────────────────────────────────────────────────
+async function deleteSession(id, btn) {
+  if (!confirm('Delete this data session? This cannot be undone.')) return;
+  btn.disabled = true;
+  try {
+    const r = await fetch(`${API}/${id}`, { method:'DELETE', headers: BARE_AUTH() });
+    if (!r.ok) throw new Error((await r.json()).error || r.statusText);
+    await loadSessions();
+  } catch (e) {
+    alert('Error: ' + e.message);
+    btn.disabled = false;
+  }
+}
+
+// ── Upload ────────────────────────────────────────────────────────────────────
+function showUploadModal() {
+  clearSelectedFile();
+  document.getElementById('uploadProgress').classList.add('d-none');
+  populateUploadDropdowns();
+  uploadModal.show();
+}
+
+function setupDropZone() {
+  const dz = document.getElementById('dropZone');
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+  dz.addEventListener('drop', e => {
+    e.preventDefault(); dz.classList.remove('drag-over');
+    handleFileSelect(e.dataTransfer.files);
+  });
+}
+
+function handleFileSelect(files) {
+  if (!files || !files.length) return;
+  const f = files[0];
+  const ext = f.name.split('.').pop().toLowerCase();
+  if (!['xrk','xrz','drk','csv','txt'].includes(ext)) {
+    alert('Unsupported file type. Allowed: .xrk .xrz .drk .csv .txt');
+    return;
+  }
+  selectedFile = f;
+  document.getElementById('selectedFileName').textContent = f.name;
+  document.getElementById('selectedFileSize').textContent = fmtBytes(f.size);
+  document.getElementById('selectedFile').classList.remove('d-none');
+  document.getElementById('uploadBtn').disabled = false;
+}
+
+function clearSelectedFile() {
+  selectedFile = null;
+  document.getElementById('selectedFile').classList.add('d-none');
+  document.getElementById('uploadBtn').disabled = true;
+  document.getElementById('fileInput').value = '';
+}
+
+async function doUpload() {
+  if (!selectedFile) return;
+  const btn = document.getElementById('uploadBtn');
+  btn.disabled = true;
+
+  const fd = new FormData();
+  fd.append('file', selectedFile);
+  const evId = document.getElementById('uploadEvent').value;
+  const drId = document.getElementById('uploadDriver').value;
+  if (evId) fd.append('event_id', evId);
+  if (drId) fd.append('driver_id', drId);
+
+  const prog = document.getElementById('uploadProgress');
+  const bar  = document.getElementById('uploadProgressBar');
+  const pct  = document.getElementById('uploadProgressPct');
+  const msg  = document.getElementById('uploadStatusMsg');
+  const lbl  = document.getElementById('uploadProgressLabel');
+  prog.classList.remove('d-none');
+  lbl.textContent = 'Uploading…';
+
+  return new Promise((resolve) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', API + '/upload');
+    xhr.setRequestHeader('Authorization', 'Bearer ' + localStorage.getItem('rts_token'));
+    xhr.upload.onprogress = e => {
+      if (e.lengthComputable) {
+        const p = Math.round(e.loaded / e.total * 100);
+        bar.style.width = p + '%';
+        pct.textContent = p + '%';
+      }
+    };
+    xhr.onload = async () => {
+      try {
+        const d = JSON.parse(xhr.responseText);
+        if (!d.success) throw new Error(d.error || 'Upload failed');
+        lbl.textContent = 'Uploaded — parsing in background…';
+        bar.style.width = '100%'; pct.textContent = '100%';
+        msg.textContent = `Session ID: ${d.session_id}`;
+        await loadSessions();
+        setTimeout(() => { uploadModal.hide(); clearSelectedFile(); }, 1500);
+      } catch (e) {
+        lbl.textContent = 'Upload failed';
+        msg.textContent = e.message;
+        bar.style.background = '#dc2626';
+      } finally {
+        btn.disabled = false;
+        resolve();
+      }
+    };
+    xhr.onerror = () => {
+      lbl.textContent = 'Network error';
+      bar.style.background = '#dc2626';
+      btn.disabled = false;
+      resolve();
+    };
+    xhr.send(fd);
+  });
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function fmtDate(s) { return s ? new Date(s).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '—'; }
+function fmtLap(s) { const m=Math.floor(s/60); return `${m}:${String((s%60).toFixed(3)).padStart(6,'0')}`; }
+function fmtDur(s) { const m=Math.floor(s/60),sc=Math.floor(s%60); return `${m}m ${sc}s`; }
+function fmtBytes(b) { if(b<1024) return b+'B'; if(b<1048576) return (b/1024).toFixed(1)+'KB'; return (b/1048576).toFixed(1)+'MB'; }
+function statusLabel(st) { return ({parsed:'Parsed',csv_only:'CSV',pending:'Pending',parsing:'Parsing…',error:'Error'}[st]) || st; }
+
+init();
+</script>
+</body>
+</html>
