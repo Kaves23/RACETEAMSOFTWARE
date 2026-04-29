@@ -1,4 +1,8 @@
 require('dotenv').config();
+// Default AIM_XRK_LIB to the path written by the start script if not set explicitly
+if (!process.env.AIM_XRK_LIB) {
+  process.env.AIM_XRK_LIB = '/tmp/aim/libxdrk-x86_64.so';
+}
 const express = require('express');
 const compression = require('compression');
 const bodyParser = require('body-parser');
