@@ -373,8 +373,11 @@
     currentItemForPacking = packingItems.find(i => i.id === itemId);
     if (!currentItemForPacking) return;
     
-    // Pre-fill name from localStorage
-    const savedName = localStorage.getItem('rts.packing.userName') || '';
+    // Pre-fill name from saved value or logged-in user
+    let savedName = localStorage.getItem('rts.packing.userName') || '';
+    if (!savedName) {
+      try { const u = JSON.parse(localStorage.getItem('user') || '{}'); savedName = u.name || u.full_name || u.username || ''; } catch(e) {}
+    }
     document.getElementById('packedByName').value = savedName;
     
     packItemModal.show();
@@ -438,10 +441,11 @@
     const item = packingItems.find(i => i.id === itemId);
     if (!item) return;
     
-    const name = localStorage.getItem('rts.packing.userName') || 
-      prompt('Enter your name:');
-    
-    if (!name) return;
+    let name = localStorage.getItem('rts.packing.userName');
+    if (!name) {
+      try { const u = JSON.parse(localStorage.getItem('user') || '{}'); name = u.name || u.full_name || u.username || null; } catch(e) {}
+    }
+    if (!name) name = 'Unknown';
     
     try {
       const resp = await fetch(

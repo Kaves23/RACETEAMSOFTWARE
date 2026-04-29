@@ -1046,10 +1046,11 @@
     const note = noteList.find(n => n.id === noteId);
     if (!note) return;
     
-    const name = localStorage.getItem('rts.notes.userName') || 
-      prompt('Enter your name:');
-    
-    if (!name) return;
+    let name = localStorage.getItem('rts.notes.userName');
+    if (!name) {
+      try { const u = JSON.parse(localStorage.getItem('user') || '{}'); name = u.name || u.full_name || u.username || null; } catch(e) {}
+    }
+    if (!name) name = 'Unknown';
     
     try {
       const listId = await getListIdForNote(isFromGeneral);
@@ -2117,9 +2118,11 @@
     const selectedRows = [...document.querySelectorAll('.task-item.bulk-selected')];
     if (selectedRows.length === 0) return;
 
-    const name = localStorage.getItem('rts.notes.userName') ||
-      prompt('Enter your name to mark tasks as done:');
-    if (!name) return;
+    let name = localStorage.getItem('rts.notes.userName');
+    if (!name) {
+      try { const u = JSON.parse(localStorage.getItem('user') || '{}'); name = u.name || u.full_name || u.username || null; } catch(e) {}
+    }
+    if (!name) name = 'Unknown';
     localStorage.setItem('rts.notes.userName', name);
 
     let completed = 0;
