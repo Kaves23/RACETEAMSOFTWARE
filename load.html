@@ -173,6 +173,53 @@
     .empty-zone-placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px 10px;color:#bbb;gap:6px;border:2px dashed #d8d8d8;border-radius:6px;margin:4px 0;}
     .empty-zone-placeholder svg{opacity:.4;}
     .empty-zone-placeholder span{font-size:.72rem;font-weight:500;letter-spacing:.01em;}
+
+    /* ── Unload Mode ───────────────────────────────────────────────── */
+    #unloadOverlay{display:none;position:fixed;inset:0;z-index:1050;background:#f4f6fb;flex-direction:column;}
+    .unload-header{background:#fff;border-bottom:1px solid #e0e0e0;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0;}
+    .unload-header-left{display:flex;flex-direction:column;gap:2px;}
+    .unload-truck-name{font-size:1.1rem;font-weight:700;color:#202124;}
+    .unload-dest-label{font-size:.78rem;color:#5f6368;}
+    .unload-progress-wrap{flex:1;max-width:340px;}
+    .unload-progress-track{height:8px;background:#e0e0e0;border-radius:4px;overflow:hidden;margin-bottom:4px;}
+    #unloadProgressFill{height:100%;background:#1a73e8;border-radius:4px;width:0%;transition:width .3s,background .3s;}
+    #unloadProgressLabel{font-size:.75rem;color:#5f6368;font-weight:600;}
+    .unload-header-actions{display:flex;gap:8px;align-items:center;}
+    .btn-finish-unload{padding:7px 18px;border-radius:6px;border:none;color:#fff;font-weight:700;font-size:.85rem;cursor:pointer;transition:background .2s;white-space:nowrap;}
+    .btn-back-unload{padding:6px 14px;border-radius:6px;border:1px solid #d0d0d0;background:#fff;color:#5f6368;font-size:.82rem;cursor:pointer;}
+    .btn-back-unload:hover{border-color:#ea4335;color:#ea4335;}
+    .unload-body{flex:1;overflow-y:auto;padding:16px 20px;max-width:860px;width:100%;margin:0 auto;}
+    .unload-list{display:flex;flex-direction:column;gap:8px;}
+    .unload-item{display:flex;align-items:center;gap:14px;background:#fff;border:1.5px solid #e0e0e0;border-radius:10px;padding:14px 16px;cursor:pointer;transition:border-color .15s,background .15s;min-height:72px;user-select:none;}
+    .unload-item:hover:not(.received):not(.missing){border-color:#1a73e8;background:#f8fbff;}
+    .unload-item.received{border-color:#34a853;background:#f0faf2;}
+    .unload-item.missing{border-color:#ea4335;background:#fff5f5;}
+    .unload-checkbox{flex-shrink:0;}
+    .unload-check-inner{width:36px;height:36px;border-radius:50%;border:2.5px solid #d0d0d0;background:#fff;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+    .unload-check-inner.checked{background:#34a853;border-color:#34a853;}
+    .unload-item-info{flex:1;min-width:0;}
+    .unload-item-barcode{font-family:'Courier New',monospace;font-size:.72rem;font-weight:700;color:#1a73e8;line-height:1;}
+    .unload-item-name{font-size:.95rem;font-weight:600;color:#202124;margin:2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .unload-item-meta{display:flex;align-items:center;gap:8px;margin-top:3px;flex-wrap:wrap;}
+    .unload-zone-badge{font-size:.68rem;font-weight:600;padding:2px 7px;border-radius:3px;background:#e8f0fe;color:#1967d2;border:1px solid #c5d8fb;}
+    .unload-item-count{font-size:.68rem;color:#5f6368;}
+    .unload-item-status{flex-shrink:0;}
+    .unload-badge{padding:4px 10px;border-radius:4px;font-size:.75rem;font-weight:700;}
+    .unload-badge.received{background:#e6f4ea;color:#1e8e3e;border:1px solid #34a853;}
+    .unload-badge.missing{background:#fce8e6;color:#d93025;border:1px solid #ea4335;}
+    /* Summary */
+    #unloadSummary{display:none;background:#fff;border:1.5px solid #e0e0e0;border-radius:12px;padding:20px;margin-top:16px;}
+    .unload-summary-inner{display:flex;flex-direction:column;gap:12px;}
+    .unload-summary-stats{display:flex;gap:32px;justify-content:center;}
+    .unload-stat{display:flex;flex-direction:column;align-items:center;gap:4px;}
+    .unload-stat-num{font-size:2rem;font-weight:800;line-height:1;}
+    .unload-stat-label{font-size:.72rem;color:#5f6368;font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+    .unload-missing-list{background:#fff5f5;border:1px solid #f5c6cb;border-radius:6px;padding:12px 14px;}
+    .unload-missing-title{font-size:.78rem;font-weight:700;color:#d93025;margin-bottom:8px;}
+    .unload-missing-item{font-size:.82rem;color:#202124;padding:3px 0;border-bottom:1px solid #fce8e6;}
+    .unload-missing-item:last-child{border-bottom:none;}
+    .unload-missing-barcode{font-family:'Courier New',monospace;font-size:.75rem;font-weight:700;color:#1a73e8;margin-right:6px;}
+    .unload-all-clear{font-size:.95rem;font-weight:600;color:#1e8e3e;text-align:center;padding:8px 0;}
   </style>
 </head>
 <body class="page-load light-mode">
@@ -216,6 +263,8 @@
           <li><button class="dropdown-item" id="btnPrintBarcodes"><svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.15em;margin-right:6px"><path d="M5 8H3a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1h2"/><path d="M15 8h2a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-2"/><rect x="5" y="3" width="10" height="5"/><rect x="5" y="12" width="10" height="5"/></svg>Print Barcodes</button></li>
           <li><hr class="dropdown-divider"></li>
           <li><button class="dropdown-item text-danger" id="btnClearLoad"><svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.15em;margin-right:6px"><path d="M3 6h14"/><path d="M5 6l1 11h8l1-11"/><path d="M8 6V4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2"/></svg>Clear Load</button></li>
+          <li><hr class="dropdown-divider"></li>
+          <li><button class="dropdown-item fw-semibold" id="btnUnloadTruck" onclick="LoadEngine.startUnloadMode()" style="color:#e37400"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.15em;margin-right:6px"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v4h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>Unload Truck</button></li>
         </ul>
         </div>
         <button class="btn btn-sm btn-success" id="btnExportPackingList" style="font-size:.8rem;padding:4px 12px"><svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.15em;margin-right:4px"><path d="M4 16h12"/><path d="M10 3v9"/><path d="M6 9l4 4 4-4"/></svg>Export Packing List</button>
@@ -542,5 +591,60 @@
     <div class="tt-title" id="ttTitle">—</div>
     <div id="ttBody"></div>
   </div>
+
+  <!-- ── Unload Destination Modal ───────────────────────────────── -->
+  <div class="modal fade" id="unloadDestModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+      <div class="modal-content" style="background:#fff;color:#202124;border:1px solid #e0e0e0">
+        <div class="modal-header" style="border-color:#e0e0e0;background:#f8f9fa">
+          <h5 class="modal-title" style="font-weight:700;color:#202124;font-size:.95rem">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.15em;margin-right:6px"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v4h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+            Unload Truck
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p style="color:#5f6368;font-size:.85rem;margin-bottom:14px">Select the destination where all boxes are being unloaded to. You'll then tick them off one by one as they come off the truck.</p>
+          <label class="form-label" style="font-weight:600;font-size:.85rem;color:#202124">Unloading to:</label>
+          <select id="unloadLocSelect" class="form-select" style="font-size:.85rem;border:1px solid #d0d0d0">
+            <option value="">-- Select destination --</option>
+          </select>
+        </div>
+        <div class="modal-footer" style="border-color:#e0e0e0;background:#f8f9fa">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-warning btn-sm" style="color:#fff;font-weight:600" onclick="LoadEngine.confirmUnloadDestination()">
+            <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.15em;margin-right:4px"><path d="M3 10l5 5L17 5"/></svg>Start Unloading
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Unload Checklist Overlay ────────────────────────────────── -->
+  <div id="unloadOverlay">
+    <!-- Sticky header -->
+    <div class="unload-header">
+      <div class="unload-header-left">
+        <div class="unload-truck-name" id="unloadTruckName">Unloading</div>
+        <div class="unload-dest-label" id="unloadDestLabel"></div>
+      </div>
+      <div class="unload-progress-wrap">
+        <div class="unload-progress-track"><div id="unloadProgressFill"></div></div>
+        <div id="unloadProgressLabel" style="text-align:center"></div>
+      </div>
+      <div class="unload-header-actions">
+        <button class="btn-finish-unload" id="btnFinishUnload" onclick="LoadEngine.finishUnloading()" style="background:#f9ab00;border-color:#f9ab00">Finish</button>
+        <button class="btn-back-unload" onclick="LoadEngine.closeUnloadMode()">
+          <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.1em;margin-right:4px"><path d="M12 4l-6 6 6 6"/></svg>Back
+        </button>
+      </div>
+    </div>
+    <!-- Scrollable body -->
+    <div class="unload-body">
+      <div id="unloadSummary"></div>
+      <div class="unload-list" id="unloadList"></div>
+    </div>
+  </div>
+
 </body>
 </html>

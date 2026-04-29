@@ -211,6 +211,34 @@ router.post('/', async (req, res, next) => {
   }
 });
 
+// POST /api/boxes/:id/unload - Clear truck assignment and move box to a location
+router.post('/:id/unload', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { location_id } = req.body;
+
+    const result = await pool.query(
+      `UPDATE boxes
+         SET status = 'warehouse',
+             current_truck_id = NULL,
+             current_zone = NULL,
+             current_location_id = $1,
+             updated_at = NOW()
+       WHERE id = $2
+       RETURNING *`,
+      [location_id || null, id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Box not found' });
+    }
+
+    res.json({ success: true, box: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // PUT /api/boxes/:id - Update box
 router.put('/:id', async (req, res, next) => {
   try {

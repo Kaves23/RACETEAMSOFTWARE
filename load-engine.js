@@ -32,6 +32,13 @@ console.log('📦 load-engine.js loading...');
   let scene, camera, renderer, controls;
   let boxModal;
 
+  // Unload mode state
+  let unloadMode = false;
+  let unloadLocationId = null;
+  let unloadLocationName = '';
+  let unloadTicked = new Set();
+  let unloadFinished = false;
+
   // ========== INITIALIZATION ==========
   async function init() {
     RTS.setActiveNav();
@@ -2768,6 +2775,253 @@ console.log('📦 load-engine.js loading...');
     setTimeout(() => win.print(), 400);
   }
 
+  // ========== UNLOAD MODE ==========
+
+  function getBoxesForUnloading() {
+    if (!currentLoad || !currentLoad.truckId) return [];
+    const truckId = String(currentLoad.truckId);
+    const inPlan = new Set(
+      currentLoad.placements.filter(p => !p.type).map(p => String(p.boxId))
+    );
+    const seen = new Set();
+    return boxes.filter(b => {
+      const id = String(b.id);
+      if (seen.has(id)) return false;
+      if ((b.currentTruckId && String(b.currentTruckId) === truckId) || inPlan.has(id)) {
+        seen.add(id);
+        return true;
+      }
+      return false;
+    });
+  }
+
+  function startUnloadMode() {
+    if (!currentLoad || !currentLoad.truckId) {
+      alert('Please select a truck first.');
+      return;
+    }
+    const truckBoxes = getBoxesForUnloading();
+    if (truckBoxes.length === 0) {
+      alert('No boxes are currently loaded on this truck.');
+      return;
+    }
+    // Populate location select
+    const sel = document.getElementById('unloadLocSelect');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">-- Select destination --</option>';
+    if (locations.length > 0) {
+      locations.forEach(l => {
+        const o = document.createElement('option');
+        o.value = l.id;
+        o.textContent = l.name;
+        sel.appendChild(o);
+      });
+    } else {
+      [['warehouse','Warehouse'],['workshop','Workshop'],['garage','Garage'],['paddock','Paddock'],['hospitality','Hospitality']].forEach(([v, n]) => {
+        const o = document.createElement('option');
+        o.value = v;
+        o.textContent = n;
+        sel.appendChild(o);
+      });
+    }
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('unloadDestModal')).show();
+  }
+
+  function confirmUnloadDestination() {
+    const sel = document.getElementById('unloadLocSelect');
+    if (!sel || !sel.value) { alert('Please select a destination location.'); return; }
+    unloadLocationId = sel.value;
+    unloadLocationName = sel.options[sel.selectedIndex]?.textContent || sel.value;
+    unloadTicked = new Set();
+    unloadFinished = false;
+    bootstrap.Modal.getInstance(document.getElementById('unloadDestModal')).hide();
+    showUnloadChecklist();
+  }
+
+  function showUnloadChecklist() {
+    unloadMode = true;
+    const overlay = document.getElementById('unloadOverlay');
+    if (!overlay) return;
+    const truck = getTruck();
+    document.getElementById('unloadTruckName').textContent = `Unloading: ${truck ? truck.name : 'Truck'}`;
+    document.getElementById('unloadDestLabel').textContent = `Destination: ${unloadLocationName}`;
+    const summary = document.getElementById('unloadSummary');
+    if (summary) { summary.style.display = 'none'; summary.innerHTML = ''; }
+    const btnFinish = document.getElementById('btnFinishUnload');
+    if (btnFinish) { btnFinish.style.display = ''; }
+    renderUnloadChecklist();
+    overlay.style.display = 'flex';
+  }
+
+  function renderUnloadChecklist() {
+    const list = document.getElementById('unloadList');
+    if (!list) return;
+    const truckBoxes = getBoxesForUnloading();
+    updateUnloadProgress(truckBoxes.length);
+    list.innerHTML = truckBoxes.map(box => {
+      const id = String(box.id);
+      const isTicked = unloadTicked.has(id);
+      const isMissing = unloadFinished && !isTicked;
+      const placement = currentLoad.placements.find(p => String(p.boxId) === id);
+      const zone = placement ? placement.zone.replace('grid-', 'Zone ') : '';
+      const itemCount = Array.isArray(box.contentsItems) ? box.contentsItems.length : 0;
+      let rowClass = 'unload-item';
+      if (isTicked) rowClass += ' received';
+      if (isMissing) rowClass += ' missing';
+      const checkInner = isTicked
+        ? `<div class="unload-check-inner checked"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10l5 5L17 5"/></svg></div>`
+        : `<div class="unload-check-inner"></div>`;
+      const statusBadge = isTicked
+        ? `<span class="unload-badge received">Received</span>`
+        : isMissing ? `<span class="unload-badge missing">Not Returned</span>` : '';
+      return `<div class="${rowClass}" id="unload-row-${id}" data-box-id="${id}" onclick="LoadEngine.tickUnloadBox('${id}')">
+        <div class="unload-checkbox">${checkInner}</div>
+        <div class="unload-item-info">
+          <div class="unload-item-barcode">${esc(box.barcode || '')}</div>
+          <div class="unload-item-name">${esc(box.name || 'Unnamed Box')}</div>
+          <div class="unload-item-meta">
+            ${zone ? `<span class="unload-zone-badge">${esc(zone)}</span>` : ''}
+            ${itemCount > 0 ? `<span class="unload-item-count">${itemCount} item${itemCount !== 1 ? 's' : ''}</span>` : ''}
+          </div>
+        </div>
+        <div class="unload-item-status">${statusBadge}</div>
+      </div>`;
+    }).join('') || '<div style="padding:32px;text-align:center;color:#9e9e9e;font-size:.9rem">No boxes found on this truck.</div>';
+
+    // Update finish button label
+    const btnFinish = document.getElementById('btnFinishUnload');
+    if (btnFinish) {
+      const remaining = truckBoxes.length - unloadTicked.size;
+      const allDone = remaining === 0 && truckBoxes.length > 0;
+      btnFinish.textContent = allDone ? 'Complete Unload' : `Finish${remaining > 0 ? ` (${remaining} remaining)` : ''}`;
+      btnFinish.style.background = allDone ? '#1e8e3e' : '#f9ab00';
+      btnFinish.style.borderColor = allDone ? '#1e8e3e' : '#f9ab00';
+    }
+  }
+
+  async function tickUnloadBox(boxId) {
+    const id = String(boxId);
+    if (unloadFinished || unloadTicked.has(id)) return;
+
+    // Optimistic UI update
+    unloadTicked.add(id);
+    const row = document.getElementById('unload-row-' + id);
+    if (row) {
+      row.classList.add('received');
+      const inner = row.querySelector('.unload-check-inner');
+      if (inner) {
+        inner.classList.add('checked');
+        inner.innerHTML = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10l5 5L17 5"/></svg>';
+      }
+      const statusDiv = row.querySelector('.unload-item-status');
+      if (statusDiv) statusDiv.innerHTML = '<span class="unload-badge received">Received</span>';
+    }
+
+    const truckBoxes = getBoxesForUnloading();
+    updateUnloadProgress(truckBoxes.length);
+    const remaining = truckBoxes.length - unloadTicked.size;
+    const allDone = remaining === 0 && truckBoxes.length > 0;
+    const btnFinish = document.getElementById('btnFinishUnload');
+    if (btnFinish) {
+      btnFinish.textContent = allDone ? 'Complete Unload' : `Finish${remaining > 0 ? ` (${remaining} remaining)` : ''}`;
+      btnFinish.style.background = allDone ? '#1e8e3e' : '#f9ab00';
+      btnFinish.style.borderColor = allDone ? '#1e8e3e' : '#f9ab00';
+    }
+
+    // Persist to DB
+    try {
+      await window.RTS_API.unloadBox(id, unloadLocationId);
+      // Update local box state
+      const box = boxes.find(b => String(b.id) === id);
+      if (box) { box.currentTruckId = null; box.status = 'warehouse'; }
+      // Remove from current load plan placements and persist
+      const planIdx = currentLoad.placements.findIndex(p => String(p.boxId) === id);
+      if (planIdx !== -1) {
+        currentLoad.placements.splice(planIdx, 1);
+        saveData();
+      }
+    } catch (e) {
+      console.error('Failed to unload box:', e.message);
+      // Revert
+      unloadTicked.delete(id);
+      if (row) {
+        row.classList.remove('received');
+        const inner = row.querySelector('.unload-check-inner');
+        if (inner) { inner.classList.remove('checked'); inner.innerHTML = ''; }
+        const statusDiv = row.querySelector('.unload-item-status');
+        if (statusDiv) statusDiv.innerHTML = '';
+      }
+      updateUnloadProgress(truckBoxes.length);
+    }
+  }
+
+  function updateUnloadProgress(total) {
+    const done = unloadTicked.size;
+    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    const bar = document.getElementById('unloadProgressFill');
+    const label = document.getElementById('unloadProgressLabel');
+    if (bar) { bar.style.width = pct + '%'; bar.style.background = pct === 100 ? '#1e8e3e' : '#1a73e8'; }
+    if (label) label.textContent = `${done} / ${total} received`;
+  }
+
+  function finishUnloading() {
+    unloadFinished = true;
+    const truckBoxes = getBoxesForUnloading();
+    const missing = truckBoxes.filter(b => !unloadTicked.has(String(b.id)));
+
+    // Re-render list to show missing in red
+    renderUnloadChecklist();
+
+    // Show summary
+    const summary = document.getElementById('unloadSummary');
+    const btnFinish = document.getElementById('btnFinishUnload');
+    if (btnFinish) btnFinish.style.display = 'none';
+
+    if (summary) {
+      const missingHtml = missing.length > 0
+        ? `<div class="unload-missing-list">
+            <div class="unload-missing-title">
+              <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="#ea4335" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.1em;margin-right:5px"><path d="M10 5v6"/><circle cx="10" cy="15" r="1" fill="#ea4335" stroke="none"/></svg>
+              Not returned:
+            </div>
+            ${missing.map(b => `<div class="unload-missing-item"><span class="unload-missing-barcode">${esc(b.barcode || '')}</span> ${esc(b.name || '')}</div>`).join('')}
+          </div>`
+        : `<div class="unload-all-clear"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#1e8e3e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.2em;margin-right:6px"><path d="M3 10l5 5L18 5"/></svg>All boxes accounted for!</div>`;
+
+      summary.innerHTML = `
+        <div class="unload-summary-inner">
+          <div class="unload-summary-stats">
+            <div class="unload-stat">
+              <svg width="24" height="24" viewBox="0 0 20 20" fill="none" stroke="#1e8e3e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l5 5L18 5"/></svg>
+              <span class="unload-stat-num" style="color:#1e8e3e">${unloadTicked.size}</span>
+              <span class="unload-stat-label">Received</span>
+            </div>
+            <div class="unload-stat">
+              <svg width="24" height="24" viewBox="0 0 20 20" fill="none" stroke="${missing.length > 0 ? '#ea4335' : '#adb5bd'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 5v6"/><circle cx="10" cy="15" r="1" fill="${missing.length > 0 ? '#ea4335' : '#adb5bd'}" stroke="none"/></svg>
+              <span class="unload-stat-num" style="color:${missing.length > 0 ? '#ea4335' : '#adb5bd'}">${missing.length}</span>
+              <span class="unload-stat-label">Missing</span>
+            </div>
+          </div>
+          ${missingHtml}
+          <button class="btn btn-primary" style="margin-top:16px;width:100%;font-size:.9rem;padding:10px" onclick="LoadEngine.closeUnloadMode()">
+            <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.15em;margin-right:6px"><path d="M3 10l5 5L18 5"/></svg>Done — Back to Load Planning
+          </button>
+        </div>`;
+      summary.style.display = 'block';
+    }
+  }
+
+  function closeUnloadMode() {
+    unloadMode = false;
+    unloadLocationId = null;
+    unloadLocationName = '';
+    unloadTicked = new Set();
+    unloadFinished = false;
+    const overlay = document.getElementById('unloadOverlay');
+    if (overlay) overlay.style.display = 'none';
+    renderAll();
+  }
+
   // ========== PUBLIC API ==========
   // ========== ZONE MINIMAP ==========
   function updateMinimap() {
@@ -2828,7 +3082,12 @@ console.log('📦 load-engine.js loading...');
     renderInventory,
     exportPackingListCSV,
     exportPackingListPDF,
-    toggleMinimap
+    toggleMinimap,
+    startUnloadMode,
+    confirmUnloadDestination,
+    tickUnloadBox,
+    finishUnloading,
+    closeUnloadMode
   };
 
   // Auto-initialize on DOM ready

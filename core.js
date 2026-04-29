@@ -1182,6 +1182,14 @@
       });
     },
 
+    // Unload box from truck — clears current_truck_id, sets status to warehouse
+    async unloadBox(id, locationId) {
+      return await apiRequest(`/boxes/${id}/unload`, {
+        method: 'POST',
+        body: JSON.stringify({ location_id: locationId || null })
+      });
+    },
+
     // Delete box
     async deleteBox(id) {
       return await apiRequest(`/boxes/${id}`, {
