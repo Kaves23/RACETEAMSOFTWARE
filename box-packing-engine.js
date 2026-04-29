@@ -3518,13 +3518,14 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
 
     /* ── Header ─────────────────────────────────────────── */
     .page-header {
-      background: #1a1f2e;
-      color: #fff;
+      background: #fff;
+      color: #1a1f2e;
       display: flex;
       align-items: center;
       justify-content: space-between;
       padding: 5mm 7mm;
-      border-radius: 2mm 2mm 0 0;
+      border: 2px solid #1a1f2e;
+      border-bottom: none;
     }
     .page-header .logo-left  { max-height: 10mm; max-width: 36mm; object-fit: contain; }
     .page-header .logo-right { max-height: 10mm; max-width: 36mm; object-fit: contain; }
@@ -3539,10 +3540,11 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       letter-spacing: 1.5px;
       text-transform: uppercase;
       line-height: 1.1;
+      color: #1a1f2e;
     }
     .page-header .doc-title p {
       font-size: 8pt;
-      opacity: 0.7;
+      color: #666;
       margin-top: 1.5mm;
       letter-spacing: 0.5px;
     }
@@ -3614,14 +3616,16 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
 
     /* ── Section heading ─────────────────────────────────── */
     .section-heading {
-      background: #1a1f2e;
-      color: #fff;
+      background: #fff;
+      color: #1a1f2e;
       padding: 2mm 4mm;
       font-size: 8pt;
       font-weight: 700;
       letter-spacing: 1px;
       text-transform: uppercase;
       margin-top: 5mm;
+      border-left: 3px solid #1a1f2e;
+      border-bottom: 1px solid #c8ccd8;
     }
 
     /* ── Contents table ──────────────────────────────────── */
