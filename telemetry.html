@@ -852,14 +852,25 @@ async function renderTrackMap() {
   const ctx2   = canvas.getContext('2d');
   const status = document.getElementById('mapStatus');
 
-  // Match lat/lon coordinate channels; explicitly exclude LatAcc/LonAcc (those are accelerations)
-  const gpsLat = sessionData?.channels?.find(c => /lat(itude)?$/i.test(c.name));
-  const gpsLon = sessionData?.channels?.find(c => /lon(gitude)?$/i.test(c.name));
-  const gpsSpd = sessionData?.channels?.find(c => /^(gps_?speed|speed$)/i.test(c.name));
+  // Match lat/lon by being generous — any channel whose name contains 'lat'/'lon'
+  // but NOT 'acc' or 'lateral' or 'longitudinal' (those are accelerations not positions)
+  const allChs = sessionData?.channels || [];
+  const isLatCh = c => /lat/i.test(c.name) && !/acc|lateral/i.test(c.name);
+  const isLonCh = c => /lon/i.test(c.name) && !/acc|longitudinal/i.test(c.name);
+  // Prefer GPS_raw group (raw receiver data), then gps group, then any
+  const gpsLat = allChs.find(c => c.channel_group === 'gps_raw' && isLatCh(c))
+               || allChs.find(c => c.channel_group === 'gps'     && isLatCh(c))
+               || allChs.find(c => isLatCh(c));
+  const gpsLon = allChs.find(c => c.channel_group === 'gps_raw' && isLonCh(c))
+               || allChs.find(c => c.channel_group === 'gps'     && isLonCh(c))
+               || allChs.find(c => isLonCh(c));
+  const gpsSpd = allChs.find(c => /gps.?speed|^speed$/i.test(c.name));
 
   if (!activeLaps.length) { status.textContent = 'Select a lap to render the track map.'; return; }
   if (!gpsLat || !gpsLon) {
-    status.textContent = 'No GPS latitude/longitude channels found. AiM XRK files need GPS position channels (not just GPS_LatAcc/GPS_LonAcc which are accelerations).';
+    const gpsChs = allChs.filter(c => c.channel_group === 'gps' || c.channel_group === 'gps_raw');
+    const names  = gpsChs.map(c => c.name).join(', ') || 'none';
+    status.innerHTML = `No GPS latitude/longitude channels found.<br><small class="text-muted">GPS channels in this file: <em>${esc(names)}</em></small><br><small>AiM loggers without a GPS unit only record engine/sensor data. Lat/lon requires a GPS module.</small>`;
     return;
   }
 
