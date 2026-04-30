@@ -429,51 +429,13 @@
     <!-- JS reference stub -->
     <span id="totalItemsBadge" style="display:none"></span>
 
-    <div class="inventory-container">
-      <!-- Left Sidebar - Filters -->
-      <div class="panel" id="sidebarPanel" style="flex: 0 0 175px; min-width: 130px; max-width: 260px;">
-        <div class="panel-header">
-          <span>Filters</span>
-          <span class="stat-badge" id="sidebarTotal"></span>
-        </div>
-        <div class="panel-body" style="padding: 0; overflow-y: auto;">
-          <!-- Active filters indicator -->
-          <div class="inv-active-filters" id="activeFiltersBar">
-            <span id="activeFiltersLabel"></span>
-            <button class="inv-clear-btn" onclick="clearAllFilters()">× Clear</button>
-          </div>
-          <!-- Sidebar item search -->
-          <div class="inv-sidebar-section">
-            <div class="inv-sidebar-search">
-              <input type="text" placeholder="Find…" oninput="filterSidebarItems(this.value)">
-            </div>
-          </div>
-          <!-- Categories -->
-          <div class="inv-sidebar-section">
-            <div class="inv-sidebar-hdr collapsible" onclick="toggleSidebarSection(this)">
-              Categories <span class="chev">▼</span>
-            </div>
-            <div class="inv-sidebar-body" id="categoryList"></div>
-          </div>
-          <!-- Locations -->
-          <div class="inv-sidebar-section">
-            <div class="inv-sidebar-hdr collapsible" onclick="toggleSidebarSection(this)">
-              Locations <span class="chev">▼</span>
-            </div>
-            <div class="inv-sidebar-body" id="locationList"></div>
-          </div>
-          <!-- Suppliers -->
-          <div class="inv-sidebar-section">
-            <div class="inv-sidebar-hdr collapsible" onclick="toggleSidebarSection(this)">
-              Suppliers <span class="chev">▼</span>
-            </div>
-            <div class="inv-sidebar-body" id="supplierList"></div>
-          </div>
-        </div>
-      </div>
-      <!-- Sidebar / table divider -->
-      <div id="leftSidebarResizer" class="panel-resizer"></div>
+    <!-- Stubs needed by JS (hidden) -->
+    <span id="sidebarTotal" style="display:none"></span>
+    <span id="activeFiltersBar" style="display:none"><span id="activeFiltersLabel"></span></span>
+    <!-- Hidden category/location/supplier list containers (kept for any legacy JS references) -->
+    <div style="display:none"><div id="categoryList"></div><div id="locationList"></div><div id="supplierList"></div></div>
 
+    <div class="inventory-container">
       <!-- Middle Panel - Items List/Table -->
       <div class="panel table-panel">
         <div class="panel-header" style="padding:6px 10px">
@@ -518,13 +480,13 @@
                 <option value="location">Sort: Location</option>
                 <option value="lastUsed">Sort: Last Used</option>
               </select>
-              <button class="btn btn-outline-secondary btn-sm" id="btnClearFilters" style="display:none;font-size:.72rem;flex-shrink:0" onclick="clearAllFilters()">× Clear</button>
+              <button class="btn btn-outline-secondary btn-sm" id="btnClearFilters" style="display:none;font-size:.72rem;flex-shrink:0" onclick="clearAllFilters()">× Clear all</button>
             </div>
-            <!-- Hidden selects kept for JS filter sync -->
-            <div style="display:none">
-              <select id="filterCategory"><option value="">All Categories</option></select>
-              <select id="filterLocation"><option value="">All Locations</option></select>
-              <select id="filterSupplier"><option value="">All Suppliers</option></select>
+            <!-- Filter dropdowns row -->
+            <div class="filter-group" style="margin-top:5px">
+              <select class="form-select form-select-sm" id="filterCategory" style="flex:1;min-width:120px"></select>
+              <select class="form-select form-select-sm" id="filterLocation" style="flex:1;min-width:100px"></select>
+              <select class="form-select form-select-sm" id="filterSupplier" style="flex:1;min-width:100px"></select>
             </div>
           </div>
           
@@ -1602,102 +1564,41 @@
         renderFilterLists();
       }
       
-      // Render filter lists
+      // Render filter dropdowns with live counts
       function renderFilterLists() {
         const totalBadge = document.getElementById('sidebarTotal');
         if (totalBadge) totalBadge.textContent = allItems.length + ' items';
 
-        const makeAllItem = (attr, label) =>
-          `<div class="inv-sidebar-item${!currentFilter[label] ? ' active' : ''}" data-filter-${attr}="">
-            <span>All</span>
-            <span class="inv-sidebar-count">${allItems.length}</span>
-          </div>`;
-
-        // Categories
+        // Build counts
         const catCounts = {};
         allItems.forEach(item => {
           catCounts[item.category] = (catCounts[item.category] || 0) + 1;
         });
-        
-        document.getElementById('categoryList').innerHTML =
-          makeAllItem('cat', 'category') +
-          Object.entries(catCounts)
-            .sort((a,b) => b[1]-a[1])
-            .map(([cat, count]) => `
-              <div class="inv-sidebar-item${currentFilter.category === cat ? ' active' : ''}" data-filter-cat="${cat}">
-                <span>${cat}</span>
-                <span class="inv-sidebar-count">${count}</span>
-              </div>
-            `).join('');
-        
-        document.querySelectorAll('[data-filter-cat]').forEach(btn => {
-          btn.addEventListener('click', () => {
-            document.querySelectorAll('[data-filter-cat]').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            currentFilter.category = btn.dataset.filterCat;
-            document.getElementById('filterCategory').value = currentFilter.category;
-            applyFilters();
-            updateActiveFiltersBar();
-          });
-        });
 
-        // Locations
         const locCounts = {};
         allItems.forEach(item => {
           const loc = item.location || 'Unknown';
           locCounts[loc] = (locCounts[loc] || 0) + 1;
         });
 
-        document.getElementById('locationList').innerHTML =
-          makeAllItem('loc', 'location') +
-          Object.entries(locCounts)
-            .sort((a,b) => b[1]-a[1])
-            .map(([loc, count]) => `
-              <div class="inv-sidebar-item${currentFilter.location === loc ? ' active' : ''}" data-filter-loc="${loc}">
-                <span>${loc}</span>
-                <span class="inv-sidebar-count">${count}</span>
-              </div>
-            `).join('');
-
-        document.querySelectorAll('[data-filter-loc]').forEach(btn => {
-          btn.addEventListener('click', () => {
-            document.querySelectorAll('[data-filter-loc]').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            currentFilter.location = btn.dataset.filterLoc;
-            document.getElementById('filterLocation').value = currentFilter.location;
-            applyFilters();
-            updateActiveFiltersBar();
-          });
-        });
-
-        // Suppliers
         const supCounts = {};
         allItems.forEach(item => {
-          const sup = (item.supplier_name || item.supplier || 'None');
+          const sup = item.supplier_name || item.supplier || 'None';
           supCounts[sup] = (supCounts[sup] || 0) + 1;
         });
 
-        document.getElementById('supplierList').innerHTML =
-          makeAllItem('sup', 'supplier') +
-          Object.entries(supCounts)
-            .sort((a,b) => b[1]-a[1])
-            .map(([sup, count]) => `
-              <div class="inv-sidebar-item${currentFilter.supplier === sup ? ' active' : ''}" data-filter-sup="${sup}">
-                <span>${sup}</span>
-                <span class="inv-sidebar-count">${count}</span>
-              </div>
-            `).join('');
+        function buildOptions(counts, currentVal, allLabel) {
+          const total = Object.values(counts).reduce((a, b) => a + b, 0);
+          return `<option value="">All ${allLabel} (${total})</option>` +
+            Object.entries(counts)
+              .sort((a, b) => b[1] - a[1])
+              .map(([k, v]) => `<option value="${k}"${currentVal === k ? ' selected' : ''}>${k} (${v})</option>`)
+              .join('');
+        }
 
-        document.querySelectorAll('[data-filter-sup]').forEach(btn => {
-          btn.addEventListener('click', () => {
-            document.querySelectorAll('[data-filter-sup]').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            currentFilter.supplier = btn.dataset.filterSup;
-            document.getElementById('filterSupplier').value = currentFilter.supplier;
-            applyFilters();
-            updateActiveFiltersBar();
-          });
-        });
+        document.getElementById('filterCategory').innerHTML = buildOptions(catCounts, currentFilter.category, 'Categories');
+        document.getElementById('filterLocation').innerHTML = buildOptions(locCounts, currentFilter.location, 'Locations');
+        document.getElementById('filterSupplier').innerHTML = buildOptions(supCounts, currentFilter.supplier, 'Suppliers');
       }
       
       // Apply filters
@@ -3084,45 +2985,6 @@
         if (label) label.textContent = active.join(' · ');
         if (bar) bar.classList.toggle('show', active.length > 0);
       }
-
-      // ── Left Sidebar resizer ────────────────────────────────────────
-      (function() {
-        const resizer = document.getElementById('leftSidebarResizer');
-        const sidebar = document.getElementById('sidebarPanel');
-        if (!resizer || !sidebar) return;
-
-        const savedW = localStorage.getItem('inv_sidebar_w');
-        if (savedW) sidebar.style.flex = '0 0 ' + savedW + 'px';
-
-        let startX, startW;
-
-        resizer.addEventListener('mousedown', function(e) {
-          e.preventDefault();
-          startX = e.clientX;
-          startW = sidebar.getBoundingClientRect().width;
-          resizer.classList.add('dragging');
-          document.body.style.cursor = 'col-resize';
-          document.body.style.userSelect = 'none';
-
-          function onMove(e) {
-            const delta = e.clientX - startX;
-            const newW = Math.max(130, Math.min(280, startW + delta));
-            sidebar.style.flex = '0 0 ' + newW + 'px';
-          }
-
-          function onUp() {
-            localStorage.setItem('inv_sidebar_w', Math.round(sidebar.getBoundingClientRect().width));
-            resizer.classList.remove('dragging');
-            document.body.style.cursor = '';
-            document.body.style.userSelect = '';
-            document.removeEventListener('mousemove', onMove);
-            document.removeEventListener('mouseup', onUp);
-          }
-
-          document.addEventListener('mousemove', onMove);
-          document.addEventListener('mouseup', onUp);
-        });
-      })();
 
       // ── Mid-Right panel resizer ──────────────────────────────────────
       (function() {
