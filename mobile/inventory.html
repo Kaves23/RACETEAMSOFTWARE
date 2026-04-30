@@ -79,50 +79,98 @@
 <!-- Detail Drawer -->
 <div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
 <div class="drawer" id="detailDrawer">
-  <div class="drawer-handle" onclick="closeDrawer()"></div>
+  <div class="drawer-handle" onclick="closeDrawer()"><div class="drawer-handle-bar"></div></div>
   <div class="drawer-header">
-    <div>
+    <div style="flex:1;min-width:0">
       <div class="drawer-title" id="drawerName">—</div>
       <div id="drawerSku" style="font-size:12px;color:var(--text-3);font-family:ui-monospace,monospace;margin-top:2px;">—</div>
     </div>
     <div id="drawerQtyBadge" class="tag" style="font-size:13px;font-weight:700;flex-shrink:0;">—</div>
   </div>
-  <div class="drawer-body" id="drawerBody"></div>
+  <div class="sync-banner" id="drawerSavingBanner"></div>
+  <div class="drawer-body" id="drawerBody" style="padding:0 16px 32px;"></div>
 </div>
 
 <style>
+  /* ── Drawer overlay backdrop ── */
+  .drawer-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.32); z-index: 100;
+    display: none; -webkit-tap-highlight-color: transparent;
+  }
+  .drawer-overlay.active { display: block; }
+  /* Sync / saving banner */
+  .sync-banner {
+    display: none; background: #fffbeb; border-top: 1px solid #fde68a;
+    color: #92400e; font-size: 11px; font-weight: 600; text-align: center;
+    padding: 7px 16px; letter-spacing: 0.02em; flex-shrink: 0;
+  }
+  .sync-banner.show { display: block; }
+  .sync-banner.saved { background: #dcfce7; border-color: #86efac; color: #15803d; }
+  /* ── Editable detail rows ── */
+  .detail-row {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    padding: 11px 0; border-bottom: 1px solid var(--border); gap: 12px;
+    cursor: default;
+  }
+  .detail-row.editable { cursor: pointer; }
+  .detail-row.editable:active { background: var(--bg-2, #f5f5f5); margin: 0 -16px; padding: 11px 16px; border-radius: 6px; }
+  .detail-row:last-child { border-bottom: none; }
+  .detail-label { font-size: 12px; color: var(--text-3); font-weight: 500; flex-shrink: 0; display: flex; align-items: center; gap: 5px; }
+  .edit-pencil { font-size: 10px; color: var(--text-3); opacity: 0; transition: opacity 0.15s; }
+  .detail-row.editable:hover .edit-pencil { opacity: 1; }
+  .detail-value { font-size: 13px; color: var(--text); text-align: right; word-break: break-word; flex: 1; }
+  .detail-value.mono { font-family: ui-monospace, monospace; font-size: 12px; }
+  /* Inline edit input */
+  .detail-edit-input {
+    font-size: 13px; border: none; border-bottom: 2px solid #7c3aed; outline: none;
+    text-align: right; width: 100%; background: transparent; color: var(--text);
+    padding: 2px 0; font-family: inherit;
+  }
+  .detail-edit-textarea {
+    font-size: 13px; border: 1px solid #7c3aed; border-radius: 6px; outline: none;
+    width: 100%; background: #faf5ff; color: var(--text);
+    padding: 6px 8px; font-family: inherit; resize: vertical; min-height: 60px;
+    box-sizing: border-box; margin-top: 4px;
+  }
+  /* Qty adjust row */
+  .qty-adjust-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 0; border-bottom: 1px solid var(--border); gap: 12px;
+  }
+  .qty-adjust-label { font-size: 12px; color: var(--text-3); font-weight: 500; }
+  .qty-adjust-controls { display: flex; align-items: center; gap: 8px; }
+  .qty-btn {
+    width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border);
+    background: var(--bg); font-size: 18px; font-weight: 300; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; color: var(--text);
+    -webkit-tap-highlight-color: transparent; transition: background 0.1s;
+  }
+  .qty-btn:active { background: #ede9fe; border-color: #7c3aed; color: #7c3aed; }
+  .qty-display {
+    font-size: 18px; font-weight: 700; color: var(--text); min-width: 36px; text-align: center;
+  }
+  /* Section headers */
+  .section-title {
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--text-3); margin: 20px 0 10px; padding-top: 4px;
+  }
+  /* History timeline */
+  .hist-item { display: flex; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border); align-items: flex-start; }
+  .hist-item:last-child { border-bottom: none; }
+  .hist-dot { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 12px; }
+  .hist-action { font-size: 12px; font-weight: 600; color: var(--text); }
+  .hist-detail { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+  .hist-time { font-size: 10px; color: var(--text-3); margin-top: 2px; }
+
   .inv-row {
-    display: flex;
-    align-items: center;
-    padding: 14px 16px;
-    border-bottom: 1px solid var(--border);
-    gap: 12px;
-    cursor: pointer;
-    background: var(--bg);
-    transition: background 0.12s;
+    display: flex; align-items: center; padding: 14px 16px;
+    border-bottom: 1px solid var(--border); gap: 12px; cursor: pointer;
+    background: var(--bg); transition: background 0.12s;
     -webkit-tap-highlight-color: transparent;
   }
   .inv-row:active { background: var(--bg-2, #f5f5f5); }
-  .inv-icon {
-    width: 38px;
-    height: 38px;
-    border-radius: var(--r);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-  }
-  .cat-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    border-radius: var(--r-sm);
-    font-size: 9px;
-    font-weight: 800;
-    letter-spacing: 0.04em;
-  }
+  .inv-icon { width: 38px; height: 38px; border-radius: var(--r); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .cat-badge { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: var(--r-sm); font-size: 9px; font-weight: 800; letter-spacing: 0.04em; }
   .cat-fuel    { background: #fef3c7; color: #b45309; }
   .cat-tyre    { background: #f3f4f6; color: #374151; }
   .cat-tool    { background: #dbeafe; color: #1d4ed8; }
@@ -133,80 +181,15 @@
   .cat-elec    { background: #fef3c7; color: #92400e; }
   .cat-default { background: #f1f3f4; color: #5f6368; }
   .inv-info { flex: 1; min-width: 0; }
-  .inv-name {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--text);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .inv-meta {
-    font-size: 12px;
-    color: var(--text-3);
-    margin-top: 2px;
-    display: flex;
-    gap: 8px;
-    align-items: center;
-  }
-  .inv-sku {
-    font-family: ui-monospace, monospace;
-    font-size: 11px;
-  }
-  .qty-badge {
-    font-size: 12px;
-    font-weight: 700;
-    padding: 3px 8px;
-    border-radius: 20px;
-    flex-shrink: 0;
-  }
-  .qty-ok    { background: #dcfce7; color: #16a34a; }
-  .qty-low   { background: #fef3c7; color: #d97706; }
-  .qty-zero  { background: #fee2e2; color: #dc2626; }
-
-  .detail-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    padding: 10px 0;
-    border-bottom: 1px solid var(--border);
-    gap: 12px;
-  }
-  .detail-row:last-child { border-bottom: none; }
-  .detail-label { font-size: 12px; color: var(--text-3); font-weight: 500; flex-shrink: 0; }
-  .detail-value { font-size: 13px; color: var(--text); text-align: right; word-break: break-word; }
-  .detail-value.mono { font-family: ui-monospace, monospace; font-size: 12px; }
-
-  /* Packed boxes section */
-  .boxes-section { margin-top: 20px; }
-  .boxes-title {
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--text-3);
-    margin-bottom: 10px;
-  }
-  .box-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    background: var(--bg-2, #f5f5f5);
-    border: 1px solid var(--border);
-    border-radius: var(--r-sm);
-    padding: 6px 10px;
-    font-size: 12px;
-    margin: 0 6px 6px 0;
-  }
-
+  .inv-name { font-size: 14px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .inv-meta { font-size: 12px; color: var(--text-3); margin-top: 2px; display: flex; gap: 8px; align-items: center; }
+  .inv-sku { font-family: ui-monospace, monospace; font-size: 11px; }
+  .qty-badge { font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 20px; flex-shrink: 0; }
+  .qty-ok   { background: #dcfce7; color: #16a34a; }
+  .qty-low  { background: #fef3c7; color: #d97706; }
+  .qty-zero { background: #fee2e2; color: #dc2626; }
   /* Skeletons */
-  .skel-row {
-    padding: 14px 16px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    gap: 12px;
-    align-items: center;
-  }
+  .skel-row { padding: 14px 16px; border-bottom: 1px solid var(--border); display: flex; gap: 12px; align-items: center; }
   .skel-icon { width: 38px; height: 38px; border-radius: var(--r); background: var(--border); flex-shrink: 0; }
   .skel-lines { flex: 1; }
   .skel-line { height: 12px; border-radius: 4px; background: var(--border); margin-bottom: 6px; }
@@ -226,6 +209,8 @@
   let allItems = [];
   let activeCategory = '';
   let searchQuery = '';
+  let currentItemId = null;
+  let currentItem   = null;
 
   // ── Offline banner ──────────────────────────────────────────────
   window.addEventListener('online',  () => document.getElementById('offlineBanner').style.display = 'none');
@@ -334,34 +319,17 @@
   function openItem(id) {
     const item = allItems.find(i => String(i.id) === String(id));
     if (!item) return;
+    currentItemId = id;
+    currentItem   = item;
 
     document.getElementById('drawerName').textContent = item.name || '—';
-    document.getElementById('drawerSku').textContent = item.sku || '';
+    document.getElementById('drawerSku').textContent  = item.sku  || '';
+    updateQtyBadge(item.quantity ?? 0, item.min_quantity ?? 0, item.unit);
 
-    const qty = item.quantity ?? 0;
+    const qty    = item.quantity    ?? 0;
     const minQty = item.min_quantity ?? 0;
-    const qtyClass = qty === 0 ? 'qty-zero' : (minQty > 0 && qty <= minQty ? 'qty-low' : 'qty-ok');
-    const qtyBadge = document.getElementById('drawerQtyBadge');
-    qtyBadge.textContent = qty + (item.unit ? ' ' + item.unit : ' units');
-    qtyBadge.className = 'tag ' + qtyClass;
 
-    const details = [
-      ['Category', esc(item.category)],
-      ['SKU', item.sku ? `<span style="font-family:ui-monospace,monospace;font-size:12px;">${esc(item.sku)}</span>` : null],
-      ['Unit', esc(item.unit)],
-      ['Unit cost', item.unit_cost ? '$' + Number(item.unit_cost).toFixed(2) : null],
-      ['Reorder level', item.min_quantity != null ? item.min_quantity + (item.unit ? ' ' + item.unit : '') : null],
-      ['Supplier', esc(item.supplier)],
-      ['Last restocked', item.last_restocked_date ? formatDate(item.last_restocked_date) : null],
-      ['Description', esc(item.description)],
-      ['Notes', esc(item.notes)],
-    ].filter(([, v]) => v);
-
-    const rows = details.map(([label, val]) =>
-      `<div class="detail-row"><span class="detail-label">${label}</span><span class="detail-value">${val}</span></div>`
-    ).join('');
-
-    // Stock indicator
+    // Stock alert banner
     let stockNote = '';
     if (qty === 0) {
       stockNote = `<div style="margin-bottom:16px;padding:10px 12px;background:#fee2e2;border-radius:var(--r-sm);color:#dc2626;font-size:13px;font-weight:500;">Out of stock</div>`;
@@ -369,8 +337,220 @@
       stockNote = `<div style="margin-bottom:16px;padding:10px 12px;background:#fef3c7;border-radius:var(--r-sm);color:#d97706;font-size:13px;font-weight:500;">Low stock — reorder soon</div>`;
     }
 
-    document.getElementById('drawerBody').innerHTML = stockNote + `<div>${rows}</div>`;
+    // Quantity adjust row
+    const qtyRow = `<div class="qty-adjust-row">
+      <span class="qty-adjust-label">Quantity</span>
+      <div class="qty-adjust-controls">
+        <button class="qty-btn" onclick="adjustQty(-1)">−</button>
+        <span class="qty-display" id="qtyDisplay">${qty}</span>
+        <button class="qty-btn" onclick="adjustQty(1)">+</button>
+      </div>
+    </div>`;
+
+    // Editable detail rows
+    const editFields = [
+      { label: 'Name',          field: 'name',          value: item.name,          type: 'text'   },
+      { label: 'Category',      field: 'category',      value: item.category,      type: 'text'   },
+      { label: 'Reorder level', field: 'min_quantity',  value: item.min_quantity,  type: 'number' },
+      { label: 'Unit cost',     field: 'unit_cost',     value: item.unit_cost != null ? '$' + Number(item.unit_cost).toFixed(2) : null, rawValue: item.unit_cost, type: 'number' },
+      { label: 'Notes',         field: 'notes',         value: item.notes,         type: 'textarea' },
+    ];
+
+    // Read-only fields
+    const readFields = [
+      ['SKU',       item.sku,      'mono'],
+      ['Unit',      item.unit,     ''],
+      ['Supplier',  item.supplier, ''],
+      ['Last restocked', item.last_restocked_date ? formatDate(item.last_restocked_date) : null, ''],
+    ].filter(([, v]) => v);
+
+    const editRows = editFields.map(f => {
+      const display = f.value != null && f.value !== '' ? esc(String(f.value)) : '<span style="color:var(--text-3)">—</span>';
+      return `<div class="detail-row editable" data-field="${f.field}" data-type="${f.type}" data-raw="${esc(String(f.rawValue ?? f.value ?? ''))}" onclick="startEdit(this)">
+        <span class="detail-label">${f.label} <span class="edit-pencil">✎</span></span>
+        <span class="detail-value">${display}</span>
+      </div>`;
+    }).join('');
+
+    const readRows = readFields.map(([label, val, cls]) =>
+      `<div class="detail-row"><span class="detail-label">${label}</span><span class="detail-value ${cls}">${esc(String(val))}</span></div>`
+    ).join('');
+
+    document.getElementById('drawerBody').innerHTML =
+      stockNote +
+      qtyRow +
+      `<div class="section-title">Details <span style="font-weight:400;text-transform:none;font-size:10px;color:#9ca3af">— double-tap to edit</span></div>` +
+      editRows + readRows +
+      `<div class="section-title">History</div>
+       <div id="historyList"><div style="padding:16px 0;text-align:center;color:var(--text-3);font-size:12px;">Loading…</div></div>`;
+
     showDrawer();
+    loadHistory(id);
+  }
+
+  function updateQtyBadge(qty, minQty, unit) {
+    const badge = document.getElementById('drawerQtyBadge');
+    badge.textContent = qty + (unit ? ' ' + unit : ' units');
+    badge.className = 'tag ' + (qty === 0 ? 'qty-zero' : (minQty > 0 && qty <= minQty ? 'qty-low' : 'qty-ok'));
+  }
+
+  // ── Qty adjust +/- ───────────────────────────────────────────────
+  function adjustQty(delta) {
+    if (!currentItem) return;
+    const cur = parseInt(document.getElementById('qtyDisplay').textContent, 10) || 0;
+    const newVal = Math.max(0, cur + delta);
+    document.getElementById('qtyDisplay').textContent = newVal;
+    currentItem.quantity = newVal;
+    updateQtyBadge(newVal, currentItem.min_quantity ?? 0, currentItem.unit);
+    // Update in allItems cache
+    const idx = allItems.findIndex(i => String(i.id) === String(currentItemId));
+    if (idx !== -1) allItems[idx].quantity = newVal;
+    saveField('quantity', newVal);
+  }
+
+  // ── Inline editing: double-tap on row ───────────────────────────
+  let tapTimer = null;
+  let tapTarget = null;
+
+  function startEdit(row) {
+    // Detect double-tap (two taps within 350ms)
+    if (tapTarget === row && tapTimer) {
+      clearTimeout(tapTimer);
+      tapTimer = null;
+      tapTarget = null;
+      activateEdit(row);
+    } else {
+      tapTarget = row;
+      tapTimer = setTimeout(() => { tapTimer = null; tapTarget = null; }, 350);
+    }
+  }
+
+  function activateEdit(row) {
+    const field   = row.dataset.field;
+    const type    = row.dataset.type;
+    const rawVal  = row.dataset.raw;
+    const valSpan = row.querySelector('.detail-value');
+
+    if (type === 'textarea') {
+      const ta = document.createElement('textarea');
+      ta.className = 'detail-edit-textarea';
+      ta.value = rawVal;
+      row.style.flexDirection = 'column';
+      row.style.alignItems    = 'flex-start';
+      valSpan.replaceWith(ta);
+      ta.focus();
+      ta.addEventListener('blur', () => commitEdit(row, field, ta.value, ta));
+    } else {
+      const inp = document.createElement('input');
+      inp.className = 'detail-edit-input';
+      inp.type  = type === 'number' ? 'number' : 'text';
+      inp.value = rawVal;
+      inp.inputMode = type === 'number' ? 'decimal' : 'text';
+      valSpan.replaceWith(inp);
+      inp.focus();
+      inp.select();
+      inp.addEventListener('blur',   () => commitEdit(row, field, inp.value, inp));
+      inp.addEventListener('keydown', e => { if (e.key === 'Enter') inp.blur(); if (e.key === 'Escape') cancelEdit(row, field, rawVal, inp); });
+    }
+  }
+
+  function commitEdit(row, field, newVal, el) {
+    const trimmed = (newVal || '').trim();
+    const display = trimmed !== '' ? esc(trimmed) : '<span style="color:var(--text-3)">—</span>';
+    const span = document.createElement('span');
+    span.className = 'detail-value';
+    span.innerHTML = display;
+    row.style.flexDirection = '';
+    row.style.alignItems    = '';
+    el.replaceWith(span);
+    row.dataset.raw = trimmed;
+
+    // Update cache
+    if (currentItem) {
+      const numFields = ['min_quantity', 'unit_cost', 'quantity'];
+      currentItem[field] = numFields.includes(field) ? (trimmed !== '' ? Number(trimmed) : null) : trimmed;
+    }
+
+    saveField(field, currentItem ? currentItem[field] : trimmed);
+
+    // Refresh name in header if name changed
+    if (field === 'name' && trimmed) {
+      document.getElementById('drawerName').textContent = trimmed;
+    }
+    // Refresh list row name
+    renderList();
+  }
+
+  function cancelEdit(row, field, originalVal, el) {
+    const display = originalVal !== '' ? esc(originalVal) : '<span style="color:var(--text-3)">—</span>';
+    const span = document.createElement('span');
+    span.className = 'detail-value';
+    span.innerHTML = display;
+    row.style.flexDirection = '';
+    row.style.alignItems    = '';
+    el.replaceWith(span);
+  }
+
+  // ── Save field to DB ─────────────────────────────────────────────
+  let saveTimer = null;
+  async function saveField(field, value) {
+    if (!currentItemId) return;
+    const banner = document.getElementById('drawerSavingBanner');
+    banner.textContent = 'Saving…';
+    banner.className = 'sync-banner show';
+    clearTimeout(saveTimer);
+
+    try {
+      const body = {};
+      body[field] = value;
+      const res = await fetch(`${API}/api/inventory/${currentItemId}`, {
+        method: 'PUT',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      banner.textContent = 'Saved ✓';
+      banner.className = 'sync-banner show saved';
+      // Refresh history after any save
+      loadHistory(currentItemId);
+    } catch (e) {
+      banner.textContent = 'Save failed — check connection';
+      banner.className = 'sync-banner show';
+    }
+
+    saveTimer = setTimeout(() => { banner.className = 'sync-banner'; }, 2500);
+  }
+
+  // ── Load history ─────────────────────────────────────────────────
+  async function loadHistory(itemId) {
+    const container = document.getElementById('historyList');
+    if (!container) return;
+    try {
+      const res = await fetch(`${API}/api/inventory/${itemId}/history`, { headers: authHeaders() });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      const rows = data.history || [];
+      if (rows.length === 0) {
+        container.innerHTML = '<div style="padding:16px 0;color:var(--text-3);font-size:12px;text-align:center;">No history yet</div>';
+        return;
+      }
+      container.innerHTML = rows.map(h => {
+        const actionColors = { add: '#dcfce7', remove: '#fee2e2', adjust: '#dbeafe', update: '#ede9fe', create: '#d1fae5' };
+        const dotBg = actionColors[(h.action || '').toLowerCase()] || '#f3f4f6';
+        const dotIcon = { add: '＋', remove: '−', adjust: '±', update: '✎', create: '★' }[(h.action || '').toLowerCase()] || '•';
+        const detail = h.qty_change != null ? `${h.qty_before} → ${h.qty_after} (${h.qty_change > 0 ? '+' : ''}${h.qty_change})` : (h.notes || '');
+        return `<div class="hist-item">
+          <div class="hist-dot" style="background:${dotBg}">${dotIcon}</div>
+          <div style="flex:1;min-width:0">
+            <div class="hist-action">${esc(h.action || 'update')}</div>
+            ${detail ? `<div class="hist-detail">${esc(detail)}</div>` : ''}
+            <div class="hist-time">${h.performed_by_name || 'System'} · ${formatDate(h.created_at)}</div>
+          </div>
+        </div>`;
+      }).join('');
+    } catch {
+      if (container) container.innerHTML = '<div style="padding:16px 0;color:var(--text-3);font-size:12px;">History unavailable</div>';
+    }
   }
 
   function formatDate(ts) {
@@ -378,7 +558,7 @@
     return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
   }
 
-  // ── Drawer ───────────────────────────────────────────────────────
+  // ── Drawer open / close ──────────────────────────────────────────
   function showDrawer() {
     document.getElementById('drawerOverlay').classList.add('active');
     document.getElementById('detailDrawer').classList.add('open');
@@ -387,8 +567,48 @@
   function closeDrawer() {
     document.getElementById('drawerOverlay').classList.remove('active');
     document.getElementById('detailDrawer').classList.remove('open');
+    document.getElementById('detailDrawer').style.transform = '';
     document.body.style.overflow = '';
+    currentItemId = null;
+    currentItem   = null;
   }
+
+  // ── Swipe-to-dismiss ─────────────────────────────────────────────
+  (function () {
+    const drawer = document.getElementById('detailDrawer');
+    const body   = document.getElementById('drawerBody');
+    let startY = 0, startTime = 0, lastDy = 0, dragging = false;
+
+    drawer.addEventListener('touchstart', function (e) {
+      startY    = e.touches[0].clientY;
+      startTime = e.timeStamp;
+      lastDy    = 0;
+      dragging  = false;
+      drawer.style.transition = 'none';
+    }, { passive: true });
+
+    drawer.addEventListener('touchmove', function (e) {
+      const dy = e.touches[0].clientY - startY;
+      lastDy = dy;
+      if (dy > 0 && body.scrollTop <= 0) {
+        dragging = true;
+        drawer.style.transform = 'translateY(' + dy + 'px)';
+      }
+    }, { passive: true });
+
+    drawer.addEventListener('touchend', function (e) {
+      drawer.style.transition = '';
+      if (!dragging) { drawer.style.transform = ''; return; }
+      const elapsed  = e.timeStamp - startTime || 1;
+      const velocity = lastDy / elapsed;
+      if (lastDy > 120 || velocity > 0.5) {
+        closeDrawer();
+      } else {
+        drawer.style.transform = '';
+      }
+      dragging = false;
+    }, { passive: true });
+  }());
 
   // ── Search ───────────────────────────────────────────────────────
   document.getElementById('searchInput').addEventListener('input', e => {
@@ -407,7 +627,5 @@
   }
 
   loadInventory();
-</script>
-
 </body>
 </html>
