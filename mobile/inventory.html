@@ -223,15 +223,21 @@
     try {
       const res = await fetch(`${API}/api/collections/inventory`, { headers: authHeaders() });
       if (mobileHandle401(res)) return;
+      if (!res.ok) throw new Error('Server error ' + res.status);
       const data = await res.json();
-      if (!data.success) throw new Error(data.error);
+      if (!data.success) throw new Error(data.error || 'API error');
       allItems = data.items || [];
       buildCategoryChips();
       renderList();
       document.getElementById('itemCount').textContent = allItems.length + ' items';
     } catch (err) {
+      console.error('[Inventory] load failed:', err);
       document.getElementById('inventoryList').innerHTML =
-        `<div style="padding:40px 16px;text-align:center;color:var(--text-3);font-size:13px;">Failed to load inventory.<br><button onclick="loadInventory()" style="margin-top:12px;padding:8px 16px;border:1px solid var(--border);border-radius:var(--r);background:var(--bg);font-size:13px;cursor:pointer;">Retry</button></div>`;
+        `<div style="padding:40px 16px;text-align:center;">
+          <div style="font-size:13px;font-weight:600;color:#dc2626;margin-bottom:8px;">Failed to load inventory</div>
+          <div style="font-size:12px;color:#6b7280;margin-bottom:16px;word-break:break-word;">${esc(err.message)}</div>
+          <button onclick="loadInventory()" style="padding:8px 20px;border:1px solid var(--border);border-radius:var(--r);background:var(--bg);font-size:13px;cursor:pointer;font-weight:500;">Retry</button>
+        </div>`;
     }
   }
 
@@ -278,8 +284,14 @@
     });
 
     if (filtered.length === 0) {
-      document.getElementById('inventoryList').innerHTML =
-        `<div style="padding:60px 16px;text-align:center;color:var(--text-3);font-size:13px;">No items match your search.</div>`;
+      const msg = allItems.length === 0
+        ? `<div style="padding:40px 16px;text-align:center;">
+            <div style="font-size:32px;margin-bottom:12px;">📦</div>
+            <div style="font-size:14px;font-weight:600;color:#374151;margin-bottom:6px;">No inventory items</div>
+            <div style="font-size:12px;color:#6b7280;">Items added via the desktop Inventory page will appear here.</div>
+          </div>`
+        : `<div style="padding:40px 16px;text-align:center;color:#6b7280;font-size:13px;">No items match your search.</div>`;
+      document.getElementById('inventoryList').innerHTML = msg;
       return;
     }
 
