@@ -73,7 +73,7 @@
       { href: 'project-management.html?tab=dashboard', label: 'Dashboard',    key: 'D' },
       { href: 'project-management.html?tab=projects',  label: 'Projects',     key: 'P' },
       { href: 'project-management.html?tab=gantt',     label: 'Gantt',        key: 'G' },
-      { href: 'tasks.html',                            label: 'Tasks',        key: 'T' },
+      { href: 'event-notes.html',                      label: 'Tasks',        key: 'T' },
       { href: 'milestones.html',                       label: 'Milestones',   key: 'M' },
       { href: 'project-management.html?tab=workload',  label: 'Workload',     key: 'W' },
       { href: 'project-management.html?tab=reports',   label: 'Reports',      key: 'R' },
