@@ -1167,6 +1167,68 @@
   // Show add note modal
   // ── Custom list-picker helpers ─────────────────────────────────────────────
   window._ntSelectedListId = null;
+  window._ntSelectedUserName = null;
+  window._ntUsersCache = null;
+
+  window._ntToggleUserDropdown = function() {
+    const trigger  = document.getElementById('ntUserTrigger');
+    const dropdown = document.getElementById('ntUserDropdown');
+    if (!trigger || !dropdown) return;
+    const isOpen = dropdown.classList.contains('open');
+    // close list dropdown if open
+    document.getElementById('ntListDropdown')?.classList.remove('open');
+    document.getElementById('ntListTrigger')?.classList.remove('open');
+    if (isOpen) {
+      dropdown.classList.remove('open');
+      trigger.classList.remove('open');
+    } else {
+      dropdown.classList.add('open');
+      trigger.classList.add('open');
+    }
+  };
+
+  window._ntSelectUser = function(name) {
+    window._ntSelectedUserName = name || null;
+    const triggerText = document.getElementById('ntUserTriggerText');
+    if (triggerText) {
+      if (name) { triggerText.textContent = name; triggerText.style.color = '#1a1d24'; }
+      else       { triggerText.textContent = 'Unassigned…'; triggerText.style.color = '#9aa3af'; }
+    }
+    document.querySelectorAll('#ntUserDropdown .nt-user-option').forEach(el => {
+      el.classList.toggle('selected', el.dataset.name === (name || ''));
+    });
+    document.getElementById('ntUserDropdown')?.classList.remove('open');
+    document.getElementById('ntUserTrigger')?.classList.remove('open');
+  };
+
+  async function _ntLoadUsers() {
+    if (window._ntUsersCache) return window._ntUsersCache;
+    try {
+      const res = await fetch(`${API_BASE}/auth/users`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` }
+      });
+      const data = await res.json();
+      window._ntUsersCache = (data.users || []).filter(u => u.is_active !== false).map(u => u.full_name || u.username);
+    } catch { window._ntUsersCache = []; }
+    return window._ntUsersCache;
+  }
+
+  function _ntBuildUserDropdown() {
+    const dropdown = document.getElementById('ntUserDropdown');
+    if (!dropdown) return;
+    const users = window._ntUsersCache || [];
+    if (!users.length) {
+      dropdown.innerHTML = '<div style="padding:12px;font-size:12px;color:#9aa3af;text-align:center;">No users found</div>';
+      return;
+    }
+    const selected = window._ntSelectedUserName;
+    let html = `<div class="nt-user-option${selected===null?' selected':''}" data-name="" onclick="window._ntSelectUser(null)"><i class="bi bi-person-dash nt-list-opt-icon"></i>Unassigned</div>`;
+    users.forEach(name => {
+      const safe = name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+      html += `<div class="nt-user-option${selected===name?' selected':''}" data-name="${safe}" onclick="window._ntSelectUser('${safe}')"><i class="bi bi-person nt-list-opt-icon"></i>${name}</div>`;
+    });
+    dropdown.innerHTML = html;
+  }
 
   window._ntToggleDropdown = function() {
     const trigger  = document.getElementById('ntListTrigger');
@@ -1199,11 +1261,15 @@
     document.getElementById('ntListTrigger')?.classList.remove('open');
   };
 
-  // Close dropdown on outside click
+  // Close dropdowns on outside click
   document.addEventListener('click', function(e) {
     if (!e.target.closest('#noteModal .nt-list-picker')) {
       document.getElementById('ntListDropdown')?.classList.remove('open');
       document.getElementById('ntListTrigger')?.classList.remove('open');
+    }
+    if (!e.target.closest('#noteModal .nt-user-picker')) {
+      document.getElementById('ntUserDropdown')?.classList.remove('open');
+      document.getElementById('ntUserTrigger')?.classList.remove('open');
     }
   });
 
@@ -1274,9 +1340,22 @@
       if (sel) sel.value = '';
     }
 
+    // Reset user picker
+    window._ntSelectedUserName = null;
+    const userTriggerText = document.getElementById('ntUserTriggerText');
+    if (userTriggerText) { userTriggerText.textContent = 'Unassigned…'; userTriggerText.style.color = '#9aa3af'; }
+    // Load + build user dropdown (async, non-blocking)
+    _ntLoadUsers().then(_ntBuildUserDropdown);
+
     noteModal.show();
-    // Focus textarea after animation
-    setTimeout(() => noteTextEl?.focus(), 300);
+    // Focus input after animation
+    setTimeout(() => { noteTextEl?.focus(); }, 300);
+    // Allow Enter to submit
+    if (noteTextEl) {
+      noteTextEl.onkeydown = function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); window.saveNote(); }
+      };
+    }
   }
   
   // Save note
@@ -1324,7 +1403,8 @@
             priority: 'normal',
             source_notes: authorName ? `Added by ${authorName}` : null,
             quantity: 1,
-            required: false
+            required: false,
+            ...(window._ntSelectedUserName ? { assigned_to_name: window._ntSelectedUserName } : {})
           })
         }
       ).then(r => r.json());
