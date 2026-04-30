@@ -82,7 +82,7 @@
 <!-- Detail Drawer -->
 <div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
 <div class="drawer" id="detailDrawer">
-  <div class="drawer-handle" onclick="closeDrawer()"></div>
+  <div class="drawer-handle" onclick="closeDrawer()"><div class="drawer-handle-bar"></div></div>
   <div class="drawer-header">
     <div>
       <div class="drawer-title" id="drawerName">—</div>
@@ -90,9 +90,28 @@
     </div>
     <span id="drawerStatus" class="tag">—</span>
   </div>
-  <div class="drawer-body" id="drawerBody">
+  <div class="sync-banner" id="syncPendingBanner"></div>
+  <div class="drawer-body" id="drawerBody" style="padding:0 12px 24px;">
     <!-- Contents injected here -->
   </div>
+</div>
+
+<!-- Item Action Sheet -->
+<div class="item-sheet-overlay" id="itemSheetOverlay" onclick="closeItemSheet()"></div>
+<div class="item-sheet" id="itemSheet">
+  <div class="item-sheet-handle" onclick="closeItemSheet()"><div class="drawer-handle-bar"></div></div>
+  <div class="item-sheet-body" id="itemSheetBody"></div>
+</div>
+
+<!-- Location Picker -->
+<div class="loc-picker-overlay" id="locPickerOverlay" onclick="closeLocPicker()"></div>
+<div class="loc-picker" id="locPicker">
+  <div class="loc-picker-handle" onclick="closeLocPicker()"><div class="drawer-handle-bar"></div></div>
+  <div class="loc-picker-header">
+    <div class="loc-picker-title">Where is this item going?</div>
+    <input type="search" class="loc-picker-search" id="locPickerSearch" placeholder="Search locations…" autocomplete="off">
+  </div>
+  <div class="loc-picker-list" id="locPickerList"></div>
 </div>
 
 <style>
@@ -255,10 +274,91 @@
   .skel-line { height: 12px; border-radius: 4px; background: var(--border); margin-bottom: 6px; }
   @keyframes shimmer { 0%{opacity:.5} 50%{opacity:1} 100%{opacity:.5} }
   .skel-icon, .skel-line { animation: shimmer 1.4s ease-in-out infinite; }
+
+  /* ── Overlay backdrop (drawer-overlay class used here, drawer-backdrop in mobile.css) */
+  .drawer-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.32); z-index: 100;
+    display: none; -webkit-tap-highlight-color: transparent;
+  }
+  .drawer-overlay.active { display: block; }
+
+  /* ── Handle pill ─────────────────────────────────────────────── */
+  .drawer-handle-bar {
+    width: 36px; height: 4px; background: var(--border-2, #d4d4d4); border-radius: 2px;
+  }
+
+  /* ── Extra status colour ─────────────────────────────────────── */
+  .status-in_use { background: #ede9fe; color: #6d28d9; }
+
+  /* ── Content items — interactive ─────────────────────────────── */
+  .content-item {
+    cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent;
+    border-radius: 6px; transition: background 0.1s;
+  }
+  .content-item:active { background: var(--surface-2, #f5f5f5); }
+
+  /* ── Sync pending banner ──────────────────────────────────────── */
+  .sync-banner {
+    display: none; background: #fffbeb; border-top: 1px solid #fde68a;
+    color: #92400e; font-size: 11px; font-weight: 600; text-align: center;
+    padding: 7px 16px; letter-spacing: 0.02em; flex-shrink: 0;
+  }
+
+  /* ── Item action sheet ────────────────────────────────────────── */
+  .item-sheet-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200;
+    display: none; -webkit-tap-highlight-color: transparent;
+  }
+  .item-sheet-overlay.active { display: block; }
+  .item-sheet {
+    position: fixed; bottom: 0; left: 0; right: 0; background: #fff;
+    border-radius: 16px 16px 0 0; z-index: 201; max-height: 60dvh;
+    display: flex; flex-direction: column;
+    transform: translateY(100%);
+    transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    box-shadow: 0 -1px 0 var(--border, #e5e5e5); overflow: hidden;
+  }
+  .item-sheet.open { transform: translateY(0); }
+  .item-sheet-handle { display: flex; justify-content: center; padding: 10px 0 6px; flex-shrink: 0; cursor: pointer; }
+  .item-sheet-body  { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+
+  /* ── Location picker ──────────────────────────────────────────── */
+  .loc-picker-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 300;
+    display: none; -webkit-tap-highlight-color: transparent;
+  }
+  .loc-picker-overlay.active { display: block; }
+  .loc-picker {
+    position: fixed; bottom: 0; left: 0; right: 0; background: #fff;
+    border-radius: 16px 16px 0 0; z-index: 301; max-height: 70dvh;
+    display: flex; flex-direction: column;
+    transform: translateY(100%);
+    transition: transform 0.26s cubic-bezier(0.32, 0.72, 0, 1);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    box-shadow: 0 -1px 0 var(--border, #e5e5e5);
+  }
+  .loc-picker.open { transform: translateY(0); }
+  .loc-picker-handle { display: flex; justify-content: center; padding: 10px 0 6px; flex-shrink: 0; cursor: pointer; }
+  .loc-picker-header { padding: 0 16px 10px; flex-shrink: 0; border-bottom: 1px solid var(--border, #e5e5e5); }
+  .loc-picker-title  { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 10px; }
+  .loc-picker-search {
+    width: 100%; height: 36px; border: 1px solid var(--border, #e5e5e5); border-radius: var(--r, 8px);
+    padding: 0 12px; font-size: 14px; background: var(--surface-2, #f5f5f5);
+    outline: none; -webkit-appearance: none; box-sizing: border-box;
+  }
+  .loc-picker-list { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .loc-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 13px 16px; border-bottom: 1px solid var(--border, #e5e5e5);
+    cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background 0.08s;
+  }
+  .loc-item:active { background: var(--surface-2, #f5f5f5); }
+  .loc-item:last-child { border-bottom: none; }
 </style>
 
 <script>
-  // Auth guard
+  // ── Auth guard ───────────────────────────────────────────────────
   if (!localStorage.getItem('auth_token') || sessionStorage.getItem('mobile_pin_ok') !== '1') {
     window.location.replace('index.html');
   }
@@ -266,16 +366,78 @@
   const API = window.location.origin;
   const authHeaders = () => ({ 'Authorization': 'Bearer ' + localStorage.getItem('auth_token') });
 
-  let allBoxes = [];
-  let activeStatus = '';
-  let searchQuery = '';
+  let allBoxes            = [];
+  let activeStatus        = '';
+  let searchQuery         = '';
+  let currentDrawerBoxId  = null;
+  let currentDrawerContents = [];
+  let cachedLocations     = null;
+  let currentItemData     = null;
 
-  // ── Offline banner ──────────────────────────────────────────────
-  window.addEventListener('online',  () => document.getElementById('offlineBanner').style.display = 'none');
-  window.addEventListener('offline', () => document.getElementById('offlineBanner').style.display = 'block');
+  // ── Offline queue ─────────────────────────────────────────────────
+  const QUEUE_KEY = 'rts_mobile_queue';
+  function getQueue()    { try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]'); } catch { return []; } }
+  function saveQueue(q)  { localStorage.setItem(QUEUE_KEY, JSON.stringify(q)); }
+
+  function queueMutation(endpoint, method, body) {
+    const q = getQueue();
+    q.push({ id: Date.now() + '-' + Math.random().toString(36).slice(2,7), endpoint, method, body });
+    saveQueue(q);
+    updateSyncBanner();
+  }
+
+  function updateSyncBanner() {
+    const q      = getQueue();
+    const banner = document.getElementById('syncPendingBanner');
+    if (!banner) return;
+    if (q.length > 0) {
+      banner.textContent = q.length + ' change' + (q.length > 1 ? 's' : '') + ' pending sync';
+      banner.style.display = 'block';
+    } else {
+      banner.style.display = 'none';
+    }
+  }
+
+  async function flushQueue() {
+    const q = getQueue();
+    if (q.length === 0) return;
+    const remaining = [];
+    for (const item of q) {
+      try {
+        const res = await fetch(API + item.endpoint, {
+          method:  item.method,
+          headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+          body:    JSON.stringify(item.body)
+        });
+        if (!res.ok) remaining.push(item);
+      } catch { remaining.push(item); }
+    }
+    saveQueue(remaining);
+    updateSyncBanner();
+    const synced = q.length - remaining.length;
+    if (synced > 0)       showToast(synced + ' change' + (synced > 1 ? 's' : '') + ' synced');
+    if (remaining.length) showToast(remaining.length + ' change' + (remaining.length > 1 ? 's' : '') + ' failed to sync — will retry', 'warn');
+  }
+
+  // ── Toast ─────────────────────────────────────────────────────────
+  function showToast(msg, type) {
+    const t = document.createElement('div');
+    t.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);' +
+      'background:' + (type === 'warn' ? '#d97706' : '#0a0a0a') + ';color:#fff;' +
+      'font-size:13px;font-weight:500;padding:10px 18px;border-radius:20px;z-index:9999;' +
+      'white-space:nowrap;pointer-events:none;opacity:0;transition:opacity 0.2s;max-width:90vw;text-align:center;';
+    t.textContent = msg;
+    document.body.appendChild(t);
+    requestAnimationFrame(() => { t.style.opacity = '1'; });
+    setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 220); }, 2600);
+  }
+
+  // ── Connectivity ──────────────────────────────────────────────────
+  window.addEventListener('online',  () => { document.getElementById('offlineBanner').style.display = 'none'; flushQueue(); });
+  window.addEventListener('offline', () =>   document.getElementById('offlineBanner').style.display = 'block');
   if (!navigator.onLine) document.getElementById('offlineBanner').style.display = 'block';
 
-  // ── Load boxes ───────────────────────────────────────────────────
+  // ── Load boxes ────────────────────────────────────────────────────
   async function loadBoxes() {
     renderSkeletons();
     try {
@@ -288,19 +450,21 @@
       document.getElementById('boxCount').textContent = allBoxes.length + ' boxes';
     } catch (err) {
       document.getElementById('boxList').innerHTML =
-        `<div style="padding:40px 16px;text-align:center;color:var(--text-3);font-size:13px;">Failed to load boxes.<br><button onclick="loadBoxes()" style="margin-top:12px;padding:8px 16px;border:1px solid var(--border);border-radius:var(--r);background:var(--bg);font-size:13px;cursor:pointer;">Retry</button></div>`;
+        `<div style="padding:40px 16px;text-align:center;color:var(--text-3);font-size:13px;">Failed to load boxes.<br>
+         <button onclick="loadBoxes()" style="margin-top:12px;padding:8px 16px;border:1px solid var(--border);border-radius:var(--r);background:var(--bg);font-size:13px;cursor:pointer;">Retry</button></div>`;
     }
   }
 
   function renderSkeletons() {
     let html = '';
     for (let i = 0; i < 8; i++) {
-      html += `<div class="skel-row"><div class="skel-icon"></div><div class="skel-lines"><div class="skel-line" style="width:50%"></div><div class="skel-line" style="width:30%"></div></div></div>`;
+      html += `<div class="skel-row"><div class="skel-icon"></div><div class="skel-lines">
+        <div class="skel-line" style="width:50%"></div><div class="skel-line" style="width:30%"></div></div></div>`;
     }
     document.getElementById('boxList').innerHTML = html;
   }
 
-  // ── Status chips ─────────────────────────────────────────────────
+  // ── Status chips ──────────────────────────────────────────────────
   document.getElementById('statusStrip').querySelectorAll('.pill').forEach(btn => {
     btn.addEventListener('click', () => {
       activeStatus = btn.dataset.status;
@@ -310,7 +474,7 @@
     });
   });
 
-  // ── Render list ──────────────────────────────────────────────────
+  // ── Render list ───────────────────────────────────────────────────
   function renderList() {
     const q = searchQuery.toLowerCase();
     const filtered = allBoxes.filter(b => {
@@ -326,18 +490,18 @@
     }
 
     document.getElementById('boxList').innerHTML = filtered.map(b => {
-      const status = (b.status || 'empty').toLowerCase();
-      const statusClass = 'status-' + status;
+      const status      = (b.status || 'empty').toLowerCase();
+      const statusClass = 'status-' + status.replace(/ /g, '_');
       const statusLabel = status.replace(/_/g, ' ');
-      const itemCount = b.item_count ?? 0;
-      const countClass = itemCount > 0 ? 'item-count-badge has-items' : 'item-count-badge';
+      const itemCount   = b.item_count ?? 0;
+      const countClass  = itemCount > 0 ? 'item-count-badge has-items' : 'item-count-badge';
       return `<div class="box-row" onclick="openBox('${esc(b.id)}')">
         <div class="box-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div>
         <div class="box-info">
           <div class="box-name">${esc(b.name || b.id)}</div>
           <div class="box-meta">
             <span class="box-barcode">${esc(b.barcode || b.id)}</span>
-            ${b.assigned_driver_name ? `<span>·</span><span>${esc(b.assigned_driver_name)}</span>` : ''}
+            ${b.assigned_driver_name ? `<span>\u00b7</span><span>${esc(b.assigned_driver_name)}</span>` : ''}
           </div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;">
@@ -348,35 +512,36 @@
     }).join('');
   }
 
-  // ── Open box drawer ──────────────────────────────────────────────
+  // ── Open box drawer ───────────────────────────────────────────────
   async function openBox(id) {
     const box = allBoxes.find(b => String(b.id) === String(id));
     if (!box) return;
 
-    document.getElementById('drawerName').textContent = box.name || box.id || '—';
+    currentDrawerBoxId      = String(id);
+    currentDrawerContents   = [];
+
+    document.getElementById('drawerName').textContent    = box.name || box.id || '—';
     document.getElementById('drawerBarcode').textContent = box.barcode || '';
     const status = (box.status || 'empty').toLowerCase();
     const drawerStatus = document.getElementById('drawerStatus');
     drawerStatus.textContent = status.replace(/_/g, ' ');
-    drawerStatus.className = 'tag status-' + status;
+    drawerStatus.className   = 'tag status-' + status.replace(/ /g, '_');
 
-    // Basic box info rows
     const details = [
-      ['Type', esc(box.box_type)],
-      ['Driver', esc(box.assigned_driver_name)],
-      ['Staff', esc(box.assigned_staff_name)],
+      ['Type',       esc(box.box_type)],
+      ['Driver',     esc(box.assigned_driver_name)],
+      ['Staff',      esc(box.assigned_staff_name)],
       ['Max weight', box.max_weight_kg ? box.max_weight_kg + ' kg' : null],
-      ['Zone', esc(box.current_zone)],
+      ['Zone',       esc(box.current_zone)],
     ].filter(([, v]) => v);
 
     const detailHtml = details.map(([label, val]) =>
       `<div class="detail-row"><span class="detail-label">${label}</span><span class="detail-value">${val}</span></div>`
     ).join('');
 
-    // Weight bar
     let weightBarHtml = '';
     if (box.current_weight_kg != null && box.max_weight_kg > 0) {
-      const pct = Math.min(100, (box.current_weight_kg / box.max_weight_kg) * 100);
+      const pct       = Math.min(100, (box.current_weight_kg / box.max_weight_kg) * 100);
       const fillClass = pct >= 100 ? 'over' : (pct >= 80 ? 'warn' : '');
       weightBarHtml = `<div class="weight-bar-wrap">
         <div class="weight-bar-label"><span>Weight</span><span>${box.current_weight_kg} / ${box.max_weight_kg} kg</span></div>
@@ -384,33 +549,38 @@
       </div>`;
     }
 
-    // Show drawer with loading state for contents
     document.getElementById('drawerBody').innerHTML =
       weightBarHtml +
       `<div>${detailHtml}</div>` +
       `<div id="contentsArea"><div style="padding:20px 0;text-align:center;color:var(--text-3);font-size:13px;">Loading contents…</div></div>`;
 
     showDrawer();
+    await refreshContents(id);
+  }
 
-    // Fetch contents
+  async function refreshContents(boxId) {
     try {
-      const res = await fetch(`${API}/api/boxes/${id}`, { headers: authHeaders() });
+      const res = await fetch(`${API}/api/boxes/${boxId}`, { headers: authHeaders() });
       if (mobileHandle401(res)) return;
       const data = await res.json();
-      document.getElementById('contentsArea').innerHTML = renderContents(data.contents || []);
+      currentDrawerContents = data.contents || [];
+      const area = document.getElementById('contentsArea');
+      if (area) area.innerHTML = renderContents(currentDrawerContents);
     } catch (_) {
-      document.getElementById('contentsArea').innerHTML = `<div style="padding:12px 0;color:var(--text-3);font-size:12px;">Could not load contents.</div>`;
+      const area = document.getElementById('contentsArea');
+      if (area) area.innerHTML = `<div style="padding:12px 0;color:var(--text-3);font-size:12px;">Could not load contents.</div>`;
     }
   }
 
+  // ── Render contents ───────────────────────────────────────────────
   function renderContents(contents) {
-    const section = document.createElement('div');
+    const section   = document.createElement('div');
     section.className = 'contents-section';
 
-    const title = document.createElement('div');
-    title.className = 'contents-title';
-    title.textContent = `Contents (${contents.length})`;
-    section.appendChild(title);
+    const titleEl = document.createElement('div');
+    titleEl.className   = 'contents-title';
+    titleEl.textContent = 'Contents (' + contents.length + ')';
+    section.appendChild(titleEl);
 
     if (contents.length === 0) {
       const empty = document.createElement('div');
@@ -420,57 +590,356 @@
       return section.outerHTML;
     }
 
-    contents.forEach(c => {
-      const icon = c.item_type === 'inventory'
+    const hintEl = document.createElement('div');
+    hintEl.style.cssText = 'font-size:11px;color:var(--text-3);margin-bottom:10px;';
+    hintEl.textContent = 'Double-tap an item to manage it';
+    section.appendChild(hintEl);
+
+    contents.forEach((c, idx) => {
+      const isInventory = c.item_type === 'inventory';
+      const isShopify   = isInventory && !!c.shopify_variant_id;
+
+      const icon = isInventory
         ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>'
         : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>';
-      const qty  = c.quantity_packed > 1 ? `×${c.quantity_packed}` : '';
-      const sub  = c.item_barcode || c.sku || '';
-      const cat  = c.category ? `${esc(c.category)}` : '';
-      const div  = document.createElement('div');
+
+      const qty = isInventory && c.quantity_packed != null ? '\u00d7' + c.quantity_packed : '';
+      const sub = c.item_barcode || c.sku || '';
+      const cat = c.category || '';
+
+      const div = document.createElement('div');
       div.className = 'content-item';
-      div.innerHTML = `
-        <div class="content-icon">${icon}</div>
-        <div class="content-info">
-          <div class="content-name">${esc(c.name || c.item_id)}</div>
-          ${cat || sub ? `<div class="content-sub">${[cat, sub].filter(Boolean).join(' · ')}</div>` : ''}
-        </div>
-        ${qty ? `<div class="content-qty">${esc(qty)}</div>` : ''}
-      `;
+      div.setAttribute('onclick', 'handleContentTap(event,' + idx + ')');
+      div.innerHTML =
+        '<div class="content-icon">' + icon + '</div>' +
+        '<div class="content-info">' +
+          '<div class="content-name">' + esc(c.name || c.item_id) + '</div>' +
+          ((cat || sub) ? '<div class="content-sub">' + [cat ? esc(cat) : '', sub ? esc(sub) : ''].filter(Boolean).join(' \u00b7 ') + '</div>' : '') +
+        '</div>' +
+        '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">' +
+          (qty ? '<span class="content-qty">' + qty + '</span>' : '') +
+          (isShopify ? '<span style="font-size:9px;background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;border-radius:3px;padding:1px 5px;font-weight:700;letter-spacing:0.04em;">S</span>' : '') +
+        '</div>';
+
       section.appendChild(div);
     });
 
     return section.outerHTML;
   }
 
-  // ── Drawer ───────────────────────────────────────────────────────
+  // ── Double-tap detection ──────────────────────────────────────────
+  let lastTapTarget = null;
+  let lastTapTime   = 0;
+
+  function handleContentTap(event, idx) {
+    const now = Date.now();
+    const el  = event.currentTarget;
+    if (lastTapTarget === el && now - lastTapTime < 350) {
+      lastTapTarget = null;
+      lastTapTime   = 0;
+      openItemSheet(currentDrawerContents[idx]);
+    } else {
+      lastTapTarget = el;
+      lastTapTime   = now;
+    }
+  }
+
+  // ── Item action sheet ─────────────────────────────────────────────
+  function openItemSheet(content) {
+    currentItemData = { ...content, boxId: currentDrawerBoxId };
+    const isInventory = content.item_type === 'inventory';
+    const isShopify   = isInventory && !!content.shopify_variant_id;
+    const qty         = content.quantity_packed || 1;
+
+    let body =
+      '<div style="padding:16px 16px 12px;">' +
+        '<div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:3px;">' + esc(content.name) + '</div>' +
+        (content.item_barcode ? '<div style="font-size:11px;color:var(--text-3);font-family:ui-monospace,monospace;margin-bottom:8px;">' + esc(content.item_barcode) + '</div>' : '') +
+        (content.category ? '<span style="font-size:11px;background:var(--surface-2,#f5f5f5);color:var(--text-2);border-radius:4px;padding:2px 8px;font-weight:500;">' + esc(content.category) + '</span>' : '') +
+      '</div>' +
+      '<div style="height:1px;background:var(--border,#e5e5e5);"></div>';
+
+    if (isShopify) {
+      body +=
+        '<div style="padding:20px 16px;display:flex;gap:12px;align-items:flex-start;">' +
+          '<svg style="flex-shrink:0;margin-top:1px;" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' +
+          '<div>' +
+            '<div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px;">Shopify-linked item</div>' +
+            '<div style="font-size:12px;color:var(--text-2);line-height:1.55;">To remove this item, use the desktop Box Packing page. This ensures Shopify stock levels and billing are updated correctly.</div>' +
+          '</div>' +
+        '</div>' +
+        '<div style="padding:4px 16px 24px;">' +
+          '<button onclick="closeItemSheet()" style="width:100%;padding:14px;border:none;border-radius:10px;background:var(--surface-2,#f5f5f5);color:var(--text-2);font-size:14px;font-weight:500;cursor:pointer;-webkit-tap-highlight-color:transparent;">Dismiss</button>' +
+        '</div>';
+    } else {
+      if (isInventory) {
+        body +=
+          '<div style="padding:16px 16px 10px;">' +
+            '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-3);margin-bottom:10px;">Quantity in box</div>' +
+            '<div style="display:flex;align-items:center;background:var(--surface-2,#f5f5f5);border-radius:10px;overflow:hidden;width:fit-content;">' +
+              '<button onclick="stepQty(-1)" style="width:46px;height:46px;border:none;background:none;font-size:24px;color:var(--text);cursor:pointer;-webkit-tap-highlight-color:transparent;display:flex;align-items:center;justify-content:center;">\u2212</button>' +
+              '<div id="qtyDisplay" style="min-width:46px;text-align:center;font-size:18px;font-weight:700;color:var(--text);">' + qty + '</div>' +
+              '<button onclick="stepQty(1)"  style="width:46px;height:46px;border:none;background:none;font-size:24px;color:var(--text);cursor:pointer;-webkit-tap-highlight-color:transparent;display:flex;align-items:center;justify-content:center;">+</button>' +
+            '</div>' +
+          '</div>';
+      }
+      body +=
+        '<div style="padding:8px 16px 24px;display:flex;flex-direction:column;gap:10px;">' +
+          '<button onclick="confirmRemoveItem()" style="width:100%;padding:14px;border:none;border-radius:10px;background:#fee2e2;color:#dc2626;font-size:14px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent;">Remove from box</button>' +
+          '<button onclick="closeItemSheet()" style="width:100%;padding:14px;border:none;border-radius:10px;background:var(--surface-2,#f5f5f5);color:var(--text-2);font-size:14px;font-weight:500;cursor:pointer;-webkit-tap-highlight-color:transparent;">Cancel</button>' +
+        '</div>';
+    }
+
+    document.getElementById('itemSheetBody').innerHTML = body;
+    document.getElementById('itemSheetOverlay').classList.add('active');
+    document.getElementById('itemSheet').classList.add('open');
+  }
+
+  function closeItemSheet() {
+    document.getElementById('itemSheetOverlay').classList.remove('active');
+    document.getElementById('itemSheet').classList.remove('open');
+    document.getElementById('itemSheet').style.transform = '';
+  }
+
+  function stepQty(delta) {
+    const display = document.getElementById('qtyDisplay');
+    if (!display) return;
+    const current = parseInt(display.textContent) || 1;
+    display.textContent = Math.max(1, current + delta);
+  }
+
+  function confirmRemoveItem() {
+    closeItemSheet();
+    const isInventory = currentItemData && currentItemData.item_type === 'inventory';
+    // Inventory items don't have a current_location_id — skip location picker
+    if (isInventory) {
+      doRemoveItem(null, null);
+    } else {
+      openLocPicker();
+    }
+  }
+
+  // ── Location picker ───────────────────────────────────────────────
+  async function loadLocations() {
+    if (cachedLocations) return cachedLocations;
+    try {
+      const res = await fetch(`${API}/api/locations`, { headers: authHeaders() });
+      if (!res.ok) throw new Error('Failed');
+      const data = await res.json();
+      cachedLocations = (data.locations || data || []).filter(l => l && l.id);
+      return cachedLocations;
+    } catch { return []; }
+  }
+
+  function openLocPicker() {
+    document.getElementById('locPickerSearch').value = '';
+    document.getElementById('locPickerList').innerHTML =
+      '<div style="padding:24px;text-align:center;color:var(--text-3);font-size:13px;">Loading locations…</div>';
+    document.getElementById('locPickerOverlay').classList.add('active');
+    document.getElementById('locPicker').classList.add('open');
+    loadLocations().then(renderLocList);
+  }
+
+  function closeLocPicker() {
+    document.getElementById('locPickerOverlay').classList.remove('active');
+    document.getElementById('locPicker').classList.remove('open');
+    document.getElementById('locPicker').style.transform = '';
+  }
+
+  function renderLocList() {
+    const q    = (document.getElementById('locPickerSearch').value || '').toLowerCase();
+    const locs = q
+      ? (cachedLocations || []).filter(l => (l.name || '').toLowerCase().includes(q))
+      : (cachedLocations || []);
+
+    if (locs.length === 0) {
+      document.getElementById('locPickerList').innerHTML =
+        '<div style="padding:24px;text-align:center;color:var(--text-3);font-size:13px;">' +
+        ((cachedLocations || []).length === 0 ? 'No locations found.' : 'No results.') + '</div>';
+      return;
+    }
+
+    document.getElementById('locPickerList').innerHTML = locs.map(l =>
+      '<div class="loc-item" onclick="selectLocation(\'' + esc(l.id) + '\',\'' + esc(l.name || l.id) + '\')">' +
+        '<span style="font-size:14px;">' + esc(l.name || l.id) + '</span>' +
+        (l.type ? '<span style="font-size:11px;color:var(--text-3);">' + esc(l.type) + '</span>' : '') +
+      '</div>'
+    ).join('');
+  }
+
+  document.getElementById('locPickerSearch').addEventListener('input', renderLocList);
+
+  function selectLocation(locId, locName) {
+    closeLocPicker();
+    doRemoveItem(locId, locName);
+  }
+
+  // ── Remove item from box ──────────────────────────────────────────
+  async function doRemoveItem(locationId, locationName) {
+    if (!currentItemData) return;
+    const { item_id, item_type, boxId, name } = currentItemData;
+    const isInventory = item_type === 'inventory';
+
+    // Optimistic: remove from local contents immediately
+    currentDrawerContents = currentDrawerContents.filter(c => String(c.item_id) !== String(item_id));
+    const area = document.getElementById('contentsArea');
+    if (area) area.innerHTML = renderContents(currentDrawerContents);
+
+    if (!navigator.onLine) {
+      if (isInventory) {
+        queueMutation('/api/inventory/unpack', 'POST', { itemId: item_id, boxId });
+      } else {
+        queueMutation('/api/box-contents/unpack', 'POST', { box_id: boxId, item_id });
+        if (locationId) queueMutation('/api/items/' + item_id, 'PUT', { current_location_id: locationId });
+      }
+      showToast('Saved offline — will sync when reconnected');
+      const box = allBoxes.find(b => String(b.id) === String(boxId));
+      if (box && box.item_count > 0) box.item_count--;
+      renderList();
+      return;
+    }
+
+    try {
+      if (isInventory) {
+        const res = await fetch(`${API}/api/inventory/unpack`, {
+          method:  'POST',
+          headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ itemId: item_id, boxId })
+        });
+        if (!res.ok) throw new Error('unpack failed');
+      } else {
+        const r1 = await fetch(`${API}/api/box-contents/unpack`, {
+          method:  'POST',
+          headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ box_id: boxId, item_id })
+        });
+        if (!r1.ok) throw new Error('unpack failed');
+        if (locationId) {
+          await fetch(`${API}/api/items/${item_id}`, {
+            method:  'PUT',
+            headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ current_location_id: locationId })
+          });
+        }
+      }
+
+      const moved = locationName ? ' — moved to ' + locationName : '';
+      showToast((name || 'Item') + ' removed' + moved);
+
+      // Refresh from server to stay authoritative
+      await refreshContents(boxId);
+      const box = allBoxes.find(b => String(b.id) === String(boxId));
+      if (box && box.item_count > 0) box.item_count--;
+      renderList();
+    } catch (err) {
+      showToast('Remove failed — please try again', 'warn');
+      await refreshContents(boxId);
+    }
+  }
+
+  // ── Drawer open / close ───────────────────────────────────────────
   function showDrawer() {
     document.getElementById('drawerOverlay').classList.add('active');
     document.getElementById('detailDrawer').classList.add('open');
     document.body.style.overflow = 'hidden';
+    updateSyncBanner();
   }
   function closeDrawer() {
     document.getElementById('drawerOverlay').classList.remove('active');
     document.getElementById('detailDrawer').classList.remove('open');
+    document.getElementById('detailDrawer').style.transform = '';
     document.body.style.overflow = '';
+    closeItemSheet();
   }
 
-  // ── Search ───────────────────────────────────────────────────────
+  // ── Swipe-to-dismiss: drawer ──────────────────────────────────────
+  (function () {
+    const drawer = document.getElementById('detailDrawer');
+    const body   = document.getElementById('drawerBody');
+    let startY = 0, startTime = 0, lastDy = 0, dragging = false;
+
+    drawer.addEventListener('touchstart', function (e) {
+      startY    = e.touches[0].clientY;
+      startTime = e.timeStamp;
+      lastDy    = 0;
+      dragging  = false;
+      drawer.style.transition = 'none';
+    }, { passive: true });
+
+    drawer.addEventListener('touchmove', function (e) {
+      const dy = e.touches[0].clientY - startY;
+      lastDy = dy;
+      if (dy > 0 && body.scrollTop <= 0) {
+        dragging = true;
+        drawer.style.transform = 'translateY(' + dy + 'px)';
+      }
+    }, { passive: true });
+
+    drawer.addEventListener('touchend', function (e) {
+      drawer.style.transition = '';
+      if (!dragging) { drawer.style.transform = ''; return; }
+      const elapsed  = e.timeStamp - startTime || 1;
+      const velocity = lastDy / elapsed;
+      if (lastDy > 120 || velocity > 0.5) {
+        closeDrawer();
+      } else {
+        drawer.style.transform = '';
+      }
+      dragging = false;
+    }, { passive: true });
+  }());
+
+  // ── Swipe-to-dismiss: item sheet ──────────────────────────────────
+  (function () {
+    const sheet = document.getElementById('itemSheet');
+    let startY = 0, lastDy = 0, dragging = false;
+
+    sheet.addEventListener('touchstart', function (e) {
+      startY   = e.touches[0].clientY;
+      lastDy   = 0;
+      dragging = false;
+      sheet.style.transition = 'none';
+    }, { passive: true });
+
+    sheet.addEventListener('touchmove', function (e) {
+      const dy = e.touches[0].clientY - startY;
+      lastDy = dy;
+      if (dy > 0) {
+        dragging = true;
+        sheet.style.transform = 'translateY(' + dy + 'px)';
+      }
+    }, { passive: true });
+
+    sheet.addEventListener('touchend', function () {
+      sheet.style.transition = '';
+      if (!dragging) { sheet.style.transform = ''; return; }
+      if (lastDy > 100) {
+        closeItemSheet();
+      } else {
+        sheet.style.transform = '';
+      }
+      dragging = false;
+    }, { passive: true });
+  }());
+
+  // ── Search ────────────────────────────────────────────────────────
   document.getElementById('searchInput').addEventListener('input', e => {
     searchQuery = e.target.value;
     renderList();
   });
 
-  // ── SW ───────────────────────────────────────────────────────────
+  // ── Service worker ────────────────────────────────────────────────
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
 
+  // ── Escape helper ─────────────────────────────────────────────────
   function esc(str) {
     if (str == null) return '';
-    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
+  updateSyncBanner();
   loadBoxes();
 </script>
 

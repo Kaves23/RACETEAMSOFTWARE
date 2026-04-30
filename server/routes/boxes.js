@@ -93,7 +93,7 @@ router.get('/:id', async (req, res, next) => {
              COALESCE(i.name, inv.name)       AS name,
              COALESCE(i.barcode, inv.sku)     AS item_barcode,
              COALESCE(i.category, inv.category) AS category,
-             inv.sku
+             inv.sku, inv.shopify_variant_id
       FROM box_contents bc
       LEFT JOIN items i
         ON bc.item_id = i.id AND (bc.item_type IS NULL OR bc.item_type != 'inventory')
