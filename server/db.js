@@ -110,32 +110,35 @@ async function getAll(tableName) {
   return result.rows;
 }
 
-// Get settings from generic settings table
+// Get settings — returns a flat object of all key→value pairs
 async function getSettings() {
   try {
-    const result = await query(`SELECT data FROM settings WHERE id = 'global' LIMIT 1`);
-    if (result.rows.length > 0 && result.rows[0].data) {
-      return result.rows[0].data;
+    const result = await query(`SELECT key, value FROM settings`);
+    const out = {};
+    for (const row of result.rows) {
+      try { out[row.key] = JSON.parse(row.value); } catch { out[row.key] = row.value; }
     }
-    return {};
+    return out;
   } catch (error) {
     console.warn('Error loading settings:', error.message);
     return {};
   }
 }
 
-// Save (upsert) settings into the generic settings table
+// Save (upsert) settings — merges patch keys into the key/value table
 async function saveSettings(patch) {
   try {
-    // Load current, merge patch on top, then write back
     const current = await getSettings();
     const merged = Object.assign({}, current, patch);
-    await query(
-      `INSERT INTO settings (id, data, updated_at)
-       VALUES ('global', $1, NOW())
-       ON CONFLICT (id) DO UPDATE SET data = settings.data || $1::jsonb, updated_at = NOW()`,
-      [JSON.stringify(patch)]
-    );
+    for (const [k, v] of Object.entries(patch)) {
+      const val = typeof v === 'string' ? v : JSON.stringify(v);
+      await query(
+        `INSERT INTO settings (key, value, updated_at)
+         VALUES ($1, $2, NOW())
+         ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = NOW()`,
+        [k, val]
+      );
+    }
     return merged;
   } catch (error) {
     console.warn('Error saving settings:', error.message);
