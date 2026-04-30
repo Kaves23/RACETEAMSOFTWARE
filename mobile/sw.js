@@ -3,7 +3,7 @@
    Cache: shell files on install, stale-while-revalidate for API routes
    ───────────────────────────────────────────────────────────────────────────── */
 
-var CACHE_NAME = 'rts-mobile-v14';
+var CACHE_NAME = 'rts-mobile-v15';
 var DATA_CACHE = 'rts-offline-data'; // persists across SW version bumps
 var SHELL_FILES = [
   '/mobile/mobile.css',
@@ -66,9 +66,9 @@ self.addEventListener('fetch', function(event) {
     return;
   }
 
-  // Shell files: cache-first
+  // Shell files: network-first (always get latest HTML, fall back to cache offline)
   if (SHELL_FILES.indexOf(path) !== -1) {
-    event.respondWith(cacheFirst(event.request));
+    event.respondWith(networkFirst(event.request));
     return;
   }
 
