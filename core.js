@@ -1112,7 +1112,23 @@
             // Retry the original request with new token
             return await apiRequest(endpoint, options);
           }
-          
+
+          // Re-auth failed — session truly expired, show toast and redirect
+          if (!document._rtsSessionToastShown) {
+            document._rtsSessionToastShown = true;
+            const t = document.createElement('div');
+            t.style.cssText = 'position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);z-index:99999;'
+              + 'background:#1f2937;color:#fff;padding:.75rem 1.4rem;border-radius:10px;font-size:.9rem;'
+              + 'box-shadow:0 4px 20px rgba(0,0,0,.35);display:flex;align-items:center;gap:.6rem;white-space:nowrap';
+            t.innerHTML = '<span style="font-size:1.1rem">&#128274;</span> Session expired &mdash; please log out and log back in';
+            document.body.appendChild(t);
+            setTimeout(() => {
+              localStorage.removeItem('auth_token');
+              localStorage.removeItem('user');
+              window.location.replace('/login.html');
+            }, 2500);
+          }
+
           throw new Error('Authentication failed');
         }
         // Read error body to get server's specific error message
