@@ -6,7 +6,7 @@ const db      = require('../db');
 router.get('/', async (req, res) => {
   try {
     const result = await db.query(
-      `SELECT id, name, location_type AS type, city, bay_identifier
+      `SELECT id, name, location_type AS type, city, country
        FROM locations
        WHERE is_active = TRUE
        ORDER BY name ASC`
