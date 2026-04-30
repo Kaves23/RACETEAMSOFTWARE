@@ -244,10 +244,10 @@ router.put('/:id', async (req, res, next) => {
     let paramCount = 1;
     
     const allowedFields = [
-      'name', 'sku', 'category', 'description', 'quantity', 
-      'min_quantity', 'unit', 'unit_cost', 'location_id', 
-      'supplier', 'last_restocked_date', 'notes', 
-      'current_box_id', 'location_distribution'
+      'name', 'sku', 'category', 'description', 'quantity',
+      'min_quantity', 'unit', 'unit_of_measure', 'unit_cost', 'location_id',
+      'supplier', 'supplier_id', 'lead_time_days', 'last_restocked_date', 'notes',
+      'current_box_id', 'location_distribution', 'auto_reorder'
     ];
     
     for (const [key, value] of Object.entries(updates)) {
@@ -307,6 +307,25 @@ router.put('/:id', async (req, res, next) => {
     }).catch(() => {});
 
     res.json({ success: true, item });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/inventory/:id/history - Fetch change history for one item
+router.get('/:id/history', async (req, res, next) => {
+  try {
+    const result = await pool.query(
+      `SELECT ih.*,
+              u.full_name AS performed_by_name
+       FROM inventory_history ih
+       LEFT JOIN users u ON u.id = ih.performed_by_user_id::int
+       WHERE ih.inventory_id = $1
+       ORDER BY ih.created_at DESC
+       LIMIT 100`,
+      [req.params.id]
+    );
+    res.json({ success: true, history: result.rows });
   } catch (error) {
     next(error);
   }

@@ -383,6 +383,19 @@
     .sc-supplier .inv-sc-icon{background:rgba(166,77,255,.13);color:#a64dff}
     .sc-notes    .inv-sc-icon{background:rgba(154,160,166,.13);color:#5f6368}
 
+    /* Slide-up edit modal animation */
+    #invEditModal .modal-content{animation:invModalSlideUp .28s cubic-bezier(.22,.68,0,1.2)}
+    @keyframes invModalSlideUp{from{transform:translateY(40px);opacity:0}to{transform:translateY(0);opacity:1}}
+    /* History timeline */
+    .inv-history-item{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid #f0f0f0}
+    .inv-history-item:last-child{border-bottom:none}
+    .inv-hist-icon{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:.9rem}
+    .inv-hist-action{font-weight:600;font-size:.82rem;color:#1a1d24}
+    .inv-hist-detail{font-size:.75rem;color:#5f6368;margin-top:2px}
+    .inv-hist-time{font-size:.7rem;color:#9aa0a6;margin-top:2px}
+    /* Category pill */
+    .category-pill{font-size:.7rem;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:10px;padding:1px 8px;color:#374151}
+
     /* Responsive */
     @media (max-width: 992px) {
       .inventory-container{flex-direction:column;height:auto}
@@ -544,139 +557,71 @@
       <!-- Draggable divider -->
       <div id="midRightResizer" class="panel-resizer"></div>
 
-      <!-- Right Panel - Details -->
+      <!-- Right Panel - Details (read-only summary) -->
       <div class="panel detail-panel">
         <div class="panel-header">
           <span>Item Details</span>
           <span class="stat-badge" id="detailBadge">No selection</span>
         </div>
-        <div class="panel-body">
-          <div id="noSelection" style="text-align:center;padding:40px 20px;color:#202124">
+        <div class="panel-body" style="padding:0 10px 10px">
+          <div id="noSelection" style="text-align:center;padding:40px 20px;color:#9aa0a6">
             <p style="font-size:2rem"><svg width="40" height="40" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2L2 6v8l8 4 8-4V6L10 2z"/><path d="M2 6l8 4 8-4"/><path d="M10 10v8"/></svg></p>
-            <p>Select an item to view details</p>
+            <p style="font-size:.85rem">Select an item to view details</p>
           </div>
           
-          <div id="itemInfo" style="display:none">
+          <!-- Summary view (shown when item selected) -->
+          <div id="itemSummary" style="display:none;padding-top:10px">
+
+            <!-- Name + category header -->
+            <div style="margin-bottom:10px">
+              <div style="font-size:1rem;font-weight:700;color:#1a1d24;line-height:1.3" id="sumName"></div>
+              <div style="display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap">
+                <code style="font-size:.7rem;color:#1a73e8;background:#e8f0fe;padding:1px 6px;border-radius:3px" id="sumSku"></code>
+                <span class="category-pill" id="sumCatPill"></span>
+              </div>
+            </div>
+
+            <!-- Quick stats row -->
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:12px">
+              <div style="background:#f0f7ff;border:1px solid #c5d8f5;border-radius:6px;padding:6px 8px;text-align:center">
+                <div style="font-size:1.15rem;font-weight:800;color:#1a73e8" id="sumQtyVal">0</div>
+                <div style="font-size:.65rem;color:#5f6368;text-transform:uppercase;letter-spacing:.4px">In Stock</div>
+              </div>
+              <div style="background:#f0fdf4;border:1px solid #a7f3d0;border-radius:6px;padding:6px 8px;text-align:center">
+                <div style="font-size:1.15rem;font-weight:800;color:#059669" id="sumReorderVal">0</div>
+                <div style="font-size:.65rem;color:#5f6368;text-transform:uppercase;letter-spacing:.4px">Min Qty</div>
+              </div>
+              <div style="background:#fdf4ff;border:1px solid #d8b4fe;border-radius:6px;padding:6px 8px;text-align:center">
+                <div style="font-size:1.15rem;font-weight:800;color:#7c3aed" id="sumCostVal">—</div>
+                <div style="font-size:.65rem;color:#5f6368;text-transform:uppercase;letter-spacing:.4px">Unit Cost</div>
+              </div>
+            </div>
+
+            <!-- Edit button -->
+            <button class="btn btn-primary btn-sm w-100 mb-3" id="btnOpenEditModal" style="font-size:.8rem">
+              <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.1em;margin-right:5px"><path d="M14.5 2.5a3 3 0 0 1 0 4.2L6 15l-4 1 1-4L11.3 3.5a3 3 0 0 1 3.2-1z"/></svg>Edit Item
+            </button>
+
             <!-- Location Distribution -->
-            <div class="inv-section-card sc-location">
+            <div class="inv-section-card sc-location" style="margin-bottom:8px">
               <div class="inv-sc-header">
                 <div class="inv-sc-icon"><svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2a5 5 0 0 0-5 5c0 4 5 10 5 10s5-6 5-10a5 5 0 0 0-5-5z"/><circle cx="10" cy="7" r="2"/></svg></div>
                 Location Distribution
               </div>
               <div id="locationDistribution"></div>
             </div>
-            
+
             <!-- Boxes Containing This Item -->
-            <div class="inv-section-card sc-stock">
+            <div class="inv-section-card sc-stock" style="margin-bottom:8px">
               <div class="inv-sc-header">
                 <div class="inv-sc-icon"><svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2L2 6v8l8 4 8-4V6L10 2z"/><path d="M2 6l8 4 8-4"/><path d="M10 10v8"/></svg></div>
                 In Boxes
               </div>
               <div id="boxesContaining"></div>
             </div>
-          </div>
-          
-          <form id="itemForm" style="display:none">
 
-            <!-- ── Identity ─────────────────────────── -->
-            <div class="inv-section-card sc-identity">
-              <div class="inv-sc-header">
-                <div class="inv-sc-icon"><svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="12" height="16" rx="2"/><path d="M8 7h4M8 11h4M8 15h2"/></svg></div>
-                Identity
-              </div>
-              <div class="mb-2">
-                <label class="form-label">Item Name *</label>
-                <input type="text" class="form-control form-control-sm" id="itemName" required>
-              </div>
-              <div class="row g-2">
-                <div class="col-6">
-                  <label class="form-label">SKU / Part #</label>
-                  <input type="text" class="form-control form-control-sm" id="itemSku">
-                </div>
-                <div class="col-6">
-                  <label class="form-label">Category *</label>
-                  <select class="form-select form-select-sm" id="itemCategory" required></select>
-                </div>
-              </div>
-            </div>
-
-            <!-- ── Stock ─────────────────────────────── -->
-            <div class="inv-section-card sc-stock">
-              <div class="inv-sc-header">
-                <div class="inv-sc-icon"><svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14l4-4 4 4 6-6"/><path d="M3 18h14"/></svg></div>
-                Stock
-              </div>
-              <div class="row g-2 mb-2">
-                <div class="col-4">
-                  <label class="form-label">Quantity *<small class="text-muted fw-normal"> (auto)</small></label>
-                  <input type="number" class="form-control form-control-sm" id="itemQty" min="0" step="0.01" readonly style="background:#e9ecef;">
-                </div>
-                <div class="col-4">
-                  <label class="form-label">UoM</label>
-                  <input type="text" class="form-control form-control-sm" id="itemUom" placeholder="ea">
-                </div>
-                <div class="col-4">
-                  <label class="form-label">Min Qty</label>
-                  <input type="number" class="form-control form-control-sm" id="itemReorder" min="0" step="0.01">
-                </div>
-              </div>
-              <div class="row g-2 mb-2">
-                <div class="col-6">
-                  <label class="form-label">Unit Cost</label>
-                  <input type="number" class="form-control form-control-sm" id="itemCost" min="0" step="0.01">
-                </div>
-                <div class="col-6">
-                  <label class="form-label">Lead Time (days)</label>
-                  <input type="number" class="form-control form-control-sm" id="itemLeadDays" min="0">
-                </div>
-              </div>
-              <div class="form-check form-switch mb-1">
-                <input class="form-check-input" type="checkbox" id="itemAutoReorder">
-                <label class="form-check-label" for="itemAutoReorder" style="font-size:.8rem">Auto-reorder when low</label>
-              </div>
-            </div>
-
-            <!-- ── Location ──────────────────────────── -->
-            <div class="inv-section-card sc-location">
-              <div class="inv-sc-header">
-                <div class="inv-sc-icon"><svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2a5 5 0 0 0-5 5c0 4 5 10 5 10s5-6 5-10a5 5 0 0 0-5-5z"/><circle cx="10" cy="7" r="2"/></svg></div>
-                Location Distribution
-              </div>
-              <div id="locationDistSection">
-                <div id="locationDistributionEditor" class="border rounded p-2" style="background:#f8f9fa;">
-                  <div id="locationEntries"></div>
-                  <button type="button" class="btn btn-sm btn-outline-primary w-100 mt-2" onclick="addLocationEntry()">+ Add Location</button>
-                </div>
-                <small class="text-muted">Total quantity is calculated from all locations</small>
-              </div>
-            </div>
-
-            <!-- ── Supplier ──────────────────────────── -->
-            <div class="inv-section-card sc-supplier">
-              <div class="inv-sc-header">
-                <div class="inv-sc-icon"><svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="16" height="11" rx="1"/><path d="M6 7V5a4 4 0 0 1 8 0v2"/></svg></div>
-                Supplier
-              </div>
-              <select class="form-select form-select-sm" id="itemSupplier"></select>
-            </div>
-
-            <!-- ── Notes ─────────────────────────────── -->
-            <div class="inv-section-card sc-notes">
-              <div class="inv-sc-header">
-                <div class="inv-sc-icon"><svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h12v10H4z"/><path d="M4 8h12M4 12h6"/></svg></div>
-                Notes
-              </div>
-              <textarea class="form-control form-control-sm" id="itemNotes" rows="3"></textarea>
-            </div>
-
-            <!-- ── Actions ───────────────────────────── -->
-            <div class="d-grid gap-2 mt-1">
-              <button type="submit" class="btn btn-primary btn-sm"><svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.1em;margin-right:4px"><path d="M3 10l5 5L18 5"/></svg>Save Item</button>
-              <button type="button" class="btn btn-outline-danger btn-sm" id="btnDeleteItem"><svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.1em;margin-right:4px"><path d="M3 6h14"/><path d="M5 6l1 11h8l1-11"/><path d="M8 6V4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2"/></svg>Delete Item</button>
-            </div>
-
-            <!-- Variant Manager — shown when item uses variants -->
-            <div id="variantManagerSection" style="display:none;margin-top:14px">
+            <!-- Variant Manager -->
+            <div id="variantManagerSection" style="display:none;margin-top:6px">
               <div class="variant-manager">
                 <div class="variant-manager-header">
                   <span><svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.1em;margin-right:4px"><path d="M3 17V5l7-3 7 3v12"/><path d="M7 17v-6h6v6"/></svg>Size / Spec Variants</span>
@@ -712,13 +657,165 @@
               <p class="text-muted mb-0 mt-1" style="font-size:.65rem">Use for parts like sprockets where you stock multiple sizes</p>
             </div>
 
+            <!-- Delete -->
+            <div style="margin-top:12px">
+              <button type="button" class="btn btn-outline-danger btn-sm w-100" id="btnDeleteItem">
+                <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.1em;margin-right:4px"><path d="M3 6h14"/><path d="M5 6l1 11h8l1-11"/><path d="M8 6V4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2"/></svg>Delete Item
+              </button>
+            </div>
+
             <input type="hidden" id="itemId">
-          </form>
+          </div><!-- /itemSummary -->
         </div>
       </div>
     </div>
   </div>
   
+  <!-- ═══════════════════════════════════════════════════════════
+       SLIDE-UP EDIT MODAL (assets-style with tabs)
+  ══════════════════════════════════════════════════════════════ -->
+  <div class="modal fade" id="invEditModal" tabindex="-1" aria-labelledby="invEditModalTitle">
+    <div class="modal-dialog modal-lg" style="max-width:680px">
+      <div class="modal-content" style="border-radius:14px;overflow:hidden;border:2px solid rgba(26,115,232,.18);box-shadow:0 20px 60px rgba(0,0,0,.18)">
+        <div class="modal-header" style="background:linear-gradient(90deg,rgba(26,115,232,.08) 0%,rgba(124,58,237,.08) 100%);border-bottom:2px solid rgba(26,115,232,.18);padding:16px 24px">
+          <div>
+            <h5 class="modal-title" id="invEditModalTitle" style="margin:0;font-size:1.1rem;font-weight:700;color:#1a1d24"></h5>
+            <div style="font-size:.72rem;color:#5f6368;margin-top:2px" id="invEditModalSub"></div>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body" style="padding:0">
+          <!-- Tabs -->
+          <ul class="nav nav-tabs px-4 pt-3" style="border-bottom:2px solid rgba(26,115,232,.15);gap:4px;margin-bottom:0">
+            <li class="nav-item">
+              <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#invTabDetails" style="font-size:.82rem;padding:8px 14px;border-radius:6px 6px 0 0">
+                <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.1em;margin-right:4px"><rect x="4" y="2" width="12" height="16" rx="2"/><path d="M8 7h4M8 11h4M8 15h2"/></svg>Details
+              </button>
+            </li>
+            <li class="nav-item">
+              <button class="nav-link" data-bs-toggle="tab" data-bs-target="#invTabStock" style="font-size:.82rem;padding:8px 14px;border-radius:6px 6px 0 0">
+                <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.1em;margin-right:4px"><path d="M3 14l4-4 4 4 6-6"/><path d="M3 18h14"/></svg>Stock &amp; Location
+              </button>
+            </li>
+            <li class="nav-item">
+              <button class="nav-link" data-bs-toggle="tab" data-bs-target="#invTabHistory" id="btnHistoryTab" style="font-size:.82rem;padding:8px 14px;border-radius:6px 6px 0 0">
+                <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.1em;margin-right:4px"><circle cx="10" cy="10" r="7.5"/><path d="M10 6v4l2.5 2.5"/></svg>History
+              </button>
+            </li>
+          </ul>
+          <div class="tab-content" style="padding:18px 24px 4px">
+
+            <!-- ── TAB: DETAILS ─────────────────────────────── -->
+            <div class="tab-pane fade show active" id="invTabDetails">
+              <div class="inv-section-card sc-identity" style="margin-bottom:10px">
+                <div class="inv-sc-header">
+                  <div class="inv-sc-icon"><svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="12" height="16" rx="2"/><path d="M8 7h4M8 11h4M8 15h2"/></svg></div>
+                  Identity
+                </div>
+                <div class="mb-2">
+                  <label class="form-label">Item Name *</label>
+                  <input type="text" class="form-control form-control-sm" id="editItemName" required>
+                </div>
+                <div class="row g-2">
+                  <div class="col-5">
+                    <label class="form-label">SKU / Part #</label>
+                    <input type="text" class="form-control form-control-sm" id="editItemSku">
+                  </div>
+                  <div class="col-4">
+                    <label class="form-label">Category *</label>
+                    <select class="form-select form-select-sm" id="editItemCategory" required></select>
+                  </div>
+                  <div class="col-3">
+                    <label class="form-label">UoM</label>
+                    <input type="text" class="form-control form-control-sm" id="editItemUom" placeholder="ea">
+                  </div>
+                </div>
+              </div>
+              <div class="inv-section-card sc-supplier" style="margin-bottom:10px">
+                <div class="inv-sc-header">
+                  <div class="inv-sc-icon"><svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="16" height="11" rx="1"/><path d="M6 7V5a4 4 0 0 1 8 0v2"/></svg></div>
+                  Supplier &amp; Cost
+                </div>
+                <div class="row g-2">
+                  <div class="col-7">
+                    <label class="form-label">Supplier</label>
+                    <select class="form-select form-select-sm" id="editItemSupplier"></select>
+                  </div>
+                  <div class="col-2">
+                    <label class="form-label">Lead (days)</label>
+                    <input type="number" class="form-control form-control-sm" id="editItemLeadDays" min="0">
+                  </div>
+                  <div class="col-3">
+                    <label class="form-label">Unit Cost £</label>
+                    <input type="number" class="form-control form-control-sm" id="editItemCost" min="0" step="0.01">
+                  </div>
+                </div>
+              </div>
+              <div class="inv-section-card sc-notes" style="margin-bottom:10px">
+                <div class="inv-sc-header">
+                  <div class="inv-sc-icon"><svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h12v10H4z"/><path d="M4 8h12M4 12h6"/></svg></div>
+                  Notes
+                </div>
+                <textarea class="form-control form-control-sm" id="editItemNotes" rows="3"></textarea>
+              </div>
+            </div><!-- /invTabDetails -->
+
+            <!-- ── TAB: STOCK & LOCATION ────────────────────── -->
+            <div class="tab-pane fade" id="invTabStock">
+              <div class="inv-section-card sc-stock" style="margin-bottom:10px">
+                <div class="inv-sc-header">
+                  <div class="inv-sc-icon"><svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14l4-4 4 4 6-6"/><path d="M3 18h14"/></svg></div>
+                  Stock Levels
+                </div>
+                <div class="row g-2 mb-1">
+                  <div class="col-4">
+                    <label class="form-label">Total Qty <small class="text-muted fw-normal">(auto)</small></label>
+                    <input type="number" class="form-control form-control-sm" id="editItemQty" min="0" step="0.01" readonly style="background:#e9ecef;font-weight:700">
+                  </div>
+                  <div class="col-4">
+                    <label class="form-label">Min Qty</label>
+                    <input type="number" class="form-control form-control-sm" id="editItemReorder" min="0" step="0.01">
+                  </div>
+                  <div class="col-4" style="display:flex;align-items:flex-end;padding-bottom:4px">
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" id="editItemAutoReorder">
+                      <label class="form-check-label" for="editItemAutoReorder" style="font-size:.75rem">Auto-reorder</label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="inv-section-card sc-location" id="editLocDistSection" style="margin-bottom:10px">
+                <div class="inv-sc-header">
+                  <div class="inv-sc-icon"><svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2a5 5 0 0 0-5 5c0 4 5 10 5 10s5-6 5-10a5 5 0 0 0-5-5z"/><circle cx="10" cy="7" r="2"/></svg></div>
+                  Location Distribution
+                </div>
+                <div id="editLocationEntries"></div>
+                <button type="button" class="btn btn-sm btn-outline-primary w-100 mt-2" onclick="addEditLocationEntry()">+ Add Location</button>
+                <small class="text-muted d-block mt-1">Total quantity is summed from all locations above</small>
+              </div>
+            </div><!-- /invTabStock -->
+
+            <!-- ── TAB: HISTORY ─────────────────────────────── -->
+            <div class="tab-pane fade" id="invTabHistory">
+              <div id="invHistoryList" style="min-height:120px;padding-top:4px">
+                <div class="text-center text-muted py-4" style="font-size:.85rem">Select an item and open this tab to view history.</div>
+              </div>
+            </div><!-- /invTabHistory -->
+          </div><!-- /tab-content -->
+        </div><!-- /modal-body -->
+        <div class="modal-footer" style="padding:12px 24px;background:#f8f9fa;border-top:1px solid rgba(0,0,0,.08)">
+          <button type="button" class="btn btn-outline-danger btn-sm" id="btnModalDeleteItem" style="margin-right:auto">
+            <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.1em;margin-right:4px"><path d="M3 6h14"/><path d="M5 6l1 11h8l1-11"/><path d="M8 6V4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2"/></svg>Delete Item
+          </button>
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary btn-sm" id="btnModalSaveItem">
+            <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.1em;margin-right:4px"><path d="M3 10l5 5L18 5"/></svg>Save Changes
+          </button>
+        </div>
+      </div>
+    </div>
+  </div><!-- /invEditModal -->
+
   <!-- Custom Modals -->
   <div class="modal fade" id="customConfirmModal" tabindex="-1">
     <div class="modal-dialog">
@@ -1273,9 +1370,17 @@
         // Shopify sync
         document.getElementById('btnShopifySync').addEventListener('click', openShopifyModal);
         
-        // Item form
-        document.getElementById('itemForm').addEventListener('submit', saveItem);
+        // Item form (modal wiring)
+        document.getElementById('btnOpenEditModal').addEventListener('click', () => {
+          const item = allItems.find(i => i.id === selectedItemId);
+          if (item) openEditModal(item);
+        });
         document.getElementById('btnDeleteItem').addEventListener('click', deleteItem);
+        document.getElementById('btnModalDeleteItem').addEventListener('click', deleteItem);
+        document.getElementById('btnModalSaveItem').addEventListener('click', saveEditModal);
+        document.getElementById('btnHistoryTab').addEventListener('click', () => {
+          if (selectedItemId) loadItemHistory(selectedItemId);
+        });
       }
       
       // ===== ADD ITEM MODAL =====
@@ -1492,9 +1597,6 @@
         document.getElementById('filterCategory').innerHTML = '<option value="">All Categories</option>' + catOptions;
         document.getElementById('filterLocation').innerHTML = '<option value="">All Locations</option>' + locOptions;
         document.getElementById('filterSupplier').innerHTML = '<option value="">All Suppliers</option>' + supOptions;
-        
-        document.getElementById('itemCategory').innerHTML = '<option value="">Select...</option>' + catOptions;
-        document.getElementById('itemSupplier').innerHTML = '<option value="">Select...</option>' + supOptions;
         
         // Render category/location/supplier lists
         renderFilterLists();
@@ -1820,50 +1922,222 @@
       // Show item form
       async function showItemForm(item) {
         document.getElementById('noSelection').style.display = 'none';
-        document.getElementById('itemForm').style.display = 'block';
-        document.getElementById('itemInfo').style.display = 'block';
-        
+        document.getElementById('itemSummary').style.display = 'block';
+
         if (item) {
           document.getElementById('itemId').value = item.id;
-          document.getElementById('itemName').value = item.name;
-          document.getElementById('itemSku').value = item.sku;
-          document.getElementById('itemCategory').value = item.category;
-          document.getElementById('itemQty').value = item.qty;
-          document.getElementById('itemUom').value = item.uom;
-          document.getElementById('itemReorder').value = item.reorder;
-          document.getElementById('itemSupplier').value = item.supplier;
-          document.getElementById('itemLeadDays').value = item.leadDays;
-          document.getElementById('itemCost').value = item.cost;
-          document.getElementById('itemNotes').value = item.notes;
-          document.getElementById('itemAutoReorder').checked = item.auto;
-          document.getElementById('detailBadge').textContent = 'Editing';
-          
-          // Load location distribution into editor
-          loadLocationDistributionEditor(item.locationDist);
-          
-          // Populate location distribution
+
+          // Populate summary header
+          document.getElementById('sumName').textContent = item.name || '(unnamed)';
+          document.getElementById('sumSku').textContent = item.sku || '—';
+          document.getElementById('sumCatPill').textContent = item.category || '—';
+          document.getElementById('sumQtyVal').textContent = item.qty != null ? item.qty : '—';
+          document.getElementById('sumReorderVal').textContent = item.reorder != null ? item.reorder : '—';
+          document.getElementById('sumCostVal').textContent = item.cost ? '£' + parseFloat(item.cost).toFixed(2) : '—';
+          document.getElementById('detailBadge').textContent = item.category || 'Item';
+
+          // Populate location distribution (read-only)
           populateLocationDistribution(item);
-          
-          // Fetch and populate boxes containing this item
+
+          // Fetch boxes containing this item
           await populateBoxesContaining(item);
 
-          // Load variant manager if item supports variants (or enable-variants button if not)
+          // Load variant manager
           await loadVariantManager(item);
-
-          // Hide location distribution for variant items — stock is tracked per-variant
-          document.getElementById('locationDistSection').style.display = item.hasVariants ? 'none' : '';
         } else {
-          document.getElementById('itemForm').reset();
-          document.getElementById('itemId').value = '';
-          document.getElementById('detailBadge').textContent = 'New Item';
-          document.getElementById('itemInfo').style.display = 'none';
-          document.getElementById('locationDistSection').style.display = '';
-
-          // Initialize location editor with one empty entry
-          loadLocationDistributionEditor({});
+          document.getElementById('itemSummary').style.display = 'none';
+          document.getElementById('noSelection').style.display = 'block';
+          document.getElementById('detailBadge').textContent = 'No selection';
         }
       }
       
+      // ===== EDIT MODAL (slide-up) =====
+
+      let _invEditModal = null;
+      let _currentEditItem = null;
+
+      function openEditModal(item) {
+        _currentEditItem = item;
+        _invEditModal = _invEditModal || new bootstrap.Modal(document.getElementById('invEditModal'));
+
+        // Set modal header
+        document.getElementById('invEditModalTitle').textContent = item.name || 'Edit Item';
+        document.getElementById('invEditModalSub').textContent = item.sku ? 'SKU: ' + item.sku : 'Inventory item';
+
+        // Populate category dropdown
+        const catOptions = CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('');
+        document.getElementById('editItemCategory').innerHTML = '<option value="">Select category…</option>' + catOptions;
+        document.getElementById('editItemCategory').value = item.category || '';
+
+        // Populate supplier dropdown
+        const supOptions = SUPPLIERS.map(s => `<option value="${s.name||s}">${s.name||s}</option>`).join('');
+        document.getElementById('editItemSupplier').innerHTML = '<option value="">— None —</option>' + supOptions;
+        document.getElementById('editItemSupplier').value = item.supplier || '';
+
+        // Fill fields
+        document.getElementById('editItemName').value = item.name || '';
+        document.getElementById('editItemSku').value = item.sku || '';
+        document.getElementById('editItemUom').value = item.uom || 'ea';
+        document.getElementById('editItemQty').value = item.qty != null ? item.qty : 0;
+        document.getElementById('editItemReorder').value = item.reorder != null ? item.reorder : 0;
+        document.getElementById('editItemCost').value = item.cost || '';
+        document.getElementById('editItemLeadDays').value = item.leadDays || '';
+        document.getElementById('editItemNotes').value = item.notes || '';
+        document.getElementById('editItemAutoReorder').checked = !!item.auto;
+
+        // Load location distribution into edit entries
+        loadEditLocationDistribution(item.locationDist);
+
+        // Reset history tab
+        document.getElementById('invHistoryList').innerHTML = '<div class="text-center text-muted py-4" style="font-size:.85rem">Click to load history…</div>';
+
+        // Switch to first tab
+        const firstTab = document.querySelector('#invEditModal .nav-link');
+        if (firstTab) {
+          const tab = new bootstrap.Tab(firstTab);
+          tab.show();
+        }
+
+        _invEditModal.show();
+      }
+
+      function loadEditLocationDistribution(locationDist) {
+        const container = document.getElementById('editLocationEntries');
+        container.innerHTML = '';
+        if (locationDist && Object.keys(locationDist).length > 0) {
+          Object.entries(locationDist).forEach(([loc, qty]) => addEditLocationEntry(loc, qty));
+        } else {
+          addEditLocationEntry();
+        }
+      }
+
+      window.addEditLocationEntry = function(location = '', quantity = 0) {
+        const container = document.getElementById('editLocationEntries');
+        const entryId = `eloc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const locOptions = LOCATIONS.map(l => `<option value="${l.name||l}">${l.name||l}</option>`).join('');
+        container.insertAdjacentHTML('beforeend', `
+          <div class="location-entry mb-2" id="${entryId}" style="display:flex;gap:8px;align-items:center">
+            <select class="form-select form-select-sm edit-location-select" style="flex:2">
+              <option value="">Select location…</option>${locOptions}
+            </select>
+            <input type="number" class="form-control form-control-sm edit-location-qty" placeholder="Qty" min="0" step="1" value="${quantity}" style="flex:1;max-width:100px">
+            <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeEditLocationEntry('${entryId}')">×</button>
+          </div>`);
+        if (location) {
+          const sel = document.querySelector(`#${entryId} .edit-location-select`);
+          if (sel) sel.value = location;
+        }
+        updateEditTotalQuantity();
+      };
+
+      window.removeEditLocationEntry = function(entryId) {
+        const el = document.getElementById(entryId);
+        if (el) { el.remove(); updateEditTotalQuantity(); }
+      };
+
+      function updateEditTotalQuantity() {
+        let total = 0;
+        document.querySelectorAll('#editLocationEntries .edit-location-qty').forEach(inp => {
+          total += parseFloat(inp.value) || 0;
+        });
+        document.getElementById('editItemQty').value = total;
+      }
+
+      // Listen for qty changes in edit modal
+      document.addEventListener('input', function(e) {
+        if (e.target.classList.contains('edit-location-qty')) updateEditTotalQuantity();
+      });
+
+      function getEditLocationDistribution() {
+        const dist = {};
+        document.querySelectorAll('#editLocationEntries .location-entry').forEach(row => {
+          const loc = row.querySelector('.edit-location-select').value;
+          const qty = parseFloat(row.querySelector('.edit-location-qty').value) || 0;
+          if (loc && qty > 0) dist[loc] = qty;
+        });
+        return dist;
+      }
+
+      async function saveEditModal() {
+        if (!_currentEditItem) return;
+        const itemId = _currentEditItem.id;
+
+        const locationDistribution = getEditLocationDistribution();
+        const itemData = {
+          name: document.getElementById('editItemName').value.trim(),
+          sku: document.getElementById('editItemSku').value.trim(),
+          category: document.getElementById('editItemCategory').value,
+          quantity: parseFloat(document.getElementById('editItemQty').value) || 0,
+          unit_of_measure: document.getElementById('editItemUom').value || 'ea',
+          min_quantity: parseFloat(document.getElementById('editItemReorder').value) || 0,
+          location_distribution: JSON.stringify(locationDistribution),
+          supplier: document.getElementById('editItemSupplier').value,
+          lead_time_days: parseInt(document.getElementById('editItemLeadDays').value) || 0,
+          unit_cost: parseFloat(document.getElementById('editItemCost').value) || 0,
+          notes: document.getElementById('editItemNotes').value,
+          auto_reorder: document.getElementById('editItemAutoReorder').checked
+        };
+
+        if (!itemData.name) { showToast('Item name is required', 'error'); return; }
+
+        showLoading('Saving', 'Updating item…');
+        try {
+          if (typeof RTS_API !== 'undefined' && RTS_API.updateCollectionItem) {
+            await RTS_API.updateCollectionItem('inventory', itemId, itemData);
+          } else if (typeof RTS !== 'undefined' && RTS.apiUpdateCollectionItem) {
+            await RTS.apiUpdateCollectionItem('inventory', itemId, itemData);
+          }
+          // Update local cache
+          const idx = allItems.findIndex(i => i.id === itemId);
+          if (idx >= 0) allItems[idx] = { ...allItems[idx], ...mapToLocal(itemData), id: itemId };
+
+          // Close modal and refresh summary
+          _invEditModal.hide();
+          const updatedItem = allItems.find(i => i.id === itemId);
+          if (updatedItem) await showItemForm(updatedItem);
+          applyFilters();
+          showToast('Item saved', 'success');
+        } catch (err) {
+          showToast('Error saving: ' + err.message, 'error');
+        }
+        hideLoading();
+      }
+
+      async function loadItemHistory(itemId) {
+        const container = document.getElementById('invHistoryList');
+        container.innerHTML = '<div class="text-center text-muted py-3" style="font-size:.85rem"><div class="spinner-border spinner-border-sm"></div> Loading…</div>';
+        try {
+          const resp = await fetch(`/api/inventory/${encodeURIComponent(itemId)}/history`, { credentials: 'include' });
+          const data = await resp.json();
+          if (!data.success || !data.history.length) {
+            container.innerHTML = '<div class="text-center text-muted py-4" style="font-size:.85rem">No history recorded yet.</div>';
+            return;
+          }
+          const actionColour = { restock:'#059669', used:'#dc2626', unpack:'#1a73e8', update:'#7c3aed', delete:'#dc2626', create:'#059669' };
+          const actionIcon = { restock:'▲', used:'▼', unpack:'↗', update:'✎', delete:'✕', create:'✚' };
+          container.innerHTML = data.history.map(h => {
+            const action = (h.action || 'update').toLowerCase();
+            const colour = actionColour[action] || '#5f6368';
+            const icon = actionIcon[action] || '●';
+            const qty = h.qty_change != null ? (h.qty_change > 0 ? '+' + h.qty_change : h.qty_change) : '';
+            const when = h.created_at ? new Date(h.created_at).toLocaleString() : '';
+            const who = h.performed_by_name || '';
+            return `<div class="inv-history-item">
+              <div class="inv-hist-icon" style="background:${colour}20;color:${colour}">${icon}</div>
+              <div>
+                <div class="inv-hist-action">${h.action || 'update'}${qty ? ' <span style="color:' + colour + '">' + qty + '</span>' : ''}</div>
+                ${h.notes ? '<div class="inv-hist-detail">' + h.notes + '</div>' : ''}
+                <div class="inv-hist-time">${when}${who ? ' · ' + who : ''}</div>
+              </div>
+            </div>`;
+          }).join('');
+        } catch (err) {
+          container.innerHTML = '<div class="text-center text-muted py-4" style="font-size:.85rem">Could not load history.</div>';
+        }
+      }
+
+      // ===== END EDIT MODAL =====
+
       // Populate location distribution display
       function populateLocationDistribution(item) {
         const container = document.getElementById('locationDistribution');
@@ -1952,8 +2226,9 @@
           total += qty;
         });
         
-        // Update the main quantity field
-        document.getElementById('itemQty').value = total;
+        // Update the main quantity field (legacy — kept for safety)
+        const itemQtyEl = document.getElementById('itemQty');
+        if (itemQtyEl) itemQtyEl.value = total;
       }
       
       // Listen to quantity changes in location entries
@@ -2162,7 +2437,10 @@
           if (parentItem) {
             const total = variants.reduce((s, v) => s + (v.qty_a || 0) + (v.qty_b || 0) + (v.qty_c || 0), 0);
             parentItem.qty = total;
-            document.getElementById('itemQty').value = total;
+            const sumQtyEl = document.getElementById('sumQtyVal');
+            if (sumQtyEl) sumQtyEl.textContent = total;
+            const editQtyEl = document.getElementById('editItemQty');
+            if (editQtyEl) editQtyEl.value = total;
           }
         } catch (err) {
           container.innerHTML = `<div style="padding:8px 10px;font-size:.74rem;color:#c62828">Error loading variants: ${err.message}</div>`;
@@ -2329,7 +2607,8 @@
           if (parentItem) {
             const allV = variantCache[parentId] || [];
             parentItem.qty = allV.reduce((s, v) => s + (v.qty_a || 0) + (v.qty_b || 0) + (v.qty_c || 0), 0);
-            document.getElementById('itemQty').value = parentItem.qty;
+            document.getElementById('sumQtyVal').textContent = parentItem.qty;
+            if (document.getElementById('editItemQty')) document.getElementById('editItemQty').value = parentItem.qty;
           }
           renderItems();
           showToast('Stock saved', 'success');
@@ -2366,7 +2645,8 @@
       async function enableVariants(item) {
         document.getElementById('enableVariantsSection').style.display  = 'none';
         document.getElementById('variantManagerSection').style.display = 'block';
-        document.getElementById('locationDistSection').style.display = 'none';
+        const editLocSect = document.getElementById('editLocDistSection');
+        if (editLocSect) editLocSect.style.display = 'none';
         // Mark locally
         item.hasVariants = true;
         const idx = allItems.findIndex(i => i.id === item.id);
@@ -2393,7 +2673,8 @@
           if (idx >= 0) allItems[idx].hasVariants = false;
           document.getElementById('variantManagerSection').style.display = 'none';
           document.getElementById('enableVariantsSection').style.display  = 'block';
-          document.getElementById('locationDistSection').style.display = '';
+          const editLocSect2 = document.getElementById('editLocDistSection');
+          if (editLocSect2) editLocSect2.style.display = '';
           renderItems();
           showToast('Variants disabled', 'success');
         } catch (err) {
@@ -2406,76 +2687,6 @@
       }
 
       // ===== END VARIANT MANAGER =====
-      
-      // Save item
-      async function saveItem(e) {
-        e.preventDefault();
-        
-        // Get location distribution from editor
-        const locationDistribution = getLocationDistributionFromEditor();
-        
-        const itemData = {
-          name: document.getElementById('itemName').value,
-          sku: document.getElementById('itemSku').value,
-          category: document.getElementById('itemCategory').value,
-          quantity: parseFloat(document.getElementById('itemQty').value) || 0,
-          unit_of_measure: document.getElementById('itemUom').value || 'ea',
-          min_quantity: parseFloat(document.getElementById('itemReorder').value) || 0,
-          location_distribution: JSON.stringify(locationDistribution),
-          supplier: document.getElementById('itemSupplier').value,
-          lead_time_days: parseInt(document.getElementById('itemLeadDays').value) || 0,
-          unit_cost: parseFloat(document.getElementById('itemCost').value) || 0,
-          notes: document.getElementById('itemNotes').value,
-          auto_reorder: document.getElementById('itemAutoReorder').checked
-        };
-        
-        showLoading('Saving Item', 'Updating database...');
-        
-        try {
-          if (selectedItemId) {
-            // Update existing
-            if (typeof RTS_API !== 'undefined' && RTS_API.updateCollectionItem) {
-              await RTS_API.updateCollectionItem('inventory', selectedItemId, itemData);
-            } else if (typeof RTS !== 'undefined' && RTS.apiUpdateCollectionItem) {
-              await RTS.apiUpdateCollectionItem('inventory', selectedItemId, itemData);
-            }
-            const idx = allItems.findIndex(i => i.id === selectedItemId);
-            if (idx >= 0) {
-              allItems[idx] = { ...allItems[idx], ...mapToLocal(itemData), id: selectedItemId };
-            }
-            showToast('Item updated successfully', 'success');
-          } else {
-            // Create new
-            let response;
-            if (typeof RTS_API !== 'undefined' && RTS_API.createCollectionItem) {
-              response = await RTS_API.createCollectionItem('inventory', itemData);
-            } else if (typeof RTS !== 'undefined' && RTS.apiCreateCollectionItem) {
-              response = await RTS.apiCreateCollectionItem('inventory', itemData);
-            }
-            const newItem = { ...mapToLocal(itemData), id: response.item.id, hasVariants: false };
-            allItems.push(newItem);
-            showToast('Item created — you can now add size variants below', 'success');
-            await loadData();
-            applyFilters();
-            // Keep the new item selected so user can immediately enable variants
-            selectedItemId = newItem.id;
-            const freshItem = allItems.find(i => i.id === newItem.id) || newItem;
-            await showItemForm(freshItem);
-            hideLoading();
-            return;
-          }
-          
-          await loadData();
-          applyFilters();
-          document.getElementById('itemForm').reset();
-          document.getElementById('noSelection').style.display = 'block';
-          document.getElementById('itemForm').style.display = 'none';
-        } catch (error) {
-          showToast('Error saving item: ' + error.message, 'error');
-        }
-        
-        hideLoading();
-      }
       
       // Delete item
       async function deleteItem() {
@@ -2511,9 +2722,9 @@
           
           selectedItemId = null;
           
-          document.getElementById('itemForm').reset();
+          document.getElementById('itemSummary').style.display = 'none';
           document.getElementById('noSelection').style.display = 'block';
-          document.getElementById('itemForm').style.display = 'none';
+          document.getElementById('detailBadge').textContent = 'No selection';
           
           applyFilters();
         } catch (error) {
