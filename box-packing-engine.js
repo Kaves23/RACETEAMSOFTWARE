@@ -61,7 +61,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   let currentBoxId = null;
   let currentFilter = 'all';
   let boxModal, historyModal, unpackModal;
-  let unpackStepReturnModal, unpackStepBillModal, unpackStepConfirmModal;
+  let unpackStepReturnModal, unpackStepBillModal, unpackStepConfirmModal, unpackStepBGradeModal;
   let unpackState = null; // State for multi-step Shopify unpack flow
   let allAssetTypes = []; // Asset types from settings with colors
   let allLocations = []; // Locations from database
@@ -812,6 +812,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     unpackStepReturnModal = new bootstrap.Modal(document.getElementById('unpackStepReturnModal'));
     unpackStepBillModal   = new bootstrap.Modal(document.getElementById('unpackStepBillModal'));
     unpackStepConfirmModal = new bootstrap.Modal(document.getElementById('unpackStepConfirmModal'));
+    unpackStepBGradeModal   = new bootstrap.Modal(document.getElementById('unpackStepBGradeModal'));
 
     document.getElementById('btnNewBox').addEventListener('click', () => showBoxModal());
     document.getElementById('btnSaveBox').addEventListener('click', saveBox);
@@ -2755,6 +2756,20 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
 
   // ========== SHOPIFY MULTI-STEP UNPACK ==========
 
+  // Authenticated API helper for inventory-variants endpoints
+  async function invVariantFetch(method, path, body) {
+    const token = localStorage.getItem('auth_token') || '';
+    const opts = {
+      method: method || 'GET',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }
+    };
+    if (body !== undefined) opts.body = JSON.stringify(body);
+    const resp = await fetch('/api' + path, opts);
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || resp.statusText);
+    return data;
+  }
+
   async function showUnpackReturnStep(boxId, contents) {
     // Build initial state
     const shopifyItems = contents
@@ -3281,14 +3296,22 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       renderAll();
       hideLoading();
 
-      // Build final toast
+      // Build final toast message (may be deferred if B-grade step follows)
       const orderSummary = orderResults.length > 0
         ? '\n' + orderResults.map(r => r.error ? `  ✗ ${r.customer}: ${r.error}` : `  ✅ Order #${r.orderNumber} → ${r.customer}${r.fulfillNote || ''}`).join('\n')
         : '';
       const stockSummary = stockErrors.length > 0 ? `\n  ⚠️ Stock return errors: ${stockErrors.join('; ')}` : '';
-      showToast(`✅ Box emptied! ${contents.length} items moved to ${locationName}${orderSummary}${stockSummary}`, 'success');
+      const finalToast = `✅ Box emptied! ${contents.length} items moved to ${locationName}${orderSummary}${stockSummary}`;
 
-      unpackState = null;
+      // If there were consumed items, offer B-grade stock saving before closing out
+      const consumedForBGrade = unpackState.consumedItems || [];
+      if (consumedForBGrade.length > 0) {
+        unpackState._finalToast = finalToast;
+        await showBGradeStep(consumedForBGrade);
+      } else {
+        showToast(finalToast, 'success');
+        unpackState = null;
+      }
     } catch(e) {
       console.error('handleConfirmAndCreate error:', e);
       hideLoading();
@@ -3298,6 +3321,177 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     }
   };
   
+  // ========== B-GRADE STOCK STEP ==========
+
+  // Renders the optional Step 4 modal so the user can save consumed items back as Grade B stock.
+  async function showBGradeStep(consumedItems) {
+    // Fetch variants for every consumed inventory item in parallel
+    const variantMap = {}; // itemId → variants array
+    await Promise.all(consumedItems.map(async si => {
+      try {
+        const invItem = inventoryItems.find(i => String(i.id) === String(si.itemId));
+        if (invItem && invItem.has_variants) {
+          const data = await invVariantFetch('GET', `/inventory-variants/${si.itemId}`);
+          variantMap[si.itemId] = data.variants || [];
+        } else {
+          variantMap[si.itemId] = [];
+        }
+      } catch(e) {
+        variantMap[si.itemId] = [];
+      }
+    }));
+
+    const locOptions = allLocations
+      .map(l => `<option value="${esc(l.id)}">${esc(l.name)}</option>`)
+      .join('');
+
+    const rows = consumedItems.map((si, idx) => {
+      const variants = variantMap[si.itemId] || [];
+      const hasVariants = variants.length > 0;
+
+      const variantSelect = hasVariants
+        ? `<div style="margin-top:6px">
+             <label style="font-size:.76rem;color:#5f6368">Variant / Size</label>
+             <select id="bgrade_variant_${idx}" class="form-select form-select-sm" style="font-size:.82rem">
+               <option value="">Select variant…</option>
+               ${variants.map(v => `<option value="${esc(String(v.id))}">${esc(v.label)}${v.part_number ? ' — ' + esc(v.part_number) : ''}</option>`).join('')}
+             </select>
+           </div>`
+        : '';
+
+      return `
+        <div style="border:1px solid #e0e0e0;border-radius:6px;padding:10px;margin-bottom:8px;background:#fafafa">
+          <div style="display:flex;align-items:center;gap:10px">
+            <input type="checkbox" id="bgrade_chk_${idx}" data-idx="${idx}"
+                   style="width:16px;height:16px;cursor:pointer;flex-shrink:0"
+                   onchange="toggleBGradeRow(${idx})">
+            <div style="flex:1">
+              <div style="font-weight:600;font-size:.9rem;color:#202124">${esc(si.name)}</div>
+              <div style="font-size:.78rem;color:#e53935">Consumed: ${si.consumedQty}</div>
+            </div>
+          </div>
+          <div id="bgrade_detail_${idx}" style="display:none;margin-top:10px;padding:10px;background:#fff3e0;border-radius:4px;border-left:3px solid #e65100">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div>
+                <label style="font-size:.76rem;color:#5f6368;display:block;margin-bottom:3px">Qty to save as B-Grade</label>
+                <input type="number" id="bgrade_qty_${idx}" min="1" max="${si.consumedQty}" value="${si.consumedQty}"
+                       class="form-control form-control-sm"
+                       style="border:1px solid #e65100;font-weight:700;text-align:center;font-size:.9rem">
+              </div>
+              <div>
+                <label style="font-size:.76rem;color:#5f6368;display:block;margin-bottom:3px">Location</label>
+                <select id="bgrade_loc_${idx}" class="form-select form-select-sm" style="border:1px solid #e65100;font-size:.82rem">
+                  <option value="">Select location…</option>
+                  ${locOptions}
+                </select>
+              </div>
+            </div>
+            ${variantSelect}
+          </div>
+        </div>`;
+    }).join('');
+
+    document.getElementById('bgradeItemsList').innerHTML = rows ||
+      '<div style="color:#5f6368;font-size:.85rem">No consumed items to save.</div>';
+
+    unpackStepBGradeModal.show();
+  }
+
+  window.toggleBGradeRow = function(idx) {
+    const detail = document.getElementById(`bgrade_detail_${idx}`);
+    const chk = document.getElementById(`bgrade_chk_${idx}`);
+    if (detail) detail.style.display = chk.checked ? 'block' : 'none';
+  };
+
+  window.handleBGradeSave = async function() {
+    if (!unpackState) return;
+
+    const consumedItems = unpackState.consumedItems || [];
+    const checkedItems = [];
+
+    // Validate all checked rows first
+    let validationError = null;
+    for (let idx = 0; idx < consumedItems.length; idx++) {
+      const chk = document.getElementById(`bgrade_chk_${idx}`);
+      if (!chk || !chk.checked) continue;
+
+      const si = consumedItems[idx];
+      const qty = parseInt(document.getElementById(`bgrade_qty_${idx}`)?.value) || 0;
+      const locationId = document.getElementById(`bgrade_loc_${idx}`)?.value || '';
+      const variantEl = document.getElementById(`bgrade_variant_${idx}`);
+      const variantId = variantEl ? variantEl.value : '';
+
+      if (qty < 1 || qty > si.consumedQty) {
+        validationError = `Invalid qty for "${si.name}" — must be between 1 and ${si.consumedQty}.`;
+        break;
+      }
+      if (!locationId) {
+        validationError = `Please select a location for "${si.name}".`;
+        break;
+      }
+      const invItem = inventoryItems.find(i => String(i.id) === String(si.itemId));
+      if (invItem && invItem.has_variants && !variantId) {
+        validationError = `Please select a variant for "${si.name}".`;
+        break;
+      }
+      checkedItems.push({ si, qty, locationId, variantId, invItem });
+    }
+
+    if (validationError) { showToast(validationError, 'warning'); return; }
+    if (checkedItems.length === 0) { handleBGradeSkip(); return; }
+
+    const btn = document.getElementById('btnSaveBGrade');
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+
+    try {
+      const saved = [];
+      for (const { si, qty, locationId, variantId, invItem } of checkedItems) {
+        const hasVariants = invItem && invItem.has_variants;
+
+        if (hasVariants && variantId) {
+          // Fetch fresh location_stock for this variant, then merge
+          const data = await invVariantFetch('GET', `/inventory-variants/${si.itemId}`);
+          const variant = (data.variants || []).find(v => String(v.id) === String(variantId));
+          const locStock = (variant && typeof variant.location_stock === 'object' && variant.location_stock)
+            ? JSON.parse(JSON.stringify(variant.location_stock)) : {};
+          if (!locStock[locationId]) locStock[locationId] = { a: 0, b: 0, c: 0 };
+          locStock[locationId].b = (locStock[locationId].b || 0) + qty;
+          await invVariantFetch('PUT', `/inventory-variants/${variantId}`, { location_stock: locStock });
+          saved.push(`${qty}× ${si.name}`);
+        } else {
+          // No variants — create a "Standard" variant then set B-grade stock
+          const createData = await invVariantFetch('POST', '/inventory-variants', {
+            parentId: si.itemId, label: 'Standard', part_number: ''
+          });
+          const newVariantId = createData.variant?.id;
+          if (!newVariantId) throw new Error(`Failed to create variant for "${si.name}"`);
+          const locStock = { [locationId]: { a: 0, b: qty, c: 0 } };
+          await invVariantFetch('PUT', `/inventory-variants/${newVariantId}`, { location_stock: locStock });
+          saved.push(`${qty}× ${si.name}`);
+        }
+      }
+
+      unpackStepBGradeModal.hide();
+      const finalToast = unpackState._finalToast || '';
+      unpackState = null;
+      if (finalToast) showToast(finalToast, 'success');
+      showToast(`Grade B stock saved: ${saved.join(', ')}`, 'success');
+    } catch(e) {
+      console.error('handleBGradeSave error:', e);
+      showToast('Error saving B-grade stock: ' + e.message, 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.1em;margin-right:4px"><path d="M3 10l5 5L18 5"/></svg>Save B-Grade Stock'; }
+    }
+  };
+
+  window.handleBGradeSkip = function() {
+    if (!unpackStepBGradeModal) return;
+    unpackStepBGradeModal.hide();
+    const finalToast = unpackState?._finalToast || '';
+    unpackState = null;
+    if (finalToast) showToast(finalToast, 'success');
+  };
+
   // ========== TOAST NOTIFICATIONS ==========
   function showToast(message, type = 'info') {
     const container = document.getElementById('toastContainer');
@@ -3377,7 +3571,8 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       '<div style="text-align:center;padding:32px;color:#9e9e9e"><div class="spinner-border spinner-border-sm text-primary"></div><div style="margin-top:8px;font-size:.85rem">Loading history\u2026</div></div>';
     historyModal.show();
     try {
-      const resp = await fetch(`/api/history/boxes/${currentBoxId}`, {
+      const baseUrl = (window.RTS_CONFIG?.api?.baseURL || '/api');
+      const resp = await fetch(`${baseUrl}/activity-log/boxes/${currentBoxId}`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}` }
       });
       const data = await resp.json();
@@ -3401,15 +3596,17 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     const svgTruck = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v4h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>`;
     const ACTION_META = {
       'created':            { label: 'Box Created',         color: '#34a853' },
+      'deleted':            { label: 'Box Deleted',         color: '#ea4335' },
       'item_added':         { label: 'Item Packed In',       color: '#1a73e8' },
       'item_removed':       { label: 'Item Removed',         color: '#f57c00' },
       'box_emptied':        { label: 'Box Emptied',          color: '#ea4335' },
-      'loaded_to_truck':    { label: 'Added to Load Plan',   color: '#0f9d58' },
-      'removed_from_truck': { label: 'Removed from Plan',    color: '#9e9e9e' },
+      'loaded_to_truck':    { label: 'Loaded to Truck',      color: '#0f9d58' },
+      'removed_from_truck': { label: 'Removed from Truck',   color: '#9e9e9e' },
       'scanned':            { label: 'Scanned onto Truck',   color: '#1a73e8' },
-      'unloaded':           { label: 'Scanned off Truck',    color: '#f57c00' },
+      'unloaded':           { label: 'Unloaded from Truck',  color: '#f57c00' },
       'location_changed':   { label: 'Location Changed',     color: '#9c27b0' },
       'status_changed':     { label: 'Status Changed',       color: '#607d8b' },
+      'updated':            { label: 'Updated',              color: '#607d8b' },
     };
     const headerHtml = `
       <div class="bx-hist-header">

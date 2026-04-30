@@ -77,6 +77,15 @@
     .uplot-wrap { width:100%; overflow:hidden; }
     #deltaTip { font-size:.72rem; text-align:center; color:#6b7280; padding:.25rem; }
 
+    /* ─── Distance/time toggle ────────────────────────────────────────────── */
+    #xAxisToggle { display:flex; background:#f3f4f6; border-radius:6px; padding:2px; gap:2px; }
+    #xAxisToggle button { border:none; background:none; border-radius:4px; padding:.2rem .6rem; font-size:.75rem; font-weight:600; color:#6b7280; cursor:pointer; transition:background .1s,color .1s; }
+    #xAxisToggle button.active { background:#fff; color:#7c3aed; box-shadow:0 1px 3px rgba(0,0,0,.1); }
+
+    /* ─── Track map cursor overlay ────────────────────────────────────────── */
+    #trackMapWrap { position:relative; display:inline-block; max-width:100%; }
+    #trackMapCursor { position:absolute; width:10px; height:10px; border-radius:50%; background:#7c3aed; border:2px solid #fff; box-shadow:0 0 4px rgba(0,0,0,.4); transform:translate(-50%,-50%); pointer-events:none; display:none; top:0; left:0; }
+
     /* ─── Track map ───────────────────────────────────────────────────────── */
     #trackMapCanvas { border-radius:10px; cursor:crosshair; max-width:100%; }
     .map-legend { display:flex; gap:1rem; flex-wrap:wrap; margin-top:.5rem; font-size:.75rem; }
@@ -131,6 +140,11 @@
     <select class="form-select form-select-sm" id="sessionPicker" style="width:auto;min-width:180px;font-size:.82rem;padding:.25rem .7rem">
       <option value="">Select session…</option>
     </select>
+    <div id="xAxisToggle">
+      <button id="btnXTime" class="active" onclick="setXAxis('time')" title="X axis: Time"><i class="bi bi-stopwatch me-1"></i>Time</button>
+      <button id="btnXDist" onclick="setXAxis('dist')" title="X axis: Distance"><i class="bi bi-rulers me-1"></i>Dist</button>
+    </div>
+    <div class="sep"></div>
     <button class="tb-btn" id="btnCompare" title="Compare with another session"><i class="bi bi-layers me-1"></i>Compare</button>
     <div class="sep"></div>
     <span id="compareBadge" class="d-none" style="font-size:.78rem;opacity:.85">vs <span id="compareLabel"></span>
@@ -217,7 +231,10 @@
                 </select>
               </div>
             </div>
-            <canvas id="trackMapCanvas" width="800" height="500"></canvas>
+            <div id="trackMapWrap">
+              <canvas id="trackMapCanvas" width="800" height="500"></canvas>
+              <div id="trackMapCursor"></div>
+            </div>
             <div class="map-legend">
               <div class="map-legend-item"><div class="map-legend-swatch" style="background:linear-gradient(to right,#2563eb,#16a34a,#f59e0b,#dc2626)"></div><span>Low → High</span></div>
             </div>
@@ -386,12 +403,21 @@ let insights      = [];
 let activeLaps      = [];     // array of lap_index (max 8)
 let pinnedChannels  = [];     // channels shown as stacked charts, max 4
 let activeCompareLap = null;
+let xAxisMode     = 'time';  // 'time' | 'dist'
+
+// Cached distance arrays per lap: distCache[lapIdx] = Float32Array of metres
+const distCache   = {};
+// Track map GPS data for active lap (for cursor sync)
+let trackMapData  = null;    // { lats, lons, times } for lap 0 of activeLaps
 
 const LAP_COLORS = ['#7c3aed','#e74c3c','#2ecc71','#3498db','#f39c12','#1abc9c','#9b59b6','#e67e22'];
 
 // uPlot instances (so we can destroy/recreate)
 let uPinned = [], uSpeed = null, uThrottle = null, uDelta = null;
 let uCompSpeed = null, uCompThrottle = null;
+
+// Shared cursor sync key — all charts listen to this
+const CURSOR_SYNC = 'rts-cursor';
 
 const compareModal = new bootstrap.Modal(document.getElementById('compareModal'));
 
@@ -669,14 +695,8 @@ async function refreshCharts() {
     for (const pin of pinnedChannels) {
       const chInfo = sessionData.channels.find(c => c.channel_group === pin.group && c.channel_index === pin.channel_index);
       if (!chInfo) continue;
-      const seriesData = { t: null, series: [] };
-      for (const lapIdx of activeLaps) {
-        const r = await aGet(`${API}/${sessionId}/channels/${pin.group}/${pin.channel_index}/samples?lap=${lapIdx}`);
-        if (!r.data?.times?.length) continue;
-        if (!seriesData.t) seriesData.t = r.data.times;
-        seriesData.series.push({ lapIdx, values: r.data.values, color: LAP_COLORS[activeLaps.indexOf(lapIdx) % LAP_COLORS.length] });
-      }
-      if (seriesData.series.length) renderPinnedChart(seriesData, chInfo, pinnedWrap);
+      const data = await buildSeriesForChannel(chInfo);
+      if (data?.series?.length) renderPinnedChart(data, chInfo, pinnedWrap);
     }
 
     if (pinnedChannels.length === 0) {
@@ -694,6 +714,279 @@ async function refreshCharts() {
   }
 }
 
+function renderPinnedChart(data, ch, container) {
+  const card = document.createElement('div');
+  card.className = 'chart-card mb-2';
+
+// ── X-axis mode ──────────────────────────────────────────────────────────────
+function setXAxis(mode) {
+  xAxisMode = mode;
+  document.getElementById('btnXTime').classList.toggle('active', mode === 'time');
+  document.getElementById('btnXDist').classList.toggle('active', mode === 'dist');
+  refreshCharts();
+}
+
+// ── Distance helpers ─────────────────────────────────────────────────────────
+// Build cumulative distance array from GPS lat/lon samples (Haversine)
+function buildDistFromGPS(lats, lons) {
+  const R = 6371000; // metres
+  const dist = new Float32Array(lats.length);
+  for (let i = 1; i < lats.length; i++) {
+    const lat1 = lats[i-1] * Math.PI/180, lat2 = lats[i] * Math.PI/180;
+    const dLat = (lats[i] - lats[i-1]) * Math.PI/180;
+    const dLon = (lons[i] - lons[i-1]) * Math.PI/180;
+    const a = Math.sin(dLat/2)**2 + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLon/2)**2;
+    dist[i] = dist[i-1] + R * 2 * Math.asin(Math.min(1, Math.sqrt(a)));
+  }
+  return dist;
+}
+
+// Build distance array from speed (km/h) + times (s) — for sessions without GPS
+function buildDistFromSpeed(times, speeds) {
+  const dist = new Float32Array(times.length);
+  for (let i = 1; i < times.length; i++) {
+    const dt = times[i] - times[i-1];
+    const vms = ((speeds[i-1] + speeds[i]) / 2) / 3.6; // avg speed in m/s
+    dist[i] = dist[i-1] + vms * dt;
+  }
+  return dist;
+}
+
+// Ensure distCache[lapIdx] is populated; returns metres array or null
+async function ensureDistCache(lapIdx) {
+  if (distCache[lapIdx]) return distCache[lapIdx];
+
+  // Try GPS first
+  const allChs = sessionData?.channels || [];
+  const gpsLat = allChs.find(c => /lat/i.test(c.name) && !/acc|lateral/i.test(c.name));
+  const gpsLon = allChs.find(c => /lon/i.test(c.name) && !/acc|longitudinal/i.test(c.name));
+  if (gpsLat && gpsLon) {
+    try {
+      const [rLat, rLon] = await Promise.all([
+        aGet(`${API}/${sessionId}/channels/${gpsLat.channel_group}/${gpsLat.channel_index}/samples?lap=${lapIdx}`),
+        aGet(`${API}/${sessionId}/channels/${gpsLon.channel_group}/${gpsLon.channel_index}/samples?lap=${lapIdx}`),
+      ]);
+      const lats = rLat.data?.values, lons = rLon.data?.values;
+      if (lats?.length && lons?.length) {
+        const latInRange = lats.some(v => v !== 0 && Math.abs(v) <= 90);
+        const lonInRange = lons.some(v => v !== 0 && Math.abs(v) <= 180);
+        if (latInRange && lonInRange) {
+          distCache[lapIdx] = buildDistFromGPS(lats, lons);
+          return distCache[lapIdx];
+        }
+      }
+    } catch (_) {}
+  }
+
+  // Fallback: integrate speed
+  const speedCh = findChannel(/^(gps_speed|speed)$/i);
+  if (speedCh) {
+    try {
+      const r = await aGet(`${API}/${sessionId}/channels/${speedCh.channel_group}/${speedCh.channel_index}/samples?lap=${lapIdx}`);
+      if (r.data?.times?.length) {
+        distCache[lapIdx] = buildDistFromSpeed(r.data.times, r.data.values);
+        return distCache[lapIdx];
+      }
+    } catch (_) {}
+  }
+  return null;
+}
+
+// Resample values at new x-positions using linear interpolation
+function resampleToX(srcX, srcY, dstX) {
+  const out = new Float32Array(dstX.length);
+  let j = 0;
+  for (let i = 0; i < dstX.length; i++) {
+    const x = dstX[i];
+    // Advance j until srcX[j+1] >= x
+    while (j < srcX.length - 2 && srcX[j+1] < x) j++;
+    const x0 = srcX[j], x1 = srcX[j+1] ?? srcX[j];
+    const dx = x1 - x0;
+    const t  = dx > 0 ? (x - x0) / dx : 0;
+    const y0 = srcY[j], y1 = srcY[j+1] ?? srcY[j];
+    out[i] = y0 + (y1 - y0) * Math.min(1, Math.max(0, t));
+  }
+  return out;
+}
+
+// Build the common x axis for a set of lap series
+// Returns { x: Float32Array, xLabel: string }
+async function buildCommonX(seriesRaw) {
+  if (xAxisMode === 'dist') {
+    // Get distance arrays for each lap, find shortest lap distance, create 500-point grid
+    const distArrays = await Promise.all(seriesRaw.map(s => ensureDistCache(s.lapIdx)));
+    const valid = distArrays.filter(Boolean);
+    if (!valid.length) {
+      // fallback to time
+      return { x: seriesRaw[0].times, xLabel: 'Time (s)', fallback: true };
+    }
+    const maxDist = Math.min(...valid.map(d => d[d.length - 1]));
+    const N = 500;
+    const x = new Float32Array(N);
+    for (let i = 0; i < N; i++) x[i] = (i / (N-1)) * maxDist;
+    return { x, xLabel: 'Distance (m)', distArrays };
+  } else {
+    // Time mode: use shortest lap time, 500-point grid
+    const maxTime = Math.min(...seriesRaw.map(s => s.times[s.times.length - 1] || 0));
+    const N = 500;
+    const x = new Float32Array(N);
+    for (let i = 0; i < N; i++) x[i] = (i / (N-1)) * maxTime;
+    return { x, xLabel: 'Time (s)', distArrays: null };
+  }
+}
+
+// Build resampled series data for a channel across active laps
+async function buildSeriesForChannel(ch) {
+  const raw = [];
+  for (const lapIdx of activeLaps) {
+    const r = await aGet(`${API}/${sessionId}/channels/${ch.channel_group}/${ch.channel_index}/samples?lap=${lapIdx}`);
+    if (!r.data?.times?.length) continue;
+    raw.push({ lapIdx, times: r.data.times, values: r.data.values, color: LAP_COLORS[activeLaps.indexOf(lapIdx) % LAP_COLORS.length] });
+  }
+  if (!raw.length) return null;
+
+  const { x, xLabel, distArrays } = await buildCommonX(raw);
+
+  const series = raw.map((s, i) => {
+    const srcX = (xAxisMode === 'dist' && distArrays?.[i]) ? distArrays[i] : s.times;
+    const resampled = resampleToX(Array.from(srcX), s.values, Array.from(x));
+    return { lapIdx: s.lapIdx, values: Array.from(resampled), color: s.color };
+  });
+
+  return { x: Array.from(x), xLabel, series };
+}
+
+// ── Sector plugin for uPlot ───────────────────────────────────────────────────
+// Draws translucent vertical bands for defined sectors
+// sectors: [{ from: number, to: number, color: string, label: string }]
+function makeSectorPlugin(sectors) {
+  return {
+    hooks: {
+      drawClear: [u => {
+        if (!sectors?.length) return;
+        const ctx = u.ctx;
+        ctx.save();
+        sectors.forEach(s => {
+          const x0 = Math.round(u.valToPos(s.from, 'x', true));
+          const x1 = Math.round(u.valToPos(s.to,   'x', true));
+          ctx.fillStyle = s.color || 'rgba(100,100,200,0.07)';
+          ctx.fillRect(x0, u.bbox.top, x1 - x0, u.bbox.height);
+          if (s.label) {
+            ctx.fillStyle = 'rgba(100,100,150,0.6)';
+            ctx.font = '9px sans-serif';
+            ctx.fillText(s.label, x0 + 2, u.bbox.top + 10);
+          }
+        });
+        ctx.restore();
+      }]
+    }
+  };
+}
+
+// ── Shared cursor sync + track map dot plugin ─────────────────────────────────
+// When any chart cursor moves, sync all others and move the track map dot
+const allUPlots = [];
+
+function makeSharedCursorPlugin(onCursorMove) {
+  return {
+    hooks: {
+      setCursor: [u => {
+        const { left, idx } = u.cursor;
+        if (idx == null) return;
+        // Sync all other uPlot instances
+        allUPlots.forEach(other => {
+          if (other === u || !other) return;
+          try {
+            const x = u.data[0][idx];
+            other.setCursor({ left: other.valToPos(x, 'x') });
+          } catch (_) {}
+        });
+        if (onCursorMove) onCursorMove(u, idx);
+      }]
+    }
+  };
+}
+
+// Move the track map cursor dot based on distance or time position
+function moveCursorDot(xVal) {
+  if (!trackMapData) return;
+  const dot = document.getElementById('trackMapCursor');
+  if (!dot) return;
+
+  const { times, lats, lons, dist } = trackMapData;
+  if (!lats?.length) return;
+
+  let idx = 0;
+  if (xAxisMode === 'dist' && dist?.length) {
+    // Find closest distance index
+    for (let i = 1; i < dist.length; i++) {
+      if (dist[i] >= xVal) { idx = i; break; }
+      idx = i;
+    }
+  } else {
+    // Find closest time index
+    for (let i = 1; i < times.length; i++) {
+      if (times[i] >= xVal) { idx = i; break; }
+      idx = i;
+    }
+  }
+
+  const canvas = document.getElementById('trackMapCanvas');
+  const minLat = Math.min(...lats), maxLat = Math.max(...lats);
+  const minLon = Math.min(...lons), maxLon = Math.max(...lons);
+  const pad = 40;
+  const w = canvas.width - pad*2, h = canvas.height - pad*2;
+
+  const px = pad + (lons[idx] - minLon) / (maxLon - minLon || 1) * w;
+  const py = pad + (1 - (lats[idx] - minLat) / (maxLat - minLat || 1)) * h;
+
+  // Scale to displayed size of canvas
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = rect.width  / canvas.width;
+  const scaleY = rect.height / canvas.height;
+
+  dot.style.left    = (px * scaleX) + 'px';
+  dot.style.top     = (py * scaleY) + 'px';
+  dot.style.display = '';
+}
+
+// ── Build uPlot options with shared cursor + sector shading ──────────────────
+function makeUPlotOpts(width, height, xLabel, yLabel, seriesDefs, sectors) {
+  const plugins = [];
+  if (sectors?.length) plugins.push(makeSectorPlugin(sectors));
+  plugins.push(makeSharedCursorPlugin((u, idx) => {
+    moveCursorDot(u.data[0][idx]);
+  }));
+  return {
+    width, height,
+    cursor: { sync: { key: CURSOR_SYNC } },
+    series: [{ label: xLabel }, ...seriesDefs],
+    axes: [
+      { label: xLabel },
+      { label: yLabel, size: 60 }
+    ],
+    scales: { x: { time: false } },
+    plugins,
+  };
+}
+
+// Register a uPlot instance for sync
+function registerUPlot(u) {
+  allUPlots.push(u);
+  return u;
+}
+function unregisterUPlot(u) {
+  const i = allUPlots.indexOf(u);
+  if (i >= 0) allUPlots.splice(i, 1);
+}
+
+function destroyAndUnregister(u) {
+  if (!u) return;
+  unregisterUPlot(u);
+  try { u.destroy(); } catch (_) {}
+}
+
+// ── Chart area ───────────────────────────────────────────────────────────────
 function renderPinnedChart(data, ch, container) {
   const card = document.createElement('div');
   card.className = 'chart-card mb-2';
@@ -716,30 +1009,25 @@ function renderPinnedChart(data, ch, container) {
   container.appendChild(card);
 
   const w = Math.max((container.getBoundingClientRect().width || 860) - 40, 400);
-  const uData = [data.t, ...data.series.map(s => s.values)];
-  const opts = {
-    width: w, height: 200,
-    cursor: { sync: { key: 'rts-cursor' } },
-    series: [
-      { label: 'Time' },
-      ...data.series.map(s => ({ label: `L${s.lapIdx+1}`, stroke: s.color, width: 1.5 })),
-    ],
-    axes: [{ label: 'Time (s)' }, { label: `${ch.name}${ch.units ? ' ('+ch.units+')' : ''}`, size: 60 }],
-    scales: { x: { time: false } },
-    hooks: {
-      setCursor: [u => {
-        const { idx } = u.cursor;
-        data.series.forEach((s, si) => {
-          const valEl = document.getElementById(`lv_${ch.channel_group}_${ch.channel_index}_${s.lapIdx}`);
-          if (!valEl) return;
-          if (idx == null) { valEl.textContent = '—'; return; }
-          const v = u.data[si + 1]?.[idx];
-          valEl.textContent = v != null ? Number(v).toFixed(2) : '—';
-        });
-      }]
-    }
-  };
+  const uData = [data.x, ...data.series.map(s => s.values)];
+  const seriesDefs = data.series.map(s => ({ label: `L${s.lapIdx+1}`, stroke: s.color, width: 1.5 }));
+  const opts = makeUPlotOpts(w, 200, data.xLabel, `${ch.name}${ch.units ? ' ('+ch.units+')' : ''}`, seriesDefs, null);
+
+  // Live legend values on cursor
+  opts.hooks = opts.hooks || {};
+  opts.hooks.setCursor = [...(opts.hooks.setCursor || []), u => {
+    const { idx } = u.cursor;
+    data.series.forEach((s, si) => {
+      const valEl = document.getElementById(`lv_${ch.channel_group}_${ch.channel_index}_${s.lapIdx}`);
+      if (!valEl) return;
+      if (idx == null) { valEl.textContent = '—'; return; }
+      const v = u.data[si + 1]?.[idx];
+      valEl.textContent = v != null ? Number(v).toFixed(2) : '—';
+    });
+  }];
+
   const u = new uPlot(opts, uData, el);
+  registerUPlot(u);
   uPinned.push(u);
 }
 
@@ -748,43 +1036,31 @@ async function renderSubCharts() {
   const throttleCh = findChannel(/^(tps|throttle)$/i);
 
   if (speedCh) {
-    const seriesData = await buildSubSeries(speedCh);
-    if (seriesData) { renderSubChart('uSpeed','speedChartEl',seriesData,'Speed','km/h'); document.getElementById('speedChart').classList.remove('d-none'); }
+    const data = await buildSeriesForChannel(speedCh);
+    if (data) { renderSubChart('uSpeed','speedChartEl', data, 'Speed', 'km/h'); document.getElementById('speedChart').classList.remove('d-none'); }
   }
   if (throttleCh) {
-    const seriesData = await buildSubSeries(throttleCh);
-    if (seriesData) { renderSubChart('uThrottle','throttleChartEl',seriesData,'Throttle','%'); document.getElementById('throttleChart').classList.remove('d-none'); }
+    const data = await buildSeriesForChannel(throttleCh);
+    if (data) { renderSubChart('uThrottle','throttleChartEl', data, 'Throttle', '%'); document.getElementById('throttleChart').classList.remove('d-none'); }
   }
-}
-
-async function buildSubSeries(ch) {
-  const result = { t: null, series: [] };
-  for (const lapIdx of activeLaps) {
-    const r = await aGet(`${API}/${sessionId}/channels/${ch.channel_group}/${ch.channel_index}/samples?lap=${lapIdx}`);
-    if (!r.data?.times?.length) continue;
-    if (!result.t) result.t = r.data.times;
-    result.series.push({ lapIdx, values: r.data.values, color: LAP_COLORS[activeLaps.indexOf(lapIdx) % LAP_COLORS.length] });
-  }
-  return result.series.length ? result : null;
 }
 
 function renderSubChart(uVar, elId, data, label, units) {
-  if (window[uVar]) { window[uVar].destroy(); window[uVar] = null; }
+  if (window[uVar]) { destroyAndUnregister(window[uVar]); window[uVar] = null; }
   const el = document.getElementById(elId);
   el.innerHTML = '';
-  const uData = [data.t, ...data.series.map(s => s.values)];
-  const opts = {
-    width: Math.max(el.getBoundingClientRect().width || 800, 400), height: 140,
-    cursor: { sync: { key: 'rts-cursor' } },
-    series: [{ label: 'Time' }, ...data.series.map(s => ({ label: `L${s.lapIdx+1}`, stroke: s.color, width: 1.5 }))],
-    axes: [{ label: 'Time (s)' }, { label: `${label} (${units})`, size: 55 }],
-    scales: { x: { time: false } },
-  };
-  window[uVar] = new uPlot(opts, uData, el);
+  const uData  = [data.x, ...data.series.map(s => s.values)];
+  const seriesDefs = data.series.map(s => ({ label: `L${s.lapIdx+1}`, stroke: s.color, width: 1.5 }));
+  const opts = makeUPlotOpts(
+    Math.max(el.getBoundingClientRect().width || 800, 400), 140,
+    data.xLabel, `${label} (${units})`,
+    seriesDefs, null
+  );
+  window[uVar] = registerUPlot(new uPlot(opts, uData, el));
 }
 
 function destroyChart(varName) {
-  if (window[varName]) { window[varName].destroy(); window[varName] = null; }
+  if (window[varName]) { destroyAndUnregister(window[varName]); window[varName] = null; }
 }
 
 async function renderDeltaChart() {
@@ -796,42 +1072,54 @@ async function renderDeltaChart() {
   const speedCh = findChannel(/^(gps_speed|speed)$/i);
   if (!speedCh) return;
 
-  const allSeries = [];
+  // Build distance/time arrays for all laps
+  const rawSeries = [];
   for (const lapIdx of activeLaps) {
     const r = await aGet(`${API}/${sessionId}/channels/${speedCh.channel_group}/${speedCh.channel_index}/samples?lap=${lapIdx}`);
-    if (r.data?.times?.length) allSeries.push({ lapIdx, times: r.data.times, values: r.data.values });
+    if (r.data?.times?.length) rawSeries.push({ lapIdx, times: r.data.times, values: r.data.values });
   }
-  if (allSeries.length < 2) return;
+  if (rawSeries.length < 2) return;
 
-  // Use first active lap as reference, interpolate delta
-  const ref = allSeries[0];
-  const times = ref.times;
-  const uData = [times];
-  const series = [{ label: 'Time' }];
+  // Build common x grid
+  const { x, xLabel, distArrays } = await buildCommonX(rawSeries);
 
-  for (let i = 1; i < allSeries.length; i++) {
-    const lapIdx = allSeries[i].lapIdx;
-    // Compute cumulative distance-based delta (simplified: time delta at each sample)
-    const tDelta = times.map((t, j) => {
-      // Very simple: t / ref speed vs same t on comp speed — use scaled time offset
-      return t - (ref.times[j] || t);
-    });
-    uData.push(tDelta);
-    series.push({ label: `L${lapIdx+1} Δ`, stroke: LAP_COLORS[i % LAP_COLORS.length], width: 1.5 });
+  // Resample speed for each lap onto the common x grid
+  const lapTimes = rawSeries.map((s, i) => {
+    const srcX = (xAxisMode === 'dist' && distArrays?.[i]) ? Array.from(distArrays[i]) : s.times;
+    const spd  = resampleToX(srcX, s.values, Array.from(x));
+
+    // Compute cumulative time from speed (m/s) + distance step
+    const cumTime = new Float32Array(x.length);
+    for (let j = 1; j < x.length; j++) {
+      const dx  = x[j] - x[j-1];
+      const vms = Math.max(0.5, spd[j] / 3.6); // avoid divide by zero
+      cumTime[j] = cumTime[j-1] + (xAxisMode === 'dist' ? dx / vms : x[j] - x[j-1]);
+    }
+    return { lapIdx: s.lapIdx, cumTime };
+  });
+
+  // Delta vs best (first active lap = reference)
+  const refCum = lapTimes[0].cumTime;
+  const uData  = [Array.from(x)];
+  const seriesDefs = [{ label: `L${lapTimes[0].lapIdx+1} (ref)`, stroke: LAP_COLORS[0], width: 1.5, dash: [3,2] }];
+  uData.push(new Array(x.length).fill(0));
+
+  for (let i = 1; i < lapTimes.length; i++) {
+    const delta = lapTimes[i].cumTime.map((t, j) => t - refCum[j]);
+    uData.push(Array.from(delta));
+    seriesDefs.push({ label: `L${lapTimes[i].lapIdx+1} Δ`, stroke: LAP_COLORS[i % LAP_COLORS.length], width: 1.5 });
   }
-  if (uData.length < 2) return;
 
-  const opts = {
-    width: Math.max(el.getBoundingClientRect().width || 800, 400), height: 120,
-    cursor: { sync: { key: 'rts-cursor' } },
-    series, axes: [{ label: 'Time (s)' }, { label: 'Δ Time (s)', size: 55 }],
-    scales: { x: { time: false } },
-  };
-  uDelta = new uPlot(opts, uData, el);
+  const opts = makeUPlotOpts(
+    Math.max(el.getBoundingClientRect().width || 800, 400), 120,
+    xLabel, 'Δ Time (s)',
+    seriesDefs, null
+  );
+  uDelta = registerUPlot(new uPlot(opts, uData, el));
 }
 
 function destroyPinnedCharts() {
-  uPinned.forEach(u => { try { u.destroy(); } catch (_) {} });
+  uPinned.forEach(u => { try { destroyAndUnregister(u); } catch (_) {} });
   uPinned = [];
 }
 
@@ -840,6 +1128,11 @@ function destroyCharts() {
   ['uSpeed','uThrottle','uDelta','uCompSpeed','uCompThrottle'].forEach(k => destroyChart(k));
   const w = document.getElementById('pinnedChartsWrap');
   if (w) w.innerHTML = '';
+  // Clear dist cache when session changes
+  Object.keys(distCache).forEach(k => delete distCache[k]);
+  trackMapData = null;
+  const dot = document.getElementById('trackMapCursor');
+  if (dot) dot.style.display = 'none';
 }
 
 function findChannel(re) {
@@ -851,6 +1144,9 @@ async function renderTrackMap() {
   const canvas = document.getElementById('trackMapCanvas');
   const ctx2   = canvas.getContext('2d');
   const status = document.getElementById('mapStatus');
+  trackMapData = null;
+  const dot = document.getElementById('trackMapCursor');
+  if (dot) dot.style.display = 'none';
 
   // Match lat/lon by being generous — any channel whose name contains 'lat'/'lon'
   // but NOT 'acc' or 'lateral' or 'longitudinal' (those are accelerations not positions)
@@ -926,6 +1222,10 @@ async function renderTrackMap() {
     ctx2.beginPath();
     ctx2.arc(toX(lons[0]), toY(lats[0]), 6, 0, Math.PI*2);
     ctx2.fillStyle = '#16a34a'; ctx2.fill();
+
+    // Cache GPS data for cursor sync
+    const distArr = await ensureDistCache(lapIdx).catch(() => null);
+    trackMapData = { times: latR.data.times || [], lats, lons, dist: distArr ? Array.from(distArr) : null };
 
     status.textContent = `Track map — Lap ${lapIdx+1} · ${lats.length} GPS points`;
   } catch (e) { status.textContent = 'Error: ' + e.message; }
@@ -1092,13 +1392,16 @@ function renderCompChart(uVar, elId, d1, d2, label, units) {
   const t1 = d1.times, v1 = d1.values, t2 = d2.times, v2 = d2.values;
   if (!t1?.length) return;
   const uData  = [t1, v1, v2];
-  const opts = {
-    width: Math.max(el.getBoundingClientRect().width || 800, 400), height: 160,
-    series: [{ label:'Time' }, { label: label+' A', stroke:'#7c3aed', width:1.5 }, { label: label+' B', stroke:'#e74c3c', width:1.5, dash:[4,2] }],
-    axes:   [{ label:'Time (s)' }, { label:`${label} (${units})`, size:55 }],
-    scales: { x: { time: false } },
-  };
-  window[uVar] = new uPlot(opts, uData, el);
+  const seriesDefs = [
+    { label: label+' A', stroke: '#7c3aed', width: 1.5 },
+    { label: label+' B', stroke: '#e74c3c', width: 1.5, dash: [4,2] }
+  ];
+  const opts = makeUPlotOpts(
+    Math.max(el.getBoundingClientRect().width || 800, 400), 160,
+    'Time (s)', `${label} (${units})`,
+    seriesDefs, null
+  );
+  window[uVar] = registerUPlot(new uPlot(opts, uData, el));
 }
 
 // ── Toolbar actions ──────────────────────────────────────────────────────────
@@ -1159,7 +1462,7 @@ function fmtDur(s) { const m=Math.floor(s/60),sc=Math.floor(s%60); return `${m}m
 // ── Responsive chart resize ────────────────────────────────────────────────
 new ResizeObserver(() => {
   const w = Math.max((document.getElementById('chartArea')?.getBoundingClientRect().width || 860) - 40, 400);
-  [...uPinned, window.uSpeed, window.uThrottle, window.uDelta, window.uCompSpeed, window.uCompThrottle].forEach(u => {
+  allUPlots.forEach(u => {
     if (u) try { u.setSize({ width: w, height: u.height }); } catch (_) {}
   });
 }).observe(document.getElementById('centerPanel'));

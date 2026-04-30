@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { pool } = require('../db');
+const { logActivity } = require('../lib/activityLog');
 
 // GET /api/boxes - Get all boxes
 router.get('/', async (req, res, next) => {
@@ -202,6 +203,12 @@ router.post('/', async (req, res, next) => {
     ];
     
     const result = await pool.query(query, values);
+    logActivity(pool, {
+      entityType: 'box', entityId: result.rows[0].id, entityName: result.rows[0].name,
+      action: 'created',
+      userId: req.user?.userId || null, userName: req.user?.username || null,
+      details: { box_type: result.rows[0].box_type, status: result.rows[0].status },
+    }).catch(() => {});
     res.status(201).json({ success: true, box: result.rows[0] });
   } catch (error) {
     if (error.code === '23505') { // Unique violation
@@ -233,6 +240,12 @@ router.post('/:id/unload', async (req, res, next) => {
       return res.status(404).json({ success: false, error: 'Box not found' });
     }
 
+    logActivity(pool, {
+      entityType: 'box', entityId: id, entityName: result.rows[0].name,
+      action: 'unloaded',
+      userId: req.user?.userId || null, userName: req.user?.username || null,
+      details: { location_id: location_id || null },
+    }).catch(() => {});
     res.json({ success: true, box: result.rows[0] });
   } catch (error) {
     next(error);
@@ -295,8 +308,28 @@ router.put('/:id', async (req, res, next) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Box not found' });
     }
-    
-    res.json({ success: true, box: result.rows[0] });
+
+    const updated = result.rows[0];
+    // Determine what changed for detailed logging
+    const changes = {};
+    if (name)               changes.name = name;
+    if (status)             changes.status = status;
+    if (current_truck_id !== undefined) changes.truck_id = current_truck_id;
+    if (current_location_id !== undefined) changes.location_id = current_location_id;
+    // Pick most specific action label
+    let action = 'updated';
+    if (current_truck_id && current_truck_id !== 'null') action = 'loaded_to_truck';
+    else if (current_truck_id === null || current_truck_id === 'null') action = 'removed_from_truck';
+    else if (current_location_id) action = 'location_changed';
+    else if (status) action = 'status_changed';
+
+    logActivity(pool, {
+      entityType: 'box', entityId: id, entityName: updated.name,
+      action,
+      userId: req.user?.userId || null, userName: req.user?.username || null,
+      details: changes,
+    }).catch(() => {});
+    res.json({ success: true, box: updated });
   } catch (error) {
     next(error);
   }
@@ -317,7 +350,12 @@ router.delete('/:id', async (req, res, next) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Box not found' });
     }
-    
+
+    logActivity(pool, {
+      entityType: 'box', entityId: id, entityName: result.rows[0].name,
+      action: 'deleted',
+      userId: req.user?.userId || null, userName: req.user?.username || null,
+    }).catch(() => {});
     res.json({ success: true, message: 'Box deleted', box: result.rows[0] });
   } catch (error) {
     next(error);

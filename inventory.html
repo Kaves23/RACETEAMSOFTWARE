@@ -413,22 +413,60 @@
       </div>
     </div>
     
-    <!-- Hidden stubs for JS references from old sidebar -->
-    <div style="display:none">
-      <span id="totalItemsBadge"></span>
-      <div id="activeFiltersBar"><span id="activeFiltersLabel"></span></div>
-      <div id="categoryList"></div>
-      <div id="locationList"></div>
-      <div id="supplierList"></div>
-    </div>
+    <!-- JS reference stub -->
+    <span id="totalItemsBadge" style="display:none"></span>
 
     <div class="inventory-container">
+      <!-- Left Sidebar - Filters -->
+      <div class="panel" id="sidebarPanel" style="flex: 0 0 175px; min-width: 130px; max-width: 260px;">
+        <div class="panel-header">
+          <span>Filters</span>
+          <span class="stat-badge" id="sidebarTotal"></span>
+        </div>
+        <div class="panel-body" style="padding: 0; overflow-y: auto;">
+          <!-- Active filters indicator -->
+          <div class="inv-active-filters" id="activeFiltersBar">
+            <span id="activeFiltersLabel"></span>
+            <button class="inv-clear-btn" onclick="clearAllFilters()">× Clear</button>
+          </div>
+          <!-- Sidebar item search -->
+          <div class="inv-sidebar-section">
+            <div class="inv-sidebar-search">
+              <input type="text" placeholder="Find…" oninput="filterSidebarItems(this.value)">
+            </div>
+          </div>
+          <!-- Categories -->
+          <div class="inv-sidebar-section">
+            <div class="inv-sidebar-hdr collapsible" onclick="toggleSidebarSection(this)">
+              Categories <span class="chev">▼</span>
+            </div>
+            <div class="inv-sidebar-body" id="categoryList"></div>
+          </div>
+          <!-- Locations -->
+          <div class="inv-sidebar-section">
+            <div class="inv-sidebar-hdr collapsible" onclick="toggleSidebarSection(this)">
+              Locations <span class="chev">▼</span>
+            </div>
+            <div class="inv-sidebar-body" id="locationList"></div>
+          </div>
+          <!-- Suppliers -->
+          <div class="inv-sidebar-section">
+            <div class="inv-sidebar-hdr collapsible" onclick="toggleSidebarSection(this)">
+              Suppliers <span class="chev">▼</span>
+            </div>
+            <div class="inv-sidebar-body" id="supplierList"></div>
+          </div>
+        </div>
+      </div>
+      <!-- Sidebar / table divider -->
+      <div id="leftSidebarResizer" class="panel-resizer"></div>
+
       <!-- Middle Panel - Items List/Table -->
       <div class="panel table-panel">
         <div class="panel-header" style="padding:6px 10px">
           <div class="d-flex align-items-center gap-1 flex-wrap">
             <button class="stock-pill active" data-view="all">All <span class="pill-count" id="countAll">0</span></button>
-            <button class="stock-pill pill-warning" data-view="low">⚠ Low <span class="pill-count" id="countLow">0</span></button>
+            <button class="stock-pill pill-warning" data-view="low"><i class="bi bi-exclamation-triangle" style="vertical-align:-.1em;margin-right:3px"></i>Low <span class="pill-count" id="countLow">0</span></button>
             <button class="stock-pill pill-danger" data-view="out">✗ Out <span class="pill-count" id="countOut">0</span></button>
             <button class="stock-pill" data-view="expiring"><svg width="11" height="11" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.1em;margin-right:3px"><circle cx="10" cy="10" r="7.5"/><path d="M10 6v4l2.5 2.5"/></svg>Expiring <span class="pill-count" id="countExpiring">0</span></button>
           </div>
@@ -459,16 +497,7 @@
           <!-- Search and Filters -->
           <div class="search-section">
             <div class="filter-group">
-              <input type="text" class="form-control form-control-sm" id="searchInput" placeholder="Search…" style="flex:1 1 160px;min-width:120px">
-              <select class="form-select form-select-sm" id="filterCategory" style="flex:1 1 110px;min-width:90px">
-                <option value="">All Categories</option>
-              </select>
-              <select class="form-select form-select-sm" id="filterLocation" style="flex:1 1 100px;min-width:80px">
-                <option value="">All Locations</option>
-              </select>
-              <select class="form-select form-select-sm" id="filterSupplier" style="flex:1 1 110px;min-width:90px">
-                <option value="">All Suppliers</option>
-              </select>
+              <input type="text" class="form-control form-control-sm" id="searchInput" placeholder="Search name, SKU, notes…" style="flex:1;min-width:120px">
               <select class="form-select form-select-sm" id="sortBy" style="flex:0 0 110px">
                 <option value="name">Sort: Name</option>
                 <option value="qty">Sort: Qty</option>
@@ -477,6 +506,12 @@
                 <option value="lastUsed">Sort: Last Used</option>
               </select>
               <button class="btn btn-outline-secondary btn-sm" id="btnClearFilters" style="display:none;font-size:.72rem;flex-shrink:0" onclick="clearAllFilters()">× Clear</button>
+            </div>
+            <!-- Hidden selects kept for JS filter sync -->
+            <div style="display:none">
+              <select id="filterCategory"><option value="">All Categories</option></select>
+              <select id="filterLocation"><option value="">All Locations</option></select>
+              <select id="filterSupplier"><option value="">All Suppliers</option></select>
             </div>
           </div>
           
@@ -1467,20 +1502,31 @@
       
       // Render filter lists
       function renderFilterLists() {
+        const totalBadge = document.getElementById('sidebarTotal');
+        if (totalBadge) totalBadge.textContent = allItems.length + ' items';
+
+        const makeAllItem = (attr, label) =>
+          `<div class="inv-sidebar-item${!currentFilter[label] ? ' active' : ''}" data-filter-${attr}="">
+            <span>All</span>
+            <span class="inv-sidebar-count">${allItems.length}</span>
+          </div>`;
+
         // Categories
         const catCounts = {};
         allItems.forEach(item => {
           catCounts[item.category] = (catCounts[item.category] || 0) + 1;
         });
         
-        document.getElementById('categoryList').innerHTML = Object.entries(catCounts)
-          .sort((a,b) => b[1]-a[1])
-          .map(([cat, count]) => `
-            <div class="inv-sidebar-item" data-filter-cat="${cat}">
-              <span>${cat}</span>
-              <span class="inv-sidebar-count">${count}</span>
-            </div>
-          `).join('');
+        document.getElementById('categoryList').innerHTML =
+          makeAllItem('cat', 'category') +
+          Object.entries(catCounts)
+            .sort((a,b) => b[1]-a[1])
+            .map(([cat, count]) => `
+              <div class="inv-sidebar-item${currentFilter.category === cat ? ' active' : ''}" data-filter-cat="${cat}">
+                <span>${cat}</span>
+                <span class="inv-sidebar-count">${count}</span>
+              </div>
+            `).join('');
         
         document.querySelectorAll('[data-filter-cat]').forEach(btn => {
           btn.addEventListener('click', () => {
@@ -1500,14 +1546,16 @@
           locCounts[loc] = (locCounts[loc] || 0) + 1;
         });
 
-        document.getElementById('locationList').innerHTML = Object.entries(locCounts)
-          .sort((a,b) => b[1]-a[1])
-          .map(([loc, count]) => `
-            <div class="inv-sidebar-item" data-filter-loc="${loc}">
-              <span>${loc}</span>
-              <span class="inv-sidebar-count">${count}</span>
-            </div>
-          `).join('');
+        document.getElementById('locationList').innerHTML =
+          makeAllItem('loc', 'location') +
+          Object.entries(locCounts)
+            .sort((a,b) => b[1]-a[1])
+            .map(([loc, count]) => `
+              <div class="inv-sidebar-item${currentFilter.location === loc ? ' active' : ''}" data-filter-loc="${loc}">
+                <span>${loc}</span>
+                <span class="inv-sidebar-count">${count}</span>
+              </div>
+            `).join('');
 
         document.querySelectorAll('[data-filter-loc]').forEach(btn => {
           btn.addEventListener('click', () => {
@@ -1527,14 +1575,16 @@
           supCounts[sup] = (supCounts[sup] || 0) + 1;
         });
 
-        document.getElementById('supplierList').innerHTML = Object.entries(supCounts)
-          .sort((a,b) => b[1]-a[1])
-          .map(([sup, count]) => `
-            <div class="inv-sidebar-item" data-filter-sup="${sup}">
-              <span>${sup}</span>
-              <span class="inv-sidebar-count">${count}</span>
-            </div>
-          `).join('');
+        document.getElementById('supplierList').innerHTML =
+          makeAllItem('sup', 'supplier') +
+          Object.entries(supCounts)
+            .sort((a,b) => b[1]-a[1])
+            .map(([sup, count]) => `
+              <div class="inv-sidebar-item${currentFilter.supplier === sup ? ' active' : ''}" data-filter-sup="${sup}">
+                <span>${sup}</span>
+                <span class="inv-sidebar-count">${count}</span>
+              </div>
+            `).join('');
 
         document.querySelectorAll('[data-filter-sup]').forEach(btn => {
           btn.addEventListener('click', () => {
@@ -1546,8 +1596,6 @@
             updateActiveFiltersBar();
           });
         });
-        
-        // Similar for locations and suppliers...
       }
       
       // Apply filters
@@ -2780,6 +2828,15 @@
 
       // Clear all filters
       // Sidebar text filter — hides non-matching items in dynamic lists
+      // Toggle sidebar section collapse
+      function toggleSidebarSection(hdr) {
+        hdr.classList.toggle('collapsed');
+        const body = hdr.nextElementSibling;
+        if (body && body.classList.contains('inv-sidebar-body')) {
+          body.classList.toggle('collapsed');
+        }
+      }
+
       function filterSidebarItems(q) {
         q = q.toLowerCase().trim();
         ['categoryList', 'locationList', 'supplierList'].forEach(listId => {
@@ -2816,6 +2873,45 @@
         if (label) label.textContent = active.join(' · ');
         if (bar) bar.classList.toggle('show', active.length > 0);
       }
+
+      // ── Left Sidebar resizer ────────────────────────────────────────
+      (function() {
+        const resizer = document.getElementById('leftSidebarResizer');
+        const sidebar = document.getElementById('sidebarPanel');
+        if (!resizer || !sidebar) return;
+
+        const savedW = localStorage.getItem('inv_sidebar_w');
+        if (savedW) sidebar.style.flex = '0 0 ' + savedW + 'px';
+
+        let startX, startW;
+
+        resizer.addEventListener('mousedown', function(e) {
+          e.preventDefault();
+          startX = e.clientX;
+          startW = sidebar.getBoundingClientRect().width;
+          resizer.classList.add('dragging');
+          document.body.style.cursor = 'col-resize';
+          document.body.style.userSelect = 'none';
+
+          function onMove(e) {
+            const delta = e.clientX - startX;
+            const newW = Math.max(130, Math.min(280, startW + delta));
+            sidebar.style.flex = '0 0 ' + newW + 'px';
+          }
+
+          function onUp() {
+            localStorage.setItem('inv_sidebar_w', Math.round(sidebar.getBoundingClientRect().width));
+            resizer.classList.remove('dragging');
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+          }
+
+          document.addEventListener('mousemove', onMove);
+          document.addEventListener('mouseup', onUp);
+        });
+      })();
 
       // ── Mid-Right panel resizer ──────────────────────────────────────
       (function() {

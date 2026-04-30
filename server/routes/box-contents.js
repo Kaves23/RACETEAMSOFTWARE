@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { pool } = require('../db');
+const { logActivity } = require('../lib/activityLog');
 
 // GET /api/box-contents - Get all box contents (items + inventory)
 router.get('/', async (req, res, next) => {
@@ -152,6 +153,23 @@ router.post('/pack', async (req, res, next) => {
         INSERT INTO item_history (id, item_id, action, to_box_id, performed_by_user_id, timestamp)
         VALUES ($1, $2, 'packed', $3, $4, NOW())
       `, [`hist-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`, item_id, box_id, userId]);
+
+      // Universal activity log — write on both entities so both timelines show the event
+      const boxNameRow = await client.query('SELECT name FROM boxes WHERE id = $1', [box_id]);
+      const boxName = boxNameRow.rows[0]?.name || box_id;
+      const userName = req.user?.username || null;
+      await logActivity(client, {
+        entityType: 'item', entityId: item_id, entityName: item.name,
+        action: 'packed',
+        userId, userName,
+        details: { to_box_id: box_id, to_box_name: boxName },
+      });
+      await logActivity(client, {
+        entityType: 'box', entityId: box_id, entityName: boxName,
+        action: 'item_added',
+        userId, userName,
+        details: { item_id, item_name: item.name, item_barcode: item.barcode },
+      });
       
       await client.query('COMMIT');
       
@@ -231,6 +249,25 @@ router.post('/unpack', async (req, res, next) => {
         INSERT INTO item_history (id, item_id, action, from_box_id, performed_by_user_id, timestamp)
         VALUES ($1, $2, 'unpacked', $3, $4, NOW())
       `, [`hist-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`, item_id, box_id, userId]);
+
+      // Universal activity log
+      const boxNameRow2 = await client.query('SELECT name FROM boxes WHERE id = $1', [box_id]);
+      const boxName2 = boxNameRow2.rows[0]?.name || box_id;
+      const itemNameRow = await client.query('SELECT name FROM items WHERE id = $1', [item_id]);
+      const itemName = itemNameRow.rows[0]?.name || item_id;
+      const userName2 = req.user?.username || null;
+      await logActivity(client, {
+        entityType: 'item', entityId: item_id, entityName: itemName,
+        action: 'unpacked',
+        userId, userName: userName2,
+        details: { from_box_id: box_id, from_box_name: boxName2 },
+      });
+      await logActivity(client, {
+        entityType: 'box', entityId: box_id, entityName: boxName2,
+        action: 'item_removed',
+        userId, userName: userName2,
+        details: { item_id, item_name: itemName },
+      });
       
       await client.query('COMMIT');
       
@@ -313,7 +350,16 @@ router.delete('/:box_id/clear', async (req, res, next) => {
       
       // Remove all from box_contents
       const result = await client.query('DELETE FROM box_contents WHERE box_id = $1 RETURNING *', [box_id]);
-      
+
+      // Universal activity log
+      const boxNameRow3 = await client.query('SELECT name FROM boxes WHERE id = $1', [box_id]);
+      await logActivity(client, {
+        entityType: 'box', entityId: box_id, entityName: boxNameRow3.rows[0]?.name || box_id,
+        action: 'box_emptied',
+        userId: req.user?.userId || null, userName: req.user?.username || null,
+        details: { items_removed: result.rows.length },
+      });
+
       await client.query('COMMIT');
       
       res.json({ 
