@@ -1,26 +1,14 @@
 /* ─────────────────────────────────────────────────────────────────────────────
    Race Team OS · Mobile Service Worker
-   Cache: shell files on install, stale-while-revalidate for API routes
+   Cache: ONLY static assets (css/js). HTML pages always fetched from network.
    ───────────────────────────────────────────────────────────────────────────── */
 
-var CACHE_NAME = 'rts-mobile-v15';
+var CACHE_NAME = 'rts-mobile-v16';
 var DATA_CACHE = 'rts-offline-data'; // persists across SW version bumps
+// Only cache static assets — NEVER HTML pages (they change with every deploy)
 var SHELL_FILES = [
   '/mobile/mobile.css',
-  '/mobile/mobile-auth.js',
-  '/mobile/index.html',
-  '/mobile/dashboard.html',
-  '/mobile/load.html',
-  '/mobile/tasks.html',
-  '/mobile/lists.html',
-  '/mobile/scan.html',
-  '/mobile/browse.html',
-  '/mobile/assets.html',
-  '/mobile/inventory.html',
-  '/mobile/boxes.html',
-  '/mobile/vehicles.html',
-  '/mobile/events.html',
-  '/mobile/drivers.html'
+  '/mobile/mobile-auth.js'
 ];
 
 // ── Install: pre-cache shell files ─────────────────────────────────────────
@@ -66,7 +54,12 @@ self.addEventListener('fetch', function(event) {
     return;
   }
 
-  // Shell files: network-first (always get latest HTML, fall back to cache offline)
+  // HTML pages: always network, no caching (so deploys are instant)
+  if (path.endsWith('.html') || path === '/mobile/' || path === '/') {
+    return; // Let browser handle normally
+  }
+
+  // Static assets (css, js): cache-first
   if (SHELL_FILES.indexOf(path) !== -1) {
     event.respondWith(networkFirst(event.request));
     return;
