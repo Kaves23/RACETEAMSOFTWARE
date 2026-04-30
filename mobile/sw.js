@@ -3,8 +3,8 @@
    Cache: ONLY static assets (css/js). HTML pages always fetched from network.
    ───────────────────────────────────────────────────────────────────────────── */
 
-var CACHE_NAME = 'rts-mobile-v16';
-var DATA_CACHE = 'rts-offline-data'; // persists across SW version bumps
+var CACHE_NAME = 'rts-mobile-v17';
+var DATA_CACHE = 'rts-offline-data';
 // Only cache static assets — NEVER HTML pages (they change with every deploy)
 var SHELL_FILES = [
   '/mobile/mobile.css',
@@ -22,16 +22,21 @@ self.addEventListener('install', function(event) {
   );
 });
 
-// ── Activate: clean up old caches ──────────────────────────────────────────
+// ── Activate: wipe ALL caches and force-reload all open tabs ───────────────
 self.addEventListener('activate', function(event) {
   event.waitUntil(
     caches.keys().then(function(keys) {
-      return Promise.all(
-        keys.filter(function(k) { return k !== CACHE_NAME && k !== DATA_CACHE; })
-            .map(function(k) { return caches.delete(k); })
-      );
+      // Delete every cache (including old HTML caches)
+      return Promise.all(keys.map(function(k) { return caches.delete(k); }));
     }).then(function() {
       return self.clients.claim();
+    }).then(function() {
+      // Force reload every open tab so they get fresh HTML from server
+      return self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clients) {
+        clients.forEach(function(client) {
+          client.navigate(client.url);
+        });
+      });
     })
   );
 });
