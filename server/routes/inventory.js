@@ -194,8 +194,33 @@ router.post('/unpack', async (req, res, next) => {
       }
       
       await client.query('COMMIT');
-      
-      res.json({ success: true, item: result.rows[0] });
+
+      // ── Audit logging ────────────────────────────────────────────
+      const item     = result.rows[0];
+      const userId   = req.user?.userId   || null;
+      const userName = req.user?.username || null;
+
+      // inventory_history row
+      const ihId = `ih-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
+      pool.query(
+        `INSERT INTO inventory_history
+           (id, inventory_id, action, qty_before, qty_change, qty_after, performed_by_user_id, notes)
+         VALUES ($1,$2,'unpacked_from_box',NULL,NULL,NULL,$3,$4)`,
+        [ihId, itemId, userId, boxId ? `Unpacked from box ${boxId}` : 'Unpacked from all boxes']
+      ).catch(e => console.warn('[inventory_history/unpack]', e.message));
+
+      // activity_log row
+      logActivity(pool, {
+        entityType: 'inventory',
+        entityId:   itemId,
+        entityName: item.name,
+        action:     'unpacked_from_box',
+        userId,
+        userName,
+        details: { boxId: boxId || null, source: 'mobile' },
+      }).catch(() => {});
+
+      res.json({ success: true, item });
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;

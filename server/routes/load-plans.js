@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { pool } = require('../db');
+const { logActivity } = require('../lib/activityLog');
 
 // GET /api/load-plans/draft?truck_id=X
 // Returns the Draft plan for the given truck (or the most recent draft if no truck_id).
@@ -177,6 +178,17 @@ router.put('/draft', async (req, res, next) => {
 
     await client.query('COMMIT');
 
+    // Audit log
+    logActivity(pool, {
+      entityType: 'load_plan',
+      entityId:   planId,
+      entityName: truck_id ? `Load Plan (truck ${truck_id})` : 'Load Plan',
+      action:     'draft_saved',
+      userId:   req.user?.userId   || null,
+      userName: req.user?.username || null,
+      details:  { truck_id: truck_id || null, event_id: event_id || null, placementCount: placements.length },
+    }).catch(() => {});
+
     res.json({ success: true, planId, placementCount: placements.length });
   } catch (error) {
     await client.query('ROLLBACK');
@@ -220,6 +232,18 @@ router.post('/finalise', async (req, res, next) => {
     );
 
     await client.query('COMMIT');
+
+    // Audit log
+    logActivity(pool, {
+      entityType: 'load_plan',
+      entityId:   planId,
+      entityName: truck_id ? `Load Plan (truck ${truck_id})` : 'Load Plan',
+      action:     'finalised',
+      userId:   req.user?.userId   || null,
+      userName: req.user?.username || null,
+      details:  { truck_id: truck_id || null },
+    }).catch(() => {});
+
     res.json({ success: true, planId, message: 'Load plan finalised and saved to history' });
   } catch (error) {
     await client.query('ROLLBACK');
