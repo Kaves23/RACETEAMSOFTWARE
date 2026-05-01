@@ -1716,15 +1716,20 @@ console.log('📦 load-engine.js loading...');
     const frontPct = Math.round((frontKg / total) * 100);
     const rearPct  = 100 - frontPct;
 
-    document.getElementById('wbbFront').style.width  = frontPct + '%';
-    document.getElementById('wbbRear').style.width   = rearPct  + '%';
-    document.getElementById('wbbFrontLabel').textContent = `Front — ${frontKg.toFixed(0)} kg (${frontPct}%)`;
-    document.getElementById('wbbRearLabel').textContent  = `Rear — ${rearKg.toFixed(0)} kg (${rearPct}%)`;
+    const elFront = document.getElementById('wbbFront');
+    const elRear  = document.getElementById('wbbRear');
+    const elFL    = document.getElementById('wbbFrontLabel');
+    const elRL    = document.getElementById('wbbRearLabel');
+    if (!elFront || !elRear || !elFL || !elRL) return;
+    elFront.style.width = frontPct + '%';
+    elRear.style.width  = rearPct  + '%';
+    elFL.textContent = `Front — ${frontKg.toFixed(0)} kg (${frontPct}%)`;
+    elRL.textContent = `Rear — ${rearKg.toFixed(0)} kg (${rearPct}%)`;
 
     // Warning colour if >60/40 imbalance
     const imbalanced = frontPct > 65 || rearPct > 65;
-    document.getElementById('wbbFront').style.background = imbalanced ? '#f29900' : '#1a73e8';
-    document.getElementById('wbbRear').style.background  = imbalanced ? '#ea4335' : '#34a853';
+    elFront.style.background = imbalanced ? '#f29900' : '#1a73e8';
+    elRear.style.background  = imbalanced ? '#ea4335' : '#34a853';
     bar.classList.add('show');
   }
 
@@ -2528,9 +2533,9 @@ console.log('📦 load-engine.js loading...');
     [[-L/2 - cLen * 0.7, W/2 + wW/2], [-L/2 - cLen * 0.7, -(W/2 + wW/2)],
      [-L/2 - cLen * 0.12, W/2 + wW/2], [-L/2 - cLen * 0.12, -(W/2 + wW/2)],
      [L * 0.34, W/2 + wW/2], [L * 0.34, -(W/2 + wW/2)]].forEach(([wx, wz]) => {
-      const wh = new THREE.Mesh(wGeo, wMat); wh.rotation.z = Math.PI / 2;
+      const wh = new THREE.Mesh(wGeo, wMat); wh.rotation.x = Math.PI / 2;
       wh.position.set(wx, wR, wz); wh.userData.isTruck = true; scene.add(wh);
-      const rm = new THREE.Mesh(rGeo, rMat); rm.rotation.z = Math.PI / 2;
+      const rm = new THREE.Mesh(rGeo, rMat); rm.rotation.x = Math.PI / 2;
       rm.position.set(wx, wR, wz); rm.userData.isTruck = true; scene.add(rm);
     });
     // Chassis beam
