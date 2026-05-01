@@ -40,7 +40,7 @@
 
   <!-- Body -->
   <main class="app-body" id="appBody">
-    <div id="debugBanner" style="display:none;padding:10px 16px;background:#fef9c3;border-bottom:1px solid #fde047;font-size:11px;font-family:monospace;color:#713f12;word-break:break-all;"></div>
+
     <div id="inventoryList"></div>
   </main>
 
@@ -200,7 +200,7 @@
 
 <script>
   // Auth guard
-  if (!localStorage.getItem('auth_token') || sessionStorage.getItem('mobile_pin_ok') !== '1') {
+  if (!localStorage.getItem('auth_token')) {
     window.location.replace('index.html');
   }
 
@@ -221,30 +221,22 @@
   // ── Load inventory ───────────────────────────────────────────────
   async function loadInventory() {
     renderSkeletons();
-    const dbg = document.getElementById('debugBanner');
-    function debug(msg) { dbg.style.display='block'; dbg.textContent = msg; }
     try {
       const token = localStorage.getItem('auth_token');
       if (!token) { window.location.replace('index.html'); return; }
-      debug('Fetching from API…');
       const res = await fetch(`${API}/api/collections/inventory`, {
         headers: { 'Authorization': 'Bearer ' + token }
       });
-      debug('Response: HTTP ' + res.status);
       if (res.status === 401) { window.location.replace('index.html'); return; }
       if (!res.ok) throw new Error('HTTP ' + res.status + ' from server');
       const data = await res.json();
       if (!data.success) throw new Error(data.error || 'API returned success:false');
-      debug('Got ' + (data.items||[]).length + ' items from DB');
       allItems = data.items || [];
       buildCategoryChips();
       renderList();
       document.getElementById('itemCount').textContent = allItems.length + ' items';
-      // Hide debug after 5s if successful
-      setTimeout(() => { dbg.style.display='none'; }, 5000);
     } catch (err) {
       console.error('[Inventory] load failed:', err);
-      debug('ERROR: ' + err.message);
       document.getElementById('inventoryList').innerHTML =
         `<div style="padding:40px 16px;text-align:center;">
           <div style="font-size:13px;font-weight:600;color:#dc2626;margin-bottom:8px;">Failed to load inventory</div>

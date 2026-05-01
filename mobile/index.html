@@ -66,69 +66,36 @@
         </form>
       </div>
 
-      <!-- PIN UI — shown once logged in -->
-      <div id="pinContent" style="display:none;flex-direction:column;align-items:center;gap:22px;">
-        <p class="pin-label">Enter PIN</p>
-        <div class="pin-dots" id="pinDots">
-          <div class="pin-dot" id="dot0"></div>
-          <div class="pin-dot" id="dot1"></div>
-          <div class="pin-dot" id="dot2"></div>
-          <div class="pin-dot" id="dot3"></div>
-        </div>
-        <p class="pin-error-msg" id="pinError"></p>
-        <div class="pin-pad" id="pinPad">
-          <button class="pin-key" data-digit="1">1</button>
-          <button class="pin-key" data-digit="2">2</button>
-          <button class="pin-key" data-digit="3">3</button>
-          <button class="pin-key" data-digit="4">4</button>
-          <button class="pin-key" data-digit="5">5</button>
-          <button class="pin-key" data-digit="6">6</button>
-          <button class="pin-key" data-digit="7">7</button>
-          <button class="pin-key" data-digit="8">8</button>
-          <button class="pin-key" data-digit="9">9</button>
-          <button class="pin-key pin-key-empty" aria-hidden="true" tabindex="-1"></button>
-          <button class="pin-key" data-digit="0">0</button>
-          <button class="pin-key pin-key-back" id="backBtn" aria-label="Delete">⌫</button>
-        </div>
-      </div>
+
 
     </div>
   </div>
 </div>
 
 <script>
-  var CORRECT_PIN = '1234';
-  var entered = '';
-
   // ── Service Worker ─────────────────────────────────────────────────────────
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/mobile/sw.js', { scope: '/mobile/' })
       .catch(function(e) { console.warn('SW registration failed:', e); });
   }
 
-  // ── Init: decide which screen to show ────────────────────────────────────
+  // ── Init: redirect if already logged in ──────────────────────────────────
   (function init() {
-    // Already fully auth'd this session
-    if (sessionStorage.getItem('mobile_pin_ok') === '1' && localStorage.getItem('auth_token')) {
-      window.location.replace('load.html');
-      return;
-    }
     var token = localStorage.getItem('auth_token');
     if (token) {
-      // Verify token is still valid on the server
       fetch('/api/auth/verify', { headers: { 'Authorization': 'Bearer ' + token } })
         .then(function(r) { return r.json(); })
         .then(function(d) {
           if (d.success) {
-            showPin();
+            window.location.replace('browse.html');
           } else {
             localStorage.removeItem('auth_token');
             showLogin();
           }
         })
         .catch(function() {
-          // Network error — if token exists assume ok, show pin
-          showPin();
+          // Network error — assume token ok, proceed
+          window.location.replace('browse.html');
         });
     } else {
       showLogin();
@@ -137,13 +104,7 @@
 
   function showLogin() {
     document.getElementById('loginContent').style.display = 'block';
-    document.getElementById('pinContent').style.display = 'none';
     setTimeout(function() { document.getElementById('inputUser').focus(); }, 100);
-  }
-
-  function showPin() {
-    document.getElementById('loginContent').style.display = 'none';
-    document.getElementById('pinContent').style.display = 'flex';
   }
 
   // ── Login form ─────────────────────────────────────────────────────────────
@@ -172,7 +133,7 @@
     .then(function(data) {
       if (data.success && data.token) {
         localStorage.setItem('auth_token', data.token);
-        showPin();
+        window.location.replace('browse.html');
       } else {
         err.textContent = data.error || 'Invalid username or password.';
         btn.disabled = false;
@@ -184,61 +145,6 @@
       btn.disabled = false;
       btn.textContent = 'Sign in';
     });
-  });
-
-  // ── PIN logic ──────────────────────────────────────────────────────────────
-  function updateDots() {
-    for (var i = 0; i < 4; i++) {
-      document.getElementById('dot' + i).classList.toggle('filled', i < entered.length);
-    }
-  }
-
-  function handleDigit(d) {
-    if (entered.length >= 4) return;
-    entered += d;
-    updateDots();
-    if (entered.length === 4) {
-      setTimeout(checkPin, 80);
-    }
-  }
-
-  function handleBack() {
-    if (entered.length === 0) return;
-    entered = entered.slice(0, -1);
-    updateDots();
-    document.getElementById('pinError').textContent = '';
-  }
-
-  function checkPin() {
-    if (entered === CORRECT_PIN) {
-      sessionStorage.setItem('mobile_pin_ok', '1');
-      window.location.replace('load.html');
-    } else {
-      var dots = document.getElementById('pinDots');
-      dots.classList.remove('shake');
-      // Force reflow so animation re-triggers
-      void dots.offsetWidth;
-      dots.classList.add('shake');
-      document.getElementById('pinError').textContent = 'Incorrect PIN — try again';
-      entered = '';
-      setTimeout(function() {
-        updateDots();
-        dots.classList.remove('shake');
-      }, 500);
-    }
-  }
-
-  // ── Pad events ─────────────────────────────────────────────────────────────
-  document.getElementById('pinPad').addEventListener('click', function(e) {
-    var btn = e.target.closest('[data-digit]');
-    if (btn) handleDigit(btn.getAttribute('data-digit'));
-  });
-  document.getElementById('backBtn').addEventListener('click', handleBack);
-
-  // Hardware keyboard support
-  document.addEventListener('keydown', function(e) {
-    if (e.key >= '0' && e.key <= '9') handleDigit(e.key);
-    else if (e.key === 'Backspace') handleBack();
   });
 </script>
 </body>

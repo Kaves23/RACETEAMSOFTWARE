@@ -4,7 +4,6 @@
 
   function clearAndRedirect() {
     localStorage.removeItem('auth_token');
-    sessionStorage.removeItem('mobile_pin_ok');
     window.location.replace('index.html');
   }
 
