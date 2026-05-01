@@ -1812,6 +1812,12 @@ console.log('📦 load-engine.js loading...');
   // ========== 3D VIEW ==========
   function switchView(view) {
     currentView = view;
+    // Clear category filter when leaving 3D
+    if (view !== '3D') {
+      catFilterActive = null;
+      const ci = document.getElementById('catInspector');
+      if (ci) ci.style.display = 'none';
+    }
     document.getElementById('btn2DView').classList.toggle('active', view === '2D');
     document.getElementById('btn3DView').classList.toggle('active', view === '3D');
     document.getElementById('view2D').style.display = view === '2D' ? 'grid' : 'none';
@@ -2077,14 +2083,20 @@ console.log('📦 load-engine.js loading...');
       }
 
       const boxGeometry = new THREE.BoxGeometry(box.length, box.height, box.width);
-      
+
+      // Category filter: dim boxes not in the active category
+      const boxCat = box.category || 'other';
+      const isCatDimmed = catFilterActive && boxCat !== catFilterActive;
+
       // SPRING GREEN (#00FF7F / 0x00FF7F) for matches, GRAY (0x808080) for non-matches
-      const boxColor = searchLower 
-        ? (isMatch ? 0x00FF7F : 0x808080) 
-        : getCategoryColor(box.category);
-      
-      const boxMaterial = new THREE.MeshPhongMaterial({ 
+      const boxColor = searchLower
+        ? (isMatch ? 0x00FF7F : 0x808080)
+        : (isCatDimmed ? 0x333333 : getCategoryColor(box.category));
+
+      const boxMaterial = new THREE.MeshPhongMaterial({
         color: boxColor,
+        transparent: isCatDimmed || false,
+        opacity: isCatDimmed ? 0.10 : 1.0,
         shininess: isMatch ? 100 : 30, // Extra shine for matching boxes
         emissive: isMatch ? 0x00FF7F : 0x000000,
         emissiveIntensity: isMatch ? 0.3 : 0
@@ -2101,10 +2113,12 @@ console.log('📦 load-engine.js loading...');
       
       // Check if this box is selected
       const isSelected = (box.id === selected3DBoxId);
-      
-      const edgesMaterial = new THREE.LineBasicMaterial({ 
-        color: isSelected ? 0xFFFF00 : (isMatch ? 0x00FF00 : 0x000000), 
-        linewidth: isSelected ? 4 : (isMatch ? 3 : 2) 
+
+      const edgesMaterial = new THREE.LineBasicMaterial({
+        color: isSelected ? 0xFFFF00 : (isMatch ? 0x00FF00 : (isCatDimmed ? 0x222222 : 0x000000)),
+        linewidth: isSelected ? 4 : (isMatch ? 3 : 2),
+        transparent: isCatDimmed,
+        opacity: isCatDimmed ? 0.08 : 1.0
       });
       const edgesLine = new THREE.LineSegments(boxEdges, edgesMaterial);
       edgesLine.position.copy(boxMesh.position);
@@ -2679,6 +2693,8 @@ console.log('📦 load-engine.js loading...');
   function update3DOverlays() {
     const truck = getTruck();
     const pl = currentLoad.placements || [];
+    // Category inspector (left rail)
+    buildCatInspector();
     // Utilisation chip
     const utilEl = document.getElementById('utilisation3D');
     if (utilEl) {
@@ -2896,6 +2912,94 @@ console.log('📦 load-engine.js loading...');
     win.document.write('<div class="g">'+imgs.map(img=>'<div class="vc"><img src="'+img.src+'"/><span class="vl">'+img.name+'</span></div>').join('')+'</div>');
     win.document.write('<table><thead><tr><th>#</th><th>Barcode</th><th>Name</th><th>Zone</th><th>Weight</th></tr></thead><tbody>'+rows+'</tbody></table>');
     win.document.write('</body></html>'); win.document.close(); setTimeout(()=>win.print(),500);
+  }
+
+  // ===================================================================
+  // ===== CATEGORY INSPECTOR (EasyCargo-style left-rail panel) ========
+  // ===================================================================
+  let catFilterActive = null; // null = all, string = category name
+
+  const CAT_NAMES = { tools:'Tools', spares:'Spares', tyres:'Tyres', fuel:'Fuel', equipment:'Equipment', personal:'Personal', other:'Other', container:'Container' };
+
+  function buildCatInspector() {
+    const inspector = document.getElementById('catInspector');
+    if (!inspector) return;
+    if (currentView !== '3D') { inspector.style.display = 'none'; return; }
+    const pl = currentLoad.placements || [];
+    if (pl.length === 0) { inspector.style.display = 'none'; return; }
+
+    // Collect stats per category
+    const catMap = {};
+    pl.forEach(p => {
+      const b = getBox(p.boxId); if (!b) return;
+      const cat = b.category || 'other';
+      if (!catMap[cat]) catMap[cat] = { count: 0, weight: 0, vol: 0, boxes: [] };
+      catMap[cat].count++;
+      catMap[cat].weight += parseFloat(b.max_weight_kg) || 0;
+      catMap[cat].vol += (b.length||0) * (b.height||0) * (b.width||0);
+      catMap[cat].boxes.push({
+        id: b.id,
+        name: esc(b.name || b.barcode || 'Box'),
+        dims: b.length ? b.length+'×'+b.width+'×'+b.height+'cm' : '',
+        wt: b.max_weight_kg ? b.max_weight_kg+'kg' : '',
+        zone: p.zone ? p.zone.replace('grid-','Zone ') : ''
+      });
+    });
+
+    const cats = Object.keys(catMap);
+    if (cats.length === 0) { inspector.style.display = 'none'; return; }
+
+    // Build tabs column
+    let tabsHtml = '<div class="ci-tabs">';
+    // "All" tab
+    tabsHtml += `<div class="ci-tab all-tab${!catFilterActive?' active':''}" onclick="LoadEngine.selectCatFilter(null)" title="All (${pl.length})"><div class="ci-tab-swatch"></div><div class="ci-tab-count">${pl.length}</div></div>`;
+    tabsHtml += '<div class="ci-sep"></div>';
+    cats.forEach(cat => {
+      const hex = '#' + getCategoryColor(cat).toString(16).padStart(6, '0');
+      tabsHtml += `<div class="ci-tab${catFilterActive===cat?' active':''}" onclick="LoadEngine.selectCatFilter('${cat}')" title="${CAT_NAMES[cat]||cat} (${catMap[cat].count})" style=""><div class="ci-tab-swatch" style="background:${hex}"></div><div class="ci-tab-count">${catMap[cat].count}</div></div>`;
+    });
+    tabsHtml += '</div>';
+
+    // Build detail panel (only when filter active)
+    let detailHtml = '';
+    if (catFilterActive && catMap[catFilterActive]) {
+      const d = catMap[catFilterActive];
+      const hex = '#' + getCategoryColor(catFilterActive).toString(16).padStart(6, '0');
+      const nm = CAT_NAMES[catFilterActive] || catFilterActive;
+      detailHtml =
+        `<div class="ci-detail">` +
+        `<div class="ci-det-title"><div class="ci-det-swatch" style="background:${hex}"></div>${nm}</div>` +
+        `<div class="ci-det-stat"><span>Boxes</span><strong>${d.count}</strong></div>` +
+        `<div class="ci-det-stat"><span>Total weight</span><strong>${Math.round(d.weight)} kg</strong></div>` +
+        `<div class="ci-det-stat"><span>Volume</span><strong>${(d.vol/1000000).toFixed(2)} m³</strong></div>` +
+        `<hr class="ci-det-sep">` +
+        (d.boxes.length
+          ? d.boxes.map(bx =>
+              `<div class="ci-det-box" onclick="LoadEngine.jumpTo3DBox('${bx.id}')">` +
+              `<div class="ci-det-box-name">${bx.name}</div>` +
+              `<div class="ci-det-box-sub">${[bx.dims,bx.wt,bx.zone].filter(Boolean).join(' · ')}</div>` +
+              `</div>`
+            ).join('')
+          : `<div class="ci-det-empty">No boxes</div>`
+        ) +
+        `</div>`;
+    }
+
+    inspector.innerHTML = tabsHtml + detailHtml;
+    inspector.style.display = 'flex';
+  }
+
+  function selectCatFilter(cat) {
+    // Toggle: clicking the active category clears filter
+    catFilterActive = (catFilterActive === cat) ? null : cat;
+    buildCatInspector();
+    render3DWithSearch(currentSearchTerm);
+  }
+
+  function jumpTo3DBox(boxId) {
+    selected3DBoxId = String(boxId);
+    show3DSelectedPanel(String(boxId));
+    render3DWithSearch(currentSearchTerm);
   }
 
   // ===================================================================
@@ -3833,7 +3937,10 @@ console.log('📦 load-engine.js loading...');
     hideAutoPackPanel,
     togglePackRule,
     runAutoPack,
-    applyAutoPack
+    applyAutoPack,
+    buildCatInspector,
+    selectCatFilter,
+    jumpTo3DBox
   };
 
   // Auto-initialize on DOM ready
