@@ -96,7 +96,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       _applyApiResponses(cached.boxesResp, cached.itemsResp, cached.contentsResp);
       setFreshnessState('cached', `CACHED ${_cacheAgeLabel(cached.ts)}`);
       await loadDrivers();
-      initUI();
+      try { initUI(); } catch(e) { console.error('⚠️ initUI error (cached path):', e); }
       renderAll();
       // Background live refresh
       setFreshnessState('refreshing');
@@ -109,7 +109,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       await loadData(false);
       console.log('📊 After loadData - equipment:', equipment.length, 'assets:', assets.length, 'boxes:', boxes.length);
       await loadDrivers();
-      initUI();
+      try { initUI(); } catch(e) { console.error('⚠️ initUI error (fresh path):', e); }
       renderAll();
       setFreshnessState('live');
     }
@@ -806,13 +806,14 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   }
 
   function initUI() {
-    boxModal = new bootstrap.Modal(document.getElementById('boxModal'));
-    historyModal = new bootstrap.Modal(document.getElementById('historyModal'));
-    unpackModal = new bootstrap.Modal(document.getElementById('unpackModal'));
-    unpackStepReturnModal = new bootstrap.Modal(document.getElementById('unpackStepReturnModal'));
-    unpackStepBillModal   = new bootstrap.Modal(document.getElementById('unpackStepBillModal'));
-    unpackStepConfirmModal = new bootstrap.Modal(document.getElementById('unpackStepConfirmModal'));
-    unpackStepBGradeModal   = new bootstrap.Modal(document.getElementById('unpackStepBGradeModal'));
+    const _bsModal = (id) => { try { const el = document.getElementById(id); return el ? new bootstrap.Modal(el) : null; } catch(e) { console.warn('Modal init failed for #'+id, e); return null; } };
+    boxModal                = _bsModal('boxModal');
+    historyModal            = _bsModal('historyModal');
+    unpackModal             = _bsModal('unpackModal');
+    unpackStepReturnModal   = _bsModal('unpackStepReturnModal');
+    unpackStepBillModal     = _bsModal('unpackStepBillModal');
+    unpackStepConfirmModal  = _bsModal('unpackStepConfirmModal');
+    unpackStepBGradeModal   = _bsModal('unpackStepBGradeModal');
 
     document.getElementById('btnNewBox').addEventListener('click', () => showBoxModal());
     document.getElementById('btnSaveBox').addEventListener('click', saveBox);
@@ -1270,8 +1271,10 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
 
   // ========== CUSTOM MODAL HELPERS ==========
   function setupCustomModals() {
+    const _bsModal = (id) => { try { const el = document.getElementById(id); return el ? new bootstrap.Modal(el) : null; } catch(e) { console.warn('Modal init failed for #'+id, e); return null; } };
     // Prompt modal
-    const promptModal = new bootstrap.Modal(document.getElementById('customPromptModal'));
+    const promptModal = _bsModal('customPromptModal');
+    if (!promptModal) return;
     const promptInput = document.getElementById('promptModalInput');
     const btnPromptConfirm = document.getElementById('btnPromptConfirm');
     let promptResolve = null;
@@ -1313,7 +1316,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     });
     
     // Confirm modal
-    const confirmModal = new bootstrap.Modal(document.getElementById('customConfirmModal'));
+    const confirmModal = _bsModal('customConfirmModal');
     const btnConfirmYes = document.getElementById('btnConfirmYes');
     let confirmResolve = null;
     let confirmResult = null;
@@ -1347,7 +1350,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     });
     
     // Select modal (for location picker)
-    const selectModal = new bootstrap.Modal(document.getElementById('customSelectModal'));
+    const selectModal = _bsModal('customSelectModal');
     const selectDropdown = document.getElementById('selectModalDropdown');
     const btnSelectConfirm = document.getElementById('btnSelectConfirm');
     let selectResolve = null;
@@ -3571,8 +3574,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       '<div style="text-align:center;padding:32px;color:#9e9e9e"><div class="spinner-border spinner-border-sm text-primary"></div><div style="margin-top:8px;font-size:.85rem">Loading history\u2026</div></div>';
     historyModal.show();
     try {
-      const baseUrl = (window.RTS_CONFIG?.api?.baseURL || '/api');
-      const resp = await fetch(`${baseUrl}/activity-log/boxes/${currentBoxId}`, {
+      const resp = await fetch(`/api/history/boxes/${currentBoxId}`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}` }
       });
       const data = await resp.json();
@@ -3596,17 +3598,15 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     const svgTruck = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v4h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>`;
     const ACTION_META = {
       'created':            { label: 'Box Created',         color: '#34a853' },
-      'deleted':            { label: 'Box Deleted',         color: '#ea4335' },
       'item_added':         { label: 'Item Packed In',       color: '#1a73e8' },
       'item_removed':       { label: 'Item Removed',         color: '#f57c00' },
       'box_emptied':        { label: 'Box Emptied',          color: '#ea4335' },
-      'loaded_to_truck':    { label: 'Loaded to Truck',      color: '#0f9d58' },
-      'removed_from_truck': { label: 'Removed from Truck',   color: '#9e9e9e' },
+      'loaded_to_truck':    { label: 'Added to Load Plan',   color: '#0f9d58' },
+      'removed_from_truck': { label: 'Removed from Plan',    color: '#9e9e9e' },
       'scanned':            { label: 'Scanned onto Truck',   color: '#1a73e8' },
-      'unloaded':           { label: 'Unloaded from Truck',  color: '#f57c00' },
+      'unloaded':           { label: 'Scanned off Truck',    color: '#f57c00' },
       'location_changed':   { label: 'Location Changed',     color: '#9c27b0' },
       'status_changed':     { label: 'Status Changed',       color: '#607d8b' },
-      'updated':            { label: 'Updated',              color: '#607d8b' },
     };
     const headerHtml = `
       <div class="bx-hist-header">
