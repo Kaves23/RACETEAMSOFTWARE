@@ -43,9 +43,9 @@ const UPLOADED_LOG = path.join(os.homedir(), 'mychron-queue', 'uploaded.json');
 const QUEUE_DIR    = path.join(os.homedir(), 'mychron-queue');
 
 // How often to check for internet + retry uploads (ms)
-const UPLOAD_CHECK_INTERVAL = 30_000;   // 30 seconds
+const UPLOAD_CHECK_INTERVAL = 30000;   // 30 seconds
 // How long to wait after a file appears before uploading (lets RS3 finish writing)
-const FILE_SETTLE_MS = 5_000;           // 5 seconds
+const FILE_SETTLE_MS = 5000;           // 5 seconds
 
 const TARGET_EXTS = new Set(['.xrk', '.xrz', '.drk', '.drz']);
 
@@ -110,7 +110,7 @@ function uploadFile(filePath) {
       port:     parsed.port || 443,
       path:     parsed.pathname,
       method:   'POST',
-      timeout:  180_000,
+      timeout:  180000,
       headers: {
         'Content-Type':   `multipart/form-data; boundary=${boundary}`,
         'Content-Length': totalLen,
@@ -298,9 +298,9 @@ const mode = (process.argv[2] || 'watch').toLowerCase();
 
 (async () => {
   console.log('');
-  console.log('╔══════════════════════════════════════════════════════╗');
-  console.log('║   Race Studio 3 → Render auto-uploader               ║');
-  console.log('╚══════════════════════════════════════════════════════╝');
+  console.log('================================================');
+  console.log('  Race Studio 3 -> Render auto-uploader');
+  console.log('================================================');
   console.log('');
 
   if (mode === 'upload-only') {
