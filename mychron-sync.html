@@ -248,11 +248,11 @@
 
   <!-- ── TOOLBAR ─────────────────────────────────────────────────── -->
   <div id="mc-toolbar">
-    <button class="mc-btn mc-btn-orange" id="mc-btn-open-browser">
-      <i class="bi bi-wifi"></i> Open MyChrono Browser
+    <button class="mc-btn mc-btn-primary" id="mc-btn-watch">
+      <i class="bi bi-eye"></i> Watch Folder
     </button>
-    <button class="mc-btn mc-btn-primary" id="mc-btn-watch" style="display:none">
-      <i class="bi bi-eye"></i> Watch Downloads Folder
+    <button class="mc-btn mc-btn-outline" id="mc-btn-cli-tip" title="How to pull from device over WiFi">
+      <i class="bi bi-terminal"></i> CLI Sync
     </button>
     <button class="mc-btn mc-btn-outline" id="mc-btn-add">
       <i class="bi bi-plus-circle"></i> Add Files
@@ -275,11 +275,11 @@
     <!-- IP settings row (hidden by default) -->
     <div id="mc-ip-row">
       <label for="mc-ip-input">MyChrono IP address:</label>
-      <input type="text" id="mc-ip-input" value="10.0.0.1" placeholder="10.0.0.1">
+      <input type="text" id="mc-ip-input" value="192.168.0.1" placeholder="192.168.0.1">
       <button class="mc-btn mc-btn-outline" style="height:28px;padding:0 10px" id="mc-btn-ip-save">
         <i class="bi bi-check-lg"></i> Save
       </button>
-      <span style="color:#9ca3af;font-size:11px">Default: 10.0.0.1 — MyChrono 5 / 6 WiFi hotspot</span>
+      <span style="color:#9ca3af;font-size:11px">Default: 192.168.0.1 — MyChrono 5 / 6 WiFi hotspot</span>
     </div>
 
     <!-- Auto-watch strip (visible when watching) -->
@@ -461,7 +461,7 @@
     return new Date(d).toLocaleString('en-ZA', { dateStyle: 'short', timeStyle: 'short' });
   }
   function deviceIP() {
-    return localStorage.getItem('mychron_device_ip') || '10.0.0.1';
+    return localStorage.getItem('mychron_device_ip') || '192.168.0.1';
   }
   function toast(msg, type, ms) {
     type = type || 'info';
@@ -549,9 +549,10 @@
         <ul class="mc-steps">
           <li>
             <span class="mc-step-num">1</span>
-            <span>Click <b><i class="bi bi-wifi"></i> Open MyChrono Browser</b> — the device file browser
-            opens in a new tab. Download the session files you want
-            (right-click the filename → Save As).</span>
+            <span>Connect your laptop to the <b>AiM WiFi hotspot</b>, then run
+            <code>node pull-mychrono.js</code> from the repo folder — it downloads
+            session files to <code>~/mychron-queue/</code> automatically.
+            Reconnect to your normal WiFi when done.</span>
           </li>
           ${step2}
           <li>
@@ -565,8 +566,17 @@
   }
 
   function updateWatchBtn() {
-    $btnWatch.style.display =
-      (HAS_FSA && !isOnline && !watchTimer) ? '' : 'none';
+    // Watch button is always shown; label changes based on state
+    if (watchTimer) {
+      $btnWatch.innerHTML = '<i class="bi bi-eye-fill"></i> Watching…';
+      $btnWatch.classList.add('mc-btn-orange');
+      $btnWatch.classList.remove('mc-btn-primary');
+    } else {
+      $btnWatch.innerHTML = '<i class="bi bi-eye"></i> Watch Folder';
+      $btnWatch.classList.add('mc-btn-primary');
+      $btnWatch.classList.remove('mc-btn-orange');
+    }
+    if (!HAS_FSA) $btnWatch.style.display = 'none';
   }
 
   // ── Reference data ────────────────────────────────────────────────────────
@@ -952,11 +962,19 @@
     toast('Device IP saved: ' + ip, 'success');
   });
 
-  // Open MyChrono browser
-  document.getElementById('mc-btn-open-browser').addEventListener('click', () => {
-    const ip = deviceIP();
-    window.open('http://' + ip + '/datastore/', '_blank', 'noopener');
-    toast('Opening MyChrono file browser at ' + ip, 'info');
+  // CLI tip modal
+  document.getElementById('mc-btn-cli-tip').addEventListener('click', () => {
+    const msg =
+      'MyChrono WiFi uses a proprietary protocol — the browser cannot pull files directly.\n\n' +
+      'Use the included CLI script instead:\n\n' +
+      '  1. Connect Mac to AiM WiFi hotspot\n' +
+      '     (SSID: AiM-MYC5S-v2-...)\n\n' +
+      '  2. In Terminal, from the repo folder:\n' +
+      '     node pull-mychrono.js\n\n' +
+      '     → Downloads .xrk/.drk files to ~/mychron-queue/\n\n' +
+      '  3. Reconnect to regular internet — the script\n' +
+      '     auto-uploads on next run, or drag files here.';
+    alert(msg);
   });
 
   // Watch folder
