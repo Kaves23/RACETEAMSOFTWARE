@@ -1811,6 +1811,8 @@ console.log('📦 load-engine.js loading...');
     document.getElementById('btn3DView').classList.toggle('active', view === '3D');
     document.getElementById('view2D').style.display = view === '2D' ? 'grid' : 'none';
     document.getElementById('view3D').style.display = view === '3D' ? 'block' : 'none';
+    const wbb = document.getElementById('weightBalanceBar');
+    if (wbb && view !== '3D') wbb.classList.remove('show');
 
     if (view === '3D') {
       setTimeout(() => {
@@ -1835,7 +1837,7 @@ console.log('📦 load-engine.js loading...');
       camera.position.set(500, 400, 800);
       camera.lookAt(0, 0, 0);
 
-      renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+      renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, preserveDrawingBuffer: true });
       renderer.setSize(container.clientWidth, container.clientHeight);
 
       const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
@@ -1854,6 +1856,7 @@ console.log('📦 load-engine.js loading...');
       // Setup box selection and keyboard movement
       setup3DBoxSelection();
       setup3DKeyboardControls();
+      setup3DHoverTooltip();
     }
 
     render3D();
@@ -1998,35 +2001,21 @@ console.log('📦 load-engine.js loading...');
       scene.add(heightLine);
     });
 
-    // Draw truck walls (transparent)
-    const truckGeometry = new THREE.BoxGeometry(truck.length, truck.height, truck.width);
-    const truckMaterial = new THREE.MeshPhongMaterial({ 
-      color: 0x999999, 
-      transparent: true, 
-      opacity: 0.15,
-      side: THREE.DoubleSide
-    });
-    const truckMesh = new THREE.Mesh(truckGeometry, truckMaterial);
-    truckMesh.position.set(0, truck.height / 2, 0);
-    scene.add(truckMesh);
-
-    // Draw truck wireframe
-    const wireframe = new THREE.WireframeGeometry(truckGeometry);
-    const line = new THREE.LineSegments(wireframe, new THREE.LineBasicMaterial({ color: 0x666666 }));
-    line.position.copy(truckMesh.position);
-    scene.add(line);
+    buildTruckModel(truck);
 
     // Draw boxes
-    currentLoad.placements.forEach(placement => {
+    currentLoad.placements.forEach((placement, idx) => {
       const box = getBox(placement.boxId);
       if (!box) return;
 
       const boxGeometry = new THREE.BoxGeometry(box.length, box.height, box.width);
-      const boxMaterial = new THREE.MeshPhongMaterial({ 
+      const boxMaterial = new THREE.MeshPhongMaterial({
         color: getCategoryColor(box.category),
         shininess: 30
       });
       const boxMesh = new THREE.Mesh(boxGeometry, boxMaterial);
+      boxMesh.userData.isBox = true;
+      boxMesh.userData.boxId = box.id;
 
       const pos = calculatePositionIn3D(placement, box, truck);
       boxMesh.position.set(pos.x, pos.y, pos.z);
@@ -2035,31 +2024,14 @@ console.log('📦 load-engine.js loading...');
       const edgesMaterial = new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 2 });
       const edgesLine = new THREE.LineSegments(boxEdges, edgesMaterial);
       edgesLine.position.copy(boxMesh.position);
+      edgesLine.userData.isBox = true;
 
       scene.add(boxMesh);
       scene.add(edgesLine);
-
-      // Add barcode label on box
-      const labelCanvas = document.createElement('canvas');
-      labelCanvas.width = 128;
-      labelCanvas.height = 64;
-      const labelCtx = labelCanvas.getContext('2d');
-      labelCtx.fillStyle = '#ffffff';
-      labelCtx.fillRect(0, 0, 128, 64);
-      labelCtx.fillStyle = '#000000';
-      labelCtx.font = 'bold 16px Arial';
-      labelCtx.textAlign = 'center';
-      labelCtx.textBaseline = 'middle';
-      labelCtx.fillText(box.barcode, 64, 32);
-      
-      const labelTexture = new THREE.CanvasTexture(labelCanvas);
-      const labelSpriteMaterial = new THREE.SpriteMaterial({ map: labelTexture });
-      const labelSprite = new THREE.Sprite(labelSpriteMaterial);
-      labelSprite.position.set(pos.x, pos.y + box.height/2 + 10, pos.z);
-      labelSprite.scale.set(40, 20, 1);
-      scene.add(labelSprite);
+      addBoxFaceLabels(pos, box, false, false, idx + 1);
     });
 
+    update3DOverlays();
     if (renderer) renderer.render(scene, camera);
   }
 
@@ -2152,27 +2124,8 @@ console.log('📦 load-engine.js loading...');
         scene.add(glowMesh);
       }
 
-      // Add barcode label on box (brighter for matches)
-      const labelCanvas = document.createElement('canvas');
-      labelCanvas.width = 128;
-      labelCanvas.height = 64;
-      const labelCtx = labelCanvas.getContext('2d');
-      labelCtx.fillStyle = isMatch ? '#00FF7F' : '#ffffff';
-      labelCtx.fillRect(0, 0, 128, 64);
-      labelCtx.fillStyle = isMatch ? '#000000' : '#000000';
-      labelCtx.font = isMatch ? 'bold 18px Arial' : 'bold 16px Arial';
-      labelCtx.textAlign = 'center';
-      labelCtx.textBaseline = 'middle';
-      labelCtx.fillText(box.barcode, 64, 32);
-      
-      const labelTexture = new THREE.CanvasTexture(labelCanvas);
-      const labelSpriteMaterial = new THREE.SpriteMaterial({ map: labelTexture });
-      const labelSprite = new THREE.Sprite(labelSpriteMaterial);
-      labelSprite.position.set(pos.x, pos.y + box.height/2 + 10, pos.z);
-      labelSprite.scale.set(isMatch ? 50 : 40, isMatch ? 25 : 20, 1);
-      labelSprite.userData.isBox = true;
-      scene.add(labelSprite);
-      
+      addBoxFaceLabels(pos, box, isMatch, isSelected, null);
+
       // Add pulsing animation for matching boxes
       if (isMatch) {
         const pulseScale = 1 + Math.sin(Date.now() * 0.003) * 0.05;
@@ -2180,6 +2133,7 @@ console.log('📦 load-engine.js loading...');
       }
     });
 
+    update3DOverlays();
     if (renderer) renderer.render(scene, camera);
   }
 
@@ -2218,7 +2172,21 @@ console.log('📦 load-engine.js loading...');
   function animate3D() {
     if (currentView !== '3D') return;
     requestAnimationFrame(animate3D);
-    
+
+    // Smooth camera lerp to preset targets
+    if (cameraTarget) {
+      const s = 0.09;
+      cameraDistance += (cameraTarget.dist - cameraDistance) * s;
+      cameraRotation.theta += (cameraTarget.theta - cameraRotation.theta) * s;
+      cameraRotation.phi += (cameraTarget.phi - cameraRotation.phi) * s;
+      if (Math.abs(cameraTarget.dist - cameraDistance) < 1 &&
+          Math.abs(cameraTarget.theta - cameraRotation.theta) < 0.001 &&
+          Math.abs(cameraTarget.phi - cameraRotation.phi) < 0.001) {
+        cameraTarget = null;
+      }
+      updateCameraPosition();
+    }
+
     // Animate pulsing for matching boxes during search
     if (currentSearchTerm && scene) {
       scene.children.forEach(child => {
@@ -2228,7 +2196,7 @@ console.log('📦 load-engine.js loading...');
         }
       });
     }
-    
+
     if (camera && renderer && scene) {
       renderer.render(scene, camera);
     }
@@ -2239,6 +2207,8 @@ console.log('📦 load-engine.js loading...');
   let previousMousePosition = { x: 0, y: 0 };
   let cameraDistance = 1000;
   let cameraRotation = { theta: 0.5, phi: 0.5 };
+  let cameraLookTarget = { x: 0, y: 100, z: 0 };
+  let cameraTarget = null; // { dist, theta, phi } for smooth lerp transitions
 
   function setupMouseControls() {
     const canvas = document.getElementById('truckCanvas');
@@ -2254,10 +2224,20 @@ console.log('📦 load-engine.js loading...');
       const deltaX = e.clientX - previousMousePosition.x;
       const deltaY = e.clientY - previousMousePosition.y;
 
-      if (e.button === 0 || e.buttons === 1) { // Left click - rotate
+      if (e.buttons === 1) { // Left drag - orbit rotate
+        cameraTarget = null; // cancel any lerp
         cameraRotation.theta += deltaX * 0.005;
         cameraRotation.phi += deltaY * 0.005;
         cameraRotation.phi = Math.max(0.1, Math.min(Math.PI - 0.1, cameraRotation.phi));
+        updateCameraPosition();
+      } else if (e.buttons === 2 && camera) { // Right drag - pan
+        const panSpeed = cameraDistance * 0.0008;
+        const right = new THREE.Vector3();
+        camera.getWorldDirection(right);
+        right.cross(camera.up).normalize();
+        cameraLookTarget.x -= right.x * deltaX * panSpeed;
+        cameraLookTarget.z -= right.z * deltaX * panSpeed;
+        cameraLookTarget.y += deltaY * panSpeed * 0.5;
         updateCameraPosition();
       }
 
@@ -2268,20 +2248,23 @@ console.log('📦 load-engine.js loading...');
       isDragging = false;
     });
 
+    canvas.addEventListener('contextmenu', e => e.preventDefault());
+
     canvas.addEventListener('wheel', e => {
       e.preventDefault();
+      cameraTarget = null;
       cameraDistance += e.deltaY * 0.5;
-      cameraDistance = Math.max(300, Math.min(2000, cameraDistance));
+      cameraDistance = Math.max(200, Math.min(2500, cameraDistance));
       updateCameraPosition();
     });
   }
 
   function updateCameraPosition() {
     if (!camera) return;
-    camera.position.x = cameraDistance * Math.sin(cameraRotation.phi) * Math.cos(cameraRotation.theta);
-    camera.position.y = cameraDistance * Math.cos(cameraRotation.phi);
-    camera.position.z = cameraDistance * Math.sin(cameraRotation.phi) * Math.sin(cameraRotation.theta);
-    camera.lookAt(0, 100, 0);
+    camera.position.x = cameraLookTarget.x + cameraDistance * Math.sin(cameraRotation.phi) * Math.cos(cameraRotation.theta);
+    camera.position.y = cameraLookTarget.y + cameraDistance * Math.cos(cameraRotation.phi);
+    camera.position.z = cameraLookTarget.z + cameraDistance * Math.sin(cameraRotation.phi) * Math.sin(cameraRotation.theta);
+    camera.lookAt(cameraLookTarget.x, cameraLookTarget.y, cameraLookTarget.z);
   }
 
   // 3D Box Selection and Movement
@@ -2304,16 +2287,17 @@ console.log('📦 load-engine.js loading...');
 
       // Find if we clicked on a box
       for (let intersect of intersects) {
-        if (intersect.object.userData && intersect.object.userData.isBox) {
+        if (intersect.object.userData && intersect.object.userData.isBox && intersect.object.userData.boxId) {
           selected3DBoxId = intersect.object.userData.boxId;
-          console.log('📦 Selected box in 3D:', selected3DBoxId);
-          render3DWithSearch(currentSearchTerm); // Re-render to show selection
+          render3DWithSearch(currentSearchTerm);
+          show3DSelectedPanel(selected3DBoxId);
           return;
         }
       }
-      
+
       // Clicked empty space - deselect
       selected3DBoxId = null;
+      hide3DSelectedPanel();
       render3DWithSearch(currentSearchTerm);
     });
   }
@@ -2479,6 +2463,380 @@ console.log('📦 load-engine.js loading...');
         break;
       }
     }
+  }
+
+  // ===== 3D: TEAM COLOUR =====
+  function getTeamColor() {
+    try {
+      const v = getComputedStyle(document.documentElement).getPropertyValue('--rts-primary').trim();
+      if (v) return parseInt(v.replace('#', ''), 16) || 0x1a73e8;
+    } catch(e) {}
+    return 0x1a73e8;
+  }
+
+  // ===== 3D: RACE TRUCK MODEL =====
+  function buildTruckModel(truck) {
+    const L = truck.length || 600, H = truck.height || 250, W = truck.width || 240;
+    const tc = getTeamColor();
+    // Floor
+    const fl = new THREE.Mesh(new THREE.BoxGeometry(L, 8, W), new THREE.MeshPhongMaterial({ color: 0x111111 }));
+    fl.position.set(0, 4, 0); fl.userData.isTruck = true; scene.add(fl);
+    // Trailer body (semi-transparent)
+    const bodyMesh = new THREE.Mesh(new THREE.BoxGeometry(L, H, W), new THREE.MeshPhongMaterial({ color: tc, transparent: true, opacity: 0.18, side: THREE.DoubleSide }));
+    bodyMesh.position.set(0, H / 2, 0); bodyMesh.userData.isTruck = true; scene.add(bodyMesh);
+    // Trailer wireframe
+    const edgeLines = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(L, H, W)), new THREE.LineBasicMaterial({ color: tc }));
+    edgeLines.position.set(0, H / 2, 0); edgeLines.userData.isTruck = true; scene.add(edgeLines);
+    // Livery stripe on both sides
+    const stMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.2 });
+    [-W/2 + 2, W/2 - 2].forEach(sz => {
+      const s = new THREE.Mesh(new THREE.BoxGeometry(L * 0.95, H * 0.1, 4), stMat);
+      s.position.set(0, H * 0.42, sz); s.userData.isTruck = true; scene.add(s);
+    });
+    // Team name on near side
+    const tName = (document.title || 'RACE TEAM').replace(/[^a-zA-Z0-9 ]/g, ' ').trim().split('  ')[0].trim().toUpperCase().substring(0, 22);
+    const nCvs = document.createElement('canvas'); nCvs.width = 512; nCvs.height = 128;
+    const nCtx = nCvs.getContext('2d');
+    nCtx.font = 'bold 58px Arial Black, Arial, sans-serif';
+    nCtx.fillStyle = 'rgba(255,255,255,0.88)'; nCtx.textAlign = 'center'; nCtx.textBaseline = 'middle';
+    nCtx.fillText(tName, 256, 64);
+    const nPlane = new THREE.Mesh(new THREE.PlaneGeometry(L * 0.52, H * 0.15), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(nCvs), transparent: true, side: THREE.DoubleSide }));
+    nPlane.rotation.y = Math.PI / 2; nPlane.position.set(0, H * 0.62, -W / 2 - 1); nPlane.userData.isTruck = true; scene.add(nPlane);
+    // Rear door frame (loading entrance, +X face)
+    const dMat = new THREE.MeshBasicMaterial({ color: 0xffd700 });
+    [-W/2, W/2].forEach(dz => {
+      const v = new THREE.Mesh(new THREE.BoxGeometry(8, H, 8), dMat);
+      v.position.set(L/2, H/2, dz); v.userData.isTruck = true; scene.add(v);
+    });
+    const dTop = new THREE.Mesh(new THREE.BoxGeometry(8, 8, W), dMat);
+    dTop.position.set(L/2, H, 0); dTop.userData.isTruck = true; scene.add(dTop);
+    // Cab body (front is -X)
+    const cLen = Math.min(L * 0.26, 200), cH = H * 0.82;
+    const cabMesh = new THREE.Mesh(new THREE.BoxGeometry(cLen, cH, W), new THREE.MeshPhongMaterial({ color: tc, shininess: 55 }));
+    cabMesh.position.set(-L/2 - cLen/2, cH/2, 0); cabMesh.userData.isTruck = true; scene.add(cabMesh);
+    const cabEdge = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(cLen, cH, W)), new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.28 }));
+    cabEdge.position.copy(cabMesh.position); cabEdge.userData.isTruck = true; scene.add(cabEdge);
+    // Windshield
+    const ws = new THREE.Mesh(new THREE.PlaneGeometry(W * 0.78, cH * 0.33), new THREE.MeshBasicMaterial({ color: 0x87ceeb, transparent: true, opacity: 0.42, side: THREE.DoubleSide }));
+    ws.rotation.y = Math.PI / 2; ws.rotation.z = 0.28; ws.position.set(-L/2 - cLen + 10, cH * 0.72, 0); ws.userData.isTruck = true; scene.add(ws);
+    // Wheels (front steer x2, drive x2, trailer x2)
+    const wR = Math.min(H * 0.135, 52), wW = 22;
+    const wMat = new THREE.MeshPhongMaterial({ color: 0x111111, shininess: 20 });
+    const rMat = new THREE.MeshPhongMaterial({ color: 0x666666, shininess: 60 });
+    const wGeo = new THREE.CylinderGeometry(wR, wR, wW, 16);
+    const rGeo = new THREE.CylinderGeometry(wR * 0.5, wR * 0.5, wW + 2, 10);
+    [[-L/2 - cLen * 0.7, W/2 + wW/2], [-L/2 - cLen * 0.7, -(W/2 + wW/2)],
+     [-L/2 - cLen * 0.12, W/2 + wW/2], [-L/2 - cLen * 0.12, -(W/2 + wW/2)],
+     [L * 0.34, W/2 + wW/2], [L * 0.34, -(W/2 + wW/2)]].forEach(([wx, wz]) => {
+      const wh = new THREE.Mesh(wGeo, wMat); wh.rotation.z = Math.PI / 2;
+      wh.position.set(wx, wR, wz); wh.userData.isTruck = true; scene.add(wh);
+      const rm = new THREE.Mesh(rGeo, rMat); rm.rotation.z = Math.PI / 2;
+      rm.position.set(wx, wR, wz); rm.userData.isTruck = true; scene.add(rm);
+    });
+    // Chassis beam
+    const ch = new THREE.Mesh(new THREE.BoxGeometry(L + cLen, 10, W * 0.14), new THREE.MeshPhongMaterial({ color: 0x222222 }));
+    ch.position.set(-cLen/2, wR * 0.45, 0); ch.userData.isTruck = true; scene.add(ch);
+  }
+
+  // ===== 3D: BOX FACE LABELS =====
+  function addBoxFaceLabels(pos, box, isMatch, isSelected, stepNum) {
+    const catHex = '#' + getCategoryColor(box.category).toString(16).padStart(6, '0');
+    const bgColor = isMatch ? '#00FF7F' : (isSelected ? '#FFD700' : catHex);
+    // Top-face label plane
+    const tCvs = document.createElement('canvas'); tCvs.width = 256; tCvs.height = 128;
+    const tCtx = tCvs.getContext('2d');
+    tCtx.fillStyle = bgColor; tCtx.fillRect(0, 0, 256, 26);
+    tCtx.fillStyle = '#111420'; tCtx.fillRect(0, 26, 256, 102);
+    if (stepNum != null) {
+      tCtx.fillStyle = '#ffffff'; tCtx.beginPath(); tCtx.arc(237, 13, 13, 0, Math.PI * 2); tCtx.fill();
+      tCtx.fillStyle = '#000'; tCtx.font = 'bold 14px Arial'; tCtx.textAlign = 'center'; tCtx.textBaseline = 'middle';
+      tCtx.fillText(String(stepNum), 237, 13);
+    }
+    tCtx.fillStyle = '#fff'; tCtx.font = 'bold 25px Arial'; tCtx.textAlign = 'center'; tCtx.textBaseline = 'middle';
+    tCtx.fillText((box.name || box.barcode || '').substring(0, 18), 128, 65);
+    tCtx.fillStyle = '#888'; tCtx.font = '16px monospace';
+    tCtx.fillText(box.barcode || '', 128, 100);
+    const topPlane = new THREE.Mesh(
+      new THREE.PlaneGeometry(Math.max(box.length * 0.88, 40), Math.max(box.width * 0.88, 25)),
+      new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(tCvs), transparent: true, side: THREE.DoubleSide })
+    );
+    topPlane.rotation.x = -Math.PI / 2;
+    topPlane.position.set(pos.x, pos.y + box.height / 2 + 1, pos.z);
+    topPlane.userData.isBox = true; topPlane.userData.boxId = box.id;
+    scene.add(topPlane);
+    // Floating sprite (always faces camera)
+    const sCvs = document.createElement('canvas'); sCvs.width = 220; sCvs.height = 78;
+    const sCtx = sCvs.getContext('2d');
+    sCtx.fillStyle = isMatch ? 'rgba(0,255,127,0.93)' : (isSelected ? 'rgba(255,215,0,0.93)' : 'rgba(20,24,33,0.88)');
+    sCtx.beginPath();
+    sCtx.moveTo(10,0); sCtx.lineTo(210,0); sCtx.arcTo(220,0,220,10,10);
+    sCtx.lineTo(220,68); sCtx.arcTo(220,78,210,78,10);
+    sCtx.lineTo(10,78); sCtx.arcTo(0,78,0,68,10);
+    sCtx.lineTo(0,10); sCtx.arcTo(0,0,10,0,10);
+    sCtx.closePath(); sCtx.fill();
+    sCtx.strokeStyle = isMatch ? '#00cc60' : (isSelected ? '#ccaa00' : 'rgba(255,255,255,0.18)');
+    sCtx.lineWidth = 2; sCtx.stroke();
+    sCtx.fillStyle = (isMatch || isSelected) ? '#000' : '#fff';
+    sCtx.font = 'bold 21px Arial'; sCtx.textAlign = 'center'; sCtx.textBaseline = 'middle';
+    sCtx.fillText((box.name || box.barcode || '').substring(0, 16), 110, 29);
+    sCtx.fillStyle = (isMatch || isSelected) ? '#333' : '#aaa'; sCtx.font = '14px monospace';
+    sCtx.fillText((box.barcode || '') + (box.max_weight_kg ? '  ' + box.max_weight_kg + 'kg' : ''), 110, 57);
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(sCvs), transparent: true }));
+    const scW = Math.max(box.length * 0.72, 55);
+    sprite.scale.set(scW, scW * 0.37, 1);
+    sprite.position.set(pos.x, pos.y + box.height / 2 + 18, pos.z);
+    sprite.userData.isBox = true; sprite.userData.boxId = box.id;
+    scene.add(sprite);
+  }
+
+  // ===== 3D: CAMERA PRESETS =====
+  const CAMERA_PRESETS = {
+    iso:    { dist: 1000, theta: 0.8,          phi: 0.9 },
+    top:    { dist: 1000, theta: Math.PI / 2,  phi: 0.05 },
+    front:  { dist: 900,  theta: -Math.PI / 2, phi: Math.PI / 2 },
+    side:   { dist: 900,  theta: Math.PI,      phi: Math.PI / 2 },
+    inside: { special: 'inside' }
+  };
+
+  function setCameraPreset(name) {
+    const preset = CAMERA_PRESETS[name]; if (!preset) return;
+    document.querySelectorAll('.cam-preset-btn').forEach(b => b.classList.remove('active'));
+    const btn = document.getElementById('camBtn' + name.charAt(0).toUpperCase() + name.slice(1));
+    if (btn) btn.classList.add('active');
+    if (preset.special === 'inside') {
+      const truck = getTruck();
+      const tL = truck ? truck.length : 600, tH = truck ? truck.height : 250;
+      if (camera) {
+        camera.position.set(tL * 0.36, tH * 0.45, 0);
+        camera.lookAt(-tL * 0.38, tH * 0.38, 0);
+        cameraTarget = null;
+      }
+      return;
+    }
+    cameraTarget = { dist: preset.dist, theta: preset.theta, phi: preset.phi };
+  }
+
+  // ===== 3D: OVERLAYS =====
+  function update3DOverlays() {
+    const truck = getTruck();
+    const pl = currentLoad.placements || [];
+    // Utilisation chip
+    const utilEl = document.getElementById('utilisation3D');
+    if (utilEl) {
+      if (pl.length > 0 && truck) {
+        const tVol = (truck.length||1) * (truck.height||1) * (truck.width||1);
+        const uVol = pl.reduce((s,p)=>{ const b=getBox(p.boxId); return b?s+(b.length||0)*(b.height||0)*(b.width||0):s; },0);
+        const uWt  = pl.reduce((s,p)=>{ const b=getBox(p.boxId); return b?s+(b.max_weight_kg||0):s; },0);
+        const pct  = Math.min(100, Math.round((uVol/tVol)*100));
+        const freeM = (((tVol-uVol)/((truck.height||1)*(truck.width||1)))/100).toFixed(1);
+        utilEl.innerHTML = '<span class="util-sub">Space Used</span><span class="util-val">'+pct+'%</span><span class="util-sub">'+(uWt/1000).toFixed(1)+'t &nbsp;&middot;&nbsp; '+freeM+'m free</span>';
+        utilEl.style.display = 'block';
+      } else { utilEl.style.display = 'none'; }
+    }
+    // Category legend
+    const legEl = document.getElementById('legend3D');
+    if (legEl) {
+      const cats = [...new Set(pl.map(p=>{ const b=getBox(p.boxId); return b?(b.category||'other'):null; }).filter(Boolean))];
+      if (cats.length > 0) {
+        const nm = { tools:'Tools',spares:'Spares',tyres:'Tyres',fuel:'Fuel',equipment:'Equipment',personal:'Personal',other:'Other',container:'Container' };
+        legEl.innerHTML = '<div class="leg-title">Categories</div>' + cats.map(c=>'<div class="leg-item"><span class="leg-swatch" style="background:#'+getCategoryColor(c).toString(16).padStart(6,'0')+'"></span><span>'+(nm[c]||c)+'</span></div>').join('');
+        legEl.style.display = 'block';
+      } else { legEl.style.display = 'none'; }
+    }
+    // Weight balance bar
+    if (truck && pl.length > 0) {
+      const bar = document.getElementById('weightBalanceBar');
+      if (bar) {
+        const fW = pl.filter(p=>parseInt((p.zone||'').replace('grid-',''))<=4).reduce((s,p)=>{ const b=getBox(p.boxId); return b?s+(b.max_weight_kg||0):s; },0);
+        const rW = pl.filter(p=>parseInt((p.zone||'').replace('grid-',''))>4).reduce((s,p)=>{ const b=getBox(p.boxId); return b?s+(b.max_weight_kg||0):s; },0);
+        const tot = fW + rW || 1;
+        const ff = bar.querySelector('.wbb-front'), rf = bar.querySelector('.wbb-rear');
+        if (ff) ff.style.width = Math.round((fW/tot)*100)+'%';
+        if (rf) rf.style.width = Math.round((rW/tot)*100)+'%';
+        const legs = bar.querySelectorAll('.wbb-legend span');
+        if (legs[0]) legs[0].innerHTML = '<span class="dot" style="background:#1a73e8"></span>Front: '+fW+'kg';
+        if (legs[1]) legs[1].innerHTML = '<span class="dot" style="background:#ea4335"></span>Rear: '+rW+'kg';
+        if (currentView === '3D') bar.classList.add('show');
+      }
+    }
+  }
+
+  // ===== 3D: SELECTED BOX PANEL =====
+  function show3DSelectedPanel(boxId) {
+    const panel = document.getElementById('selected3DPanel'); if (!panel) return;
+    const box = getBox(boxId); if (!box) { hide3DSelectedPanel(); return; }
+    const nEl = document.getElementById('sel3DName'); if (nEl) nEl.textContent = box.name || box.barcode || 'Box';
+    const iEl = document.getElementById('sel3DInfo');
+    if (iEl) {
+      const p = currentLoad.placements.find(p => p.boxId === boxId);
+      iEl.textContent = [box.barcode, box.length?box.length+'x'+box.width+'x'+box.height+'cm':'', box.max_weight_kg?box.max_weight_kg+'kg':'', p?p.zone.replace('grid-','Zone '):'' ].filter(Boolean).join(' · ');
+    }
+    const rBtn = document.getElementById('sel3DRemoveBtn');
+    if (rBtn) rBtn.onclick = () => {
+      const b = boxes.find(bx => String(bx.id) === String(boxId));
+      rflShow('box', boxId, b ? (b.name || b.barcode || boxId) : boxId);
+      selected3DBoxId = null; hide3DSelectedPanel();
+    };
+    panel.style.display = 'block';
+  }
+
+  function hide3DSelectedPanel() {
+    const p = document.getElementById('selected3DPanel'); if (p) p.style.display = 'none';
+  }
+
+  // ===== 3D: HOVER TOOLTIP =====
+  function setup3DHoverTooltip() {
+    const canvas = document.getElementById('truckCanvas');
+    const tip = document.getElementById('tooltip3D');
+    if (!canvas || !tip) return;
+    let hTimer = null;
+    canvas.addEventListener('mousemove', e => {
+      if (isDragging || !scene || !camera) { tip.style.display = 'none'; return; }
+      clearTimeout(hTimer);
+      hTimer = setTimeout(() => {
+        const rect = canvas.getBoundingClientRect();
+        const rc = new THREE.Raycaster();
+        rc.setFromCamera(new THREE.Vector2(((e.clientX-rect.left)/rect.width)*2-1, -((e.clientY-rect.top)/rect.height)*2+1), camera);
+        const hits = rc.intersectObjects(scene.children, false).filter(h => h.object.userData && h.object.userData.isBox && h.object.userData.boxId);
+        if (hits.length > 0) {
+          const box = getBox(hits[0].object.userData.boxId);
+          if (box) {
+            const pl = currentLoad.placements.find(p => p.boxId === hits[0].object.userData.boxId);
+            const items = (box.contentsItems || []).length;
+            tip.innerHTML = '<div class="tt-name">'+(box.name||box.barcode||'Box')+'</div>'+
+              (box.barcode?'<div class="tt-detail">'+box.barcode+'</div>':'')+
+              (box.length?'<div class="tt-detail">'+box.length+' x '+box.width+' x '+box.height+' cm</div>':'')+
+              (box.max_weight_kg?'<div class="tt-detail">'+box.max_weight_kg+' kg</div>':'')+
+              (pl?'<div class="tt-detail">'+pl.zone.replace('grid-','Zone ')+'</div>':'')+
+              (items>0?'<div class="tt-detail">'+items+' item'+(items!==1?'s':'')+' inside</div>':'');
+            const cont = canvas.parentElement.getBoundingClientRect();
+            let lx = e.clientX - cont.left + 14, ly = e.clientY - cont.top - 10;
+            if (lx + 215 > cont.width) lx = e.clientX - cont.left - 220;
+            tip.style.left = lx+'px'; tip.style.top = ly+'px'; tip.style.display = 'block';
+            return;
+          }
+        }
+        tip.style.display = 'none';
+      }, 80);
+    });
+    canvas.addEventListener('mouseleave', () => { clearTimeout(hTimer); tip.style.display = 'none'; });
+  }
+
+  // ===== 3D: STEP-BY-STEP MODE =====
+  let stepMode3D = false, currentStep3D = 0, stepPlayback3D = null;
+
+  function enterStepMode() {
+    if (!currentLoad.placements || !currentLoad.placements.length) { alert('No boxes placed yet.'); return; }
+    if (currentView !== '3D') { switchView('3D'); setTimeout(enterStepMode, 300); return; }
+    stepMode3D = true; currentStep3D = 0;
+    const bar = document.getElementById('stepBar3D'); if (bar) bar.style.display = 'flex';
+    const btn = document.getElementById('btnStepMode'); if (btn) btn.classList.add('active');
+    updateStepBar3D(); renderStep3D(0);
+  }
+
+  function exitStepMode() {
+    stepMode3D = false; clearInterval(stepPlayback3D); stepPlayback3D = null;
+    const bar = document.getElementById('stepBar3D'); if (bar) bar.style.display = 'none';
+    const btn = document.getElementById('btnStepMode'); if (btn) btn.classList.remove('active');
+    const ic = document.getElementById('stepPlayIcon'); if (ic) ic.innerHTML = '<path d="M6 4l12 6-12 6z"/>';
+    render3DWithSearch(currentSearchTerm);
+  }
+
+  function updateStepBar3D() {
+    const n = currentLoad.placements.length, pl = currentLoad.placements[currentStep3D];
+    const box = pl ? getBox(pl.boxId) : null;
+    const cEl = document.getElementById('stepCounter3D'); if (cEl) cEl.textContent = 'Step '+(currentStep3D+1)+' / '+n;
+    const nEl = document.getElementById('stepBoxName3D'); if (nEl) nEl.textContent = box ? (box.name||box.barcode||'Box') : '';
+    const zEl = document.getElementById('stepBoxZone3D'); if (zEl) zEl.textContent = pl ? pl.zone.replace('grid-','Zone ') : '';
+  }
+
+  function renderStep3D(n) {
+    if (!scene) return;
+    scene.children.filter(c => c.userData && c.userData.isBox).forEach(c => scene.remove(c));
+    const truck = getTruck(); if (!truck) return;
+    currentLoad.placements.forEach((pl, idx) => {
+      const box = getBox(pl.boxId); if (!box) return;
+      const isCur = idx === n, isFut = idx > n;
+      const bMesh = new THREE.Mesh(
+        new THREE.BoxGeometry(box.length, box.height, box.width),
+        new THREE.MeshPhongMaterial({ color: isFut?0x444444:(isCur?0xFFD700:getCategoryColor(box.category)), transparent:isFut, opacity:isFut?0.12:1, shininess:isCur?120:30 })
+      );
+      bMesh.userData.isBox = true; bMesh.userData.boxId = box.id;
+      const pos = calculatePositionIn3D(pl, box, truck);
+      bMesh.position.set(pos.x, pos.y, pos.z); scene.add(bMesh);
+      if (!isFut) {
+        const eMesh = new THREE.LineSegments(
+          new THREE.EdgesGeometry(new THREE.BoxGeometry(box.length, box.height, box.width)),
+          new THREE.LineBasicMaterial({ color: isCur?0xffffff:0x000000, linewidth: isCur?3:1 })
+        );
+        eMesh.position.copy(bMesh.position); eMesh.userData.isBox = true; scene.add(eMesh);
+        addBoxFaceLabels(pos, box, false, isCur, idx + 1);
+      }
+      if (isCur) {
+        const gMesh = new THREE.Mesh(
+          new THREE.BoxGeometry(box.length+10, box.height+10, box.width+10),
+          new THREE.MeshBasicMaterial({ color: 0xFFD700, transparent:true, opacity:0.22, wireframe:true })
+        );
+        gMesh.position.copy(bMesh.position); gMesh.userData.isBox = true; scene.add(gMesh);
+      }
+    });
+    if (renderer) renderer.render(scene, camera);
+  }
+
+  function stepNext() { if (!stepMode3D||currentStep3D>=currentLoad.placements.length-1) return; currentStep3D++; updateStepBar3D(); renderStep3D(currentStep3D); }
+  function stepPrev() { if (!stepMode3D||currentStep3D<=0) return; currentStep3D--; updateStepBar3D(); renderStep3D(currentStep3D); }
+
+  function togglePlayback() {
+    if (stepPlayback3D) {
+      clearInterval(stepPlayback3D); stepPlayback3D = null;
+      const ic = document.getElementById('stepPlayIcon'); if (ic) ic.innerHTML = '<path d="M6 4l12 6-12 6z"/>';
+    } else {
+      const ic = document.getElementById('stepPlayIcon'); if (ic) ic.innerHTML = '<rect x="4" y="4" width="4" height="12"/><rect x="12" y="4" width="4" height="12"/>';
+      stepPlayback3D = setInterval(() => {
+        if (currentStep3D < currentLoad.placements.length - 1) { currentStep3D++; updateStepBar3D(); renderStep3D(currentStep3D); }
+        else { clearInterval(stepPlayback3D); stepPlayback3D = null; const ic2 = document.getElementById('stepPlayIcon'); if (ic2) ic2.innerHTML = '<path d="M6 4l12 6-12 6z"/>'; }
+      }, 2000);
+    }
+  }
+
+  // ===== 3D: SCREENSHOT =====
+  function screenshot3D() {
+    if (!renderer || !scene || !camera) return;
+    renderer.render(scene, camera);
+    const a = document.createElement('a');
+    const truck = getTruck();
+    a.download = 'load-plan-' + (truck ? truck.name.replace(/[^a-z0-9]/gi,'-').toLowerCase() : 'truck') + '-' + new Date().toISOString().slice(0,10) + '.png';
+    a.href = renderer.domElement.toDataURL('image/png'); a.click();
+  }
+
+  // ===== 3D: PRINT 4-VIEW =====
+  function print4View() {
+    if (!renderer || !scene || !camera) return;
+    const sD = cameraDistance, sT = cameraRotation.theta, sP = cameraRotation.phi;
+    const imgs = [];
+    ['iso','top','front','side'].forEach(name => {
+      const p = CAMERA_PRESETS[name]; if (!p || p.special) return;
+      cameraDistance = p.dist; cameraRotation.theta = p.theta; cameraRotation.phi = p.phi;
+      updateCameraPosition(); renderer.render(scene, camera);
+      imgs.push({ name: name.charAt(0).toUpperCase()+name.slice(1), src: renderer.domElement.toDataURL('image/png') });
+    });
+    cameraDistance = sD; cameraRotation.theta = sT; cameraRotation.phi = sP; updateCameraPosition();
+    const truck = getTruck(), pl = currentLoad.placements || [];
+    const rows = pl.map((p,i)=>{ const b=getBox(p.boxId); if (!b) return ''; return '<tr><td>'+(i+1)+'</td><td>'+(b.barcode||'')+'</td><td>'+(b.name||'')+'</td><td>'+p.zone.replace('grid-','Zone ')+'</td><td>'+(b.max_weight_kg||'&mdash;')+' kg</td></tr>'; }).join('');
+    const win = window.open('','_blank'); if (!win) return;
+    win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Load Plan</title><style>'+
+      'body{font-family:Arial,sans-serif;margin:0;padding:16px;color:#000}'+
+      '.g{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}'+
+      '.vc{border:1px solid #ddd;border-radius:4px;overflow:hidden;position:relative}'+
+      '.vc img{width:100%;display:block}.vl{position:absolute;top:5px;left:7px;background:rgba(0,0,0,.55);color:#fff;font-size:8pt;font-weight:700;padding:2px 6px;border-radius:3px}'+
+      'h1{font-size:14pt;margin:0 0 3px}p.s{color:#666;font-size:8.5pt;margin:0 0 12px}'+
+      'table{width:100%;border-collapse:collapse;font-size:8.5pt}th{background:#1a1d24;color:#fff;padding:4px 7px;text-align:left}'+
+      'td{padding:3px 7px;border-bottom:1px solid #eee}tr:nth-child(even)td{background:#f9f9f9}'+
+      '@media print{@page{margin:10mm;size:A4}}</style></head><body>');
+    win.document.write('<h1>Load Plan &mdash; '+(truck?truck.name:'Truck')+'</h1><p class="s">'+(new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}))+' &nbsp;|&nbsp; '+pl.length+' boxes loaded</p>');
+    win.document.write('<div class="g">'+imgs.map(img=>'<div class="vc"><img src="'+img.src+'"/><span class="vl">'+img.name+'</span></div>').join('')+'</div>');
+    win.document.write('<table><thead><tr><th>#</th><th>Barcode</th><th>Name</th><th>Zone</th><th>Weight</th></tr></thead><tbody>'+rows+'</tbody></table>');
+    win.document.write('</body></html>'); win.document.close(); setTimeout(()=>win.print(),500);
   }
 
   function getCategoryColor(category) {
@@ -3102,7 +3460,15 @@ console.log('📦 load-engine.js loading...');
     confirmUnloadDestination,
     tickUnloadBox,
     finishUnloading,
-    closeUnloadMode
+    closeUnloadMode,
+    setCameraPreset,
+    screenshot3D,
+    print4View,
+    enterStepMode,
+    exitStepMode,
+    stepNext,
+    stepPrev,
+    togglePlayback
   };
 
   // Auto-initialize on DOM ready
