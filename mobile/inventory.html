@@ -38,6 +38,9 @@
     </div>
   </header>
 
+  <!-- Debug banner -->
+  <div id="debugBanner" style="padding:10px 14px;background:#fef9c3;border-bottom:2px solid #fde047;font-size:11px;font-family:monospace;color:#713f12;white-space:pre-wrap;word-break:break-all;display:none;"></div>
+
   <!-- Body -->
   <main class="app-body" id="appBody">
 
@@ -218,24 +221,44 @@
   window.addEventListener('offline', () => document.getElementById('offlineBanner').style.display = 'block');
   if (!navigator.onLine) document.getElementById('offlineBanner').style.display = 'block';
 
+  // ── Debug helpers ────────────────────────────────────────────────
+  const _dbg = document.getElementById('debugBanner');
+  const _log = [];
+  function dbg(msg) {
+    _log.push(msg);
+    _dbg.style.display = 'block';
+    _dbg.textContent = _log.join('\n');
+    console.log('[INV]', msg);
+  }
+
   // ── Load inventory ───────────────────────────────────────────────
   async function loadInventory() {
     renderSkeletons();
+    dbg('1. loadInventory() called');
+    dbg('2. API = ' + API);
+    const token = localStorage.getItem('auth_token');
+    dbg('3. token = ' + (token ? token.substring(0,20) + '…' : 'MISSING'));
+    if (!token) { window.location.replace('index.html'); return; }
     try {
-      const token = localStorage.getItem('auth_token');
-      if (!token) { window.location.replace('index.html'); return; }
-      const res = await fetch(`${API}/api/collections/inventory`, {
+      const url = `${API}/api/collections/inventory`;
+      dbg('4. fetching ' + url);
+      const res = await fetch(url, {
         headers: { 'Authorization': 'Bearer ' + token }
       });
+      dbg('5. HTTP ' + res.status + ' ' + res.statusText);
       if (res.status === 401) { window.location.replace('index.html'); return; }
       if (!res.ok) throw new Error('HTTP ' + res.status + ' from server');
       const data = await res.json();
+      dbg('6. success=' + data.success + '  items=' + (data.items ? data.items.length : 'null'));
       if (!data.success) throw new Error(data.error || 'API returned success:false');
       allItems = data.items || [];
+      dbg('7. allItems.length=' + allItems.length);
       buildCategoryChips();
       renderList();
       document.getElementById('itemCount').textContent = allItems.length + ' items';
+      dbg('8. done ✓');
     } catch (err) {
+      dbg('ERROR: ' + err.message);
       console.error('[Inventory] load failed:', err);
       document.getElementById('inventoryList').innerHTML =
         `<div style="padding:40px 16px;text-align:center;">
