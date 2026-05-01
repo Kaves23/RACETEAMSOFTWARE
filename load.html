@@ -252,6 +252,31 @@
     .step-btn-exit{border-color:rgba(234,67,53,.5);color:#ea4335}
     .step-btn-exit:hover{background:rgba(234,67,53,.6);border-color:#ea4335;color:#fff}
     .canvas-controls{position:absolute;bottom:10px;right:10px;font-size:.68rem;color:rgba(255,255,255,.45);line-height:1.6;text-align:right;pointer-events:none;z-index:5}
+    /* ===== AUTO PACK ===== */
+    #btnAutoPack{padding:5px 12px;border:1px solid rgba(52,168,83,.6);background:rgba(52,168,83,.25);color:#81c995;border-radius:5px;cursor:pointer;font-size:.75rem;font-weight:600;backdrop-filter:blur(6px);transition:all .15s;display:flex;align-items:center;gap:5px}
+    #btnAutoPack:hover{background:rgba(52,168,83,.55);border-color:#34a853;color:#fff}
+    #btnAutoPack.running{background:rgba(251,188,4,.25);border-color:rgba(251,188,4,.6);color:#fdd663;animation:apPulse .8s ease-in-out infinite alternate}
+    @keyframes apPulse{from{opacity:.7}to{opacity:1}}
+    #autoPackPanel{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(10,12,20,.92);border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:22px 26px;z-index:30;backdrop-filter:blur(12px);min-width:320px;max-width:420px;display:none}
+    #autoPackPanel h4{color:#fff;font-size:.92rem;font-weight:700;margin:0 0 14px;display:flex;align-items:center;gap:8px}
+    .ap-stat{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.07);font-size:.78rem}
+    .ap-stat-label{color:#aaa}
+    .ap-stat-val{color:#fff;font-weight:700}
+    .ap-stat-val.good{color:#81c995}
+    .ap-stat-val.warn{color:#fdd663}
+    .ap-stat-val.bad{color:#f28b82}
+    #autoPackGrid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:14px 0}
+    .ap-rule-btn{padding:6px 10px;border-radius:5px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.07);color:#ccc;font-size:.72rem;cursor:pointer;text-align:left;transition:all .15s;display:flex;align-items:center;gap:6px}
+    .ap-rule-btn:hover{background:rgba(255,255,255,.14);color:#fff}
+    .ap-rule-btn.active{background:rgba(26,115,232,.35);border-color:#1a73e8;color:#fff}
+    .ap-rule-btn svg{flex-shrink:0}
+    .ap-action-row{display:flex;gap:8px;margin-top:16px}
+    .ap-btn-apply{flex:1;padding:9px;background:#1a73e8;border:none;border-radius:6px;color:#fff;font-weight:700;font-size:.82rem;cursor:pointer;transition:background .15s}
+    .ap-btn-apply:hover{background:#1557b0}
+    .ap-btn-cancel{padding:9px 16px;background:transparent;border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#aaa;font-size:.82rem;cursor:pointer;transition:all .15s}
+    .ap-btn-cancel:hover{border-color:rgba(255,255,255,.4);color:#fff}
+    #autoPackProgress{height:4px;background:rgba(255,255,255,.1);border-radius:2px;margin:10px 0;overflow:hidden;display:none}
+    #autoPackProgressBar{height:100%;background:linear-gradient(90deg,#1a73e8,#34a853);width:0%;transition:width .3s;border-radius:2px}
   </style>
 </head>
 <body class="page-load light-mode">
@@ -443,6 +468,9 @@
             <button class="cam-preset-btn" onclick="LoadEngine.setCameraPreset('side')" id="camBtnSide">Side</button>
             <button class="cam-preset-btn" onclick="LoadEngine.setCameraPreset('inside')" id="camBtnInside">Inside</button>
             <div style="flex:1"></div>
+            <button id="btnAutoPack" onclick="LoadEngine.showAutoPackPanel()" title="Auto-pack: algorithmically fill the truck">
+              <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l4-4 4 4 6-8"/><circle cx="17" cy="3" r="2"/><path d="M10 3H4a1 1 0 00-1 1v12"/></svg>Auto Pack
+            </button>
             <button id="btnStepMode" onclick="LoadEngine.enterStepMode()" title="Step-by-step loading sequence">
               <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor" style="vertical-align:-.1em"><path d="M5 3l12 7-12 7z"/></svg>Steps
             </button>
@@ -470,6 +498,30 @@
           </div>
           <!-- Hover tooltip -->
           <div id="tooltip3D"></div>
+          <!-- Auto-pack panel (centre modal overlay) -->
+          <div id="autoPackPanel">
+            <h4><svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="#34a853" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l4-4 4 4 6-8"/><circle cx="17" cy="3" r="2"/></svg>Auto Pack Truck</h4>
+            <div id="autoPackStats"></div>
+            <div id="autoPackProgress"><div id="autoPackProgressBar"></div></div>
+            <div id="autoPackGrid">
+              <button class="ap-rule-btn active" id="apRuleHeavyLow" onclick="LoadEngine.togglePackRule('heavyLow')">
+                <svg width="11" height="11" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 3v14M5 14l5 3 5-3"/></svg>Heavy at bottom
+              </button>
+              <button class="ap-rule-btn active" id="apRuleBalanced" onclick="LoadEngine.togglePackRule('balanced')">
+                <svg width="11" height="11" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 3v14M3 10h14"/></svg>Front/rear balance
+              </button>
+              <button class="ap-rule-btn active" id="apRuleRotate" onclick="LoadEngine.togglePackRule('rotate')">
+                <svg width="11" height="11" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 10a6 6 0 0112 0"/><path d="M16 10l2-2-2-2"/></svg>Allow rotation
+              </button>
+              <button class="ap-rule-btn" id="apRuleByCategory" onclick="LoadEngine.togglePackRule('byCategory')">
+                <svg width="11" height="11" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="2" width="7" height="7" rx="1"/><rect x="11" y="2" width="7" height="7" rx="1"/><rect x="2" y="11" width="7" height="7" rx="1"/><rect x="11" y="11" width="7" height="7" rx="1"/></svg>Group by category
+              </button>
+            </div>
+            <div class="ap-action-row">
+              <button class="ap-btn-cancel" onclick="LoadEngine.hideAutoPackPanel()">Cancel</button>
+              <button class="ap-btn-apply" onclick="LoadEngine.runAutoPack()">▶ Calculate &amp; Preview</button>
+            </div>
+          </div></div>
           <!-- Step-by-step playback bar -->
           <div id="stepBar3D" style="display:none">
             <div id="stepInfo3D">
@@ -561,7 +613,7 @@
   <script src="config.js"></script>
   <script src="core.js"></script>
   <script src="topnav.js?v=20260420"></script>
-  <script src="load-engine.js?v=20260428-5"></script>
+  <script src="load-engine.js?v=20260501c"></script>
   <!-- ── Remove from Load modal ─────────────────────────────── -->
   <div class="modal fade" id="removeFromLoadModal" tabindex="-1">
     <div class="modal-dialog modal-sm">

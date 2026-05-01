@@ -2143,6 +2143,10 @@ console.log('📦 load-engine.js loading...');
   }
 
   function calculatePositionIn3D(placement, box, truck) {
+    // If auto-pack computed an exact position, use it directly
+    if (placement._x !== undefined) {
+      return { x: placement._x, y: placement._y, z: placement._z };
+    }
     // Get zone data from truck
     const zone = truck.zones[placement.zone];
     if (!zone) {
@@ -2515,15 +2519,65 @@ console.log('📦 load-engine.js loading...');
     });
     const dTop = new THREE.Mesh(new THREE.BoxGeometry(8, 8, W), dMat);
     dTop.position.set(L/2, H, 0); dTop.userData.isTruck = true; scene.add(dTop);
-    // Cab body (front is -X)
+    // ===== CAB =====
     const cLen = Math.min(L * 0.26, 200), cH = H * 0.82;
-    const cabMesh = new THREE.Mesh(new THREE.BoxGeometry(cLen, cH, W), new THREE.MeshPhongMaterial({ color: tc, shininess: 55 }));
-    cabMesh.position.set(-L/2 - cLen/2, cH/2, 0); cabMesh.userData.isTruck = true; scene.add(cabMesh);
-    const cabEdge = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(cLen, cH, W)), new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.28 }));
-    cabEdge.position.copy(cabMesh.position); cabEdge.userData.isTruck = true; scene.add(cabEdge);
-    // Windshield
-    const ws = new THREE.Mesh(new THREE.PlaneGeometry(W * 0.78, cH * 0.33), new THREE.MeshBasicMaterial({ color: 0x87ceeb, transparent: true, opacity: 0.42, side: THREE.DoubleSide }));
-    ws.rotation.y = Math.PI / 2; ws.rotation.z = 0.28; ws.position.set(-L/2 - cLen + 10, cH * 0.72, 0); ws.userData.isTruck = true; scene.add(ws);
+    const cX   = -L/2 - cLen/2;  // cab centre X
+    const cFrX = -L/2 - cLen;    // cab front face X
+
+    // Main cab body (high-gloss team colour)
+    const cabMat = new THREE.MeshPhongMaterial({ color: tc, shininess: 95, specular: 0x444444 });
+    const cabMesh = new THREE.Mesh(new THREE.BoxGeometry(cLen, cH, W), cabMat);
+    cabMesh.position.set(cX, cH/2, 0); cabMesh.userData.isTruck = true; scene.add(cabMesh);
+    // Cab edge highlight
+    const cabEdge = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(cLen, cH, W)), new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.22 }));
+    cabEdge.position.set(cX, cH/2, 0); cabEdge.userData.isTruck = true; scene.add(cabEdge);
+
+    // Roof air deflector — fills the height gap between cab top and trailer top
+    const dfH = H - cH, dfLen = cLen * 0.44;
+    const defMesh = new THREE.Mesh(new THREE.BoxGeometry(dfLen, dfH, W), new THREE.MeshPhongMaterial({ color: tc, shininess: 95, specular: 0x444444 }));
+    defMesh.position.set(-L/2 - dfLen/2, cH + dfH/2, 0); defMesh.userData.isTruck = true; scene.add(defMesh);
+
+    // Chrome front bumper
+    const bH = Math.max(cH * 0.12, 22);
+    const bump = new THREE.Mesh(new THREE.BoxGeometry(12, bH, W * 1.04), new THREE.MeshPhongMaterial({ color: 0xd8d8d8, shininess: 140, specular: 0xaaaaaa }));
+    bump.position.set(cFrX - 6, bH / 2, 0); bump.userData.isTruck = true; scene.add(bump);
+
+    // Dark grille
+    const grill = new THREE.Mesh(new THREE.BoxGeometry(8, cH * 0.28, W * 0.68), new THREE.MeshPhongMaterial({ color: 0x111111, shininess: 15 }));
+    grill.position.set(cFrX - 4, cH * 0.22, 0); grill.userData.isTruck = true; scene.add(grill);
+
+    // Windshield (recessed from front face, clear blue tint)
+    const ws = new THREE.Mesh(new THREE.PlaneGeometry(W * 0.76, cH * 0.36), new THREE.MeshBasicMaterial({ color: 0x9ad4f5, transparent: true, opacity: 0.60, side: THREE.DoubleSide }));
+    ws.rotation.y = Math.PI / 2;
+    ws.position.set(cFrX + 4, cH * 0.70, 0); ws.userData.isTruck = true; scene.add(ws);
+
+    // Side windows (door glass, both sides)
+    [-W/2 - 1, W/2 + 1].forEach((sz, i) => {
+      const sw = new THREE.Mesh(new THREE.PlaneGeometry(cLen * 0.44, cH * 0.28), new THREE.MeshBasicMaterial({ color: 0x9ad4f5, transparent: true, opacity: 0.40, side: THREE.DoubleSide }));
+      sw.rotation.y = i === 0 ? 0 : Math.PI;
+      sw.position.set(cX + cLen * 0.06, cH * 0.67, sz); sw.userData.isTruck = true; scene.add(sw);
+    });
+
+    // Headlights (pair)
+    const hlMat = new THREE.MeshBasicMaterial({ color: 0xfffde0 });
+    [-W * 0.28, W * 0.28].forEach(hz => {
+      const hl = new THREE.Mesh(new THREE.BoxGeometry(6, cH * 0.066, cH * 0.050), hlMat);
+      hl.position.set(cFrX - 3, cH * 0.54, hz); hl.userData.isTruck = true; scene.add(hl);
+    });
+
+    // Side mirrors (arm + head, both sides)
+    [-1, 1].forEach(side => {
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(10, 5, 18), new THREE.MeshPhongMaterial({ color: 0x333333, shininess: 40 }));
+      arm.position.set(cX + cLen * 0.24, cH * 0.83, side * (W/2 + 12)); arm.userData.isTruck = true; scene.add(arm);
+      const head = new THREE.Mesh(new THREE.BoxGeometry(14, 20, 7), new THREE.MeshPhongMaterial({ color: 0x111111, shininess: 90 }));
+      head.position.set(cX + cLen * 0.24, cH * 0.83, side * (W/2 + 22)); head.userData.isTruck = true; scene.add(head);
+    });
+
+    // Entry steps (both sides, below door)
+    [-1, 1].forEach(side => {
+      const step = new THREE.Mesh(new THREE.BoxGeometry(cLen * 0.24, 10, 26), new THREE.MeshPhongMaterial({ color: 0x555555, shininess: 25 }));
+      step.position.set(cX + cLen * 0.1, 16, side * (W/2 + 13)); step.userData.isTruck = true; scene.add(step);
+    });
     // Wheels (front steer x2, drive x2, trailer x2)
     const wR = Math.min(H * 0.135, 52), wW = 22;
     const wMat = new THREE.MeshPhongMaterial({ color: 0x111111, shininess: 20 });
@@ -2842,6 +2896,307 @@ console.log('📦 load-engine.js loading...');
     win.document.write('<div class="g">'+imgs.map(img=>'<div class="vc"><img src="'+img.src+'"/><span class="vl">'+img.name+'</span></div>').join('')+'</div>');
     win.document.write('<table><thead><tr><th>#</th><th>Barcode</th><th>Name</th><th>Zone</th><th>Weight</th></tr></thead><tbody>'+rows+'</tbody></table>');
     win.document.write('</body></html>'); win.document.close(); setTimeout(()=>win.print(),500);
+  }
+
+  // ===================================================================
+  // ===== AUTO-PACK ENGINE (3D Bin-Packing / Height-Map Algorithm) ====
+  // ===================================================================
+  let apRules = { heavyLow: true, balanced: true, rotate: true, byCategory: false };
+  let apPreviewResult = null; // packed items from last run, pending apply
+
+  function showAutoPackPanel() {
+    if (currentView !== '3D') { switchView('3D'); setTimeout(showAutoPackPanel, 300); return; }
+    const panel = document.getElementById('autoPackPanel'); if (!panel) return;
+    // Recalculate stats for panel
+    const truck = getTruck();
+    const unplacedBoxes = boxes.filter(b => b.length && b.width && b.height &&
+      !currentLoad.placements.some(p => p.boxId === b.id));
+    const placedCount = currentLoad.placements.length;
+    const tVol = truck ? (truck.length||600)*(truck.height||250)*(truck.width||240) : 1;
+    const usedVol = currentLoad.placements.reduce((s,p) => {
+      const b = getBox(p.boxId); return b ? s + (b.length||0)*(b.height||0)*(b.width||0) : s;
+    }, 0);
+    const newVol = unplacedBoxes.reduce((s,b) => s + (b.length||0)*(b.height||0)*(b.width||0), 0);
+    const projPct = Math.min(100, Math.round(((usedVol + newVol) / tVol) * 100));
+    const statsEl = document.getElementById('autoPackStats');
+    if (statsEl) {
+      statsEl.innerHTML =
+        '<div class="ap-stat"><span class="ap-stat-label">Already placed</span><span class="ap-stat-val">' + placedCount + ' boxes</span></div>' +
+        '<div class="ap-stat"><span class="ap-stat-label">Boxes to pack</span><span class="ap-stat-val ' + (unplacedBoxes.length ? 'good' : 'warn') + '">' + unplacedBoxes.length + ' boxes</span></div>' +
+        '<div class="ap-stat"><span class="ap-stat-label">Projected utilisation</span><span class="ap-stat-val ' + (projPct > 85 ? 'good' : projPct > 60 ? 'warn' : 'bad') + '">' + projPct + '%</span></div>';
+    }
+    // Sync rule buttons
+    ['heavyLow','balanced','rotate','byCategory'].forEach(r => {
+      const btn = document.getElementById('apRule' + r.charAt(0).toUpperCase() + r.slice(1));
+      if (btn) btn.classList.toggle('active', !!apRules[r]);
+    });
+    apPreviewResult = null;
+    panel.style.display = 'block';
+  }
+
+  function hideAutoPackPanel() {
+    const panel = document.getElementById('autoPackPanel'); if (panel) panel.style.display = 'none';
+    // If we were showing a preview, restore normal render
+    if (apPreviewResult) { apPreviewResult = null; render3DWithSearch(currentSearchTerm); }
+  }
+
+  function togglePackRule(rule) {
+    apRules[rule] = !apRules[rule];
+    const btn = document.getElementById('apRule' + rule.charAt(0).toUpperCase() + rule.slice(1));
+    if (btn) btn.classList.toggle('active', apRules[rule]);
+  }
+
+  async function runAutoPack() {
+    const truck = getTruck();
+    if (!truck) { alert('No truck selected.'); return; }
+
+    const btn = document.querySelector('#autoPackPanel .ap-btn-apply');
+    const prog = document.getElementById('autoPackProgress');
+    const progBar = document.getElementById('autoPackProgressBar');
+    if (btn) { btn.textContent = 'Calculating...'; btn.disabled = true; }
+    if (prog) prog.style.display = 'block';
+    if (progBar) progBar.style.width = '10%';
+
+    // Small delay to let UI update
+    await new Promise(r => setTimeout(r, 30));
+
+    const L = truck.length || 600;
+    const H = truck.height || 250;
+    const W = truck.width || 240;
+    const GRID = 10; // 10cm grid resolution
+    const nx = Math.ceil(L / GRID);
+    const nz = Math.ceil(W / GRID);
+
+    // Height map: for each (xi, zi) cell, current fill height
+    const heightMap = [];
+    for (let i = 0; i < nx; i++) { heightMap.push(new Float32Array(nz)); }
+
+    // Get boxes to pack (unplaced with dimensions)
+    let toPack = boxes.filter(b =>
+      b.length && b.width && b.height &&
+      !currentLoad.placements.some(p => p.boxId === b.id)
+    );
+
+    if (!toPack.length) {
+      if (btn) { btn.textContent = '▶ Calculate & Preview'; btn.disabled = false; }
+      if (prog) prog.style.display = 'none';
+      const statsEl = document.getElementById('autoPackStats');
+      if (statsEl) statsEl.innerHTML = '<div class="ap-stat"><span class="ap-stat-label" style="color:#fdd663">No unplaced boxes to pack</span></div>';
+      return;
+    }
+
+    // Sort: by category group if rule on, then heaviest first (for stability), then largest volume
+    if (apRules.byCategory) {
+      const catOrder = ['tyres','equipment','spares','tools','personal','fuel','container','other'];
+      toPack.sort((a, b) => {
+        const ca = catOrder.indexOf(a.category||'other'), cb = catOrder.indexOf(b.category||'other');
+        if (ca !== cb) return ca - cb;
+        if (apRules.heavyLow) return (parseFloat(b.max_weight_kg)||0) - (parseFloat(a.max_weight_kg)||0);
+        return ((b.length||0)*(b.width||0)*(b.height||0)) - ((a.length||0)*(a.width||0)*(a.height||0));
+      });
+    } else {
+      toPack.sort((a, b) => {
+        // Heaviest first if rule on (heavy items go at bottom = find lower placements first)
+        if (apRules.heavyLow) {
+          const wDiff = (parseFloat(b.max_weight_kg)||0) - (parseFloat(a.max_weight_kg)||0);
+          if (Math.abs(wDiff) > 5) return wDiff;
+        }
+        // Then by volume descending (large boxes are harder to fit, place first)
+        return ((b.length||0)*(b.width||0)*(b.height||0)) - ((a.length||0)*(a.width||0)*(a.height||0));
+      });
+    }
+
+    // For front/rear balance: split truck into two halves
+    // If balanced rule is on, alternate placing heavy items front vs rear
+    let frontWeight = 0, rearWeight = 0;
+
+    const packed = [];
+    const failed = [];
+    const total = toPack.length;
+
+    for (let bi = 0; bi < toPack.length; bi++) {
+      const box = toPack[bi];
+      if (progBar) progBar.style.width = Math.round(10 + (bi / total) * 80) + '%';
+      if (bi % 5 === 0) await new Promise(r => setTimeout(r, 0)); // yield to UI
+
+      const bh = Math.max(1, box.height);
+      const w = parseFloat(box.max_weight_kg) || 0;
+
+      // Orientations to try
+      const orientations = [
+        { bl: Math.max(1, Math.ceil(box.length / GRID)), bw: Math.max(1, Math.ceil(box.width / GRID)), rotated: false }
+      ];
+      if (apRules.rotate && box.length !== box.width) {
+        orientations.push({ bl: Math.max(1, Math.ceil(box.width / GRID)), bw: Math.max(1, Math.ceil(box.length / GRID)), rotated: true });
+      }
+
+      let placed = false;
+      let bestXi = -1, bestZi = -1, bestFloor = Infinity, bestOri = orientations[0];
+
+      // If balanced rule, prefer front or rear half based on current imbalance
+      const preferFront = apRules.balanced ? (frontWeight <= rearWeight) : null;
+
+      for (const ori of orientations) {
+        const { bl, bw } = ori;
+        if (bl > nx || bw > nz) continue;
+
+        // X scan order: if balanced, prefer the half with less weight
+        for (let pass = 0; pass < (preferFront !== null ? 2 : 1); pass++) {
+          let xiStart = 0, xiEnd = nx - bl;
+          if (preferFront !== null) {
+            if (pass === 0) { // preferred half
+              if (preferFront) { xiEnd = Math.floor(nx / 2) - bl; }
+              else { xiStart = Math.floor(nx / 2); }
+            } else { // fallback: other half
+              if (preferFront) { xiStart = Math.floor(nx / 2); xiEnd = nx - bl; }
+              else { xiEnd = Math.floor(nx / 2) - bl; }
+            }
+          }
+
+          for (let xi = Math.max(0, xiStart); xi <= Math.min(xiEnd, nx - bl); xi++) {
+            for (let zi = 0; zi <= nz - bw; zi++) {
+              // Find max height in footprint
+              let maxH = 0;
+              outer: for (let dx = 0; dx < bl; dx++) {
+                for (let dz = 0; dz < bw; dz++) {
+                  const h = heightMap[xi + dx][zi + dz];
+                  if (h > maxH) {
+                    maxH = h;
+                    if (maxH + bh > H) { maxH = Infinity; break outer; }
+                  }
+                }
+              }
+              if (maxH === Infinity) continue;
+              if (maxH < bestFloor) {
+                bestFloor = maxH; bestXi = xi; bestZi = zi; bestOri = ori;
+                if (maxH === 0) break; // can't do better
+              }
+            }
+            if (bestFloor === 0 && !apRules.balanced) break;
+          }
+          if (bestXi !== -1) break; // found in preferred half, stop
+        }
+        if (bestXi !== -1) break;
+      }
+
+      if (bestXi === -1) { failed.push(box); continue; }
+
+      const { bl, bw, rotated } = bestOri;
+      // Update height map
+      for (let dx = 0; dx < bl; dx++) {
+        for (let dz = 0; dz < bw; dz++) {
+          heightMap[bestXi + dx][bestZi + dz] = bestFloor + bh;
+        }
+      }
+
+      // World coordinates (centre of box)
+      const worldX = -L/2 + bestXi * GRID + (bl * GRID) / 2;
+      const worldY = bestFloor + bh / 2;
+      const worldZ = -W/2 + bestZi * GRID + (bw * GRID) / 2;
+
+      // Determine zone from X position (front half = zones 1-4, rear half = 5-8)
+      // Further subdivide into left/right (Z) for the numbered zones
+      const halfL = nx / 2;
+      const quarterZ = nz / 4;
+      const xHalf   = bestXi < halfL ? 0 : 1; // 0=front, 1=rear
+      const zQuart  = Math.min(3, Math.floor(bestZi / quarterZ)); // 0-3
+      const zoneNum = xHalf === 0 ? (1 + zQuart) : (5 + zQuart);
+
+      if (xHalf === 0) frontWeight += w; else rearWeight += w;
+
+      packed.push({ boxId: box.id, _x: worldX, _y: worldY, _z: worldZ, zone: 'grid-' + zoneNum, rotated });
+    }
+
+    if (progBar) progBar.style.width = '100%';
+    await new Promise(r => setTimeout(r, 100));
+
+    apPreviewResult = { packed, failed, frontWeight, rearWeight };
+    _renderAutoPackPreview(packed);
+
+    // Update panel to show results + apply button
+    const statsEl = document.getElementById('autoPackStats');
+    const truck2 = getTruck();
+    const tVol = truck2 ? (truck2.length||600)*(truck2.height||250)*(truck2.width||240) : 1;
+    const existVol = currentLoad.placements.reduce((s,p)=>{const b=getBox(p.boxId);return b?s+(b.length||0)*(b.height||0)*(b.width||0):s;},0);
+    const newVol = packed.reduce((s,pl)=>{const b=getBox(pl.boxId);return b?s+(b.length||0)*(b.height||0)*(b.width||0):s;},0);
+    const pct = Math.min(100,Math.round(((existVol+newVol)/tVol)*100));
+    const tot = frontWeight + rearWeight || 1;
+    if (statsEl) {
+      statsEl.innerHTML =
+        '<div class="ap-stat"><span class="ap-stat-label">Boxes packed</span><span class="ap-stat-val good">' + packed.length + ' / ' + toPack.length + '</span></div>' +
+        (failed.length ? '<div class="ap-stat"><span class="ap-stat-label">Couldn\'t fit</span><span class="ap-stat-val bad">' + failed.length + ' boxes</span></div>' : '') +
+        '<div class="ap-stat"><span class="ap-stat-label">Space utilisation</span><span class="ap-stat-val ' + (pct > 80 ? 'good' : 'warn') + '">' + pct + '%</span></div>' +
+        '<div class="ap-stat"><span class="ap-stat-label">Front / Rear weight</span><span class="ap-stat-val">' + Math.round(frontWeight) + ' kg / ' + Math.round(rearWeight) + ' kg <span style="color:#aaa;font-weight:400">(' + Math.round(frontWeight/tot*100) + '/' + Math.round(rearWeight/tot*100) + '%)</span></span></div>';
+    }
+    if (btn) { btn.textContent = '✓ Apply to Load Plan'; btn.disabled = false; btn.onclick = () => applyAutoPack(); }
+    if (prog) prog.style.display = 'none';
+  }
+
+  function _renderAutoPackPreview(packed) {
+    if (!scene || !renderer || !camera) return;
+    const truck = getTruck(); if (!truck) return;
+    // Clear box meshes
+    scene.children.filter(c => c.userData && c.userData.isBox).forEach(c => scene.remove(c));
+    // Render existing placements
+    currentLoad.placements.forEach((pl, idx) => {
+      const box = getBox(pl.boxId); if (!box) return;
+      const pos = calculatePositionIn3D(pl, box, truck);
+      _addBoxMesh(pos, box, getCategoryColor(box.category), 1, idx + 1);
+    });
+    // Render preview placements (gold outline, slightly transparent)
+    packed.forEach((pl, idx) => {
+      const box = getBox(pl.boxId); if (!box) return;
+      const pos = { x: pl._x, y: pl._y, z: pl._z };
+      _addBoxMesh(pos, box, getCategoryColor(box.category), 0.88, currentLoad.placements.length + idx + 1, true);
+    });
+    update3DOverlays();
+    renderer.render(scene, camera);
+  }
+
+  function _addBoxMesh(pos, box, colorHex, opacity, stepNum, isPreview) {
+    const mat = new THREE.MeshPhongMaterial({
+      color: colorHex,
+      transparent: opacity < 1,
+      opacity: opacity,
+      shininess: isPreview ? 80 : 35
+    });
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(box.length, box.height, box.width), mat);
+    mesh.position.set(pos.x, pos.y, pos.z);
+    mesh.userData.isBox = true; mesh.userData.boxId = box.id;
+    scene.add(mesh);
+    const edges = new THREE.LineSegments(
+      new THREE.EdgesGeometry(new THREE.BoxGeometry(box.length, box.height, box.width)),
+      new THREE.LineBasicMaterial({ color: isPreview ? 0xFFD700 : 0x000000, transparent: isPreview, opacity: isPreview ? 0.7 : 1 })
+    );
+    edges.position.set(pos.x, pos.y, pos.z);
+    edges.userData.isBox = true;
+    scene.add(edges);
+    addBoxFaceLabels(pos, box, false, isPreview, stepNum);
+  }
+
+  function applyAutoPack() {
+    if (!apPreviewResult || !apPreviewResult.packed.length) return;
+    const { packed } = apPreviewResult;
+    packed.forEach(pl => {
+      if (currentLoad.placements.some(p => p.boxId === pl.boxId)) return;
+      currentLoad.placements.push({
+        boxId:  pl.boxId,
+        zone:   pl.zone,
+        _x:     pl._x,
+        _y:     pl._y,
+        _z:     pl._z,
+        position: { x: pl._x, y: pl._y, z: pl._z },
+        timestamp: new Date().toISOString(),
+        autoPackedAt: new Date().toISOString()
+      });
+    });
+    currentLoad.updatedAt = new Date().toISOString();
+    saveData();
+    apPreviewResult = null;
+    hideAutoPackPanel();
+    render3DWithSearch(currentSearchTerm);
+    if (typeof renderAll === 'function') renderAll();
+    showToast && showToast('Auto-pack applied — ' + packed.length + ' boxes placed', 'success');
   }
 
   function getCategoryColor(category) {
@@ -3473,7 +3828,12 @@ console.log('📦 load-engine.js loading...');
     exitStepMode,
     stepNext,
     stepPrev,
-    togglePlayback
+    togglePlayback,
+    showAutoPackPanel,
+    hideAutoPackPanel,
+    togglePackRule,
+    runAutoPack,
+    applyAutoPack
   };
 
   // Auto-initialize on DOM ready
