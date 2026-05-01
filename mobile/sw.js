@@ -22,21 +22,16 @@ self.addEventListener('install', function(event) {
   );
 });
 
-// ── Activate: wipe ALL caches and force-reload all open tabs ───────────────
+// ── Activate: wipe old caches ────────────────────────────────────────────
 self.addEventListener('activate', function(event) {
   event.waitUntil(
     caches.keys().then(function(keys) {
-      // Delete every cache (including old HTML caches)
-      return Promise.all(keys.map(function(k) { return caches.delete(k); }));
+      return Promise.all(
+        keys.filter(function(k) { return k !== CACHE_NAME && k !== DATA_CACHE; })
+            .map(function(k) { return caches.delete(k); })
+      );
     }).then(function() {
       return self.clients.claim();
-    }).then(function() {
-      // Force reload every open tab so they get fresh HTML from server
-      return self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clients) {
-        clients.forEach(function(client) {
-          client.navigate(client.url);
-        });
-      });
     })
   );
 });
