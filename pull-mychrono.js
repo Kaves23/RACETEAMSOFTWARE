@@ -21,6 +21,8 @@
 
 const http   = require('http');
 const https  = require('https');
+const net    = require('net');
+const { execSync } = require('child_process');
 const fs     = require('fs');
 const path   = require('path');
 const os     = require('os');
@@ -169,10 +171,10 @@ function uploadFile(filePath) {
 
 // ─── DEVICE PROBE ──────────────────────────────────────────────────────────
 
-/** Check if device is reachable, return true/false */
+/** Check if device is reachable using ping (ICMP) — works even if no TCP ports are open */
 async function deviceReachable() {
   try {
-    await httpGet(`http://${DEVICE_IP}/`, 2000);
+    execSync(`ping -c 1 -W 1 ${DEVICE_IP}`, { stdio: 'ignore' });
     return true;
   } catch {
     return false;
@@ -242,21 +244,48 @@ async function probeDevice() {
 
   log(`Probing device at http://${DEVICE_IP} ...`);
 
-  for (const p of PROBE_PATHS) {
-    const url = `http://${DEVICE_IP}${p}`;
-    try {
-      const r = await httpGet(url, TIMEOUT_MS);
-      const preview = r.bodyText.substring(0, 300).replace(/\s+/g, ' ');
-      allResults.push({ path: p, status: r.status, headers: r.headers, preview });
+  // First: raw TCP port scan to find open ports
+  const SCAN_PORTS = [80, 443, 8080, 8443, 2000, 2001, 10000, 10001, 50000, 50001, 9000, 9001, 3000, 5000, 7000];
+  console.log('\n── TCP port scan ───────────────────────────────────────');
+  const openPorts = [];
+  for (const port of SCAN_PORTS) {
+    const result = await new Promise(resolve => {
+      const s = net.createConnection({ host: DEVICE_IP, port, timeout: 2000 });
+      s.on('connect', () => { s.destroy(); resolve('open'); });
+      s.on('timeout', () => { s.destroy(); resolve('timeout'); });
+      s.on('error', e => resolve(e.code === 'ECONNREFUSED' ? 'refused' : 'error:' + e.code));
+    });
+    const marker = result === 'open' ? '  OPEN  ' : result === 'refused' ? 'CLOSED ' : 'filtered';
+    console.log(`  Port ${String(port).padEnd(6)} ${marker}   ${result}`);
+    if (result === 'open') openPorts.push(port);
+  }
+  console.log('────────────────────────────────────────────────────────\n');
 
-      if (r.status === 200 || r.status === 206) {
-        const links = extractLinks(url, r.bodyText);
-        for (const l of links) {
-          if (!seen.has(l.url)) { seen.add(l.url); fileLinks.push(l); }
+  if (openPorts.length === 0) {
+    log('No open TCP ports found. Device may only speak a proprietary UDP protocol.');
+    log('Race Studio 3 uses a custom protocol — it may not be accessible via HTTP.');
+    return { allResults, fileLinks };
+  }
+
+  // HTTP probe only on open ports
+  const httpPaths = PROBE_PATHS;
+  for (const port of openPorts) {
+    for (const p of httpPaths) {
+      const url = `http://${DEVICE_IP}:${port}${p}`;
+      try {
+        const r = await httpGet(url, TIMEOUT_MS);
+        const preview = r.bodyText.substring(0, 300).replace(/\s+/g, ' ');
+        allResults.push({ path: `${port}${p}`, status: r.status, headers: r.headers, preview });
+
+        if (r.status === 200 || r.status === 206) {
+          const links = extractLinks(url, r.bodyText);
+          for (const l of links) {
+            if (!seen.has(l.url)) { seen.add(l.url); fileLinks.push(l); }
+          }
         }
+      } catch (e) {
+        allResults.push({ path: `${port}${p}`, error: e.message });
       }
-    } catch (e) {
-      allResults.push({ path: p, error: e.message });
     }
   }
 
@@ -380,21 +409,45 @@ async function runProbe() {
     process.exit(1);
   }
 
-  log(`Full probe of http://${DEVICE_IP} — dumping all responses…\n`);
+  log(`Full probe of ${DEVICE_IP} — TCP scan then HTTP dump…\n`);
 
-  for (const p of PROBE_PATHS) {
-    const url = `http://${DEVICE_IP}${p}`;
-    console.log(`\n${'='.repeat(60)}`);
-    console.log(`GET ${url}`);
-    console.log('='.repeat(60));
-    try {
-      const r = await httpGet(url, TIMEOUT_MS);
-      console.log(`Status: ${r.status}`);
-      console.log('Headers:', JSON.stringify(r.headers, null, 2));
-      console.log('Body:');
-      console.log(r.bodyText.substring(0, 2000));
-    } catch (e) {
-      console.log(`ERROR: ${e.message}`);
+  // TCP port scan first
+  const ALL_PORTS = [80, 443, 8080, 8443, 2000, 2001, 10000, 10001, 50000, 50001, 9000, 9001, 3000, 5000, 7000, 21, 22, 23, 25, 8000, 8888];
+  console.log('── TCP port scan ───────────────────────────────────────');
+  const openPorts = [];
+  for (const port of ALL_PORTS) {
+    const result = await new Promise(resolve => {
+      const s = net.createConnection({ host: DEVICE_IP, port, timeout: 2000 });
+      s.on('connect', () => { s.destroy(); resolve('OPEN'); });
+      s.on('timeout', () => { s.destroy(); resolve('filtered'); });
+      s.on('error', e => resolve(e.code === 'ECONNREFUSED' ? 'refused(closed)' : e.code));
+    });
+    console.log(`  ${String(port).padEnd(6)} ${result}`);
+    if (result === 'OPEN') openPorts.push(port);
+  }
+  console.log('────────────────────────────────────────────────────────\n');
+
+  if (openPorts.length === 0) {
+    log('No open TCP ports — device likely uses UDP-only proprietary protocol.');
+    return;
+  }
+
+  // HTTP dump on open ports
+  for (const port of openPorts) {
+    for (const p of PROBE_PATHS) {
+      const url = `http://${DEVICE_IP}:${port}${p}`;
+      console.log(`\n${'='.repeat(60)}`);
+      console.log(`GET ${url}`);
+      console.log('='.repeat(60));
+      try {
+        const r = await httpGet(url, TIMEOUT_MS);
+        console.log(`Status: ${r.status}`);
+        console.log('Headers:', JSON.stringify(r.headers, null, 2));
+        console.log('Body:');
+        console.log(r.bodyText.substring(0, 2000));
+      } catch (e) {
+        console.log(`ERROR: ${e.message}`);
+      }
     }
   }
 }
