@@ -171,6 +171,88 @@ function uploadFile(filePath) {
 
 // ─── DEVICE PROBE ──────────────────────────────────────────────────────────
 
+/**
+ * Connect raw TCP to a port, wait for greeting, then try known AiM handshakes.
+ * Dumps everything as hex + ASCII.
+ */
+function rawTcpProbe(host, port, timeoutMs = 5000) {
+  return new Promise(resolve => {
+    const chunks = [];
+    const s = net.createConnection({ host, port });
+
+    const done = () => {
+      s.destroy();
+      const buf = Buffer.concat(chunks);
+      if (buf.length === 0) {
+        console.log('  (device sent nothing on connect — it waits for client to speak first)');
+        console.log('\n  Trying known AiM hello packets…');
+        tryAimHandshakes(host, port).then(resolve);
+        return;
+      }
+      console.log(`  Received ${buf.length} bytes greeting:`);
+      hexDump(buf);
+      console.log('\n  ASCII: ' + buf.toString('latin1').replace(/[^\x20-\x7e]/g, '.'));
+      resolve();
+    };
+
+    s.setTimeout(timeoutMs);
+    s.on('connect', () => {
+      console.log('  Connected. Waiting for greeting…');
+      // Also send a null byte after 1s in case device waits for us
+      setTimeout(() => { if (!s.destroyed) s.write(Buffer.from([0x00])); }, 1000);
+    });
+    s.on('data', d => { chunks.push(d); });
+    s.on('timeout', done);
+    s.on('end', done);
+    s.on('error', e => { console.log('  Error:', e.message); resolve(); });
+  });
+}
+
+/** Try several known AiM binary handshake patterns */
+async function tryAimHandshakes(host, port) {
+  // Known AiM/RS3 protocol init bytes (from community reverse engineering)
+  const probes = [
+    { label: 'AiM hello (0xA0 0x00)',    bytes: Buffer.from([0xA0, 0x00, 0x00, 0x00]) },
+    { label: 'AiM hello (0x00 0xA0)',    bytes: Buffer.from([0x00, 0xA0, 0x00, 0x00]) },
+    { label: 'AiM identify (0x01)',       bytes: Buffer.from([0x01, 0x00, 0x00, 0x00]) },
+    { label: 'AiM get file list',         bytes: Buffer.from([0x02, 0x00, 0x00, 0x00]) },
+    { label: 'RS3 sync word (0xDEAD)',    bytes: Buffer.from([0xDE, 0xAD, 0xBE, 0xEF]) },
+    { label: 'Text: LIST',                Buffer: Buffer.from('LIST\r\n') },
+    { label: 'Text: HELLO',               Buffer: Buffer.from('HELLO\r\n') },
+  ];
+
+  for (const probe of probes) {
+    const buf = probe.bytes || probe.Buffer;
+    const response = await new Promise(resolve => {
+      const chunks = [];
+      const s = net.createConnection({ host, port });
+      s.setTimeout(3000);
+      s.on('connect', () => s.write(buf));
+      s.on('data', d => chunks.push(d));
+      s.on('timeout', () => { s.destroy(); resolve(Buffer.concat(chunks)); });
+      s.on('end', () => resolve(Buffer.concat(chunks)));
+      s.on('error', () => resolve(Buffer.concat(chunks)));
+    });
+
+    if (response.length > 0) {
+      console.log(`\n  [${probe.label}] → Got ${response.length} bytes response:`);
+      hexDump(response);
+      console.log('  ASCII: ' + response.toString('latin1').replace(/[^\x20-\x7e]/g, '.'));
+    } else {
+      console.log(`  [${probe.label}] → no response`);
+    }
+  }
+}
+
+function hexDump(buf) {
+  for (let i = 0; i < Math.min(buf.length, 256); i += 16) {
+    const slice = buf.slice(i, i + 16);
+    const hex  = [...slice].map(b => b.toString(16).padStart(2, '0')).join(' ');
+    const ascii = [...slice].map(b => (b >= 0x20 && b < 0x7f) ? String.fromCharCode(b) : '.').join('');
+    console.log(`  ${String(i).padStart(4, '0')}  ${hex.padEnd(48)}  ${ascii}`);
+  }
+}
+
 /** Check if device is reachable using ping (ICMP) — works even if no TCP ports are open */
 async function deviceReachable() {
   try {
@@ -449,6 +531,14 @@ async function runProbe() {
         console.log(`ERROR: ${e.message}`);
       }
     }
+  }
+
+  // Raw TCP greeting on port 2000 (AiM binary protocol)
+  if (openPorts.includes(2000)) {
+    console.log(`\n${'='.repeat(60)}`);
+    console.log('RAW TCP probe on port 2000 (AiM binary protocol)');
+    console.log('='.repeat(60));
+    await rawTcpProbe(DEVICE_IP, 2000);
   }
 }
 
