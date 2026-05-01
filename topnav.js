@@ -16,7 +16,8 @@
       { href: 'notes.html',             label: 'Briefings',        key: 'B' },
       { href: 'incidents.html',         label: 'Incidents',        key: 'I' },
       { href: 'weather.html',           label: 'Weather Station',  key: 'T' },
-      { href: 'race-strategy.html',     label: 'Race Strategy',    key: 'S' }
+      { href: 'race-strategy.html',     label: 'Race Strategy',    key: 'S' },
+      { href: 'run-plans.html',         label: 'Run Plans',        key: 'U' }
     ]},
     { label: 'Technical', items: [
       { href: 'cars.html',              label: 'Cars',             key: 'C' },
@@ -44,7 +45,7 @@
     ]},
     { label: 'Performance', items: [
       { href: 'performance-dashboard.html', label: 'Overview',      key: 'O' },
-      { href: 'run-plans.html',         label: 'Run Plans',        key: 'R' },
+      { href: 'mychron-sync.html',      label: 'MyChrono Sync',    key: 'M' },
       { href: 'performance.html',       label: 'Analysis',         key: 'A' },
       { href: 'tyre-register.html',     label: 'Tyres',            key: 'T' },
       { href: 'fuel-calcs.html',        label: 'Fuel',             key: 'F' },
@@ -70,14 +71,10 @@
       { href: 'review-board.html',           label: 'Review Board',      key: 'B' }
     ]},
     { label: 'Projects', items: [
-      { href: 'project-management.html?tab=dashboard', label: 'Dashboard',    key: 'D' },
-      { href: 'project-management.html?tab=projects',  label: 'Projects',     key: 'P' },
-      { href: 'project-management.html?tab=gantt',     label: 'Gantt',        key: 'G' },
-      { href: 'event-notes.html',                      label: 'Tasks',        key: 'T' },
-      { href: 'milestones.html',                       label: 'Milestones',   key: 'M' },
-      { href: 'project-management.html?tab=workload',  label: 'Workload',     key: 'W' },
-      { href: 'project-management.html?tab=reports',   label: 'Reports',      key: 'R' },
-      { href: 'runbooks.html',                         label: 'Runbooks',     key: 'B' }
+      { href: 'project-management.html', label: 'Gantt Plans',     key: 'G' },
+      { href: 'tasks.html',              label: 'Tasks',            key: 'T' },
+      { href: 'milestones.html',         label: 'Milestones',       key: 'M' },
+      { href: 'runbooks.html',           label: 'Runbooks',         key: 'R' }
     ]},
     { label: 'Logistics', items: [
       { href: 'load.html',              label: 'Load Plan',        key: 'L' },
@@ -304,7 +301,7 @@
                 <h5 class="modal-title" style="color:#000000; font-weight:700;"><span id="rtsGroupTitle"></span></h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
               </div>
-              <div class="modal-body" style="background:#ffffff;">
+              <div class="modal-body" style="background:#ffffff; overflow-y:auto; max-height:calc(100vh - 180px);">
                 <div class="d-flex flex-wrap gap-2" id="rtsGroupButtons"></div>
                 <div class="mt-3" style="font-size:0.85rem; color:#000000; font-weight:600;">Press the highlighted letter to jump instantly.</div>
               </div>

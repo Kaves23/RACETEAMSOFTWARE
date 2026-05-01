@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Race Team OS — MyChrono Sync</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="style.css?v=20260501" rel="stylesheet">
+  <style>
+    body.light-mode { background: #f5f7fa; color: #111; font-family: 'Inter','Segoe UI',sans-serif; }
+    * { box-sizing: border-box; }
+
+    /* ── SHELL ───────────────────────────────────────────────── */
+    #mc-shell {
+      display: flex;
+      flex-direction: column;
+      height: calc(100vh - var(--rts-topbar-h, 52px));
+      overflow: hidden;
+    }
+    #mc-header {
+      padding: 14px 20px 0;
+      background: #fff;
+      border-bottom: 1px solid #e0e4ea;
+      flex-shrink: 0;
+    }
+    #mc-header h4 {
+      font-size: 16px; font-weight: 700; margin: 0 0 10px;
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    }
+
+    /* ── CONNECTIVITY BADGE ─────────────────────────────────── */
+    .mc-conn-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700;
+    }
+    .mc-conn-badge.online  { background: #d1fae5; color: #065f46; }
+    .mc-conn-badge.offline { background: #fef3c7; color: #92400e; }
+    .mc-conn-badge.checking { background: #f3f4f6; color: #6b7280; }
+    .mc-dot {
+      width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+    }
+    .mc-conn-badge.online  .mc-dot { background: #10b981; }
+    .mc-conn-badge.offline .mc-dot { background: #f59e0b; animation: mc-pulse 1.2s ease-in-out infinite; }
+    .mc-conn-badge.checking .mc-dot { background: #9ca3af; }
+    @keyframes mc-pulse { 0%,100%{opacity:1} 50%{opacity:.25} }
+
+    /* ── STAT CHIPS ─────────────────────────────────────────── */
+    .mc-stat-row { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+    .mc-stat-chip {
+      padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700;
+      cursor: pointer; border: 2px solid transparent; transition: all .15s; white-space: nowrap;
+    }
+    .mc-stat-chip.all    { background: #f0f0f0; color: #444;    border-color: #ddd; }
+    .mc-stat-chip.queued { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+    .mc-stat-chip.done   { background: #d1fae5; color: #065f46; border-color: #6ee7b7; }
+    .mc-stat-chip.error  { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
+    .mc-stat-chip.active, .mc-stat-chip:hover { filter: brightness(.93); border-color: currentColor; }
+
+    /* ── TOOLBAR ────────────────────────────────────────────── */
+    #mc-toolbar {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 20px; background: #fff;
+      border-bottom: 1px solid #e0e4ea; flex-shrink: 0; flex-wrap: wrap;
+    }
+    .mc-btn {
+      height: 30px; font-size: 12px; font-weight: 600;
+      padding: 0 14px; border: none; border-radius: 6px; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+      text-decoration: none;
+    }
+    .mc-btn-primary { background: #7c3aed; color: #fff; }
+    .mc-btn-primary:hover { background: #6d28d9; }
+    .mc-btn-orange  { background: #d97706; color: #fff; }
+    .mc-btn-orange:hover  { background: #b45309; }
+    .mc-btn-success { background: #059669; color: #fff; }
+    .mc-btn-success:hover { background: #047857; }
+    .mc-btn-outline { background: #fff; color: #555; border: 1px solid #cdd3db; }
+    .mc-btn-outline:hover { background: #f4f6f9; }
+    .mc-btn-danger  { background: #dc2626; color: #fff; }
+    .mc-btn-danger:hover  { background: #b91c1c; }
+    .mc-btn:disabled { opacity: .45; cursor: not-allowed; pointer-events: none; }
+    .mc-spacer { flex: 1; }
+
+    /* ── STEP / CONNECTION CARD ─────────────────────────────── */
+    #mc-step-card {
+      margin: 14px 20px 0;
+      background: #fff;
+      border: 1px solid #e0e4ea;
+      border-radius: 10px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .mc-step-header {
+      padding: 11px 16px; font-size: 13px; font-weight: 700;
+      display: flex; align-items: center; gap: 8px;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .mc-step-header.online  { background: #f0fdf4; color: #166534; }
+    .mc-step-header.offline { background: #fffbeb; color: #92400e; }
+    .mc-step-header.checking { background: #f9fafb; color: #6b7280; }
+    .mc-step-body { padding: 12px 16px; font-size: 12px; color: #444; line-height: 1.75; }
+    .mc-steps { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; list-style: none; }
+    .mc-steps li { display: flex; align-items: flex-start; gap: 10px; }
+    .mc-step-num {
+      flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%;
+      background: #7c3aed; color: #fff; font-size: 11px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center; margin-top: 1px;
+    }
+    .mc-step-num.done { background: #059669; }
+
+    /* IP settings row */
+    #mc-ip-row {
+      display: none; padding: 10px 16px; background: #f9fafb;
+      border-top: 1px solid #f0f0f0; font-size: 12px;
+      align-items: center; gap: 10px; flex-wrap: wrap;
+    }
+    #mc-ip-row.visible { display: flex; }
+    #mc-ip-row label { font-weight: 600; color: #555; margin: 0; }
+    #mc-ip-input {
+      height: 28px; font-size: 12px; border: 1px solid #cdd3db;
+      border-radius: 6px; padding: 0 8px; background: #fff; width: 160px;
+    }
+
+    /* Watch status strip */
+    #mc-watch-strip {
+      display: none; padding: 8px 16px; background: #eff6ff;
+      border-top: 1px solid #dbeafe; font-size: 12px;
+      align-items: center; gap: 8px; color: #1d4ed8;
+    }
+    #mc-watch-strip.visible { display: flex; }
+    #mc-watch-strip .mc-dot { background: #3b82f6; animation: mc-pulse 1.2s infinite; }
+
+    /* ── BODY ───────────────────────────────────────────────── */
+    #mc-body {
+      flex: 1; display: flex; flex-direction: column; overflow: hidden;
+    }
+    #mc-list-pane {
+      flex: 1; overflow-y: auto; padding: 16px 20px 20px;
+    }
+
+    /* ── DROP ZONE ──────────────────────────────────────────── */
+    #mc-drop-zone {
+      border: 2px dashed #c4b5fd; border-radius: 10px;
+      padding: 24px 20px; text-align: center; color: #7c3aed;
+      cursor: pointer; transition: background .15s, border-color .15s;
+      font-size: 13px; font-weight: 600;
+      background: #faf5ff; margin-bottom: 16px;
+    }
+    #mc-drop-zone:hover, #mc-drop-zone.drag-over {
+      background: #ede9fe; border-color: #7c3aed;
+    }
+    #mc-drop-zone i { font-size: 28px; display: block; margin-bottom: 6px; }
+    #mc-drop-zone p { margin: 4px 0 0; font-size: 11px; color: #9ca3af; font-weight: 400; }
+
+    /* ── QUEUE TABLE ────────────────────────────────────────── */
+    .mc-table-wrap { background: #fff; border: 1px solid #e0e4ea; border-radius: 10px; overflow: hidden; }
+    .mc-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .mc-table th {
+      background: #f4f6f9; font-weight: 700; color: #555;
+      padding: 8px 12px; border-bottom: 2px solid #e0e4ea;
+      text-align: left; white-space: nowrap;
+    }
+    .mc-table td {
+      padding: 7px 12px; border-bottom: 1px solid #f0f2f5;
+      vertical-align: middle;
+    }
+    .mc-table tr:last-child td { border-bottom: none; }
+    .mc-table tr:hover td { background: #fafbff; }
+
+    /* Status badges */
+    .mc-badge {
+      display: inline-block; padding: 2px 8px; border-radius: 10px;
+      font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .3px;
+    }
+    .mc-badge-queued    { background: #eff6ff; color: #1d4ed8; }
+    .mc-badge-uploading { background: #fef3c7; color: #92400e; }
+    .mc-badge-done      { background: #d1fae5; color: #065f46; }
+    .mc-badge-error     { background: #fef2f2; color: #991b1b; }
+
+    /* Type badges */
+    .mc-type {
+      display: inline-block; padding: 2px 7px; border-radius: 4px;
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+    }
+    .mc-type-xrk  { background: #e0f0ff; color: #1a6fc4; }
+    .mc-type-xrz  { background: #ffe8cc; color: #b35900; }
+    .mc-type-drk  { background: #f3e8ff; color: #7b2ff7; }
+    .mc-type-csv  { background: #e8f8f0; color: #1e8449; }
+    .mc-type-other{ background: #f0f0f0; color: #555; }
+
+    /* Progress bar */
+    .mc-prog-wrap { background: #e5e7eb; border-radius: 4px; height: 5px; width: 110px; overflow: hidden; margin-top: 4px; }
+    .mc-prog-bar  { height: 100%; border-radius: 4px; background: #7c3aed; transition: width .3s; }
+
+    /* Inline selects */
+    .mc-tbl-select {
+      height: 26px; font-size: 11px; border: 1px solid #e0e4ea;
+      border-radius: 5px; padding: 0 6px; background: #fff; max-width: 130px; width: 130px;
+    }
+    .mc-tbl-select:focus { outline: 1px solid #7c3aed; border-color: #7c3aed; }
+
+    .mc-empty { text-align: center; padding: 48px 20px; color: #aaa; }
+    .mc-empty i { font-size: 36px; display: block; margin-bottom: 8px; }
+
+    .mc-err-msg { font-size: 10px; color: #991b1b; max-width: 180px; white-space: normal; margin-top: 2px; }
+    .mc-fname { font-weight: 600; color: #1f2937; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* ── TOAST ──────────────────────────────────────────────── */
+    #mc-toast-wrap {
+      position: fixed; bottom: 20px; right: 20px; z-index: 9999;
+      display: flex; flex-direction: column; gap: 8px; pointer-events: none;
+    }
+    .mc-toast {
+      padding: 10px 16px; border-radius: 8px; font-size: 12px; font-weight: 600;
+      pointer-events: auto; box-shadow: 0 4px 16px rgba(0,0,0,.15);
+      animation: mc-fadein .2s ease;
+    }
+    .mc-toast.success { background: #059669; color: #fff; }
+    .mc-toast.error   { background: #dc2626; color: #fff; }
+    .mc-toast.info    { background: #1d4ed8; color: #fff; }
+    @keyframes mc-fadein { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body class="light-mode">
+<script src="topnav.js"></script>
+
+<div id="mc-shell">
+
+  <!-- ── HEADER ──────────────────────────────────────────────────── -->
+  <div id="mc-header">
+    <h4>
+      <i class="bi bi-speedometer2" style="color:#7c3aed;font-size:18px"></i>
+      MyChrono Sync
+      <span style="font-size:11px;font-weight:400;color:#888">MyChrono 5 / 6 WiFi · AiM session import</span>
+      <span id="mc-conn-badge" class="mc-conn-badge checking">
+        <span class="mc-dot"></span>
+        <span id="mc-conn-text">Checking…</span>
+      </span>
+    </h4>
+    <div class="mc-stat-row">
+      <div class="mc-stat-chip all active" data-filter="">All <span id="mc-count-all">0</span></div>
+      <div class="mc-stat-chip queued"     data-filter="queued">Queued <span id="mc-count-queued">0</span></div>
+      <div class="mc-stat-chip done"       data-filter="done">Uploaded <span id="mc-count-done">0</span></div>
+      <div class="mc-stat-chip error"      data-filter="error">Error <span id="mc-count-error">0</span></div>
+    </div>
+  </div>
+
+  <!-- ── TOOLBAR ─────────────────────────────────────────────────── -->
+  <div id="mc-toolbar">
+    <button class="mc-btn mc-btn-orange" id="mc-btn-open-browser">
+      <i class="bi bi-wifi"></i> Open MyChrono Browser
+    </button>
+    <button class="mc-btn mc-btn-primary" id="mc-btn-watch" style="display:none">
+      <i class="bi bi-eye"></i> Watch Downloads Folder
+    </button>
+    <button class="mc-btn mc-btn-outline" id="mc-btn-add">
+      <i class="bi bi-plus-circle"></i> Add Files
+    </button>
+    <input type="file" id="mc-file-input" accept=".xrk,.xrz,.drk,.csv" multiple style="display:none">
+    <div class="mc-spacer"></div>
+    <button class="mc-btn mc-btn-outline" id="mc-btn-ip-toggle" title="Device IP settings">
+      <i class="bi bi-gear"></i>
+    </button>
+  </div>
+
+  <!-- ── STEP / STATUS CARD ──────────────────────────────────────── -->
+  <div id="mc-step-card">
+    <div id="mc-step-header" class="mc-step-header checking">
+      <i class="bi bi-hourglass-split" id="mc-step-icon"></i>
+      <span id="mc-step-title">Checking connection…</span>
+    </div>
+    <div class="mc-step-body" id="mc-step-body"></div>
+
+    <!-- IP settings row (hidden by default) -->
+    <div id="mc-ip-row">
+      <label for="mc-ip-input">MyChrono IP address:</label>
+      <input type="text" id="mc-ip-input" value="10.0.0.1" placeholder="10.0.0.1">
+      <button class="mc-btn mc-btn-outline" style="height:28px;padding:0 10px" id="mc-btn-ip-save">
+        <i class="bi bi-check-lg"></i> Save
+      </button>
+      <span style="color:#9ca3af;font-size:11px">Default: 10.0.0.1 — MyChrono 5 / 6 WiFi hotspot</span>
+    </div>
+
+    <!-- Auto-watch strip (visible when watching) -->
+    <div id="mc-watch-strip">
+      <span class="mc-dot"></span>
+      <span id="mc-watch-text">Watching downloads folder…</span>
+      <button class="mc-btn mc-btn-outline" id="mc-btn-stop-watch"
+              style="height:24px;padding:0 8px;font-size:11px;margin-left:auto">
+        Stop watching
+      </button>
+    </div>
+  </div>
+
+  <!-- ── BODY ────────────────────────────────────────────────────── -->
+  <div id="mc-body">
+    <div id="mc-list-pane">
+
+      <!-- Drop zone -->
+      <div id="mc-drop-zone">
+        <i class="bi bi-cloud-arrow-up-fill"></i>
+        Drop .xrk / .xrz / .drk files here, or click Add Files
+        <p>Files are stored locally in your browser until internet is restored, then uploaded automatically</p>
+      </div>
+
+      <!-- Queue table -->
+      <div class="mc-table-wrap">
+        <table class="mc-table">
+          <thead>
+            <tr>
+              <th>File</th>
+              <th>Type</th>
+              <th>Size</th>
+              <th>Added</th>
+              <th>Driver</th>
+              <th>Event</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="mc-tbody">
+            <tr><td colspan="8" class="mc-empty">
+              <i class="bi bi-inbox"></i>
+              No files queued yet
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div id="mc-toast-wrap"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="config.js"></script>
+<script src="auth-check.js"></script>
+<script>
+(async function () {
+  'use strict';
+
+  await window.authReady;
+
+  const BASE      = (window.RTS_CONFIG?.api?.baseURL || '/api');
+  const TAPI      = BASE + '/telemetry';
+  const authHdr   = () => ({ 'Authorization': 'Bearer ' + localStorage.getItem('auth_token') });
+  const EXTS      = new Set(['.xrk', '.xrz', '.drk', '.csv']);
+  const HAS_FSA   = typeof window.showDirectoryPicker === 'function';
+
+  // ── IndexedDB ────────────────────────────────────────────────────────────
+  const DB_NAME = 'mychron-sync-db';
+  const DB_VER  = 2;
+  const Q_STORE = 'queue';
+  const M_STORE = 'meta';
+  let db;
+
+  function openDB() {
+    return new Promise((res, rej) => {
+      const req = indexedDB.open(DB_NAME, DB_VER);
+      req.onupgradeneeded = e => {
+        const d = e.target.result;
+        if (!d.objectStoreNames.contains(Q_STORE)) {
+          const s = d.createObjectStore(Q_STORE, { keyPath: 'id', autoIncrement: true });
+          s.createIndex('status', 'status');
+        }
+        if (!d.objectStoreNames.contains(M_STORE)) {
+          d.createObjectStore(M_STORE, { keyPath: 'key' });
+        }
+      };
+      req.onsuccess = e => res(e.target.result);
+      req.onerror   = e => rej(e.target.error);
+    });
+  }
+
+  function dbAll() {
+    return new Promise((res, rej) => {
+      const req = db.transaction(Q_STORE, 'readonly').objectStore(Q_STORE).getAll();
+      req.onsuccess = e => res(e.target.result);
+      req.onerror   = e => rej(e.target.error);
+    });
+  }
+  function dbPut(item) {
+    return new Promise((res, rej) => {
+      const req = db.transaction(Q_STORE, 'readwrite').objectStore(Q_STORE).put(item);
+      req.onsuccess = e => res(e.target.result);
+      req.onerror   = e => rej(e.target.error);
+    });
+  }
+  function dbDelete(id) {
+    return new Promise((res, rej) => {
+      const req = db.transaction(Q_STORE, 'readwrite').objectStore(Q_STORE).delete(id);
+      req.onsuccess = () => res();
+      req.onerror   = e => rej(e.target.error);
+    });
+  }
+  function metaGet(key) {
+    return new Promise((res, rej) => {
+      const req = db.transaction(M_STORE, 'readonly').objectStore(M_STORE).get(key);
+      req.onsuccess = e => res(e.target.result?.value ?? null);
+      req.onerror   = e => rej(e.target.error);
+    });
+  }
+  function metaPut(key, value) {
+    return new Promise((res, rej) => {
+      const req = db.transaction(M_STORE, 'readwrite').objectStore(M_STORE).put({ key, value });
+      req.onsuccess = () => res();
+      req.onerror   = e => rej(e.target.error);
+    });
+  }
+
+  // ── State ────────────────────────────────────────────────────────────────
+  let queue       = [];
+  let drivers     = [];
+  let events      = [];
+  let isOnline    = false;
+  let dirHandle   = null;
+  let watchTimer  = null;
+  let seenFiles   = new Map();   // sig → true
+  let uploadBusy  = false;
+  let filterState = '';
+
+  // ── DOM ──────────────────────────────────────────────────────────────────
+  const $badge       = document.getElementById('mc-conn-badge');
+  const $connText    = document.getElementById('mc-conn-text');
+  const $stepHeader  = document.getElementById('mc-step-header');
+  const $stepIcon    = document.getElementById('mc-step-icon');
+  const $stepTitle   = document.getElementById('mc-step-title');
+  const $stepBody    = document.getElementById('mc-step-body');
+  const $ipRow       = document.getElementById('mc-ip-row');
+  const $ipInput     = document.getElementById('mc-ip-input');
+  const $watchStrip  = document.getElementById('mc-watch-strip');
+  const $watchText   = document.getElementById('mc-watch-text');
+  const $tbody       = document.getElementById('mc-tbody');
+  const $dropZone    = document.getElementById('mc-drop-zone');
+  const $fileInput   = document.getElementById('mc-file-input');
+  const $btnWatch    = document.getElementById('mc-btn-watch');
+  const $btnAdd      = document.getElementById('mc-btn-add');
+
+  // ── Utilities ────────────────────────────────────────────────────────────
+  function esc(s) {
+    if (s == null) return '';
+    return String(s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function extOf(name) {
+    const m = String(name).match(/\.[^.]+$/);
+    return m ? m[0].toLowerCase() : '';
+  }
+  function fmtSize(b) {
+    if (!b) return '—';
+    if (b < 1024) return b + ' B';
+    if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
+    return (b / 1024 / 1024).toFixed(1) + ' MB';
+  }
+  function fmtDate(d) {
+    if (!d) return '—';
+    return new Date(d).toLocaleString('en-ZA', { dateStyle: 'short', timeStyle: 'short' });
+  }
+  function deviceIP() {
+    return localStorage.getItem('mychron_device_ip') || '10.0.0.1';
+  }
+  function toast(msg, type, ms) {
+    type = type || 'info';
+    ms   = ms   || 3500;
+    const el = document.createElement('div');
+    el.className  = 'mc-toast ' + type;
+    el.textContent = msg;
+    document.getElementById('mc-toast-wrap').appendChild(el);
+    setTimeout(() => el.remove(), ms);
+  }
+
+  // ── Connectivity ─────────────────────────────────────────────────────────
+  async function checkConnectivity() {
+    const ac = new AbortController();
+    const t  = setTimeout(() => ac.abort(), 2000);
+    try {
+      const r = await fetch(TAPI + '/dll-status', {
+        signal: ac.signal, headers: authHdr(), cache: 'no-store',
+      });
+      clearTimeout(t);
+      return r.status < 500;
+    } catch (_) {
+      clearTimeout(t);
+      return false;
+    }
+  }
+
+  function updateConnBadge() {
+    if (isOnline) {
+      $badge.className      = 'mc-conn-badge online';
+      $connText.textContent = 'Online';
+    } else {
+      $badge.className      = 'mc-conn-badge offline';
+      $connText.textContent = 'Offline — MyChrono mode';
+    }
+    updateStepCard();
+    updateWatchBtn();
+  }
+
+  // ── Step card ────────────────────────────────────────────────────────────
+  function updateStepCard() {
+    const pending = queue.filter(i => i.status === 'queued').length;
+
+    if (isOnline) {
+      $stepHeader.className = 'mc-step-header online';
+      $stepIcon.className   = 'bi bi-cloud-check-fill';
+      $stepTitle.textContent = 'Connected to internet — system ready';
+
+      if (pending) {
+        $stepBody.innerHTML = `
+          <ul class="mc-steps">
+            <li>
+              <span class="mc-step-num done"><i class="bi bi-check-lg" style="font-size:11px"></i></span>
+              Internet restored — automatically uploading <b>${pending} queued file${pending !== 1 ? 's' : ''}</b>…
+            </li>
+          </ul>`;
+      } else {
+        $stepBody.innerHTML = `
+          <ul class="mc-steps">
+            <li>
+              <span class="mc-step-num done"><i class="bi bi-check-lg" style="font-size:11px"></i></span>
+              All clear. To import from your MyChrono, join the device's WiFi hotspot —
+              this page will detect the change automatically.
+            </li>
+          </ul>`;
+      }
+
+    } else {
+      $stepHeader.className = 'mc-step-header offline';
+      $stepIcon.className   = 'bi bi-wifi';
+      $stepTitle.textContent = 'MyChrono WiFi mode — follow steps below';
+
+      const step2 = HAS_FSA
+        ? `<li>
+            <span class="mc-step-num">2</span>
+            <span>Click <b>Watch Downloads Folder</b> above — grant access to your Downloads folder once.
+            Any new session files saved there will be picked up automatically.</span>
+           </li>`
+        : `<li>
+            <span class="mc-step-num">2</span>
+            <span>After saving the files, drag them onto the drop zone below, or click <b>Add Files</b>.</span>
+           </li>`;
+
+      $stepBody.innerHTML = `
+        <ul class="mc-steps">
+          <li>
+            <span class="mc-step-num">1</span>
+            <span>Click <b><i class="bi bi-wifi"></i> Open MyChrono Browser</b> — the device file browser
+            opens in a new tab. Download the session files you want
+            (right-click the filename → Save As).</span>
+          </li>
+          ${step2}
+          <li>
+            <span class="mc-step-num">3</span>
+            <span>Assign a <b>Driver</b> and <b>Event</b> to each file in the queue below,
+            then switch back to your normal WiFi. Files upload automatically the moment
+            internet returns.</span>
+          </li>
+        </ul>`;
+    }
+  }
+
+  function updateWatchBtn() {
+    $btnWatch.style.display =
+      (HAS_FSA && !isOnline && !watchTimer) ? '' : 'none';
+  }
+
+  // ── Reference data ────────────────────────────────────────────────────────
+  async function loadRefs() {
+    try {
+      const [dr, ev] = await Promise.all([
+        fetch(TAPI + '/drivers', { headers: authHdr() }).then(r => r.json()),
+        fetch(TAPI + '/events',  { headers: authHdr() }).then(r => r.json()),
+      ]);
+      drivers = (dr.data || []).sort((a, b) => a.name.localeCompare(b.name));
+      events  = (ev.data || []).sort((a, b) => {
+        if (a.start_date && b.start_date) return b.start_date.localeCompare(a.start_date);
+        return a.name.localeCompare(b.name);
+      });
+    } catch (_) {
+      // offline — refs will load on reconnect
+    }
+  }
+
+  // ── Render ────────────────────────────────────────────────────────────────
+  function render() {
+    const shown = filterState
+      ? queue.filter(i => {
+          if (filterState === 'queued') return i.status === 'queued' || i.status === 'uploading';
+          return i.status === filterState;
+        })
+      : queue;
+
+    // Counts
+    document.getElementById('mc-count-all').textContent    = queue.length;
+    document.getElementById('mc-count-queued').textContent =
+      queue.filter(i => i.status === 'queued' || i.status === 'uploading').length;
+    document.getElementById('mc-count-done').textContent   = queue.filter(i => i.status === 'done').length;
+    document.getElementById('mc-count-error').textContent  = queue.filter(i => i.status === 'error').length;
+
+    if (!shown.length) {
+      $tbody.innerHTML = `<tr><td colspan="8" class="mc-empty">
+        <i class="bi bi-inbox"></i>
+        ${filterState
+          ? 'No files with this status'
+          : 'No files queued yet — connect to MyChrono WiFi and add your session files'}
+      </td></tr>`;
+      return;
+    }
+
+    const driverOpts = drivers.map(d =>
+      `<option value="${esc(d.id)}">${esc(d.name)}</option>`
+    ).join('');
+    const eventOpts = events.map(e =>
+      `<option value="${esc(e.id)}">${esc(e.name)}</option>`
+    ).join('');
+
+    $tbody.innerHTML = shown.slice().reverse().map(item => {
+      const ext     = extOf(item.filename).replace('.', '');
+      const extKey  = ['xrk','xrz','drk','csv'].includes(ext) ? ext : 'other';
+      const locked  = item.status === 'done' || item.status === 'uploading';
+
+      // Status cell
+      let statusCell;
+      if (item.status === 'queued') {
+        statusCell = `<span class="mc-badge mc-badge-queued">Queued</span>`;
+      } else if (item.status === 'uploading') {
+        statusCell = `
+          <span class="mc-badge mc-badge-uploading">Uploading</span>
+          <div class="mc-prog-wrap">
+            <div class="mc-prog-bar" id="mc-prog-${item.id}" style="width:${item.progress || 0}%"></div>
+          </div>`;
+      } else if (item.status === 'done') {
+        statusCell = `<span class="mc-badge mc-badge-done">Uploaded</span>`;
+      } else {
+        statusCell = `
+          <span class="mc-badge mc-badge-error">Error</span>
+          ${item.error ? `<div class="mc-err-msg">${esc(item.error)}</div>` : ''}`;
+      }
+
+      // Actions cell
+      let actCell = '';
+      if (item.status === 'done') {
+        actCell = `<a href="telemetry.html?session=${esc(item.session_id)}"
+                     class="mc-btn mc-btn-outline" style="height:26px;padding:0 10px;font-size:11px"
+                     title="Open in Telemetry Analyzer">
+                     <i class="bi bi-graph-up"></i> View
+                   </a>`;
+      } else if (item.status === 'error') {
+        actCell = `
+          <button class="mc-btn mc-btn-outline" data-action="retry" data-id="${item.id}"
+                  style="height:26px;padding:0 8px;font-size:11px" title="Retry upload">
+            <i class="bi bi-arrow-repeat"></i>
+          </button>
+          <button class="mc-btn mc-btn-outline" data-action="remove" data-id="${item.id}"
+                  style="height:26px;padding:0 8px;font-size:11px;color:#dc2626;margin-left:4px" title="Remove">
+            <i class="bi bi-trash"></i>
+          </button>`;
+      } else if (item.status === 'queued') {
+        actCell = `<button class="mc-btn mc-btn-outline" data-action="remove" data-id="${item.id}"
+                           style="height:26px;padding:0 8px;font-size:11px;color:#dc2626" title="Remove">
+                     <i class="bi bi-trash"></i>
+                   </button>`;
+      }
+
+      // Driver / Event cells
+      const driverCell = locked
+        ? esc(drivers.find(d => String(d.id) === String(item.driver_id))?.name || '—')
+        : `<select class="mc-tbl-select" data-id="${item.id}" data-field="driver_id">
+             <option value="">— Driver —</option>
+             ${driverOpts}
+           </select>`;
+
+      const eventCell = locked
+        ? esc(events.find(e => String(e.id) === String(item.event_id))?.name || '—')
+        : `<select class="mc-tbl-select" data-id="${item.id}" data-field="event_id">
+             <option value="">— Event —</option>
+             ${eventOpts}
+           </select>`;
+
+      return `<tr>
+        <td><div class="mc-fname" title="${esc(item.filename)}">${esc(item.filename)}</div></td>
+        <td><span class="mc-type mc-type-${extKey}">${esc(ext) || '?'}</span></td>
+        <td style="white-space:nowrap;color:#9ca3af">${fmtSize(item.size)}</td>
+        <td style="white-space:nowrap;color:#9ca3af">${fmtDate(item.queued_at)}</td>
+        <td>${driverCell}</td>
+        <td>${eventCell}</td>
+        <td>${statusCell}</td>
+        <td style="white-space:nowrap;text-align:right">${actCell}</td>
+      </tr>`;
+    }).join('');
+
+    // Restore select values
+    shown.forEach(item => {
+      const ds = $tbody.querySelector(`select[data-id="${item.id}"][data-field="driver_id"]`);
+      const es = $tbody.querySelector(`select[data-id="${item.id}"][data-field="event_id"]`);
+      if (ds && item.driver_id) ds.value = String(item.driver_id);
+      if (es && item.event_id)  es.value = String(item.event_id);
+    });
+  }
+
+  // ── Queue mutations ───────────────────────────────────────────────────────
+  async function enqueueFiles(files) {
+    let added = 0;
+    for (const file of files) {
+      const ext = extOf(file.name);
+      if (!EXTS.has(ext)) {
+        toast(file.name + ': unsupported format (use .xrk, .xrz, .drk, .csv)', 'error');
+        continue;
+      }
+      // Dedup: skip if already queued / uploading / done with same name+size
+      const dup = queue.find(i =>
+        i.filename === file.name &&
+        i.size     === file.size &&
+        i.status   !== 'error'
+      );
+      if (dup) {
+        toast(file.name + ' is already in the queue', 'info');
+        continue;
+      }
+      const buf  = await file.arrayBuffer();
+      const item = {
+        filename:   file.name,
+        size:       file.size,
+        data:       buf,
+        queued_at:  new Date().toISOString(),
+        driver_id:  null,
+        event_id:   null,
+        status:     'queued',
+        progress:   0,
+        session_id: null,
+        error:      null,
+      };
+      const newId = await dbPut(item);
+      item.id = newId;
+      queue.push(item);
+      added++;
+    }
+    if (added) {
+      render();
+      updateStepCard();
+      toast(added + ' file' + (added !== 1 ? 's' : '') + ' added to queue', 'success');
+      if (isOnline) uploadQueue();
+    }
+  }
+
+  async function setItemField(id, field, value) {
+    const item = queue.find(i => i.id === id);
+    if (!item) return;
+    item[field] = value || null;
+    await dbPut(item);
+  }
+
+  async function removeItem(id) {
+    await dbDelete(id);
+    queue = queue.filter(i => i.id !== id);
+    render();
+    updateStepCard();
+  }
+
+  async function retryItem(id) {
+    const item = queue.find(i => i.id === id);
+    if (!item) return;
+    item.status   = 'queued';
+    item.error    = null;
+    item.progress = 0;
+    await dbPut(item);
+    render();
+    if (isOnline) uploadQueue();
+  }
+
+  // ── Upload ────────────────────────────────────────────────────────────────
+  async function uploadQueue() {
+    if (uploadBusy) return;
+    const pending = queue.filter(i => i.status === 'queued');
+    if (!pending.length) return;
+    uploadBusy = true;
+    try {
+      for (const item of pending) {
+        await uploadItem(item);
+      }
+    } finally {
+      uploadBusy = false;
+    }
+    updateStepCard();
+  }
+
+  function uploadItem(item) {
+    return new Promise(async resolve => {
+      item.status   = 'uploading';
+      item.progress = 0;
+      await dbPut(item);
+      render();
+
+      const fd = new FormData();
+      fd.append('file',
+        new Blob([item.data], { type: 'application/octet-stream' }),
+        item.filename
+      );
+      if (item.event_id)  fd.append('event_id',  String(item.event_id));
+      if (item.driver_id) fd.append('driver_id', String(item.driver_id));
+
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', TAPI + '/upload');
+      xhr.setRequestHeader('Authorization', 'Bearer ' + localStorage.getItem('auth_token'));
+
+      xhr.upload.onprogress = e => {
+        if (!e.lengthComputable) return;
+        item.progress = Math.round((e.loaded / e.total) * 100);
+        const bar = document.getElementById('mc-prog-' + item.id);
+        if (bar) bar.style.width = item.progress + '%';
+      };
+
+      xhr.onload = async () => {
+        if (xhr.status === 202 || xhr.status === 200) {
+          let sid = null;
+          try { sid = JSON.parse(xhr.responseText).session_id; } catch (_) {}
+          item.status     = 'done';
+          item.session_id = sid;
+          item.progress   = 0;
+          item.data       = null;  // free buffer — no longer needed
+          toast(item.filename + ' uploaded successfully', 'success');
+        } else {
+          let msg = 'Server error ' + xhr.status;
+          try { msg = JSON.parse(xhr.responseText).error || msg; } catch (_) {}
+          item.status = 'error';
+          item.error  = msg;
+          item.progress = 0;
+          toast('Failed: ' + item.filename + ' — ' + msg, 'error');
+        }
+        await dbPut(item);
+        render();
+        resolve();
+      };
+
+      xhr.onerror = async () => {
+        item.status   = 'error';
+        item.error    = 'Network error — will retry when reconnected';
+        item.progress = 0;
+        await dbPut(item);
+        render();
+        resolve();
+      };
+
+      xhr.send(fd);
+    });
+  }
+
+  // ── File System Access API — auto-watch ───────────────────────────────────
+  async function startWatch(handle) {
+    if (handle) dirHandle = handle;
+    if (!dirHandle) return;
+
+    // Seed seenFiles so we don't auto-enqueue pre-existing files on first scan
+    try {
+      for await (const [name, entry] of dirHandle.entries()) {
+        if (entry.kind === 'file' && EXTS.has(extOf(name))) {
+          const f   = await entry.getFile();
+          const sig = name + '_' + f.size + '_' + f.lastModified;
+          seenFiles.set(sig, true);
+        }
+      }
+    } catch (_) {}
+
+    $btnWatch.style.display = 'none';
+    $watchStrip.classList.add('visible');
+    $watchText.textContent = 'Watching "' + dirHandle.name + '" for new .xrk / .xrz / .drk files…';
+    watchTimer = setInterval(scanWatchDir, 2000);
+  }
+
+  async function scanWatchDir() {
+    if (!dirHandle) return;
+    try {
+      for await (const [name, entry] of dirHandle.entries()) {
+        if (entry.kind !== 'file') continue;
+        if (!EXTS.has(extOf(name))) continue;
+        const f   = await entry.getFile();
+        const sig = name + '_' + f.size + '_' + f.lastModified;
+        if (seenFiles.has(sig)) continue;
+        seenFiles.set(sig, true);
+        if (queue.find(i => i.filename === name && i.size === f.size && i.status !== 'error')) continue;
+        await enqueueFiles([f]);
+      }
+    } catch (_) {
+      // Handle became invalid (permission revoked, drive unmounted, etc.)
+      stopWatch();
+      toast('Download folder access lost — click Watch Downloads Folder to re-grant.', 'error');
+    }
+  }
+
+  function stopWatch() {
+    if (watchTimer) { clearInterval(watchTimer); watchTimer = null; }
+    $watchStrip.classList.remove('visible');
+    dirHandle  = null;
+    seenFiles  = new Map();
+    updateWatchBtn();
+  }
+
+  // ── Purge entries older than 7 days with status done ─────────────────────
+  async function purgeOldEntries() {
+    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    for (const item of queue.slice()) {
+      if (item.status === 'done' && new Date(item.queued_at).getTime() < cutoff) {
+        await dbDelete(item.id);
+        queue = queue.filter(i => i.id !== item.id);
+      }
+    }
+  }
+
+  // ── Connectivity polling ──────────────────────────────────────────────────
+  async function pollConnectivity() {
+    const was = isOnline;
+    isOnline  = await checkConnectivity();
+
+    if (!was && isOnline) {
+      // Just came online
+      if (!drivers.length || !events.length) await loadRefs();
+      toast('Internet restored — uploading queued files…', 'success');
+      uploadQueue();
+    } else if (was && !isOnline) {
+      toast('Internet lost — MyChrono mode active. Add files to queue.', 'info');
+    }
+    updateConnBadge();
+    render();
+  }
+
+  // ── Event listeners ───────────────────────────────────────────────────────
+
+  // Stat chip filters
+  document.querySelectorAll('.mc-stat-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('.mc-stat-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      filterState = chip.dataset.filter || '';
+      render();
+    });
+  });
+
+  // IP settings toggle
+  document.getElementById('mc-btn-ip-toggle').addEventListener('click', () => {
+    $ipRow.classList.toggle('visible');
+  });
+  document.getElementById('mc-btn-ip-save').addEventListener('click', () => {
+    const ip = $ipInput.value.trim();
+    if (!ip) return;
+    localStorage.setItem('mychron_device_ip', ip);
+    $ipRow.classList.remove('visible');
+    toast('Device IP saved: ' + ip, 'success');
+  });
+
+  // Open MyChrono browser
+  document.getElementById('mc-btn-open-browser').addEventListener('click', () => {
+    const ip = deviceIP();
+    window.open('http://' + ip + '/datastore/', '_blank', 'noopener');
+    toast('Opening MyChrono file browser at ' + ip, 'info');
+  });
+
+  // Watch folder
+  $btnWatch.addEventListener('click', async () => {
+    try {
+      const handle = await window.showDirectoryPicker({ mode: 'read' });
+      await metaPut('dirHandle', handle);
+      await startWatch(handle);
+      toast('Watching folder: ' + handle.name, 'success');
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        toast('Could not access folder: ' + err.message, 'error');
+      }
+    }
+  });
+
+  // Stop watch
+  document.getElementById('mc-btn-stop-watch').addEventListener('click', stopWatch);
+
+  // Add files button / file input
+  $btnAdd.addEventListener('click', () => $fileInput.click());
+  $fileInput.addEventListener('change', async e => {
+    if (e.target.files.length) {
+      await enqueueFiles(Array.from(e.target.files));
+      e.target.value = '';
+    }
+  });
+
+  // Drop zone
+  $dropZone.addEventListener('click', () => $fileInput.click());
+  $dropZone.addEventListener('dragover', e => {
+    e.preventDefault();
+    $dropZone.classList.add('drag-over');
+  });
+  $dropZone.addEventListener('dragleave', () => $dropZone.classList.remove('drag-over'));
+  $dropZone.addEventListener('drop', async e => {
+    e.preventDefault();
+    $dropZone.classList.remove('drag-over');
+    await enqueueFiles(Array.from(e.dataTransfer.files));
+  });
+
+  // Table event delegation (select change, action buttons)
+  $tbody.addEventListener('change', async e => {
+    const sel = e.target.closest('select.mc-tbl-select');
+    if (!sel) return;
+    const id    = parseInt(sel.dataset.id, 10);
+    const field = sel.dataset.field;
+    await setItemField(id, field, sel.value);
+  });
+
+  $tbody.addEventListener('click', async e => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const id = parseInt(btn.dataset.id, 10);
+    if (btn.dataset.action === 'remove') await removeItem(id);
+    if (btn.dataset.action === 'retry')  await retryItem(id);
+  });
+
+  // ── Initialise ────────────────────────────────────────────────────────────
+  db    = await openDB();
+  queue = await dbAll();
+  purgeOldEntries();
+
+  // Restore stored device IP
+  const storedIP = localStorage.getItem('mychron_device_ip');
+  if (storedIP) $ipInput.value = storedIP;
+
+  // Initial connectivity check
+  isOnline = await checkConnectivity();
+  if (isOnline) {
+    await loadRefs();
+    uploadQueue();  // flush anything left from a previous session
+  }
+
+  // Try to restore dir handle (Chrome/Edge persist FSA handles in IDB)
+  if (HAS_FSA) {
+    try {
+      const storedHandle = await metaGet('dirHandle');
+      if (storedHandle) {
+        const perm = await storedHandle.queryPermission({ mode: 'read' });
+        if (perm === 'granted') {
+          await startWatch(storedHandle);
+        }
+      }
+    } catch (_) { /* FSA not supported or stale handle */ }
+  }
+
+  updateConnBadge();
+  render();
+
+  // Poll every 3 seconds
+  setInterval(pollConnectivity, 3000);
+
+}());
+</script>
+</body>
+</html>
