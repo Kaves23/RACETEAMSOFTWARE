@@ -188,6 +188,19 @@
                     <button type="button" class="btn btn-outline-secondary" id="btnDarkMode" onclick="setTheme('dark')">Dark</button>
                   </div>
                 </div>
+                <div class="d-flex align-items-center justify-content-between settings-appearance-card">
+                  <span>Currency</span>
+                  <div style="display:flex;align-items:center;gap:6px">
+                    <select id="currencySelect" class="form-select form-select-sm" style="width:auto;font-size:.8rem" onchange="saveCurrencySetting()">
+                      <option value="R">R — South African Rand (ZAR)</option>
+                      <option value="£">£ — British Pound (GBP)</option>
+                      <option value="€">€ — Euro (EUR)</option>
+                      <option value="$">$ — US Dollar (USD)</option>
+                      <option value="A$">A$ — Australian Dollar (AUD)</option>
+                      <option value="₩">₩ — South Korean Won (KRW)</option>
+                    </select>
+                  </div>
+                </div>
               </div>
 
               <div class="mlo-section-label mt-3">Utilities</div>
@@ -745,7 +758,7 @@
   document.body.classList.add('light-mode');
   document.getElementById('btnLightMode').classList.add('active');
   document.getElementById('btnDarkMode').classList.remove('active');
-  
+
   (async function(){
     RTS.setActiveNav();
     const LS_PANES = 'rts.settings.panes.v1';
@@ -898,6 +911,22 @@
     }
 
     function saveUI(){ RTS.safeSaveJSON('rts.settings.ui.v1', ui); }
+
+    // ── Currency selector ─────────────────────────────────────────
+    (function initCurrencySelector() {
+      const sel = document.getElementById('currencySelect');
+      if (!sel) return;
+      const saved = RTS.getSettings().currencySymbol || 'R';
+      sel.value = saved;
+      if (!sel.value) sel.value = 'R';
+    })();
+
+    window.saveCurrencySetting = function() {
+      const sym = document.getElementById('currencySelect').value;
+      RTS.saveSettings({ currencySymbol: sym });
+      saveBrandingToDB({ currencySymbol: sym }).catch(e => console.warn('Currency save to DB failed:', e.message));
+      window.curr = function(){ return sym; };
+    };
 
     // Load locations from database
     async function loadLocationsFromDB() {

@@ -198,7 +198,8 @@
 
   function moneyZAR(n){
     const v = (typeof n === 'number') ? n : parseFloat(n || 0);
-    return 'R' + (isNaN(v) ? '0.00' : v.toFixed(2));
+    const sym = getCurrencySymbol();
+    return sym + (isNaN(v) ? '0.00' : v.toFixed(2));
   }
 
   function uid(prefix){
@@ -263,7 +264,8 @@
       calendars: { google: { enabled:false, calendarId:'', lastSync:'', notes:'' } },
       teamName: '',
       teamLogoUrl: '',
-      brandColor: '#e32636'
+      brandColor: '#e32636',
+      currencySymbol: 'R'
     };
     return deepMerge(base, ext);
   }
@@ -282,6 +284,14 @@
     safeSaveJSON(SETTINGS_KEY, next);
     return next;
   }
+
+  // Returns the configured currency symbol (default 'R' for ZAR)
+  function getCurrencySymbol(){
+    try { return getSettings().currencySymbol || 'R'; } catch(_e){ return 'R'; }
+  }
+
+  // Expose as a global shortcut so any page can call window.curr()
+  window.curr = getCurrencySymbol;
 
   // Fetch settings from the server and merge into localStorage so all pages see the latest branding.
   // Call this once on page load (fire-and-forget). Returns the merged settings object.
@@ -901,6 +911,7 @@
     getSettings,
     saveSettings,
     syncSettingsFromDB,
+    getCurrencySymbol,
     getQueryParam,
     setQueryParam,
     pickDriveFiles,
@@ -1551,6 +1562,33 @@
   };
 
   console.log('✅ RTS_API initialized:', API_BASE);
+})();
+
+// ============================================================================
+// CURRENCY — replace hardcoded £ symbols in the DOM with the configured symbol
+// Runs after DOM content loaded. Pages that build HTML dynamically should use
+// the window.curr() helper instead of hardcoded '£'.
+// ============================================================================
+(function() {
+  function applyDOMCurrency() {
+    try {
+      const sym = (window.curr && window.curr()) || (window.RTS && window.RTS.getCurrencySymbol && window.RTS.getCurrencySymbol()) || 'R';
+      if (sym === '£') return; // no change needed
+      // Walk all text nodes and replace '£' with the configured symbol
+      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+      let node;
+      while ((node = walker.nextNode())) {
+        if (node.nodeValue && node.nodeValue.includes('£')) {
+          node.nodeValue = node.nodeValue.split('£').join(sym);
+        }
+      }
+    } catch(_e) {}
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', applyDOMCurrency);
+  } else {
+    applyDOMCurrency();
+  }
 })();
 
 // ============================================================================
