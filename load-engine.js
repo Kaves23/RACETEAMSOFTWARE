@@ -2023,7 +2023,7 @@ console.log('📦 load-engine.js loading...');
 
       const boxGeometry = new THREE.BoxGeometry(box.length, box.height, box.width);
       const boxMaterial = new THREE.MeshPhongMaterial({
-        color: getCategoryColor(box.category),
+        color: getBoxStackColor(placement),
         shininess: 30
       });
       const boxMesh = new THREE.Mesh(boxGeometry, boxMaterial);
@@ -2093,7 +2093,7 @@ console.log('📦 load-engine.js loading...');
       // SPRING GREEN (#00FF7F / 0x00FF7F) for matches, GRAY (0x808080) for non-matches
       const boxColor = searchLower
         ? (isMatch ? 0x00FF7F : 0x808080)
-        : (isCatDimmed ? 0x333333 : getCategoryColor(box.category));
+        : (isCatDimmed ? 0x333333 : getBoxStackColor(placement));
 
       const boxMaterial = new THREE.MeshPhongMaterial({
         color: boxColor,
@@ -2836,7 +2836,7 @@ console.log('📦 load-engine.js loading...');
       const isCur = idx === n, isFut = idx > n;
       const bMesh = new THREE.Mesh(
         new THREE.BoxGeometry(box.length, box.height, box.width),
-        new THREE.MeshPhongMaterial({ color: isFut?0x444444:(isCur?0xFFD700:getCategoryColor(box.category)), transparent:isFut, opacity:isFut?0.12:1, shininess:isCur?120:30 })
+        new THREE.MeshPhongMaterial({ color: isFut?0x444444:(isCur?0xFFD700:getBoxStackColor(pl)), transparent:isFut, opacity:isFut?0.12:1, shininess:isCur?120:30 })
       );
       bMesh.userData.isBox = true; bMesh.userData.boxId = box.id;
       const pos = calculatePositionIn3D(pl, box, truck);
@@ -3376,13 +3376,13 @@ console.log('📦 load-engine.js loading...');
     currentLoad.placements.forEach((pl, idx) => {
       const box = getBox(pl.boxId); if (!box) return;
       const pos = calculatePositionIn3D(pl, box, truck);
-      _addBoxMesh(pos, box, getCategoryColor(box.category), 1, idx + 1);
+      _addBoxMesh(pos, box, getBoxStackColor(pl), 1, idx + 1);
     });
     // Render preview placements (gold outline, slightly transparent)
     packed.forEach((pl, idx) => {
       const box = getBox(pl.boxId); if (!box) return;
       const pos = { x: pl._x, y: pl._y, z: pl._z };
-      _addBoxMesh(pos, box, getCategoryColor(box.category), 0.88, currentLoad.placements.length + idx + 1, true);
+      _addBoxMesh(pos, box, getBoxStackColor(pl), 0.88, currentLoad.placements.length + idx + 1, true);
     });
     update3DOverlays();
     renderer.render(scene, camera);
@@ -3432,6 +3432,17 @@ console.log('📦 load-engine.js loading...');
     render3DWithSearch(currentSearchTerm);
     if (typeof renderAll === 'function') renderAll();
     showToast && showToast('Auto-pack applied — ' + packed.length + ' boxes placed', 'success');
+  }
+
+  // Returns a THREE.js integer colour based on how high up a placement is in its zone stack
+  function getBoxStackColor(placement) {
+    const zoneId = placement.zone;
+    const zonePlacements = currentLoad.placements.filter(p =>
+      p.zone === zoneId && p.type !== 'asset' && p.type !== 'inventory'
+    );
+    const idx = zonePlacements.indexOf(placement);
+    const sc = getStackLevelColors(idx >= 0 ? idx : 0);
+    return parseInt(sc.solid.replace('#', ''), 16);
   }
 
   // Stack-height colour palette — bottom of pile = level 0 (blue), up through green, amber, orange, purple, red, teal, cycling
