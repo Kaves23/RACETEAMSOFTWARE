@@ -2927,6 +2927,7 @@ console.log('📦 load-engine.js loading...');
     if (currentView !== '3D') { inspector.style.display = 'none'; return; }
     const pl = currentLoad.placements || [];
     if (pl.length === 0) { inspector.style.display = 'none'; return; }
+    if (selected3DBoxId) { _buildPileInspector(inspector); return; }
 
     // Collect stats per category
     const catMap = {};
@@ -2999,6 +3000,130 @@ console.log('📦 load-engine.js loading...');
   function jumpTo3DBox(boxId) {
     selected3DBoxId = String(boxId);
     show3DSelectedPanel(String(boxId));
+    render3DWithSearch(currentSearchTerm);
+  }
+
+  // ===== PILE INSPECTOR helpers =====
+
+  function _getPileBoxes(boxId) {
+    const truck = getTruck(); if (!truck) return [];
+    const selPl  = currentLoad.placements.find(p => String(p.boxId) === String(boxId));
+    const selBox = getBox(boxId);
+    if (!selPl || !selBox) return [];
+    const selPos = calculatePositionIn3D(selPl, selBox, truck);
+    const sL2 = (selBox.length || 10) / 2;
+    const sW2 = (selBox.width  || 10) / 2;
+    const pile = [];
+    currentLoad.placements.forEach(pl => {
+      const b = getBox(pl.boxId); if (!b) return;
+      const pos = calculatePositionIn3D(pl, b, truck);
+      const bL2 = (b.length || 10) / 2;
+      const bW2 = (b.width  || 10) / 2;
+      if (Math.abs(selPos.x - pos.x) < sL2 + bL2 - 1 &&
+          Math.abs(selPos.z - pos.z) < sW2 + bW2 - 1) {
+        pile.push({ pl, box: b, pos });
+      }
+    });
+    pile.sort((a, b) => b.pos.y - a.pos.y); // top-first (highest Y = index 0)
+    return pile;
+  }
+
+  function _buildPileInspector(inspector) {
+    const pile = _getPileBoxes(selected3DBoxId);
+    if (pile.length === 0) {
+      // Isolated box — fall through to category rail (strip dispatcher then re-call)
+      if (selected3DBoxId) {
+        inspector.innerHTML = '';
+        inspector.style.display = 'none';
+      }
+      return;
+    }
+    let html = '<div class="ci-pile-panel">';
+    html += '<div class="ci-pile-header"><span>Stack &mdash; ' + pile.length + ' box' + (pile.length !== 1 ? 'es' : '') + '</span>' +
+      '<button class="ci-pile-back" onclick="LoadEngine.clearBoxSelection()" title="Back to categories">&#10005;</button></div>';
+    pile.forEach(function(item, idx) {
+      var b   = item.box;
+      var bid = String(b.id);
+      var isSelected = bid === String(selected3DBoxId);
+      var hex = '#' + getCategoryColor(b.category).toString(16).padStart(6, '0');
+      var nm  = esc(b.name || b.barcode || 'Box');
+      var wt  = b.max_weight_kg ? b.max_weight_kg + ' kg' : '';
+      var canUp   = idx > 0;
+      var canDown = idx < pile.length - 1;
+      html += '<div class="ci-pile-row' + (isSelected ? ' selected' : '') + '">';
+      html += '<div class="ci-pile-row-main" onclick="LoadEngine.jumpTo3DBox(\'' + bid + '\')">'
+        + '<div class="ci-pile-swatch" style="background:' + hex + '"></div>'
+        + '<div class="ci-pile-name">' + nm + '</div>'
+        + (wt ? '<div class="ci-pile-wt">' + wt + '</div>' : '')
+        + '<div class="ci-pile-arrows">'
+        + '<button class="ci-pile-arr"' + (canUp   ? '' : ' disabled') + ' title="Move up in stack"   onclick="event.stopPropagation();LoadEngine.movePileBox(\'' + bid + '\',\'up\')">&#9650;</button>'
+        + '<button class="ci-pile-arr"' + (canDown ? '' : ' disabled') + ' title="Move down in stack" onclick="event.stopPropagation();LoadEngine.movePileBox(\'' + bid + '\',\'down\')">&#9660;</button>'
+        + '</div>'
+        + '<button class="ci-pile-tab" style="background:' + hex + '22;border-left:3px solid ' + hex + '" data-box="' + bid + '" onclick="event.stopPropagation();LoadEngine.togglePileBoxDetail(\'' + bid + '\')" title="Properties">'
+        + '<svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 2l4 3-4 3"/></svg>'
+        + '</button>';
+      html += '</div>'; // row-main
+      html += '<div class="ci-pile-detail" data-box="' + bid + '">';
+      if (b.length)        html += '<div class="ci-pile-det-row"><span>Dimensions</span><strong>' + b.length + '&times;' + b.width + '&times;' + b.height + '&thinsp;cm</strong></div>';
+      if (b.max_weight_kg) html += '<div class="ci-pile-det-row"><span>Weight</span><strong>' + b.max_weight_kg + '&thinsp;kg</strong></div>';
+      if (b.category)      html += '<div class="ci-pile-det-row"><span>Category</span><strong>' + esc(CAT_NAMES[b.category] || b.category) + '</strong></div>';
+      if (item.pl.zone)    html += '<div class="ci-pile-det-row"><span>Zone</span><strong>' + esc(item.pl.zone.replace('grid-', 'Zone ')) + '</strong></div>';
+      var contentsItems = b.contentsItems || [];
+      var contentsStr   = b.contents || '';
+      if (contentsItems.length > 0) {
+        html += '<div class="ci-pile-det-contents"><div class="ci-pile-det-contents-title">Contents (' + contentsItems.length + ')</div>';
+        contentsItems.forEach(function(ci) { html += '<div class="ci-pile-det-item">' + esc(ci.barcode || '') + (ci.name ? ' &mdash; ' + esc(ci.name) : '') + '</div>'; });
+        html += '</div>';
+      } else if (contentsStr) {
+        html += '<div class="ci-pile-det-contents"><div class="ci-pile-det-contents-title">Contents</div><div class="ci-pile-det-item">' + esc(contentsStr) + '</div></div>';
+      }
+      html += '</div>'; // detail
+      html += '</div>'; // row
+    });
+    html += '</div>'; // pile-panel
+    inspector.innerHTML = html;
+    inspector.style.display = 'flex';
+  }
+
+  function togglePileBoxDetail(boxId) {
+    var bid = String(boxId);
+    document.querySelectorAll('.ci-pile-detail.open').forEach(function(el)  { if (el.dataset.box  !== bid) el.classList.remove('open'); });
+    document.querySelectorAll('.ci-pile-tab.open').forEach(function(btn)    { if (btn.dataset.box !== bid) btn.classList.remove('open'); });
+    var det = document.querySelector('.ci-pile-detail[data-box="' + bid + '"]');
+    if (det) det.classList.toggle('open');
+    var tab = document.querySelector('.ci-pile-tab[data-box="' + bid + '"]');
+    if (tab) tab.classList.toggle('open');
+  }
+
+  function movePileBox(boxId, dir) {
+    var truck = getTruck(); if (!truck) return;
+    var pile = _getPileBoxes(boxId); // top-first: index 0 = highest box
+    var idx  = pile.findIndex(function(item) { return String(item.box.id) === String(boxId); });
+    if (idx < 0) return;
+    var swapIdx = dir === 'up' ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= pile.length) return;
+    var tmp = pile[idx]; pile[idx] = pile[swapIdx]; pile[swapIdx] = tmp;
+    // Recalculate Y from the floor (bottom-to-top = reversed)
+    var floor = 0;
+    pile.slice().reverse().forEach(function(item) {
+      var bh = item.box.height || 10;
+      var pl = currentLoad.placements.find(function(p) { return String(p.boxId) === String(item.box.id); });
+      if (pl) {
+        if (pl._x === undefined) { pl._x = item.pos.x; pl._z = item.pos.z; }
+        pl._y = floor + bh / 2;
+        if (!pl.position) pl.position = {};
+        pl.position.x = pl._x; pl.position.y = pl._y; pl.position.z = pl._z;
+      }
+      floor += bh;
+    });
+    currentLoad.updatedAt = new Date().toISOString();
+    saveData();
+    render3DWithSearch(currentSearchTerm);
+  }
+
+  function clearBoxSelection() {
+    selected3DBoxId = null;
+    hide3DSelectedPanel();
     render3DWithSearch(currentSearchTerm);
   }
 
@@ -3940,7 +4065,10 @@ console.log('📦 load-engine.js loading...');
     applyAutoPack,
     buildCatInspector,
     selectCatFilter,
-    jumpTo3DBox
+    jumpTo3DBox,
+    togglePileBoxDetail,
+    movePileBox,
+    clearBoxSelection
   };
 
   // Auto-initialize on DOM ready
