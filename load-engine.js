@@ -3050,8 +3050,11 @@ console.log('📦 load-engine.js loading...');
       var b   = item.box;
       var bid = String(b.id);
       var isSelected = bid === String(selected3DBoxId);
-      var posFromBottom = pile.length - 1 - idx; // bottom box = 0
-      var sc  = getStackLevelColors(posFromBottom);
+      // Use same array-index ordering as getBoxStackColor so panel colours match 3D boxes
+      var zoneId = item.pl.zone;
+      var zonePl = currentLoad.placements.filter(function(p) { return p.zone === zoneId && p.type !== 'asset' && p.type !== 'inventory'; });
+      var arrIdx = zonePl.indexOf(item.pl);
+      var sc  = getStackLevelColors(arrIdx >= 0 ? arrIdx : 0);
       var hex = sc.solid;
       var nm  = esc(b.name || b.barcode || 'Box');
       var wt  = b.max_weight_kg ? b.max_weight_kg + ' kg' : '';
@@ -3450,17 +3453,17 @@ console.log('📦 load-engine.js loading...');
     return parseInt(sc.solid.replace('#', ''), 16);
   }
 
-  // Stack-height colour palette — bottom of pile = level 0 (blue), up through green, amber, orange, purple, red, teal, cycling
+  // Stack-height colour palette — bottom of pile = level 0 (red/hot), ascending through cooler colours
   function getStackLevelColors(level) {
     const palette = [
-      { solid: '#1565c0', bg: '#e3f2fd', hover: '#bbdefb', light: '#f0f8ff', label: 'L1' },  // blue   — bottom
-      { solid: '#2e7d32', bg: '#e8f5e9', hover: '#c8e6c9', light: '#f4fbf4', label: 'L2' },  // green
-      { solid: '#f57f17', bg: '#fff8e1', hover: '#ffecb3', light: '#fffdf5', label: 'L3' },  // amber
-      { solid: '#bf360c', bg: '#fbe9e7', hover: '#ffccbc', light: '#fff5f3', label: 'L4' },  // deep orange
-      { solid: '#6a1b9a', bg: '#f3e5f5', hover: '#e1bee7', light: '#faf5fb', label: 'L5' },  // purple
-      { solid: '#c62828', bg: '#ffebee', hover: '#ffcdd2', light: '#fff8f8', label: 'L6' },  // red
-      { solid: '#00695c', bg: '#e0f2f1', hover: '#b2dfdb', light: '#f0faf9', label: 'L7' },  // teal
-      { solid: '#4527a0', bg: '#ede7f6', hover: '#d1c4e9', light: '#f8f5ff', label: 'L8' },  // deep purple
+      { solid: '#e53935', bg: '#ffebee', hover: '#ffcdd2', light: '#fff5f5', label: 'L1' },  // red    — bottom
+      { solid: '#ff9800', bg: '#fff3e0', hover: '#ffe0b2', light: '#fffdf5', label: 'L2' },  // orange
+      { solid: '#fdd835', bg: '#fffde7', hover: '#fff9c4', light: '#fffff5', label: 'L3' },  // yellow
+      { solid: '#43a047', bg: '#e8f5e9', hover: '#c8e6c9', light: '#f4fbf4', label: 'L4' },  // green
+      { solid: '#00acc1', bg: '#e0f7fa', hover: '#b2ebf2', light: '#f0fffe', label: 'L5' },  // cyan
+      { solid: '#1e88e5', bg: '#e3f2fd', hover: '#bbdefb', light: '#f0f8ff', label: 'L6' },  // blue
+      { solid: '#8e24aa', bg: '#f3e5f5', hover: '#e1bee7', light: '#faf5fb', label: 'L7' },  // purple
+      { solid: '#d81b60', bg: '#fce4ec', hover: '#f8bbd0', light: '#fff5f9', label: 'L8' },  // pink
     ];
     return palette[level % palette.length];
   }
