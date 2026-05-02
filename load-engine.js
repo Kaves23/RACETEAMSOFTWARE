@@ -3529,9 +3529,6 @@ console.log('📦 load-engine.js loading...');
     showToast && showToast('Auto-pack applied — ' + packed.length + ' boxes placed', 'success');
   }
 
-    showToast && showToast('Auto-pack applied — ' + packed.length + ' boxes placed', 'success');
-  }
-
   // ===== KART STAND 3D WIREFRAME =====
   // Draws a THREE.js wireframe representation of a kart stand into the scene.
   // pos: {x,y,z} centre point. box: box object (width/length/height in cm).
