@@ -964,7 +964,7 @@ console.log('📦 load-engine.js loading...');
       let totalWeight = 0;
       let totalVolume = 0;
       
-      const boxesHtml = placements.map(p => {
+      const boxesHtml = placements.map((p, stackIndex) => {
         const box = getBox(p.boxId);
         if (!box) {
           // Box is in the plan but not in the loaded box list — show a stub card
@@ -977,6 +977,7 @@ console.log('📦 load-engine.js loading...');
           `;
         }
         if (box) {
+          const sc = getStackLevelColors(stackIndex);
           const bw = parseFloat(box.weight) || 0;
           const bl = parseFloat(box.length) || 0;
           const bwid = parseFloat(box.width) || 0;
@@ -1010,9 +1011,10 @@ console.log('📦 load-engine.js loading...');
           }
           
           return `
-            <div class="placed-box" data-box-id="${box.id}" onclick="LoadEngine.toggleBoxExpand('${box.id}')">
+            <div class="placed-box" data-box-id="${box.id}" onclick="LoadEngine.toggleBoxExpand('${box.id}')" style="--box-color:${sc.solid};--box-bg:${sc.bg};--box-hover-bg:${sc.hover};--box-light-bg:${sc.light}">
               <div class="placed-box-header">
                 ${p.scannedAt ? '<div class="scan-confirmed-dot" title="Physically scanned onto truck"></div>' : ''}
+                <span class="placed-box-level">${sc.label}</span>
                 <div class="placed-box-info">
                   <div class="placed-box-barcode">${esc(box.barcode)}</div>
                   <div class="placed-box-name">${esc(box.name)}</div>
@@ -3430,6 +3432,21 @@ console.log('📦 load-engine.js loading...');
     render3DWithSearch(currentSearchTerm);
     if (typeof renderAll === 'function') renderAll();
     showToast && showToast('Auto-pack applied — ' + packed.length + ' boxes placed', 'success');
+  }
+
+  // Stack-height colour palette — bottom of pile = level 0 (blue), up through green, amber, orange, purple, red, teal, cycling
+  function getStackLevelColors(level) {
+    const palette = [
+      { solid: '#1565c0', bg: '#e3f2fd', hover: '#bbdefb', light: '#f0f8ff', label: 'L1' },  // blue   — bottom
+      { solid: '#2e7d32', bg: '#e8f5e9', hover: '#c8e6c9', light: '#f4fbf4', label: 'L2' },  // green
+      { solid: '#f57f17', bg: '#fff8e1', hover: '#ffecb3', light: '#fffdf5', label: 'L3' },  // amber
+      { solid: '#bf360c', bg: '#fbe9e7', hover: '#ffccbc', light: '#fff5f3', label: 'L4' },  // deep orange
+      { solid: '#6a1b9a', bg: '#f3e5f5', hover: '#e1bee7', light: '#faf5fb', label: 'L5' },  // purple
+      { solid: '#c62828', bg: '#ffebee', hover: '#ffcdd2', light: '#fff8f8', label: 'L6' },  // red
+      { solid: '#00695c', bg: '#e0f2f1', hover: '#b2dfdb', light: '#f0faf9', label: 'L7' },  // teal
+      { solid: '#4527a0', bg: '#ede7f6', hover: '#d1c4e9', light: '#f8f5ff', label: 'L8' },  // deep purple
+    ];
+    return palette[level % palette.length];
   }
 
   function getCategoryColor(category) {
