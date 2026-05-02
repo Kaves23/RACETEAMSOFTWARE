@@ -3028,6 +3028,9 @@ console.log('📦 load-engine.js loading...');
     return pile;
   }
 
+  // Position-based palette: index 0 = bottom of stack, ascending upwards
+  var PILE_LEVEL_COLORS = ['#e8453c','#ff9800','#fdd663','#81c995','#4ecdc4','#78d9ec','#aecbfa','#d7aefb'];
+
   function _buildPileInspector(inspector) {
     const pile = _getPileBoxes(selected3DBoxId);
     if (pile.length === 0) {
@@ -3045,7 +3048,8 @@ console.log('📦 load-engine.js loading...');
       var b   = item.box;
       var bid = String(b.id);
       var isSelected = bid === String(selected3DBoxId);
-      var hex = '#' + getCategoryColor(b.category).toString(16).padStart(6, '0');
+      var posFromBottom = pile.length - 1 - idx; // bottom box = 0
+      var hex = PILE_LEVEL_COLORS[posFromBottom % PILE_LEVEL_COLORS.length];
       var nm  = esc(b.name || b.barcode || 'Box');
       var wt  = b.max_weight_kg ? b.max_weight_kg + ' kg' : '';
       var canUp   = idx > 0;
