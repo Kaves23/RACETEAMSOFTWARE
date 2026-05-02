@@ -3051,7 +3051,8 @@ console.log('📦 load-engine.js loading...');
       var bid = String(b.id);
       var isSelected = bid === String(selected3DBoxId);
       var posFromBottom = pile.length - 1 - idx; // bottom box = 0
-      var hex = PILE_LEVEL_COLORS[posFromBottom % PILE_LEVEL_COLORS.length];
+      var sc  = getStackLevelColors(posFromBottom);
+      var hex = sc.solid;
       var nm  = esc(b.name || b.barcode || 'Box');
       var wt  = b.max_weight_kg ? b.max_weight_kg + ' kg' : '';
       var canUp   = idx > 0;
