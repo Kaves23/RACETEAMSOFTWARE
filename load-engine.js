@@ -3057,8 +3057,12 @@ console.log('📦 load-engine.js loading...');
       var wt  = b.max_weight_kg ? b.max_weight_kg + ' kg' : '';
       var canUp   = idx > 0;
       var canDown = idx < pile.length - 1;
-      html += '<div class="ci-pile-row' + (isSelected ? ' selected' : '') + '">';
-      html += '<div class="ci-pile-row-main" onclick="LoadEngine.jumpTo3DBox(\'' + bid + '\')">'
+      // Inline colour styles: row border = stack colour, header bg = solid tint, detail bg = lighter tint
+      var rowStyle  = 'border-left:3px solid ' + hex + ';';
+      var headStyle = 'background:' + hex + '33;';
+      var detStyle  = 'background:' + hex + '18;border-top:1px solid ' + hex + '44;';
+      html += '<div class="ci-pile-row' + (isSelected ? ' selected' : '') + '" style="' + rowStyle + '">';
+      html += '<div class="ci-pile-row-main" style="' + headStyle + '" onclick="LoadEngine.jumpTo3DBox(\'' + bid + '\')">'
         + '<div class="ci-pile-swatch" style="background:' + hex + '"></div>'
         + '<div class="ci-pile-name">' + nm + '</div>'
         + (wt ? '<div class="ci-pile-wt">' + wt + '</div>' : '')
@@ -3070,7 +3074,7 @@ console.log('📦 load-engine.js loading...');
         + '<svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 2l4 3-4 3"/></svg>'
         + '</button>';
       html += '</div>'; // row-main
-      html += '<div class="ci-pile-detail" data-box="' + bid + '">';
+      html += '<div class="ci-pile-detail" data-box="' + bid + '" style="' + detStyle + '">';
       if (b.length)        html += '<div class="ci-pile-det-row"><span>Dimensions</span><strong>' + b.length + '&times;' + b.width + '&times;' + b.height + '&thinsp;cm</strong></div>';
       if (b.max_weight_kg) html += '<div class="ci-pile-det-row"><span>Weight</span><strong>' + b.max_weight_kg + '&thinsp;kg</strong></div>';
       if (b.category)      html += '<div class="ci-pile-det-row"><span>Category</span><strong>' + esc(CAT_NAMES[b.category] || b.category) + '</strong></div>';
