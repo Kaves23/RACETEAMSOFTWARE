@@ -1872,6 +1872,12 @@ console.log('📦 load-engine.js loading...');
       setup3DHoverTooltip();
     }
 
+    // Auto-select first box so the pile inspector panel is visible immediately
+    // without requiring the user to click a box first.
+    if (!selected3DBoxId && currentLoad.placements && currentLoad.placements.length > 0) {
+      selected3DBoxId = String(currentLoad.placements[0].boxId);
+    }
+
     render3D();
     animate3D();
   }
@@ -2159,8 +2165,13 @@ console.log('📦 load-engine.js loading...');
   }
 
   function calculatePositionIn3D(placement, box, truck) {
-    // If auto-pack computed an exact position, use it directly
-    if (placement._x !== undefined) {
+    // Only trust stored _x/_y/_z if this placement was created by the auto-pack
+    // algorithm (autoPackedAt flag). Auto-pack uses complex 3D bin-packing that can
+    // place boxes side-by-side, so those exact positions must be preserved.
+    // For manually placed or pile-reordered boxes, always recalculate from zone
+    // position + array-index-based stacking height so stale saved values (e.g.
+    // from the old buggy movePileBox) never cause invisible or misplaced boxes.
+    if (placement._x !== undefined && placement.autoPackedAt) {
       return { x: placement._x, y: placement._y, z: placement._z };
     }
     // Get zone data from truck
@@ -3128,19 +3139,16 @@ console.log('📦 load-engine.js loading...');
     currentLoad.placements[idxA] = plB;
     currentLoad.placements[idxB] = plA;
 
-    // Lock XZ for any non-auto-packed boxes in this zone, then recompute
-    // all Y values for the zone in new array order (floor accumulates upward)
+    // calculatePositionIn3D now recalculates Y from array order for all non-auto-packed
+    // boxes, so no explicit _y update is needed for those. For auto-packed boxes
+    // (_y is used directly via early return), recompute _y in new array order.
     var zoneId = plA.zone;
-    var zone = truck.zones[zoneId];
-    var zX = zone ? (zone.posX || 0) : 0;
-    var zZ = zone ? (zone.posZ || 0) : 0;
     var floor = 0;
     currentLoad.placements.forEach(function(pl) {
       if (pl.zone !== zoneId) return;
       var b = getBox(pl.boxId); if (!b) return;
       var bh = b.height || 10;
-      if (pl._x === undefined) { pl._x = zX + (pl.offsetX || 0); pl._z = zZ + (pl.offsetZ || 0); }
-      pl._y = floor + bh / 2;
+      if (pl.autoPackedAt) { pl._y = floor + bh / 2; }
       floor += bh;
     });
 
