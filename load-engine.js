@@ -1029,7 +1029,7 @@ console.log('📦 load-engine.js loading...');
                 <div class="placed-box-info">
                   <div class="placed-box-barcode">${esc(box.barcode)}</div>
                   <div class="placed-box-name">${esc(box.name)}</div>
-                  <div style="font-size:.7rem;color:#5f6368;margin-top:3px;">${bl}×${bwid}×${bh}cm | ${boxVolume}m³ | ${bw}kg</div>
+                  <div style="font-size:.68rem;color:#5f6368;width:100%;margin-top:1px;">${bl}×${bwid}×${bh}cm | ${boxVolume}m³ | ${bw}kg</div>
                 </div>
                 <div style="display:flex;align-items:center;gap:4px;">
                   <span class="placed-box-expand-icon">▼</span>
