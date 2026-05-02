@@ -544,7 +544,7 @@
             </div>
 
             <!-- Quick stats row -->
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:12px">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px">
               <div style="background:#f0f7ff;border:1px solid #c5d8f5;border-radius:6px;padding:6px 8px;text-align:center">
                 <div style="font-size:1.15rem;font-weight:800;color:#1a73e8" id="sumQtyVal">0</div>
                 <div style="font-size:.65rem;color:#5f6368;text-transform:uppercase;letter-spacing:.4px">In Stock</div>
@@ -556,6 +556,30 @@
               <div style="background:#fdf4ff;border:1px solid #d8b4fe;border-radius:6px;padding:6px 8px;text-align:center">
                 <div style="font-size:1.15rem;font-weight:800;color:#7c3aed" id="sumCostVal">—</div>
                 <div style="font-size:.65rem;color:#5f6368;text-transform:uppercase;letter-spacing:.4px">Unit Cost</div>
+              </div>
+            </div>
+
+            <!-- Quick stock adjust -->
+            <div class="inv-section-card" style="margin-bottom:10px;padding:8px 10px">
+              <div style="font-size:.68rem;font-weight:700;color:#5f6368;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Quick Adjust Stock</div>
+              <div style="display:flex;gap:6px;align-items:center">
+                <input type="number" id="sumAdjQty" min="1" step="1" value="1" style="width:64px;padding:3px 6px;border:1px solid #d0d0d0;border-radius:4px;font-size:.82rem;text-align:center">
+                <button type="button" id="btnQuickRestock" class="btn btn-sm" style="flex:1;background:#dcfce7;color:#15803d;border:1px solid #86efac;font-size:.76rem;font-weight:600">＋ Restock</button>
+                <button type="button" id="btnQuickUse" class="btn btn-sm" style="flex:1;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;font-size:.76rem;font-weight:600">－ Use</button>
+              </div>
+              <input type="text" id="sumAdjNote" placeholder="Note (optional)" style="width:100%;margin-top:5px;padding:3px 7px;border:1px solid #d0d0d0;border-radius:4px;font-size:.76rem">
+            </div>
+
+            <!-- Supplier / lead time / notes meta row -->
+            <div id="sumMeta" style="margin-bottom:10px;font-size:.78rem;color:#5f6368;display:none">
+              <div id="sumSupplierRow" style="display:none;padding:3px 0;display:flex;align-items:baseline;gap:6px">
+                <span style="font-weight:600;color:#4a5568;min-width:72px">Supplier</span>
+                <span id="sumSupplierVal" style="color:#1a1d24"></span>
+                <span id="sumLeadVal" style="color:#9aa0a6;font-size:.71rem"></span>
+              </div>
+              <div id="sumNotesRow" style="display:none;padding:3px 0">
+                <span style="font-weight:600;color:#4a5568">Notes: </span>
+                <span id="sumNotesVal" style="color:#1a1d24;white-space:pre-wrap"></span>
               </div>
             </div>
 
@@ -1333,6 +1357,8 @@
         document.getElementById('btnShopifySync').addEventListener('click', openShopifyModal);
         
         // Item form (modal wiring)
+        document.getElementById('btnQuickRestock').addEventListener('click', () => quickAdjustStock('restock'));
+        document.getElementById('btnQuickUse').addEventListener('click',     () => quickAdjustStock('used'));
         document.getElementById('btnOpenEditModal').addEventListener('click', () => {
           const item = allItems.find(i => i.id === selectedItemId);
           if (item) openEditModal(item);
@@ -1820,6 +1846,44 @@
         }
       };
       
+      // Quick stock adjust (restock / use) from the right panel
+      async function quickAdjustStock(action) {
+        if (!selectedItemId) return;
+        const item = allItems.find(i => i.id === selectedItemId);
+        if (!item) return;
+        const qty = parseFloat(document.getElementById('sumAdjQty').value) || 0;
+        if (qty <= 0) { showToast('Enter a quantity > 0', 'error'); return; }
+        const note = document.getElementById('sumAdjNote').value.trim();
+        const delta = action === 'restock' ? qty : -qty;
+        const newQty = Math.max(0, (parseFloat(item.qty) || 0) + delta);
+
+        try {
+          // Update quantity via API
+          const itemData = { quantity: newQty };
+          if (typeof RTS_API !== 'undefined' && RTS_API.updateCollectionItem) {
+            await RTS_API.updateCollectionItem('inventory', item.id, itemData);
+          }
+          // Record history
+          try {
+            const _cu = JSON.parse(localStorage.getItem('user') || '{}');
+            await fetch(`/api/inventory/${encodeURIComponent(item.id)}/history`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}` },
+              body: JSON.stringify({ action, qty_change: delta, notes: note || (action === 'restock' ? `+${qty} restocked` : `-${qty} used`), performed_by: _cu.id || null })
+            });
+          } catch (_) {}
+          // Update local state
+          item.qty = newQty;
+          document.getElementById('sumQtyVal').textContent = newQty;
+          document.getElementById('sumAdjQty').value = 1;
+          document.getElementById('sumAdjNote').value = '';
+          applyFilters();
+          showToast(action === 'restock' ? `+${qty} restocked — now ${newQty}` : `-${qty} used — now ${newQty}`, 'success');
+        } catch (err) {
+          showToast('Error adjusting stock: ' + err.message, 'error');
+        }
+      }
+
       // Show item form
       async function showItemForm(item) {
         document.getElementById('noSelection').style.display = 'none';
@@ -1836,6 +1900,21 @@
           document.getElementById('sumReorderVal').textContent = item.reorder != null ? item.reorder : '—';
           document.getElementById('sumCostVal').textContent = item.cost ? '£' + parseFloat(item.cost).toFixed(2) : '—';
           document.getElementById('detailBadge').textContent = item.category || 'Item';
+
+          // Populate supplier / notes / lead time meta
+          const supRow = document.getElementById('sumSupplierRow');
+          const notesRow = document.getElementById('sumNotesRow');
+          const metaWrap = document.getElementById('sumMeta');
+          if (item.supplier) {
+            document.getElementById('sumSupplierVal').textContent = item.supplier;
+            document.getElementById('sumLeadVal').textContent = item.leadDays ? '(' + item.leadDays + ' day lead)' : '';
+            supRow.style.display = 'flex';
+          } else { supRow.style.display = 'none'; }
+          if (item.notes && item.notes.trim()) {
+            document.getElementById('sumNotesVal').textContent = item.notes.trim();
+            notesRow.style.display = 'block';
+          } else { notesRow.style.display = 'none'; }
+          metaWrap.style.display = (item.supplier || (item.notes && item.notes.trim())) ? 'block' : 'none';
 
           // Populate location distribution (read-only)
           populateLocationDistribution(item);
@@ -2182,10 +2261,11 @@
         try {
           // Fetch ALL box contents from API
           let boxContents = [];
-          if (typeof RTS_API !== 'undefined' && RTS_API.getAllBoxContents) {
-            boxContents = await RTS_API.getAllBoxContents();
+          if (typeof RTS_API !== 'undefined' && (RTS_API.getBoxContents || RTS_API.getAllBoxContents)) {
+            const fn = RTS_API.getBoxContents || RTS_API.getAllBoxContents;
+            const resp = await fn.call(RTS_API);
+            boxContents = Array.isArray(resp) ? resp : (resp && resp.items ? resp.items : []);
           } else {
-            // Fallback: if getAllBoxContents not available, skip this feature
             container.innerHTML = '<div class="info-empty">Box tracking not available</div>';
             return;
           }
