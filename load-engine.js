@@ -635,15 +635,17 @@ console.log('📦 load-engine.js loading...');
       return matchCat && matchSearch;
     });
 
-    // Separate garage boxes to bottom
-    const normalBoxes  = filtered.filter(b => b.boxType !== 'garage');
+    // Separate kart stands and garage boxes to bottom
+    const normalBoxes  = filtered.filter(b => b.boxType !== 'garage' && b.boxType !== 'kart_stand');
+    const kartBoxes    = filtered.filter(b => b.boxType === 'kart_stand');
     const garageBoxes  = filtered.filter(b => b.boxType === 'garage');
 
     const renderBoxItem = (box) => {
       const placement = currentLoad.placements.find(p => p.boxId === box.id);
       const isLoaded = !!placement;
       const isScanned = !!(placement?.scannedAt);
-      const isGarage = box.boxType === 'garage';
+      const isGarage   = box.boxType === 'garage';
+      const isKartStand = box.boxType === 'kart_stand';
 
       // Check if this box is in a DIFFERENT truck's plan
       const otherTruckId = !isLoaded && box.currentTruckId && box.currentTruckId !== currentLoad.truckId
@@ -667,16 +669,20 @@ console.log('📦 load-engine.js loading...');
         statusBadge = `<div class="box-status in-other-truck">🚛 In ${esc(otherTruck.name)}</div>`;
       } else if (isGarage) {
         statusBadge = `<div class="box-status garage-stay">🏚️ Garage (stays at base)</div>`;
+      } else if (isKartStand) {
+        statusBadge = `<div class="box-status kart-stand-status">🏎️ Kart Stand — no stacking</div>`;
       } else {
         statusBadge = `<div class="box-status warehouse">📦 Available</div>`;
       }
 
       const garageBadge = isGarage
         ? `<span style="float:right;font-size:.6rem;font-weight:700;color:#8d6e63;background:#efebe9;border:1px solid #bcaaa4;padding:1px 5px;border-radius:3px;line-height:1.4">🏚️ GARAGE</span>`
+        : isKartStand
+        ? `<span style="float:right;font-size:.6rem;font-weight:700;color:#1565c0;background:#e3f2fd;border:1px solid #90caf9;padding:1px 5px;border-radius:3px;line-height:1.4">🏎️ KART STAND</span>`
         : '';
 
       return `
-        <div class="box-item${isLoaded ? ' loaded' : ''}${inOtherTruck ? ' in-other-truck' : ''}${isGarage ? ' garage-box-item' : ''}${selected}"
+        <div class="box-item${isLoaded ? ' loaded' : ''}${inOtherTruck ? ' in-other-truck' : ''}${isGarage ? ' garage-box-item' : ''}${isKartStand ? ' kart-stand-item' : ''}${selected}"
              draggable="${draggable}"
              data-box-id="${box.id}"
              style="cursor:${draggable ? 'grab' : 'not-allowed'};">
@@ -691,6 +697,11 @@ console.log('📦 load-engine.js loading...');
     };
 
     let html = normalBoxes.map(renderBoxItem).join('');
+
+    if (kartBoxes.length > 0) {
+      html += `<div style="margin:8px 0 4px;padding:3px 8px;font-size:.65rem;font-weight:700;color:#1565c0;background:#e3f2fd;border-radius:10px;text-align:center;letter-spacing:.04em;">🏎️ KART STANDS</div>`;
+      html += kartBoxes.map(renderBoxItem).join('');
+    }
 
     if (garageBoxes.length > 0) {
       html += `<div style="margin:8px 0 4px;padding:3px 8px;font-size:.65rem;font-weight:700;color:#8d6e63;background:#efebe9;border-radius:10px;text-align:center;letter-spacing:.04em;">🏚️ GARAGE STORAGE</div>`;
@@ -1282,6 +1293,34 @@ console.log('📦 load-engine.js loading...');
         `Are you sure you want to add this to the load plan?`
       );
       if (!proceed) return;
+    }
+
+    // Kart stand zone conflict checks
+    const _boxType = box.box_type || box.boxType;
+    if (_boxType === 'kart_stand') {
+      const existing = currentLoad.placements.filter(p => p.zone === zone);
+      if (existing.length > 0) {
+        const ok = confirm(
+          `⚠️ "${box.name}" is a Kart Stand and needs the full zone floor space.\n\n` +
+          `Zone ${zone.replace('grid-', 'Zone ')} already has ${existing.length} item(s).\n\n` +
+          `Continue anyway?`
+        );
+        if (!ok) return;
+      }
+    } else {
+      const ks = currentLoad.placements.find(p => {
+        if (p.zone !== zone) return false;
+        const b = getBox(p.boxId);
+        return b && (b.box_type || b.boxType) === 'kart_stand';
+      });
+      if (ks) {
+        const ok = confirm(
+          `⚠️ Zone ${zone.replace('grid-', 'Zone ')} contains a Kart Stand.\n\n` +
+          `Kart stands occupy the full zone floor space — stacking items alongside them is unsafe.\n\n` +
+          `Add "${box.name}" anyway?`
+        );
+        if (!ok) return;
+      }
     }
 
     currentLoad.placements.push({
@@ -2027,6 +2066,16 @@ console.log('📦 load-engine.js loading...');
       const box = getBox(placement.boxId);
       if (!box) return;
 
+      // Kart stand: render as wireframe instead of solid mesh
+      if ((box.box_type || box.boxType) === 'kart_stand') {
+        const isSelected = String(box.id) === String(selected3DBoxId);
+        const pos = calculatePositionIn3D(placement, box, truck);
+        const kartCount = Math.min(2, (box.contentsItems || []).length);
+        _drawKartStandWireframe(pos, box, kartCount, isSelected, false);
+        addBoxFaceLabels(pos, box, false, isSelected, idx + 1);
+        return;
+      }
+
       const boxGeometry = new THREE.BoxGeometry(box.length, box.height, box.width);
       const boxMaterial = new THREE.MeshPhongMaterial({
         color: getBoxStackColor(placement),
@@ -2088,6 +2137,18 @@ console.log('📦 load-engine.js loading...');
         ].join(' ').toLowerCase();
         
         isMatch = searchableText.includes(searchLower);
+      }
+
+      // Kart stand: render as wireframe instead of solid mesh
+      if ((box.box_type || box.boxType) === 'kart_stand') {
+        const isSelected = String(box.id) === String(selected3DBoxId);
+        const pos = calculatePositionIn3D(placement, box, truck);
+        const kartCount = Math.min(2, (box.contentsItems || []).length);
+        const _ksBoxCat = box.category || 'other';
+        const _ksCatDimmed = catFilterActive && _ksBoxCat !== catFilterActive;
+        const isDimmed = _ksCatDimmed || (!!searchLower && !isMatch);
+        _drawKartStandWireframe(pos, box, kartCount, isSelected, isDimmed);
+        return;
       }
 
       const boxGeometry = new THREE.BoxGeometry(box.length, box.height, box.width);
@@ -3069,6 +3130,10 @@ console.log('📦 load-engine.js loading...');
       var hex = sc.solid;
       var nm  = esc(b.name || b.barcode || 'Box');
       var wt  = b.max_weight_kg ? b.max_weight_kg + ' kg' : '';
+      var kartCount = (b.boxType === 'kart_stand') ? Math.min(2, (b.contentsItems || []).length) : -1;
+      var kartBadge = kartCount >= 0
+        ? ' <span style="font-size:.6rem;font-weight:700;color:#1565c0;background:#e3f2fd;border:1px solid #90caf9;padding:1px 4px;border-radius:3px;">🏎️' + (kartCount > 0 ? ' ' + kartCount + 'k' : ' empty') + '</span>'
+        : '';
       var canUp   = idx > 0;
       var canDown = idx < pile.length - 1;
       // Inline colour styles: row border = stack colour, header bg = solid tint, detail bg = lighter tint
@@ -3078,7 +3143,7 @@ console.log('📦 load-engine.js loading...');
       html += '<div class="ci-pile-row' + (isSelected ? ' selected' : '') + '" style="' + rowStyle + '">';
       html += '<div class="ci-pile-row-main" style="' + headStyle + '" onclick="LoadEngine.jumpTo3DBox(\'' + bid + '\')">'
         + '<div class="ci-pile-swatch" style="background:' + hex + '"></div>'
-        + '<div class="ci-pile-name">' + nm + '</div>'
+        + '<div class="ci-pile-name">' + nm + kartBadge + '</div>'
         + (wt ? '<div class="ci-pile-wt">' + wt + '</div>' : '')
         + '<div class="ci-pile-arrows">'
         + '<button class="ci-pile-arr"' + (canUp   ? '' : ' disabled') + ' title="Move up in stack"   onclick="event.stopPropagation();LoadEngine.movePileBox(\'' + bid + '\',\'up\')">&#9650;</button>'
@@ -3462,6 +3527,232 @@ console.log('📦 load-engine.js loading...');
     render3DWithSearch(currentSearchTerm);
     if (typeof renderAll === 'function') renderAll();
     showToast && showToast('Auto-pack applied — ' + packed.length + ' boxes placed', 'success');
+  }
+
+    showToast && showToast('Auto-pack applied — ' + packed.length + ' boxes placed', 'success');
+  }
+
+  // ===== KART STAND 3D WIREFRAME =====
+  // Draws a THREE.js wireframe representation of a kart stand into the scene.
+  // pos: {x,y,z} centre point. box: box object (width/length/height in cm).
+  // kartCount: 0=empty stand, 1=single kart, 2=two karts nose-to-nose.
+  // isSelected: yellow highlight. isDimmed: translucent grey.
+  function _drawKartStandWireframe(pos, box, kartCount, isSelected, isDimmed) {
+    const W = parseFloat(box.width)  || 100;   // truck Z axis
+    const D = parseFloat(box.length) || 150;   // truck X axis
+    const H = parseFloat(box.height) || 180;   // vertical Y
+
+    const verts = [];
+
+    // Helper: push one line segment (6 floats)
+    function seg(ax, ay, az, bx, by, bz) {
+      verts.push(ax, ay, az, bx, by, bz);
+    }
+
+    // Helper: 8-segment circle. axis 'x' = upright wheel (YZ plane), 'y' = flat caster (XZ plane)
+    function ring(cx, cy, cz, r, axis) {
+      const N = 8;
+      for (let i = 0; i < N; i++) {
+        const a0 = (i / N) * Math.PI * 2;
+        const a1 = ((i + 1) / N) * Math.PI * 2;
+        let x0, y0, z0, x1, y1, z1;
+        if (axis === 'x') {
+          // upright wheel in YZ plane
+          x0 = cx; y0 = cy + r * Math.sin(a0); z0 = cz + r * Math.cos(a0);
+          x1 = cx; y1 = cy + r * Math.sin(a1); z1 = cz + r * Math.cos(a1);
+        } else {
+          // flat caster in XZ plane
+          x0 = cx + r * Math.cos(a0); y0 = cy; z0 = cz + r * Math.sin(a0);
+          x1 = cx + r * Math.cos(a1); y1 = cy; z1 = cz + r * Math.sin(a1);
+        }
+        seg(x0, y0, z0, x1, y1, z1);
+      }
+    }
+
+    const bY = -H / 2;  // floor Y
+
+    // Draw the base dolly stand
+    function drawDolly() {
+      const bfW = W * 0.40;
+      const bfD = D * 0.35;
+      const bfH = H * 0.07;
+      const y0 = bY, y1 = bY + bfH;
+      // Floor rect
+      seg(-bfW, y0, -bfD, +bfW, y0, -bfD);
+      seg(+bfW, y0, -bfD, +bfW, y0, +bfD);
+      seg(+bfW, y0, +bfD, -bfW, y0, +bfD);
+      seg(-bfW, y0, +bfD, -bfW, y0, -bfD);
+      // Top rect
+      seg(-bfW, y1, -bfD, +bfW, y1, -bfD);
+      seg(+bfW, y1, -bfD, +bfW, y1, +bfD);
+      seg(+bfW, y1, +bfD, -bfW, y1, +bfD);
+      seg(-bfW, y1, +bfD, -bfW, y1, -bfD);
+      // 4 vertical posts
+      seg(-bfW, y0, -bfD, -bfW, y1, -bfD);
+      seg(+bfW, y0, -bfD, +bfW, y1, -bfD);
+      seg(+bfW, y0, +bfD, +bfW, y1, +bfD);
+      seg(-bfW, y0, +bfD, -bfW, y1, +bfD);
+      // Centre cross-brace on floor
+      seg(-bfW, y0, 0,   +bfW, y0, 0);
+      seg(0,   y0, -bfD, 0,   y0, +bfD);
+      // 4 corner casters
+      const cr = H * 0.022;
+      ring(-bfW * 0.7, y0, -bfD * 0.7, cr, 'y');
+      ring(+bfW * 0.7, y0, -bfD * 0.7, cr, 'y');
+      ring(+bfW * 0.7, y0, +bfD * 0.7, cr, 'y');
+      ring(-bfW * 0.7, y0, +bfD * 0.7, cr, 'y');
+      return y1; // return top of dolly
+    }
+
+    // Draw one kart at lateral centre zc, with a lean offset for double-kart mode
+    function drawKart(zc, leanZ) {
+      const rY  = drawDolly(); // reuse dolly per kart (second call stacks on same floor)
+      const kH  = H * 0.83;   // chassis height above dolly top
+      const kHW = W * 0.26;   // half-width of rear bumper
+      const kHD = D * 0.15;   // half-depth of rear cross-section
+      const nHW = W * 0.10;   // half-width at nose
+      const nHD = D * 0.07;   // half-depth at nose
+      const nY  = rY + kH;    // top of chassis (nose tip Y)
+      const nZc = zc + leanZ;
+
+      // ---- Rear bumper ----
+      seg(-kHW, rY, zc - kHD, +kHW, rY, zc - kHD);
+      seg(-kHW, rY, zc + kHD, +kHW, rY, zc + kHD);
+      seg(-kHW, rY, zc - kHD, -kHW, rY, zc + kHD);
+      seg(+kHW, rY, zc - kHD, +kHW, rY, zc + kHD);
+      // Rear bumper top rail
+      const rBY = rY + H * 0.04;
+      seg(-kHW, rBY, zc - kHD, +kHW, rBY, zc - kHD);
+      seg(-kHW, rBY, zc + kHD, +kHW, rBY, zc + kHD);
+      // Rear axle tube
+      seg(-kHW - H * 0.04, rY + H * 0.05, zc, +kHW + H * 0.04, rY + H * 0.05, zc);
+      // Rear wheels
+      const rwr = H * 0.085;
+      ring(-kHW - H * 0.03, rY + H * 0.05, zc, rwr, 'x');
+      ring(+kHW + H * 0.03, rY + H * 0.05, zc, rwr, 'x');
+
+      // ---- 4 longerons (rear corners → nose corners) ----
+      seg(-kHW, rY, zc - kHD, -nHW, nY, nZc - nHD);
+      seg(+kHW, rY, zc - kHD, +nHW, nY, nZc - nHD);
+      seg(+kHW, rY, zc + kHD, +nHW, nY, nZc + nHD);
+      seg(-kHW, rY, zc + kHD, -nHW, nY, nZc + nHD);
+
+      // ---- Nose cross-section ----
+      seg(-nHW, nY, nZc - nHD, +nHW, nY, nZc - nHD);
+      seg(+nHW, nY, nZc - nHD, +nHW, nY, nZc + nHD);
+      seg(+nHW, nY, nZc + nHD, -nHW, nY, nZc + nHD);
+      seg(-nHW, nY, nZc + nHD, -nHW, nY, nZc - nHD);
+      // Nose tip (4 lines to point)
+      const tipY = nY + H * 0.025;
+      seg(-nHW, nY, nZc - nHD, 0, tipY, nZc);
+      seg(+nHW, nY, nZc - nHD, 0, tipY, nZc);
+      seg(+nHW, nY, nZc + nHD, 0, tipY, nZc);
+      seg(-nHW, nY, nZc + nHD, 0, tipY, nZc);
+
+      // ---- Sidepod cross-section at t=0.40 ----
+      const t40 = 0.40;
+      const spY  = rY + kH * t40;
+      const spHW = kHW + (nHW - kHW) * t40;
+      const spHD = kHD + (nHD - kHD) * t40;
+      const spZ  = zc + leanZ * t40;
+      seg(-spHW, spY, spZ - spHD, +spHW, spY, spZ - spHD);
+      seg(+spHW, spY, spZ - spHD, +spHW, spY, spZ + spHD);
+      seg(+spHW, spY, spZ + spHD, -spHW, spY, spZ + spHD);
+      seg(-spHW, spY, spZ + spHD, -spHW, spY, spZ - spHD);
+
+      // ---- Rollhoop arch at t=0.62 ----
+      const t62 = 0.62;
+      const rhY0 = rY + kH * t62;
+      const rhZ  = zc + leanZ * t62;
+      const rhHW = kHW + (nHW - kHW) * t62;
+      const rhR  = W * 0.13;
+      const rhSep = rhHW * 0.55; // hoop half-separation in X
+      const rhN  = 7;
+      // Two parallel semicircular arches
+      for (let side = -1; side <= 1; side += 2) {
+        const hx = side * rhSep;
+        for (let i = 0; i < rhN; i++) {
+          const a0 = (i / rhN) * Math.PI;
+          const a1 = ((i + 1) / rhN) * Math.PI;
+          seg(hx, rhY0 + rhR * Math.sin(a0), rhZ + rhR * Math.cos(a0),
+              hx, rhY0 + rhR * Math.sin(a1), rhZ + rhR * Math.cos(a1));
+        }
+      }
+      // Top bar + base bars
+      const topY = rhY0 + rhR;
+      seg(-rhSep, topY, rhZ, +rhSep, topY, rhZ);
+      seg(-rhSep, rhY0, rhZ - rhR, -rhSep, rhY0, rhZ + rhR);
+      seg(+rhSep, rhY0, rhZ - rhR, +rhSep, rhY0, rhZ + rhR);
+
+      // ---- Front axle + wheels at t=0.87 ----
+      const t87 = 0.87;
+      const faY = rY + kH * t87;
+      const faZ = zc + leanZ * t87;
+      const faHW = kHW * 0.60;
+      seg(-faHW - H * 0.03, faY, faZ, +faHW + H * 0.03, faY, faZ);
+      const fwr = H * 0.055;
+      ring(-faHW - H * 0.025, faY, faZ, fwr, 'x');
+      ring(+faHW + H * 0.025, faY, faZ, fwr, 'x');
+
+      // ---- 4 diagonal braces: dolly top corners → kart rear bumper corners ----
+      const bfW2 = W * 0.40, bfD2 = D * 0.35;
+      const dy = bY + H * 0.07;
+      seg(-bfW2, dy, -bfD2, -kHW, rY, zc - kHD);
+      seg(+bfW2, dy, -bfD2, +kHW, rY, zc - kHD);
+      seg(+bfW2, dy, +bfD2, +kHW, rY, zc + kHD);
+      seg(-bfW2, dy, +bfD2, -kHW, rY, zc + kHD);
+    }
+
+    if (kartCount === 0) {
+      // Empty stand: just the dolly + a vertical mast up to H/2
+      drawDolly();
+      seg(0, bY, 0, 0, bY + H * 0.5, 0);
+      // Crossbar at top of mast
+      seg(-W * 0.15, bY + H * 0.5, 0, +W * 0.15, bY + H * 0.5, 0);
+      seg(0, bY + H * 0.5, -D * 0.10, 0, bY + H * 0.5, +D * 0.10);
+    } else if (kartCount === 1) {
+      drawKart(0, 0);
+    } else {
+      // Two karts nose-to-nose: each offset ±W*0.25 in Z, lean leanZ toward centre
+      drawKart(-W * 0.25, +W * 0.12);
+      drawKart(+W * 0.25, -W * 0.12);
+      // Horizontal dividing bar at mid-height
+      const midY = bY + H * 0.45;
+      seg(-W * 0.45, midY, 0, +W * 0.45, midY, 0);
+      // Vertical centre post from floor to bar
+      seg(0, bY, 0, 0, midY, 0);
+    }
+
+    // Create geometry & line segments
+    const geom = new THREE.BufferGeometry();
+    geom.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+
+    let color, opacity;
+    if (isDimmed) {
+      color = 0x333333; opacity = 0.12;
+    } else if (isSelected) {
+      color = 0xFFFF00; opacity = 1.0;
+    } else {
+      color = 0x1e88e5; opacity = 1.0;
+    }
+
+    const mat = new THREE.LineBasicMaterial({ color, transparent: opacity < 1, opacity });
+    const wf = new THREE.LineSegments(geom, mat);
+    wf.position.set(pos.x, pos.y, pos.z);
+    wf.userData.isBox = true;
+    wf.userData.boxId = box.id;
+    scene.add(wf);
+
+    // Selection glow: bounding wireframe box in yellow
+    if (isSelected) {
+      const glow = new THREE.LineSegments(
+        new THREE.EdgesGeometry(new THREE.BoxGeometry(D, H, W)),
+        new THREE.LineBasicMaterial({ color: 0xFFFF00, transparent: true, opacity: 0.55 })
+      );
+      glow.position.set(pos.x, pos.y, pos.z);
+      glow.userData.isBox = true;
+      scene.add(glow);
+    }
   }
 
   // Returns a THREE.js integer colour based on how high up a placement is in its zone stack

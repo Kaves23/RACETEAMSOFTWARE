@@ -1533,8 +1533,10 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       return 0;
     });
 
-    // Partition: garage boxes always go to the bottom, grouped by location
-    const normalBoxes = filtered.filter(b => (b.boxType || b.box_type) !== 'garage');
+    // Partition: kart stands and garage boxes go below normal boxes
+    const isKartStandBox = b => (b.boxType || b.box_type) === 'kart_stand';
+    const normalBoxes = filtered.filter(b => (b.boxType || b.box_type) !== 'garage' && !isKartStandBox(b));
+    const kartBoxes   = filtered.filter(isKartStandBox);
     const garageBoxes = filtered.filter(b => (b.boxType || b.box_type) === 'garage')
       .sort((a, b) => (a.location || '').localeCompare(b.location || '') || (a.name || '').localeCompare(b.name || ''));
 
@@ -1546,6 +1548,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       const assignedDriverId = box.assignedDriverId || box.assigned_driver_id;
       const isDriverBox = !!(assignedDriverId) || box.boxType === 'driver' || box.box_type === 'driver';
       const isGarageBox = (box.boxType === 'garage' || box.box_type === 'garage') && !isDriverBox;
+      const isKartStand = (box.boxType === 'kart_stand' || box.box_type === 'kart_stand') && !isDriverBox;
       
       // Get driver color if box is assigned to a driver
       const driver = assignedDriverId ? allDrivers.find(d => d.id === assignedDriverId) : null;
@@ -1567,6 +1570,8 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       let garageBadge = '';
       if (isGarageBox) {
         garageBadge = `<div class="garage-box-badge">🏚️ Garage</div>`;
+      } else if (isKartStand) {
+        garageBadge = `<div class="garage-box-badge" style="background:#e3f2fd;color:#1565c0;border-color:#90caf9;">🏎️ Kart Stand</div>`;
       }
 
       // Driver badge with assignment info
@@ -1625,6 +1630,12 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     // Build normal boxes HTML
     let html = normalBoxes.map(renderBoxCard).join('');
 
+    // Append kart stands section if any exist
+    if (kartBoxes.length > 0) {
+      html += `<div style="margin:10px 0 6px;padding:4px 8px;background:#e3f2fd;border-radius:4px;font-size:0.68rem;font-weight:700;color:#1565c0;letter-spacing:.5px;text-transform:uppercase;">🏎️ Kart Stands</div>`;
+      html += kartBoxes.map(renderBoxCard).join('');
+    }
+
     // Append garage section if any garage boxes exist
     if (garageBoxes.length > 0) {
       html += `<div style="margin:10px 0 6px;padding:4px 8px;background:#ede0d4;border-radius:4px;font-size:0.68rem;font-weight:700;color:#5d4037;letter-spacing:.5px;text-transform:uppercase;">🏚️ Garage Storage</div>`;
@@ -1644,7 +1655,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     }
 
     document.getElementById('boxesList').innerHTML = html || '<div style="text-align:center;padding:20px;color:#5f6368;font-size:.85rem">No boxes found</div>';
-    document.getElementById('boxCount').textContent = normalBoxes.length + garageBoxes.length;
+    document.getElementById('boxCount').textContent = normalBoxes.length + kartBoxes.length + garageBoxes.length;
     
     // Update checkbox states and toolbar after rendering
     updateBoxCheckboxStates();
@@ -2515,7 +2526,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
         };
         
         boxes.push(newBox);
-        addHistory(newBox.id, 'created', `${boxType === 'driver' ? '🚗 Driver box' : boxType === 'garage' ? '🏚️ Garage storage box' : 'Box'} created at ${locationName}`);
+        addHistory(newBox.id, 'created', `${boxType === 'driver' ? '🚗 Driver box' : boxType === 'garage' ? '🏚️ Garage storage box' : boxType === 'kart_stand' ? '🏎️ Kart stand' : 'Box'} created at ${locationName}`);
         
         console.log(`✅ Created ${boxType} box in database:`, newBox.name);
         boxModal.hide();
@@ -2523,6 +2534,8 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
         
         if (boxType === 'driver') {
           showToast(`🚗 Driver box "${newBox.name}" created and saved to database!`, 'success');
+        } else if (boxType === 'kart_stand') {
+          showToast(`🏎️ Kart Stand "${newBox.name}" created! Pack 1–2 kart assets into it.`, 'success');
         } else {
           showToast(`✅ Box "${newBox.name}" created and saved to database!`, 'success');
         }
