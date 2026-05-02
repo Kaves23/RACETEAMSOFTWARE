@@ -2172,20 +2172,20 @@ console.log('📦 load-engine.js loading...');
     // Use the pre-calculated position from the zone
     const zonePos = { x: zone.posX, z: zone.posZ };
     
-    // Calculate stacking height - check other boxes in same grid
+    // Calculate stacking height — only count boxes that come BEFORE this one
+    // in the placements array (lower index = placed earlier = lower in the stack).
+    // Counting ALL other boxes was causing every box to land at the same Y.
+    const placementIndex = currentLoad.placements.indexOf(placement);
     let stackHeight = 0;
-    const boxesInGrid = currentLoad.placements.filter(p => 
-      p.zone === placement.zone && p.boxId !== placement.boxId
-    );
-    
-    boxesInGrid.forEach(p => {
-      const otherBox = getBox(p.boxId);
-      if (otherBox) {
-        stackHeight += otherBox.height;
+    for (let i = 0; i < placementIndex; i++) {
+      const p = currentLoad.placements[i];
+      if (p.zone === placement.zone) {
+        const otherBox = getBox(p.boxId);
+        if (otherBox) stackHeight += (otherBox.height || 0);
       }
-    });
+    }
 
-    const y = stackHeight + box.height / 2;
+    const y = stackHeight + (box.height || 0) / 2;
 
     return { 
       x: zonePos.x + (placement.offsetX || 0), 
@@ -3112,24 +3112,38 @@ console.log('📦 load-engine.js loading...');
   function movePileBox(boxId, dir) {
     var truck = getTruck(); if (!truck) return;
     var pile = _getPileBoxes(boxId); // top-first: index 0 = highest box
-    var idx  = pile.findIndex(function(item) { return String(item.box.id) === String(boxId); });
-    if (idx < 0) return;
-    var swapIdx = dir === 'up' ? idx - 1 : idx + 1;
-    if (swapIdx < 0 || swapIdx >= pile.length) return;
-    var tmp = pile[idx]; pile[idx] = pile[swapIdx]; pile[swapIdx] = tmp;
-    // Recalculate Y from the floor (bottom-to-top = reversed)
+    var pileIdx = pile.findIndex(function(item) { return String(item.box.id) === String(boxId); });
+    if (pileIdx < 0) return;
+    var swapPileIdx = dir === 'up' ? pileIdx - 1 : pileIdx + 1;
+    if (swapPileIdx < 0 || swapPileIdx >= pile.length) return;
+
+    // Find the actual placement objects in the main array
+    var plA = pile[pileIdx].pl;
+    var plB = pile[swapPileIdx].pl;
+    var idxA = currentLoad.placements.indexOf(plA);
+    var idxB = currentLoad.placements.indexOf(plB);
+    if (idxA < 0 || idxB < 0) return;
+
+    // Swap their positions in the main array so array-order = visual stack order
+    currentLoad.placements[idxA] = plB;
+    currentLoad.placements[idxB] = plA;
+
+    // Lock XZ for any non-auto-packed boxes in this zone, then recompute
+    // all Y values for the zone in new array order (floor accumulates upward)
+    var zoneId = plA.zone;
+    var zone = truck.zones[zoneId];
+    var zX = zone ? (zone.posX || 0) : 0;
+    var zZ = zone ? (zone.posZ || 0) : 0;
     var floor = 0;
-    pile.slice().reverse().forEach(function(item) {
-      var bh = item.box.height || 10;
-      var pl = currentLoad.placements.find(function(p) { return String(p.boxId) === String(item.box.id); });
-      if (pl) {
-        if (pl._x === undefined) { pl._x = item.pos.x; pl._z = item.pos.z; }
-        pl._y = floor + bh / 2;
-        if (!pl.position) pl.position = {};
-        pl.position.x = pl._x; pl.position.y = pl._y; pl.position.z = pl._z;
-      }
+    currentLoad.placements.forEach(function(pl) {
+      if (pl.zone !== zoneId) return;
+      var b = getBox(pl.boxId); if (!b) return;
+      var bh = b.height || 10;
+      if (pl._x === undefined) { pl._x = zX + (pl.offsetX || 0); pl._z = zZ + (pl.offsetZ || 0); }
+      pl._y = floor + bh / 2;
       floor += bh;
     });
+
     currentLoad.updatedAt = new Date().toISOString();
     saveData();
     render3DWithSearch(currentSearchTerm);
