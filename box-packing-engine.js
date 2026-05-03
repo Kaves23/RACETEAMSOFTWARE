@@ -2589,6 +2589,8 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     }
   }
   window.saveBoxDimensions = saveBoxDimensions;
+
+  async function saveBox() {
     const name = document.getElementById('boxName').value.trim();
     if (!name) {
       showToast('Box name is required', 'warning');
