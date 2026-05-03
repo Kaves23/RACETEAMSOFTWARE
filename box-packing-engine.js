@@ -22,19 +22,27 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
 
   // ========== TYRE BOX CONFIG ==========
   const TYRE_TYPE_CONFIG = {
-    tyre_mini_front:   { label: 'Mini Front Tyres',   prefix: 'ROKKRT-MF', sets: 8, color: '#e91e63', bg: '#fce4ec', length: 80,  width: 50,  height: 50  },
-    tyre_mini_rear:    { label: 'Mini Rear Tyres',    prefix: 'ROKKRT-MR', sets: 8, color: '#9c27b0', bg: '#f3e5f5', length: 100, width: 60,  height: 50  },
-    tyre_senior_front: { label: 'Senior Front Tyres', prefix: 'ROKKRT-SF', sets: 6, color: '#ff6f00', bg: '#fff3e0', length: 80,  width: 50,  height: 50  },
-    tyre_senior_rear:  { label: 'Senior Rear Tyres',  prefix: 'ROKKRT-SR', sets: 6, color: '#1565c0', bg: '#e3f2fd', length: 100, width: 60,  height: 50  },
+    tyre_mini_front:       { label: 'Mini Front Tyres',         prefix: 'ROKKRT-MF',  sets: 8, color: '#e91e63', bg: '#fce4ec', length: 80,  width: 50,  height: 50  },
+    tyre_mini_rear:        { label: 'Mini Rear Tyres',          prefix: 'ROKKRT-MR',  sets: 8, color: '#9c27b0', bg: '#f3e5f5', length: 100, width: 60,  height: 50  },
+    tyre_mini_wet_front:   { label: 'Mini Wet Front Tyres',     prefix: 'ROKKRT-MWF', sets: 8, color: '#0277bd', bg: '#e1f5fe', length: 80,  width: 50,  height: 50  },
+    tyre_mini_wet_rear:    { label: 'Mini Wet Rear Tyres',      prefix: 'ROKKRT-MWR', sets: 8, color: '#00838f', bg: '#e0f7fa', length: 100, width: 60,  height: 50  },
+    tyre_senior_front:     { label: 'Senior Front Tyres',       prefix: 'ROKKRT-SF',  sets: 6, color: '#ff6f00', bg: '#fff3e0', length: 80,  width: 50,  height: 50  },
+    tyre_senior_rear:      { label: 'Senior Rear Tyres',        prefix: 'ROKKRT-SR',  sets: 6, color: '#1565c0', bg: '#e3f2fd', length: 100, width: 60,  height: 50  },
+    tyre_senior_wet_front: { label: 'Senior Wet Front Tyres',   prefix: 'ROKKRT-SWF', sets: 6, color: '#2e7d32', bg: '#e8f5e9', length: 80,  width: 50,  height: 50  },
+    tyre_senior_wet_rear:  { label: 'Senior Wet Rear Tyres',    prefix: 'ROKKRT-SWR', sets: 6, color: '#558b2f', bg: '#f1f8e9', length: 100, width: 60,  height: 50  },
   };
   const TYRE_BOX_TYPES = Object.keys(TYRE_TYPE_CONFIG);
 
   // Paired tyre types — creating one auto-creates the other
   const TYRE_PAIRS = {
-    tyre_mini_front:   'tyre_mini_rear',
-    tyre_mini_rear:    'tyre_mini_front',
-    tyre_senior_front: 'tyre_senior_rear',
-    tyre_senior_rear:  'tyre_senior_front',
+    tyre_mini_front:       'tyre_mini_rear',
+    tyre_mini_rear:        'tyre_mini_front',
+    tyre_mini_wet_front:   'tyre_mini_wet_rear',
+    tyre_mini_wet_rear:    'tyre_mini_wet_front',
+    tyre_senior_front:     'tyre_senior_rear',
+    tyre_senior_rear:      'tyre_senior_front',
+    tyre_senior_wet_front: 'tyre_senior_wet_rear',
+    tyre_senior_wet_rear:  'tyre_senior_wet_front',
   };
 
   // ========== FRESHNESS INDICATOR ==========
