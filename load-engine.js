@@ -2247,11 +2247,13 @@ console.log('📦 load-engine.js loading...');
 
       const pos = calculatePositionIn3D(placement, box, truck);
       boxMesh.position.set(pos.x, pos.y, pos.z);
+      if (placement.rotY) boxMesh.rotation.y = placement.rotY * Math.PI / 2;
 
       const boxEdges = new THREE.EdgesGeometry(boxGeometry);
       const edgesMaterial = new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 2 });
       const edgesLine = new THREE.LineSegments(boxEdges, edgesMaterial);
       edgesLine.position.copy(boxMesh.position);
+      if (placement.rotY) edgesLine.rotation.y = placement.rotY * Math.PI / 2;
       edgesLine.userData.isBox = true;
 
       scene.add(boxMesh);
@@ -2337,6 +2339,7 @@ console.log('📦 load-engine.js loading...');
 
       const pos = calculatePositionIn3D(placement, box, truck);
       boxMesh.position.set(pos.x, pos.y, pos.z);
+      if (placement.rotY) boxMesh.rotation.y = placement.rotY * Math.PI / 2;
 
       const boxEdges = new THREE.EdgesGeometry(boxGeometry);
       
@@ -2351,6 +2354,7 @@ console.log('📦 load-engine.js loading...');
       });
       const edgesLine = new THREE.LineSegments(boxEdges, edgesMaterial);
       edgesLine.position.copy(boxMesh.position);
+      if (placement.rotY) edgesLine.rotation.y = placement.rotY * Math.PI / 2;
       edgesLine.userData.isBox = true;
       edgesLine.userData.boxId = box.id;
 
@@ -2461,21 +2465,85 @@ console.log('📦 load-engine.js loading...');
 
   // Mouse controls for 3D view
   let isDragging = false;
+  let isDraggingBox3D = false;
+  let dragFloorIntersect = new THREE.Vector3();
+  let dragBoxOffset = new THREE.Vector3();
   let previousMousePosition = { x: 0, y: 0 };
   let cameraDistance = 1000;
   let cameraRotation = { theta: 0.5, phi: 0.5 };
   let cameraLookTarget = { x: 0, y: 100, z: 0 };
   let cameraTarget = null; // { dist, theta, phi } for smooth lerp transitions
+  const _floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+  const _floorPt = new THREE.Vector3();
+
+  function _getBoxMeshUnderMouse() {
+    if (!scene || !camera) return null;
+    raycaster.setFromCamera(mouse, camera);
+    const hits = raycaster.intersectObjects(scene.children, false);
+    for (const h of hits) {
+      if (h.object.userData && h.object.userData.isBox && h.object.userData.boxId) return h.object;
+    }
+    return null;
+  }
 
   function setupMouseControls() {
     const canvas = document.getElementById('truckCanvas');
     
     canvas.addEventListener('mousedown', e => {
+      const rect = canvas.getBoundingClientRect();
+      mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+      // If a box is selected and we click on it — enter box-drag mode
+      if (selected3DBoxId && e.buttons === 1) {
+        const mesh = _getBoxMeshUnderMouse();
+        if (mesh && String(mesh.userData.boxId) === String(selected3DBoxId)) {
+          isDraggingBox3D = true;
+          canvas.style.cursor = 'move';
+          // Compute offset between box centre and floor intersection so box doesn't jump
+          raycaster.ray.intersectPlane(_floorPlane, _floorPt);
+          const pl = currentLoad.placements.find(p => p.boxId === selected3DBoxId);
+          const truck = getTruck();
+          const zone = truck?.zones?.[pl?.zone];
+          if (zone && _floorPt.x !== undefined) {
+            dragBoxOffset.set(
+              (zone.posX + (pl.offsetX || 0)) - _floorPt.x,
+              0,
+              (zone.posZ + (pl.offsetZ || 0)) - _floorPt.z
+            );
+          } else {
+            dragBoxOffset.set(0, 0, 0);
+          }
+          previousMousePosition = { x: e.clientX, y: e.clientY };
+          return; // don't start camera drag
+        }
+      }
+
       isDragging = true;
       previousMousePosition = { x: e.clientX, y: e.clientY };
     });
 
     canvas.addEventListener('mousemove', e => {
+      const rect = canvas.getBoundingClientRect();
+      mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+      // Box drag on floor
+      if (isDraggingBox3D && selected3DBoxId) {
+        raycaster.setFromCamera(mouse, camera);
+        if (raycaster.ray.intersectPlane(_floorPlane, _floorPt)) {
+          const pl = currentLoad.placements.find(p => p.boxId === selected3DBoxId);
+          const truck = getTruck();
+          const zone = truck?.zones?.[pl?.zone];
+          if (pl && zone) {
+            pl.offsetX = (_floorPt.x + dragBoxOffset.x) - zone.posX;
+            pl.offsetZ = (_floorPt.z + dragBoxOffset.z) - zone.posZ;
+            render3DWithSearch(currentSearchTerm);
+          }
+        }
+        return;
+      }
+
       if (!isDragging) return;
 
       const deltaX = e.clientX - previousMousePosition.x;
@@ -2502,6 +2570,12 @@ console.log('📦 load-engine.js loading...');
     });
 
     canvas.addEventListener('mouseup', () => {
+      if (isDraggingBox3D) {
+        isDraggingBox3D = false;
+        canvas.style.cursor = '';
+        currentLoad.updatedAt = new Date().toISOString();
+        saveData();
+      }
       isDragging = false;
     });
 
@@ -2624,6 +2698,13 @@ console.log('📦 load-engine.js loading...');
             rflShow('box', selected3DBoxId, _b3 ? (_b3.name || _b3.barcode || selected3DBoxId) : selected3DBoxId);
             selected3DBoxId = null;
           }
+          moved = true;
+          break;
+
+        case 'r':
+        case 'R':
+          e.preventDefault();
+          placement.rotY = ((placement.rotY || 0) + 1) % 4;
           moved = true;
           break;
       }
@@ -2980,17 +3061,22 @@ console.log('📦 load-engine.js loading...');
       const p = currentLoad.placements.find(p => p.boxId === boxId);
       iEl.textContent = [box.barcode, box.length?box.length+'x'+box.width+'x'+box.height+'cm':'', box.max_weight_kg?box.max_weight_kg+'kg':'', p?p.zone.replace('grid-','Zone '):'' ].filter(Boolean).join(' · ');
     }
-    const rBtn = document.getElementById('sel3DRemoveBtn');
-    if (rBtn) rBtn.onclick = () => {
+    const rBtn2 = document.getElementById('sel3DRemoveBtn');
+    if (rBtn2) rBtn2.onclick = () => {
       const b = boxes.find(bx => String(bx.id) === String(boxId));
       rflShow('box', boxId, b ? (b.name || b.barcode || boxId) : boxId);
       selected3DBoxId = null; hide3DSelectedPanel();
     };
     panel.style.display = 'block';
+    // Show rotate button in toolbar
+    const rBtn = document.getElementById('btnRotateBox3D');
+    if (rBtn) rBtn.classList.add('visible');
   }
 
   function hide3DSelectedPanel() {
     const p = document.getElementById('selected3DPanel'); if (p) p.style.display = 'none';
+    const rBtn = document.getElementById('btnRotateBox3D');
+    if (rBtn) rBtn.classList.remove('visible');
   }
 
   // ===== 3D: HOVER TOOLTIP =====
@@ -3282,12 +3368,16 @@ console.log('📦 load-engine.js loading...');
       var b   = item.box;
       var bid = String(b.id);
       var isSelected = bid === String(selected3DBoxId);
-      // Use same array-index ordering as getBoxStackColor so panel colours match 3D boxes
+      // Use getBoxStackColor so panel colour exactly matches 3D box colour
+      var colorHex = getBoxStackColor(item.pl);
+      var hex = '#' + colorHex.toString(16).padStart(6, '0');
+      // Get the full palette entry for bg colours
       var zoneId = item.pl.zone;
       var zonePl = currentLoad.placements.filter(function(p) { return p.zone === zoneId && p.type !== 'asset' && p.type !== 'inventory'; });
       var arrIdx = zonePl.indexOf(item.pl);
       var sc  = getStackLevelColors(arrIdx >= 0 ? arrIdx : 0);
-      var hex = sc.solid;
+      // Override solid with exactly the 3D colour so they always match
+      sc.solid = hex;
       var nm  = esc(b.name || b.barcode || 'Box');
       var wt  = b.max_weight_kg ? b.max_weight_kg + ' kg' : '';
       var kartCount = (b.boxType === 'kart_stand') ? Math.min(2, (b.contentsItems || []).length) : -1;
@@ -3309,6 +3399,7 @@ console.log('📦 load-engine.js loading...');
         + '<button class="ci-pile-arr"' + (canUp   ? '' : ' disabled') + ' title="Move up in stack"   onclick="event.stopPropagation();LoadEngine.movePileBox(\'' + bid + '\',\'up\')">&#9650;</button>'
         + '<button class="ci-pile-arr"' + (canDown ? '' : ' disabled') + ' title="Move down in stack" onclick="event.stopPropagation();LoadEngine.movePileBox(\'' + bid + '\',\'down\')">&#9660;</button>'
         + '</div>'
+        + '<button class="ci-pile-rotate" title="Rotate 90\u00b0 (R key)" onclick="event.stopPropagation();LoadEngine.jumpTo3DBox(\'' + bid + '\');LoadEngine.rotateSelected3DBox()">&#8635;</button>'
         + '<button class="ci-pile-tab" style="background:' + hex + '22;border-left:3px solid ' + hex + '" data-box="' + bid + '" onclick="event.stopPropagation();LoadEngine.togglePileBoxDetail(\'' + bid + '\')" title="Properties">'
         + '<svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 2l4 3-4 3"/></svg>'
         + '</button>';
@@ -3385,6 +3476,18 @@ console.log('📦 load-engine.js loading...');
   function clearBoxSelection() {
     selected3DBoxId = null;
     hide3DSelectedPanel();
+    const rBtn = document.getElementById('btnRotateBox3D');
+    if (rBtn) rBtn.classList.remove('visible');
+    render3DWithSearch(currentSearchTerm);
+  }
+
+  function rotateSelected3DBox() {
+    if (!selected3DBoxId) return;
+    const placement = currentLoad.placements.find(p => p.boxId === selected3DBoxId);
+    if (!placement) return;
+    placement.rotY = ((placement.rotY || 0) + 1) % 4;
+    currentLoad.updatedAt = new Date().toISOString();
+    saveData();
     render3DWithSearch(currentSearchTerm);
   }
 
@@ -4578,7 +4681,8 @@ console.log('📦 load-engine.js loading...');
     jumpTo3DBox,
     togglePileBoxDetail,
     movePileBox,
-    clearBoxSelection
+    clearBoxSelection,
+    rotateSelected3DBox
   };
 
   // Auto-initialize on DOM ready
