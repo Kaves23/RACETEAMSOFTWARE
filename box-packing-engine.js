@@ -1875,13 +1875,35 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
 
     const contents = boxContents.filter(c => c.boxId === currentBoxId);
     
-    // Box details summary
+    // Box details summary with inline dimension/weight editing
     const summary = `
-      <div style="font-size:.8rem;color:#202124;line-height:1.8">
-        <strong>Barcode:</strong> ${esc(box.barcode)}<br>
-        <strong>Dimensions:</strong> ${box.length || 0} × ${box.width || 0} × ${box.height || 0} cm<br>
-        <strong>Capacity:</strong> ${box.weightCapacity || 0} kg<br>
-        <strong>Location:</strong> ${esc(box.location || 'Not set')}
+      <div style="font-size:.8rem;color:#202124;line-height:1.6">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap">
+          <div>
+            <strong>Barcode:</strong> ${esc(box.barcode)}<br>
+            <strong>Location:</strong> ${esc(box.location || 'Not set')}
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;min-width:180px">
+            <div style="display:flex;align-items:center;gap:4px;">
+              <span style="white-space:nowrap;font-weight:600;min-width:60px">L×W×H (cm)</span>
+              <input type="number" id="editBoxLength" value="${box.length || 0}" min="1" step="1"
+                     style="width:46px;font-size:.75rem;padding:2px 4px;border:1px solid #d0d0d0;border-radius:3px;text-align:center">
+              <span style="color:#999">×</span>
+              <input type="number" id="editBoxWidth" value="${box.width || 0}" min="1" step="1"
+                     style="width:46px;font-size:.75rem;padding:2px 4px;border:1px solid #d0d0d0;border-radius:3px;text-align:center">
+              <span style="color:#999">×</span>
+              <input type="number" id="editBoxHeight" value="${box.height || 0}" min="1" step="1"
+                     style="width:46px;font-size:.75rem;padding:2px 4px;border:1px solid #d0d0d0;border-radius:3px;text-align:center">
+            </div>
+            <div style="display:flex;align-items:center;gap:4px;">
+              <span style="white-space:nowrap;font-weight:600;min-width:60px">Max kg</span>
+              <input type="number" id="editBoxWeight" value="${box.weightCapacity || 0}" min="0" step="0.1"
+                     style="width:72px;font-size:.75rem;padding:2px 4px;border:1px solid #d0d0d0;border-radius:3px;text-align:center">
+              <button onclick="saveBoxDimensions('${box.id}')"
+                      style="font-size:.72rem;padding:2px 10px;background:#1a73e8;color:#fff;border:none;border-radius:3px;cursor:pointer;font-weight:600;white-space:nowrap">Save</button>
+            </div>
+          </div>
+        </div>
       </div>
     `;
     document.getElementById('boxDetailsSummary').innerHTML = summary;
@@ -2467,7 +2489,38 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   }
   window.saveGarageNotes = saveGarageNotes;
 
-  async function saveBox() {
+  async function saveBoxDimensions(boxId) {
+    const length   = parseFloat(document.getElementById('editBoxLength')?.value);
+    const width    = parseFloat(document.getElementById('editBoxWidth')?.value);
+    const height   = parseFloat(document.getElementById('editBoxHeight')?.value);
+    const maxWeight = parseFloat(document.getElementById('editBoxWeight')?.value);
+
+    if (!length || length <= 0 || !width || width <= 0 || !height || height <= 0) {
+      showToast('Dimensions must be greater than 0', 'warning');
+      return;
+    }
+
+    try {
+      const resp = await RTS_API.updateBox(boxId, { length, width, height, max_weight: maxWeight || 0 });
+      if (resp && resp.success) {
+        const box = boxes.find(b => String(b.id) === String(boxId));
+        if (box) {
+          box.length = length;
+          box.width = width;
+          box.height = height;
+          box.weightCapacity = maxWeight || 0;
+        }
+        showToast('Box dimensions saved', 'success');
+        renderBoxes();
+      } else {
+        showToast('Failed to save dimensions', 'error');
+      }
+    } catch (e) {
+      console.error('saveBoxDimensions error:', e);
+      showToast('Failed to save dimensions', 'error');
+    }
+  }
+  window.saveBoxDimensions = saveBoxDimensions;
     const name = document.getElementById('boxName').value.trim();
     if (!name) {
       showToast('Box name is required', 'warning');
