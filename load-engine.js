@@ -4101,17 +4101,33 @@ console.log('📦 load-engine.js loading...');
 
   // ========== EXPORT PACKING LIST ==========
   function buildPackingListData() {
-    // Returns { boxes: [{ box, zoneLabel, items[] }], standaloneItems: [{ name, barcode, category, zoneLabel, itemType }] }
+    // Returns { regularBoxes, tyreGroups, standaloneItems }
+    // regularBoxes: [{ box, zoneLabel, items[] }]
+    // tyreGroups:   [{ type, cfg, zoneLabel, boxEntries: [{box,zoneLabel,items}] }]
     const truck = getTruck();
-    const boxes = currentLoad.placements.filter(p => p.boxId).map(p => {
+    const allBoxEntries = currentLoad.placements.filter(p => p.boxId).map(p => {
       const box = getBox(p.boxId);
       if (!box) return null;
       const zoneLabel = truck ? `Zone ${p.zone.replace('grid-', '')}` : p.zone;
-      const items = box.contentsItems && box.contentsItems.length > 0
-        ? box.contentsItems
-        : [];
+      const items = box.contentsItems && box.contentsItems.length > 0 ? box.contentsItems : [];
       return { box, zoneLabel, items };
     }).filter(Boolean);
+
+    const regularBoxes = allBoxEntries.filter(e => !TYRE_BOX_TYPES.includes(e.box.boxType || e.box.box_type));
+
+    // Group tyre boxes by type, preserving TYRE_BOX_TYPES order
+    const tyreMap = {};
+    allBoxEntries.forEach(e => {
+      const t = e.box.boxType || e.box.box_type;
+      if (!TYRE_BOX_TYPES.includes(t)) return;
+      if (!tyreMap[t]) tyreMap[t] = [];
+      tyreMap[t].push(e);
+    });
+    const tyreGroups = TYRE_BOX_TYPES.filter(t => tyreMap[t] && tyreMap[t].length > 0).map(t => ({
+      type: t,
+      cfg: TYRE_TYPE_CONFIG[t],
+      boxEntries: tyreMap[t]
+    }));
 
     const standaloneItems = currentLoad.placements.filter(p => p.type === 'asset' || p.type === 'inventory').map(p => {
       const zoneLabel = truck ? `Zone ${p.zone.replace('grid-', '')}` : p.zone;
@@ -4126,40 +4142,56 @@ console.log('📦 load-engine.js loading...');
       }
     }).filter(Boolean);
 
-    return { boxes, standaloneItems };
+    return { regularBoxes, tyreGroups, standaloneItems };
   }
 
   function exportPackingListCSV() {
-    const { boxes, standaloneItems } = buildPackingListData();
-    if (!boxes.length && !standaloneItems.length) { alert('No boxes or standalone items are loaded on the trailer yet.'); return; }
+    const { regularBoxes, tyreGroups, standaloneItems } = buildPackingListData();
+    const totalBoxes = regularBoxes.length + tyreGroups.reduce((s, g) => s + g.boxEntries.length, 0);
+    if (!totalBoxes && !standaloneItems.length) { alert('No boxes or standalone items are loaded on the trailer yet.'); return; }
 
     const truck = getTruck();
     const event = events.find(e => e.id === currentLoad.eventId);
     const lines = [];
 
-    // Header rows
     lines.push(`Packing List Export`);
     lines.push(`Trailer,${truck ? truck.name : 'Unknown'}`);
     lines.push(`Event,${event ? (event.title || event.name) : 'None selected'}`);
     lines.push(`Exported,${new Date().toLocaleString()}`);
     lines.push('');
 
-    // Column headers
-    lines.push('Box Name,Box Barcode,Zone,#,Qty,Item Name,Item Barcode,Serial Number,Item Type');
+    // Regular boxes
+    if (regularBoxes.length > 0) {
+      lines.push('Box Name,Box Barcode,Zone,#,Qty,Item Name,Item Barcode,Serial Number,Item Type');
+      regularBoxes.forEach(({ box, zoneLabel, items }) => {
+        if (items.length === 0) {
+          lines.push(`"${box.name}","${box.barcode}","${zoneLabel}","","","(empty box)","","",""`);
+        } else {
+          items.forEach((item, idx) => {
+            lines.push(`"${idx === 0 ? box.name : ''}","${idx === 0 ? box.barcode : ''}","${idx === 0 ? zoneLabel : ''}","${idx + 1}","${item.quantity || 1}","${item.name || ''}","${item.barcode || ''}","${item.serial || ''}","${item.type || ''}"`);
+          });
+        }
+      });
+      lines.push('');
+    }
 
-    boxes.forEach(({ box, zoneLabel, items }) => {
-      if (items.length === 0) {
-        // Box is loaded but empty
-        lines.push(`"${box.name}","${box.barcode}","${zoneLabel}","","","(empty box)","","",""`);
-      } else {
-        items.forEach((item, idx) => {
-          lines.push(`"${idx === 0 ? box.name : ''}","${idx === 0 ? box.barcode : ''}","${idx === 0 ? zoneLabel : ''}","${idx + 1}","${item.quantity || 1}","${item.name || ''}","${item.barcode || ''}","${item.serial || ''}","${item.type || ''}"`);
-        });
-      }
-    });
+    // Tyre groups — one summary row per type, then barcode list
+    if (tyreGroups.length > 0) {
+      lines.push('TYRE BOXES (ROKKRT)');
+      lines.push('Type,Prefix,Zone,Box Count,Sets/Box,Total Sets,Item,Barcodes');
+      tyreGroups.forEach(({ cfg, boxEntries }) => {
+        const zoneLabel = boxEntries[0]?.zoneLabel || '';
+        const repItems = boxEntries[0]?.items || [];
+        const itemName = repItems[0]?.name || '';
+        const setsPerBox = repItems[0]?.quantity || cfg.sets;
+        const totalSets = setsPerBox * boxEntries.length;
+        const barcodes = boxEntries.map(e => e.box.barcode).join(' | ');
+        lines.push(`"${cfg.label}","${cfg.prefix}","${zoneLabel}","${boxEntries.length}","${setsPerBox}","${totalSets}","${itemName}","${barcodes}"`);
+      });
+      lines.push('');
+    }
 
     if (standaloneItems.length > 0) {
-      lines.push('');
       lines.push('Standalone Assets & Inventory');
       lines.push('Zone,#,Qty,Item Name,Barcode / SKU,Category,Type');
       standaloneItems.forEach((item, idx) => {
@@ -4179,8 +4211,9 @@ console.log('📦 load-engine.js loading...');
   }
 
   function exportPackingListPDF() {
-    const { boxes, standaloneItems } = buildPackingListData();
-    if (!boxes.length && !standaloneItems.length) { alert('No boxes or standalone items are loaded on the trailer yet.'); return; }
+    const { regularBoxes, tyreGroups, standaloneItems } = buildPackingListData();
+    const totalBoxes = regularBoxes.length + tyreGroups.reduce((s, g) => s + g.boxEntries.length, 0);
+    if (!totalBoxes && !standaloneItems.length) { alert('No boxes or standalone items are loaded on the trailer yet.'); return; }
 
     const truck = getTruck();
     const event = events.find(e => e.id === currentLoad.eventId);
@@ -4188,7 +4221,8 @@ console.log('📦 load-engine.js loading...');
     const dateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
     const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
     const docRef = `PL-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}-${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
-    const totalItems = boxes.reduce((sum, d) => sum + d.items.length, 0);
+    const totalItems = regularBoxes.reduce((sum, d) => sum + d.items.length, 0)
+      + tyreGroups.reduce((sum, g) => sum + g.boxEntries.reduce((s2, e) => s2 + e.items.length, 0), 0);
 
     let html = `<!DOCTYPE html>
 <html>
@@ -4200,21 +4234,18 @@ console.log('📦 load-engine.js loading...');
     body { font-family: Arial, Helvetica, sans-serif; font-size: 9.5pt; color: #000; background: #fff; }
     .page { padding: 14mm 18mm 10mm; }
 
-    /* Document header */
     .doc-header { display: flex; justify-content: space-between; align-items: flex-end; padding-bottom: 8px; border-bottom: 2.5px solid #000; margin-bottom: 10px; }
     .doc-title-block .doc-title { font-size: 18pt; font-weight: 700; text-transform: uppercase; letter-spacing: -0.3px; line-height: 1; }
     .doc-title-block .doc-subtitle { font-size: 7.5pt; text-transform: uppercase; letter-spacing: 1.5px; color: #555; margin-top: 3px; }
     .doc-ref-block { text-align: right; font-size: 8pt; color: #333; line-height: 1.7; }
     .doc-ref-block .ref-num { font-family: 'Courier New', monospace; font-size: 9.5pt; font-weight: 700; color: #000; }
 
-    /* Meta strip */
     .meta-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; border: 1px solid #999; margin-bottom: 14px; }
     .meta-cell { padding: 5px 8px; border-right: 1px solid #ccc; }
     .meta-cell:last-child { border-right: none; }
     .meta-cell .label { font-size: 6.5pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #666; display: block; margin-bottom: 2px; }
     .meta-cell .value { font-size: 9pt; font-weight: 600; color: #000; }
 
-    /* Box section */
     .box-section { margin-bottom: 12px; page-break-inside: avoid; border: 1px solid #666; }
     .box-header { background: #1a1a1a; color: #fff; padding: 5px 8px; display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: center; }
     .box-header-left .box-seq { font-size: 6.5pt; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: #999; }
@@ -4223,7 +4254,6 @@ console.log('📦 load-engine.js loading...');
     .box-header-right .box-barcode { font-family: 'Courier New', monospace; font-size: 8.5pt; color: #ccc; display: block; }
     .box-header-right .box-zone { font-size: 7.5pt; color: #999; margin-top: 1px; }
 
-    /* Items table */
     table { width: 100%; border-collapse: collapse; }
     thead tr { border-bottom: 1.5px solid #333; }
     th { background: #f2f2f2; font-size: 7pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; padding: 4px 7px; text-align: left; color: #333; border-right: 1px solid #ddd; }
@@ -4239,14 +4269,25 @@ console.log('📦 load-engine.js loading...');
     .no-val { color: #bbb; }
     .empty-row { color: #888; font-style: italic; font-size: 8.5pt; padding: 7px; border-top: 1px solid #eee; }
 
-    /* Signature block */
+    /* Tyre group block */
+    .tyre-section { margin-bottom: 12px; page-break-inside: avoid; border: 2px solid; }
+    .tyre-header { padding: 6px 10px; display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; }
+    .tyre-header .tyre-tag { font-size: 6.5pt; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; opacity: .75; }
+    .tyre-header .tyre-name { font-size: 10.5pt; font-weight: 700; margin-top: 2px; }
+    .tyre-header .tyre-right { text-align: right; font-size: 8pt; font-weight: 600; line-height: 1.6; }
+    .tyre-summary { padding: 7px 10px 5px; border-top: 1px solid rgba(0,0,0,.12); font-size: 8.5pt; line-height: 1.7; }
+    .tyre-summary .tyre-item-row { font-weight: 600; }
+    .tyre-barcodes { padding: 5px 10px 8px; border-top: 1px solid rgba(0,0,0,.1); }
+    .tyre-barcodes .bc-label { font-size: 6.5pt; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: #555; margin-bottom: 4px; }
+    .tyre-barcodes .bc-grid { display: flex; flex-wrap: wrap; gap: 4px 10px; }
+    .tyre-barcodes .bc-chip { font-family: 'Courier New', monospace; font-size: 8pt; background: rgba(0,0,0,.07); border-radius: 3px; padding: 1px 5px; }
+
     .sig-section { margin-top: 20px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
     .sig-box { border-top: 1px solid #555; padding-top: 4px; }
     .sig-box .sig-label { font-size: 6.5pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #555; }
     .sig-box .sig-line { margin-top: 18px; border-bottom: 1px solid #888; }
     .sig-box .sig-name { font-size: 7.5pt; color: #666; margin-top: 3px; }
 
-    /* Footer */
     .doc-footer { margin-top: 14px; border-top: 1px solid #ccc; padding-top: 5px; display: flex; justify-content: space-between; font-size: 7pt; color: #888; }
 
     @media print {
@@ -4272,16 +4313,17 @@ console.log('📦 load-engine.js loading...');
   <div class="meta-strip">
     <div class="meta-cell"><span class="label">Vehicle / Trailer</span><span class="value">${esc(truck ? truck.name : 'Not selected')}</span></div>
     <div class="meta-cell"><span class="label">Event</span><span class="value">${esc(event ? (event.title || event.name) : 'No event selected')}</span></div>
-    <div class="meta-cell"><span class="label">Boxes Loaded</span><span class="value">${boxes.length}</span></div>
+    <div class="meta-cell"><span class="label">Boxes Loaded</span><span class="value">${totalBoxes}</span></div>
     <div class="meta-cell"><span class="label">Total Items</span><span class="value">${totalItems + standaloneItems.length}</span></div>
   </div>`;
 
-    boxes.forEach(({ box, zoneLabel, items }, boxIdx) => {
+    // --- Regular boxes ---
+    regularBoxes.forEach(({ box, zoneLabel, items }, boxIdx) => {
       html += `
   <div class="box-section">
     <div class="box-header">
       <div class="box-header-left">
-        <div class="box-seq">Container ${String(boxIdx + 1).padStart(2, '0')} of ${String(boxes.length).padStart(2, '0')}</div>
+        <div class="box-seq">Container ${String(boxIdx + 1).padStart(2, '0')} of ${String(regularBoxes.length).padStart(2, '0')}</div>
         <div class="box-name">${esc(box.name)}</div>
       </div>
       <div class="box-header-right">
@@ -4289,7 +4331,6 @@ console.log('📦 load-engine.js loading...');
         <div class="box-zone">${esc(zoneLabel)} &nbsp;|&nbsp; ${items.length} item${items.length !== 1 ? 's' : ''}</div>
       </div>
     </div>`;
-
       if (items.length === 0) {
         html += `<div class="empty-row">No items recorded in this container</div>`;
       } else {
@@ -4318,6 +4359,42 @@ console.log('📦 load-engine.js loading...');
       html += `</div>`;
     });
 
+    // --- Tyre groups ---
+    tyreGroups.forEach(({ cfg, boxEntries }) => {
+      const zoneLabel = boxEntries[0]?.zoneLabel || '';
+      const repItems  = boxEntries[0]?.items || [];
+      const itemName  = repItems[0]?.name || '—';
+      const setsPerBox = repItems[0]?.quantity || cfg.sets;
+      const totalSets  = setsPerBox * boxEntries.length;
+      const barcodes   = boxEntries.map(e => e.box.barcode);
+      const borderColor = cfg.color;
+      const bgLight = cfg.bg;
+
+      html += `
+  <div class="tyre-section" style="border-color:${borderColor};">
+    <div class="tyre-header" style="background:${borderColor};color:#fff;">
+      <div>
+        <div class="tyre-tag">🏁 Tyre Boxes (ROKKRT) — ${esc(cfg.prefix)}</div>
+        <div class="tyre-name">${esc(cfg.label)}</div>
+      </div>
+      <div class="tyre-right">
+        ${esc(zoneLabel)}<br>
+        ${boxEntries.length} box${boxEntries.length !== 1 ? 'es' : ''} &nbsp;×&nbsp; ${setsPerBox} sets = <strong>${totalSets} sets total</strong>
+      </div>
+    </div>
+    <div class="tyre-summary" style="background:${bgLight};">
+      <div class="tyre-item-row">Item: ${esc(itemName)} &nbsp;|&nbsp; ${setsPerBox} sets per box</div>
+    </div>
+    <div class="tyre-barcodes" style="background:${bgLight};">
+      <div class="bc-label">Box Barcodes (${barcodes.length})</div>
+      <div class="bc-grid">
+        ${barcodes.map(bc => `<span class="bc-chip">${esc(bc)}</span>`).join('')}
+      </div>
+    </div>
+  </div>`;
+    });
+
+    // --- Standalone items ---
     if (standaloneItems.length > 0) {
       html += `
   <div class="box-section" style="margin-top:16px;border-color:#6a1b9a;">
