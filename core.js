@@ -1297,10 +1297,10 @@
     },
 
     // Unpack inventory item from box
-    async unpackInventoryItem(itemId) {
+    async unpackInventoryItem(itemId, boxId = null) {
       return await apiRequest('/inventory/unpack', {
         method: 'POST',
-        body: JSON.stringify({ itemId })
+        body: JSON.stringify({ itemId, ...(boxId ? { boxId } : {}) })
       });
     },
 

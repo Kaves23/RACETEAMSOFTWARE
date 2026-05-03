@@ -4581,7 +4581,6 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
 
     // --- Scale up PAIRED type ---
     let pairedGroup = boxes.filter(b => (b.boxType || b.box_type) === pairedType);
-    let pairedRep   = pairedGroup[0] || null;
     const pairedName = pairedTyreName(primaryBox.name, pairedType);
     for (let i = pairedGroup.length; i < boxesNeeded; i++) {
       try {
@@ -4590,19 +4589,48 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
           box_type: pairedType, length: pairedCfg.length, width: pairedCfg.width,
           height: pairedCfg.height, max_weight: 0, current_weight: 0, status: 'available'
         });
-        if (pr?.success && pr.box) {
-          const nb = toLocalBox(pr.box, pairedType, primaryBox.location);
-          boxes.push(nb);
-          if (!pairedRep) pairedRep = nb;
-        }
+        if (pr?.success && pr.box) boxes.push(toLocalBox(pr.box, pairedType, primaryBox.location));
       } catch(e) { console.error('autoSync: create paired box failed', e); }
     }
 
-    // --- Mirror: pack same item+quantity into paired representative box ---
-    if (pairedRep) {
-      try {
-        await RTS_API.packInventoryItem(pairedRep.id, itemId, quantity, { override: true });
-      } catch(e) { console.error('autoSync: mirror pack failed', e); }
+    // Refresh groups after potential new boxes
+    primaryGroup = boxes.filter(b => (b.boxType || b.box_type) === primaryType);
+    pairedGroup  = boxes.filter(b => (b.boxType || b.box_type) === pairedType);
+
+    // --- Distribute: evenly spread quantity across all primary boxes ---
+    // e.g. 64 tyres across 8 boxes → 8 per box. Last box gets the remainder.
+    const perBox = Math.floor(quantity / boxesNeeded);
+    const remainder = quantity - perBox * boxesNeeded;
+
+    // First unpack from primary box (which already has the full quantity from packMultipleItems),
+    // so we can redistribute correctly without double-counting.
+    try {
+      await RTS_API.unpackInventoryItem(itemId, primaryBoxId);
+    } catch(e) { /* may fail if not yet packed — carry on */ }
+
+    for (let i = 0; i < boxesNeeded; i++) {
+      const primaryB = primaryGroup[i];
+      const pairedB  = pairedGroup[i];
+      const qty = perBox + (i === boxesNeeded - 1 ? remainder : 0);
+      if (qty <= 0) continue;
+      // Clear then pack primary box
+      if (primaryB) {
+        try {
+          await RTS_API.unpackInventoryItem(itemId, primaryB.id);
+        } catch(e) { /* not packed yet — fine */ }
+        try {
+          await RTS_API.packInventoryItem(primaryB.id, itemId, qty, { override: true });
+        } catch(e) { console.error('autoSync: pack primary box', i, 'failed', e); }
+      }
+      // Clear then pack paired box
+      if (pairedB) {
+        try {
+          await RTS_API.unpackInventoryItem(itemId, pairedB.id);
+        } catch(e) { /* not packed yet — fine */ }
+        try {
+          await RTS_API.packInventoryItem(pairedB.id, itemId, qty, { override: true });
+        } catch(e) { console.error('autoSync: pack paired box', i, 'failed', e); }
+      }
     }
   }
 
