@@ -854,11 +854,12 @@ console.log('📦 load-engine.js loading...');
              data-tooltip="${ttData}"
              style="cursor:${placed ? 'not-allowed' : 'grab'};border-left:3px solid #34a853;">
           <div style="display:flex;align-items:baseline;gap:6px;">
+            ${catBadge}
             <span class="box-barcode" style="color:#34a853;white-space:nowrap;">${esc(a.barcode || a.id.slice(0,8))}</span>
-            <span class="box-name">${esc(a.name)}</span>
+            <span class="box-name" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(a.name)}</span>
+            ${locName ? `<span style="font-size:.72rem;color:#5f6368;white-space:nowrap;margin-left:auto;padding-left:6px;">${esc(locName)}</span>` : ''}
           </div>
-          <div style="margin-top:2px;display:flex;gap:4px;flex-wrap:wrap;align-items:center;">${catBadge}${fleetBadge}${snBadge}${loadedBadge}</div>
-          ${(a.weight_kg || locName) ? `<div class="box-weight" style="margin-top:1px;">${a.weight_kg ? a.weight_kg+'kg' : ''}${a.weight_kg && locName ? ' | ' : ''}${locName ? esc(locName) : ''}</div>` : ''}
+          <div style="margin-top:2px;display:flex;gap:4px;flex-wrap:wrap;align-items:center;">${fleetBadge}${snBadge}${loadedBadge}</div>
         </div>`;
     }).join('');
   }
