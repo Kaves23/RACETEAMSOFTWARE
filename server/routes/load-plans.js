@@ -98,6 +98,21 @@ router.put('/draft', async (req, res, next) => {
     }
 
     // Replace all box placements
+    // ── Snapshot previous state so we can diff and write item_history ──────────
+    const prevBoxRows  = await client.query(
+      `SELECT box_id FROM load_plan_boxes WHERE load_plan_id = $1`, [planId]
+    );
+    const prevAssetRows = await client.query(
+      `SELECT item_type, item_id FROM load_plan_assets WHERE load_plan_id = $1`, [planId]
+    );
+    const prevBoxIds   = new Set(prevBoxRows.rows.map(r => r.box_id));
+    const prevAssetIds = new Set(prevAssetRows.rows.filter(r => r.item_type === 'asset').map(r => r.item_id));
+
+    // Fetch truck name for history details
+    const truckRow = truck_id
+      ? await client.query(`SELECT name FROM trucks WHERE id = $1`, [truck_id])
+      : { rows: [] };
+    const truckName = truckRow.rows[0]?.name || truck_id || 'truck';
     await client.query('DELETE FROM load_plan_boxes WHERE load_plan_id = $1', [planId]);
 
     // Split placements by type
@@ -175,6 +190,75 @@ router.put('/draft', async (req, res, next) => {
        AND ($2::text[] IS NULL OR id != ALL($2::text[]))`,
       [truck_id || null, placedBoxIds.length > 0 ? placedBoxIds : null]
     );
+
+    // ── Write item_history for assets whose load status changed ────────────────
+    const userId = req.user?.userId || null;
+    const histId = () => `hist-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`;
+
+    // Boxes newly added to this load: find all assets inside them
+    const newBoxIds = placedBoxIds.filter(id => !prevBoxIds.has(id));
+    const removedBoxIds = [...prevBoxIds].filter(id => !new Set(placedBoxIds).has(id));
+
+    if (newBoxIds.length > 0) {
+      const contentsQ = await client.query(
+        `SELECT bc.item_id, b.name AS box_name, b.barcode AS box_barcode,
+                lpb.truck_zone
+         FROM box_contents bc
+         JOIN boxes b ON b.id = bc.box_id
+         LEFT JOIN load_plan_boxes lpb ON lpb.load_plan_id = $1 AND lpb.box_id = bc.box_id
+         WHERE bc.box_id = ANY($2::text[]) AND (bc.item_type IS NULL OR bc.item_type != 'inventory')`,
+        [planId, newBoxIds]
+      );
+      for (const row of contentsQ.rows) {
+        const details = `Loaded onto ${truckName}${row.truck_zone ? ' (zone ' + row.truck_zone + ')' : ''} via box ${row.box_barcode || row.box_name}`;
+        await client.query(
+          `INSERT INTO item_history (id, item_id, action, details, to_box_id, performed_by_user_id, timestamp)
+           VALUES ($1, $2, 'Loaded to Truck', $3, $4, $5, NOW())`,
+          [histId(), row.item_id, details, null, userId]
+        );
+      }
+    }
+
+    if (removedBoxIds.length > 0) {
+      const contentsQ = await client.query(
+        `SELECT bc.item_id, b.name AS box_name, b.barcode AS box_barcode
+         FROM box_contents bc
+         JOIN boxes b ON b.id = bc.box_id
+         WHERE bc.box_id = ANY($1::text[]) AND (bc.item_type IS NULL OR bc.item_type != 'inventory')`,
+        [removedBoxIds]
+      );
+      for (const row of contentsQ.rows) {
+        const details = `Removed from ${truckName} load — box ${row.box_barcode || row.box_name} unloaded`;
+        await client.query(
+          `INSERT INTO item_history (id, item_id, action, details, performed_by_user_id, timestamp)
+           VALUES ($1, $2, 'Removed from Truck', $3, $4, NOW())`,
+          [histId(), row.item_id, details, userId]
+        );
+      }
+    }
+
+    // Directly placed assets (not in a box) — newly added
+    const newDirectAssetIds = assetPlacements
+      .map(p => p.itemId).filter(id => id && !prevAssetIds.has(id));
+    const removedDirectAssetIds = [...prevAssetIds]
+      .filter(id => !new Set(assetPlacements.map(p => p.itemId)).has(id));
+
+    for (const assetId of newDirectAssetIds) {
+      const zone = assetPlacements.find(p => p.itemId === assetId)?.zone;
+      const details = `Loaded directly onto ${truckName}${zone ? ' (zone ' + zone + ')' : ''}`;
+      await client.query(
+        `INSERT INTO item_history (id, item_id, action, details, performed_by_user_id, timestamp)
+         VALUES ($1, $2, 'Loaded to Truck', $3, $4, NOW())`,
+        [histId(), assetId, details, userId]
+      );
+    }
+    for (const assetId of removedDirectAssetIds) {
+      await client.query(
+        `INSERT INTO item_history (id, item_id, action, details, performed_by_user_id, timestamp)
+         VALUES ($1, $2, 'Removed from Truck', $3, $4, NOW())`,
+        [histId(), assetId, `Removed from ${truckName} load`, userId]
+      );
+    }
 
     await client.query('COMMIT');
 

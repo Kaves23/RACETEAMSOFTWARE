@@ -149,10 +149,13 @@ router.post('/pack', async (req, res, next) => {
       `, [box_id]);
 
       // Fix 3: Write to item_history audit log
+      const boxNameRow = await client.query('SELECT name, barcode FROM boxes WHERE id = $1', [box_id]);
+      const boxName = boxNameRow.rows[0]?.name || box_id;
+      const boxBarcode = boxNameRow.rows[0]?.barcode || box_id;
       await client.query(`
-        INSERT INTO item_history (id, item_id, action, to_box_id, performed_by_user_id, timestamp)
-        VALUES ($1, $2, 'packed', $3, $4, NOW())
-      `, [`hist-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`, item_id, box_id, userId]);
+        INSERT INTO item_history (id, item_id, action, details, to_box_id, performed_by_user_id, timestamp)
+        VALUES ($1, $2, 'Packed', $3, $4, $5, NOW())
+      `, [`hist-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`, item_id, `Packed into box ${boxBarcode} (${boxName})`, box_id, userId]);
 
       // Universal activity log — write on both entities so both timelines show the event
       const boxNameRow = await client.query('SELECT name FROM boxes WHERE id = $1', [box_id]);
@@ -245,14 +248,15 @@ router.post('/unpack', async (req, res, next) => {
       `, [box_id]);
 
       // Fix 3: Write to item_history audit log
+      const boxNameRow2 = await client.query('SELECT name, barcode FROM boxes WHERE id = $1', [box_id]);
+      const boxName2 = boxNameRow2.rows[0]?.name || box_id;
+      const boxBarcode2 = boxNameRow2.rows[0]?.barcode || box_id;
       await client.query(`
-        INSERT INTO item_history (id, item_id, action, from_box_id, performed_by_user_id, timestamp)
-        VALUES ($1, $2, 'unpacked', $3, $4, NOW())
-      `, [`hist-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`, item_id, box_id, userId]);
+        INSERT INTO item_history (id, item_id, action, details, from_box_id, performed_by_user_id, timestamp)
+        VALUES ($1, $2, 'Unpacked', $3, $4, $5, NOW())
+      `, [`hist-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`, item_id, `Unpacked from box ${boxBarcode2} (${boxName2})`, box_id, userId]);
 
       // Universal activity log
-      const boxNameRow2 = await client.query('SELECT name FROM boxes WHERE id = $1', [box_id]);
-      const boxName2 = boxNameRow2.rows[0]?.name || box_id;
       const itemNameRow = await client.query('SELECT name FROM items WHERE id = $1', [item_id]);
       const itemName = itemNameRow.rows[0]?.name || item_id;
       const userName2 = req.user?.username || null;
