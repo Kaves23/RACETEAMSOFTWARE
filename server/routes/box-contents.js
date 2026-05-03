@@ -158,8 +158,6 @@ router.post('/pack', async (req, res, next) => {
       `, [`hist-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`, item_id, `Packed into box ${boxBarcode} (${boxName})`, box_id, userId]);
 
       // Universal activity log — write on both entities so both timelines show the event
-      const boxNameRow = await client.query('SELECT name FROM boxes WHERE id = $1', [box_id]);
-      const boxName = boxNameRow.rows[0]?.name || box_id;
       const userName = req.user?.username || null;
       await logActivity(client, {
         entityType: 'item', entityId: item_id, entityName: item.name,
