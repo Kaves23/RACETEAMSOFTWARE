@@ -832,9 +832,12 @@ console.log('📦 load-engine.js loading...');
         : (a.assigned_staff_name || a.assigned_driver_name)
           ? `Assigned: ${a.assigned_staff_name || a.assigned_driver_name}`
           : null;
-      const statusBadge = placed
-        ? `<div class="box-status loaded" style="margin-top:4px;">✓ In This Truck</div>`
-        : `<div class="box-status warehouse" style="margin-top:4px;">📦 Available</div>`;
+      const loadedBadge = placed
+        ? `<span style="background:#e6f4ea;color:#137333;border-radius:3px;padding:1px 5px;font-size:.62rem;font-weight:700;">✓ In Truck</span>`
+        : '';
+      const snBadge = a.serial_number
+        ? `<span style="background:#ede7f6;color:#4527a0;border-radius:3px;padding:1px 5px;font-size:.62rem;font-weight:700;">SN: ${esc(a.serial_number)}</span>`
+        : '';
       const ttData = esc(JSON.stringify({
         _name: a.name || '—', Barcode: a.barcode || '—',
         Serial: a.serial_number || '—', Category: a.category || '—',
@@ -850,12 +853,12 @@ console.log('📦 load-engine.js loading...');
              data-asset-id="${a.id}"
              data-tooltip="${ttData}"
              style="cursor:${placed ? 'not-allowed' : 'grab'};border-left:3px solid #34a853;">
-          <div class="box-barcode" style="color:#34a853;">${esc(a.barcode || a.id.slice(0,8))}</div>
-          <div class="box-name">${esc(a.name)}</div>
-          <div class="box-dims" style="margin-top:2px;display:flex;gap:4px;flex-wrap:wrap;">${catBadge}${fleetBadge}</div>
-          ${a.serial_number ? `<div class="box-weight">S/N: ${esc(a.serial_number)}</div>` : ''}
-          ${locName ? `<div class="box-weight" style="color:#1a73e8;">📍 ${esc(locName)}</div>` : ''}
-          ${statusBadge}
+          <div style="display:flex;align-items:baseline;gap:6px;">
+            <span class="box-barcode" style="color:#34a853;white-space:nowrap;">${esc(a.barcode || a.id.slice(0,8))}</span>
+            <span class="box-name">${esc(a.name)}</span>
+          </div>
+          <div style="margin-top:2px;display:flex;gap:4px;flex-wrap:wrap;align-items:center;">${catBadge}${fleetBadge}${snBadge}${loadedBadge}</div>
+          ${(a.weight_kg || locName) ? `<div class="box-weight" style="margin-top:1px;">${a.weight_kg ? a.weight_kg+'kg' : ''}${a.weight_kg && locName ? ' | ' : ''}${locName ? esc(locName) : ''}</div>` : ''}
         </div>`;
     }).join('');
   }
@@ -902,9 +905,9 @@ console.log('📦 load-engine.js loading...');
       const catBadge = i.category
         ? `<span style="background:#f3e5f5;color:#6a1b9a;border-radius:3px;padding:1px 5px;font-size:.62rem;font-weight:700;">${esc(i.category)}</span>`
         : '';
-      const statusBadge = placed
-        ? `<div class="box-status loaded" style="margin-top:4px;">✓ In This Truck</div>`
-        : `<div class="box-status warehouse" style="margin-top:4px;">📦 Available</div>`;
+      const loadedBadge = placed
+        ? `<span style="background:#e6f4ea;color:#137333;border-radius:3px;padding:1px 5px;font-size:.62rem;font-weight:700;">✓ In Truck</span>`
+        : '';
       const ttData = esc(JSON.stringify({
         _name: i.name || '—', SKU: i.sku || '—',
         Category: i.category || '—',
@@ -917,10 +920,11 @@ console.log('📦 load-engine.js loading...');
              data-inventory-id="${i.id}"
              data-tooltip="${ttData}"
              style="cursor:${placed ? 'not-allowed' : 'grab'};border-left:3px solid #9c27b0;">
-          <div class="box-barcode" style="color:#9c27b0;">${esc(i.sku || i.id?.slice(0,8) || '—')}</div>
-          <div class="box-name">${esc(i.name)}</div>
-          <div class="box-dims" style="margin-top:2px;display:flex;gap:4px;flex-wrap:wrap;">${catBadge}${qtyBadge}</div>
-          ${statusBadge}
+          <div style="display:flex;align-items:baseline;gap:6px;">
+            <span class="box-barcode" style="color:#9c27b0;white-space:nowrap;">${esc(i.sku || i.id?.slice(0,8) || '—')}</span>
+            <span class="box-name">${esc(i.name)}</span>
+          </div>
+          <div style="margin-top:2px;display:flex;gap:4px;flex-wrap:wrap;">${catBadge}${qtyBadge}${loadedBadge}</div>
         </div>`;
     }).join('');
   }
