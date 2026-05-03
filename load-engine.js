@@ -26,9 +26,12 @@ console.log('📦 load-engine.js loading...');
   let activeTab = 'boxes';
   // active filters per tab
   let filterBoxCat = 'all';
+  let filterBoxLoc = 'all';
   let filterAssetType = 'all';
   let filterAssetStatus = 'all';
+  let filterAssetLoc = 'all';
   let filterInvCat = 'all';
+  let filterInvLoc = 'all';
   let scene, camera, renderer, controls;
   let boxModal;
 
@@ -616,6 +619,7 @@ console.log('📦 load-engine.js loading...');
     // Hide loading spinner on first render
     const spinner = document.getElementById('loadSpinner');
     if (spinner) spinner.remove();
+    populateFilterDropdowns();
     renderBoxes();
     renderAssets();
     renderInventory();
@@ -627,12 +631,13 @@ console.log('📦 load-engine.js loading...');
   function renderBoxes() {
     const search = document.getElementById('searchBoxes').value.toLowerCase();
     const filtered = boxes.filter(b => {
-      const matchCat = filterBoxCat === 'all' || (b.category || '').toLowerCase() === filterBoxCat;
+      const matchCat = filterBoxCat === 'all' || (b.boxType || 'regular').toLowerCase() === filterBoxCat;
+      const matchLoc = filterBoxLoc === 'all' || (b.location || '') === filterBoxLoc;
       const matchSearch = !search ||
         (b.barcode || '').toLowerCase().includes(search) ||
         (b.name || '').toLowerCase().includes(search) ||
         (b.contents || '').toLowerCase().includes(search);
-      return matchCat && matchSearch;
+      return matchCat && matchLoc && matchSearch;
     });
 
     // Separate kart stands and garage boxes to bottom
@@ -716,24 +721,65 @@ console.log('📦 load-engine.js loading...');
 
   // ========== FILTER CHIPS ==========
   function setFilter(tab, key, value) {
-    if (tab === 'boxes')                          { filterBoxCat      = value; renderBoxes();     }
-    else if (tab === 'assets' && key === 'type')  { filterAssetType   = value; renderAssets();    }
-    else if (tab === 'assets' && key === 'status'){ filterAssetStatus = value; renderAssets();    }
-    else if (tab === 'inventory')                 { filterInvCat      = value; renderInventory(); }
+    if      (tab === 'boxes'     && key === 'cat')    { filterBoxCat      = value; renderBoxes();     }
+    else if (tab === 'boxes'     && key === 'loc')    { filterBoxLoc      = value; renderBoxes();     }
+    else if (tab === 'assets'    && key === 'type')   { filterAssetType   = value; renderAssets();    }
+    else if (tab === 'assets'    && key === 'status') { filterAssetStatus = value; renderAssets();    }
+    else if (tab === 'assets'    && key === 'loc')    { filterAssetLoc    = value; renderAssets();    }
+    else if (tab === 'inventory' && key === 'cat')    { filterInvCat      = value; renderInventory(); }
+    else if (tab === 'inventory' && key === 'loc')    { filterInvLoc      = value; renderInventory(); }
 
     // Sync dropdown selects
-    if (tab === 'boxes') {
-      const sel = document.getElementById('filterBoxSelect');
-      if (sel) sel.value = value;
-    } else if (tab === 'assets' && key === 'type') {
-      const sel = document.getElementById('filterAssetTypeSelect');
-      if (sel) sel.value = value;
-    } else if (tab === 'assets' && key === 'status') {
-      const sel = document.getElementById('filterAssetStatusSelect');
-      if (sel) sel.value = value;
-    } else if (tab === 'inventory') {
-      const sel = document.getElementById('filterInvSelect');
-      if (sel) sel.value = value;
+    if      (tab === 'boxes'     && key === 'cat')    { const sel = document.getElementById('filterBoxSelect');        if (sel) sel.value = value; }
+    else if (tab === 'boxes'     && key === 'loc')    { const sel = document.getElementById('filterBoxLocSelect');     if (sel) sel.value = value; }
+    else if (tab === 'assets'    && key === 'type')   { const sel = document.getElementById('filterAssetTypeSelect'); if (sel) sel.value = value; }
+    else if (tab === 'assets'    && key === 'status') { const sel = document.getElementById('filterAssetStatusSelect');if (sel) sel.value = value; }
+    else if (tab === 'assets'    && key === 'loc')    { const sel = document.getElementById('filterAssetLocSelect');  if (sel) sel.value = value; }
+    else if (tab === 'inventory' && key === 'cat')    { const sel = document.getElementById('filterInvSelect');       if (sel) sel.value = value; }
+    else if (tab === 'inventory' && key === 'loc')    { const sel = document.getElementById('filterInvLocSelect');    if (sel) sel.value = value; }
+  }
+
+  // ========== POPULATE FILTER DROPDOWNS ==========
+  function populateFilterDropdowns() {
+    // Box types (from actual boxType values in data)
+    const boxTypeSel = document.getElementById('filterBoxSelect');
+    if (boxTypeSel) {
+      const types = [...new Set(boxes.map(b => b.boxType || 'regular'))].sort();
+      boxTypeSel.innerHTML = '<option value="all">All types</option>' +
+        types.map(t => {
+          const label = t.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+          return `<option value="${esc(t)}">${esc(label)}</option>`;
+        }).join('');
+      boxTypeSel.value = filterBoxCat;
+    }
+    // Box locations (from location_name on boxes)
+    const boxLocSel = document.getElementById('filterBoxLocSelect');
+    if (boxLocSel) {
+      const locs = [...new Set(boxes.map(b => b.location).filter(Boolean))].sort();
+      boxLocSel.innerHTML = '<option value="all">All locations</option>' +
+        locs.map(l => `<option value="${esc(l)}">${esc(l)}</option>`).join('');
+      boxLocSel.value = filterBoxLoc;
+    }
+    // Asset types (from actual item_type values in data)
+    const assetTypeSel = document.getElementById('filterAssetTypeSelect');
+    if (assetTypeSel) {
+      const types = [...new Set(assets.map(a => a.item_type).filter(Boolean))].sort();
+      assetTypeSel.innerHTML = '<option value="all">All types</option>' +
+        types.map(t => {
+          const label = t.charAt(0).toUpperCase() + t.slice(1);
+          return `<option value="${esc(t.toLowerCase())}">${esc(label)}</option>`;
+        }).join('');
+      assetTypeSel.value = filterAssetType;
+    }
+    // Asset locations (from locations matching assets' current_location_id)
+    const assetLocSel = document.getElementById('filterAssetLocSelect');
+    if (assetLocSel) {
+      const locIds = [...new Set(assets.map(a => a.current_location_id).filter(Boolean))];
+      const assetLocs = locIds.map(id => locations.find(l => l.id === id)).filter(Boolean);
+      assetLocs.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      assetLocSel.innerHTML = '<option value="all">All locations</option>' +
+        assetLocs.map(l => `<option value="${esc(l.id)}">${esc(l.name)}</option>`).join('');
+      assetLocSel.value = filterAssetLoc;
     }
   }
 
@@ -804,12 +850,13 @@ console.log('📦 load-engine.js loading...');
     sorted = sorted.filter(a => {
       const matchType   = filterAssetType   === 'all' || (a.item_type || '').toLowerCase() === filterAssetType;
       const matchStatus = filterAssetStatus === 'all' || (a.status    || '').toLowerCase() === filterAssetStatus;
+      const matchLoc    = filterAssetLoc    === 'all' || (a.current_location_id || '') === filterAssetLoc;
       const matchSearch = !search ||
         (a.name          || '').toLowerCase().includes(search) ||
         (a.barcode       || '').toLowerCase().includes(search) ||
         (a.category      || '').toLowerCase().includes(search) ||
         (a.serial_number || '').toLowerCase().includes(search);
-      return matchType && matchStatus && matchSearch;
+      return matchType && matchStatus && matchLoc && matchSearch;
     });
 
     if (sorted.length === 0) {
@@ -882,14 +929,26 @@ console.log('📦 load-engine.js loading...');
       selEl.value = filterInvCat;
     }
 
+    // Build dynamic location options for inventory
+    const invLocEl = document.getElementById('filterInvLocSelect');
+    if (invLocEl) {
+      const locIds = [...new Set(inventory.map(i => i.location_id).filter(Boolean))];
+      const invLocs = locIds.map(id => locations.find(l => l.id === id)).filter(Boolean);
+      invLocs.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      invLocEl.innerHTML = '<option value="all">All locations</option>' +
+        invLocs.map(l => `<option value="${esc(l.id)}">${esc(l.name)}</option>`).join('');
+      invLocEl.value = filterInvLoc;
+    }
+
     let sorted = [...inventory];
     sorted = sorted.filter(i => {
       const matchCat = filterInvCat === 'all' || (i.category || '') === filterInvCat;
+      const matchLoc = filterInvLoc === 'all' || (i.location_id || '') === filterInvLoc;
       const matchSearch = !search ||
         (i.name     || '').toLowerCase().includes(search) ||
         (i.sku      || '').toLowerCase().includes(search) ||
         (i.category || '').toLowerCase().includes(search);
-      return matchCat && matchSearch;
+      return matchCat && matchLoc && matchSearch;
     });
     sorted.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
