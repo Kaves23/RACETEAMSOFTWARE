@@ -4270,17 +4270,19 @@ console.log('📦 load-engine.js loading...');
     .empty-row { color: #888; font-style: italic; font-size: 8.5pt; padding: 7px; border-top: 1px solid #eee; }
 
     /* Tyre group block */
-    .tyre-section { margin-bottom: 12px; page-break-inside: avoid; border: 2px solid; }
-    .tyre-header { padding: 6px 10px; display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; }
-    .tyre-header .tyre-tag { font-size: 6.5pt; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; opacity: .75; }
-    .tyre-header .tyre-name { font-size: 10.5pt; font-weight: 700; margin-top: 2px; }
-    .tyre-header .tyre-right { text-align: right; font-size: 8pt; font-weight: 600; line-height: 1.6; }
-    .tyre-summary { padding: 7px 10px 5px; border-top: 1px solid rgba(0,0,0,.12); font-size: 8.5pt; line-height: 1.7; }
+    .tyre-section { margin-bottom: 12px; page-break-inside: avoid; border: 1px solid #555; }
+    .tyre-header { padding: 5px 10px; display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; background: #1a1a1a; color: #fff; }
+    .tyre-header .tyre-tag { font-size: 6.5pt; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: #999; }
+    .tyre-header .tyre-name { font-size: 10pt; font-weight: 700; margin-top: 2px; }
+    .tyre-header .tyre-right { text-align: right; font-size: 8pt; font-weight: 600; line-height: 1.6; color: #ccc; }
+    .tyre-summary { padding: 7px 10px 5px; border-top: 1px solid #ddd; font-size: 8.5pt; line-height: 1.7; background: #fff; }
     .tyre-summary .tyre-item-row { font-weight: 600; }
-    .tyre-barcodes { padding: 5px 10px 8px; border-top: 1px solid rgba(0,0,0,.1); }
-    .tyre-barcodes .bc-label { font-size: 6.5pt; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: #555; margin-bottom: 4px; }
-    .tyre-barcodes .bc-grid { display: flex; flex-wrap: wrap; gap: 4px 10px; }
-    .tyre-barcodes .bc-chip { font-family: 'Courier New', monospace; font-size: 8pt; background: rgba(0,0,0,.07); border-radius: 3px; padding: 1px 5px; }
+    .tyre-barcodes { padding: 5px 10px 10px; border-top: 1px solid #eee; background: #fff; }
+    .tyre-barcodes .bc-label { font-size: 6.5pt; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: #555; margin-bottom: 6px; }
+    .tyre-barcodes .bc-grid { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+    .tyre-barcodes .bc-item { display: flex; align-items: center; gap: 5px; }
+    .tyre-barcodes .bc-check { display: inline-block; width: 11px; height: 11px; border: 1.5px solid #555; flex-shrink: 0; }
+    .tyre-barcodes .bc-chip { font-family: 'Courier New', monospace; font-size: 8pt; color: #000; }
 
     .sig-section { margin-top: 20px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
     .sig-box { border-top: 1px solid #555; padding-top: 4px; }
@@ -4371,24 +4373,24 @@ console.log('📦 load-engine.js loading...');
       const bgLight = cfg.bg;
 
       html += `
-  <div class="tyre-section" style="border-color:${borderColor};">
-    <div class="tyre-header" style="background:${borderColor};color:#fff;">
+  <div class="tyre-section">
+    <div class="tyre-header">
       <div>
-        <div class="tyre-tag">🏁 Tyre Boxes (ROKKRT) — ${esc(cfg.prefix)}</div>
+        <div class="tyre-tag">Tyre Boxes (ROKKRT) — ${esc(cfg.prefix)}</div>
         <div class="tyre-name">${esc(cfg.label)}</div>
       </div>
       <div class="tyre-right">
         ${esc(zoneLabel)}<br>
-        ${boxEntries.length} box${boxEntries.length !== 1 ? 'es' : ''} &nbsp;×&nbsp; ${setsPerBox} sets = <strong>${totalSets} sets total</strong>
+        ${boxEntries.length} box${boxEntries.length !== 1 ? 'es' : ''} &nbsp;×&nbsp; ${setsPerBox} sets = <strong style="color:#fff;">${totalSets} sets total</strong>
       </div>
     </div>
-    <div class="tyre-summary" style="background:${bgLight};">
+    <div class="tyre-summary">
       <div class="tyre-item-row">Item: ${esc(itemName)} &nbsp;|&nbsp; ${setsPerBox} sets per box</div>
     </div>
-    <div class="tyre-barcodes" style="background:${bgLight};">
+    <div class="tyre-barcodes">
       <div class="bc-label">Box Barcodes (${barcodes.length})</div>
       <div class="bc-grid">
-        ${barcodes.map(bc => `<span class="bc-chip">${esc(bc)}</span>`).join('')}
+        ${barcodes.map(bc => `<span class="bc-item"><span class="bc-check"></span><span class="bc-chip">${esc(bc)}</span></span>`).join('')}
       </div>
     </div>
   </div>`;
