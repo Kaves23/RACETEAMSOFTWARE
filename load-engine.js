@@ -2236,7 +2236,7 @@ console.log('📦 load-engine.js loading...');
         return;
       }
 
-      const boxGeometry = new THREE.BoxGeometry(box.length, box.height, box.width);
+      const boxGeometry = new THREE.BoxGeometry(box.length || 60, box.height || 30, box.width || 40);
       const boxMaterial = new THREE.MeshPhongMaterial({
         color: getBoxStackColor(placement),
         shininess: 30
@@ -2313,9 +2313,7 @@ console.log('📦 load-engine.js loading...');
         return;
       }
 
-      const boxGeometry = new THREE.BoxGeometry(box.length, box.height, box.width);
-
-      // Category filter: dim boxes not in the active category
+      const boxGeometry = new THREE.BoxGeometry(box.length || 60, box.height || 30, box.width || 40);
       const boxCat = box.category || 'other';
       const isCatDimmed = catFilterActive && boxCat !== catFilterActive;
 
@@ -2363,7 +2361,7 @@ console.log('📦 load-engine.js loading...');
       
       // Add selection highlight glow for selected box
       if (isSelected) {
-        const glowGeometry = new THREE.BoxGeometry(box.length + 5, box.height + 5, box.width + 5);
+        const glowGeometry = new THREE.BoxGeometry((box.length || 60) + 5, (box.height || 30) + 5, (box.width || 40) + 5);
         const glowMaterial = new THREE.MeshBasicMaterial({
           color: 0xFFFF00,
           transparent: true,
@@ -2411,17 +2409,19 @@ console.log('📦 load-engine.js loading...');
     // Calculate stacking height — only count boxes that come BEFORE this one
     // in the placements array (lower index = placed earlier = lower in the stack).
     // Counting ALL other boxes was causing every box to land at the same Y.
+    // Use minimum 30 cm per box if height is not set, so piles always visually stack.
+    const DEF_H = 30;
     const placementIndex = currentLoad.placements.indexOf(placement);
     let stackHeight = 0;
     for (let i = 0; i < placementIndex; i++) {
       const p = currentLoad.placements[i];
       if (p.zone === placement.zone) {
         const otherBox = getBox(p.boxId);
-        if (otherBox) stackHeight += (otherBox.height || 0);
+        if (otherBox) stackHeight += (otherBox.height || DEF_H);
       }
     }
 
-    const y = stackHeight + (box.height || 0) / 2;
+    const y = stackHeight + (box.height || DEF_H) / 2;
 
     return { 
       x: zonePos.x + (placement.offsetX || 0), 
@@ -2636,6 +2636,8 @@ console.log('📦 load-engine.js loading...');
   function setup3DKeyboardControls() {
     document.addEventListener('keydown', e => {
       if (!selected3DBoxId || currentView !== '3D') return;
+      // Claim the event early so topnav (registered first) sees defaultPrevented
+      e.preventDefault();
       
       const placement = currentLoad.placements.find(p => p.boxId === selected3DBoxId);
       if (!placement) return;
@@ -2647,42 +2649,36 @@ console.log('📦 load-engine.js loading...');
       
       switch(e.key) {
         case 'ArrowLeft':
-          e.preventDefault();
           placement.offsetX = (placement.offsetX || 0) - MOVE_STEP;
           moved = true;
           console.log('⬅️ Moved left');
           break;
           
         case 'ArrowRight':
-          e.preventDefault();
           placement.offsetX = (placement.offsetX || 0) + MOVE_STEP;
           moved = true;
           console.log('➡️ Moved right');
           break;
           
         case 'ArrowUp':
-          e.preventDefault();
           placement.offsetZ = (placement.offsetZ || 0) - MOVE_STEP;
           moved = true;
           console.log('⬆️ Moved forward');
           break;
           
         case 'ArrowDown':
-          e.preventDefault();
           placement.offsetZ = (placement.offsetZ || 0) + MOVE_STEP;
           moved = true;
           console.log('⬇️ Moved backward');
           break;
           
         case 'PageUp':
-          e.preventDefault();
           placement.offsetY = (placement.offsetY || 0) + MOVE_STEP;
           moved = true;
           console.log('🔼 Moved up');
           break;
           
         case 'PageDown':
-          e.preventDefault();
           placement.offsetY = (placement.offsetY || 0) - MOVE_STEP;
           // Don't go below ground
           if (placement.offsetY < 0) placement.offsetY = 0;
@@ -2692,7 +2688,6 @@ console.log('📦 load-engine.js loading...');
           
         case 'Delete':
         case 'Backspace':
-          e.preventDefault();
           if (selected3DBoxId) {
             const _b3 = boxes.find(b => b.id === selected3DBoxId);
             rflShow('box', selected3DBoxId, _b3 ? (_b3.name || _b3.barcode || selected3DBoxId) : selected3DBoxId);

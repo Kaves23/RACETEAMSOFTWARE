@@ -391,6 +391,8 @@
         try {
           // Ignore if quick-select is already active — those keys handled above
           if (activeGroupKeys) return;
+          // Ignore if another handler already claimed this key (e.g. 3D view rotate)
+          if (ev.defaultPrevented) return;
           // Ignore if typing in an input/textarea/contentEditable
           const ae = document.activeElement;
           const tag = (ae && ae.tagName || '').toLowerCase();
