@@ -32,6 +32,15 @@ console.log('📦 load-engine.js loading...');
   let filterAssetLoc = 'all';
   let filterInvCat = 'all';
   let filterInvLoc = 'all';
+
+  // ========== TYRE BOX CONFIG ==========
+  const TYRE_TYPE_CONFIG = {
+    tyre_mini_front:   { label: 'Mini Front Tyres',   prefix: 'ROKKRT-MF', sets: 8, color: '#e91e63', bg: '#fce4ec' },
+    tyre_mini_rear:    { label: 'Mini Rear Tyres',    prefix: 'ROKKRT-MR', sets: 8, color: '#9c27b0', bg: '#f3e5f5' },
+    tyre_senior_front: { label: 'Senior Front Tyres', prefix: 'ROKKRT-SF', sets: 6, color: '#ff6f00', bg: '#fff3e0' },
+    tyre_senior_rear:  { label: 'Senior Rear Tyres',  prefix: 'ROKKRT-SR', sets: 6, color: '#1565c0', bg: '#e3f2fd' },
+  };
+  const TYRE_BOX_TYPES = Object.keys(TYRE_TYPE_CONFIG);
   let scene, camera, renderer, controls;
   let boxModal;
 
@@ -640,9 +649,11 @@ console.log('📦 load-engine.js loading...');
       return matchCat && matchLoc && matchSearch;
     });
 
-    // Separate kart stands and garage boxes to bottom
-    const normalBoxes  = filtered.filter(b => b.boxType !== 'garage' && b.boxType !== 'kart_stand');
+    // Separate kart stands, tyre boxes and garage boxes to bottom
+    const isTyreBox    = b => TYRE_BOX_TYPES.includes(b.boxType || b.box_type);
+    const normalBoxes  = filtered.filter(b => b.boxType !== 'garage' && b.boxType !== 'kart_stand' && !isTyreBox(b));
     const kartBoxes    = filtered.filter(b => b.boxType === 'kart_stand');
+    const tyreBoxes    = filtered.filter(isTyreBox);
     const garageBoxes  = filtered.filter(b => b.boxType === 'garage');
 
     const renderBoxItem = (box) => {
@@ -702,6 +713,52 @@ console.log('📦 load-engine.js loading...');
     };
 
     let html = normalBoxes.map(renderBoxItem).join('');
+
+    // Tyre box stacks — grouped by type with counter
+    if (tyreBoxes.length > 0) {
+      html += `<div style="margin:8px 0 4px;padding:3px 8px;font-size:.65rem;font-weight:700;color:#880e4f;background:#fce4ec;border-radius:10px;text-align:center;letter-spacing:.04em;">🏁 TYRE BOXES (ROKKRT)</div>`;
+      const tyreGroups = {};
+      tyreBoxes.forEach(b => {
+        const t = b.boxType || b.box_type;
+        if (!tyreGroups[t]) tyreGroups[t] = [];
+        tyreGroups[t].push(b);
+      });
+      TYRE_BOX_TYPES.forEach(type => {
+        const group = tyreGroups[type];
+        if (!group || group.length === 0) return;
+        const cfg    = TYRE_TYPE_CONFIG[type];
+        const available = group.filter(b => {
+          const placement = currentLoad.placements.find(p => p.boxId === b.id);
+          return !placement;
+        });
+        const loadedCount = group.length - available.length;
+        const firstBox    = available[0] || group[0];
+        const draggable   = available.length > 0;
+        html += `
+          <div style="position:relative;margin-bottom:14px;">
+            <div style="position:absolute;top:5px;left:5px;right:-5px;bottom:-5px;background:${cfg.bg};border:2px solid ${cfg.color}66;border-radius:4px;z-index:0;pointer-events:none"></div>
+            <div style="position:absolute;top:10px;left:10px;right:-10px;bottom:-10px;background:${cfg.bg};border:2px solid ${cfg.color}33;border-radius:4px;z-index:-1;pointer-events:none"></div>
+            <div class="box-item${loadedCount === group.length ? ' loaded' : ''}${selectedBoxId === firstBox.id ? ' selected' : ''}"
+                 draggable="${draggable}"
+                 data-box-id="${firstBox.id}"
+                 style="position:relative;z-index:1;border:2px solid ${cfg.color};background:${cfg.bg};cursor:${draggable ? 'grab' : 'not-allowed'};">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+                <div>
+                  <div class="box-barcode" style="color:${cfg.color}">${esc(cfg.prefix)}</div>
+                  <div class="box-name">${esc(cfg.label)}</div>
+                  <div class="box-dims">${cfg.sets} sets/box</div>
+                </div>
+                <div style="font-size:2rem;font-weight:900;color:${cfg.color};line-height:1;flex-shrink:0">×${available.length}</div>
+              </div>
+              <div style="margin-top:4px;display:flex;gap:6px;flex-wrap:wrap;font-size:.62rem;font-weight:700;">
+                <span style="background:${cfg.color};color:#fff;padding:2px 6px;border-radius:3px;">${available.length} available</span>
+                ${loadedCount > 0 ? `<span style="background:#e6f4ea;color:#137333;padding:2px 6px;border-radius:3px;">🚛 ${loadedCount} loaded</span>` : ''}
+                <span style="background:#fffde7;color:#f57f17;padding:2px 6px;border-radius:3px;">🏁 ${group.length * cfg.sets} total sets</span>
+              </div>
+            </div>
+          </div>`;
+      });
+    }
 
     if (kartBoxes.length > 0) {
       html += `<div style="margin:8px 0 4px;padding:3px 8px;font-size:.65rem;font-weight:700;color:#1565c0;background:#e3f2fd;border-radius:10px;text-align:center;letter-spacing:.04em;">🏎️ KART STANDS</div>`;

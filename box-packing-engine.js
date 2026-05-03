@@ -20,6 +20,15 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   const SS_CACHE_KEY = 'rts.bp.cache.v1'; // sessionStorage key for stale-while-revalidate
   const SS_CACHE_MAX_AGE_MS = 5 * 60_000;  // Max age before cache is ignored (5 min)
 
+  // ========== TYRE BOX CONFIG ==========
+  const TYRE_TYPE_CONFIG = {
+    tyre_mini_front:   { label: 'Mini Front Tyres',   prefix: 'ROKKRT-MF', sets: 8, color: '#e91e63', bg: '#fce4ec', length: 80,  width: 50,  height: 50  },
+    tyre_mini_rear:    { label: 'Mini Rear Tyres',    prefix: 'ROKKRT-MR', sets: 8, color: '#9c27b0', bg: '#f3e5f5', length: 100, width: 60,  height: 50  },
+    tyre_senior_front: { label: 'Senior Front Tyres', prefix: 'ROKKRT-SF', sets: 6, color: '#ff6f00', bg: '#fff3e0', length: 80,  width: 50,  height: 50  },
+    tyre_senior_rear:  { label: 'Senior Rear Tyres',  prefix: 'ROKKRT-SR', sets: 6, color: '#1565c0', bg: '#e3f2fd', length: 100, width: 60,  height: 50  },
+  };
+  const TYRE_BOX_TYPES = Object.keys(TYRE_TYPE_CONFIG);
+
   // ========== FRESHNESS INDICATOR ==========
   // States: 'loading' | 'cached' | 'refreshing' | 'live' | 'error'
   function setFreshnessState(state, label) {
@@ -1533,10 +1542,12 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       return 0;
     });
 
-    // Partition: kart stands and garage boxes go below normal boxes
+    // Partition: kart stands and garage boxes go below normal boxes; tyre boxes group by type
+    const isTyreBox    = b => TYRE_BOX_TYPES.includes(b.boxType || b.box_type);
     const isKartStandBox = b => (b.boxType || b.box_type) === 'kart_stand';
-    const normalBoxes = filtered.filter(b => (b.boxType || b.box_type) !== 'garage' && !isKartStandBox(b));
+    const normalBoxes = filtered.filter(b => (b.boxType || b.box_type) !== 'garage' && !isKartStandBox(b) && !isTyreBox(b));
     const kartBoxes   = filtered.filter(isKartStandBox);
+    const tyreBoxes   = filtered.filter(isTyreBox);
     const garageBoxes = filtered.filter(b => (b.boxType || b.box_type) === 'garage')
       .sort((a, b) => (a.location || '').localeCompare(b.location || '') || (a.name || '').localeCompare(b.name || ''));
 
@@ -1630,6 +1641,48 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     // Build normal boxes HTML
     let html = normalBoxes.map(renderBoxCard).join('');
 
+    // Tyre box stacks — grouped by type
+    if (tyreBoxes.length > 0) {
+      html += `<div style="margin:10px 0 6px;padding:4px 8px;background:#fce4ec;border-radius:4px;font-size:0.68rem;font-weight:700;color:#880e4f;letter-spacing:.5px;text-transform:uppercase;">🏁 Tyre Boxes (ROKKRT)</div>`;
+      const tyreGroups = {};
+      tyreBoxes.forEach(b => {
+        const t = b.boxType || b.box_type;
+        if (!tyreGroups[t]) tyreGroups[t] = [];
+        tyreGroups[t].push(b);
+      });
+      TYRE_BOX_TYPES.forEach(type => {
+        const group = tyreGroups[type];
+        if (!group || group.length === 0) return;
+        const cfg = TYRE_TYPE_CONFIG[type];
+        const available = group.filter(b => !b.truckId);
+        const loadedCount = group.length - available.length;
+        const firstBox = available[0] || group[0];
+        const isEmpty = available.length === 0;
+        html += `
+          <div class="box-container tyre-stack-card${currentBoxId === firstBox.id ? ' active' : ''}"
+               onclick="handleBoxClick(event, '${firstBox.id}')"
+               style="position:relative;border:2px solid ${cfg.color};background:${cfg.bg};cursor:pointer;padding-bottom:10px;margin-bottom:14px;${isEmpty ? 'opacity:.55;' : ''}">
+            <!-- Stack shadow layers -->
+            <div style="position:absolute;top:5px;left:5px;right:-5px;bottom:-5px;background:${cfg.bg};border:2px solid ${cfg.color};border-radius:3px;z-index:-1;opacity:.55;pointer-events:none"></div>
+            <div style="position:absolute;top:10px;left:10px;right:-10px;bottom:-10px;background:${cfg.bg};border:2px solid ${cfg.color};border-radius:3px;z-index:-2;opacity:.3;pointer-events:none"></div>
+            <input type="checkbox" class="box-checkbox" data-box-id="${firstBox.id}" onclick="event.stopPropagation(); toggleBoxSelection('${firstBox.id}')">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+              <div>
+                <div class="box-barcode" style="color:${cfg.color};">${esc(cfg.prefix)}</div>
+                <div class="box-name">${esc(cfg.label)}</div>
+                <div class="box-dims">${cfg.length}×${cfg.width}×${cfg.height}cm | ${cfg.sets} sets/box</div>
+              </div>
+              <div style="font-size:2rem;font-weight:900;color:${cfg.color};line-height:1;flex-shrink:0">×${available.length}</div>
+            </div>
+            <div style="margin-top:4px;display:flex;gap:6px;flex-wrap:wrap;font-size:.65rem;font-weight:700">
+              <span style="background:${cfg.color};color:#fff;padding:2px 7px;border-radius:3px;">${available.length} available</span>
+              ${loadedCount > 0 ? `<span style="background:#e6f4ea;color:#137333;padding:2px 7px;border-radius:3px;">🚛 ${loadedCount} on truck</span>` : ''}
+              <span style="background:#fffde7;color:#f57f17;padding:2px 7px;border-radius:3px;">🏁 ${group.length * cfg.sets} total sets</span>
+            </div>
+          </div>`;
+      });
+    }
+
     // Append kart stands section if any exist
     if (kartBoxes.length > 0) {
       html += `<div style="margin:10px 0 6px;padding:4px 8px;background:#e3f2fd;border-radius:4px;font-size:0.68rem;font-weight:700;color:#1565c0;letter-spacing:.5px;text-transform:uppercase;">🏎️ Kart Stands</div>`;
@@ -1655,7 +1708,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     }
 
     document.getElementById('boxesList').innerHTML = html || '<div style="text-align:center;padding:20px;color:#5f6368;font-size:.85rem">No boxes found</div>';
-    document.getElementById('boxCount').textContent = normalBoxes.length + kartBoxes.length + garageBoxes.length;
+    document.getElementById('boxCount').textContent = normalBoxes.length + kartBoxes.length + garageBoxes.length + tyreBoxes.length;
     
     // Update checkbox states and toolbar after rendering
     updateBoxCheckboxStates();
@@ -2142,6 +2195,21 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     boxTypeSelect.onchange = function() {
       const isDriver = this.value === 'driver';
       document.getElementById('driverSelectContainer').style.display = isDriver ? 'block' : 'none';
+      // Auto-fill tyre box defaults
+      if (TYRE_BOX_TYPES.includes(this.value)) {
+        const cfg = TYRE_TYPE_CONFIG[this.value];
+        document.getElementById('boxBarcode').value = generateTyreBarcode(this.value);
+        document.getElementById('boxLength').value = cfg.length;
+        document.getElementById('boxWidth').value  = cfg.width;
+        document.getElementById('boxHeight').value = cfg.height;
+        document.getElementById('boxWeightCapacity').value = '';
+      } else if (!TYRE_BOX_TYPES.includes(this.value)) {
+        // Reset to standard barcode if switching away from a tyre type
+        const current = document.getElementById('boxBarcode').value || '';
+        if (TYRE_BOX_TYPES.some(t => current.startsWith(TYRE_TYPE_CONFIG[t]?.prefix || '~~~'))) {
+          document.getElementById('boxBarcode').value = generateBarcode();
+        }
+      }
     };
     
     boxModal.show();
@@ -2606,6 +2674,16 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     const numbers = existing.map(b => parseInt(b.split('-')[1])).filter(n => !isNaN(n));
     const maxNum = numbers.length > 0 ? Math.max(...numbers) : 0;
     return `BOX-${String(maxNum + 1).padStart(3, '0')}`;
+  }
+
+  function generateTyreBarcode(type) {
+    const cfg = TYRE_TYPE_CONFIG[type];
+    if (!cfg) return generateBarcode();
+    const prefix = cfg.prefix + '-';
+    const existing = boxes.map(b => b.barcode).filter(b => b && b.startsWith(prefix));
+    const numbers = existing.map(b => parseInt(b.slice(prefix.length))).filter(n => !isNaN(n));
+    const maxNum = numbers.length > 0 ? Math.max(...numbers) : 0;
+    return `${prefix}${String(maxNum + 1).padStart(3, '0')}`;
   }
 
   async function selectBox(boxId) {
