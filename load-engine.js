@@ -41,6 +41,14 @@ console.log('📦 load-engine.js loading...');
     tyre_senior_rear:  { label: 'Senior Rear Tyres',  prefix: 'ROKKRT-SR', sets: 6, color: '#1565c0', bg: '#e3f2fd' },
   };
   const TYRE_BOX_TYPES = Object.keys(TYRE_TYPE_CONFIG);
+
+  // Paired tyre types — loading one auto-loads the other
+  const TYRE_PAIRS = {
+    tyre_mini_front:   'tyre_mini_rear',
+    tyre_mini_rear:    'tyre_mini_front',
+    tyre_senior_front: 'tyre_senior_rear',
+    tyre_senior_rear:  'tyre_senior_front',
+  };
   let scene, camera, renderer, controls;
   let boxModal;
 
@@ -1450,6 +1458,37 @@ console.log('📦 load-engine.js loading...');
       position: calculatePosition(boxId, zone),
       timestamp: new Date().toISOString()
     });
+
+    // Auto-place paired tyre box in an adjacent zone
+    const placedBoxType = box.box_type || box.boxType;
+    if (TYRE_BOX_TYPES.includes(placedBoxType)) {
+      const pairedType = TYRE_PAIRS[placedBoxType];
+      if (pairedType) {
+        const pairedBox = boxes.find(b =>
+          (b.boxType || b.box_type) === pairedType &&
+          !currentLoad.placements.some(p => p.boxId === b.id)
+        );
+        if (pairedBox) {
+          // Find an adjacent zone: try zone+1, then zone-1, then any free zone
+          const zoneNum = parseInt(zone.replace('grid-', '')) || 1;
+          const allZoneKeys = Object.keys(currentLoad.truckId
+            ? (trucks.find(t => String(t.id) === String(currentLoad.truckId))?.zones || {})
+            : {});
+          const candidates = [
+            `grid-${zoneNum + 1}`,
+            `grid-${zoneNum - 1}`,
+            ...allZoneKeys.filter(z => z !== zone)
+          ];
+          const adjacentZone = candidates.find(z => allZoneKeys.includes(z)) || zone;
+          currentLoad.placements.push({
+            boxId: pairedBox.id,
+            zone: adjacentZone,
+            position: calculatePosition(pairedBox.id, adjacentZone),
+            timestamp: new Date().toISOString()
+          });
+        }
+      }
+    }
 
     currentLoad.updatedAt = new Date().toISOString();
     saveData();
