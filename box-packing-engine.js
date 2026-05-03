@@ -29,6 +29,14 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   };
   const TYRE_BOX_TYPES = Object.keys(TYRE_TYPE_CONFIG);
 
+  // Paired tyre types — creating one auto-creates the other
+  const TYRE_PAIRS = {
+    tyre_mini_front:   'tyre_mini_rear',
+    tyre_mini_rear:    'tyre_mini_front',
+    tyre_senior_front: 'tyre_senior_rear',
+    tyre_senior_rear:  'tyre_senior_front',
+  };
+
   // ========== FRESHNESS INDICATOR ==========
   // States: 'loading' | 'cached' | 'refreshing' | 'live' | 'error'
   function setFreshnessState(state, label) {
@@ -2650,7 +2658,47 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
         
         boxes.push(newBox);
         addHistory(newBox.id, 'created', `${boxType === 'driver' ? '🚗 Driver box' : boxType === 'garage' ? '🏚️ Garage storage box' : boxType === 'kart_stand' ? '🏎️ Kart stand' : 'Box'} created at ${locationName}`);
-        
+
+        // Auto-create the paired tyre box (front ↔ rear)
+        const pairedType = TYRE_PAIRS[boxType];
+        if (pairedType) {
+          const pairedCfg  = TYRE_TYPE_CONFIG[pairedType];
+          const pairedName = pairedTyreName(name, pairedType);
+          const pairedBarcode = generateTyreBarcode(pairedType);
+          try {
+            const pr = await RTS_API.createBox({
+              barcode:    pairedBarcode,
+              name:       pairedName,
+              box_type:   pairedType,
+              length:     pairedCfg.length,
+              width:      pairedCfg.width,
+              height:     pairedCfg.height,
+              max_weight: 0,
+              current_weight: 0,
+              location_id: null,
+              status: 'available'
+            });
+            if (pr && pr.success && pr.box) {
+              boxes.push({
+                id:             pr.box.id,
+                barcode:        pr.box.barcode,
+                name:           pr.box.name,
+                boxType:        pr.box.box_type,
+                length:         pr.box.dimensions_length_cm,
+                width:          pr.box.dimensions_width_cm,
+                height:         pr.box.dimensions_height_cm,
+                weightCapacity: pr.box.max_weight_kg,
+                currentWeight:  0,
+                location:       locationName,
+                status:         'available',
+              });
+              addHistory(pr.box.id, 'created', `🏁 Paired ${pairedCfg.label} box auto-created alongside "${newBox.name}"`);
+            }
+          } catch (e) {
+            console.error('Failed to auto-create paired tyre box:', e);
+          }
+        }
+
         console.log(`✅ Created ${boxType} box in database:`, newBox.name);
         boxModal.hide();
         renderAll();
@@ -2659,6 +2707,9 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
           showToast(`🚗 Driver box "${newBox.name}" created and saved to database!`, 'success');
         } else if (boxType === 'kart_stand') {
           showToast(`🏎️ Kart Stand "${newBox.name}" created! Pack 1–2 kart assets into it.`, 'success');
+        } else if (pairedType && TYRE_PAIRS[boxType]) {
+          const pairedCfg = TYRE_TYPE_CONFIG[pairedType];
+          showToast(`🏁 Created "${newBox.name}" + paired ${pairedCfg.label} box automatically!`, 'success');
         } else {
           showToast(`✅ Box "${newBox.name}" created and saved to database!`, 'success');
         }
@@ -2686,6 +2737,13 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     const numbers = existing.map(b => parseInt(b.slice(prefix.length))).filter(n => !isNaN(n));
     const maxNum = numbers.length > 0 ? Math.max(...numbers) : 0;
     return `${prefix}${String(maxNum + 1).padStart(3, '0')}`;
+  }
+
+  // Derive a sensible name for the auto-paired tyre box
+  function pairedTyreName(name, pairedType) {
+    if (/front/i.test(name)) return name.replace(/front/gi, 'Rear');
+    if (/rear/i.test(name))  return name.replace(/rear/gi,  'Front');
+    return `${name} (${TYRE_TYPE_CONFIG[pairedType].label})`;
   }
 
   async function selectBox(boxId) {
