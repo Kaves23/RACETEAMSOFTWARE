@@ -3339,7 +3339,7 @@ console.log('📦 load-engine.js loading...');
         pile.push({ pl, box: b, pos });
       }
     });
-    pile.sort((a, b) => b.pos.y - a.pos.y); // top-first (highest Y = index 0)
+    pile.sort((a, b) => a.pos.y - b.pos.y); // bottom-first (lowest Y = index 0 = red)
     return pile;
   }
 
@@ -3379,8 +3379,8 @@ console.log('📦 load-engine.js loading...');
       var kartBadge = kartCount >= 0
         ? ' <span style="font-size:.6rem;font-weight:700;color:#1565c0;background:#e3f2fd;border:1px solid #90caf9;padding:1px 4px;border-radius:3px;">🏎️' + (kartCount > 0 ? ' ' + kartCount + 'k' : ' empty') + '</span>'
         : '';
-      var canUp   = idx > 0;
-      var canDown = idx < pile.length - 1;
+      var canUp   = idx < pile.length - 1;  // can move toward higher index = higher in stack
+      var canDown = idx > 0;                  // can move toward lower index = lower in stack
       // Inline colour styles: row border = stack colour, header bg = solid tint, detail bg = lighter tint
       var rowStyle  = 'border-left:3px solid ' + hex + ';';
       var headStyle = 'background:' + hex + '33;';
@@ -3433,10 +3433,11 @@ console.log('📦 load-engine.js loading...');
 
   function movePileBox(boxId, dir) {
     var truck = getTruck(); if (!truck) return;
-    var pile = _getPileBoxes(boxId); // top-first: index 0 = highest box
+    var pile = _getPileBoxes(boxId); // bottom-first: index 0 = lowest box
     var pileIdx = pile.findIndex(function(item) { return String(item.box.id) === String(boxId); });
     if (pileIdx < 0) return;
-    var swapPileIdx = dir === 'up' ? pileIdx - 1 : pileIdx + 1;
+    // 'up' = move higher in stack = swap with higher-index item in bottom-first list
+    var swapPileIdx = dir === 'up' ? pileIdx + 1 : pileIdx - 1;
     if (swapPileIdx < 0 || swapPileIdx >= pile.length) return;
 
     // Find the actual placement objects in the main array
@@ -4010,13 +4011,28 @@ console.log('📦 load-engine.js loading...');
     }
   }
 
-  // Returns a THREE.js integer colour based on how high up a placement is in its zone stack
+  // Returns a THREE.js integer colour based on physical stack height (bottom=red, higher=cooler colour).
+  // Uses Y-sorted order so the colour always matches the visual stack position, regardless of
+  // which zone a box is in or what order it was inserted into the placements array.
   function getBoxStackColor(placement) {
+    const truck = getTruck();
     const zoneId = placement.zone;
     const zonePlacements = currentLoad.placements.filter(p =>
       p.zone === zoneId && p.type !== 'asset' && p.type !== 'inventory'
     );
-    const idx = zonePlacements.indexOf(placement);
+    if (!truck || zonePlacements.length <= 1) {
+      const idx = zonePlacements.indexOf(placement);
+      const sc = getStackLevelColors(idx >= 0 ? idx : 0);
+      return parseInt(sc.solid.replace('#', ''), 16);
+    }
+    // Sort by physical Y position (bottom-first) so level 0 = lowest box = red
+    const sorted = zonePlacements.slice().sort((a, b) => {
+      const bxA = getBox(a.boxId), bxB = getBox(b.boxId);
+      const yA = bxA ? calculatePositionIn3D(a, bxA, truck).y : 0;
+      const yB = bxB ? calculatePositionIn3D(b, bxB, truck).y : 0;
+      return yA - yB;
+    });
+    const idx = sorted.indexOf(placement);
     const sc = getStackLevelColors(idx >= 0 ? idx : 0);
     return parseInt(sc.solid.replace('#', ''), 16);
   }
