@@ -4542,6 +4542,70 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     }
   }
 
+  // ── Tyre pairing: mirror contents + auto-scale physical box count ──────────
+  async function autoSyncTyrePair(primaryBoxId, itemId, quantity) {
+    const primaryBox = boxes.find(b => b.id === primaryBoxId);
+    if (!primaryBox) return;
+    const primaryType = primaryBox.boxType || primaryBox.box_type;
+    if (!TYRE_BOX_TYPES.includes(primaryType)) return;
+
+    const cfg        = TYRE_TYPE_CONFIG[primaryType];
+    const pairedType = TYRE_PAIRS[primaryType];
+    if (!pairedType) return;
+    const pairedCfg  = TYRE_TYPE_CONFIG[pairedType];
+
+    // How many physical boxes are needed to hold this quantity?
+    const boxesNeeded = Math.max(1, Math.ceil(quantity / cfg.sets));
+
+    // Helper: build local box object from API response
+    const toLocalBox = (pr, type, loc) => ({
+      id: pr.id, barcode: pr.barcode, name: pr.name,
+      boxType: pr.box_type || type,
+      length: pr.dimensions_length_cm, width: pr.dimensions_width_cm,
+      height: pr.dimensions_height_cm, weightCapacity: pr.max_weight_kg,
+      currentWeight: 0, location: loc || '', status: 'available'
+    });
+
+    // --- Scale up PRIMARY type ---
+    let primaryGroup = boxes.filter(b => (b.boxType || b.box_type) === primaryType);
+    for (let i = primaryGroup.length; i < boxesNeeded; i++) {
+      try {
+        const pr = await RTS_API.createBox({
+          barcode: generateTyreBarcode(primaryType), name: primaryBox.name,
+          box_type: primaryType, length: cfg.length, width: cfg.width, height: cfg.height,
+          max_weight: 0, current_weight: 0, status: 'available'
+        });
+        if (pr?.success && pr.box) boxes.push(toLocalBox(pr.box, primaryType, primaryBox.location));
+      } catch(e) { console.error('autoSync: create primary box failed', e); }
+    }
+
+    // --- Scale up PAIRED type ---
+    let pairedGroup = boxes.filter(b => (b.boxType || b.box_type) === pairedType);
+    let pairedRep   = pairedGroup[0] || null;
+    const pairedName = pairedTyreName(primaryBox.name, pairedType);
+    for (let i = pairedGroup.length; i < boxesNeeded; i++) {
+      try {
+        const pr = await RTS_API.createBox({
+          barcode: generateTyreBarcode(pairedType), name: pairedName,
+          box_type: pairedType, length: pairedCfg.length, width: pairedCfg.width,
+          height: pairedCfg.height, max_weight: 0, current_weight: 0, status: 'available'
+        });
+        if (pr?.success && pr.box) {
+          const nb = toLocalBox(pr.box, pairedType, primaryBox.location);
+          boxes.push(nb);
+          if (!pairedRep) pairedRep = nb;
+        }
+      } catch(e) { console.error('autoSync: create paired box failed', e); }
+    }
+
+    // --- Mirror: pack same item+quantity into paired representative box ---
+    if (pairedRep) {
+      try {
+        await RTS_API.packInventoryItem(pairedRep.id, itemId, quantity, { override: true });
+      } catch(e) { console.error('autoSync: mirror pack failed', e); }
+    }
+  }
+
   async function packMultipleItems(boxId, items, presetQuantity = null, overrideStock = false) {
     if (!items || items.length === 0) return;
     
@@ -4611,13 +4675,18 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
         try {
           await RTS_API.packInventoryItem(boxId, id, quantity, { override: overrideStock });
           
+          // Mirror to paired tyre box + auto-scale box count
+          await autoSyncTyrePair(boxId, id, quantity);
+
           // Update local tracking
           const currentPacked = window.inventoryPackedQuantities?.get(id) || 0;
           window.inventoryPackedQuantities.set(id, currentPacked + quantity);
           window.inventoryPackedQuantities.set(String(id), currentPacked + quantity);
           
           hideLoading();
-          showToast(`✅ Packed ${quantity} units into ${box.name}`, 'success');
+          const pairedType = TYRE_PAIRS[box.boxType || box.box_type];
+          const pairedLabel = pairedType ? ` + mirrored to ${TYRE_TYPE_CONFIG[pairedType].label}` : '';
+          showToast(`✅ Packed ${quantity} units into ${box.name}${pairedLabel}`, 'success');
           
           await loadData();
           renderAll();
