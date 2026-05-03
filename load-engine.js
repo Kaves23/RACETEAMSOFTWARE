@@ -1459,34 +1459,48 @@ console.log('📦 load-engine.js loading...');
       timestamp: new Date().toISOString()
     });
 
-    // Auto-place paired tyre box in an adjacent zone
+    // Auto-place ALL remaining unloaded tyre boxes of the same type in this zone,
+    // and ALL paired-type boxes in an adjacent zone
     const placedBoxType = box.box_type || box.boxType;
     if (TYRE_BOX_TYPES.includes(placedBoxType)) {
+      // Place all other unloaded boxes of the same type in this zone
+      boxes.forEach(b => {
+        if ((b.boxType || b.box_type) !== placedBoxType) return;
+        if (String(b.id) === String(boxId)) return; // already placed above
+        if (currentLoad.placements.some(p => p.boxId === b.id)) return;
+        currentLoad.placements.push({
+          boxId: b.id,
+          zone: zone,
+          position: calculatePosition(b.id, zone),
+          timestamp: new Date().toISOString()
+        });
+      });
+
       const pairedType = TYRE_PAIRS[placedBoxType];
       if (pairedType) {
-        const pairedBox = boxes.find(b =>
-          (b.boxType || b.box_type) === pairedType &&
-          !currentLoad.placements.some(p => p.boxId === b.id)
-        );
-        if (pairedBox) {
-          // Find an adjacent zone: try zone+1, then zone-1, then any free zone
-          const zoneNum = parseInt(zone.replace('grid-', '')) || 1;
-          const allZoneKeys = Object.keys(currentLoad.truckId
-            ? (trucks.find(t => String(t.id) === String(currentLoad.truckId))?.zones || {})
-            : {});
-          const candidates = [
-            `grid-${zoneNum + 1}`,
-            `grid-${zoneNum - 1}`,
-            ...allZoneKeys.filter(z => z !== zone)
-          ];
-          const adjacentZone = candidates.find(z => allZoneKeys.includes(z)) || zone;
+        // Find an adjacent zone for the paired type
+        const zoneNum = parseInt(zone.replace('grid-', '')) || 1;
+        const allZoneKeys = Object.keys(currentLoad.truckId
+          ? (trucks.find(t => String(t.id) === String(currentLoad.truckId))?.zones || {})
+          : {});
+        const candidates = [
+          `grid-${zoneNum + 1}`,
+          `grid-${zoneNum - 1}`,
+          ...allZoneKeys.filter(z => z !== zone)
+        ];
+        const adjacentZone = candidates.find(z => allZoneKeys.includes(z)) || zone;
+
+        // Place ALL unloaded paired-type boxes in the adjacent zone
+        boxes.forEach(b => {
+          if ((b.boxType || b.box_type) !== pairedType) return;
+          if (currentLoad.placements.some(p => p.boxId === b.id)) return;
           currentLoad.placements.push({
-            boxId: pairedBox.id,
+            boxId: b.id,
             zone: adjacentZone,
-            position: calculatePosition(pairedBox.id, adjacentZone),
+            position: calculatePosition(b.id, adjacentZone),
             timestamp: new Date().toISOString()
           });
-        }
+        });
       }
     }
 
