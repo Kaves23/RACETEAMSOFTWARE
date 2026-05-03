@@ -101,25 +101,34 @@ router.get('/:id/history', async (req, res, next) => {
   try {
     const { id } = req.params;
     
-    // Fetch history from item_history table
+    // Fetch history, joining box names so entries without details text still show location info
     const query = `
       SELECT 
-        id,
-        item_id,
-        action,
-        details,
-        from_box_id,
-        to_box_id,
-        from_location_id,
-        to_location_id,
-        previous_status,
-        new_status,
-        performed_by_user_id,
-        timestamp,
-        ip_address
-      FROM item_history
-      WHERE item_id = $1
-      ORDER BY timestamp DESC
+        ih.id,
+        ih.item_id,
+        ih.action,
+        CASE
+          WHEN ih.details IS NOT NULL AND ih.details <> '' THEN ih.details
+          WHEN ih.to_box_id IS NOT NULL AND ih.from_box_id IS NULL
+            THEN 'Packed into box ' || COALESCE(tb.barcode, ih.to_box_id) || ' (' || COALESCE(tb.name, ih.to_box_id) || ')'
+          WHEN ih.from_box_id IS NOT NULL AND ih.to_box_id IS NULL
+            THEN 'Unpacked from box ' || COALESCE(fb.barcode, ih.from_box_id) || ' (' || COALESCE(fb.name, ih.from_box_id) || ')'
+          ELSE ih.details
+        END AS details,
+        ih.from_box_id,
+        ih.to_box_id,
+        ih.from_location_id,
+        ih.to_location_id,
+        ih.previous_status,
+        ih.new_status,
+        ih.performed_by_user_id,
+        ih.timestamp,
+        ih.ip_address
+      FROM item_history ih
+      LEFT JOIN boxes tb ON tb.id = ih.to_box_id
+      LEFT JOIN boxes fb ON fb.id = ih.from_box_id
+      WHERE ih.item_id = $1
+      ORDER BY ih.timestamp DESC
       LIMIT 100
     `;
     
