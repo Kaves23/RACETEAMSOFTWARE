@@ -167,8 +167,7 @@ const apexProxyRouter = require('./routes/apex-proxy');
 const driverAssignmentsRouter = require('./routes/driver-assignments');
 const lookupRouter = require('./routes/lookup');
 
-app.use('/api/boxes',     requireAuth, boxesRouter);
-app.use('/api/locations', requireAuth, require('./routes/locations'));
+app.use('/api/boxes', requireAuth, boxesRouter);
 app.use('/api/box-assignments', requireAuth, boxAssignmentsRouter);
 app.use('/api/items', requireAuth, itemsRouter);
 app.use('/api/box-contents', requireAuth, boxContentsRouter);
