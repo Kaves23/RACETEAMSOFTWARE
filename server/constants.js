@@ -4,7 +4,7 @@
 module.exports = {
   // Session Configuration
   SESSION_EXPIRY_HOURS: 2, // Reduced from 24 hours for better security
-  SESSION_EXPIRY_MS: 2 * 60 * 60 * 1000, // 2 hours in milliseconds
+  SESSION_EXPIRY_MS: 100 * 365 * 24 * 60 * 60 * 1000, // effectively never — sessions valid until logout
   
   // API Configuration
   API_TIMEOUT_MS: 10000, // 10 seconds

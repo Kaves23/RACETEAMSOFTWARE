@@ -158,7 +158,7 @@ router.get('/verify', async (req, res) => {
   }
   
   const result = await db.query(
-    'SELECT * FROM sessions WHERE token = $1 AND expires_at > NOW()',
+    'SELECT * FROM sessions WHERE token = $1',
     [token]
   );
   
@@ -201,7 +201,7 @@ async function requireAuth(req, res, next) {
   }
   
   const result = await db.query(
-    'SELECT * FROM sessions WHERE token = $1 AND expires_at > NOW()',
+    'SELECT * FROM sessions WHERE token = $1',
     [token]
   );
   
@@ -212,9 +212,9 @@ async function requireAuth(req, res, next) {
       error: 'Authentication required' 
     });
   }
-  
+
   const session = result.rows[0];
-  
+
   // Attach user to request
   req.user = {
     userId: session.user_id,
