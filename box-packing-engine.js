@@ -533,13 +533,13 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       if (badge) badge.textContent = inventoryItems.filter(i => !i.shopify_variant_id).length;
       if (currentFilter === 'inventory') renderItems();
       if (currentFilter === 'shopify') renderLocalShopifyTab();
+      // Re-render box contents if a box is open — inventory items may have been invisible
+      // because inventoryItems was still empty when renderBoxContents() first ran.
+      if (currentBoxId) renderBoxContents();
     }).catch(e => console.warn('Background inventory load failed:', e));
 
-    // Seed box contents if empty (pack items into boxes for testing)
-    if (boxContents.length === 0 && boxes.length > 0) {
-      await seedBoxContents();
-    }
-    
+    // Note: seedBoxContents() is available for manual dev use only — do NOT auto-call in production
+
     // Fix 15: Warn about items with no location and no box
     const lostItems = [...equipment, ...assets].filter(item => !item.currentBoxId && !item.currentLocationId);
     if (lostItems.length > 0) {
@@ -2374,11 +2374,12 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       
       if (resp && resp.success) {
         // If there was a previous driver, close that box_assignment record
+        const _apiBase = window.RTS_CONFIG?.api?.baseURL || '/api';
         if (previousDriverId && previousDriverId !== driverId) {
           try {
-            await fetch(`${API_BASE_URL}/box-assignments/unassign`, {
+            await fetch(`${_apiBase}/box-assignments/unassign`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}` },
               body: JSON.stringify({ box_id: boxId, driver_id: previousDriverId })
             });
           } catch (e) {
@@ -2389,13 +2390,13 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
         // If assigning a new driver, create box_assignment record for many-to-many tracking
         if (driverId) {
           try {
-            await fetch(`${API_BASE_URL}/box-assignments`, {
+            await fetch(`${_apiBase}/box-assignments`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}` },
               body: JSON.stringify({ 
                 box_id: boxId, 
                 driver_id: driverId,
-                assigned_by: 'user' // Could track actual user_id if auth is available
+                assigned_by: 'user'
               })
             });
           } catch (e) {
@@ -2416,6 +2417,11 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
         
         renderBoxes();
         closeDriverAssignModal();
+      } else {
+        // Server accepted the request but returned success: false
+        const errMsg = resp?.error || resp?.message || 'Server rejected the assignment';
+        console.error('❌ Driver assignment rejected by server:', errMsg);
+        showToast(`Failed to assign driver: ${errMsg}`, 'error');
       }
     } catch (error) {
       console.error('❌ Error assigning driver:', error);
@@ -2438,8 +2444,9 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
 
     let staffList = [];
     try {
-      const resp = await fetch(`${API_BASE_URL}/staff-assignments`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` }
+      const _apiBase = window.RTS_CONFIG?.api?.baseURL || '/api';
+      const resp = await fetch(`${_apiBase}/staff-assignments`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}` }
       });
       if (resp.ok) {
         const data = await resp.json();
@@ -2771,7 +2778,9 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
           itemId: c.item_id,
           itemType: c.item_type || 'equipment',
           quantityPacked: c.quantity_packed || 1,
-          packedAt: c.packed_at
+          packedAt: c.packed_at,
+          positionInBox: c.position_in_box,
+          variantLabel: c.variant_label || null
         }));
       }
     } catch (e) {
@@ -2917,7 +2926,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
           if (content.itemType === 'inventory') {
             inventoryBoxTracking.delete(content.itemId);
             if (window.RTS_API?.unpackInventoryItem) {
-              try { await window.RTS_API.unpackInventoryItem(item.id); }
+              try { await window.RTS_API.unpackInventoryItem(item.id, content.boxId); }
               catch (e) { console.warn('unpackInventoryItem failed:', e.message); }
             }
           } else {
@@ -3489,7 +3498,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
           if (content.itemType === 'inventory') {
             inventoryBoxTracking.delete(content.itemId);
             if (window.RTS_API?.unpackInventoryItem) {
-              try { await window.RTS_API.unpackInventoryItem(item.id); } catch(e) {}
+              try { await window.RTS_API.unpackInventoryItem(item.id, unpackState.boxId); } catch(e) {}
             }
           } else {
             try {
@@ -5129,16 +5138,16 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
               inventoryBoxTracking.delete(content.itemId);
               inventoryBoxTracking.delete(String(content.itemId));
               
-              // Update via inventory API
+              // Update via inventory API — pass boxId so only this box's entry is removed
               try {
-                await RTS_API.unpackInventoryItem(content.itemId);
+                await RTS_API.unpackInventoryItem(content.itemId, content.boxId);
               } catch (error) {
                 console.error('Error unpacking inventory item:', error);
               }
             } else {
               // Update in database for equipment/assets
               try {
-                await RTS_API.unpackItem(content.itemId);
+                await RTS_API.unpackItem(content.boxId, content.itemId);
                 await RTS_API.updateItem(content.itemId, { current_location_id: locationId });
               } catch (error) {
                 console.error('Error updating item:', error);
@@ -5146,9 +5155,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
             }
           }
         }
-        
-        // Remove from box_contents
-        await Promise.all(contents.map(c => RTS_API.removeFromBox(c.boxId, c.itemId)));
+        // box_contents rows are already removed by unpackItem / unpackInventoryItem above
       }
       
       // Clear box contents locally
@@ -5222,16 +5229,16 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
               inventoryBoxTracking.delete(content.itemId);
               inventoryBoxTracking.delete(String(content.itemId));
               
-              // Update via inventory API
+              // Update via inventory API — pass boxId so only this box's entry is removed
               try {
-                await RTS_API.unpackInventoryItem(content.itemId);
+                await RTS_API.unpackInventoryItem(content.itemId, content.boxId);
               } catch (error) {
                 console.error('Error unpacking inventory item:', error);
               }
             } else {
               // Update in database for equipment/assets
               try {
-                await RTS_API.unpackItem(content.itemId);
+                await RTS_API.unpackItem(content.boxId, content.itemId);
                 await RTS_API.updateItem(content.itemId, { current_location_id: locationId });
               } catch (error) {
                 console.error('Error updating item:', error);
@@ -5239,9 +5246,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
             }
           }
         }
-        
-        // Remove from box_contents
-        await Promise.all(contents.map(c => RTS_API.removeFromBox(c.boxId, c.itemId)));
+        // box_contents rows are already removed by unpackItem / unpackInventoryItem above
       }
       
       // Delete boxes
