@@ -232,87 +232,147 @@ router.post('/unpack', async (req, res, next) => {
   }
 });
 
-// GET /api/inventory/bug-diagnostic - Find items incorrectly removed from all boxes by the unpackInventoryItem-missing-boxId bug
-// This endpoint is safe (read-only). Remove once investigation is complete.
+// GET /api/inventory/bug-diagnostic - Deep investigation for items silently removed by the unpackInventoryItem-missing-boxId bug.
+// Checks: (1) inventory_history, (2) activity_log, (3) orphaned items with no box/location.
+// Safe read-only endpoint. Remove once investigation is complete.
 router.get('/bug-diagnostic', async (req, res, next) => {
   try {
-    // Step 1: Find all "Unpacked from all boxes" events — these are the bug's fingerprint.
-    // Every one of these should have had a specific boxId passed but the bug omitted it.
-    const suspectUnpacks = await pool.query(`
-      SELECT
-        ih.id             AS history_id,
-        ih.inventory_id   AS item_id,
-        i.name            AS item_name,
-        i.sku,
-        ih.created_at     AS unpacked_at,
-        ih.performed_by_user_id
-      FROM inventory_history ih
-      JOIN inventory i ON i.id = ih.inventory_id
-      WHERE ih.action = 'unpacked_from_box'
-        AND ih.notes   = 'Unpacked from all boxes'
-      ORDER BY ih.created_at DESC
+    const report = {};
+
+    // ── 1. Check whether audit tables exist and have any data at all ──────────
+    const tableCheck = await pool.query(`
+      SELECT table_name
+      FROM information_schema.tables
+      WHERE table_schema = 'public'
+        AND table_name IN ('inventory_history', 'activity_log')
     `);
+    report.tables_present = tableCheck.rows.map(r => r.table_name);
 
-    if (suspectUnpacks.rows.length === 0) {
-      return res.json({
-        success: true,
-        message: 'No suspect unpack events found — no items appear to have been removed by the bug.',
-        affected: []
-      });
+    // Row counts and date ranges for each table so we know if logging was working
+    const tableMeta = {};
+    for (const t of report.tables_present) {
+      const meta = await pool.query(`SELECT COUNT(*) AS total, MIN(created_at) AS oldest, MAX(created_at) AS newest FROM ${t}`);
+      tableMeta[t] = meta.rows[0];
     }
+    report.table_meta = tableMeta;
 
-    // Step 2: For each suspect item, find the most recent *pack* event before the bad unpack
-    // so we can suggest which box it should be returned to.
-    const affected = [];
-    for (const row of suspectUnpacks.rows) {
-      // Last pack event before this bad unpack
-      const lastPack = await pool.query(`
-        SELECT notes, created_at
-        FROM inventory_history
-        WHERE inventory_id = $1
-          AND action       = 'packed_into_box'
-          AND created_at   < $2
+    // ── 2. inventory_history: "Unpacked from all boxes" (bug fingerprint) ─────
+    let inventoryHistoryMatches = [];
+    if (report.tables_present.includes('inventory_history')) {
+      const r = await pool.query(`
+        SELECT ih.inventory_id AS item_id, i.name AS item_name, i.sku,
+               ih.created_at AS unpacked_at
+        FROM inventory_history ih
+        JOIN inventory i ON i.id = ih.inventory_id
+        WHERE ih.action = 'unpacked_from_box'
+          AND ih.notes  = 'Unpacked from all boxes'
+        ORDER BY ih.created_at DESC
+      `);
+      inventoryHistoryMatches = r.rows;
+    }
+    report.inventory_history_suspect_count = inventoryHistoryMatches.length;
+
+    // ── 3. activity_log: unpacked_from_box events with no boxId in details ────
+    let activityLogMatches = [];
+    if (report.tables_present.includes('activity_log')) {
+      const r = await pool.query(`
+        SELECT entity_id AS item_id, entity_name AS item_name, created_at AS unpacked_at,
+               details
+        FROM activity_log
+        WHERE entity_type = 'inventory'
+          AND action      = 'unpacked_from_box'
+          AND (details IS NULL OR details::jsonb->>'boxId' IS NULL OR details::jsonb->>'boxId' = 'null')
         ORDER BY created_at DESC
-        LIMIT 1
-      `, [row.item_id, row.unpacked_at]);
-
-      // Current box_contents state — is the item currently in any box?
-      const currentBoxes = await pool.query(`
-        SELECT bc.box_id, b.name AS box_name, bc.quantity_packed
-        FROM box_contents bc
-        LEFT JOIN boxes b ON b.id = bc.box_id
-        WHERE bc.item_id = $1 AND bc.item_type = 'inventory'
-      `, [row.item_id]);
-
-      affected.push({
-        item_id:        row.item_id,
-        item_name:      row.item_name,
-        sku:            row.sku,
-        bad_unpack_at:  row.unpacked_at,
-        last_pack_hint: lastPack.rows[0]?.notes || null,
-        currently_in_boxes: currentBoxes.rows,
-        currently_unboxed: currentBoxes.rows.length === 0
-      });
+      `);
+      activityLogMatches = r.rows;
     }
+    report.activity_log_suspect_count = activityLogMatches.length;
 
-    // Deduplicate by item_id, keeping the most recent bad unpack per item
-    const seen = new Map();
-    for (const item of affected) {
-      if (!seen.has(item.item_id) || item.bad_unpack_at > seen.get(item.item_id).bad_unpack_at) {
-        seen.set(item.item_id, item);
+    // ── 4. All unpack events from activity_log (any boxId) — full picture ─────
+    let allUnpackEvents = [];
+    if (report.tables_present.includes('activity_log')) {
+      const r = await pool.query(`
+        SELECT entity_id AS item_id, entity_name AS item_name, created_at AS unpacked_at,
+               details
+        FROM activity_log
+        WHERE entity_type = 'inventory'
+          AND action      = 'unpacked_from_box'
+        ORDER BY created_at DESC
+        LIMIT 200
+      `);
+      allUnpackEvents = r.rows;
+    }
+    report.all_unpack_events_sample = allUnpackEvents;
+
+    // ── 5. CLEVER: Find inventory items currently in NO box and NO location ───
+    // These are the "lost" items — not in box_contents, and current_location_id is null.
+    // Cross-reference with pack history to see if they were ever packed.
+    const orphans = await pool.query(`
+      SELECT
+        i.id, i.name, i.sku, i.total_quantity,
+        i.current_location_id,
+        i.updated_at,
+        (SELECT COUNT(*) FROM box_contents bc WHERE bc.item_id = i.id AND bc.item_type = 'inventory') AS boxes_packed_in
+      FROM inventory i
+      WHERE i.current_location_id IS NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM box_contents bc
+          WHERE bc.item_id = i.id AND bc.item_type = 'inventory'
+        )
+      ORDER BY i.updated_at DESC
+    `);
+    report.orphaned_items_no_box_no_location = orphans.rows;
+    report.orphaned_count = orphans.rows.length;
+
+    // ── 6. For each orphan, find their most recent pack event in activity_log ─
+    const orphanHistory = [];
+    if (report.tables_present.includes('activity_log')) {
+      for (const item of orphans.rows.slice(0, 50)) { // cap at 50
+        const lastPack = await pool.query(`
+          SELECT details, created_at
+          FROM activity_log
+          WHERE entity_id   = $1
+            AND entity_type = 'inventory'
+            AND action      = 'packed_into_box'
+          ORDER BY created_at DESC
+          LIMIT 1
+        `, [String(item.id)]);
+        const lastUnpack = await pool.query(`
+          SELECT details, created_at
+          FROM activity_log
+          WHERE entity_id   = $1
+            AND entity_type = 'inventory'
+            AND action      = 'unpacked_from_box'
+          ORDER BY created_at DESC
+          LIMIT 1
+        `, [String(item.id)]);
+        if (lastPack.rows.length > 0 || lastUnpack.rows.length > 0) {
+          orphanHistory.push({
+            item_id:        item.id,
+            item_name:      item.name,
+            sku:            item.sku,
+            total_quantity: item.total_quantity,
+            last_updated:   item.updated_at,
+            last_pack_event:   lastPack.rows[0]  || null,
+            last_unpack_event: lastUnpack.rows[0] || null,
+          });
+        }
       }
     }
+    report.orphans_with_pack_history = orphanHistory;
 
-    const deduped = Array.from(seen.values())
-      .sort((a, b) => (b.currently_unboxed ? 1 : 0) - (a.currently_unboxed ? 1 : 0));
+    // ── Summary ───────────────────────────────────────────────────────────────
+    report.summary = {
+      logging_was_working: tableMeta['inventory_history']?.total > 0 || tableMeta['activity_log']?.total > 0,
+      bug_traces_in_inventory_history: inventoryHistoryMatches.length,
+      bug_traces_in_activity_log:      activityLogMatches.length,
+      orphaned_items_possibly_affected: orphanHistory.length,
+      conclusion: (inventoryHistoryMatches.length === 0 && activityLogMatches.length === 0 && orphanHistory.length === 0)
+        ? 'No evidence of data loss found in any source. Bug likely never fired on real data.'
+        : 'Possible affected items found — review orphans_with_pack_history.'
+    };
 
-    res.json({
-      success: true,
-      total_suspect_events: suspectUnpacks.rows.length,
-      unique_items_affected: deduped.length,
-      items_now_unboxed: deduped.filter(i => i.currently_unboxed).length,
-      affected: deduped
-    });
+    res.json({ success: true, report });
   } catch (error) {
     next(error);
   }
