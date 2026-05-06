@@ -232,6 +232,92 @@ router.post('/unpack', async (req, res, next) => {
   }
 });
 
+// GET /api/inventory/bug-diagnostic - Find items incorrectly removed from all boxes by the unpackInventoryItem-missing-boxId bug
+// This endpoint is safe (read-only). Remove once investigation is complete.
+router.get('/bug-diagnostic', async (req, res, next) => {
+  try {
+    // Step 1: Find all "Unpacked from all boxes" events — these are the bug's fingerprint.
+    // Every one of these should have had a specific boxId passed but the bug omitted it.
+    const suspectUnpacks = await pool.query(`
+      SELECT
+        ih.id             AS history_id,
+        ih.inventory_id   AS item_id,
+        i.name            AS item_name,
+        i.sku,
+        ih.created_at     AS unpacked_at,
+        ih.performed_by_user_id
+      FROM inventory_history ih
+      JOIN inventory i ON i.id = ih.inventory_id
+      WHERE ih.action = 'unpacked_from_box'
+        AND ih.notes   = 'Unpacked from all boxes'
+      ORDER BY ih.created_at DESC
+    `);
+
+    if (suspectUnpacks.rows.length === 0) {
+      return res.json({
+        success: true,
+        message: 'No suspect unpack events found — no items appear to have been removed by the bug.',
+        affected: []
+      });
+    }
+
+    // Step 2: For each suspect item, find the most recent *pack* event before the bad unpack
+    // so we can suggest which box it should be returned to.
+    const affected = [];
+    for (const row of suspectUnpacks.rows) {
+      // Last pack event before this bad unpack
+      const lastPack = await pool.query(`
+        SELECT notes, created_at
+        FROM inventory_history
+        WHERE inventory_id = $1
+          AND action       = 'packed_into_box'
+          AND created_at   < $2
+        ORDER BY created_at DESC
+        LIMIT 1
+      `, [row.item_id, row.unpacked_at]);
+
+      // Current box_contents state — is the item currently in any box?
+      const currentBoxes = await pool.query(`
+        SELECT bc.box_id, b.name AS box_name, bc.quantity_packed
+        FROM box_contents bc
+        LEFT JOIN boxes b ON b.id = bc.box_id
+        WHERE bc.item_id = $1 AND bc.item_type = 'inventory'
+      `, [row.item_id]);
+
+      affected.push({
+        item_id:        row.item_id,
+        item_name:      row.item_name,
+        sku:            row.sku,
+        bad_unpack_at:  row.unpacked_at,
+        last_pack_hint: lastPack.rows[0]?.notes || null,
+        currently_in_boxes: currentBoxes.rows,
+        currently_unboxed: currentBoxes.rows.length === 0
+      });
+    }
+
+    // Deduplicate by item_id, keeping the most recent bad unpack per item
+    const seen = new Map();
+    for (const item of affected) {
+      if (!seen.has(item.item_id) || item.bad_unpack_at > seen.get(item.item_id).bad_unpack_at) {
+        seen.set(item.item_id, item);
+      }
+    }
+
+    const deduped = Array.from(seen.values())
+      .sort((a, b) => (b.currently_unboxed ? 1 : 0) - (a.currently_unboxed ? 1 : 0));
+
+    res.json({
+      success: true,
+      total_suspect_events: suspectUnpacks.rows.length,
+      unique_items_affected: deduped.length,
+      items_now_unboxed: deduped.filter(i => i.currently_unboxed).length,
+      affected: deduped
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // PUT /api/inventory/:id - Update inventory item
 router.put('/:id', async (req, res, next) => {
   try {
