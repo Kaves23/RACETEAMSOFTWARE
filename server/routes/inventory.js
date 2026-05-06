@@ -323,6 +323,35 @@ router.get('/bug-diagnostic', async (req, res, next) => {
     report.activity_log_suspect_count = activityLogMatches.length;
     report.activity_log_suspect_events = activityLogMatches;
 
+    // ── 3b. ALL pack/unpack events last 10 days (full timeline view) ──────────
+    let last10DaysActivity = [];
+    if (report.tables_present.includes('activity_log')) {
+      try {
+        const r = await pool.query(`
+          SELECT entity_id AS item_id, entity_name AS item_name,
+                 action, created_at, details
+          FROM activity_log
+          WHERE entity_type = 'inventory'
+            AND action IN ('packed_into_box', 'unpacked_from_box')
+            AND created_at >= NOW() - INTERVAL '10 days'
+          ORDER BY created_at DESC
+          LIMIT 500
+        `);
+        // Group by item_id for readability
+        const byItem = {};
+        for (const row of r.rows) {
+          let d = null;
+          try { d = row.details ? JSON.parse(row.details) : null; } catch(e) {}
+          const key = row.item_id;
+          if (!byItem[key]) byItem[key] = { item_id: row.item_id, item_name: row.item_name, events: [] };
+          byItem[key].events.push({ action: row.action, at: row.created_at, boxId: d?.boxId || null, boxName: d?.boxName || null });
+        }
+        last10DaysActivity = Object.values(byItem);
+      } catch(e) { report.last_10_days_error = e.message; }
+    }
+    report.last_10_days_by_item = last10DaysActivity;
+    report.last_10_days_total_events = last10DaysActivity.reduce((sum, i) => sum + i.events.length, 0);
+
     // ── 4. CLEVER: Find inventory items in NO box ─────────────────────────────
     // items not in box_contents at all
     let orphans = [];
