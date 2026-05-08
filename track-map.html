@@ -318,7 +318,7 @@
         const g=String(d.gap||'').trim();
         if(/Lap/i.test(g)){lapped.push(i);return;}
         const nm=g.match(/[+]?\s*(\d+(?:\.\d+)?)/);
-        fracs[i]=nm?Math.min(parseFloat(nm[1])/lapT,0.22):0;
+        fracs[i]=nm?Math.min(parseFloat(nm[1])/lapT,0.85):0;
       });
       if(lapped.length){
         const named=fracs.filter(f=>f!==null);
@@ -345,7 +345,7 @@
           kart:String(d.kart||'?'), name:String(d.name||''),
           pos:parseInt(d.pos)||(i+1), isLeader:i===0||String(d.pos)==='1',
           isOurs:!!d.isOurs, ourColor:d.ourColor||null, ourName:d.ourName||null,
-          inPit:!!d.inPit, gap:String(d.gap||''), lastLap:String(d.lastLap||''),
+          inPit:!!d.inPit, gap:String(d.gap||''), interval:String(d.interval||''), lastLap:String(d.lastLap||''),
           bestLap:String(d.bestLap||''), lapSec, bestSec,
           gapFrac:prev?prev.gapFrac:nf, gapFracTarget:nf
         };
@@ -396,7 +396,7 @@
       const bs=new Set();
       karts.forEach((k,i)=>{
         if(i===0)return;
-        const g=String(k.gap||'');
+        const g=String(k.interval||k.gap||'');
         const nm=g.match(/[+]?\s*(\d+(?:\.\d+)?)/);
         if(nm&&!/Lap/i.test(g)&&parseFloat(nm[1])<=BATTLE_GAP)bs.add(k.kart);
       });
@@ -411,7 +411,7 @@
       karts.forEach((k,i)=>{
         if(i===0)return;
         const prev=karts[i-1];
-        const g=String(k.gap||'');
+        const g=String(k.interval||k.gap||'');
         const nm=g.match(/[+]?\s*(\d+(?:\.\d+)?)/);
         if(nm&&!/Lap/i.test(g)){
           const gapSec=parseFloat(nm[1]);
@@ -657,8 +657,7 @@
         const deltaClass=isFL?'purple':isFast?'green':(k.lapSec-k.bestSec>0.5?'red':'');
         const lapHistory=pollHistory.map(ph=>ph.drivers.find(d=>d.kart===k.kart)?.lapSec||0).filter(Boolean);
         const sparkSvg=buildSparkline(lapHistory,color);
-        const ahead=karts.find(x=>x.pos===k.pos-1);
-        const gapAhead=ahead?(k.pos===1?'—':(k.gap||'—')):'—';
+        const gapAhead=k.pos===1?'—':(k.interval||'—');
         return`<div class="tm-focus-card" style="border-left:4px solid ${color}">
           <div class="tm-focus-hd">${isFL?'⬟ ':''}${esc(k.ourName||k.name)}</div>
           <div style="display:flex;align-items:flex-end;gap:10px">
