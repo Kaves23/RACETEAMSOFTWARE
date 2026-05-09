@@ -111,8 +111,8 @@
           </div>
           <form id="entForm" style="display:none;">
             <div class="mb-2">
-              <label class="form-label">Driver Name *</label>
-              <input class="form-control" id="entFDriver" />
+              <label class="form-label">Driver *</label>
+              <select class="form-select" id="entFDriver"><option value="">— Select Driver —</option></select>
             </div>
             <div class="row g-2 mb-2">
               <div class="col">
@@ -130,7 +130,7 @@
             </div>
             <div class="mb-2">
               <label class="form-label">Event</label>
-              <input class="form-control" id="entFEvent" />
+              <select class="form-select" id="entFEvent"><option value="">— Select Event —</option></select>
             </div>
             <div class="row g-2 mb-2">
               <div class="col">
@@ -179,10 +179,43 @@
   <script src="core.js"></script>
   <script src="topnav.js?v=20260420"></script>
   <script>
-    let allEntries = [], selectedId = null, filterStatus = 'all';
+    let allEntries = [], allDrivers = [], allEvents = [], selectedId = null, filterStatus = 'all';
+
+    const apiFetch = RTS.apiFetch;
+
+    function populateDriverSelect(val){
+      const sel = document.getElementById('entFDriver');
+      sel.innerHTML = '<option value="">— Select Driver —</option>';
+      allDrivers.forEach(d => {
+        const o = document.createElement('option');
+        o.value = d.id; o.textContent = d.name;
+        sel.appendChild(o);
+      });
+      if(val) sel.value = val;
+    }
+
+    function populateEventSelect(val){
+      const sel = document.getElementById('entFEvent');
+      sel.innerHTML = '<option value="">— Select Event —</option>';
+      allEvents.forEach(e => {
+        const o = document.createElement('option');
+        o.value = e.id; o.textContent = e.name;
+        sel.appendChild(o);
+      });
+      if(val) sel.value = val;
+    }
 
     async function loadEntries() {
-      try { const r = await fetch('/api/entries'); if (r.ok) allEntries = await r.json(); } catch(_) { allEntries = []; }
+      try {
+        const [entries, drs, evs] = await Promise.all([
+          apiFetch('/api/entries'),
+          apiFetch('/api/drivers'),
+          apiFetch('/api/events')
+        ]);
+        allEntries = Array.isArray(entries) ? entries : (entries.data||[]);
+        allDrivers = Array.isArray(drs) ? drs : (drs.data||[]);
+        allEvents  = Array.isArray(evs)  ? evs  : (evs.data||[]);
+      } catch(_) { allEntries = []; allDrivers = []; allEvents = []; }
       renderList();
     }
 
@@ -200,15 +233,19 @@
       document.getElementById('statEntDocs').textContent = allEntries.filter(e=>e.docs_required).length;
       const tb = document.getElementById('entTableBody');
       if (!rows.length) { tb.innerHTML = '<tr><td colspan="7" class="text-center text-secondary py-4">No entries match.</td></tr>'; return; }
-      tb.innerHTML = rows.map(e => `<tr data-id="${e.id}" class="${e.id==selectedId?'selected':''}">
-        <td><strong>${esc(e.driver_name||'')}</strong></td>
+      tb.innerHTML = rows.map(e => {
+        const drName = (allDrivers.find(d=>d.id==e.driver_id)||{}).name || e.driver_name || '—';
+        const evName = (allEvents.find(ev=>ev.id==e.event_id)||{}).name || e.event || '—';
+        return `<tr data-id="${e.id}" class="${e.id==selectedId?'selected':''}">
+        <td><strong>${esc(drName)}</strong></td>
         <td>${esc(e.car_number||'—')}</td>
-        <td>${esc(e.event||'—')}</td>
+        <td>${esc(evName)}</td>
         <td>${esc(e.championship||'—')}</td>
         <td>${e.entry_date||'—'}</td>
         <td><span class="status-pill status-${e.status||'pending'}">${e.status||'pending'}</span></td>
         <td>${e.docs_required?'<span class="badge bg-warning text-dark">Req</span>':'<span class="badge bg-success">OK</span>'}</td>
-      </tr>`).join('');
+      </tr>`;
+      }).join('');
       tb.querySelectorAll('tr').forEach(r=>r.addEventListener('click',()=>selectEntry(r.dataset.id)));
     }
 
@@ -217,17 +254,18 @@
       const e = allEntries.find(x=>x.id==id); if(!e) return;
       document.getElementById('entDetailEmpty').style.display='none';
       document.getElementById('entForm').style.display='';
-      document.getElementById('entDetailTitle').textContent=e.driver_name||'Entry Detail';
-      document.getElementById('entFDriver').value=e.driver_name||'';
-      document.getElementById('entFCarNum').value=e.car_number||'';
-      document.getElementById('entFLicence').value=e.licence_number||'';
-      document.getElementById('entFChampionship').value=e.championship||'';
-      document.getElementById('entFEvent').value=e.event||'';
-      document.getElementById('entFDate').value=e.entry_date||'';
-      document.getElementById('entFStatus').value=e.status||'pending';
-      document.getElementById('entFDocs').value=e.required_documents||'';
-      document.getElementById('entFApproval').value=e.approval_status||'';
-      document.getElementById('entFNotes').value=e.notes||'';
+      const drName = (allDrivers.find(d=>d.id==e.driver_id)||{}).name || e.driver_name || 'Entry Detail';
+      document.getElementById('entDetailTitle').textContent = drName;
+      populateDriverSelect(e.driver_id || '');
+      document.getElementById('entFCarNum').value = e.car_number||'';
+      document.getElementById('entFLicence').value = e.licence_number||'';
+      document.getElementById('entFChampionship').value = e.championship||'';
+      populateEventSelect(e.event_id || '');
+      document.getElementById('entFDate').value = e.entry_date||'';
+      document.getElementById('entFStatus').value = e.status||'pending';
+      document.getElementById('entFDocs').value = e.required_documents||'';
+      document.getElementById('entFApproval').value = e.approval_status||'';
+      document.getElementById('entFNotes').value = e.notes||'';
       document.getElementById('entBtnDelete').style.display='';
       renderList();
     }
@@ -238,23 +276,31 @@
       document.getElementById('entForm').style.display='';
       document.getElementById('entDetailTitle').textContent='New Entry';
       document.getElementById('entForm').reset();
+      populateDriverSelect('');
+      populateEventSelect('');
       document.getElementById('entBtnDelete').style.display='none';
     }
 
     async function saveEntry() {
+      const driverId = document.getElementById('entFDriver').value;
+      const eventId  = document.getElementById('entFEvent').value;
+      const drName   = (allDrivers.find(d=>d.id==driverId)||{}).name||'';
+      const evName   = (allEvents.find(e=>e.id==eventId)||{}).name||'';
       const body = {
-        driver_name:document.getElementById('entFDriver').value.trim(),
+        driver_id: driverId||null,
+        driver_name: drName,
+        event_id: eventId||null,
+        event: evName,
         car_number:document.getElementById('entFCarNum').value.trim(),
         licence_number:document.getElementById('entFLicence').value.trim(),
         championship:document.getElementById('entFChampionship').value.trim(),
-        event:document.getElementById('entFEvent').value.trim(),
         entry_date:document.getElementById('entFDate').value||null,
         status:document.getElementById('entFStatus').value,
         required_documents:document.getElementById('entFDocs').value.trim(),
         approval_status:document.getElementById('entFApproval').value||null,
         notes:document.getElementById('entFNotes').value.trim()
       };
-      if(!body.driver_name){alert('Driver name is required.');return;}
+      if(!body.driver_id){alert('Please select a driver.');return;}
       try {
         const url=selectedId?`/api/entries/${selectedId}`:'/api/entries';
         const method=selectedId?'PUT':'POST';
