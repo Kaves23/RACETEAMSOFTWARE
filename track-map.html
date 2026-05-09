@@ -176,6 +176,48 @@
     .tm-heat-num { font-size:2.6rem; font-weight:800; line-height:1;
                    color:#0891b2; font-variant-numeric:tabular-nums; }
     .tm-heat-sub { font-size:.68rem; color:#6c757d; margin-top:2px; font-weight:600; }
+
+    /* ── New analytics features ─────────────────────────────────────────── */
+    /* weather */
+    .tm-weather { display:inline-flex; align-items:center; gap:10px; font-size:.75rem; color:#6c757d; }
+    .tm-weather-item { display:flex; align-items:center; gap:3px; }
+    /* lapped traffic alert */
+    @keyframes tm-lapped-pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+    .tm-lapped-alert {
+      display:inline-flex; align-items:center; gap:5px;
+      padding:2px 9px; border-radius:20px; font-size:.72rem; font-weight:700;
+      background:#fff3cd; border:1px solid #fd7e14; color:#7a3e00;
+      animation:tm-lapped-pulse 1.2s ease-in-out infinite;
+    }
+    /* board mode controls */
+    .tm-board-controls { display:flex; align-items:center; gap:6px; padding:8px 0 4px; flex-wrap:wrap; }
+    .tm-board-btn {
+      font-size:.72rem; font-weight:700; padding:3px 10px; border-radius:20px;
+      border:1px solid rgba(0,0,0,.15); background:#fff; color:#6c757d; cursor:pointer;
+      transition:background .15s,color .15s,border-color .15s;
+    }
+    .tm-board-btn.active { background:#1a1d24; color:#fff; border-color:#1a1d24; }
+    .tm-snake-btn {
+      margin-left:auto; font-size:.72rem; font-weight:600; color:#6c757d; cursor:pointer;
+      background:none; border:none; display:flex; align-items:center; gap:4px;
+      padding:0; transition:color .15s;
+    }
+    .tm-snake-btn:hover { color:#1a1d24; }
+    /* catch rate card */
+    .tm-catch-row { display:flex; align-items:center; gap:5px; font-size:.76rem; margin-bottom:5px; padding-bottom:5px; border-bottom:1px solid #f5f5f5; }
+    .tm-catch-row:last-child { margin-bottom:0; border-bottom:none; padding-bottom:0; }
+    .tm-catch-closing { color:#16a34a; font-weight:800; font-variant-numeric:tabular-nums; }
+    .tm-catch-pulling  { color:#dc2626; font-weight:700; font-variant-numeric:tabular-nums; }
+    /* consistency card */
+    .tm-cons-row { display:flex; align-items:center; gap:6px; font-size:.76rem; margin-bottom:4px; }
+    .tm-cons-bar-wrap { flex:1; height:5px; background:#e5e7eb; border-radius:3px; overflow:hidden; }
+    .tm-cons-bar { height:100%; border-radius:3px; transition:width .4s; }
+    /* position history snake drawer */
+    .tm-snake-drawer {
+      overflow:hidden; transition:max-height .35s ease, opacity .35s ease;
+      max-height:0; opacity:0;
+    }
+    .tm-snake-drawer.open { max-height:220px; opacity:1; }
   </style>
 </head>
 <body>
@@ -196,6 +238,10 @@
       <span style="color:#9333ea;font-weight:700">⬟ FL</span>
       <span id="tmFlName" style="font-weight:600"></span>
       <span id="tmFlTime" style="color:#9333ea;font-weight:700;font-variant-numeric:tabular-nums;margin-left:4px"></span>
+    </span>
+    <span id="tmWeather" style="display:none" class="tm-weather"></span>
+    <span id="tmLappedAlert" style="display:none" class="tm-lapped-alert">
+      <i class="bi bi-exclamation-triangle-fill"></i> LAPPED TRAFFIC
     </span>
     <span class="tm-conn">
       <span class="tm-conn-dot" id="tmConnDot"></span>
@@ -237,7 +283,18 @@
           <div class="tm-overlay-text" id="tmOverlayText">Waiting for race session…</div>
         </div>
       </div>
+      <div class="tm-board-controls">
+        <button class="tm-board-btn active" id="tmBtnRace" onclick="tmSetBoardMode('race')">Race Order</button>
+        <button class="tm-board-btn" id="tmBtnPace" onclick="tmSetBoardMode('pace')">Best Pace</button>
+        <button class="tm-snake-btn" id="tmSnakeBtn" onclick="tmToggleSnake()"><i class="bi bi-graph-up"></i> Position History</button>
+      </div>
       <div class="tm-board" id="tmBoard"></div>
+      <div class="tm-snake-drawer" id="tmSnakeDrawer">
+        <div style="padding:6px 0 10px">
+          <div style="font-size:.66rem;color:#6c757d;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Position History (last polls)</div>
+          <svg id="tmSnakeSvg" style="display:block;width:100%;height:160px" preserveAspectRatio="xMidYMid meet"></svg>
+        </div>
+      </div>
     </div>
 
     <div class="tm-right" id="tmRight">
@@ -262,6 +319,14 @@
         <div class="tm-focus-hd" style="color:#dc2626">⚔ Battles (≤0.5s)</div>
         <div id="tmBattleList" style="display:flex;flex-direction:column;gap:6px;font-size:.78rem"></div>
       </div>
+      <div class="tm-focus-card" id="tmCatchCard" style="display:none">
+        <div class="tm-focus-hd"><i class="bi bi-lightning-charge-fill" style="color:#f59e0b"></i> Catch Rate / ETA</div>
+        <div id="tmCatchList"></div>
+      </div>
+      <div class="tm-focus-card" id="tmConsCard" style="display:none">
+        <div class="tm-focus-hd"><i class="bi bi-bar-chart-line-fill" style="color:#0891b2"></i> Consistency</div>
+        <div id="tmConsList"></div>
+      </div>
     </div>
   </div>
 
@@ -283,6 +348,12 @@
     let rafId=null, prevRafTs=null, lerpStart=0;
     const LERP_MS=1800;
     let lastTrailTs=0;
+    let gapHistory=new Map();      // kart -> [{ts,gapSec}]  cumulative gap to leader
+    let intervalHistory=new Map(); // kart -> [{ts,intervalSec}]  interval to car ahead
+    let lapsByKart=new Map();      // kart -> [sec...]  lap time history
+    let boardMode='race';          // 'race' | 'pace'
+    let snakeOpen=false;
+    const GAP_HIST_MAX=24;
 
     const svgGroups  = new Map();
     const trailBufs  = new Map();
@@ -363,6 +434,45 @@
           showFL();
         }
       });
+      // track gap, interval and lap history per kart
+      const nowTs=Date.now();
+      drivers.forEach(d=>{
+        const kn=String(d.kart||'');
+        // gap to leader history
+        const gapStr=String(d.gap||'').trim();
+        if(!/Lap/i.test(gapStr)){
+          const gnm=gapStr.match(/[\d.]+/);
+          if(gnm){
+            const gapSec=parseFloat(gnm[0]);
+            if(!gapHistory.has(kn))gapHistory.set(kn,[]);
+            const gbuf=gapHistory.get(kn);
+            gbuf.push({ts:nowTs,gapSec});
+            if(gbuf.length>GAP_HIST_MAX)gbuf.shift();
+          }
+        }
+        // interval to car ahead history
+        const intStr=String(d.interval||'').trim();
+        if(intStr&&!/Lap/i.test(intStr)){
+          const inm=intStr.match(/[\d.]+/);
+          if(inm){
+            const intervalSec=parseFloat(inm[0]);
+            if(!intervalHistory.has(kn))intervalHistory.set(kn,[]);
+            const ibuf=intervalHistory.get(kn);
+            ibuf.push({ts:nowTs,intervalSec});
+            if(ibuf.length>GAP_HIST_MAX)ibuf.shift();
+          }
+        }
+        // lap time history (only record new unique laps)
+        const ls=parseLapSec(d.lastLap);
+        if(ls>5){
+          if(!lapsByKart.has(kn))lapsByKart.set(kn,[]);
+          const lbuf=lapsByKart.get(kn);
+          if(!lbuf.length||lbuf[lbuf.length-1]!==ls){
+            lbuf.push(ls);
+            if(lbuf.length>24)lbuf.shift();
+          }
+        }
+      });
     }
 
     function showFL(){
@@ -440,6 +550,172 @@
         ).join('');
       } else { battleCard.style.display='none'; }
     }
+
+    function updateWeather(state){
+      const el=document.getElementById('tmWeather');
+      if(!el)return;
+      const w=state.weather||{};
+      const items=[];
+      if(w.wth1)items.push(`<span class="tm-weather-item"><i class="bi bi-thermometer-half"></i>${esc(w.wth1)}</span>`);
+      if(w.wth2)items.push(`<span class="tm-weather-item"><i class="bi bi-droplet-half"></i>${esc(w.wth2)}</span>`);
+      if(w.wth3)items.push(`<span class="tm-weather-item"><i class="bi bi-speedometer2"></i>${esc(w.wth3)}</span>`);
+      el.innerHTML=items.join('<span style="color:#e5e7eb;margin:0 2px">·</span>');
+      el.style.display=items.length?'':'none';
+    }
+
+    function updateLappedAlert(){
+      const el=document.getElementById('tmLappedAlert');
+      if(!el)return;
+      const hasLapped=karts.some(k=>!k.isLeader&&/Lap/i.test(k.gap));
+      el.style.display=hasLapped?'':'none';
+    }
+
+    function buildGapSparkline(kartId){
+      const hist=gapHistory.get(kartId);
+      if(!hist||hist.length<3)return'';
+      const pts=hist.slice(-8).map(h=>h.gapSec);
+      const mn=Math.min(...pts),mx=Math.max(...pts);
+      if(mx-mn<0.05)return'';
+      const W=44,H=10,pad=1;
+      const pStr=pts.map((v,i)=>{
+        const x=pad+(i/(pts.length-1))*(W-2*pad);
+        const y=pad+((v-mn)/(mx-mn))*(H-2*pad);
+        return`${x.toFixed(1)},${y.toFixed(1)}`;
+      }).join(' ');
+      const trend=pts[pts.length-1]-pts[pts.length-2];
+      const col=trend<-0.05?'#16a34a':trend>0.05?'#dc2626':'#94a3b8';
+      return`<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="vertical-align:middle;flex-shrink:0;margin-left:3px"><polyline points="${pStr}" fill="none" stroke="${col}" stroke-width="1.5" stroke-linejoin="round"/></svg>`;
+    }
+
+    function updateCatchRate(){
+      const card=document.getElementById('tmCatchCard');
+      const list=document.getElementById('tmCatchList');
+      if(!card||!list)return;
+      const rows=[];
+      karts.forEach((k,i)=>{
+        if(i===0||!intervalHistory.has(k.kart))return;
+        const hist=intervalHistory.get(k.kart);
+        if(hist.length<3)return;
+        const first=hist[0],last=hist[hist.length-1];
+        const dtSec=(last.ts-first.ts)/1000;
+        if(dtSec<8)return;
+        const dInt=last.intervalSec-first.intervalSec; // negative=closing
+        const ratePerSec=dInt/dtSec;
+        const ratePerLap=lapTimeSec>0?ratePerSec*lapTimeSec:0;
+        if(Math.abs(ratePerLap)<0.02)return;
+        const prev=karts[i-1];
+        const etaLaps=ratePerLap<-0.02&&last.intervalSec>0?last.intervalSec/Math.abs(ratePerLap):null;
+        rows.push({k,prev,ratePerLap,intervalSec:last.intervalSec,etaLaps});
+      });
+      if(!rows.length){card.style.display='none';return;}
+      rows.sort((a,b)=>Math.abs(b.ratePerLap)-Math.abs(a.ratePerLap));
+      card.style.display='';
+      list.innerHTML=rows.slice(0,5).map(r=>{
+        const closing=r.ratePerLap<0;
+        const etaStr=r.etaLaps?`~${Math.round(r.etaLaps)} laps`:'Away';
+        const rateStr=(closing?'':'+')+(r.ratePerLap).toFixed(2)+'s/lap';
+        const prevName=esc(r.prev.name.split(' ').pop());
+        const kName=esc(r.k.name.split(' ').pop());
+        return`<div class="tm-catch-row">
+          <span style="color:#6c757d;font-weight:700;min-width:20px">P${r.prev.pos}</span>
+          <span style="font-weight:600;flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${prevName}</span>
+          <span class="${closing?'tm-catch-closing':'tm-catch-pulling'}" style="min-width:54px;text-align:center">${closing?etaStr:'Away'}</span>
+          <span style="font-size:.68rem;color:#adb5bd;min-width:46px;text-align:right">${rateStr}</span>
+          <span style="font-weight:600;flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:right">${kName}</span>
+          <span style="color:#6c757d;font-weight:700;min-width:20px;text-align:right">P${r.k.pos}</span>
+        </div>`;
+      }).join('');
+    }
+
+    function updateConsistency(){
+      const card=document.getElementById('tmConsCard');
+      const list=document.getElementById('tmConsList');
+      if(!card||!list)return;
+      const scores=[];
+      karts.forEach(k=>{
+        const laps=lapsByKart.get(k.kart)||[];
+        if(laps.length<3)return;
+        const mean=laps.reduce((a,b)=>a+b,0)/laps.length;
+        const std=Math.sqrt(laps.map(l=>(l-mean)**2).reduce((a,b)=>a+b,0)/laps.length);
+        scores.push({k,std,mean,count:laps.length});
+      });
+      if(!scores.length){card.style.display='none';return;}
+      scores.sort((a,b)=>a.std-b.std);
+      const maxStd=Math.max(...scores.map(s=>s.std),0.001);
+      card.style.display='';
+      list.innerHTML=scores.slice(0,6).map(s=>{
+        const color=s.k.ourColor||(s.k.isLeader?'#e6a800':'#94a3b8');
+        const pct=Math.max(4,100*(1-s.std/maxStd));
+        const barColor=s.std<0.2?'#16a34a':s.std<0.5?'#f59e0b':'#dc2626';
+        return`<div class="tm-cons-row">
+          <span style="color:#6c757d;font-weight:700;min-width:24px">P${s.k.pos}</span>
+          <span class="tm-board-dot" style="background:${color}"></span>
+          <span style="font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.k.name.split(' ').pop())}</span>
+          <span class="tm-cons-bar-wrap"><span class="tm-cons-bar" style="width:${pct.toFixed(0)}%;background:${barColor}"></span></span>
+          <span style="font-size:.69rem;color:#6c757d;min-width:42px;text-align:right;font-variant-numeric:tabular-nums">±${s.std.toFixed(3)}s</span>
+        </div>`;
+      }).join('');
+    }
+
+    function buildSnakeChart(){
+      const svg=document.getElementById('tmSnakeSvg');
+      if(!svg||!snakeOpen||pollHistory.length<2)return;
+      const rect=svg.getBoundingClientRect();
+      const W=rect.width||700,H=160,padL=28,padR=12,padT=6,padB=18;
+      const chartW=W-padL-padR,chartH=H-padT-padB;
+      const nPolls=pollHistory.length;
+      const allPos=pollHistory.flatMap(ph=>ph.drivers.map(d=>d.pos)).filter(p=>p>0);
+      const maxPos=Math.max(...allPos,1);
+      const xOf=i=>padL+(i/Math.max(nPolls-1,1))*chartW;
+      const yOf=pos=>padT+((pos-1)/Math.max(maxPos-1,1))*chartH;
+      const allKartsMap=new Map();
+      pollHistory.forEach((ph,pi)=>{
+        ph.drivers.forEach(d=>{
+          if(!allKartsMap.has(d.kart))allKartsMap.set(d.kart,[]);
+          allKartsMap.get(d.kart).push({x:xOf(pi),y:yOf(d.pos)});
+        });
+      });
+      let html='';
+      for(let p=1;p<=Math.min(maxPos,12);p++){
+        const y=yOf(p);
+        html+=`<line x1="${padL}" y1="${y.toFixed(1)}" x2="${(W-padR).toFixed(0)}" y2="${y.toFixed(1)}" stroke="#f0f0f0" stroke-width="1"/>`;
+        html+=`<text x="${padL-4}" y="${(y+3.5).toFixed(1)}" text-anchor="end" fill="#adb5bd" font-size="8" font-family="system-ui">P${p}</text>`;
+      }
+      allKartsMap.forEach((pts,kartId)=>{
+        if(pts.length<2)return;
+        const kart=karts.find(k=>k.kart===kartId);
+        const color=kart?.isOurs?(kart.ourColor||'#e6a800'):'#cbd5e1';
+        const sw=kart?.isOurs?2.5:1;
+        const opacity=kart?.isOurs?1:0.45;
+        const pStr=pts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+        html+=`<polyline points="${pStr}" fill="none" stroke="${color}" stroke-width="${sw}" stroke-linejoin="round" opacity="${opacity}"/>`;
+        const last=pts[pts.length-1];
+        html+=`<circle cx="${last.x.toFixed(1)}" cy="${last.y.toFixed(1)}" r="${kart?.isOurs?3:2}" fill="${color}" opacity="${opacity}"/>`;
+        if(kart?.isOurs){
+          const lbl=esc((kart.ourName||kart.name).split(' ').pop());
+          html+=`<text x="${(last.x+5).toFixed(1)}" y="${(last.y+3.5).toFixed(1)}" fill="${color}" font-size="8" font-weight="700" font-family="system-ui">${lbl}</text>`;
+        }
+      });
+      svg.setAttribute('viewBox',`0 0 ${W.toFixed(0)} ${H}`);
+      svg.innerHTML=html;
+    }
+
+    window.tmSetBoardMode=function(mode){
+      boardMode=mode;
+      document.getElementById('tmBtnRace').classList.toggle('active',mode==='race');
+      document.getElementById('tmBtnPace').classList.toggle('active',mode==='pace');
+      updateBoard({});
+    };
+    window.tmToggleSnake=function(){
+      snakeOpen=!snakeOpen;
+      const drawer=document.getElementById('tmSnakeDrawer');
+      const btn=document.getElementById('tmSnakeBtn');
+      if(drawer)drawer.classList.toggle('open',snakeOpen);
+      if(btn)btn.innerHTML=snakeOpen
+        ?'<i class="bi bi-chevron-down"></i> Position History'
+        :'<i class="bi bi-graph-up"></i> Position History';
+      if(snakeOpen)buildSnakeChart();
+    };
 
     function syncSvgGroups(){
       const container=document.getElementById('tmKarts');
@@ -682,12 +958,16 @@
       const board=document.getElementById('tmBoard');
       if(!karts.length){board.innerHTML='';return;}
       const bs=getBattleSet();
-      board.innerHTML=karts.map(k=>{
+      let displayKarts=[...karts];
+      if(boardMode==='pace'){
+        displayKarts=displayKarts.filter(k=>k.bestSec>0).sort((a,b)=>a.bestSec-b.bestSec);
+      }
+      board.innerHTML=displayKarts.map(k=>{
         const isFL=fastestLap.kart===k.kart;
-        const inBattle=bs.has(k.kart);
+        const inBattle=boardMode==='race'&&bs.has(k.kart);
         const color=k.isOurs&&k.ourColor?k.ourColor:(k.isOurs?'#e6a800':'#94a3b8');
         let chg='',chgCls='same';
-        if(pollHistory.length>=4){
+        if(boardMode==='race'&&pollHistory.length>=4){
           const old=pollHistory[pollHistory.length-4].drivers.find(d=>d.kart===k.kart);
           if(old){const diff=old.pos-k.pos;if(diff>0){chg=`▲${diff}`;chgCls='up';}else if(diff<0){chg=`▼${Math.abs(diff)}`;chgCls='down';}else{chg='·';}}
         }
@@ -698,6 +978,8 @@
           const bc=isFL?'#9333ea':(delta<=0.001?'#16a34a':(delta<0.5?'#f59e0b':'#dc2626'));
           barHtml=`<span class="tm-delta-wrap"><span class="tm-delta-bar" style="width:${pct.toFixed(0)}%;background:${bc}"></span></span>`;
         }
+        const sparkHtml=boardMode==='race'?buildGapSparkline(k.kart):'';
+        const gapDisplay=boardMode==='pace'?esc(k.bestLap||'—'):(k.isLeader?'Leader':esc(k.gap||'—'));
         const rc=[isFL?'fl':'',inBattle?'in-battle':'',k.isOurs?'is-ours':''].filter(Boolean).join(' ');
         return`<div class="tm-board-row ${rc}">
           <span class="tm-board-pos">P${k.pos}</span>
@@ -706,9 +988,9 @@
           ${isFL?'<span style="color:#9333ea;font-size:.7rem">⬟</span>':''}
           <span class="tm-board-name">${esc(k.ourName||k.name)}</span>
           <span class="tm-board-kart"><b>#${esc(k.kart)}</b></span>
-          <span class="tm-board-gap">${esc(k.isLeader?'Leader':k.gap||'—')}</span>
+          <span class="tm-board-gap">${gapDisplay}</span>
           <span class="tm-board-gap" style="color:#adb5bd">${esc(k.lastLap||'—')}</span>
-          ${barHtml}
+          ${barHtml}${sparkHtml}
         </div>`;
       }).join('');
     }
@@ -727,13 +1009,18 @@
       updateHeader(state);
       updateOverlay(state);
       updateProgressArc(state);
+      updateWeather(state);
       if((state.drivers||[]).length>0){
         ingestState(state);
         syncSvgGroups();
         ensureTrails();
         updateBattlesUI();
+        updateLappedAlert();
         updateFocusPanel();
+        updateCatchRate();
+        updateConsistency();
         updateBoard(state);
+        if(snakeOpen)buildSnakeChart();
       }
     }
 

@@ -131,6 +131,7 @@ function emptyState() {
     timeRemaining: '',
     laps: 0,
     totalLaps: 0,
+    weather: { wth1: '', wth2: '', wth3: '' },
     drivers: [],
     lastUpdate: null,
   };
@@ -308,6 +309,9 @@ function parseMessages(rawMessages, grid, state, session) {
       }
       if (elemId === 'title1') { state.title1 = value.trim(); rebuildSessionName(state); continue; }
       if (elemId === 'title2') { state.title2 = value.trim(); rebuildSessionName(state); continue; }
+      if (elemId === 'wth1') { if (!state.weather) state.weather = {}; state.weather.wth1 = value.trim(); continue; }
+      if (elemId === 'wth2') { if (!state.weather) state.weather = {}; state.weather.wth2 = value.trim(); continue; }
+      if (elemId === 'wth3') { if (!state.weather) state.weather = {}; state.weather.wth3 = value.trim(); continue; }
       if (elemId === 'init') {
         if (cssClass === 'r') state.status = 'racing';
         else if (cssClass === 'n') state.status = 'finished';

@@ -27,6 +27,7 @@
     laps: 0,
     totalLaps: 0,
     timeRemaining: '',
+    weather: {},
     drivers: [],              // all drivers on timing board: { pos, kart, name, class, laps, lastLap, bestLap, gap, inPit, isOurs, ourColor, ourName }
     ourDrivers: [],           // subset: only matched team drivers
     lastUpdate: null,
@@ -315,6 +316,7 @@
         if (s.timeRemaining) state.timeRemaining = s.timeRemaining;
         if (s.laps) state.laps = s.laps;
         if (s.totalLaps) state.totalLaps = s.totalLaps;
+        if (s.weather) state.weather = s.weather;
         state.lastUpdate = s.lastUpdate ? new Date(s.lastUpdate) : new Date();
       }
       state.connected = result.connected || (s && s.connected) || false;
