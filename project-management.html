@@ -275,6 +275,9 @@
     .pm-task-row.milestone-row { font-style: italic; }
     .pm-task-row.completed-row { opacity: 0.75; }
     .pm-task-row.completed-row .pm-task-title-text { color: #27ae60; text-decoration: line-through; text-decoration-color: #27ae6080; }
+    .pm-empty-row { cursor: cell; opacity: 0.6; }
+    .pm-empty-row:hover { background: rgba(166,77,255,0.08); opacity: 1; }
+    .pm-empty-row-hint { font-size: 10px; color: #a64dff; font-style: italic; opacity: 0.7; }
 
     .pm-expand-btn {
       background: none; border: none; padding: 0;
@@ -2242,6 +2245,8 @@
     const body = document.getElementById('pm-outline-body');
     if (!visibleTasks.length) {
       body.innerHTML = '<div style="padding:16px 12px;color:#bbb;text-align:center;">No tasks yet.<br>Click <b>+ Task</b> to add one.</div>';
+      // Still allow click-to-add via empty rows below
+      body.innerHTML += renderEmptyRows(20);
       return;
     }
     body.innerHTML = visibleTasks.map(task => {
@@ -2314,7 +2319,26 @@
         <div class="pm-progress-cell">${progressFill}</div>
         <div>${assigneeChip}</div>
       </div>`;
-    }).join('');
+    }).join('') + renderEmptyRows(15);
+  }
+
+  // Render N click-to-add empty rows so users can quickly create new tasks
+  function renderEmptyRows(n) {
+    let html = '';
+    for (let i = 0; i < n; i++) {
+      html += `<div class="pm-task-row pm-empty-row" data-empty-row="1" tabindex="0" title="Click to add a new task">
+        <div></div>
+        <div></div>
+        <div class="pm-wbs"></div>
+        <div class="pm-task-name-cell"><span class="pm-empty-row-hint">${i === 0 ? '+ Click to add a task' : ''}</span></div>
+        <div class="pm-dur"></div>
+        <div class="pm-date-cell"></div>
+        <div class="pm-date-cell"></div>
+        <div class="pm-progress-cell"></div>
+        <div></div>
+      </div>`;
+    }
+    return html;
   }
 
   // ════════════════════════════════════════════════════════════════
@@ -2880,6 +2904,32 @@
   function nextSortOrder() {
     if (!state.tasks.length) return 0;
     return Math.max(...state.tasks.map(t => t.sort_order || 0)) + 1;
+  }
+
+  // Create a new top-level task at the end and immediately put its title into edit mode
+  async function createTaskAtEnd() {
+    if (!state.activePlanId) {
+      alert('Select a plan first.');
+      return;
+    }
+    try {
+      const res = await api(`${API}/project-plans/tasks`, { method: 'POST', body: JSON.stringify({
+        plan_id: state.activePlanId,
+        parent_task_id: null,
+        title: 'New task',
+        sort_order: nextSortOrder()
+      })});
+      state.selectedTaskId = res.data.id;
+      await loadPlan(state.activePlanId);
+      // Focus the new title for inline editing
+      requestAnimationFrame(() => {
+        const titleEl = document.querySelector(`[data-edit-title="${res.data.id}"]`);
+        if (titleEl) titleEl.click();
+      });
+    } catch (e) {
+      console.error('Create task failed', e);
+      alert('Failed to create task: ' + (e.message || e));
+    }
   }
 
   // ════════════════════════════════════════════════════════════════
@@ -3861,6 +3911,12 @@
 
     // Outline: expand/collapse, row select, inline editing, color dot, entity chip
     document.getElementById('pm-outline-body').addEventListener('click', e => {
+      const emptyRow = e.target.closest('[data-empty-row]');
+      if (emptyRow) {
+        e.stopPropagation();
+        createTaskAtEnd();
+        return;
+      }
       const openDetailBtn = e.target.closest('[data-open-detail]');
       const toggleBtn = e.target.closest('[data-toggle]');
       const colorDot = e.target.closest('[data-color-task]');
