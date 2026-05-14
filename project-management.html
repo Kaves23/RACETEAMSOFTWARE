@@ -3918,16 +3918,28 @@
         const taskId = cell.dataset[startEl ? 'editStart' : 'editEnd'];
         const field = startEl ? 'start_date' : 'end_date';
         const task = state.tasks.find(t => t.id === taskId);
+        const today = new Date();
+        const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
         const input = document.createElement('input');
         input.type = 'date';
-        input.value = task?.[field] ? fmtDate(task[field]) : '';
-        input.style.cssText = 'font-size:10px;border:1px solid #a64dff;border-radius:3px;padding:1px;width:90px;';
+        input.value = task?.[field] ? fmtDate(task[field]) : todayStr;
+        input.style.cssText = 'font-size:10px;border:1px solid #a64dff;border-radius:3px;padding:1px;width:110px;';
         cell.innerHTML = '';
         cell.appendChild(input);
         input.focus();
-        const done = () => { saveTaskDates(taskId, field, input.value); };
+        // Open native calendar picker immediately so user can pick a date in 1 click
+        try { input.showPicker && input.showPicker(); } catch {}
+        let saved = false;
+        const done = () => {
+          if (saved) return; saved = true;
+          saveTaskDates(taskId, field, input.value);
+        };
+        input.addEventListener('change', done);
         input.addEventListener('blur', done, { once: true });
-        input.addEventListener('keydown', ev => { if (ev.key === 'Enter') done(); });
+        input.addEventListener('keydown', ev => {
+          if (ev.key === 'Enter') done();
+          if (ev.key === 'Escape') { saved = true; renderAll(); }
+        });
         return;
       }
       // Plain row click — just select (no inspector). Use the icon button to open detail.
