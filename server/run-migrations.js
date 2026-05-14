@@ -6,7 +6,17 @@ const { pool, closePool } = require('./db');
 
 async function runMigrations() {
   console.log('🚀 Starting database migrations...\n');
-  
+
+  // Ensure tracking table exists
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      filename TEXT PRIMARY KEY,
+      applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  const appliedRes = await pool.query('SELECT filename FROM schema_migrations');
+  const applied = new Set(appliedRes.rows.map(r => r.filename));
+
   const migrationsDir = path.join(__dirname, 'migrations');
   const migrationFiles = [
     '001_create_core_tables.sql',
@@ -77,10 +87,19 @@ async function runMigrations() {
     '068_fleet_management.sql',
     '069_scan_sessions.sql',
     '070_trucks_natis_fields.sql',
-    'phase1_new_modules.sql'
+    'phase1_new_modules.sql',
+    '071_projects_module_phase2.sql',
+    '072_project_baselines.sql',
+    '073_drive_imports.sql',
+    '074_telemetry_sessions.sql'
   ];
   
+  let appliedCount = 0, skippedCount = 0;
   for (const filename of migrationFiles) {
+    if (applied.has(filename)) {
+      skippedCount++;
+      continue;
+    }
     const filepath = path.join(migrationsDir, filename);
     
     console.log(`📄 Running: ${filename}`);
@@ -90,12 +109,12 @@ async function runMigrations() {
       continue;
     }
     
-    // Read entire SQL file
     const sqlContent = fs.readFileSync(filepath, 'utf8');
     
     try {
-      // Execute entire file at once
       await pool.query(sqlContent);
+      await pool.query('INSERT INTO schema_migrations(filename) VALUES($1) ON CONFLICT DO NOTHING', [filename]);
+      appliedCount++;
       console.log(`   ✅ Completed: ${filename}\n`);
     } catch (error) {
       console.error(`   ❌ Error:`, error.message);
@@ -104,23 +123,22 @@ async function runMigrations() {
   }
   
   // Verify tables were created
-  console.log('\n📋 Verifying tables...');
-  try {
-    const result = await pool.query(`
-      SELECT table_name 
-      FROM information_schema.tables 
-      WHERE table_schema = 'public' 
-      ORDER BY table_name
-    `);
-    console.log(`✅ Database now has ${result.rows.length} tables:`);
-    result.rows.forEach(row => {
-      console.log(`   - ${row.table_name}`);
-    });
-  } catch (error) {
-    console.error('❌ Could not verify tables:', error.message);
+  if (appliedCount > 0) {
+    console.log('\n📋 Verifying tables...');
+    try {
+      const result = await pool.query(`
+        SELECT table_name 
+        FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        ORDER BY table_name
+      `);
+      console.log(`✅ Database now has ${result.rows.length} tables`);
+    } catch (error) {
+      console.error('❌ Could not verify tables:', error.message);
+    }
   }
   
-  console.log('\n✅ Migrations complete!');
+  console.log(`\n✅ Migrations complete! (${appliedCount} applied, ${skippedCount} already up-to-date)`);
   console.log('\n📝 Next steps:');
   console.log('   1. Check tables above');
   console.log('   2. Start API server: node server/index.js');
