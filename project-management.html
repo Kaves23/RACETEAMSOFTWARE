@@ -235,7 +235,7 @@
     }
     #pm-outline-header {
       display: grid;
-      grid-template-columns: 18px 26px 1fr 44px 72px 72px 38px 28px;
+      grid-template-columns: 16px 18px 26px 1fr 44px 72px 72px 38px 28px;
       align-items: center;
       padding: 0 4px;
       height: 28px;
@@ -257,7 +257,7 @@
     }
     .pm-task-row {
       display: grid;
-      grid-template-columns: 18px 18px 1fr 44px 72px 72px 38px 28px;
+      grid-template-columns: 16px 18px 18px 1fr 44px 72px 72px 38px 28px;
       align-items: center;
       height: 16px;
       padding: 0 4px;
@@ -282,6 +282,15 @@
       color: #999; font-size: 10px; line-height: 1;
       display: flex; align-items: center; justify-content: center;
     }
+    .pm-open-detail-btn {
+      background: none; border: none; padding: 0;
+      width: 14px; height: 14px; cursor: pointer;
+      color: #b0bac6; font-size: 11px; line-height: 1;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 3px;
+      transition: background 0.1s, color 0.1s;
+    }
+    .pm-open-detail-btn:hover { background: rgba(166,77,255,0.15); color: #a64dff; }
     .pm-wbs { color: #bbb; font-size: 10px; text-align: right; white-space: nowrap; }
     .pm-task-name-cell {
       display: flex; align-items: center; gap: 4px;
@@ -1231,6 +1240,7 @@
         <!-- Outline -->
         <div id="pm-outline-wrap">
           <div id="pm-outline-header">
+            <span></span><!-- open detail -->
             <span></span><!-- expand -->
             <span style="text-align:right">#</span>
             <span>Task</span>
@@ -1299,10 +1309,11 @@
             <th onclick="pmSortProjects('progress')">Progress <span class="sort-arrow">↕</span></th>
             <th onclick="pmSortProjects('task_count')">Tasks <span class="sort-arrow">↕</span></th>
             <th onclick="pmSortProjects('risk_level')">Risk <span class="sort-arrow">↕</span></th>
+            <th style="width:40px;"></th>
           </tr>
         </thead>
         <tbody id="pm-projects-tbody">
-          <tr><td colspan="10" style="text-align:center;color:#bbb;padding:24px;font-size:11px;">Loading projects…</td></tr>
+          <tr><td colspan="11" style="text-align:center;color:#bbb;padding:24px;font-size:11px;">Loading projects…</td></tr>
         </tbody>
       </table>
     </div>
@@ -2287,6 +2298,7 @@
       return `<div class="pm-task-row${selected}${isMilestone?' milestone-row':''}${isCompleted?' completed-row':''}${isCritical?' critical-row':''}"
                    data-task-id="${task.id}" tabindex="0"
                    style="border-left:3px solid ${indentBorderColor};">
+        <button class="pm-open-detail-btn" data-open-detail="${task.id}" title="Open task details">☰</button>
         <div>${expandBtn}</div>
         <div class="pm-wbs">${wbs[task.id]||''}</div>
         <div class="pm-task-name-cell">
@@ -3849,12 +3861,21 @@
 
     // Outline: expand/collapse, row select, inline editing, color dot, entity chip
     document.getElementById('pm-outline-body').addEventListener('click', e => {
+      const openDetailBtn = e.target.closest('[data-open-detail]');
       const toggleBtn = e.target.closest('[data-toggle]');
       const colorDot = e.target.closest('[data-color-task]');
       const entityChip = e.target.closest('[data-entity-task]');
       const titleEl = e.target.closest('[data-edit-title]');
+      const startEl = e.target.closest('[data-edit-start]');
+      const endEl = e.target.closest('[data-edit-end]');
       const row = e.target.closest('[data-task-id]');
 
+      if (openDetailBtn) {
+        e.stopPropagation();
+        const task = state.tasks.find(t => t.id === openDetailBtn.dataset.openDetail);
+        if (task) openInspector(task);
+        return;
+      }
       if (toggleBtn) {
         e.stopPropagation();
         const id = toggleBtn.dataset.toggle;
@@ -3872,9 +3893,48 @@
         openEntityModal(entityChip.dataset.entityTask);
         return;
       }
+      // Inline edit on single click: title
+      if (titleEl && titleEl.contentEditable !== 'true') {
+        e.stopPropagation();
+        titleEl.contentEditable = 'true';
+        titleEl.classList.add('editing');
+        titleEl.focus();
+        const sel = window.getSelection(); sel.selectAllChildren(titleEl);
+        const taskId = titleEl.dataset.editTitle;
+        const done = () => {
+          titleEl.contentEditable = 'false';
+          titleEl.classList.remove('editing');
+          saveTaskTitle(taskId, titleEl.textContent);
+        };
+        titleEl.addEventListener('blur', done, { once: true });
+        titleEl.addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); done(); } });
+        return;
+      }
+      // Inline edit on single click: start/end date
+      if (startEl || endEl) {
+        e.stopPropagation();
+        const cell = startEl || endEl;
+        if (cell.querySelector('input')) return;
+        const taskId = cell.dataset[startEl ? 'editStart' : 'editEnd'];
+        const field = startEl ? 'start_date' : 'end_date';
+        const task = state.tasks.find(t => t.id === taskId);
+        const input = document.createElement('input');
+        input.type = 'date';
+        input.value = task?.[field] ? fmtDate(task[field]) : '';
+        input.style.cssText = 'font-size:10px;border:1px solid #a64dff;border-radius:3px;padding:1px;width:90px;';
+        cell.innerHTML = '';
+        cell.appendChild(input);
+        input.focus();
+        const done = () => { saveTaskDates(taskId, field, input.value); };
+        input.addEventListener('blur', done, { once: true });
+        input.addEventListener('keydown', ev => { if (ev.key === 'Enter') done(); });
+        return;
+      }
+      // Plain row click — just select (no inspector). Use the icon button to open detail.
       if (row) {
-        const task = state.tasks.find(t => t.id === row.dataset.taskId);
-        if (task) openInspector(task);
+        state.selectedTaskId = row.dataset.taskId;
+        document.querySelectorAll('.pm-task-row.selected').forEach(r => r.classList.remove('selected'));
+        row.classList.add('selected');
       }
     });
 
@@ -4670,7 +4730,7 @@
     });
 
     if (!plans.length) {
-      tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;color:#bbb;padding:24px;font-size:11px;">No projects found</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;color:#bbb;padding:24px;font-size:11px;">No projects found</td></tr>`;
       return;
     }
 
@@ -4684,7 +4744,7 @@
       const endFmt = p.end_date ? new Date(p.end_date).toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'2-digit'}) : '—';
       const startFmt = p.start_date ? new Date(p.start_date).toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'2-digit'}) : '—';
       const priorityLabel = { low:'Low', medium:'Medium', high:'High', critical:'Critical' }[p.priority] || (p.priority || '—');
-      return `<tr onclick="pmOpenProject(${p.id})" title="Open project: ${esc(p.name)}">
+      return `<tr onclick="if(!event.target.closest('.prow-edit-btn')) pmOpenProject(${p.id})" title="Open project: ${esc(p.name)}">
         <td>
           <div class="prow-name">${esc(p.name)}
             ${p.description ? `<small>${esc(p.description.slice(0,55))}${p.description.length>55?'…':''}</small>` : ''}
@@ -4704,6 +4764,7 @@
         </td>
         <td>${p.task_count != null ? p.task_count : '—'}</td>
         <td>${riskLvl ? `<span class="prow-risk-badge risk-${riskLvl}">${riskLvl.charAt(0).toUpperCase()+riskLvl.slice(1)}</span>` : '<span style="color:#bbb">—</span>'}</td>
+        <td><button class="prow-edit-btn" onclick="event.stopPropagation(); pmEditProject(${p.id})" title="Edit project details" style="background:none;border:none;cursor:pointer;color:#a64dff;font-size:14px;padding:2px 6px;border-radius:3px;">✏️</button></td>
       </tr>`;
     }).join('');
 
@@ -4734,6 +4795,9 @@
 
   function pmOpenProject(planId) {
     window.location.href = `project-detail.html?id=${planId}`;
+  }
+  function pmEditProject(planId) {
+    window.location.href = `project-detail.html?id=${planId}&edit=1`;
   }
 
   // ════════════════════════════════════════════════════════════════
