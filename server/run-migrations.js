@@ -92,7 +92,8 @@ async function runMigrations() {
     '072_project_baselines.sql',
     '073_drive_imports.sql',
     '074_telemetry_sessions.sql',
-    '075_sporting_entries_extra_fields.sql'
+    '075_sporting_entries_extra_fields.sql',
+    '076_regulations_align_columns.sql'
   ];
   
   let appliedCount = 0, skippedCount = 0;
