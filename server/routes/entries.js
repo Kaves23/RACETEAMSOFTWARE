@@ -18,12 +18,15 @@ router.get('/', async (req, res, next) => {
 
 router.post('/', async (req, res, next) => {
   try {
-    const { event_name, series, entry_number, car_number, driver_name, team_name, category, status, entry_date, notes } = req.body;
+    const { event_name, series, entry_number, car_number, driver_name, team_name, category, status, entry_date, notes,
+            driver_id, event_id, licence_number, championship, required_documents, approval_status } = req.body;
     if (!event_name) return res.status(400).json({ error: 'event_name required' });
     const r = await pool.query(
-      `INSERT INTO sporting_entries (event_name,series,entry_number,car_number,driver_name,team_name,category,status,entry_date,notes)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
-      [event_name,series,entry_number,car_number,driver_name,team_name,category,status||'submitted',entry_date||null,notes]
+      `INSERT INTO sporting_entries (event_name,series,entry_number,car_number,driver_name,team_name,category,status,entry_date,notes,
+         driver_id,event_id,licence_number,championship,required_documents,approval_status)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING *`,
+      [event_name,series,entry_number,car_number,driver_name,team_name,category,status||'submitted',entry_date||null,notes,
+       driver_id||null,event_id||null,licence_number||null,championship||null,required_documents||null,approval_status||null]
     );
     res.status(201).json(r.rows[0]);
   } catch (e) { next(e); }
@@ -31,11 +34,16 @@ router.post('/', async (req, res, next) => {
 
 router.put('/:id', async (req, res, next) => {
   try {
-    const { event_name, series, entry_number, car_number, driver_name, team_name, category, status, entry_date, notes } = req.body;
+    const { event_name, series, entry_number, car_number, driver_name, team_name, category, status, entry_date, notes,
+            driver_id, event_id, licence_number, championship, required_documents, approval_status } = req.body;
     const r = await pool.query(
       `UPDATE sporting_entries SET event_name=$1,series=$2,entry_number=$3,car_number=$4,driver_name=$5,
-       team_name=$6,category=$7,status=$8,entry_date=$9,notes=$10,updated_at=NOW() WHERE id=$11 RETURNING *`,
-      [event_name,series,entry_number,car_number,driver_name,team_name,category,status,entry_date||null,notes,req.params.id]
+       team_name=$6,category=$7,status=$8,entry_date=$9,notes=$10,
+       driver_id=$11,event_id=$12,licence_number=$13,championship=$14,required_documents=$15,approval_status=$16,
+       updated_at=NOW() WHERE id=$17 RETURNING *`,
+      [event_name,series,entry_number,car_number,driver_name,team_name,category,status,entry_date||null,notes,
+       driver_id||null,event_id||null,licence_number||null,championship||null,required_documents||null,approval_status||null,
+       req.params.id]
     );
     if (!r.rows.length) return res.status(404).json({ error: 'Not found' });
     res.json(r.rows[0]);
