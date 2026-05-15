@@ -235,7 +235,7 @@
       const items = g.items.map(it => {
         const ik = String(it.key || it.label[0] || '').toUpperCase();
         const itemLabelHtml = highlightShortcut(it.label, ik);
-        return `<li><a class="dropdown-item" href="${esc(it.href)}"><span class="rts-key-letter-inline">${ik}</span><span class="rts-dd-label">${itemLabelHtml}</span></a></li>`;
+        return `<li><a class="dropdown-item" href="${esc(it.href)}">${itemLabelHtml}</a></li>`;
       }).join('');
       const labelHtml = highlightShortcut(g.label, k);
       return `<li class="nav-item dropdown rts-dropdown-tab">
