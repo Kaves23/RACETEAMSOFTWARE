@@ -216,6 +216,17 @@
     const liGroups = groups.map(g => {
       const k = groupKeyMap[g.label] || '';
       const keyBadge = k ? `<span class="rts-key-letter" aria-hidden="true">${k}</span>` : '';
+      // TEST: render Logistics as an inline dropdown instead of modal
+      if (g.label === 'Logistics') {
+        const items = g.items.map(it => {
+          const ik = String(it.key || it.label[0] || '').toUpperCase();
+          return `<li><a class="dropdown-item" href="${esc(it.href)}"><span class="rts-key-letter-inline">${ik}</span>${esc(it.label)}</a></li>`;
+        }).join('');
+        return `<li class="nav-item dropdown rts-dropdown-tab">
+          <a class="nav-link rts-dropdown-toggle" href="#" data-rts-dropdown="${esc(g.label)}" aria-haspopup="true" aria-expanded="false">${keyBadge}${esc(g.label)} <span class="rts-caret" aria-hidden="true">▾</span></a>
+          <ul class="dropdown-menu rts-dd-menu">${items}</ul>
+        </li>`;
+      }
       return `<li class="nav-item"><a class="nav-link rts-group-link" href="#" data-group="${esc(g.label)}">${keyBadge}${esc(g.label)}</a></li>`;
     }).join('');
   // Put the high-usage groups on the left; push singles (Integrations/Settings) to the right
@@ -381,6 +392,25 @@
           const label = a.getAttribute('data-group');
           openGroupModal(label);
         });
+      });
+
+      // TEST: inline dropdown toggles (Logistics)
+      host.querySelectorAll('.rts-dropdown-toggle').forEach(a => {
+        a.addEventListener('click', (ev)=>{
+          ev.preventDefault();
+          ev.stopPropagation();
+          const menu = a.parentElement && a.parentElement.querySelector('.dropdown-menu');
+          if (!menu) return;
+          // Close any other open dropdowns
+          host.querySelectorAll('.rts-dd-menu.show').forEach(m => { if (m !== menu) m.classList.remove('show'); });
+          menu.classList.toggle('show');
+        });
+      });
+      // Close dropdowns on outside click
+      document.addEventListener('click', (ev)=>{
+        if (!ev.target.closest('.rts-dropdown-tab')){
+          host.querySelectorAll('.rts-dd-menu.show').forEach(m => m.classList.remove('show'));
+        }
       });
 
       // Clear active map on modal hide
