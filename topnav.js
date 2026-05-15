@@ -222,8 +222,10 @@
           const ik = String(it.key || it.label[0] || '').toUpperCase();
           return `<li><a class="dropdown-item" href="${esc(it.href)}"><span class="rts-key-letter-inline">${ik}</span>${esc(it.label)}</a></li>`;
         }).join('');
+        // Highlight the shortcut letter (first char) inside the label, keep the rest white
+        const labelHtml = `<span class="rts-shortcut-letter">${esc(g.label.charAt(0))}</span>${esc(g.label.slice(1))}`;
         return `<li class="nav-item dropdown rts-dropdown-tab">
-          <a class="nav-link rts-dropdown-toggle" href="#" data-rts-dropdown="${esc(g.label)}" aria-haspopup="true" aria-expanded="false">${keyBadge}${esc(g.label)} <span class="rts-caret" aria-hidden="true">▾</span></a>
+          <a class="nav-link rts-dropdown-toggle" href="#" data-rts-dropdown="${esc(g.label)}" aria-haspopup="true" aria-expanded="false">${labelHtml} <span class="rts-caret" aria-hidden="true">▾</span></a>
           <ul class="dropdown-menu rts-dd-menu">${items}</ul>
         </li>`;
       }
