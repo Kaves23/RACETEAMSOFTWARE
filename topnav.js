@@ -196,6 +196,23 @@
 
   function esc(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
+  // Wrap the first occurrence of `key` (case-insensitive) inside `label` with a
+  // highlight span. Falls back to highlighting the first letter when no match.
+  function highlightShortcut(label, key){
+    const safe = esc(label);
+    if (!key) return safe;
+    const upper = String(key).toUpperCase();
+    const idx = label.toUpperCase().indexOf(upper);
+    if (idx < 0) {
+      // Key letter not present in label — prefix a small chip instead
+      return `<span class="rts-shortcut-letter">${esc(upper)}</span>${safe}`;
+    }
+    const before = esc(label.slice(0, idx));
+    const ch     = esc(label.charAt(idx));
+    const after  = esc(label.slice(idx + 1));
+    return `${before}<span class="rts-shortcut-letter">${ch}</span>${after}`;
+  }
+
   function build(){
     const host = document.getElementById('rtsTopNav');
     if(!host) return;
@@ -210,26 +227,21 @@
 
     const liSingles = singles.map(t => {
       const k = singleKeyMap[t.href] || '';
-      const keyBadge = k ? `<span class="rts-key-letter" aria-hidden="true">${k}</span>` : '';
-      return `<li class="nav-item"><a class="nav-link" href="${esc(t.href)}">${keyBadge}${esc(t.label)}</a></li>`;
+      const labelHtml = highlightShortcut(t.label, k);
+      return `<li class="nav-item"><a class="nav-link" href="${esc(t.href)}">${labelHtml}</a></li>`;
     }).join('');
     const liGroups = groups.map(g => {
       const k = groupKeyMap[g.label] || '';
-      const keyBadge = k ? `<span class="rts-key-letter" aria-hidden="true">${k}</span>` : '';
-      // TEST: render Logistics as an inline dropdown instead of modal
-      if (g.label === 'Logistics') {
-        const items = g.items.map(it => {
-          const ik = String(it.key || it.label[0] || '').toUpperCase();
-          return `<li><a class="dropdown-item" href="${esc(it.href)}"><span class="rts-key-letter-inline">${ik}</span>${esc(it.label)}</a></li>`;
-        }).join('');
-        // Highlight the shortcut letter (first char) inside the label, keep the rest white
-        const labelHtml = `<span class="rts-shortcut-letter">${esc(g.label.charAt(0))}</span>${esc(g.label.slice(1))}`;
-        return `<li class="nav-item dropdown rts-dropdown-tab">
-          <a class="nav-link rts-dropdown-toggle" href="#" data-rts-dropdown="${esc(g.label)}" aria-haspopup="true" aria-expanded="false">${labelHtml} <span class="rts-caret" aria-hidden="true">▾</span></a>
-          <ul class="dropdown-menu rts-dd-menu">${items}</ul>
-        </li>`;
-      }
-      return `<li class="nav-item"><a class="nav-link rts-group-link" href="#" data-group="${esc(g.label)}">${keyBadge}${esc(g.label)}</a></li>`;
+      const items = g.items.map(it => {
+        const ik = String(it.key || it.label[0] || '').toUpperCase();
+        const itemLabelHtml = highlightShortcut(it.label, ik);
+        return `<li><a class="dropdown-item" href="${esc(it.href)}"><span class="rts-key-letter-inline">${ik}</span>${itemLabelHtml}</a></li>`;
+      }).join('');
+      const labelHtml = highlightShortcut(g.label, k);
+      return `<li class="nav-item dropdown rts-dropdown-tab">
+        <a class="nav-link rts-dropdown-toggle rts-group-link" href="#" data-group="${esc(g.label)}" data-rts-dropdown="${esc(g.label)}" aria-haspopup="true" aria-expanded="false">${labelHtml} <span class="rts-caret" aria-hidden="true">▾</span></a>
+        <ul class="dropdown-menu rts-dd-menu">${items}</ul>
+      </li>`;
     }).join('');
   // Put the high-usage groups on the left; push singles (Integrations/Settings) to the right
   const li = liGroups + liSingles;
@@ -387,30 +399,25 @@
         } catch(_e){}
       });
 
-      // Open group modal when clicking group links
+      // Group tab clicks: toggle inline dropdown (modal still available via keyboard if needed)
       host.querySelectorAll('.rts-group-link').forEach(a => {
-        a.addEventListener('click', (ev)=>{
-          ev.preventDefault();
-          const label = a.getAttribute('data-group');
-          openGroupModal(label);
-        });
-      });
-
-      // TEST: inline dropdown toggles (Logistics)
-      host.querySelectorAll('.rts-dropdown-toggle').forEach(a => {
         a.addEventListener('click', (ev)=>{
           ev.preventDefault();
           ev.stopPropagation();
           const menu = a.parentElement && a.parentElement.querySelector('.dropdown-menu');
           if (!menu) return;
-          // Close any other open dropdowns
           host.querySelectorAll('.rts-dd-menu.show').forEach(m => { if (m !== menu) m.classList.remove('show'); });
           menu.classList.toggle('show');
         });
       });
-      // Close dropdowns on outside click
+      // Close dropdowns on outside click or Escape
       document.addEventListener('click', (ev)=>{
         if (!ev.target.closest('.rts-dropdown-tab')){
+          host.querySelectorAll('.rts-dd-menu.show').forEach(m => m.classList.remove('show'));
+        }
+      });
+      document.addEventListener('keydown', (ev)=>{
+        if (ev.key === 'Escape'){
           host.querySelectorAll('.rts-dd-menu.show').forEach(m => m.classList.remove('show'));
         }
       });
