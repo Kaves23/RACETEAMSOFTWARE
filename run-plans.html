@@ -3,181 +3,258 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
-  <title>Run Plans</title>
+  <title>Run Plans – Day Programme</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <link rel="stylesheet" href="style.css?v=20260525">
   <style>
-    body { background: linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%); min-height:100vh; }
-    .rts-main { padding:1.5rem; }
-    .ev-stats-bar { display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:1.5rem; }
-    .ev-stat-card { background:#fff; border-radius:10px; padding:1rem 1.5rem; box-shadow:0 2px 8px rgba(0,0,0,.08); min-width:130px; border-top:4px solid #7c3aed; }
-    .ev-stat-label { font-size:.72rem; text-transform:uppercase; color:#6b7280; font-weight:600; letter-spacing:.05em; }
-    .ev-stat-value { font-size:1.8rem; font-weight:800; color:#1f2937; line-height:1.1; }
-    .page-body { display:flex; gap:1.25rem; align-items:flex-start; }
-    .filter-sidebar { width:210px; flex-shrink:0; background:#fff; border-radius:10px; padding:1.1rem; box-shadow:0 2px 8px rgba(0,0,0,.08); position:sticky; top:1rem; }
-    .filter-sidebar h6 { font-weight:700; color:#374151; margin-bottom:1rem; font-size:.85rem; text-transform:uppercase; letter-spacing:.05em; }
-    .main-content { flex:1; min-width:0; }
-    .table-wrapper { background:#fff; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,.08); overflow:hidden; }
-    .table { margin:0; }
-    .table thead th { background:#7c3aed; color:#fff; font-size:.75rem; text-transform:uppercase; letter-spacing:.05em; border:none; padding:.7rem 1rem; white-space:nowrap; }
-    .table tbody tr { cursor:pointer; transition:background .15s; }
-    .table tbody tr:hover { background:#f5f3ff; }
-    .table tbody tr.selected { background:#ede9fe !important; }
-    .table tbody td { padding:.6rem 1rem; vertical-align:middle; font-size:.875rem; border-color:#f3f4f6; }
-    .bp { display:inline-block; padding:.25rem .65rem; border-radius:20px; font-size:.75rem; font-weight:600; white-space:nowrap; }
-    .bp-planned    { background:#dbeafe; color:#1d4ed8; }
-    .bp-in_progress{ background:#fef3c7; color:#b45309; }
-    .bp-completed  { background:#d1fae5; color:#065f46; }
-    .bp-cancelled  { background:#f3f4f6; color:#6b7280; }
-    /* Drawer */
-    .drawer-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:1040; }
-    .drawer-overlay.open { display:block; }
-    .drawer { position:fixed; top:0; right:-520px; width:480px; height:100vh; background:#fff; z-index:1050; box-shadow:-6px 0 30px rgba(0,0,0,.15); transition:right .28s ease; overflow-y:auto; display:flex; flex-direction:column; }
-    .drawer.open { right:0; }
-    .drawer-head { padding:1.2rem 1.5rem; border-bottom:1px solid #e5e7eb; background:#7c3aed; color:#fff; display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
-    .drawer-head h5 { margin:0; font-weight:700; font-size:1rem; }
-    .drawer-body { padding:1.5rem; flex:1; overflow-y:auto; }
-    .drawer-foot { padding:1rem 1.5rem; border-top:1px solid #e5e7eb; display:flex; gap:.5rem; justify-content:flex-end; flex-shrink:0; }
-    .section-label { font-size:.7rem; font-weight:700; text-transform:uppercase; color:#9ca3af; letter-spacing:.06em; margin:1.1rem 0 .55rem; }
-    .page-title { font-weight:800; color:#7c3aed; letter-spacing:-.01em; }
+    body { background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%); min-height:100vh; }
+    .rts-main { padding:0 !important; }
+
+    .rp-shell { display:flex; height:calc(100vh - var(--rts-topbar-h,84px)); overflow:hidden; }
+
+    /* ── Left sidebar ── */
+    .rp-sidebar { width:264px; flex-shrink:0; background:#fff; border-right:1px solid #e5e7eb; display:flex; flex-direction:column; overflow:hidden; }
+    .rp-sidebar-head { padding:.9rem 1rem .75rem; border-bottom:1px solid #e5e7eb; flex-shrink:0; display:flex; flex-direction:column; gap:.5rem; }
+    .rp-sidebar-title { font-weight:800; font-size:.8rem; text-transform:uppercase; letter-spacing:.07em; color:#374151; display:flex; align-items:center; gap:.4rem; }
+    .rp-sidebar-title i { color:#7c3aed; }
+    .rp-ev-list { flex:1; overflow-y:auto; padding:.35rem 0; }
+    .rp-ev-item { padding:.6rem 1rem .6rem 1.1rem; cursor:pointer; border-left:3px solid transparent; transition:all .15s; display:flex; flex-direction:column; gap:2px; }
+    .rp-ev-item:hover { background:#f5f3ff; border-left-color:#c4b5fd; }
+    .rp-ev-item.active { background:#ede9fe; border-left-color:#7c3aed; }
+    .rp-ev-name { font-weight:600; font-size:.84rem; color:#1f2937; }
+    .rp-ev-meta { font-size:.72rem; color:#6b7280; }
+    .rp-ev-count { display:inline-block; background:#7c3aed; color:#fff; border-radius:10px; font-size:.62rem; font-weight:700; padding:1px 6px; vertical-align:middle; margin-left:5px; }
+    .rp-no-events { padding:2.5rem 1rem; text-align:center; color:#9ca3af; font-size:.82rem; line-height:1.6; }
+
+    /* ── Main area ── */
+    .rp-main { flex:1; display:flex; flex-direction:column; overflow:hidden; min-width:0; }
+    .rp-empty-state { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.75rem; color:#9ca3af; text-align:center; padding:2rem; }
+    .rp-empty-state i { font-size:4rem; opacity:.2; }
+    .rp-empty-state .rp-empty-title { font-weight:700; font-size:1rem; color:#374151; }
+    .rp-empty-state p { font-size:.84rem; max-width:300px; margin:0; }
+    .rp-content { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+
+    /* Header bar */
+    .rp-header { background:#fff; border-bottom:1px solid #e5e7eb; padding:.8rem 1.5rem; display:flex; align-items:center; gap:1rem; flex-shrink:0; flex-wrap:wrap; }
+    .rp-ev-title { font-weight:800; font-size:1.05rem; color:#1f2937; }
+    .rp-ev-subtitle { font-size:.78rem; color:#6b7280; margin-top:1px; }
+    .rp-header-right { margin-left:auto; display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; }
+    .rp-countdown { background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; border-radius:20px; padding:4px 14px; font-size:.75rem; font-weight:600; white-space:nowrap; transition:all .3s; }
+    .rp-countdown.active { background:#fff7ed; border-color:#fed7aa; color:#9a3412; }
+    .rp-print-btn { font-size:.77rem; padding:5px 13px; border-radius:20px; border:1px solid #dee2e6; background:#fff; cursor:pointer; font-weight:500; transition:background .15s; display:inline-flex; align-items:center; gap:4px; }
+    .rp-print-btn.client { border-color:#1a0d2e; color:#1a0d2e; }
+    .rp-print-btn.client:hover { background:rgba(26,13,46,.07); }
+    .rp-print-btn.internal { border-color:#fd7e14; color:#b45309; }
+    .rp-print-btn.internal:hover { background:rgba(253,126,20,.07); }
+
+    /* Table */
+    .rp-table-area { flex:1; overflow-y:auto; padding:1.1rem 1.5rem .5rem; }
+    .rp-table-card { background:#fff; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,.07); overflow:hidden; }
+    .rp-table { width:100%; border-collapse:collapse; font-size:.855rem; }
+    .rp-table th { background:#7c3aed; color:#fff; font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; padding:.75rem 1rem; border:none; white-space:nowrap; }
+    .rp-table td { padding:.8rem 1rem; border-bottom:1px solid #f3f4f6; vertical-align:middle; }
+    .rp-table tr:last-child td { border-bottom:none; }
+    .rp-table tr:hover td { background:#faf8ff; }
+    .rp-table tr.rp-int td { background:#fffbeb; }
+    .rp-table tr.rp-int:hover td { background:#fef3c7; }
+    .rp-time { font-weight:700; font-size:1rem; white-space:nowrap; }
+    .rp-endtime { font-size:.73rem; color:#9ca3af; display:block; margin-top:2px; }
+    .rp-act-name { font-weight:600; color:#1f2937; }
+    .rp-act-desc { font-size:.77rem; color:#6b7280; margin-top:3px; }
+    .rp-vis-pub { font-size:.66rem; background:#e8f5e9; color:#2e7d32; border-radius:10px; padding:2px 8px; font-weight:700; border:1px solid #c8e6c9; white-space:nowrap; }
+    .rp-vis-int { font-size:.66rem; background:#fff3e0; color:#e65100; border-radius:10px; padding:2px 8px; font-weight:700; border:1px solid #ffe0b2; white-space:nowrap; }
+    .rp-status-pill { font-size:.72rem; padding:4px 11px; border-radius:20px; font-weight:700; border:none; cursor:pointer; white-space:nowrap; transition:all .15s; }
+    .rp-status-pill.pending  { background:#f3f4f6; color:#6b7280; }
+    .rp-status-pill.pending:hover  { background:#e5e7eb; }
+    .rp-status-pill.ontrack  { background:#dcfce7; color:#166534; }
+    .rp-status-pill.ontrack:hover  { background:#bbf7d0; }
+    .rp-status-pill.complete { background:#ede9fe; color:#5b21b6; }
+    .rp-status-pill.complete:hover { background:#ddd6fe; }
+    .rp-row-actions { display:flex; gap:4px; justify-content:flex-end; }
+    .rp-table-empty td { text-align:center; padding:3rem 1rem; color:#9ca3af; font-size:.88rem; font-style:italic; }
+    .rp-log-dot { display:inline-block; width:7px; height:7px; border-radius:50%; background:#7c3aed; margin-left:5px; vertical-align:middle; opacity:.7; }
+
+    /* Add-item form */
+    .rp-add-section { background:#fff; border-top:2px solid #ede9fe; padding:1rem 1.5rem 1.2rem; flex-shrink:0; }
+    .rp-add-head { font-size:.72rem; font-weight:800; text-transform:uppercase; letter-spacing:.07em; color:#7c3aed; margin-bottom:.75rem; display:flex; align-items:center; gap:.4rem; }
+    .rp-add-row { display:flex; flex-wrap:wrap; gap:.55rem; align-items:flex-end; }
+    .rp-add-field { display:flex; flex-direction:column; gap:3px; }
+    .rp-field-label { font-size:.65rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:#6b7280; }
+    .rp-add-field.f-start  { flex:0 0 165px; }
+    .rp-add-field.f-end    { flex:0 0 90px; }
+    .rp-add-field.f-dur    { flex:0 0 88px; }
+    .rp-add-field.f-name   { flex:1 1 180px; }
+    .rp-add-field.f-driver { flex:0 0 150px; }
+    .rp-add-field.f-status { flex:0 0 120px; }
+    .rp-add-field.f-notes  { flex:1 1 200px; }
+
+    /* Print overlay */
+    #rpPrintOverlay { display:none; position:fixed; inset:0; z-index:9999; overflow-y:auto; }
+    @media print {
+      #rpPrintOverlay { display:block !important; }
+      body > *:not(#rpPrintOverlay) { display:none !important; }
+    }
   </style>
 </head>
 <body>
 <div id="rtsTopNav"></div>
+
 <div class="rts-main container-fluid">
+  <div class="rp-shell">
 
-  <div class="d-flex align-items-center justify-content-between mb-3">
-    <h2 class="page-title mb-0">Run Plans</h2>
-    <button class="btn btn-sm fw-semibold" style="background:#7c3aed;color:#fff;padding:.4rem 1rem" onclick="openDrawer()">+ New Run Plan</button>
-  </div>
-
-  <div class="ev-stats-bar">
-    <div class="ev-stat-card"><div class="ev-stat-label">Total</div><div class="ev-stat-value" id="kpiTotal">—</div></div>
-    <div class="ev-stat-card"><div class="ev-stat-label">Planned</div><div class="ev-stat-value" id="kpiPlanned">—</div></div>
-    <div class="ev-stat-card"><div class="ev-stat-label">In Progress</div><div class="ev-stat-value" id="kpiInProgress">—</div></div>
-    <div class="ev-stat-card"><div class="ev-stat-label">Completed</div><div class="ev-stat-value" id="kpiCompleted">—</div></div>
-  </div>
-
-  <div class="page-body">
-    <aside class="filter-sidebar">
-      <h6>Filters</h6>
-      <label class="form-label small fw-semibold mb-1">Status</label>
-      <select class="form-select form-select-sm mb-3" id="filterStatus" onchange="applyFilters()">
-        <option value="">All</option>
-        <option value="planned">Planned</option>
-        <option value="in_progress">In Progress</option>
-        <option value="completed">Completed</option>
-        <option value="cancelled">Cancelled</option>
-      </select>
-      <label class="form-label small fw-semibold mb-1">Car #</label>
-      <select class="form-select form-select-sm" id="filterCar" onchange="applyFilters()">
-        <option value="">All</option>
-      </select>
-      <button class="btn btn-outline-secondary btn-sm mt-3 w-100" onclick="clearFilters()">Clear Filters</button>
+    <!-- Left: event list -->
+    <aside class="rp-sidebar">
+      <div class="rp-sidebar-head">
+        <div class="rp-sidebar-title"><i class="bi bi-calendar3-event"></i> Events</div>
+        <input id="evSearch" type="search" class="form-control form-control-sm" placeholder="Search events…" style="font-size:.78rem;">
+      </div>
+      <div class="rp-ev-list" id="evList">
+        <div class="rp-no-events">Loading…</div>
+      </div>
     </aside>
 
-    <div class="main-content">
-      <div class="table-wrapper">
-        <table class="table table-hover" id="mainTable">
-          <thead>
-            <tr>
-              <th>Session Name</th>
-              <th>Car #</th>
-              <th>Driver</th>
-              <th>Planned Laps</th>
-              <th>Actual Laps</th>
-              <th>Fuel Load (L)</th>
-              <th>Compound</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody id="mainTbody">
-            <tr><td colspan="8" class="text-center text-muted py-5">Loading…</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
+    <!-- Right: day programme -->
+    <div class="rp-main" id="rpMain">
 
+      <!-- No event selected -->
+      <div class="rp-empty-state" id="rpEmptyState">
+        <i class="bi bi-calendar3"></i>
+        <div class="rp-empty-title">No event selected</div>
+        <p>Choose an event from the left panel to view and edit its Day Programme.</p>
+      </div>
+
+      <!-- Programme content -->
+      <div class="rp-content" id="rpContent" style="display:none;">
+
+        <!-- Header -->
+        <div class="rp-header">
+          <div>
+            <div class="rp-ev-title" id="rpTitle">—</div>
+            <div class="rp-ev-subtitle" id="rpSubtitle">—</div>
+          </div>
+          <div class="rp-header-right">
+            <span class="rp-countdown" id="rpCountdown">No upcoming sessions</span>
+            <button class="rp-print-btn client" id="btnPrintClient"><i class="bi bi-printer"></i> Print Client</button>
+            <button class="rp-print-btn internal" id="btnPrintInternal"><i class="bi bi-printer-fill"></i> Print Internal</button>
+          </div>
+        </div>
+
+        <!-- Table -->
+        <div class="rp-table-area">
+          <div class="rp-table-card">
+            <table class="rp-table">
+              <thead>
+                <tr>
+                  <th style="width:76px;">Start</th>
+                  <th style="width:64px;">End</th>
+                  <th>Activity</th>
+                  <th style="width:160px;">Driver</th>
+                  <th style="width:100px;text-align:center;">Visibility</th>
+                  <th style="width:120px;text-align:center;">Status</th>
+                  <th style="width:100px;"></th>
+                </tr>
+              </thead>
+              <tbody id="rpTbody">
+                <tr class="rp-table-empty"><td colspan="7">No items yet — add one below.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Add-item form -->
+        <div class="rp-add-section">
+          <div class="rp-add-head"><i class="bi bi-plus-circle-fill"></i> Add Programme Item</div>
+          <div class="rp-add-row">
+            <div class="rp-add-field f-start">
+              <span class="rp-field-label">Start date &amp; time *</span>
+              <input id="rpInStart" type="datetime-local" class="form-control form-control-sm">
+            </div>
+            <div class="rp-add-field f-end">
+              <span class="rp-field-label">End time</span>
+              <input id="rpInEnd" type="time" class="form-control form-control-sm">
+            </div>
+            <div class="rp-add-field f-dur">
+              <span class="rp-field-label">Duration (min)</span>
+              <input id="rpInDur" type="number" min="1" step="1" placeholder="25" class="form-control form-control-sm">
+            </div>
+            <div class="rp-add-field f-name">
+              <span class="rp-field-label">Activity name *</span>
+              <input id="rpInName" type="text" placeholder="e.g. Qualifying, Free Practice, Race 1…" class="form-control form-control-sm">
+            </div>
+            <div class="rp-add-field f-driver">
+              <span class="rp-field-label">Driver</span>
+              <select id="rpInDriver" class="form-select form-select-sm"></select>
+            </div>
+            <div class="rp-add-field f-status">
+              <span class="rp-field-label">Status</span>
+              <select id="rpInStatus" class="form-select form-select-sm">
+                <option>Pending</option>
+                <option>On Track</option>
+                <option>Complete</option>
+              </select>
+            </div>
+          </div>
+          <div class="rp-add-row mt-2">
+            <div class="rp-add-field f-notes">
+              <span class="rp-field-label">Internal notes (hidden on client print)</span>
+              <input id="rpInNotes" type="text" placeholder="e.g. Check tyre temps, crew briefing at 08:30, fuel pressure warning…" class="form-control form-control-sm">
+            </div>
+            <div class="d-flex align-items-center gap-2 pb-1" style="white-space:nowrap;">
+              <input type="checkbox" id="rpInInternal" class="form-check-input mt-0">
+              <label for="rpInInternal" style="font-size:.8rem;color:#6b7280;cursor:pointer;">Internal only</label>
+            </div>
+            <div class="pb-1">
+              <button id="btnAddItem" class="btn btn-sm fw-semibold" style="background:#7c3aed;color:#fff;padding:.38rem 1.1rem;white-space:nowrap;">+ Add Item</button>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /rp-content -->
+    </div><!-- /rp-main -->
+  </div><!-- /rp-shell -->
 </div>
 
-<!-- Drawer overlay -->
-<div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
+<!-- Print overlay -->
+<div id="rpPrintOverlay"></div>
 
-<!-- Slide-in drawer -->
-<div class="drawer" id="drawer">
-  <div class="drawer-head">
-    <h5 id="drawerTitle">New Run Plan</h5>
-    <button type="button" class="btn-close btn-close-white" onclick="closeDrawer()"></button>
-  </div>
-  <div class="drawer-body">
-    <form id="runPlanForm" onsubmit="return false">
-      <input type="hidden" id="fId">
-      <div class="mb-3">
-        <label class="form-label fw-semibold">Session Name <span class="text-danger">*</span></label>
-        <input type="text" class="form-control" id="fSessionName" required placeholder="e.g. FP1, Q1, Race">
+<!-- Session Log modal -->
+<div class="modal fade" id="rpLogModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header" style="background:#7c3aed;color:#fff;">
+        <h5 class="modal-title" id="rpLogTitle">Session Log</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
-      <div class="row g-2 mb-3">
-        <div class="col">
-          <label class="form-label fw-semibold">Car #</label>
-          <input type="text" class="form-control" id="fCarNumber" placeholder="e.g. 7">
-        </div>
-        <div class="col">
-          <label class="form-label fw-semibold">Driver Name</label>
-          <input type="text" class="form-control" id="fDriverName">
-        </div>
-      </div>
-      <div class="section-label">Lap &amp; Fuel Data</div>
-      <div class="row g-2 mb-3">
-        <div class="col">
-          <label class="form-label fw-semibold">Planned Laps</label>
-          <input type="number" class="form-control" id="fPlannedLaps" min="0" placeholder="0">
-        </div>
-        <div class="col">
-          <label class="form-label fw-semibold">Actual Laps</label>
-          <input type="number" class="form-control" id="fActualLaps" min="0" placeholder="0">
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-6">
+            <label class="form-label fw-semibold">Weather / Track Conditions</label>
+            <input id="slWeather" class="form-control form-control-sm" placeholder="22°C / Dry / Windy">
+          </div>
+          <div class="col-6">
+            <label class="form-label fw-semibold">Tags</label>
+            <input id="slTags" class="form-control form-control-sm" placeholder="#understeer #brakes">
+          </div>
+          <div class="col-6">
+            <label class="form-label fw-semibold">Tyre Pressures — Cold</label>
+            <input id="slPressCold" class="form-control form-control-sm" placeholder="FL / FR / RL / RR">
+          </div>
+          <div class="col-6">
+            <label class="form-label fw-semibold">Tyre Pressures — Hot</label>
+            <input id="slPressHot" class="form-control form-control-sm" placeholder="FL / FR / RL / RR">
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-semibold">Driver Feedback</label>
+            <textarea id="slFeedback" class="form-control" rows="5" placeholder="Driver comments, handling notes, areas to investigate…"></textarea>
+          </div>
         </div>
       </div>
-      <div class="row g-2 mb-3">
-        <div class="col">
-          <label class="form-label fw-semibold">Fuel Load (L)</label>
-          <input type="number" class="form-control" id="fFuelLoad" step="0.01" min="0" placeholder="0.00">
-        </div>
-        <div class="col">
-          <label class="form-label fw-semibold">Tyre Compound</label>
-          <input type="text" class="form-control" id="fTyreCompound" placeholder="e.g. Soft">
-        </div>
+      <div class="modal-footer">
+        <button class="btn btn-sm fw-semibold" style="background:#7c3aed;color:#fff;" id="btnSlSave">Save Log</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Close</button>
       </div>
-      <div class="section-label">Plan Details</div>
-      <div class="mb-3">
-        <label class="form-label fw-semibold">Objectives</label>
-        <textarea class="form-control" id="fObjectives" rows="3" placeholder="Session objectives…"></textarea>
-      </div>
-      <div class="mb-3">
-        <label class="form-label fw-semibold">Notes</label>
-        <textarea class="form-control" id="fNotes" rows="3"></textarea>
-      </div>
-      <div class="row g-2 mb-3">
-        <div class="col">
-          <label class="form-label fw-semibold">Status</label>
-          <select class="form-select" id="fStatus">
-            <option value="planned">Planned</option>
-            <option value="in_progress">In Progress</option>
-            <option value="completed">Completed</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
-        </div>
-        <div class="col">
-          <label class="form-label fw-semibold">Created By</label>
-          <input type="text" class="form-control" id="fCreatedBy">
-        </div>
-      </div>
-    </form>
-  </div>
-  <div class="drawer-foot">
-    <button class="btn btn-outline-danger btn-sm d-none me-auto" id="btnDelete" onclick="deleteRecord()">Delete</button>
-    <button class="btn btn-secondary btn-sm" onclick="closeDrawer()">Cancel</button>
-    <button class="btn btn-sm fw-semibold" style="background:#7c3aed;color:#fff" onclick="saveRecord()">Save</button>
+    </div>
   </div>
 </div>
 
@@ -185,162 +262,387 @@
 <script src="core.js?v=20260420"></script>
 <script src="topnav.js?v=20260525"></script>
 <script>
-let allData = [];
-let currentId = null;
+(function () {
+  'use strict';
 
-async function loadData() {
-  try {
-    const res = await fetch('/api/run-plans');
-    if (!res.ok) throw new Error(res.status);
-    allData = await res.json();
-  } catch(e) { allData = []; }
-  populateCarFilter();
-  updateKPIs();
-  applyFilters();
-}
+  let allEvents  = [];
+  let selectedEv = null;
+  let logItemId  = null;
+  let logModal   = null;
+  let cdTimer    = null;
 
-function populateCarFilter() {
-  const cars = [...new Set(allData.map(r => r.car_number).filter(Boolean))].sort();
-  const sel = document.getElementById('filterCar');
-  const cur = sel.value;
-  sel.innerHTML = '<option value="">All</option>' + cars.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
-  sel.value = cur;
-}
-
-function updateKPIs() {
-  document.getElementById('kpiTotal').textContent      = allData.length;
-  document.getElementById('kpiPlanned').textContent    = allData.filter(r => r.status === 'planned').length;
-  document.getElementById('kpiInProgress').textContent = allData.filter(r => r.status === 'in_progress').length;
-  document.getElementById('kpiCompleted').textContent  = allData.filter(r => r.status === 'completed').length;
-}
-
-function statusBadge(s) {
-  const map = { planned:'bp-planned', in_progress:'bp-in_progress', completed:'bp-completed', cancelled:'bp-cancelled' };
-  return `<span class="bp ${map[s] || 'bp-cancelled'}">${(s||'—').replace('_',' ')}</span>`;
-}
-
-function applyFilters() {
-  const st  = document.getElementById('filterStatus').value;
-  const car = document.getElementById('filterCar').value;
-  const filtered = allData.filter(r =>
-    (!st  || r.status === st) &&
-    (!car || r.car_number === car)
-  );
-  renderTable(filtered);
-}
-
-function clearFilters() {
-  document.getElementById('filterStatus').value = '';
-  document.getElementById('filterCar').value    = '';
-  applyFilters();
-}
-
-function renderTable(data) {
-  const tbody = document.getElementById('mainTbody');
-  if (!data.length) {
-    tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-5">No records found</td></tr>';
-    return;
+  /* ── Helpers ── */
+  function esc(v) {
+    return String(v || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
   }
-  tbody.innerHTML = data.map(r => `
-    <tr onclick="selectRow(${r.id})" class="${currentId === r.id ? 'selected' : ''}">
-      <td class="fw-semibold">${esc(r.session_name)}</td>
-      <td>${esc(r.car_number)}</td>
-      <td>${esc(r.driver_name)}</td>
-      <td>${r.planned_laps ?? '—'}</td>
-      <td>${r.actual_laps ?? '—'}</td>
-      <td>${r.fuel_load != null ? Number(r.fuel_load).toFixed(2) : '—'}</td>
-      <td>${esc(r.tyre_compound)}</td>
-      <td>${statusBadge(r.status)}</td>
-    </tr>`).join('');
-}
+  function nowISO() { return new Date().toISOString(); }
+  function uid()    { return 'rp_' + Date.now() + '_' + Math.random().toString(36).slice(2,7); }
+  function cfg()    { return (RTS.getSettings ? RTS.getSettings() : {}); }
+  function driverNames() {
+    return (cfg().drivers || []).map(d => d.name || d.displayName || d.id).filter(Boolean);
+  }
+  function calcEnd(startISO, dur) {
+    if (!startISO || !dur) return '';
+    try {
+      const d = new Date(startISO);
+      d.setMinutes(d.getMinutes() + Number(dur));
+      return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    } catch (_) { return ''; }
+  }
+  function fmtDate(ev) {
+    const s = ev.startDate || ev.start_date || ev.start || '';
+    const e = ev.endDate   || ev.end_date   || ev.end   || '';
+    if (!s) return '';
+    const fmt = d => { try { return new Date(d).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}); } catch(_){ return d; } };
+    return (e && e !== s) ? `${fmt(s)} – ${fmt(e)}` : fmt(s);
+  }
 
-function esc(v) {
-  return v ? String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '—';
-}
+  /* ── Load events ── */
+  async function loadEvents() {
+    try {
+      const r = await fetch('/api/events', { cache:'no-store' });
+      const data = await r.json();
+      allEvents = Array.isArray(data.items) ? data.items : (Array.isArray(data) ? data : []);
+    } catch (_) { allEvents = []; }
+    renderSidebar();
+  }
 
-function selectRow(id) {
-  const rec = allData.find(r => r.id === id);
-  if (!rec) return;
-  currentId = id;
-  applyFilters();
-  openDrawer(rec);
-}
+  /* ── Sidebar ── */
+  function renderSidebar() {
+    const q = (document.getElementById('evSearch').value || '').toLowerCase().trim();
+    const list = allEvents
+      .filter(ev => {
+        const t = ((ev.title || ev.name || '') + ' ' + (ev.venue || '')).toLowerCase();
+        return !q || t.includes(q);
+      })
+      .sort((a, b) => {
+        const da = a.startDate || a.start_date || a.start || '';
+        const db = b.startDate || b.start_date || b.start || '';
+        return da > db ? -1 : da < db ? 1 : 0;
+      });
 
-function openDrawer(rec = null) {
-  document.getElementById('drawerTitle').textContent = rec ? 'Edit Run Plan' : 'New Run Plan';
-  document.getElementById('btnDelete').classList.toggle('d-none', !rec);
-  document.getElementById('fId').value          = rec ? rec.id : '';
-  document.getElementById('fSessionName').value = rec ? (rec.session_name || '') : '';
-  document.getElementById('fCarNumber').value   = rec ? (rec.car_number   || '') : '';
-  document.getElementById('fDriverName').value  = rec ? (rec.driver_name  || '') : '';
-  document.getElementById('fPlannedLaps').value = rec ? (rec.planned_laps ?? '') : '';
-  document.getElementById('fActualLaps').value  = rec ? (rec.actual_laps  ?? '') : '';
-  document.getElementById('fFuelLoad').value    = rec ? (rec.fuel_load    ?? '') : '';
-  document.getElementById('fTyreCompound').value= rec ? (rec.tyre_compound|| '') : '';
-  document.getElementById('fObjectives').value  = rec ? (rec.objectives   || '') : '';
-  document.getElementById('fNotes').value       = rec ? (rec.notes        || '') : '';
-  document.getElementById('fStatus').value      = rec ? (rec.status || 'planned') : 'planned';
-  document.getElementById('fCreatedBy').value   = rec ? (rec.created_by   || '') : '';
-  document.getElementById('drawer').classList.add('open');
-  document.getElementById('drawerOverlay').classList.add('open');
-}
+    const el = document.getElementById('evList');
+    if (!list.length) {
+      el.innerHTML = '<div class="rp-no-events">No events found.<br><a href="events.html">Add events here →</a></div>';
+      return;
+    }
+    el.innerHTML = list.map(ev => {
+      const name  = ev.title || ev.name || 'Untitled';
+      const meta  = [fmtDate(ev), ev.venue].filter(Boolean).join(' · ');
+      const count = (ev.runPlan || []).length;
+      const act   = selectedEv && String(selectedEv.id) === String(ev.id) ? 'active' : '';
+      return `<div class="rp-ev-item ${act}" onclick="rpSelectEvent(${JSON.stringify(String(ev.id))})">
+        <div class="rp-ev-name">${esc(name)}${count ? `<span class="rp-ev-count">${count}</span>` : ''}</div>
+        ${meta ? `<div class="rp-ev-meta">${esc(meta)}</div>` : ''}
+      </div>`;
+    }).join('');
+  }
 
-function closeDrawer() {
-  currentId = null;
-  document.getElementById('drawer').classList.remove('open');
-  document.getElementById('drawerOverlay').classList.remove('open');
-  applyFilters();
-}
-
-function buildPayload() {
-  return {
-    session_name : document.getElementById('fSessionName').value.trim(),
-    car_number   : document.getElementById('fCarNumber').value.trim(),
-    driver_name  : document.getElementById('fDriverName').value.trim(),
-    planned_laps : numOrNull('fPlannedLaps'),
-    actual_laps  : numOrNull('fActualLaps'),
-    fuel_load    : numOrNull('fFuelLoad'),
-    tyre_compound: document.getElementById('fTyreCompound').value.trim(),
-    objectives   : document.getElementById('fObjectives').value.trim(),
-    notes        : document.getElementById('fNotes').value.trim(),
-    status       : document.getElementById('fStatus').value,
-    created_by   : document.getElementById('fCreatedBy').value.trim()
+  window.rpSelectEvent = function (id) {
+    selectedEv = allEvents.find(ev => String(ev.id) === id) || null;
+    renderSidebar();
+    renderContent();
   };
-}
 
-function numOrNull(id) {
-  const v = document.getElementById(id).value;
-  return v !== '' ? Number(v) : null;
-}
+  /* ── Main content ── */
+  function renderContent() {
+    const empty   = document.getElementById('rpEmptyState');
+    const content = document.getElementById('rpContent');
+    if (!selectedEv) { empty.style.display = ''; content.style.display = 'none'; return; }
+    empty.style.display   = 'none';
+    content.style.display = 'flex';
+    document.getElementById('rpTitle').textContent    = selectedEv.title || selectedEv.name || 'Untitled Event';
+    document.getElementById('rpSubtitle').textContent = [fmtDate(selectedEv), selectedEv.venue].filter(Boolean).join(' · ');
+    populateDriverSelect();
+    renderTable();
+    updateCountdown();
+  }
 
-async function saveRecord() {
-  const payload = buildPayload();
-  if (!payload.session_name) { alert('Session Name is required'); return; }
-  const id = document.getElementById('fId').value;
-  try {
-    const res = await fetch(id ? `/api/run-plans/${id}` : '/api/run-plans', {
-      method : id ? 'PUT' : 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body   : JSON.stringify(payload)
+  function populateDriverSelect() {
+    const sel = document.getElementById('rpInDriver');
+    sel.innerHTML = ['<option value="">— All drivers —</option>']
+      .concat(driverNames().map(n => `<option>${esc(n)}</option>`))
+      .join('');
+  }
+
+  /* ── Table ── */
+  function renderTable() {
+    const tbody = document.getElementById('rpTbody');
+    const plan  = ((selectedEv && selectedEv.runPlan) || [])
+      .slice()
+      .sort((a, b) => (a.start || '').localeCompare(b.start || ''));
+
+    if (!plan.length) {
+      tbody.innerHTML = '<tr class="rp-table-empty"><td colspan="7">No items yet — add one below.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = plan.map(s => {
+      const startDisp   = s.start ? (s.start.includes('T') ? s.start.slice(11,16) : s.start) : '—';
+      const endDisp     = s.endTime || (s.durationMin ? calcEnd(s.start, s.durationMin) : '');
+      const statusClass = s.status === 'On Track' ? 'ontrack' : s.status === 'Complete' ? 'complete' : 'pending';
+      const intCls      = s.internalOnly ? 'rp-int' : '';
+      const logs        = selectedEv.sessionLogs || {};
+      const hasLog      = !!(logs[s.id] && (logs[s.id].feedback || logs[s.id].weather));
+      const logDot      = hasLog ? '<span class="rp-log-dot" title="Session log recorded"></span>' : '';
+
+      return `<tr class="${intCls}">
+        <td>
+          <span class="rp-time">${esc(startDisp)}</span>
+          ${endDisp ? `<span class="rp-endtime">${esc(endDisp)}</span>` : ''}
+        </td>
+        <td style="color:#9ca3af;font-size:.82rem;">${esc(endDisp)}</td>
+        <td>
+          <div class="rp-act-name">${esc(s.name || '')}${logDot}</div>
+          ${s.description ? `<div class="rp-act-desc">${esc(s.description)}</div>` : ''}
+        </td>
+        <td style="font-size:.83rem;color:#374151;">${esc(s.driver || '')}</td>
+        <td style="text-align:center;">${s.internalOnly ? '<span class="rp-vis-int">Internal</span>' : '<span class="rp-vis-pub">Public</span>'}</td>
+        <td style="text-align:center;">
+          <button class="rp-status-pill ${statusClass}" onclick="rpCycleStatus(${JSON.stringify(s.id)})" title="Click to advance status">${esc(s.status || 'Pending')}</button>
+        </td>
+        <td>
+          <div class="rp-row-actions">
+            <button class="btn btn-sm btn-outline-secondary" style="font-size:.72rem;padding:2px 9px;" onclick="rpOpenLog(${JSON.stringify(s.id)})"><i class="bi bi-journal-text"></i> Log</button>
+            <button class="btn btn-sm btn-outline-danger" style="font-size:.72rem;padding:2px 8px;" onclick="rpDeleteItem(${JSON.stringify(s.id)})">&times;</button>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  /* ── Status cycle ── */
+  window.rpCycleStatus = async function (itemId) {
+    if (!selectedEv || !selectedEv.runPlan) return;
+    const item = selectedEv.runPlan.find(s => s.id === itemId);
+    if (!item) return;
+    const cycle = { 'Pending':'On Track', 'On Track':'Complete', 'Complete':'Pending' };
+    item.status = cycle[item.status] || 'Pending';
+    selectedEv.updatedAt = nowISO();
+    await saveEvent();
+    renderTable();
+    updateCountdown();
+  };
+
+  /* ── Delete ── */
+  window.rpDeleteItem = async function (itemId) {
+    if (!selectedEv) return;
+    const item = (selectedEv.runPlan || []).find(s => s.id === itemId);
+    if (!item) return;
+    if (!confirm(`Remove "${item.name || 'this item'}" from the programme?`)) return;
+    selectedEv.runPlan = (selectedEv.runPlan || []).filter(s => s.id !== itemId);
+    selectedEv.updatedAt = nowISO();
+    await saveEvent();
+    renderTable();
+    renderSidebar();
+    updateCountdown();
+  };
+
+  /* ── Session Log ── */
+  window.rpOpenLog = function (itemId) {
+    if (!selectedEv) return;
+    const item = (selectedEv.runPlan || []).find(s => s.id === itemId);
+    if (!item) return;
+    logItemId = itemId;
+    const cur = (selectedEv.sessionLogs || {})[itemId] || {};
+    document.getElementById('rpLogTitle').textContent  = `Session Log — ${item.name || ''}`;
+    document.getElementById('slWeather').value   = cur.weather   || '';
+    document.getElementById('slTags').value      = cur.tags      || '';
+    document.getElementById('slPressCold').value = cur.pressCold || '';
+    document.getElementById('slPressHot').value  = cur.pressHot  || '';
+    document.getElementById('slFeedback').value  = cur.feedback  || '';
+    if (!logModal) logModal = new bootstrap.Modal(document.getElementById('rpLogModal'));
+    logModal.show();
+  };
+
+  document.getElementById('btnSlSave').addEventListener('click', async () => {
+    if (!selectedEv || !logItemId) return;
+    if (!selectedEv.sessionLogs) selectedEv.sessionLogs = {};
+    selectedEv.sessionLogs[logItemId] = {
+      weather:   document.getElementById('slWeather').value.trim(),
+      tags:      document.getElementById('slTags').value.trim(),
+      pressCold: document.getElementById('slPressCold').value.trim(),
+      pressHot:  document.getElementById('slPressHot').value.trim(),
+      feedback:  document.getElementById('slFeedback').value.trim(),
+      savedAt:   nowISO(),
+    };
+    selectedEv.updatedAt = nowISO();
+    await saveEvent();
+    logModal.hide();
+    renderTable();
+    if (RTS.showToast) RTS.showToast('Session log saved', 'success');
+  });
+
+  /* ── Add item ── */
+  document.getElementById('btnAddItem').addEventListener('click', addItem);
+  document.getElementById('rpInName').addEventListener('keydown', e => { if (e.key === 'Enter') addItem(); });
+
+  async function addItem() {
+    if (!selectedEv) return;
+    const start = document.getElementById('rpInStart').value;
+    if (!start) { alert('Start date & time is required.'); return; }
+    const name = document.getElementById('rpInName').value.trim() || 'Session';
+    if (!selectedEv.runPlan) selectedEv.runPlan = [];
+    selectedEv.runPlan.push({
+      id:           uid(),
+      start,
+      endTime:      document.getElementById('rpInEnd').value || '',
+      durationMin:  Number(document.getElementById('rpInDur').value || 0) || 0,
+      name,
+      description:  document.getElementById('rpInNotes').value.trim() || '',
+      driver:       document.getElementById('rpInDriver').value || '',
+      status:       document.getElementById('rpInStatus').value || 'Pending',
+      internalOnly: document.getElementById('rpInInternal').checked,
     });
-    if (!res.ok) throw new Error(await res.text());
-    closeDrawer();
-    await loadData();
-  } catch(e) { alert('Save failed: ' + e.message); }
-}
+    selectedEv.updatedAt = nowISO();
+    // Clear (keep start date for quick back-to-back entry)
+    document.getElementById('rpInEnd').value      = '';
+    document.getElementById('rpInDur').value      = '';
+    document.getElementById('rpInName').value     = '';
+    document.getElementById('rpInNotes').value    = '';
+    document.getElementById('rpInStatus').value   = 'Pending';
+    document.getElementById('rpInInternal').checked = false;
+    await saveEvent();
+    renderTable();
+    renderSidebar();
+    updateCountdown();
+    document.getElementById('rpInName').focus();
+  }
 
-async function deleteRecord() {
-  const id = document.getElementById('fId').value;
-  if (!id || !confirm('Delete this run plan? This cannot be undone.')) return;
-  try {
-    const res = await fetch(`/api/run-plans/${id}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error(await res.text());
-    closeDrawer();
-    await loadData();
-  } catch(e) { alert('Delete failed: ' + e.message); }
-}
+  /* ── Save event ── */
+  async function saveEvent() {
+    if (!selectedEv) return;
+    const idx = allEvents.findIndex(ev => String(ev.id) === String(selectedEv.id));
+    if (idx >= 0) allEvents[idx] = selectedEv;
+    try {
+      await fetch('/api/events/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: [selectedEv] }),
+      });
+    } catch (e) { console.warn('Save event failed', e); }
+  }
 
-loadData();
+  /* ── Countdown ── */
+  function updateCountdown() {
+    if (cdTimer) clearTimeout(cdTimer);
+    const el = document.getElementById('rpCountdown');
+    if (!el || !selectedEv) return;
+    const plan = ((selectedEv.runPlan) || []).slice().sort((a,b) => (a.start||'').localeCompare(b.start||''));
+    const now  = new Date();
+    const active = plan.find(s => {
+      if (s.status !== 'On Track') return false;
+      const st  = new Date(s.start || '');
+      const dur = Number(s.durationMin || 0);
+      return dur > 0 && now >= st && now < new Date(st.getTime() + dur * 60000);
+    });
+    if (active) {
+      const end = new Date(new Date(active.start).getTime() + active.durationMin * 60000);
+      const ms  = Math.max(0, end - now);
+      el.textContent = `Active: ${active.name} · ${Math.floor(ms/60000)}m ${String(Math.floor((ms%60000)/1000)).padStart(2,'0')}s left`;
+      el.className = 'rp-countdown active';
+    } else {
+      const next = plan.find(s => new Date(s.start || '') > now);
+      if (!next) { el.textContent = 'No upcoming sessions'; el.className = 'rp-countdown'; }
+      else {
+        const ms   = new Date(next.start) - now;
+        const hrs  = Math.floor(ms / 3600000);
+        const mins = Math.floor((ms % 3600000) / 60000);
+        const secs = Math.floor((ms % 60000) / 1000);
+        el.textContent = hrs > 0 ? `Next: ${next.name} in ${hrs}h ${mins}m` : `Next: ${next.name} in ${mins}m ${String(secs).padStart(2,'0')}s`;
+        el.className = 'rp-countdown';
+      }
+    }
+    cdTimer = setTimeout(updateCountdown, 1000);
+  }
+
+  /* ── Search ── */
+  document.getElementById('evSearch').addEventListener('input', renderSidebar);
+
+  /* ── Print ── */
+  document.getElementById('btnPrintClient').addEventListener('click', printClient);
+  document.getElementById('btnPrintInternal').addEventListener('click', printInternal);
+
+  function printClient() {
+    if (!selectedEv) return;
+    const s      = cfg();
+    const plan   = ((selectedEv.runPlan) || []).filter(i => !i.internalOnly).sort((a,b) => (a.start||'').localeCompare(b.start||''));
+    const team   = (s.teamName || s.organisationName || '').trim();
+    const logo   = (s.teamLogoUrl || '').trim();
+    const accent = s.brandColor || '#7c3aed';
+    const title  = fmtDate(selectedEv) || selectedEv.title || selectedEv.name || 'Event';
+    const venue  = selectedEv.venue || '';
+    const rows = plan.map((item, i) => {
+      const st  = item.start ? (item.start.includes('T') ? item.start.slice(11,16) : item.start) : '';
+      const end = item.endTime || (item.durationMin ? calcEnd(item.start, item.durationMin) : '');
+      const last = i === plan.length - 1;
+      return `<div style="display:flex;align-items:flex-start;padding:10px 0;border-bottom:${last?'none':'1px solid rgba(255,255,255,0.08)'};">
+        <div style="min-width:56px;flex-shrink:0;padding-right:10px;border-right:2px solid ${esc(accent)};margin-right:16px;">
+          <div style="font-size:1rem;font-weight:800;color:#fff;">${esc(st)}</div>
+          ${end ? `<div style="font-size:0.72rem;color:rgba(255,255,255,0.38);margin-top:2px;">${esc(end)}</div>` : ''}
+        </div>
+        <div style="flex:1;padding-top:1px;">
+          <div style="font-size:1rem;font-style:italic;color:#f0f0f0;">${esc(item.name||'')}</div>
+          ${item.durationMin ? `<div style="font-size:0.72rem;color:rgba(255,255,255,0.38);margin-top:2px;">${item.durationMin} mins</div>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+    const logoHtml = logo
+      ? `<img src="${esc(logo)}" alt="" style="height:88px;max-width:280px;object-fit:contain;">`
+      : team ? `<div style="display:flex;align-items:center;gap:10px;"><div style="width:80px;height:80px;border-radius:50%;background:${esc(accent)};display:flex;align-items:center;justify-content:center;font-size:2.4rem;font-weight:900;color:#fff;">${esc(team.charAt(0).toUpperCase())}</div><div style="font-size:.9rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase;">${esc(team)}</div></div>` : '<div></div>';
+    const ov = document.getElementById('rpPrintOverlay');
+    ov.innerHTML = `<style>#rpPrintOverlay{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif;background:#0a0a0a;color:#fff;min-height:100vh;display:flex;justify-content:center;padding:0 16px 60px;box-sizing:border-box;}@media print{#rpPrintOverlay{background:#0a0a0a!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}}</style>
+      <div style="width:100%;max-width:440px;padding-top:32px;">
+        <div style="height:5px;background:${esc(accent)};margin-bottom:28px;border-radius:0 0 3px 3px;"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:10px;">${logoHtml}<div style="text-align:right;"><div style="font-size:1rem;font-weight:700;">${esc(title)}</div>${venue?`<div style="font-size:0.72rem;color:rgba(255,255,255,0.45);margin-top:3px;">${esc(venue)}</div>`:''}</div></div>
+        <div style="height:1px;background:linear-gradient(90deg,${esc(accent)},rgba(255,255,255,0.08));margin-bottom:18px;"></div>
+        <div style="font-size:0.62rem;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:rgba(255,255,255,0.35);margin-bottom:12px;">Programme</div>
+        ${rows||'<div style="text-align:center;opacity:.35;font-style:italic;padding:20px 0;">No public items.</div>'}
+        <div style="margin-top:40px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.08);text-align:center;font-size:0.62rem;color:rgba(255,255,255,0.25);">OFFICIAL PROGRAMME</div>
+      </div>`;
+    ov.style.display = 'block';
+    setTimeout(() => { window.print(); ov.style.display = 'none'; }, 150);
+  }
+
+  function printInternal() {
+    if (!selectedEv) return;
+    const s      = cfg();
+    const plan   = ((selectedEv.runPlan) || []).sort((a,b) => (a.start||'').localeCompare(b.start||''));
+    const team   = (s.teamName || s.organisationName || '').trim();
+    const logo   = (s.teamLogoUrl || '').trim();
+    const accent = s.brandColor || '#7c3aed';
+    const title  = fmtDate(selectedEv) || selectedEv.title || selectedEv.name || 'Event';
+    const venue  = selectedEv.venue || '';
+    const rows = plan.map((item, i) => {
+      const st   = item.start ? (item.start.includes('T') ? item.start.slice(11,16) : item.start) : '';
+      const end  = item.endTime || (item.durationMin ? calcEnd(item.start, item.durationMin) : '');
+      const last = i === plan.length - 1;
+      const isInt = !!item.internalOnly;
+      const detail = [item.driver?`Driver: ${esc(item.driver)}`:'', item.status&&item.status!=='Pending'?`Status: ${esc(item.status)}`:'', item.description?esc(item.description):''].filter(Boolean).join(' · ');
+      return `<div style="display:flex;align-items:flex-start;padding:9px 10px 9px ${isInt?'8px':'10px'};border-bottom:${last?'none':'1px solid rgba(255,255,255,0.07)'};${isInt?'background:rgba(255,200,0,0.05);border-left:3px solid rgba(255,193,7,0.5);':''}">
+        <div style="min-width:56px;flex-shrink:0;margin-right:14px;"><div style="font-size:0.95rem;font-weight:800;color:#e0e3e6;">${esc(st)}</div>${end?`<div style="font-size:0.7rem;color:#555;margin-top:2px;">${esc(end)}</div>`:''}</div>
+        <div style="flex:1;"><div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;"><span style="font-size:0.95rem;font-style:italic;color:#dde1e5;">${esc(item.name||'')}</span>${isInt?'<span style="font-size:.6rem;background:rgba(255,193,7,.2);color:#ffc107;padding:1px 6px;border-radius:3px;font-weight:700;">INTERNAL</span>':''}</div>${detail?`<div style="font-size:0.75rem;color:#666;margin-top:3px;">${detail}</div>`:''}</div>
+      </div>`;
+    }).join('');
+    const logoHtml = logo ? `<img src="${esc(logo)}" alt="" style="height:38px;max-width:130px;object-fit:contain;opacity:0.7;">` : team ? `<div style="display:flex;align-items:center;gap:9px;"><div style="width:34px;height:34px;border-radius:50%;background:${esc(accent)};display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:900;color:#fff;">${esc(team.charAt(0).toUpperCase())}</div><div style="font-size:.8rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#9aa0a6;">${esc(team)}</div></div>` : '';
+    const ov = document.getElementById('rpPrintOverlay');
+    ov.innerHTML = `<style>#rpPrintOverlay{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif;background:#0f1115;color:#e0e3e6;min-height:100vh;padding:0 20px 50px;max-width:700px;margin:0 auto;box-sizing:border-box;}@media print{#rpPrintOverlay{background:#0f1115!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}}</style>
+      <div style="height:4px;background:linear-gradient(90deg,${esc(accent)},#444);margin-bottom:24px;"></div>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:12px;">
+        <div><div style="font-size:1.3rem;font-weight:800;color:#e8ecf0;">${esc(title)}</div>${venue?`<div style="font-size:0.78rem;color:#5a6270;margin-top:4px;">${esc(venue)}</div>`:''}<div style="margin-top:8px;display:inline-flex;align-items:center;gap:6px;background:rgba(255,193,7,.1);border:1px solid rgba(255,193,7,.3);border-radius:4px;padding:3px 10px;"><span style="width:7px;height:7px;border-radius:50%;background:#ffc107;display:inline-block;"></span><span style="font-size:0.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#ffc107;">Internal — Not for Distribution</span></div></div>
+        <div style="text-align:right;">${logoHtml}</div>
+      </div>
+      <div style="height:1px;background:rgba(255,255,255,0.08);margin-bottom:16px;"></div>
+      <div style="font-size:0.6rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:rgba(255,255,255,0.25);margin-bottom:10px;">Full Programme</div>
+      <div style="border:1px solid rgba(255,255,255,0.08);border-radius:8px;overflow:hidden;">${rows||'<div style="text-align:center;opacity:.3;font-style:italic;padding:20px;">No programme items yet.</div>'}</div>
+      <div style="margin-top:22px;display:flex;align-items:center;justify-content:space-between;font-size:0.72rem;color:rgba(255,255,255,0.2);"><span>Generated ${new Date().toLocaleString()}</span><span style="font-weight:600;text-transform:uppercase;">${team?esc(team)+' · ':''}Motorsport</span></div>`;
+    ov.style.display = 'block';
+    setTimeout(() => { window.print(); ov.style.display = 'none'; }, 150);
+  }
+
+  /* ── Boot ── */
+  loadEvents();
+})();
 </script>
 </body>
 </html>
