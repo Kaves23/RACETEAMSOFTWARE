@@ -241,7 +241,7 @@
   const ah  = () => ({ 'Authorization': 'Bearer ' + localStorage.getItem('auth_token') });
   const ahj = () => ({ ...ah(), 'Content-Type': 'application/json' });
 
-  let allVehicles = [], allDrivers = [], allEvents = [];
+  let allVehicles = [], allStaff = [], allEvents = [];
   let activeStatus = '', searchQuery = '';
   let currentVehicleId = null;
 
@@ -254,13 +254,13 @@
     try {
       const [vRes, dRes, eRes] = await Promise.all([
         fetch(`${API}/api/trucks`,  { headers: ah() }),
-        fetch(`${API}/api/drivers`, { headers: ah() }),
+        fetch(`${API}/api/staff`,   { headers: ah() }),
         fetch(`${API}/api/events`,  { headers: ah() }),
       ]);
       if (mobileHandle401(vRes)) return;
       const vData = await vRes.json();
       allVehicles = vData.trucks || [];
-      if (dRes.ok) { const d = await dRes.json(); allDrivers = Array.isArray(d.items) ? d.items : (Array.isArray(d) ? d : []); }
+      if (dRes.ok) { const d = await dRes.json(); allStaff = Array.isArray(d.items) ? d.items : (Array.isArray(d) ? d : []); }
       if (eRes.ok) { const e = await eRes.json(); allEvents  = Array.isArray(e.items) ? e.items : (Array.isArray(e) ? e : []); }
       document.getElementById('btnLogTrip').style.display = '';
       document.getElementById('fabLogTrip').style.display = '';
@@ -477,7 +477,7 @@
     if (lockVehicleId) { vs.value=lockVehicleId; vRow.style.display='none'; } else { vRow.style.display=''; }
 
     document.getElementById('tripDriverName').innerHTML = '<option value="">— unassigned —</option>' +
-      allDrivers.map(d=>`<option value="${esc(d.name||(d.first_name+' '+(d.last_name||'')).trim())}">${esc(d.name||(d.first_name+' '+(d.last_name||'')).trim())}</option>`).join('');
+      allStaff.map(s=>`<option value="${esc(s.name)}">${esc(s.name)}${s.role?' · '+esc(s.role):''}</option>`).join('');
 
     const events = [...allEvents].sort((a,b)=>(b.startDate||b.start_date||'').localeCompare(a.startDate||a.start_date||''));
     document.getElementById('tripEventId').innerHTML = '<option value="">— no event —</option>' +
