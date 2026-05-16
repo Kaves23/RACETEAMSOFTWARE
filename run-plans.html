@@ -8,51 +8,137 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <link rel="stylesheet" href="style.css?v=20260525">
   <style>
-    body { background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%); min-height:100vh; }
+    body { background:#f0f2f5; min-height:100vh; }
     .rts-main { padding:0 !important; }
 
-    .rp-shell { display:flex; height:calc(100vh - var(--rts-topbar-h,84px)); overflow:hidden; }
+    /* ── Page shell ── */
+    .rp-page {
+      display:flex; flex-direction:column;
+      height:calc(100vh - 84px);
+      overflow:hidden;
+    }
 
-    /* ── Left sidebar ── */
-    .rp-sidebar { width:264px; flex-shrink:0; background:#fff; border-right:1px solid #e5e7eb; display:flex; flex-direction:column; overflow:hidden; }
-    .rp-sidebar-head { padding:.9rem 1rem .75rem; border-bottom:1px solid #e5e7eb; flex-shrink:0; display:flex; flex-direction:column; gap:.5rem; }
-    .rp-sidebar-title { font-weight:800; font-size:.8rem; text-transform:uppercase; letter-spacing:.07em; color:#374151; display:flex; align-items:center; gap:.4rem; }
-    .rp-sidebar-title i { color:#7c3aed; }
-    .rp-ev-list { flex:1; overflow-y:auto; padding:.35rem 0; }
-    .rp-ev-item { padding:.6rem 1rem .6rem 1.1rem; cursor:pointer; border-left:3px solid transparent; transition:all .15s; display:flex; flex-direction:column; gap:2px; }
-    .rp-ev-item:hover { background:#f5f3ff; border-left-color:#c4b5fd; }
-    .rp-ev-item.active { background:#ede9fe; border-left-color:#7c3aed; }
-    .rp-ev-name { font-weight:600; font-size:.84rem; color:#1f2937; }
-    .rp-ev-meta { font-size:.72rem; color:#6b7280; }
-    .rp-ev-count { display:inline-block; background:#7c3aed; color:#fff; border-radius:10px; font-size:.62rem; font-weight:700; padding:1px 6px; vertical-align:middle; margin-left:5px; }
-    .rp-no-events { padding:2.5rem 1rem; text-align:center; color:#9ca3af; font-size:.82rem; line-height:1.6; }
+    /* ── Top bar ── */
+    .rp-topbar {
+      background:#fff; border-bottom:1px solid #e5e7eb;
+      padding:.75rem 1.5rem; display:flex; align-items:center;
+      gap:.9rem; flex-shrink:0; flex-wrap:wrap;
+    }
+    .rp-page-title {
+      font-weight:800; font-size:1rem; color:#1f2937;
+      display:flex; align-items:center; gap:.45rem;
+      white-space:nowrap;
+    }
+    .rp-page-title i { color:#7c3aed; font-size:1.1rem; }
+    .rp-divider { width:1px; height:28px; background:#e5e7eb; flex-shrink:0; }
 
-    /* ── Main area ── */
-    .rp-main { flex:1; display:flex; flex-direction:column; overflow:hidden; min-width:0; }
-    .rp-empty-state { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.75rem; color:#9ca3af; text-align:center; padding:2rem; }
-    .rp-empty-state i { font-size:4rem; opacity:.2; }
-    .rp-empty-state .rp-empty-title { font-weight:700; font-size:1rem; color:#374151; }
-    .rp-empty-state p { font-size:.84rem; max-width:300px; margin:0; }
-    .rp-content { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+    /* Custom event picker */
+    .rp-picker-wrap { position:relative; flex-shrink:0; }
+    .rp-picker-btn {
+      display:inline-flex; align-items:center; gap:.5rem;
+      background:#fff; border:1.5px solid #d1d5db; border-radius:8px;
+      padding:.42rem .85rem; cursor:pointer; transition:border-color .15s;
+      min-width:260px; max-width:420px; text-align:left;
+    }
+    .rp-picker-btn:hover, .rp-picker-btn.open { border-color:#7c3aed; }
+    .rp-picker-btn.open { background:#faf8ff; }
+    .rp-picker-label {
+      flex:1; overflow:hidden;
+    }
+    .rp-picker-name {
+      font-weight:700; font-size:.84rem; color:#1f2937;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
+    .rp-picker-sub {
+      font-size:.7rem; color:#6b7280; white-space:nowrap;
+      overflow:hidden; text-overflow:ellipsis;
+    }
+    .rp-picker-placeholder { font-size:.84rem; color:#9ca3af; }
+    .rp-picker-caret { color:#9ca3af; font-size:.8rem; flex-shrink:0; transition:transform .15s; }
+    .rp-picker-btn.open .rp-picker-caret { transform:rotate(180deg); }
+    .rp-picker-dropdown {
+      display:none; position:absolute; top:calc(100% + 6px); left:0;
+      min-width:340px; max-width:500px;
+      background:#fff; border:1px solid #e5e7eb; border-radius:10px;
+      box-shadow:0 8px 30px rgba(0,0,0,.13);
+      z-index:500; overflow:hidden;
+    }
+    .rp-picker-dropdown.open { display:block; }
+    .rp-picker-search {
+      padding:.65rem .85rem; border-bottom:1px solid #f3f4f6;
+    }
+    .rp-picker-search input {
+      width:100%; border:1px solid #e5e7eb; border-radius:6px;
+      padding:.35rem .65rem; font-size:.82rem; outline:none;
+    }
+    .rp-picker-search input:focus { border-color:#7c3aed; }
+    .rp-picker-list { max-height:280px; overflow-y:auto; }
+    .rp-picker-item {
+      padding:.65rem .9rem; cursor:pointer; border-bottom:1px solid #f9fafb;
+      display:flex; align-items:center; gap:.6rem; transition:background .12s;
+    }
+    .rp-picker-item:last-child { border-bottom:none; }
+    .rp-picker-item:hover { background:#f5f3ff; }
+    .rp-picker-item.active { background:#ede9fe; }
+    .rp-picker-item-dot {
+      width:8px; height:8px; border-radius:50%; background:#d1d5db; flex-shrink:0;
+    }
+    .rp-picker-item.active .rp-picker-item-dot { background:#7c3aed; }
+    .rp-picker-item-label { flex:1; min-width:0; }
+    .rp-picker-item-name {
+      font-weight:600; font-size:.83rem; color:#1f2937;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
+    .rp-picker-item-meta {
+      font-size:.7rem; color:#9ca3af; white-space:nowrap;
+      overflow:hidden; text-overflow:ellipsis;
+    }
+    .rp-picker-item-count {
+      background:#ede9fe; color:#7c3aed; border-radius:10px;
+      font-size:.62rem; font-weight:700; padding:1px 7px; flex-shrink:0;
+    }
+    .rp-picker-empty { padding:1.5rem; text-align:center; color:#9ca3af; font-size:.82rem; }
 
-    /* Header bar */
-    .rp-header { background:#fff; border-bottom:1px solid #e5e7eb; padding:.8rem 1.5rem; display:flex; align-items:center; gap:1rem; flex-shrink:0; flex-wrap:wrap; }
-    .rp-ev-title { font-weight:800; font-size:1.05rem; color:#1f2937; }
-    .rp-ev-subtitle { font-size:.78rem; color:#6b7280; margin-top:1px; }
-    .rp-header-right { margin-left:auto; display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; }
-    .rp-countdown { background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; border-radius:20px; padding:4px 14px; font-size:.75rem; font-weight:600; white-space:nowrap; transition:all .3s; }
+    /* Topbar right */
+    .rp-topbar-right { margin-left:auto; display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; }
+    .rp-countdown {
+      background:#f0fdf4; border:1px solid #bbf7d0; color:#166534;
+      border-radius:20px; padding:4px 14px; font-size:.74rem; font-weight:600;
+      white-space:nowrap; transition:all .3s;
+    }
     .rp-countdown.active { background:#fff7ed; border-color:#fed7aa; color:#9a3412; }
-    .rp-print-btn { font-size:.77rem; padding:5px 13px; border-radius:20px; border:1px solid #dee2e6; background:#fff; cursor:pointer; font-weight:500; transition:background .15s; display:inline-flex; align-items:center; gap:4px; }
+    .rp-print-btn {
+      font-size:.77rem; padding:5px 13px; border-radius:20px;
+      border:1px solid #dee2e6; background:#fff; cursor:pointer;
+      font-weight:500; transition:background .15s;
+      display:inline-flex; align-items:center; gap:4px;
+    }
     .rp-print-btn.client { border-color:#1a0d2e; color:#1a0d2e; }
     .rp-print-btn.client:hover { background:rgba(26,13,46,.07); }
     .rp-print-btn.internal { border-color:#fd7e14; color:#b45309; }
     .rp-print-btn.internal:hover { background:rgba(253,126,20,.07); }
 
-    /* Table */
+    /* ── Body area ── */
+    .rp-body { flex:1; overflow:hidden; display:flex; flex-direction:column; }
+
+    /* Empty state */
+    .rp-empty-state {
+      flex:1; display:flex; flex-direction:column;
+      align-items:center; justify-content:center;
+      gap:.75rem; text-align:center; padding:2rem;
+    }
+    .rp-empty-state i { font-size:3.5rem; opacity:.15; color:#7c3aed; }
+    .rp-empty-state .rp-es-title { font-weight:700; font-size:.95rem; color:#374151; }
+    .rp-empty-state p { font-size:.83rem; color:#9ca3af; max-width:280px; margin:0; }
+
+    /* Content */
+    .rp-content { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+
+    /* Table area */
     .rp-table-area { flex:1; overflow-y:auto; padding:1.1rem 1.5rem .5rem; }
     .rp-table-card { background:#fff; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,.07); overflow:hidden; }
     .rp-table { width:100%; border-collapse:collapse; font-size:.855rem; }
-    .rp-table th { background:#7c3aed; color:#fff; font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; padding:.75rem 1rem; border:none; white-space:nowrap; }
+    .rp-table th { background:#1a0d2e; color:#fff; font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; padding:.75rem 1rem; border:none; white-space:nowrap; }
     .rp-table td { padding:.8rem 1rem; border-bottom:1px solid #f3f4f6; vertical-align:middle; }
     .rp-table tr:last-child td { border-bottom:none; }
     .rp-table tr:hover td { background:#faf8ff; }
@@ -101,118 +187,130 @@
 <div id="rtsTopNav"></div>
 
 <div class="rts-main container-fluid">
-  <div class="rp-shell">
+<div class="rp-page">
 
-    <!-- Left: event list -->
-    <aside class="rp-sidebar">
-      <div class="rp-sidebar-head">
-        <div class="rp-sidebar-title"><i class="bi bi-calendar3-event"></i> Events</div>
-        <input id="evSearch" type="search" class="form-control form-control-sm" placeholder="Search events…" style="font-size:.78rem;">
+  <!-- ── Top bar ── -->
+  <div class="rp-topbar">
+    <div class="rp-page-title"><i class="bi bi-calendar3-event"></i> Day Programme</div>
+    <div class="rp-divider"></div>
+
+    <!-- Custom event picker -->
+    <div class="rp-picker-wrap" id="pickerWrap">
+      <div class="rp-picker-btn" id="pickerBtn" onclick="pickerToggle()">
+        <i class="bi bi-calendar2-check" style="color:#7c3aed;font-size:.9rem;flex-shrink:0;"></i>
+        <div class="rp-picker-label" id="pickerLabel">
+          <div class="rp-picker-placeholder">Select an event…</div>
+        </div>
+        <i class="bi bi-chevron-down rp-picker-caret"></i>
       </div>
-      <div class="rp-ev-list" id="evList">
-        <div class="rp-no-events">Loading…</div>
+      <div class="rp-picker-dropdown" id="pickerDropdown">
+        <div class="rp-picker-search">
+          <input id="pickerSearch" type="search" placeholder="Search events…" autocomplete="off" oninput="pickerFilter()">
+        </div>
+        <div class="rp-picker-list" id="pickerList">
+          <div class="rp-picker-empty">Loading…</div>
+        </div>
       </div>
-    </aside>
+    </div>
 
-    <!-- Right: day programme -->
-    <div class="rp-main" id="rpMain">
+    <div class="rp-topbar-right">
+      <span class="rp-countdown" id="rpCountdown" style="display:none;"></span>
+      <button class="rp-print-btn client" id="btnPrintClient" style="display:none;">
+        <i class="bi bi-printer"></i> Print Client
+      </button>
+      <button class="rp-print-btn internal" id="btnPrintInternal" style="display:none;">
+        <i class="bi bi-printer-fill"></i> Print Internal
+      </button>
+    </div>
+  </div>
 
-      <!-- No event selected -->
-      <div class="rp-empty-state" id="rpEmptyState">
-        <i class="bi bi-calendar3"></i>
-        <div class="rp-empty-title">No event selected</div>
-        <p>Choose an event from the left panel to view and edit its Day Programme.</p>
+  <!-- ── Body ── -->
+  <div class="rp-body">
+
+    <!-- Empty state -->
+    <div class="rp-empty-state" id="rpEmptyState">
+      <i class="bi bi-calendar3"></i>
+      <div class="rp-es-title">No event selected</div>
+      <p>Use the event picker above to load a Day Programme.</p>
+    </div>
+
+    <!-- Content (hidden until event selected) -->
+    <div class="rp-content" id="rpContent" style="display:none;">
+
+      <!-- Table -->
+      <div class="rp-table-area">
+        <div class="rp-table-card">
+          <table class="rp-table">
+            <thead>
+              <tr>
+                <th style="width:76px;">Start</th>
+                <th style="width:64px;">End</th>
+                <th>Activity</th>
+                <th style="width:160px;">Driver</th>
+                <th style="width:100px;text-align:center;">Visibility</th>
+                <th style="width:120px;text-align:center;">Status</th>
+                <th style="width:100px;"></th>
+              </tr>
+            </thead>
+            <tbody id="rpTbody">
+              <tr class="rp-table-empty"><td colspan="7">No items yet — add one below.</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      <!-- Programme content -->
-      <div class="rp-content" id="rpContent" style="display:none;">
-
-        <!-- Header -->
-        <div class="rp-header">
-          <div>
-            <div class="rp-ev-title" id="rpTitle">—</div>
-            <div class="rp-ev-subtitle" id="rpSubtitle">—</div>
+      <!-- Add-item form -->
+      <div class="rp-add-section">
+        <div class="rp-add-head"><i class="bi bi-plus-circle-fill"></i> Add Programme Item</div>
+        <div class="rp-add-row">
+          <div class="rp-add-field f-start">
+            <span class="rp-field-label">Start date &amp; time *</span>
+            <input id="rpInStart" type="datetime-local" class="form-control form-control-sm">
           </div>
-          <div class="rp-header-right">
-            <span class="rp-countdown" id="rpCountdown">No upcoming sessions</span>
-            <button class="rp-print-btn client" id="btnPrintClient"><i class="bi bi-printer"></i> Print Client</button>
-            <button class="rp-print-btn internal" id="btnPrintInternal"><i class="bi bi-printer-fill"></i> Print Internal</button>
+          <div class="rp-add-field f-end">
+            <span class="rp-field-label">End time</span>
+            <input id="rpInEnd" type="time" class="form-control form-control-sm">
+          </div>
+          <div class="rp-add-field f-dur">
+            <span class="rp-field-label">Duration (min)</span>
+            <input id="rpInDur" type="number" min="1" step="1" placeholder="25" class="form-control form-control-sm">
+          </div>
+          <div class="rp-add-field f-name">
+            <span class="rp-field-label">Activity name *</span>
+            <input id="rpInName" type="text" placeholder="e.g. Qualifying, Free Practice, Race 1…" class="form-control form-control-sm">
+          </div>
+          <div class="rp-add-field f-driver">
+            <span class="rp-field-label">Driver</span>
+            <select id="rpInDriver" class="form-select form-select-sm"></select>
+          </div>
+          <div class="rp-add-field f-status">
+            <span class="rp-field-label">Status</span>
+            <select id="rpInStatus" class="form-select form-select-sm">
+              <option>Pending</option>
+              <option>On Track</option>
+              <option>Complete</option>
+            </select>
           </div>
         </div>
-
-        <!-- Table -->
-        <div class="rp-table-area">
-          <div class="rp-table-card">
-            <table class="rp-table">
-              <thead>
-                <tr>
-                  <th style="width:76px;">Start</th>
-                  <th style="width:64px;">End</th>
-                  <th>Activity</th>
-                  <th style="width:160px;">Driver</th>
-                  <th style="width:100px;text-align:center;">Visibility</th>
-                  <th style="width:120px;text-align:center;">Status</th>
-                  <th style="width:100px;"></th>
-                </tr>
-              </thead>
-              <tbody id="rpTbody">
-                <tr class="rp-table-empty"><td colspan="7">No items yet — add one below.</td></tr>
-              </tbody>
-            </table>
+        <div class="rp-add-row mt-2">
+          <div class="rp-add-field f-notes">
+            <span class="rp-field-label">Internal notes (hidden on client print)</span>
+            <input id="rpInNotes" type="text" placeholder="e.g. Check tyre temps, crew briefing at 08:30, fuel pressure warning…" class="form-control form-control-sm">
+          </div>
+          <div class="d-flex align-items-center gap-2 pb-1" style="white-space:nowrap;">
+            <input type="checkbox" id="rpInInternal" class="form-check-input mt-0">
+            <label for="rpInInternal" style="font-size:.8rem;color:#6b7280;cursor:pointer;">Internal only</label>
+          </div>
+          <div class="pb-1">
+            <button id="btnAddItem" class="btn btn-sm fw-semibold" style="background:#7c3aed;color:#fff;padding:.38rem 1.1rem;white-space:nowrap;">+ Add Item</button>
           </div>
         </div>
+      </div>
 
-        <!-- Add-item form -->
-        <div class="rp-add-section">
-          <div class="rp-add-head"><i class="bi bi-plus-circle-fill"></i> Add Programme Item</div>
-          <div class="rp-add-row">
-            <div class="rp-add-field f-start">
-              <span class="rp-field-label">Start date &amp; time *</span>
-              <input id="rpInStart" type="datetime-local" class="form-control form-control-sm">
-            </div>
-            <div class="rp-add-field f-end">
-              <span class="rp-field-label">End time</span>
-              <input id="rpInEnd" type="time" class="form-control form-control-sm">
-            </div>
-            <div class="rp-add-field f-dur">
-              <span class="rp-field-label">Duration (min)</span>
-              <input id="rpInDur" type="number" min="1" step="1" placeholder="25" class="form-control form-control-sm">
-            </div>
-            <div class="rp-add-field f-name">
-              <span class="rp-field-label">Activity name *</span>
-              <input id="rpInName" type="text" placeholder="e.g. Qualifying, Free Practice, Race 1…" class="form-control form-control-sm">
-            </div>
-            <div class="rp-add-field f-driver">
-              <span class="rp-field-label">Driver</span>
-              <select id="rpInDriver" class="form-select form-select-sm"></select>
-            </div>
-            <div class="rp-add-field f-status">
-              <span class="rp-field-label">Status</span>
-              <select id="rpInStatus" class="form-select form-select-sm">
-                <option>Pending</option>
-                <option>On Track</option>
-                <option>Complete</option>
-              </select>
-            </div>
-          </div>
-          <div class="rp-add-row mt-2">
-            <div class="rp-add-field f-notes">
-              <span class="rp-field-label">Internal notes (hidden on client print)</span>
-              <input id="rpInNotes" type="text" placeholder="e.g. Check tyre temps, crew briefing at 08:30, fuel pressure warning…" class="form-control form-control-sm">
-            </div>
-            <div class="d-flex align-items-center gap-2 pb-1" style="white-space:nowrap;">
-              <input type="checkbox" id="rpInInternal" class="form-check-input mt-0">
-              <label for="rpInInternal" style="font-size:.8rem;color:#6b7280;cursor:pointer;">Internal only</label>
-            </div>
-            <div class="pb-1">
-              <button id="btnAddItem" class="btn btn-sm fw-semibold" style="background:#7c3aed;color:#fff;padding:.38rem 1.1rem;white-space:nowrap;">+ Add Item</button>
-            </div>
-          </div>
-        </div>
+    </div><!-- /rp-content -->
+  </div><!-- /rp-body -->
 
-      </div><!-- /rp-content -->
-    </div><!-- /rp-main -->
-  </div><!-- /rp-shell -->
+</div><!-- /rp-page -->
 </div>
 
 <!-- Print overlay -->
@@ -266,6 +364,7 @@
   'use strict';
 
   let allEvents  = [];
+  let filtered   = [];
   let selectedEv = null;
   let logItemId  = null;
   let logModal   = null;
@@ -273,11 +372,11 @@
 
   /* ── Helpers ── */
   function esc(v) {
-    return String(v || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
   }
   function nowISO() { return new Date().toISOString(); }
   function uid()    { return 'rp_' + Date.now() + '_' + Math.random().toString(36).slice(2,7); }
-  function cfg()    { return (RTS.getSettings ? RTS.getSettings() : {}); }
+  function cfg()    { return (typeof RTS !== 'undefined' && RTS.getSettings ? RTS.getSettings() : {}); }
   function driverNames() {
     return (cfg().drivers || []).map(d => d.name || d.displayName || d.id).filter(Boolean);
   }
@@ -286,7 +385,7 @@
     try {
       const d = new Date(startISO);
       d.setMinutes(d.getMinutes() + Number(dur));
-      return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+      return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
     } catch (_) { return ''; }
   }
   function fmtDate(ev) {
@@ -294,65 +393,128 @@
     const e = ev.endDate   || ev.end_date   || ev.end   || '';
     if (!s) return '';
     const fmt = d => { try { return new Date(d).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}); } catch(_){ return d; } };
-    return (e && e !== s) ? `${fmt(s)} – ${fmt(e)}` : fmt(s);
+    return (e && e !== s) ? fmt(s) + ' – ' + fmt(e) : fmt(s);
+  }
+  function sortedEvents(list) {
+    return list.slice().sort((a,b) => {
+      const da = a.startDate||a.start_date||a.start||'';
+      const db = b.startDate||b.start_date||b.start||'';
+      return da > db ? -1 : da < db ? 1 : 0;
+    });
   }
 
   /* ── Load events ── */
   async function loadEvents() {
     try {
-      const r = await fetch('/api/events', { cache:'no-store' });
+      const r    = await fetch('/api/events', { cache:'no-store' });
       const data = await r.json();
-      allEvents = Array.isArray(data.items) ? data.items : (Array.isArray(data) ? data : []);
+      allEvents  = Array.isArray(data.items) ? data.items : (Array.isArray(data) ? data : []);
     } catch (_) { allEvents = []; }
-    renderSidebar();
+    filtered = sortedEvents(allEvents);
+    renderPickerList();
   }
 
-  /* ── Sidebar ── */
-  function renderSidebar() {
-    const q = (document.getElementById('evSearch').value || '').toLowerCase().trim();
-    const list = allEvents
-      .filter(ev => {
-        const t = ((ev.title || ev.name || '') + ' ' + (ev.venue || '')).toLowerCase();
-        return !q || t.includes(q);
-      })
-      .sort((a, b) => {
-        const da = a.startDate || a.start_date || a.start || '';
-        const db = b.startDate || b.start_date || b.start || '';
-        return da > db ? -1 : da < db ? 1 : 0;
-      });
+  /* ── Picker ── */
+  window.pickerToggle = function () {
+    const btn = document.getElementById('pickerBtn');
+    const dd  = document.getElementById('pickerDropdown');
+    const open = dd.classList.contains('open');
+    if (open) {
+      pickerClose();
+    } else {
+      btn.classList.add('open');
+      dd.classList.add('open');
+      setTimeout(() => document.getElementById('pickerSearch').focus(), 50);
+    }
+  };
 
-    const el = document.getElementById('evList');
-    if (!list.length) {
-      el.innerHTML = '<div class="rp-no-events">No events found.<br><a href="events.html">Add events here →</a></div>';
+  function pickerClose() {
+    document.getElementById('pickerBtn').classList.remove('open');
+    document.getElementById('pickerDropdown').classList.remove('open');
+  }
+
+  window.pickerFilter = function () {
+    const q = (document.getElementById('pickerSearch').value || '').toLowerCase().trim();
+    filtered = sortedEvents(allEvents.filter(ev => {
+      const t = ((ev.title||ev.name||'') + ' ' + (ev.venue||'')).toLowerCase();
+      return !q || t.includes(q);
+    }));
+    renderPickerList();
+  };
+
+  function renderPickerList() {
+    const el = document.getElementById('pickerList');
+    if (!filtered.length) {
+      el.innerHTML = '<div class="rp-picker-empty">No events found. <a href="events.html">Add events →</a></div>';
       return;
     }
-    el.innerHTML = list.map(ev => {
+    el.innerHTML = filtered.map(ev => {
       const name  = ev.title || ev.name || 'Untitled';
       const meta  = [fmtDate(ev), ev.venue].filter(Boolean).join(' · ');
       const count = (ev.runPlan || []).length;
       const act   = selectedEv && String(selectedEv.id) === String(ev.id) ? 'active' : '';
-      return `<div class="rp-ev-item ${act}" onclick="rpSelectEvent(${JSON.stringify(String(ev.id))})">
-        <div class="rp-ev-name">${esc(name)}${count ? `<span class="rp-ev-count">${count}</span>` : ''}</div>
-        ${meta ? `<div class="rp-ev-meta">${esc(meta)}</div>` : ''}
-      </div>`;
+      return '<div class="rp-picker-item ' + act + '" onclick="pickerSelect(' + JSON.stringify(String(ev.id)) + ')">' +
+        '<div class="rp-picker-item-dot"></div>' +
+        '<div class="rp-picker-item-label">' +
+          '<div class="rp-picker-item-name">' + esc(name) + '</div>' +
+          (meta ? '<div class="rp-picker-item-meta">' + esc(meta) + '</div>' : '') +
+        '</div>' +
+        (count ? '<span class="rp-picker-item-count">' + count + '</span>' : '') +
+      '</div>';
     }).join('');
   }
 
-  window.rpSelectEvent = function (id) {
+  window.pickerSelect = function (id) {
     selectedEv = allEvents.find(ev => String(ev.id) === id) || null;
-    renderSidebar();
-    renderContent();
+    pickerClose();
+    document.getElementById('pickerSearch').value = '';
+    filtered = sortedEvents(allEvents);
+    renderPickerList();
+    updatePickerButton();
+    showContent();
   };
 
-  /* ── Main content ── */
-  function renderContent() {
+  function updatePickerButton() {
+    const lbl = document.getElementById('pickerLabel');
+    if (!selectedEv) {
+      lbl.innerHTML = '<div class="rp-picker-placeholder">Select an event…</div>';
+      return;
+    }
+    const name = selectedEv.title || selectedEv.name || 'Untitled';
+    const meta = [fmtDate(selectedEv), selectedEv.venue].filter(Boolean).join(' · ');
+    lbl.innerHTML =
+      '<div class="rp-picker-name">' + esc(name) + '</div>' +
+      (meta ? '<div class="rp-picker-sub">' + esc(meta) + '</div>' : '');
+  }
+
+  /* Close picker on outside click */
+  document.addEventListener('click', function (e) {
+    if (!document.getElementById('pickerWrap').contains(e.target)) pickerClose();
+  });
+
+  /* ── Show / hide content ── */
+  function showContent() {
     const empty   = document.getElementById('rpEmptyState');
     const content = document.getElementById('rpContent');
-    if (!selectedEv) { empty.style.display = ''; content.style.display = 'none'; return; }
+    const cdEl    = document.getElementById('rpCountdown');
+    const printC  = document.getElementById('btnPrintClient');
+    const printI  = document.getElementById('btnPrintInternal');
+
+    if (!selectedEv) {
+      empty.style.display   = '';
+      content.style.display = 'none';
+      cdEl.style.display    = 'none';
+      printC.style.display  = 'none';
+      printI.style.display  = 'none';
+      return;
+    }
+
     empty.style.display   = 'none';
     content.style.display = 'flex';
-    document.getElementById('rpTitle').textContent    = selectedEv.title || selectedEv.name || 'Untitled Event';
-    document.getElementById('rpSubtitle').textContent = [fmtDate(selectedEv), selectedEv.venue].filter(Boolean).join(' · ');
+    cdEl.style.display    = '';
+    printC.style.display  = '';
+    printI.style.display  = '';
+
     populateDriverSelect();
     renderTable();
     updateCountdown();
@@ -360,17 +522,15 @@
 
   function populateDriverSelect() {
     const sel = document.getElementById('rpInDriver');
-    sel.innerHTML = ['<option value="">— All drivers —</option>']
-      .concat(driverNames().map(n => `<option>${esc(n)}</option>`))
-      .join('');
+    sel.innerHTML = '<option value="">— All drivers —</option>' +
+      driverNames().map(n => '<option>' + esc(n) + '</option>').join('');
   }
 
   /* ── Table ── */
   function renderTable() {
     const tbody = document.getElementById('rpTbody');
     const plan  = ((selectedEv && selectedEv.runPlan) || [])
-      .slice()
-      .sort((a, b) => (a.start || '').localeCompare(b.start || ''));
+      .slice().sort((a,b) => (a.start||'').localeCompare(b.start||''));
 
     if (!plan.length) {
       tbody.innerHTML = '<tr class="rp-table-empty"><td colspan="7">No items yet — add one below.</td></tr>';
@@ -386,28 +546,20 @@
       const hasLog      = !!(logs[s.id] && (logs[s.id].feedback || logs[s.id].weather));
       const logDot      = hasLog ? '<span class="rp-log-dot" title="Session log recorded"></span>' : '';
 
-      return `<tr class="${intCls}">
-        <td>
-          <span class="rp-time">${esc(startDisp)}</span>
-          ${endDisp ? `<span class="rp-endtime">${esc(endDisp)}</span>` : ''}
-        </td>
-        <td style="color:#9ca3af;font-size:.82rem;">${esc(endDisp)}</td>
-        <td>
-          <div class="rp-act-name">${esc(s.name || '')}${logDot}</div>
-          ${s.description ? `<div class="rp-act-desc">${esc(s.description)}</div>` : ''}
-        </td>
-        <td style="font-size:.83rem;color:#374151;">${esc(s.driver || '')}</td>
-        <td style="text-align:center;">${s.internalOnly ? '<span class="rp-vis-int">Internal</span>' : '<span class="rp-vis-pub">Public</span>'}</td>
-        <td style="text-align:center;">
-          <button class="rp-status-pill ${statusClass}" onclick="rpCycleStatus(${JSON.stringify(s.id)})" title="Click to advance status">${esc(s.status || 'Pending')}</button>
-        </td>
-        <td>
-          <div class="rp-row-actions">
-            <button class="btn btn-sm btn-outline-secondary" style="font-size:.72rem;padding:2px 9px;" onclick="rpOpenLog(${JSON.stringify(s.id)})"><i class="bi bi-journal-text"></i> Log</button>
-            <button class="btn btn-sm btn-outline-danger" style="font-size:.72rem;padding:2px 8px;" onclick="rpDeleteItem(${JSON.stringify(s.id)})">&times;</button>
-          </div>
-        </td>
-      </tr>`;
+      return '<tr class="' + intCls + '">' +
+        '<td><span class="rp-time">' + esc(startDisp) + '</span>' +
+          (endDisp ? '<span class="rp-endtime">' + esc(endDisp) + '</span>' : '') + '</td>' +
+        '<td style="color:#9ca3af;font-size:.82rem;">' + esc(endDisp) + '</td>' +
+        '<td><div class="rp-act-name">' + esc(s.name||'') + logDot + '</div>' +
+          (s.description ? '<div class="rp-act-desc">' + esc(s.description) + '</div>' : '') + '</td>' +
+        '<td style="font-size:.83rem;color:#374151;">' + esc(s.driver||'') + '</td>' +
+        '<td style="text-align:center;">' + (s.internalOnly ? '<span class="rp-vis-int">Internal</span>' : '<span class="rp-vis-pub">Public</span>') + '</td>' +
+        '<td style="text-align:center;"><button class="rp-status-pill ' + statusClass + '" onclick="rpCycleStatus(' + JSON.stringify(s.id) + ')" title="Click to cycle status">' + esc(s.status||'Pending') + '</button></td>' +
+        '<td><div class="rp-row-actions">' +
+          '<button class="btn btn-sm btn-outline-secondary" style="font-size:.72rem;padding:2px 9px;" onclick="rpOpenLog(' + JSON.stringify(s.id) + ')"><i class="bi bi-journal-text"></i> Log</button>' +
+          '<button class="btn btn-sm btn-outline-danger" style="font-size:.72rem;padding:2px 8px;" onclick="rpDeleteItem(' + JSON.stringify(s.id) + ')">&times;</button>' +
+        '</div></td>' +
+      '</tr>';
     }).join('');
   }
 
@@ -427,25 +579,26 @@
   /* ── Delete ── */
   window.rpDeleteItem = async function (itemId) {
     if (!selectedEv) return;
-    const item = (selectedEv.runPlan || []).find(s => s.id === itemId);
+    const item = (selectedEv.runPlan||[]).find(s => s.id === itemId);
     if (!item) return;
-    if (!confirm(`Remove "${item.name || 'this item'}" from the programme?`)) return;
-    selectedEv.runPlan = (selectedEv.runPlan || []).filter(s => s.id !== itemId);
+    if (!confirm('Remove "' + (item.name||'this item') + '" from the programme?')) return;
+    selectedEv.runPlan = (selectedEv.runPlan||[]).filter(s => s.id !== itemId);
     selectedEv.updatedAt = nowISO();
     await saveEvent();
     renderTable();
-    renderSidebar();
+    renderPickerList();
+    updatePickerButton();
     updateCountdown();
   };
 
   /* ── Session Log ── */
   window.rpOpenLog = function (itemId) {
     if (!selectedEv) return;
-    const item = (selectedEv.runPlan || []).find(s => s.id === itemId);
+    const item = (selectedEv.runPlan||[]).find(s => s.id === itemId);
     if (!item) return;
     logItemId = itemId;
-    const cur = (selectedEv.sessionLogs || {})[itemId] || {};
-    document.getElementById('rpLogTitle').textContent  = `Session Log — ${item.name || ''}`;
+    const cur = (selectedEv.sessionLogs||{})[itemId] || {};
+    document.getElementById('rpLogTitle').textContent  = 'Session Log — ' + (item.name||'');
     document.getElementById('slWeather').value   = cur.weather   || '';
     document.getElementById('slTags').value      = cur.tags      || '';
     document.getElementById('slPressCold').value = cur.pressCold || '';
@@ -470,7 +623,7 @@
     await saveEvent();
     logModal.hide();
     renderTable();
-    if (RTS.showToast) RTS.showToast('Session log saved', 'success');
+    if (typeof RTS !== 'undefined' && RTS.showToast) RTS.showToast('Session log saved', 'success');
   });
 
   /* ── Add item ── */
@@ -487,7 +640,7 @@
       id:           uid(),
       start,
       endTime:      document.getElementById('rpInEnd').value || '',
-      durationMin:  Number(document.getElementById('rpInDur').value || 0) || 0,
+      durationMin:  Number(document.getElementById('rpInDur').value||0) || 0,
       name,
       description:  document.getElementById('rpInNotes').value.trim() || '',
       driver:       document.getElementById('rpInDriver').value || '',
@@ -495,21 +648,21 @@
       internalOnly: document.getElementById('rpInInternal').checked,
     });
     selectedEv.updatedAt = nowISO();
-    // Clear (keep start date for quick back-to-back entry)
-    document.getElementById('rpInEnd').value      = '';
-    document.getElementById('rpInDur').value      = '';
-    document.getElementById('rpInName').value     = '';
-    document.getElementById('rpInNotes').value    = '';
-    document.getElementById('rpInStatus').value   = 'Pending';
+    document.getElementById('rpInEnd').value     = '';
+    document.getElementById('rpInDur').value     = '';
+    document.getElementById('rpInName').value    = '';
+    document.getElementById('rpInNotes').value   = '';
+    document.getElementById('rpInStatus').value  = 'Pending';
     document.getElementById('rpInInternal').checked = false;
     await saveEvent();
     renderTable();
-    renderSidebar();
+    renderPickerList();
+    updatePickerButton();
     updateCountdown();
     document.getElementById('rpInName').focus();
   }
 
-  /* ── Save event ── */
+  /* ── Save ── */
   async function saveEvent() {
     if (!selectedEv) return;
     const idx = allEvents.findIndex(ev => String(ev.id) === String(selectedEv.id));
@@ -517,10 +670,10 @@
     try {
       await fetch('/api/events/sync', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: [selectedEv] }),
+        headers: { 'Content-Type':'application/json' },
+        body: JSON.stringify({ items:[selectedEv] }),
       });
-    } catch (e) { console.warn('Save event failed', e); }
+    } catch (e) { console.warn('Save failed', e); }
   }
 
   /* ── Countdown ── */
@@ -528,36 +681,35 @@
     if (cdTimer) clearTimeout(cdTimer);
     const el = document.getElementById('rpCountdown');
     if (!el || !selectedEv) return;
-    const plan = ((selectedEv.runPlan) || []).slice().sort((a,b) => (a.start||'').localeCompare(b.start||''));
+    const plan = ((selectedEv.runPlan)||[]).slice().sort((a,b) => (a.start||'').localeCompare(b.start||''));
     const now  = new Date();
     const active = plan.find(s => {
       if (s.status !== 'On Track') return false;
-      const st  = new Date(s.start || '');
-      const dur = Number(s.durationMin || 0);
-      return dur > 0 && now >= st && now < new Date(st.getTime() + dur * 60000);
+      const st  = new Date(s.start||'');
+      const dur = Number(s.durationMin||0);
+      return dur > 0 && now >= st && now < new Date(st.getTime() + dur*60000);
     });
     if (active) {
-      const end = new Date(new Date(active.start).getTime() + active.durationMin * 60000);
+      const end = new Date(new Date(active.start).getTime() + active.durationMin*60000);
       const ms  = Math.max(0, end - now);
-      el.textContent = `Active: ${active.name} · ${Math.floor(ms/60000)}m ${String(Math.floor((ms%60000)/1000)).padStart(2,'0')}s left`;
+      el.textContent = 'Active: ' + active.name + ' · ' + Math.floor(ms/60000) + 'm ' + String(Math.floor((ms%60000)/1000)).padStart(2,'0') + 's left';
       el.className = 'rp-countdown active';
     } else {
-      const next = plan.find(s => new Date(s.start || '') > now);
+      const next = plan.find(s => new Date(s.start||'') > now);
       if (!next) { el.textContent = 'No upcoming sessions'; el.className = 'rp-countdown'; }
       else {
         const ms   = new Date(next.start) - now;
-        const hrs  = Math.floor(ms / 3600000);
-        const mins = Math.floor((ms % 3600000) / 60000);
-        const secs = Math.floor((ms % 60000) / 1000);
-        el.textContent = hrs > 0 ? `Next: ${next.name} in ${hrs}h ${mins}m` : `Next: ${next.name} in ${mins}m ${String(secs).padStart(2,'0')}s`;
+        const hrs  = Math.floor(ms/3600000);
+        const mins = Math.floor((ms%3600000)/60000);
+        const secs = Math.floor((ms%60000)/1000);
+        el.textContent = hrs > 0
+          ? 'Next: ' + next.name + ' in ' + hrs + 'h ' + mins + 'm'
+          : 'Next: ' + next.name + ' in ' + mins + 'm ' + String(secs).padStart(2,'0') + 's';
         el.className = 'rp-countdown';
       }
     }
     cdTimer = setTimeout(updateCountdown, 1000);
   }
-
-  /* ── Search ── */
-  document.getElementById('evSearch').addEventListener('input', renderSidebar);
 
   /* ── Print ── */
   document.getElementById('btnPrintClient').addEventListener('click', printClient);
@@ -566,40 +718,40 @@
   function printClient() {
     if (!selectedEv) return;
     const s      = cfg();
-    const plan   = ((selectedEv.runPlan) || []).filter(i => !i.internalOnly).sort((a,b) => (a.start||'').localeCompare(b.start||''));
-    const team   = (s.teamName || s.organisationName || '').trim();
-    const logo   = (s.teamLogoUrl || '').trim();
+    const plan   = ((selectedEv.runPlan)||[]).filter(i => !i.internalOnly).sort((a,b) => (a.start||'').localeCompare(b.start||''));
+    const team   = (s.teamName||s.organisationName||'').trim();
+    const logo   = (s.teamLogoUrl||'').trim();
     const accent = s.brandColor || '#7c3aed';
     const title  = fmtDate(selectedEv) || selectedEv.title || selectedEv.name || 'Event';
     const venue  = selectedEv.venue || '';
-    const rows = plan.map((item, i) => {
+    const rows = plan.map((item,i) => {
       const st  = item.start ? (item.start.includes('T') ? item.start.slice(11,16) : item.start) : '';
-      const end = item.endTime || (item.durationMin ? calcEnd(item.start, item.durationMin) : '');
-      const last = i === plan.length - 1;
-      return `<div style="display:flex;align-items:flex-start;padding:10px 0;border-bottom:${last?'none':'1px solid rgba(255,255,255,0.08)'};">
-        <div style="min-width:56px;flex-shrink:0;padding-right:10px;border-right:2px solid ${esc(accent)};margin-right:16px;">
-          <div style="font-size:1rem;font-weight:800;color:#fff;">${esc(st)}</div>
-          ${end ? `<div style="font-size:0.72rem;color:rgba(255,255,255,0.38);margin-top:2px;">${esc(end)}</div>` : ''}
-        </div>
-        <div style="flex:1;padding-top:1px;">
-          <div style="font-size:1rem;font-style:italic;color:#f0f0f0;">${esc(item.name||'')}</div>
-          ${item.durationMin ? `<div style="font-size:0.72rem;color:rgba(255,255,255,0.38);margin-top:2px;">${item.durationMin} mins</div>` : ''}
-        </div>
-      </div>`;
+      const end = item.endTime || (item.durationMin ? calcEnd(item.start,item.durationMin) : '');
+      const last = i === plan.length-1;
+      return '<div style="display:flex;align-items:flex-start;padding:10px 0;border-bottom:' + (last?'none':'1px solid rgba(255,255,255,0.08)') + ';">' +
+        '<div style="min-width:56px;flex-shrink:0;padding-right:10px;border-right:2px solid ' + esc(accent) + ';margin-right:16px;">' +
+          '<div style="font-size:1rem;font-weight:800;color:#fff;">' + esc(st) + '</div>' +
+          (end ? '<div style="font-size:0.72rem;color:rgba(255,255,255,0.38);margin-top:2px;">' + esc(end) + '</div>' : '') +
+        '</div>' +
+        '<div style="flex:1;padding-top:1px;">' +
+          '<div style="font-size:1rem;font-style:italic;color:#f0f0f0;">' + esc(item.name||'') + '</div>' +
+          (item.durationMin ? '<div style="font-size:0.72rem;color:rgba(255,255,255,0.38);margin-top:2px;">' + item.durationMin + ' mins</div>' : '') +
+        '</div></div>';
     }).join('');
     const logoHtml = logo
-      ? `<img src="${esc(logo)}" alt="" style="height:88px;max-width:280px;object-fit:contain;">`
-      : team ? `<div style="display:flex;align-items:center;gap:10px;"><div style="width:80px;height:80px;border-radius:50%;background:${esc(accent)};display:flex;align-items:center;justify-content:center;font-size:2.4rem;font-weight:900;color:#fff;">${esc(team.charAt(0).toUpperCase())}</div><div style="font-size:.9rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase;">${esc(team)}</div></div>` : '<div></div>';
+      ? '<img src="' + esc(logo) + '" alt="" style="height:88px;max-width:280px;object-fit:contain;">'
+      : team ? '<div style="display:flex;align-items:center;gap:10px;"><div style="width:80px;height:80px;border-radius:50%;background:' + esc(accent) + ';display:flex;align-items:center;justify-content:center;font-size:2.4rem;font-weight:900;color:#fff;">' + esc(team.charAt(0).toUpperCase()) + '</div><div style="font-size:.9rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase;">' + esc(team) + '</div></div>' : '<div></div>';
     const ov = document.getElementById('rpPrintOverlay');
-    ov.innerHTML = `<style>#rpPrintOverlay{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif;background:#0a0a0a;color:#fff;min-height:100vh;display:flex;justify-content:center;padding:0 16px 60px;box-sizing:border-box;}@media print{#rpPrintOverlay{background:#0a0a0a!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}}</style>
-      <div style="width:100%;max-width:440px;padding-top:32px;">
-        <div style="height:5px;background:${esc(accent)};margin-bottom:28px;border-radius:0 0 3px 3px;"></div>
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:10px;">${logoHtml}<div style="text-align:right;"><div style="font-size:1rem;font-weight:700;">${esc(title)}</div>${venue?`<div style="font-size:0.72rem;color:rgba(255,255,255,0.45);margin-top:3px;">${esc(venue)}</div>`:''}</div></div>
-        <div style="height:1px;background:linear-gradient(90deg,${esc(accent)},rgba(255,255,255,0.08));margin-bottom:18px;"></div>
-        <div style="font-size:0.62rem;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:rgba(255,255,255,0.35);margin-bottom:12px;">Programme</div>
-        ${rows||'<div style="text-align:center;opacity:.35;font-style:italic;padding:20px 0;">No public items.</div>'}
-        <div style="margin-top:40px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.08);text-align:center;font-size:0.62rem;color:rgba(255,255,255,0.25);">OFFICIAL PROGRAMME</div>
-      </div>`;
+    ov.innerHTML = '<style>#rpPrintOverlay{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;background:#0a0a0a;color:#fff;min-height:100vh;display:flex;justify-content:center;padding:0 16px 60px;box-sizing:border-box;}@media print{#rpPrintOverlay{background:#0a0a0a!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}}</style>' +
+      '<div style="width:100%;max-width:440px;padding-top:32px;">' +
+        '<div style="height:5px;background:' + esc(accent) + ';margin-bottom:28px;border-radius:0 0 3px 3px;"></div>' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:10px;">' + logoHtml +
+          '<div style="text-align:right;"><div style="font-size:1rem;font-weight:700;">' + esc(title) + '</div>' + (venue ? '<div style="font-size:0.72rem;color:rgba(255,255,255,0.45);margin-top:3px;">' + esc(venue) + '</div>' : '') + '</div></div>' +
+        '<div style="height:1px;background:linear-gradient(90deg,' + esc(accent) + ',rgba(255,255,255,0.08));margin-bottom:18px;"></div>' +
+        '<div style="font-size:0.62rem;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:rgba(255,255,255,0.35);margin-bottom:12px;">Programme</div>' +
+        (rows||'<div style="text-align:center;opacity:.35;font-style:italic;padding:20px 0;">No public items.</div>') +
+        '<div style="margin-top:40px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.08);text-align:center;font-size:0.62rem;color:rgba(255,255,255,0.25);">OFFICIAL PROGRAMME</div>' +
+      '</div>';
     ov.style.display = 'block';
     setTimeout(() => { window.print(); ov.style.display = 'none'; }, 150);
   }
@@ -607,35 +759,36 @@
   function printInternal() {
     if (!selectedEv) return;
     const s      = cfg();
-    const plan   = ((selectedEv.runPlan) || []).sort((a,b) => (a.start||'').localeCompare(b.start||''));
-    const team   = (s.teamName || s.organisationName || '').trim();
-    const logo   = (s.teamLogoUrl || '').trim();
+    const plan   = ((selectedEv.runPlan)||[]).sort((a,b) => (a.start||'').localeCompare(b.start||''));
+    const team   = (s.teamName||s.organisationName||'').trim();
+    const logo   = (s.teamLogoUrl||'').trim();
     const accent = s.brandColor || '#7c3aed';
     const title  = fmtDate(selectedEv) || selectedEv.title || selectedEv.name || 'Event';
     const venue  = selectedEv.venue || '';
-    const rows = plan.map((item, i) => {
+    const rows = plan.map((item,i) => {
       const st   = item.start ? (item.start.includes('T') ? item.start.slice(11,16) : item.start) : '';
-      const end  = item.endTime || (item.durationMin ? calcEnd(item.start, item.durationMin) : '');
-      const last = i === plan.length - 1;
+      const end  = item.endTime || (item.durationMin ? calcEnd(item.start,item.durationMin) : '');
+      const last = i === plan.length-1;
       const isInt = !!item.internalOnly;
-      const detail = [item.driver?`Driver: ${esc(item.driver)}`:'', item.status&&item.status!=='Pending'?`Status: ${esc(item.status)}`:'', item.description?esc(item.description):''].filter(Boolean).join(' · ');
-      return `<div style="display:flex;align-items:flex-start;padding:9px 10px 9px ${isInt?'8px':'10px'};border-bottom:${last?'none':'1px solid rgba(255,255,255,0.07)'};${isInt?'background:rgba(255,200,0,0.05);border-left:3px solid rgba(255,193,7,0.5);':''}">
-        <div style="min-width:56px;flex-shrink:0;margin-right:14px;"><div style="font-size:0.95rem;font-weight:800;color:#e0e3e6;">${esc(st)}</div>${end?`<div style="font-size:0.7rem;color:#555;margin-top:2px;">${esc(end)}</div>`:''}</div>
-        <div style="flex:1;"><div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;"><span style="font-size:0.95rem;font-style:italic;color:#dde1e5;">${esc(item.name||'')}</span>${isInt?'<span style="font-size:.6rem;background:rgba(255,193,7,.2);color:#ffc107;padding:1px 6px;border-radius:3px;font-weight:700;">INTERNAL</span>':''}</div>${detail?`<div style="font-size:0.75rem;color:#666;margin-top:3px;">${detail}</div>`:''}</div>
-      </div>`;
+      const detail = [item.driver?'Driver: '+esc(item.driver):'', item.status&&item.status!=='Pending'?'Status: '+esc(item.status):'', item.description?esc(item.description):''].filter(Boolean).join(' · ');
+      return '<div style="display:flex;align-items:flex-start;padding:9px 10px 9px ' + (isInt?'8px':'10px') + ';border-bottom:' + (last?'none':'1px solid rgba(255,255,255,0.07)') + ';' + (isInt?'background:rgba(255,200,0,0.05);border-left:3px solid rgba(255,193,7,0.5);':'') + '">' +
+        '<div style="min-width:56px;flex-shrink:0;margin-right:14px;"><div style="font-size:0.95rem;font-weight:800;color:#e0e3e6;">' + esc(st) + '</div>' + (end?'<div style="font-size:0.7rem;color:#555;margin-top:2px;">'+esc(end)+'</div>':'') + '</div>' +
+        '<div style="flex:1;"><div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;"><span style="font-size:0.95rem;font-style:italic;color:#dde1e5;">' + esc(item.name||'') + '</span>' + (isInt?'<span style="font-size:.6rem;background:rgba(255,193,7,.2);color:#ffc107;padding:1px 6px;border-radius:3px;font-weight:700;">INTERNAL</span>':'') + '</div>' + (detail?'<div style="font-size:0.75rem;color:#666;margin-top:3px;">'+detail+'</div>':'') + '</div>' +
+      '</div>';
     }).join('');
-    const logoHtml = logo ? `<img src="${esc(logo)}" alt="" style="height:38px;max-width:130px;object-fit:contain;opacity:0.7;">` : team ? `<div style="display:flex;align-items:center;gap:9px;"><div style="width:34px;height:34px;border-radius:50%;background:${esc(accent)};display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:900;color:#fff;">${esc(team.charAt(0).toUpperCase())}</div><div style="font-size:.8rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#9aa0a6;">${esc(team)}</div></div>` : '';
+    const logoHtml = logo ? '<img src="' + esc(logo) + '" alt="" style="height:38px;max-width:130px;object-fit:contain;opacity:0.7;">' : team ? '<div style="display:flex;align-items:center;gap:9px;"><div style="width:34px;height:34px;border-radius:50%;background:' + esc(accent) + ';display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:900;color:#fff;">' + esc(team.charAt(0).toUpperCase()) + '</div><div style="font-size:.8rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#9aa0a6;">' + esc(team) + '</div></div>' : '';
     const ov = document.getElementById('rpPrintOverlay');
-    ov.innerHTML = `<style>#rpPrintOverlay{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif;background:#0f1115;color:#e0e3e6;min-height:100vh;padding:0 20px 50px;max-width:700px;margin:0 auto;box-sizing:border-box;}@media print{#rpPrintOverlay{background:#0f1115!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}}</style>
-      <div style="height:4px;background:linear-gradient(90deg,${esc(accent)},#444);margin-bottom:24px;"></div>
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:12px;">
-        <div><div style="font-size:1.3rem;font-weight:800;color:#e8ecf0;">${esc(title)}</div>${venue?`<div style="font-size:0.78rem;color:#5a6270;margin-top:4px;">${esc(venue)}</div>`:''}<div style="margin-top:8px;display:inline-flex;align-items:center;gap:6px;background:rgba(255,193,7,.1);border:1px solid rgba(255,193,7,.3);border-radius:4px;padding:3px 10px;"><span style="width:7px;height:7px;border-radius:50%;background:#ffc107;display:inline-block;"></span><span style="font-size:0.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#ffc107;">Internal — Not for Distribution</span></div></div>
-        <div style="text-align:right;">${logoHtml}</div>
-      </div>
-      <div style="height:1px;background:rgba(255,255,255,0.08);margin-bottom:16px;"></div>
-      <div style="font-size:0.6rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:rgba(255,255,255,0.25);margin-bottom:10px;">Full Programme</div>
-      <div style="border:1px solid rgba(255,255,255,0.08);border-radius:8px;overflow:hidden;">${rows||'<div style="text-align:center;opacity:.3;font-style:italic;padding:20px;">No programme items yet.</div>'}</div>
-      <div style="margin-top:22px;display:flex;align-items:center;justify-content:space-between;font-size:0.72rem;color:rgba(255,255,255,0.2);"><span>Generated ${new Date().toLocaleString()}</span><span style="font-weight:600;text-transform:uppercase;">${team?esc(team)+' · ':''}Motorsport</span></div>`;
+    ov.innerHTML = '<style>#rpPrintOverlay{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;background:#0f1115;color:#e0e3e6;min-height:100vh;padding:0 20px 50px;max-width:700px;margin:0 auto;box-sizing:border-box;}@media print{#rpPrintOverlay{background:#0f1115!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}}</style>' +
+      '<div style="height:4px;background:linear-gradient(90deg,' + esc(accent) + ',#444);margin-bottom:24px;"></div>' +
+      '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:12px;">' +
+        '<div><div style="font-size:1.3rem;font-weight:800;color:#e8ecf0;">' + esc(title) + '</div>' + (venue?'<div style="font-size:0.78rem;color:#5a6270;margin-top:4px;">'+esc(venue)+'</div>':'') +
+        '<div style="margin-top:8px;display:inline-flex;align-items:center;gap:6px;background:rgba(255,193,7,.1);border:1px solid rgba(255,193,7,.3);border-radius:4px;padding:3px 10px;"><span style="width:7px;height:7px;border-radius:50%;background:#ffc107;display:inline-block;"></span><span style="font-size:0.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#ffc107;">Internal — Not for Distribution</span></div></div>' +
+        '<div style="text-align:right;">' + logoHtml + '</div>' +
+      '</div>' +
+      '<div style="height:1px;background:rgba(255,255,255,0.08);margin-bottom:16px;"></div>' +
+      '<div style="font-size:0.6rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:rgba(255,255,255,0.25);margin-bottom:10px;">Full Programme</div>' +
+      '<div style="border:1px solid rgba(255,255,255,0.08);border-radius:8px;overflow:hidden;">' + (rows||'<div style="text-align:center;opacity:.3;font-style:italic;padding:20px;">No programme items yet.</div>') + '</div>' +
+      '<div style="margin-top:22px;display:flex;align-items:center;justify-content:space-between;font-size:0.72rem;color:rgba(255,255,255,0.2);"><span>Generated ' + new Date().toLocaleString() + '</span><span style="font-weight:600;text-transform:uppercase;">' + (team?esc(team)+' · ':'') + 'Motorsport</span></div>';
     ov.style.display = 'block';
     setTimeout(() => { window.print(); ov.style.display = 'none'; }, 150);
   }
