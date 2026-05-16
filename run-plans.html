@@ -172,7 +172,45 @@
     .rp-add-field.f-end    { flex:0 0 90px; }
     .rp-add-field.f-dur    { flex:0 0 88px; }
     .rp-add-field.f-name   { flex:1 1 180px; }
-    .rp-add-field.f-driver { flex:0 0 150px; }
+    .rp-add-field.f-driver { flex:0 0 190px; }
+
+    /* Custom driver picker */
+    .rp-drv-wrap { position:relative; }
+    .rp-drv-btn {
+      display:flex; align-items:center; gap:.4rem;
+      background:#fff; border:1px solid #d1d5db; border-radius:6px;
+      padding:.3rem .65rem; cursor:pointer; font-size:.82rem;
+      width:100%; text-align:left; transition:border-color .15s;
+      min-height:31px; white-space:nowrap; overflow:hidden;
+    }
+    .rp-drv-btn:hover, .rp-drv-btn.open { border-color:#1a0d2e; }
+    .rp-drv-val { flex:1; overflow:hidden; text-overflow:ellipsis; color:#374151; }
+    .rp-drv-val.placeholder { color:#9ca3af; }
+    .rp-drv-caret { color:#9ca3af; font-size:.7rem; flex-shrink:0; transition:transform .15s; }
+    .rp-drv-btn.open .rp-drv-caret { transform:rotate(180deg); }
+    .rp-drv-dropdown {
+      display:none; position:absolute; bottom:calc(100% + 4px); left:0;
+      min-width:220px; max-width:320px;
+      background:#fff; border:1px solid #e5e7eb; border-radius:8px;
+      box-shadow:0 -6px 24px rgba(0,0,0,.12);
+      z-index:600; overflow:hidden;
+    }
+    .rp-drv-dropdown.open { display:block; }
+    .rp-drv-search { padding:.5rem .65rem; border-bottom:1px solid #f3f4f6; }
+    .rp-drv-search input { width:100%; border:1px solid #e5e7eb; border-radius:5px; padding:.28rem .55rem; font-size:.78rem; outline:none; }
+    .rp-drv-search input:focus { border-color:#1a0d2e; }
+    .rp-drv-list { max-height:200px; overflow-y:auto; }
+    .rp-drv-item {
+      padding:.5rem .75rem; cursor:pointer; font-size:.82rem;
+      display:flex; align-items:center; gap:.55rem;
+      border-bottom:1px solid #f9fafb; transition:background .1s; color:#1f2937;
+    }
+    .rp-drv-item:last-child { border-bottom:none; }
+    .rp-drv-item:hover { background:#f0f0f8; }
+    .rp-drv-item.active { background:#1a0d2e; color:#fff; }
+    .rp-drv-item .rp-drv-num { font-size:.68rem; font-weight:700; background:#e9e5ff; color:#4c1d95; border-radius:4px; padding:1px 6px; flex-shrink:0; }
+    .rp-drv-item.active .rp-drv-num { background:rgba(255,255,255,.2); color:#fff; }
+    .rp-drv-empty { padding:1rem; text-align:center; color:#9ca3af; font-size:.8rem; }
     .rp-add-field.f-status { flex:0 0 120px; }
     .rp-add-field.f-notes  { flex:1 1 200px; }
 
@@ -286,7 +324,18 @@
           </div>
           <div class="rp-add-field f-driver">
             <span class="rp-field-label">Driver</span>
-            <select id="rpInDriver" class="form-select form-select-sm"></select>
+            <div class="rp-drv-wrap" id="rpDrvWrap">
+              <div class="rp-drv-btn" id="rpDrvBtn" onclick="drvToggle()">
+                <i class="bi bi-person" style="color:#1a0d2e;font-size:.8rem;flex-shrink:0;"></i>
+                <span class="rp-drv-val placeholder" id="rpDrvVal">— All drivers —</span>
+                <i class="bi bi-chevron-down rp-drv-caret"></i>
+              </div>
+              <div class="rp-drv-dropdown" id="rpDrvDropdown">
+                <div class="rp-drv-search"><input id="rpDrvSearch" type="search" placeholder="Search drivers…" autocomplete="off" oninput="drvFilter()"></div>
+                <div class="rp-drv-list" id="rpDrvList"><div class="rp-drv-empty">Loading…</div></div>
+              </div>
+            </div>
+            <input type="hidden" id="rpInDriver" value="">
           </div>
           <div class="rp-add-field f-status">
             <span class="rp-field-label">Status</span>
@@ -377,6 +426,8 @@
   let cdTimer        = null;
   let editingItemId  = null;
   let allDrivers     = [];
+  let drvFiltered    = [];
+  let selectedDriver = '';
 
   /* ── Helpers ── */
   function esc(v) {
@@ -385,25 +436,71 @@
   function nowISO() { return new Date().toISOString(); }
   function uid()    { return 'rp_' + Date.now() + '_' + Math.random().toString(36).slice(2,7); }
   function cfg()    { return (typeof RTS !== 'undefined' && RTS.getSettings ? RTS.getSettings() : {}); }
-  function getDriverList() {
-    // Merge: allDrivers (from DB sync) + settings drivers, dedupe by name
-    const base = allDrivers.length ? allDrivers : (cfg().drivers || []);
-    const names = new Set();
-    const result = [];
-    // If event has specific drivers assigned, show those first
-    const evDriverIds = selectedEv && Array.isArray(selectedEv.drivers) ? selectedEv.drivers : [];
-    if (evDriverIds.length) {
-      base.filter(d => evDriverIds.includes(d.id)).forEach(d => {
-        const n = d.name || d.displayName || d.id;
-        if (n && !names.has(n)) { names.add(n); result.push(n); }
-      });
+
+  /* ── Driver custom dropdown ── */
+  window.drvToggle = function () {
+    const btn = document.getElementById('rpDrvBtn');
+    const dd  = document.getElementById('rpDrvDropdown');
+    if (dd.classList.contains('open')) {
+      drvClose();
+    } else {
+      btn.classList.add('open');
+      dd.classList.add('open');
+      setTimeout(() => document.getElementById('rpDrvSearch').focus(), 40);
     }
-    base.forEach(d => {
-      const n = d.name || d.displayName || d.id;
-      if (n && !names.has(n)) { names.add(n); result.push(n); }
-    });
-    return result;
+  };
+  function drvClose() {
+    document.getElementById('rpDrvBtn').classList.remove('open');
+    document.getElementById('rpDrvDropdown').classList.remove('open');
   }
+  window.drvFilter = function () {
+    const q = (document.getElementById('rpDrvSearch').value || '').toLowerCase();
+    drvFiltered = allDrivers.filter(d => {
+      const n = (d.name||d.displayName||'').toLowerCase();
+      const r = (d.raceNumber||'').toLowerCase();
+      return !q || n.includes(q) || r.includes(q);
+    });
+    renderDrvList();
+  };
+  function renderDrvList() {
+    const el = document.getElementById('rpDrvList');
+    // "clear" option first
+    const clearItem = '<div class="rp-drv-item' + (!selectedDriver ? ' active' : '') + '" onclick="drvSelect(\'\')">' +
+      '<span style="color:#9ca3af;font-style:italic;">— All drivers —</span></div>';
+    if (!drvFiltered.length && !document.getElementById('rpDrvSearch').value) {
+      el.innerHTML = clearItem + '<div class="rp-drv-empty">No drivers found</div>';
+      return;
+    }
+    el.innerHTML = clearItem + drvFiltered.map(d => {
+      const name = d.name || d.displayName || d.id;
+      const num  = d.raceNumber || '';
+      const act  = selectedDriver === name ? ' active' : '';
+      return '<div class="rp-drv-item' + act + '" onclick="drvSelect(\'' + esc(name).replace(/'/g,"\\'") + '\')"> ' +
+        (num ? '<span class="rp-drv-num">#' + esc(num) + '</span>' : '') +
+        '<span>' + esc(name) + '</span>' +
+      '</div>';
+    }).join('');
+  }
+  window.drvSelect = function (name) {
+    selectedDriver = name;
+    document.getElementById('rpInDriver').value = name;
+    const lbl = document.getElementById('rpDrvVal');
+    if (name) {
+      lbl.textContent = name;
+      lbl.classList.remove('placeholder');
+    } else {
+      lbl.textContent = '— All drivers —';
+      lbl.classList.add('placeholder');
+    }
+    document.getElementById('rpDrvSearch').value = '';
+    drvFiltered = allDrivers.slice();
+    renderDrvList();
+    drvClose();
+  };
+  document.addEventListener('click', function (e) {
+    const wrap = document.getElementById('rpDrvWrap');
+    if (wrap && !wrap.contains(e.target)) drvClose();
+  });
   function calcEnd(startISO, dur) {
     if (!startISO || !dur) return '';
     try {
@@ -545,10 +642,9 @@
   }
 
   function populateDriverSelect(setVal) {
-    const sel = document.getElementById('rpInDriver');
-    const names = getDriverList();
-    sel.innerHTML = '<option value="">— All drivers —</option>' +
-      names.map(n => '<option' + (setVal && setVal === n ? ' selected' : '') + '>' + esc(n) + '</option>').join('');
+    drvFiltered = allDrivers.slice();
+    renderDrvList();
+    drvSelect(setVal || '');
   }
 
   /* ── Table ── */
@@ -886,15 +982,23 @@
 
   /* ── Boot ── */
   async function init() {
-    // Sync settings from DB so drivers are always up to date
-    if (typeof RTS !== 'undefined' && RTS.syncSettingsFromDB) {
-      try {
-        const s = await RTS.syncSettingsFromDB();
-        allDrivers = (s && s.drivers) ? s.drivers : [];
-      } catch(_) { allDrivers = cfg().drivers || []; }
-    } else {
-      allDrivers = cfg().drivers || [];
+    // Load real drivers from the DB collection
+    try {
+      if (typeof RTS_API !== 'undefined' && RTS_API.getCollectionItems) {
+        const resp = await RTS_API.getCollectionItems('drivers');
+        allDrivers = (resp && resp.items) ? resp.items : [];
+      } else if (typeof RTS !== 'undefined' && RTS.apiGetCollectionItems) {
+        const resp = await RTS.apiGetCollectionItems('drivers');
+        allDrivers = (resp && resp.items) ? resp.items : [];
+      }
+    } catch(e) {
+      console.warn('Driver load failed, falling back to settings:', e);
     }
+    // Fallback to settings drivers if API returned nothing
+    if (!allDrivers.length && typeof RTS !== 'undefined' && RTS.getSettings) {
+      allDrivers = (RTS.getSettings().drivers || []).filter(d => d.name !== 'Driver #42' && d.name !== 'Driver #77' && d.name !== 'Driver #11');
+    }
+    drvFiltered = allDrivers.slice();
     await loadEvents();
   }
   init();
