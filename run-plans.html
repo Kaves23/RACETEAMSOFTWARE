@@ -167,7 +167,8 @@
     .rp-add-row { display:flex; flex-wrap:wrap; gap:.55rem; align-items:flex-end; }
     .rp-add-field { display:flex; flex-direction:column; gap:3px; }
     .rp-field-label { font-size:.65rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:#6b7280; }
-    .rp-add-field.f-start  { flex:0 0 165px; }
+    .rp-add-field.f-date   { flex:0 0 140px; }
+    .rp-add-field.f-stime  { flex:0 0 100px; }
     .rp-add-field.f-end    { flex:0 0 90px; }
     .rp-add-field.f-dur    { flex:0 0 88px; }
     .rp-add-field.f-name   { flex:1 1 180px; }
@@ -263,9 +264,13 @@
       <div class="rp-add-section">
         <div class="rp-add-head"><i class="bi bi-plus-circle-fill"></i> Add Programme Item</div>
         <div class="rp-add-row">
-          <div class="rp-add-field f-start">
-            <span class="rp-field-label">Start date &amp; time *</span>
-            <input id="rpInStart" type="datetime-local" class="form-control form-control-sm">
+          <div class="rp-add-field f-date">
+            <span class="rp-field-label">Date *</span>
+            <input id="rpInDate" type="date" class="form-control form-control-sm">
+          </div>
+          <div class="rp-add-field f-stime">
+            <span class="rp-field-label">Start time *</span>
+            <input id="rpInTime" type="time" class="form-control form-control-sm">
           </div>
           <div class="rp-add-field f-end">
             <span class="rp-field-label">End time</span>
@@ -632,8 +637,11 @@
 
   async function addItem() {
     if (!selectedEv) return;
-    const start = document.getElementById('rpInStart').value;
-    if (!start) { alert('Start date & time is required.'); return; }
+    const date = document.getElementById('rpInDate').value;
+    const time = document.getElementById('rpInTime').value;
+    if (!date) { alert('Start date is required.'); return; }
+    if (!time) { alert('Start time is required.'); return; }
+    const start = date + 'T' + time;
     const name = document.getElementById('rpInName').value.trim() || 'Session';
     if (!selectedEv.runPlan) selectedEv.runPlan = [];
     selectedEv.runPlan.push({
@@ -648,6 +656,8 @@
       internalOnly: document.getElementById('rpInInternal').checked,
     });
     selectedEv.updatedAt = nowISO();
+    // keep date sticky — only clear time and activity fields
+    document.getElementById('rpInTime').value    = '';
     document.getElementById('rpInEnd').value     = '';
     document.getElementById('rpInDur').value     = '';
     document.getElementById('rpInName').value    = '';
