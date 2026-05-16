@@ -185,71 +185,51 @@ async function upsertMany(tableName, items) {
 }
 
 // Upsert a single event, mapping JS camelCase fields → DB snake_case columns.
-// Handles run_plan and session_logs JSONB columns correctly.
+// On conflict (event already exists) only run_plan and session_logs are updated
+// to avoid overwriting other columns or hitting ENUM/NOT NULL constraints.
 async function upsertEvent(ev) {
   if (!ev || !ev.id) throw new Error('Event must have an id');
 
   const j = v => v === undefined ? null : (typeof v === 'string' ? v : JSON.stringify(v));
 
-  const sql = `
-    INSERT INTO events (
-      id, name, event_type, status, start_date, end_date,
-      setup_date, teardown_date, circuit_name, venue, notes,
-      drivers, crew, documents, runbook, setups,
-      run_plan, session_logs, updated_at
-    ) VALUES (
-      $1,$2,$3,$4,$5,$6,
-      $7,$8,$9,$10,$11,
-      $12,$13,$14,$15,$16,
-      $17,$18, NOW()
-    )
-    ON CONFLICT (id) DO UPDATE SET
-      name          = EXCLUDED.name,
-      event_type    = EXCLUDED.event_type,
-      status        = EXCLUDED.status,
-      start_date    = EXCLUDED.start_date,
-      end_date      = EXCLUDED.end_date,
-      setup_date    = EXCLUDED.setup_date,
-      teardown_date = EXCLUDED.teardown_date,
-      circuit_name  = EXCLUDED.circuit_name,
-      venue         = EXCLUDED.venue,
-      notes         = EXCLUDED.notes,
-      drivers       = EXCLUDED.drivers,
-      crew          = EXCLUDED.crew,
-      documents     = EXCLUDED.documents,
-      runbook       = EXCLUDED.runbook,
-      setups        = EXCLUDED.setups,
-      run_plan      = EXCLUDED.run_plan,
-      session_logs  = EXCLUDED.session_logs,
-      updated_at    = NOW()
-    RETURNING *
-  `;
+  const runPlan     = j(ev.runPlan     || ev.run_plan     || []);
+  const sessionLogs = j(ev.sessionLogs || ev.session_logs || {});
 
+  // Try UPDATE first (most common case — event already exists)
+  const updateSql = `
+    UPDATE events
+    SET run_plan     = $1,
+        session_logs = $2,
+        updated_at   = NOW()
+    WHERE id = $3
+    RETURNING id
+  `;
+  const upResult = await query(updateSql, [runPlan, sessionLogs, ev.id]);
+
+  if (upResult.rows.length > 0) {
+    return upResult.rows[0]; // updated successfully
+  }
+
+  // Event doesn't exist yet — insert it
+  const VALID_STATUSES = new Set(['scheduled','preparing','in_progress','completed','cancelled']);
   const name      = ev.title || ev.name || 'Untitled';
   const evType    = ev.eventType || ev.event_type || 'Race';
-  const status    = ev.status || 'scheduled';
+  const rawStatus = ev.status || 'scheduled';
+  const status    = VALID_STATUSES.has(rawStatus) ? rawStatus : 'scheduled';
   const startDate = ev.startDate || ev.start_date || ev.start || null;
   const endDate   = ev.endDate   || ev.end_date   || ev.end   || startDate;
-  const setupDate       = ev.setupDate       || ev.setup_date       || null;
-  const teardownDate    = ev.teardownDate    || ev.teardown_date    || null;
-  const circuitName     = ev.circuitName     || ev.circuit_name     || ev.venue || null;
-  const venue           = ev.venue           || null;
-  const notes           = ev.notes           || ev.brief            || null;
 
-  const params = [
-    ev.id, name, evType, status, startDate, endDate,
-    setupDate, teardownDate, circuitName, venue, notes,
-    j(ev.drivers       || ev.driver_ids || []),
-    j(ev.crew          || []),
-    j(ev.documents     || []),
-    j(ev.runbook       || {}),
-    j(ev.setups        || []),
-    j(ev.runPlan       || ev.run_plan    || []),
-    j(ev.sessionLogs   || ev.session_logs || {}),
-  ];
-
-  const result = await query(sql, params);
-  return result.rows[0];
+  const insertSql = `
+    INSERT INTO events (id, name, event_type, status, start_date, end_date, run_plan, session_logs, updated_at)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+    ON CONFLICT (id) DO UPDATE SET
+      run_plan     = EXCLUDED.run_plan,
+      session_logs = EXCLUDED.session_logs,
+      updated_at   = NOW()
+    RETURNING id
+  `;
+  const inResult = await query(insertSql, [ev.id, name, evType, status, startDate, endDate || startDate, runPlan, sessionLogs]);
+  return inResult.rows[0];
 }
 
 

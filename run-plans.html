@@ -537,13 +537,21 @@
     });
   }
 
+  function authHeaders(extra) {
+    const token = localStorage.getItem('auth_token') || '';
+    return Object.assign({ 'Authorization': 'Bearer ' + token }, extra || {});
+  }
+
   /* ── Load events ── */
   async function loadEvents() {
     try {
-      const r    = await fetch('/api/events', { cache:'no-store' });
-      const data = await r.json();
-      allEvents  = Array.isArray(data.items) ? data.items : (Array.isArray(data) ? data : []);
-    } catch (_) { allEvents = []; }
+      const r    = await fetch('/api/events', { cache:'no-store', headers: authHeaders() });
+      if (!r.ok) { console.warn('loadEvents HTTP', r.status); allEvents = []; }
+      else {
+        const data = await r.json();
+        allEvents  = Array.isArray(data.items) ? data.items : (Array.isArray(data) ? data : []);
+      }
+    } catch (e) { console.warn('loadEvents failed', e); allEvents = []; }
     filtered = sortedEvents(allEvents);
     renderPickerList();
   }
@@ -938,15 +946,16 @@
     try {
       const res = await fetch('/api/events/sync', {
         method: 'POST',
-        headers: { 'Content-Type':'application/json' },
+        headers: authHeaders({ 'Content-Type':'application/json' }),
         body: JSON.stringify({ items:[selectedEv] }),
       });
       if (res.ok) {
         setSaveStatus('saved');
         clearLocalBackup(selectedEv.id);
       } else {
+        const errText = await res.text().catch(()=>'');
         setSaveStatus('failed');
-        console.warn('DB save returned non-OK:', res.status);
+        console.warn('DB save returned non-OK:', res.status, errText);
       }
     } catch (e) {
       setSaveStatus('failed');
