@@ -147,6 +147,25 @@ function parseCmd(line) {
   return line.split(',').map(f => f.replace(/^"|"$/g, '').trim());
 }
 
+// Parse time strings into seconds:
+//   "HH:MM:SS.mmm" | "MM:SS.mmm" | "SS.mmm" | raw integer (assumed ms if >1e6)
+function parseSec(str) {
+  if (!str) return 0;
+  const s = String(str).trim();
+  if (!s || s === '00:00:00' || s === '00:00:00.000') return 0;
+  // HH:MM:SS.mmm or HH:MM:SS
+  const m3 = s.match(/^(\d+):(\d{2}):(\d{2})(?:\.(\d+))?$/);
+  if (m3) return parseInt(m3[1]) * 3600 + parseInt(m3[2]) * 60 + parseFloat(m3[3] + (m3[4] ? '.' + m3[4] : ''));
+  // MM:SS.mmm
+  const m2 = s.match(/^(\d+):(\d{2})\.(\d+)$/);
+  if (m2) return parseInt(m2[1]) * 60 + parseFloat(m2[2] + '.' + m2[3]);
+  // SS.mmm
+  if (/^\d+\.\d+$/.test(s)) return parseFloat(s);
+  // Raw integer — if huge, assume milliseconds
+  if (/^\d+$/.test(s)) { const n = parseInt(s, 10); return n > 1000000 ? n / 1000 : n; }
+  return 0;
+}
+
 function processMessages(rawMessages, competitors, sessionData, state) {
   let changed = false;
   for (const raw of rawMessages) {
@@ -173,11 +192,14 @@ function processMessages(rawMessages, competitors, sessionData, state) {
         // $C, classID, description
         if (!sessionData.classes) sessionData.classes = {};
         sessionData.classes[o[1]] = o[2];
+        // Also mirror into state for rebuildDrivers class lookup
+        if (!state._classes) state._classes = {};
+        state._classes[o[1]] = o[2];
         changed = true;
 
       } else if ((cmd === '$A' || cmd === '$COMP') && o.length >= 6) {
         // $A:    racerID, number, transponder, firstName, lastName, nationality, category
-        // $COMP: racerID, number, category,    firstName, lastName, nationality, additionalData
+        // $COMP: racerID, number, category,    firstName, lastName, nationality, additionalData(team)
         const racerID = o[1];
         if (!competitors[racerID]) competitors[racerID] = { racerID };
         const c = competitors[racerID];
@@ -186,12 +208,13 @@ function processMessages(rawMessages, competitors, sessionData, state) {
           c.firstName   = o[4];
           c.lastName    = o[5];
           c.nationality = o[6] || '';
-          c.category    = o[7] || '';
+          c.categoryId  = o[7] || '';
         } else {
-          c.category    = o[3];
+          c.categoryId  = o[3];
           c.firstName   = o[4];
           c.lastName    = o[5];
           c.nationality = o[6] || '';
+          c.team        = o[7] || '';  // additionalData = team/sponsor
         }
         c.name = [c.firstName, c.lastName].filter(Boolean).join(' ');
         changed = true;
@@ -239,28 +262,59 @@ function processMessages(rawMessages, competitors, sessionData, state) {
 }
 
 function rebuildDrivers(competitors, state) {
-  const drivers = Object.values(competitors)
+  const list = Object.values(competitors)
     .filter(c => c.name || c.number)
-    .map(c => ({
-      pos:      c.position || 0,
+    .sort((a, b) => {
+      const ap = a.position || 0, bp = b.position || 0;
+      if (ap > 0 && bp > 0) return ap - bp;
+      if (ap > 0) return -1;
+      if (bp > 0) return  1;
+      return (b.laps || 0) - (a.laps || 0);
+    });
+
+  if (!list.length) return;
+
+  // Compute gap to leader:
+  //   Qualifying/practice: gap = driver.bestTimeSec - leader.bestTimeSec (bigger best = slower = behind)
+  //   Race: gap = |leader.totalTimeSec - driver.totalTimeSec| when leader has done more laps
+  //   Fallback: totalTime difference
+  const leader = list[0];
+  const leaderBestSec  = parseSec(leader.bestTime);
+  const leaderTotalSec = parseSec(leader.totalTime);
+
+  const drivers = list.map((c, i) => {
+    const bestSec  = parseSec(c.bestTime);
+    const totalSec = parseSec(c.totalTime);
+
+    let gapSec = 0;
+    if (i > 0) {
+      if (bestSec > 1 && leaderBestSec > 1) {
+        // Qualifying / practice: slower = higher best time = positive gap
+        gapSec = Math.max(0, bestSec - leaderBestSec);
+      } else if (totalSec > 0 && leaderTotalSec > 0) {
+        gapSec = Math.abs(totalSec - leaderTotalSec);
+      }
+    }
+
+    // Resolve class name from $C map if category is a numeric ID
+    const catId = c.categoryId || c.category || '';
+    const className = (state._classes && state._classes[catId]) || catId;
+
+    return {
+      pos:      c.position || (i + 1),
       kart:     c.number   || '',
       name:     c.name     || `#${c.number || c.racerID}`,
-      team:     '',
+      team:     c.team     || '',
       laps:     c.laps     || 0,
       bestLap:  c.bestTime     || '',
       lastLap:  c.lastLapTime  || '',
-      gap:      c.totalTime    || '',
+      gap:      i === 0 ? '' : (gapSec > 0 ? gapSec.toFixed(3) : ''),
       interval: '',
-      class:    c.category     || '',
+      class:    className,
       inPit:    false,
       flag:     '',
-    }))
-    .sort((a, b) => {
-      if (a.pos > 0 && b.pos > 0) return a.pos - b.pos;
-      if (a.pos > 0) return -1;
-      if (b.pos > 0) return  1;
-      return b.laps - a.laps;
-    });
+    };
+  });
 
   if (drivers.length > 0) state.laps = drivers[0].laps || 0;
   state.drivers    = drivers;
