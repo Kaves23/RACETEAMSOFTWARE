@@ -781,14 +781,20 @@
         leaderAngle+=(360/lapTimeSec)*dt;
       }
       prevRafTs=ts;
-      if(!karts.length||lapTimeSec<=0)return;
+      if(!karts.length)return;
       const lerpT=Math.min((Date.now()-lerpStart)/LERP_MS,1);
       const doTrail=(ts-lastTrailTs)>TRAIL_STEP_MS;
       if(doTrail)lastTrailTs=ts;
 
-      karts.forEach(k=>{
+      karts.forEach((k,i)=>{
         k.gapFrac+=(k.gapFracTarget-k.gapFrac)*lerpT;
-        const angle=leaderAngle-k.gapFrac*360;
+        let angle;
+        if(lapTimeSec>0){
+          angle=leaderAngle-k.gapFrac*360;
+        } else {
+          // No lap time yet — spread karts evenly by position around circle
+          angle=leaderAngle-(i/Math.max(karts.length,1))*360;
+        }
         const nudge=k.isLeader?0:(k.pos%2===0?10:-10);
         const rEff=k.inPit?R*0.38:R+nudge;
         const pt=angleToPt(angle,rEff);
@@ -1035,7 +1041,7 @@
       }
       rafId=requestAnimationFrame(rafLoop);
       const script=document.createElement('script');
-      script.src='live-timing.js?v=20260424-5';
+      script.src='live-timing.js?v=20260525-1';
       script.onload=()=>{
         if(window.RTSLiveTiming){RTSLiveTiming.onUpdate(onTimingUpdate);RTSLiveTiming.start(ltCfg);}
       };

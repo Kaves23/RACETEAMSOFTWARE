@@ -147,6 +147,15 @@ function parseCmd(line) {
   return line.split(',').map(f => f.replace(/^"|"$/g, '').trim());
 }
 
+// Format seconds as MM:SS.mmm (e.g. 67.492 → "1:07.492")
+// track-map.html's parseLapSec expects this exact format
+function fmtLapTime(sec) {
+  if (!sec || sec <= 0) return '';
+  const m = Math.floor(sec / 60);
+  const s = sec - m * 60;
+  return `${m}:${s.toFixed(3).padStart(6, '0')}`;
+}
+
 // Parse time strings into seconds:
 //   "HH:MM:SS.mmm" | "MM:SS.mmm" | "SS.mmm" | raw integer (assumed ms if >1e6)
 function parseSec(str) {
@@ -306,8 +315,8 @@ function rebuildDrivers(competitors, state) {
       name:     c.name     || `#${c.number || c.racerID}`,
       team:     c.team     || '',
       laps:     c.laps     || 0,
-      bestLap:  c.bestTime     || '',
-      lastLap:  c.lastLapTime  || '',
+      bestLap:  fmtLapTime(parseSec(c.bestTime))  || '',
+      lastLap:  fmtLapTime(parseSec(c.lastLapTime)) || '',
       gap:      i === 0 ? '' : (gapSec > 0 ? gapSec.toFixed(3) : ''),
       interval: '',
       class:    className,
