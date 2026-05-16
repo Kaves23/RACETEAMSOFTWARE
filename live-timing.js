@@ -61,9 +61,14 @@
     start(cfg) {
       stopped = false;
       config = cfg;
-      if (!config || !config.url) return;
+      // Resolve the active URL based on the chosen provider
+      const provider = (config && config.provider === 'race-monitor') ? 'race-monitor' : 'apex';
+      const activeUrl = provider === 'race-monitor' ? (config && config.urlRm) : (config && config.url);
+      if (!activeUrl) return;
+      // Normalise `url` so the rest of this module (which reads config.url) keeps working
+      config = Object.assign({}, config, { provider, url: activeUrl });
       buildDriverMatchMap();
-      // Use server-side proxy polling — Apex Timing has no public WebSocket endpoint
+      // Use server-side proxy polling — neither provider exposes a browser-friendly WS
       startIframeFallback();
     },
 
@@ -278,7 +283,10 @@
       fireUpdate();
       return;
     }
-    const proxyUrl = `/api/apex-proxy?slug=${encodeURIComponent(slug)}`;
+    const proxyBase = (config && config.provider === 'race-monitor')
+      ? '/api/race-monitor-proxy'
+      : '/api/apex-proxy';
+    const proxyUrl = `${proxyBase}?slug=${encodeURIComponent(slug)}`;
     dbg('Polling via server proxy:', proxyUrl);
 
     try {

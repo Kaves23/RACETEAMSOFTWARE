@@ -1144,6 +1144,7 @@
 
       function renderLtTicker(state) {
         const ltCfg = getLtSettings();
+        const ltActiveUrl = ltCfg ? (ltCfg.provider === 'race-monitor' ? ltCfg.urlRm : ltCfg.url) : '';
         const rowEl   = document.getElementById('rtsLtRow');
         const badgeEl = document.getElementById('rtsLtBadge');
         const dotEl   = document.getElementById('rtsLtDot');
@@ -1155,15 +1156,15 @@
         if (!rowEl) return;
 
         // If error === 'live' (all connection methods failed), show an open-timing link
-        if (state.error === 'live' && ltCfg && ltCfg.url) {
-          if (extLinkEl) { extLinkEl.href = ltCfg.url; extLinkEl.style.display = ''; }
+        if (state.error === 'live' && ltCfg && ltActiveUrl) {
+          if (extLinkEl) { extLinkEl.href = ltActiveUrl; extLinkEl.style.display = ''; }
           if (badgeEl && ltCfg.showBadge !== false) {
             badgeEl.style.display = '';
             if (dotEl) { dotEl.className = 'rts-lt-dot rts-lt-dot--waiting'; }
             if (badgeTxtEl) badgeTxtEl.textContent = 'Live ↗';
             badgeEl.style.cursor = 'pointer';
             badgeEl.title = 'Open timing page';
-            badgeEl.onclick = () => window.open(ltCfg.url, '_blank', 'noopener');
+            badgeEl.onclick = () => window.open(ltActiveUrl, '_blank', 'noopener');
           }
           if (ltCfg.showTicker !== false) {
             rowEl.style.display = '';
@@ -1174,7 +1175,7 @@
           return;
         }
 
-        if (extLinkEl && ltCfg && ltCfg.url) { extLinkEl.href = ltCfg.url; extLinkEl.style.display = state.connected ? '' : 'none'; }
+        if (extLinkEl && ltCfg && ltActiveUrl) { extLinkEl.href = ltActiveUrl; extLinkEl.style.display = state.connected ? '' : 'none'; }
 
         const info  = ltStatusInfo(state.status);
         const hasData = state.drivers && state.drivers.length > 0;
@@ -1290,7 +1291,9 @@
         // then start live timing with the fresh config.
         const tryStart = () => {
           const ltCfg = getLtSettings();
-          if (!ltCfg || !ltCfg.enabled || !ltCfg.url) return;
+          if (!ltCfg || !ltCfg.enabled) return;
+          const activeUrl = ltCfg.provider === 'race-monitor' ? ltCfg.urlRm : ltCfg.url;
+          if (!activeUrl) return;
 
           // Dynamically load live-timing.js if not already present
           if (!window.RTSLiveTiming) {
@@ -1307,7 +1310,7 @@
               } catch(e) {}
               return '';
             })();
-            script.src = base + 'live-timing.js?v=20260424-5';
+            script.src = base + 'live-timing.js?v=20260525-1';
             script.onload = () => {
               if (!window.RTSLiveTiming) return;
               RTSLiveTiming.onUpdate(renderLtTicker);

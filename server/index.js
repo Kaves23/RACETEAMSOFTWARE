@@ -149,6 +149,7 @@ const scanRouter = require('./routes/scan');
 const whatsappRouter = require('./routes/whatsapp');
 const staffAssignmentsRouter = require('./routes/staff-assignments');
 const apexProxyRouter = require('./routes/apex-proxy');
+const raceMonitorProxyRouter = require('./routes/race-monitor-proxy');
 const driverAssignmentsRouter = require('./routes/driver-assignments');
 const lookupRouter = require('./routes/lookup');
 
@@ -174,6 +175,7 @@ app.use('/api/packing-lists', requireAuth, packingRouter);
 app.use('/api/scan', requireAuth, scanRouter);
 app.use('/api/whatsapp', whatsappRouter);
 app.use('/api/apex-proxy', requireAuth, apexProxyRouter);
+app.use('/api/race-monitor-proxy', requireAuth, raceMonitorProxyRouter);
 app.use('/api/staff-assignments', requireAuth, staffAssignmentsRouter);
 app.use('/api/driver-assignments', requireAuth, driverAssignmentsRouter);
 app.use('/api/lookup', requireAuth, lookupRouter);
