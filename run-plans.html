@@ -636,6 +636,9 @@
     printC.style.display  = '';
     printI.style.display  = '';
 
+    // Restore local backup if newer than DB copy, then re-save to DB
+    const restored = loadLocalBackup(selectedEv);
+    if (restored) saveEvent();
     populateDriverSelect();
     renderTable();
     updateCountdown();
@@ -849,18 +852,68 @@
     document.getElementById('rpInName').focus();
   }
 
+  /* ── Local backup helpers ── */
+  function lsKey(id) { return 'rts.runplan.' + id; }
+
+  function saveLocalBackup(ev) {
+    if (!ev || !ev.id) return;
+    try {
+      localStorage.setItem(lsKey(ev.id), JSON.stringify({
+        runPlan:     ev.runPlan     || [],
+        sessionLogs: ev.sessionLogs || {},
+        savedAt:     Date.now(),
+      }));
+    } catch(e) { /* storage full — ignore */ }
+  }
+
+  function loadLocalBackup(ev) {
+    if (!ev || !ev.id) return;
+    try {
+      const raw = localStorage.getItem(lsKey(ev.id));
+      if (!raw) return;
+      const bk = JSON.parse(raw);
+      // Only restore if backup is newer than DB copy
+      const dbTs  = ev.updatedAt ? new Date(ev.updatedAt).getTime() : 0;
+      const bkTs  = bk.savedAt   || 0;
+      if (bkTs > dbTs && Array.isArray(bk.runPlan)) {
+        const dbLen = (ev.runPlan||[]).length;
+        const bkLen = bk.runPlan.length;
+        if (bkLen > dbLen) {
+          ev.runPlan     = bk.runPlan;
+          ev.sessionLogs = bk.sessionLogs || ev.sessionLogs || {};
+          console.info(`[RunPlan] Restored ${bkLen} items from local backup (DB had ${dbLen}).`);
+          if (typeof RTS !== 'undefined' && RTS.showToast) {
+            RTS.showToast('Local backup restored — saving to database now…', 'info');
+          }
+          return true; // restored
+        }
+      }
+    } catch(e) { /* corrupt backup — ignore */ }
+    return false;
+  }
+
+  function clearLocalBackup(id) {
+    try { localStorage.removeItem(lsKey(id)); } catch(e) {}
+  }
+
   /* ── Save ── */
   async function saveEvent() {
     if (!selectedEv) return;
+    // Always write local backup first — survives navigation or network failure
+    saveLocalBackup(selectedEv);
     const idx = allEvents.findIndex(ev => String(ev.id) === String(selectedEv.id));
     if (idx >= 0) allEvents[idx] = selectedEv;
     try {
-      await fetch('/api/events/sync', {
+      const res = await fetch('/api/events/sync', {
         method: 'POST',
         headers: { 'Content-Type':'application/json' },
         body: JSON.stringify({ items:[selectedEv] }),
       });
-    } catch (e) { console.warn('Save failed', e); }
+      if (res.ok) {
+        // DB save confirmed — clear local backup to keep storage clean
+        clearLocalBackup(selectedEv.id);
+      }
+    } catch (e) { console.warn('DB save failed, local backup retained:', e); }
   }
 
   /* ── Countdown ── */
