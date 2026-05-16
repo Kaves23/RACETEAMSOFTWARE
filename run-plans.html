@@ -214,6 +214,18 @@
     .rp-add-field.f-status { flex:0 0 120px; }
     .rp-add-field.f-notes  { flex:1 1 200px; }
 
+    /* Save status indicator */
+    .rp-save-status {
+      display:none; align-items:center; gap:.35rem;
+      font-size:.74rem; font-weight:600; padding:4px 11px;
+      border-radius:20px; white-space:nowrap; transition:all .25s;
+    }
+    .rp-save-status.saving  { display:flex; background:#f0f4ff; color:#4b5563; border:1px solid #dbe4ff; }
+    .rp-save-status.saved   { display:flex; background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; }
+    .rp-save-status.failed  { display:flex; background:#fef2f2; color:#991b1b; border:1px solid #fecaca; }
+    .rp-save-spin { animation:rp-spin .7s linear infinite; display:inline-block; }
+    @keyframes rp-spin { to { transform:rotate(360deg); } }
+
     /* Print overlay */
     #rpPrintOverlay { display:none; position:fixed; inset:0; z-index:9999; overflow-y:auto; }
     @media print {
@@ -253,6 +265,7 @@
     </div>
 
     <div class="rp-topbar-right">
+      <span class="rp-save-status" id="rpSaveStatus"></span>
       <span class="rp-countdown" id="rpCountdown" style="display:none;"></span>
       <button class="rp-print-btn client" id="btnPrintClient" style="display:none;">
         <i class="bi bi-printer"></i> Print Client
@@ -896,6 +909,24 @@
     try { localStorage.removeItem(lsKey(id)); } catch(e) {}
   }
 
+  /* ── Save status indicator ── */
+  let saveStatusTimer = null;
+  function setSaveStatus(state) {
+    const el = document.getElementById('rpSaveStatus');
+    if (!el) return;
+    if (saveStatusTimer) { clearTimeout(saveStatusTimer); saveStatusTimer = null; }
+    el.className = 'rp-save-status ' + state;
+    if (state === 'saving') {
+      el.innerHTML = '<i class="bi bi-arrow-repeat rp-save-spin"></i> Saving…';
+    } else if (state === 'saved') {
+      el.innerHTML = '<i class="bi bi-check-circle-fill"></i> Saved';
+      saveStatusTimer = setTimeout(() => { el.className = 'rp-save-status'; }, 3000);
+    } else if (state === 'failed') {
+      el.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i> Not saved — check connection';
+      // keep error visible until next successful save
+    }
+  }
+
   /* ── Save ── */
   async function saveEvent() {
     if (!selectedEv) return;
@@ -903,6 +934,7 @@
     saveLocalBackup(selectedEv);
     const idx = allEvents.findIndex(ev => String(ev.id) === String(selectedEv.id));
     if (idx >= 0) allEvents[idx] = selectedEv;
+    setSaveStatus('saving');
     try {
       const res = await fetch('/api/events/sync', {
         method: 'POST',
@@ -910,10 +942,16 @@
         body: JSON.stringify({ items:[selectedEv] }),
       });
       if (res.ok) {
-        // DB save confirmed — clear local backup to keep storage clean
+        setSaveStatus('saved');
         clearLocalBackup(selectedEv.id);
+      } else {
+        setSaveStatus('failed');
+        console.warn('DB save returned non-OK:', res.status);
       }
-    } catch (e) { console.warn('DB save failed, local backup retained:', e); }
+    } catch (e) {
+      setSaveStatus('failed');
+      console.warn('DB save failed, local backup retained:', e);
+    }
   }
 
   /* ── Countdown ── */
