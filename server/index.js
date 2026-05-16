@@ -336,6 +336,43 @@ app.post('/api/settings', requireAuth, async (req, res) => {
 });
 
 // Sync endpoints for core collections: events, tasks, inventory, runbooks - PROTECTED
+
+// ── Events: dedicated GET + POST/sync that handles run_plan / session_logs ──
+app.get('/api/events', requireAuth, async (req, res) => {
+  try {
+    const rows = await db.getAll('events');
+    // Map snake_case DB columns → camelCase for the frontend
+    const items = rows.map(r => ({
+      ...r,
+      title:       r.title || r.name,
+      startDate:   r.start_date,
+      endDate:     r.end_date,
+      eventType:   r.event_type,
+      circuitName: r.circuit_name,
+      runPlan:     r.run_plan     || [],
+      sessionLogs: r.session_logs || {},
+    }));
+    res.json({ ok: true, collection: 'events', items });
+  } catch (err) {
+    console.error('GET /api/events error', err);
+    res.status(500).json({ ok: false, error: String(err) });
+  }
+});
+
+app.post('/api/events/sync', requireAuth, async (req, res) => {
+  const { items } = req.body || {};
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.json({ ok: true, upserted: 0 });
+  }
+  try {
+    const results = await Promise.all(items.map(ev => db.upsertEvent(ev)));
+    res.json({ ok: true, upserted: results.length });
+  } catch (err) {
+    console.error('POST /api/events/sync error', err);
+    res.status(500).json({ ok: false, error: String(err) });
+  }
+});
+
 app.get('/api/:collection', requireAuth, async (req, res) => {
   const { collection } = req.params;
   try {

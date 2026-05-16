@@ -184,6 +184,75 @@ async function upsertMany(tableName, items) {
   return items;
 }
 
+// Upsert a single event, mapping JS camelCase fields → DB snake_case columns.
+// Handles run_plan and session_logs JSONB columns correctly.
+async function upsertEvent(ev) {
+  if (!ev || !ev.id) throw new Error('Event must have an id');
+
+  const j = v => v === undefined ? null : (typeof v === 'string' ? v : JSON.stringify(v));
+
+  const sql = `
+    INSERT INTO events (
+      id, name, event_type, status, start_date, end_date,
+      setup_date, teardown_date, circuit_name, venue, notes,
+      drivers, crew, documents, runbook, setups,
+      run_plan, session_logs, updated_at
+    ) VALUES (
+      $1,$2,$3,$4,$5,$6,
+      $7,$8,$9,$10,$11,
+      $12,$13,$14,$15,$16,
+      $17,$18, NOW()
+    )
+    ON CONFLICT (id) DO UPDATE SET
+      name          = EXCLUDED.name,
+      event_type    = EXCLUDED.event_type,
+      status        = EXCLUDED.status,
+      start_date    = EXCLUDED.start_date,
+      end_date      = EXCLUDED.end_date,
+      setup_date    = EXCLUDED.setup_date,
+      teardown_date = EXCLUDED.teardown_date,
+      circuit_name  = EXCLUDED.circuit_name,
+      venue         = EXCLUDED.venue,
+      notes         = EXCLUDED.notes,
+      drivers       = EXCLUDED.drivers,
+      crew          = EXCLUDED.crew,
+      documents     = EXCLUDED.documents,
+      runbook       = EXCLUDED.runbook,
+      setups        = EXCLUDED.setups,
+      run_plan      = EXCLUDED.run_plan,
+      session_logs  = EXCLUDED.session_logs,
+      updated_at    = NOW()
+    RETURNING *
+  `;
+
+  const name      = ev.title || ev.name || 'Untitled';
+  const evType    = ev.eventType || ev.event_type || 'Race';
+  const status    = ev.status || 'scheduled';
+  const startDate = ev.startDate || ev.start_date || ev.start || null;
+  const endDate   = ev.endDate   || ev.end_date   || ev.end   || startDate;
+  const setupDate       = ev.setupDate       || ev.setup_date       || null;
+  const teardownDate    = ev.teardownDate    || ev.teardown_date    || null;
+  const circuitName     = ev.circuitName     || ev.circuit_name     || ev.venue || null;
+  const venue           = ev.venue           || null;
+  const notes           = ev.notes           || ev.brief            || null;
+
+  const params = [
+    ev.id, name, evType, status, startDate, endDate,
+    setupDate, teardownDate, circuitName, venue, notes,
+    j(ev.drivers       || ev.driver_ids || []),
+    j(ev.crew          || []),
+    j(ev.documents     || []),
+    j(ev.runbook       || {}),
+    j(ev.setups        || []),
+    j(ev.runPlan       || ev.run_plan    || []),
+    j(ev.sessionLogs   || ev.session_logs || {}),
+  ];
+
+  const result = await query(sql, params);
+  return result.rows[0];
+}
+
+
 // Generic createOne function — not currently used by active routes; kept for compatibility
 async function createOne(tableName, data) {
   return data;
@@ -218,5 +287,6 @@ module.exports = {
   getSettings,
   saveSettings,
   upsertMany,
+  upsertEvent,
   createOne
 };
