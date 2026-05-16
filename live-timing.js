@@ -258,7 +258,10 @@
   // ---------------------------------------------------------------------------
   function startIframeFallback() {
     if (stopped) return;
-    const intervalMs = ((config.intervalSec || 10)) * 1000;
+    // Race Monitor: proxy holds a live WebSocket, so fast polling is cheap.
+    // Apex: honours user setting (default 10s) since it hits the timing server directly.
+    const defaultInterval = (config && config.provider === 'race-monitor') ? 2 : 10;
+    const intervalMs = ((config.intervalSec && config.intervalSec < defaultInterval ? config.intervalSec : defaultInterval)) * 1000;
     tryFetchSnapshot();
     pollTimer = setInterval(() => { if (!stopped) tryFetchSnapshot(); }, intervalMs);
   }
