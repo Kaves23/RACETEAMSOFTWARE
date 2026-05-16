@@ -16,7 +16,7 @@
     }
     
     /* Panel System */
-    .inventory-container{display:flex;gap:8px;height:calc(100vh - 160px)}
+    .inventory-container{display:flex;gap:8px;height:calc(100vh - 90px)}
     .panel{background:#fff;border-radius:6px;border:1px solid #e0e0e0;display:flex;flex-direction:column;overflow:hidden}
     .panel-header{padding:8px 12px;background:#f0f3f7;border-bottom:1px solid #dde1e8;font-weight:700;font-size:.75rem;text-transform:uppercase;letter-spacing:.5px;color:#4a5568;display:flex;justify-content:space-between;align-items:center}
     .panel-body{flex:1;overflow-y:auto;padding:6px 0 6px 0}
@@ -140,12 +140,17 @@
     .item-qty.low{color:#fbbc04}
     .item-qty.out{color:#ea4335}
     
-    /* Search and filters */
-    .search-section{position:sticky;top:0;background:#fff;padding-bottom:4px;z-index:10;border-bottom:1px solid #e0e0e0;margin-bottom:6px}
-    .filter-group{display:flex;gap:4px;flex-wrap:nowrap;align-items:center;margin-top:0}
-    .search-section>.filter-group-wrap{display:flex;gap:4px;align-items:center;flex-wrap:nowrap;width:100%}
-    .search-section .search-input-wrap{flex:0 0 220px}
-    .filter-group .form-select,.filter-group .form-control{min-width:0;width:auto;flex:1 1 100px}
+    /* Search and filters — now in topbar, stub kept for JS compat */
+    .search-section{display:none}
+    .filter-group{display:flex;gap:4px;flex-wrap:nowrap;align-items:center}
+    /* Inventory topbar */
+    .inv-topbar{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:6px;padding:5px 10px;box-shadow:0 1px 3px rgba(0,0,0,.05);margin-bottom:8px}
+    .inv-topbar-title{font-size:.82rem;font-weight:700;color:#1a0d2e;white-space:nowrap;flex-shrink:0}
+    .inv-topbar-div{width:1px;height:20px;background:rgba(0,0,0,.1);flex-shrink:0}
+    .inv-topbar .form-control,.inv-topbar .form-select{font-size:.75rem;padding:3px 24px 3px 8px;height:28px;appearance:none;-webkit-appearance:none;background-color:#f5f5f8;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%231a0d2e' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 7px center;border:1px solid #e0e0e8;border-radius:5px;color:#1a0d2e;font-weight:500;cursor:pointer;transition:border-color .15s}
+    .inv-topbar .form-control{background-image:none;padding-right:8px}
+    .inv-topbar .form-select:hover,.inv-topbar .form-select:focus,.inv-topbar .form-control:focus{border-color:#1a0d2e;background-color:#fff;outline:none;box-shadow:0 0 0 2px rgba(26,13,46,.1)}
+    .inv-topbar-spacer{flex:1}
     
     /* Stat badges */
     .stat-badge{background:#e8f0fe;color:#1a73e8;padding:3px 8px;border-radius:8px;font-size:.75rem;font-weight:700}
@@ -408,22 +413,27 @@
   <div id="rtsTopNav"></div>
   
   <div class="rts-main container-fluid">
-    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-center">
-      <div>
-        <h1 class="h4 mb-1" style="color:#202124">Inventory Management</h1>
-        <p style="font-size:0.85rem;margin:0;color:#202124">Stock tracking, reordering, and parts management</p>
-      </div>
-      <div class="d-flex gap-2">
-        <button class="btn btn-outline-success btn-sm" id="btnShopifySync" title="Sync with Shopify">
-          <i class="bi bi-arrow-repeat"></i> Shopify
-        </button>
-        <button class="btn btn-outline-primary btn-sm" id="btnImportCSV" title="Import inventory from CSV">
-          <i class="bi bi-upload"></i> Import
-        </button>
-        <button class="btn btn-primary btn-sm" id="btnAddItem">
-          <i class="bi bi-plus-circle"></i> Add Item
-        </button>
-      </div>
+    <!-- Compact single-line topbar -->
+    <div class="inv-topbar">
+      <span class="inv-topbar-title">Inventory</span>
+      <div class="inv-topbar-div"></div>
+      <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="color:#9aa3af;flex-shrink:0"><circle cx="8.5" cy="8.5" r="5.5"/><path d="M13.5 13.5L17 17"/></svg>
+      <input type="text" class="form-control form-control-sm" id="searchInput" placeholder="Search name, SKU…" style="width:160px;flex-shrink:0">
+      <select class="form-select form-select-sm" id="filterCategory" style="width:130px;flex-shrink:0"></select>
+      <select class="form-select form-select-sm" id="filterLocation" style="width:120px;flex-shrink:0"></select>
+      <select class="form-select form-select-sm" id="filterSupplier" style="width:120px;flex-shrink:0"></select>
+      <select class="form-select form-select-sm" id="sortBy" style="width:120px;flex-shrink:0">
+        <option value="name">Sort: Name</option>
+        <option value="qty">Sort: Qty</option>
+        <option value="category">Sort: Category</option>
+        <option value="location">Sort: Location</option>
+        <option value="lastUsed">Sort: Last Used</option>
+      </select>
+      <button class="btn btn-outline-secondary btn-sm" id="btnClearFilters" style="display:none;font-size:.72rem;height:28px;padding:0 8px;flex-shrink:0" onclick="clearAllFilters()">× Clear</button>
+      <div class="inv-topbar-spacer"></div>
+      <button class="btn btn-outline-success btn-sm" id="btnShopifySync" style="height:28px;padding:0 10px;font-size:.75rem;flex-shrink:0" title="Sync with Shopify"><i class="bi bi-arrow-repeat"></i> Shopify</button>
+      <button class="btn btn-outline-primary btn-sm" id="btnImportCSV" style="height:28px;padding:0 10px;font-size:.75rem;flex-shrink:0" title="Import"><i class="bi bi-upload"></i> Import</button>
+      <button class="btn btn-primary btn-sm" id="btnAddItem" style="height:28px;padding:0 10px;font-size:.75rem;flex-shrink:0"><i class="bi bi-plus-circle"></i> Add Item</button>
     </div>
     
     <!-- JS reference stub -->
@@ -469,25 +479,7 @@
             <button class="bulk-btn" id="btnBulkDelete"><svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.1em;margin-right:4px"><path d="M3 6h14"/><path d="M5 6l1 11h8l1-11"/><path d="M8 6V4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2"/></svg>Delete Selected</button>
           </div>
           
-          <!-- Search and Filters -->
-          <div class="search-section">
-            <div class="filter-group">
-              <input type="text" class="form-control form-control-sm" id="searchInput" placeholder="Search name, SKU, notes…" style="flex:1;min-width:120px">
-              <select class="form-select form-select-sm" id="sortBy" style="flex:0 0 110px">
-                <option value="name">Sort: Name</option>
-                <option value="qty">Sort: Qty</option>
-                <option value="category">Sort: Category</option>
-                <option value="location">Sort: Location</option>
-                <option value="lastUsed">Sort: Last Used</option>
-              </select>
-              <button class="btn btn-outline-secondary btn-sm" id="btnClearFilters" style="display:none;font-size:.72rem;flex-shrink:0" onclick="clearAllFilters()">× Clear all</button>
-            </div>
-            <!-- Filter dropdowns row -->
-            <div class="filter-group" style="margin-top:5px">
-              <select class="form-select form-select-sm" id="filterCategory" style="flex:1;min-width:120px"></select>
-              <select class="form-select form-select-sm" id="filterLocation" style="flex:1;min-width:100px"></select>
-              <select class="form-select form-select-sm" id="filterSupplier" style="flex:1;min-width:100px"></select>
-            </div>
+          <!-- Search and Filters moved to topbar -->
           </div>
           
           <!-- Table View -->
