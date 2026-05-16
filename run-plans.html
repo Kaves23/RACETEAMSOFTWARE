@@ -307,7 +307,8 @@
             <label for="rpInInternal" style="font-size:.8rem;color:#6b7280;cursor:pointer;">Internal only</label>
           </div>
           <div class="pb-1">
-            <button id="btnAddItem" class="btn btn-sm fw-semibold" style="background:#7c3aed;color:#fff;padding:.38rem 1.1rem;white-space:nowrap;">+ Add Item</button>
+            <button id="btnAddItem" class="btn btn-sm fw-semibold" style="background:#1a0d2e;color:#fff;padding:.38rem 1.1rem;white-space:nowrap;">+ Add Item</button>
+            <button id="btnCancelEdit" class="btn btn-sm btn-outline-secondary" style="display:none;padding:.38rem .85rem;white-space:nowrap;" onclick="rpCancelEdit()">Cancel</button>
           </div>
         </div>
       </div>
@@ -368,12 +369,14 @@
 (function () {
   'use strict';
 
-  let allEvents  = [];
-  let filtered   = [];
-  let selectedEv = null;
-  let logItemId  = null;
-  let logModal   = null;
-  let cdTimer    = null;
+  let allEvents      = [];
+  let filtered       = [];
+  let selectedEv     = null;
+  let logItemId      = null;
+  let logModal       = null;
+  let cdTimer        = null;
+  let editingItemId  = null;
+  let allDrivers     = [];
 
   /* ── Helpers ── */
   function esc(v) {
@@ -382,8 +385,24 @@
   function nowISO() { return new Date().toISOString(); }
   function uid()    { return 'rp_' + Date.now() + '_' + Math.random().toString(36).slice(2,7); }
   function cfg()    { return (typeof RTS !== 'undefined' && RTS.getSettings ? RTS.getSettings() : {}); }
-  function driverNames() {
-    return (cfg().drivers || []).map(d => d.name || d.displayName || d.id).filter(Boolean);
+  function getDriverList() {
+    // Merge: allDrivers (from DB sync) + settings drivers, dedupe by name
+    const base = allDrivers.length ? allDrivers : (cfg().drivers || []);
+    const names = new Set();
+    const result = [];
+    // If event has specific drivers assigned, show those first
+    const evDriverIds = selectedEv && Array.isArray(selectedEv.drivers) ? selectedEv.drivers : [];
+    if (evDriverIds.length) {
+      base.filter(d => evDriverIds.includes(d.id)).forEach(d => {
+        const n = d.name || d.displayName || d.id;
+        if (n && !names.has(n)) { names.add(n); result.push(n); }
+      });
+    }
+    base.forEach(d => {
+      const n = d.name || d.displayName || d.id;
+      if (n && !names.has(n)) { names.add(n); result.push(n); }
+    });
+    return result;
   }
   function calcEnd(startISO, dur) {
     if (!startISO || !dur) return '';
@@ -525,10 +544,11 @@
     updateCountdown();
   }
 
-  function populateDriverSelect() {
+  function populateDriverSelect(setVal) {
     const sel = document.getElementById('rpInDriver');
+    const names = getDriverList();
     sel.innerHTML = '<option value="">— All drivers —</option>' +
-      driverNames().map(n => '<option>' + esc(n) + '</option>').join('');
+      names.map(n => '<option' + (setVal && setVal === n ? ' selected' : '') + '>' + esc(n) + '</option>').join('');
   }
 
   /* ── Table ── */
@@ -561,8 +581,9 @@
         '<td style="text-align:center;">' + (s.internalOnly ? '<span class="rp-vis-int">Internal</span>' : '<span class="rp-vis-pub">Public</span>') + '</td>' +
         '<td style="text-align:center;"><button class="rp-status-pill ' + statusClass + '" onclick="rpCycleStatus(' + JSON.stringify(s.id) + ')" title="Click to cycle status">' + esc(s.status||'Pending') + '</button></td>' +
         '<td><div class="rp-row-actions">' +
-          '<button class="btn btn-sm btn-outline-secondary" style="font-size:.72rem;padding:2px 9px;" onclick="rpOpenLog(' + JSON.stringify(s.id) + ')"><i class="bi bi-journal-text"></i> Log</button>' +
-          '<button class="btn btn-sm btn-outline-danger" style="font-size:.72rem;padding:2px 8px;" onclick="rpDeleteItem(' + JSON.stringify(s.id) + ')">&times;</button>' +
+          '<button class="btn btn-sm btn-outline-secondary" style="font-size:.72rem;padding:2px 9px;" onclick="rpEditItem(\'' + s.id + '\')"><i class="bi bi-pencil"></i></button>' +
+          '<button class="btn btn-sm btn-outline-secondary" style="font-size:.72rem;padding:2px 9px;" onclick="rpOpenLog(\'' + s.id + '\')" title="Session log"><i class="bi bi-journal-text"></i></button>' +
+          '<button class="btn btn-sm btn-outline-danger" style="font-size:.72rem;padding:2px 8px;" onclick="rpDeleteItem(\'' + s.id + '\')">&times;</button>' +
         '</div></td>' +
       '</tr>';
     }).join('');
@@ -631,7 +652,46 @@
     if (typeof RTS !== 'undefined' && RTS.showToast) RTS.showToast('Session log saved', 'success');
   });
 
-  /* ── Add item ── */
+  /* ── Edit item ── */
+  window.rpEditItem = function (itemId) {
+    if (!selectedEv) return;
+    const item = (selectedEv.runPlan||[]).find(s => s.id === itemId);
+    if (!item) return;
+    editingItemId = itemId;
+    // Populate form fields
+    const startParts = (item.start||'').split('T');
+    document.getElementById('rpInDate').value     = startParts[0] || '';
+    document.getElementById('rpInTime').value     = startParts[1] ? startParts[1].slice(0,5) : '';
+    document.getElementById('rpInEnd').value      = item.endTime || '';
+    document.getElementById('rpInDur').value      = item.durationMin || '';
+    document.getElementById('rpInName').value     = item.name || '';
+    document.getElementById('rpInNotes').value    = item.description || '';
+    document.getElementById('rpInInternal').checked = !!item.internalOnly;
+    populateDriverSelect(item.driver || '');
+    document.getElementById('rpInStatus').value   = item.status || 'Pending';
+    // Switch button label
+    document.getElementById('btnAddItem').textContent  = '✓ Update Item';
+    document.getElementById('btnCancelEdit').style.display = '';
+    document.getElementById('rpInName').focus();
+    // Scroll form into view
+    document.querySelector('.rp-add-section').scrollIntoView({ behavior:'smooth', block:'nearest' });
+  };
+
+  window.rpCancelEdit = function () {
+    editingItemId = null;
+    document.getElementById('btnAddItem').textContent = '+ Add Item';
+    document.getElementById('btnCancelEdit').style.display = 'none';
+    document.getElementById('rpInTime').value    = '';
+    document.getElementById('rpInEnd').value     = '';
+    document.getElementById('rpInDur').value     = '';
+    document.getElementById('rpInName').value    = '';
+    document.getElementById('rpInNotes').value   = '';
+    document.getElementById('rpInStatus').value  = 'Pending';
+    document.getElementById('rpInInternal').checked = false;
+    populateDriverSelect();
+  };
+
+  /* ── Add / Update item ── */
   document.getElementById('btnAddItem').addEventListener('click', addItem);
   document.getElementById('rpInName').addEventListener('keydown', e => { if (e.key === 'Enter') addItem(); });
 
@@ -644,17 +704,38 @@
     const start = date + 'T' + time;
     const name = document.getElementById('rpInName').value.trim() || 'Session';
     if (!selectedEv.runPlan) selectedEv.runPlan = [];
-    selectedEv.runPlan.push({
-      id:           uid(),
-      start,
-      endTime:      document.getElementById('rpInEnd').value || '',
-      durationMin:  Number(document.getElementById('rpInDur').value||0) || 0,
-      name,
-      description:  document.getElementById('rpInNotes').value.trim() || '',
-      driver:       document.getElementById('rpInDriver').value || '',
-      status:       document.getElementById('rpInStatus').value || 'Pending',
-      internalOnly: document.getElementById('rpInInternal').checked,
-    });
+
+    if (editingItemId) {
+      // Update existing
+      const item = selectedEv.runPlan.find(s => s.id === editingItemId);
+      if (item) {
+        item.start        = start;
+        item.endTime      = document.getElementById('rpInEnd').value || '';
+        item.durationMin  = Number(document.getElementById('rpInDur').value||0) || 0;
+        item.name         = name;
+        item.description  = document.getElementById('rpInNotes').value.trim() || '';
+        item.driver       = document.getElementById('rpInDriver').value || '';
+        item.status       = document.getElementById('rpInStatus').value || 'Pending';
+        item.internalOnly = document.getElementById('rpInInternal').checked;
+      }
+      editingItemId = null;
+      document.getElementById('btnAddItem').textContent = '+ Add Item';
+      document.getElementById('btnCancelEdit').style.display = 'none';
+    } else {
+      // Add new
+      selectedEv.runPlan.push({
+        id:           uid(),
+        start,
+        endTime:      document.getElementById('rpInEnd').value || '',
+        durationMin:  Number(document.getElementById('rpInDur').value||0) || 0,
+        name,
+        description:  document.getElementById('rpInNotes').value.trim() || '',
+        driver:       document.getElementById('rpInDriver').value || '',
+        status:       document.getElementById('rpInStatus').value || 'Pending',
+        internalOnly: document.getElementById('rpInInternal').checked,
+      });
+    }
+
     selectedEv.updatedAt = nowISO();
     // keep date sticky — only clear time and activity fields
     document.getElementById('rpInTime').value    = '';
@@ -804,7 +885,19 @@
   }
 
   /* ── Boot ── */
-  loadEvents();
+  async function init() {
+    // Sync settings from DB so drivers are always up to date
+    if (typeof RTS !== 'undefined' && RTS.syncSettingsFromDB) {
+      try {
+        const s = await RTS.syncSettingsFromDB();
+        allDrivers = (s && s.drivers) ? s.drivers : [];
+      } catch(_) { allDrivers = cfg().drivers || []; }
+    } else {
+      allDrivers = cfg().drivers || [];
+    }
+    await loadEvents();
+  }
+  init();
 })();
 </script>
 </body>
