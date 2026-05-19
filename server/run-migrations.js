@@ -94,7 +94,8 @@ async function runMigrations() {
     '073_drive_imports.sql',
     '074_telemetry_sessions.sql',
     '075_sporting_entries_extra_fields.sql',
-    '076_regulations_align_columns.sql'
+    '076_regulations_align_columns.sql',
+    '078_academy_prospects.sql'
   ];
   
   let appliedCount = 0, skippedCount = 0;

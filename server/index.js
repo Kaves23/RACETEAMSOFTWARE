@@ -281,6 +281,7 @@ app.use('/api/driver-media',         requireAuth, require('./routes/driver-media
 app.use('/api/driver-licences',      requireAuth, require('./routes/driver-licences'));
 app.use('/api/driver-preferences',   requireAuth, require('./routes/driver-preferences'));
 app.use('/api/junior-programme',     requireAuth, require('./routes/junior-programme'));
+app.use('/api/academy/prospects',    requireAuth, require('./routes/academy'));
 // Phase 3 — Compliance
 app.use('/api/policies',             requireAuth, require('./routes/policies'));
 app.use('/api/legal-contracts',      requireAuth, require('./routes/legal-contracts'));
