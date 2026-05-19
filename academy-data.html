@@ -48,7 +48,7 @@
     .session-card-stats  { display:flex;gap:8px;margin-top:8px;flex-wrap:wrap; }
     .session-stat-pill   { background:#f1f5f9;border-radius:20px;padding:2px 9px;
                            font-size:0.68rem;font-weight:700;color:#475569; }
-    .session-stat-pill.best { background:#fef3c7;color:#92400e; }
+    .session-stat-pill.best { background:#fde68a;color:#78350f; }
     .session-view-btn    { position:absolute;right:12px;top:50%;transform:translateY(-50%);
                            background:#1a0d2e;color:#fff;border:none;border-radius:6px;
                            padding:4px 12px;font-size:0.72rem;font-weight:700;
@@ -92,14 +92,14 @@
     .lap-table thead th { padding:7px 10px;font-size:0.62rem;font-weight:800;
                           text-transform:uppercase;letter-spacing:0.06em;color:#94a3b8;
                           border-bottom:2px solid #e2e8f0;white-space:nowrap; }
-    .lap-table tbody td { padding:6px 10px;border-bottom:1px solid rgba(0,0,0,0.04);
+    .lap-table tbody td { padding:4px 10px;border-bottom:1px solid rgba(0,0,0,0.04);
                           vertical-align:middle; }
     .lap-table tbody tr:last-child td { border-bottom:none; }
-    .lr-best  { background:#fffbeb; }
-    .lr-great { background:#f0fdf4; }
-    .lr-good  { background:#eff6ff; }
-    .lr-slow  { background:#fff7ed; }
-    .lr-vslow { background:#fef2f2; }
+    .lr-best  { background:#fde68a; }
+    .lr-great { background:#dcfce7; }
+    .lr-good  { background:#dbeafe; }
+    .lr-slow  { background:#fed7aa; }
+    .lr-vslow { background:#fecaca; }
     .lr-part  { opacity:.42; }
     .lr-out   { font-style:italic;opacity:.65; }
     .lap-num  { font-weight:800;color:#1a0d2e;text-align:center; }
@@ -109,7 +109,7 @@
     .lap-delta.pos { color:#ef4444; }
     .lap-delta.neg { color:#22c55e; }
     .lap-badge { font-size:0.6rem;font-weight:800;border-radius:20px;padding:2px 7px; }
-    .lb-best { background:#fef3c7;color:#92400e; }
+    .lb-best { background:#d97706;color:#fff; }
     .lb-part { background:#f1f5f9;color:#94a3b8; }
     .lb-out  { background:#ede9fe;color:#6d28d9; }
     .qbar    { width:4px;height:22px;border-radius:2px;display:inline-block; }
@@ -172,6 +172,11 @@
       style="background:#1a0d2e;color:#fff;font-weight:700;font-size:0.78rem;
              border-radius:6px;padding:5px 14px;border:none;cursor:pointer;">
       <i class="bi bi-folder2-open me-1"></i> Select Data Folder
+    </button>
+    <button id="btnResumeFolder"
+      style="display:none;background:#374151;color:#fff;font-weight:600;font-size:0.78rem;
+             border-radius:6px;padding:5px 14px;border:none;cursor:pointer;align-items:center;gap:6px;">
+      <i class="bi bi-arrow-clockwise"></i> <span id="btnResumeFolderLabel">Resume Folder</span>
     </button>
     <div id="folderChip" class="folder-chip" style="display:none">
       <i class="bi bi-folder-fill me-1"></i><span id="folderName"></span>
@@ -446,7 +451,7 @@ function lapRowCls(l) {
 function lapQC(l) {
   if (l.partial) return '#cbd5e1';
   if (l.outlap)  return '#a78bfa';
-  if (l.is_best) return '#f59e0b';
+  if (l.is_best) return '#b45309';
   var p = l.gap_pct || 100;
   return p < 1 ? '#22c55e' : p < 3 ? '#3b82f6' : p < 6 ? '#f97316' : '#ef4444';
 }
@@ -685,6 +690,7 @@ async function openFile(name, driver, dateDisplay, dateRaw) {
       }
       cache[name] = data;
     }
+    saveXRKIndex(driver, dateRaw || '', name, data.summary, data.laps);
     renderViewer(data, name, driver, dateDisplay);
 
     // Refresh file cards to show parsed stats
@@ -853,7 +859,7 @@ function drawChart(laps, sum) {
   var labels = laps.map(function (l) { return 'L' + l.lap; });
   var values = laps.map(function (l) { return +(l.duration_ms / 1000).toFixed(3); });
   var ptC    = laps.map(lapQC);
-  var ptS    = laps.map(function (l) { return l.is_best ? 9 : l.partial ? 3 : 6; });
+  var ptS    = laps.map(function (l) { return l.is_best ? 6 : l.partial ? 2 : 4; });
 
   var bSec = sum.best_ms / 1000;
   var aSec = sum.avg_ms  / 1000;
@@ -876,14 +882,14 @@ function drawChart(laps, sum) {
           pointBackgroundColor: ptC,
           pointBorderColor:     ptC,
           pointRadius:     ptS,
-          pointHoverRadius: 8,
+          pointHoverRadius: 6,
           tension: 0.25,
           fill: true,
         },
         {
           label: 'Best',
           data: laps.map(function () { return bSec; }),
-          borderColor: '#f59e0b',
+          borderColor: '#b45309',
           borderWidth: 1.5,
           borderDash: [6, 4],
           pointRadius: 0,
@@ -954,6 +960,108 @@ function drawChart(laps, sum) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   INDEXEDDB — PERSIST FOLDER HANDLE ACROSS SESSIONS
+   ═══════════════════════════════════════════════════════════════ */
+
+function idbOpen() {
+  return new Promise(function (res, rej) {
+    var r = indexedDB.open('rts-academy-data', 1);
+    r.onupgradeneeded = function (e) { e.target.result.createObjectStore('kv'); };
+    r.onsuccess = function (e) { res(e.target.result); };
+    r.onerror   = rej;
+  });
+}
+async function idbSet(key, val) {
+  var db = await idbOpen();
+  return new Promise(function (res, rej) {
+    var tx = db.transaction('kv', 'readwrite');
+    tx.objectStore('kv').put(val, key);
+    tx.oncomplete = res; tx.onerror = rej;
+  });
+}
+async function idbGet(key) {
+  var db = await idbOpen();
+  return new Promise(function (res, rej) {
+    var tx = db.transaction('kv', 'readonly');
+    var r  = tx.objectStore('kv').get(key);
+    r.onsuccess = function (e) { res(e.target.result); };
+    r.onerror   = rej;
+  });
+}
+
+/* Save parsed session summary to localStorage for Sessions page integration */
+function saveXRKIndex(driverFolder, dateFolder, fileName, summary, laps) {
+  try {
+    var idx = JSON.parse(localStorage.getItem('rts_xrk_index') || '[]');
+    var m   = dateFolder.match(/^(\d{2})(\d{2})(\d{4})$/);
+    var dateISO = m ? (m[3] + '-' + m[2] + '-' + m[1]) : '';
+    var entry = idx.find(function (e) {
+      return e.driverFolder === driverFolder && e.dateFolder === dateFolder;
+    });
+    if (!entry) {
+      entry = { driverFolder: driverFolder, dateFolder: dateFolder, dateISO: dateISO, files: [] };
+      idx.push(entry);
+    }
+    var fi = entry.files.find(function (f) { return f.name === fileName; });
+    var lapData = (laps || []).map(function (l) {
+      return { lap: l.lap, time_str: l.time_str, gap_str: l.gap_str,
+               is_best: l.is_best, outlap: l.outlap, partial: l.partial };
+    });
+    if (!fi) entry.files.push({ name: fileName, summary: summary, laps: lapData });
+    else     { fi.summary = summary; fi.laps = lapData; }
+    localStorage.setItem('rts_xrk_index', JSON.stringify(idx));
+  } catch (_) {}
+}
+
+/* Load folder from IndexedDB on page load */
+async function tryRestoreFolder() {
+  try {
+    var h = await idbGet('rootDir');
+    if (!h || typeof h.queryPermission !== 'function') return;
+    var perm = await h.queryPermission({ mode: 'read' });
+    if (perm === 'granted') {
+      await activateFolder(h);
+    } else {
+      // Show resume button — user must click to re-grant permission
+      var btn = document.getElementById('btnResumeFolder');
+      document.getElementById('btnResumeFolderLabel').textContent = 'Resume: ' + h.name;
+      btn.style.display = 'flex';
+      btn.onclick = async function () {
+        try {
+          var granted = await h.requestPermission({ mode: 'read' });
+          if (granted === 'granted') { btn.style.display = 'none'; await activateFolder(h); }
+        } catch (_) {}
+      };
+    }
+  } catch (_) {}
+}
+
+async function activateFolder(h) {
+  rootH = h;
+  document.getElementById('folderName').textContent = h.name;
+  document.getElementById('folderChip').style.display = 'flex';
+  document.getElementById('treePane').innerHTML =
+    '<div class="acd-empty" style="padding:20px">'
+    + '<div class="acd-empty-icon"><div style="width:2.4rem;height:2.4rem;border:3px solid #e2e8f0;border-top-color:#1a0d2e;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto"></div></div>'
+    + '<div class="acd-empty-title">Loading…</div>'
+    + '</div>';
+  var raw = await scanDir(rootH, [], 0);
+  fileTree = buildTree(raw, rootH.name);
+  cache    = {};
+  renderTree(fileTree);
+  var drivers  = new Set(fileTree.map(function (s) { return s.driver; })).size;
+  var sessions = fileTree.length;
+  var files    = fileTree.reduce(function (n, s) { return n + s.files.length; }, 0);
+  document.getElementById('stD').textContent = drivers;
+  document.getElementById('stS').textContent = sessions;
+  document.getElementById('stF').textContent = files;
+  document.getElementById('statsRow').style.display = 'flex';
+  if (fileTree.length) { var first = fileTree[0]; selSess(first.driver + '::' + first.dateRaw); }
+}
+
+tryRestoreFolder();
+
+/* ═══════════════════════════════════════════════════════════════
    FOLDER PICKER
    ═══════════════════════════════════════════════════════════════ */
 
@@ -964,33 +1072,9 @@ document.getElementById('btnPickFolder').addEventListener('click', async functio
   }
   try {
     rootH = await window.showDirectoryPicker({ mode: 'read' });
-    document.getElementById('folderName').textContent = rootH.name;
-    document.getElementById('folderChip').style.display = 'flex';
-    document.getElementById('treePane').innerHTML =
-      '<div class="acd-empty" style="padding:20px">'
-      + '<div class="acd-empty-icon"><div style="width:2.4rem;height:2.4rem;border:3px solid #e2e8f0;border-top-color:#1a0d2e;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto"></div></div>'
-      + '<div class="acd-empty-title">Scanning…</div>'
-      + '</div>';
-
-    var raw = await scanDir(rootH, [], 0);
-    fileTree = buildTree(raw, rootH.name);
-    cache    = {};  // clear cache on new folder
-    renderTree(fileTree);
-
-    // Stats chips
-    var drivers  = new Set(fileTree.map(function (s) { return s.driver; })).size;
-    var sessions = fileTree.length;
-    var files    = fileTree.reduce(function (n, s) { return n + s.files.length; }, 0);
-    document.getElementById('stD').textContent = drivers;
-    document.getElementById('stS').textContent = sessions;
-    document.getElementById('stF').textContent = files;
-    document.getElementById('statsRow').style.display = 'flex';
-
-    // Auto-select first entry
-    if (fileTree.length) {
-      var first = fileTree[0];
-      selSess(first.driver + '::' + first.dateRaw);
-    }
+    idbSet('rootDir', rootH).catch(function () {});
+    document.getElementById('btnResumeFolder').style.display = 'none';
+    await activateFolder(rootH);
   } catch (e) {
     if (e.name !== 'AbortError') console.error('Folder picker error:', e);
   }
