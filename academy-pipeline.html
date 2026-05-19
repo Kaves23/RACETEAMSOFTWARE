@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Race Team OS – Academy Pipeline</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="style.css?v=20260525" rel="stylesheet" />
+  <style>
+    body { background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%); }
+
+    .ev-stats-bar { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+    .ev-stat-card { background: #fff; border: 1px solid rgba(0,0,0,0.1); border-radius: 8px; padding: 10px 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.06); min-width: 110px; }
+    .ev-stat-label { font-size: 0.7rem; color: #6c757d; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+    .ev-stat-value { font-size: 1.5rem; font-weight: 700; color: #1a1d24; line-height: 1.2; }
+
+    #acdShell.mlo-shell { background: transparent; border: none; gap: 10px; }
+    #acdShell .mlo-pane-left,
+    #acdShell .mlo-pane-mid,
+    #acdShell .mlo-pane-right {
+      background: #ffffff;
+      border: 1px solid rgba(0,0,0,0.1);
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+    }
+    #acdShell .mlo-pane-header { background: #f8f9fa; border-bottom: 1px solid rgba(0,0,0,0.1); }
+    #acdShell .mlo-title { color: #1a1d24 !important; }
+    #acdShell .mlo-section-label { color: #6c757d !important; opacity: 1 !important; }
+    #acdShell .mlo-pane-content { color: #1a1d24; }
+    #acdShell .mlo-resizer { background: transparent; }
+    #acdShell .mlo-resizer:hover { background: rgba(26,13,46,0.3); }
+
+    #acdShell .mlo-pane-left .pastel-tree { padding: 0 !important; margin: 0 !important; }
+    #acdShell .mlo-pane-left .pastel-tree li {
+      height: 28px !important; display: flex !important; align-items: center !important;
+      font-size: 0.83rem !important; font-weight: 500 !important; padding-left: 10px !important;
+      margin-bottom: 2px !important; border-radius: 5px !important; border: 1px solid rgba(0,0,0,0.08) !important;
+      box-shadow: none !important; color: #1a1d24 !important; white-space: nowrap !important;
+      overflow: hidden !important; text-overflow: ellipsis !important; cursor: pointer !important;
+    }
+    #acdShell .mlo-pane-left .pastel-tree li.active {
+      background: rgba(26,13,46,0.1) !important; border-color: rgba(26,13,46,0.35) !important;
+      color: #0072a3 !important; font-weight: 700 !important;
+    }
+    #acdShell .form-control, #acdShell .form-select {
+      background: #fff; color: #1a1d24; border-color: #dee2e6;
+    }
+    #acdShell .form-control::placeholder { color: #9aa5b4; }
+
+    .acd-list-table { width: 100%; font-size: 0.82rem; border-collapse: separate; border-spacing: 0; }
+    .acd-list-table thead { position: sticky; top: 0; background: #f8f9fa; z-index: 5; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+    .acd-list-table th { padding: 8px 10px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #6c757d; border-bottom: 2px solid #dee2e6; white-space: nowrap; }
+    .acd-list-table td { padding: 6px 10px; border-bottom: 1px solid rgba(0,0,0,0.05); vertical-align: middle; color: #1a1d24 !important; }
+    .acd-list-table tbody tr { cursor: pointer; transition: background 0.1s; }
+    .acd-list-table tbody tr:hover { background: #f8f9fa; }
+    .acd-list-table tbody tr.acd-row-selected { background: rgba(26,13,46,0.08) !important; outline: 2px solid #1a0d2e; outline-offset: -2px; }
+    .acd-row-del { opacity: 0; transition: opacity 0.15s; background: none; border: none; color: #dc3545; font-size: 1rem; line-height: 1; padding: 0 4px; cursor: pointer; }
+    .acd-list-table tbody tr:hover .acd-row-del { opacity: 1; }
+
+    /* Status badge colours */
+    .badge-lead        { background: #e2e8f0; color: #475569; }
+    .badge-qualified   { background: #dbeafe; color: #1d4ed8; }
+    .badge-booked      { background: #fef9c3; color: #854d0e; }
+    .badge-testing     { background: #ede9fe; color: #5b21b6; }
+    .badge-post_review { background: #ffedd5; color: #9a3412; }
+    .badge-offer_made  { background: #d1fae5; color: #065f46; }
+    .badge-signed      { background: #bbf7d0; color: #14532d; }
+    .badge-cancelled   { background: #fee2e2; color: #991b1b; }
+
+    .acd-badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 0.68rem; font-weight: 700; white-space: nowrap; }
+
+    #acdShell #acdTabs .nav-link { color: #6c757d; background: transparent; border-color: transparent; font-size: 0.8rem; padding: 7px 10px; }
+    #acdShell #acdTabs .nav-link.active { color: #1a0d2e; border-color: #dee2e6 #dee2e6 #fff; background: #fff; font-weight: 600; }
+    #acdShell #acdTabs .nav-link:hover:not(.active) { color: #1a1d24; }
+
+    #acdShell .mlo-pane-right .form-label { color: #495057 !important; font-size: 0.78rem; font-weight: 600; margin-bottom: 2px; }
+    #acdShell .mlo-pane-right .form-control,
+    #acdShell .mlo-pane-right .form-select { background: #fff !important; color: #1a1d24 !important; border-color: #dee2e6 !important; font-size: 0.82rem; }
+
+    /* Session cards */
+    .acd-session-card { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; padding: 8px 10px; margin-bottom: 6px; position: relative; }
+    .acd-session-date { font-size: 0.78rem; font-weight: 700; color: #1a0d2e; }
+    .acd-session-venue { font-size: 0.75rem; color: #6c757d; }
+    .acd-session-stars { color: #f59e0b; font-size: 0.85rem; letter-spacing: 1px; }
+    .acd-session-notes { font-size: 0.75rem; color: #495057; margin-top: 3px; white-space: pre-wrap; word-break: break-word; }
+    .acd-session-link { font-size: 0.72rem; }
+    .acd-session-del { position: absolute; top: 6px; right: 8px; background: none; border: none; color: #dc3545; font-size: 0.85rem; cursor: pointer; opacity: 0; transition: opacity 0.15s; padding: 0 3px; }
+    .acd-session-card:hover .acd-session-del { opacity: 1; }
+
+    /* Add session form */
+    .acd-add-session { background: #fff; border: 1px dashed #dee2e6; border-radius: 6px; padding: 10px; margin-top: 6px; }
+    .acd-add-session .form-label { font-size: 0.72rem !important; }
+
+    /* Attachments */
+    .acd-att-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 4px 0; border-bottom: 1px solid #f0f0f0; font-size: 0.8rem; }
+    .acd-att-row:last-child { border-bottom: none; }
+    .acd-att-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; color: #1a0d2e; }
+    .acd-att-name:hover { text-decoration: underline; }
+
+    /* Inspector empty state */
+    .acd-inspector-empty { text-align: center; padding: 40px 20px; color: #9aa5b4; font-size: 0.85rem; }
+
+    /* Stage pipeline strip */
+    .acd-stage-strip { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 10px; }
+    .acd-stage-pip { flex: 1; min-width: 60px; text-align: center; font-size: 0.62rem; font-weight: 700; padding: 4px 4px; border-radius: 4px; background: #f0f0f0; color: #9aa5b4; text-transform: uppercase; letter-spacing: 0.04em; border: 1px solid transparent; }
+    .acd-stage-pip.current { border-color: #1a0d2e; color: #1a0d2e; background: #ede9fe; }
+    .acd-stage-pip.passed { background: #d1fae5; color: #065f46; }
+  </style>
+</head>
+<body class="light-mode">
+  <div id="rtsTopNav"></div>
+  <div class="rts-version-badge">v3</div>
+  <div class="rts-main container-fluid">
+
+    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+      <div>
+        <h1 class="h4 mb-1">Academy – Test Driver Pipeline</h1>
+        <div class="text-secondary" style="font-size:0.85rem;">Manage introduction drive prospects from first enquiry through to signed.</div>
+      </div>
+      <button class="btn btn-sm btn-primary" id="btnAddProspect" type="button">+ Add Prospect</button>
+    </div>
+
+    <!-- Stats Bar -->
+    <div class="ev-stats-bar">
+      <div class="ev-stat-card"><div class="ev-stat-label">👤 Total</div><div class="ev-stat-value" id="statTotal">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">🔵 Lead</div><div class="ev-stat-value" id="statLead">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">🟣 Testing</div><div class="ev-stat-value" id="statTesting">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">✅ Signed</div><div class="ev-stat-value" id="statSigned">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">❌ Cancelled</div><div class="ev-stat-value" id="statCancelled">0</div></div>
+    </div>
+
+    <div class="mlo-shell" id="acdShell">
+
+      <!-- LEFT PANE: Stage filter -->
+      <section class="mlo-pane mlo-pane-left" aria-label="Pipeline stages">
+        <div class="mlo-pane-header">
+          <div class="d-flex align-items-center justify-content-between">
+            <div class="mlo-title">Pipeline</div>
+            <span class="badge text-bg-secondary" id="acdCountBadge">0</span>
+          </div>
+        </div>
+        <div class="mlo-pane-content">
+          <div class="mlo-section-label">Stage</div>
+          <ul class="pastel-tree" id="acdStageList">
+            <li class="active" data-filter="all">All Prospects</li>
+            <li data-filter="lead">Lead</li>
+            <li data-filter="qualified">Qualified</li>
+            <li data-filter="booked">Test Day Booked</li>
+            <li data-filter="testing">Currently Testing</li>
+            <li data-filter="post_review">Post-Test Review</li>
+            <li data-filter="offer_made">Offer Made</li>
+            <li data-filter="signed">Signed</li>
+            <li data-filter="cancelled">Cancelled</li>
+          </ul>
+        </div>
+      </section>
+
+      <div class="mlo-resizer" data-resize="left"></div>
+
+      <!-- MIDDLE PANE: Prospect list -->
+      <section class="mlo-pane mlo-pane-mid" aria-label="Prospect list">
+        <div class="mlo-pane-header">
+          <div class="d-flex flex-wrap align-items-center gap-1">
+            <input type="text" class="form-control form-control-sm" id="acdSearch" placeholder="Search prospects…" style="max-width:220px;">
+            <select class="form-select form-select-sm" id="acdCatFilter" style="max-width:160px;">
+              <option value="">Category: All</option>
+            </select>
+          </div>
+        </div>
+        <div class="mlo-pane-content" style="padding:0;">
+          <table class="acd-list-table">
+            <thead>
+              <tr>
+                <th>Driver Name</th>
+                <th style="width:45px;">Age</th>
+                <th>Parent / Guardian</th>
+                <th style="width:90px;">Category</th>
+                <th style="width:105px;">Status</th>
+                <th style="width:90px;">Last Session</th>
+                <th style="width:28px;"></th>
+              </tr>
+            </thead>
+            <tbody id="acdTbody">
+              <tr><td colspan="7" class="text-center text-secondary py-4" style="font-size:0.85rem;">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <div class="mlo-resizer" data-resize="right"></div>
+
+      <!-- RIGHT PANE: Inspector -->
+      <section class="mlo-pane mlo-pane-right mlo-inspector" aria-label="Prospect inspector">
+        <div class="mlo-pane-header">
+          <div class="d-flex align-items-center justify-content-between">
+            <div class="mlo-title">Inspector</div>
+            <span class="badge text-bg-secondary" id="acdInspectorBadge">—</span>
+          </div>
+        </div>
+        <div class="mlo-pane-content" id="acdInspectorContent">
+          <div class="acd-inspector-empty" id="acdEmptyState">Select a prospect to view details.</div>
+          <div id="acdInspectorForm" style="display:none;">
+            <ul class="nav nav-tabs mb-3" id="acdTabs" role="tablist">
+              <li class="nav-item" role="presentation">
+                <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#pane-contact" type="button">Contact</button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#pane-status" type="button">Status</button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#pane-sessions" type="button">Sessions</button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#pane-files" type="button">Files</button>
+              </li>
+            </ul>
+
+            <div class="tab-content">
+
+              <!-- CONTACT TAB -->
+              <div class="tab-pane fade show active" id="pane-contact" role="tabpanel">
+                <div class="row g-2">
+                  <div class="col-12">
+                    <div class="mlo-section-label mb-1" style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#9aa5b4;">Driver</div>
+                  </div>
+                  <div class="col-8">
+                    <label class="form-label">Driver Name</label>
+                    <input class="form-control form-control-sm" id="fDriverName" type="text" placeholder="First & last name" />
+                  </div>
+                  <div class="col-4">
+                    <label class="form-label">Date of Birth</label>
+                    <input class="form-control form-control-sm" id="fDriverDob" type="date" />
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Category</label>
+                    <input class="form-control form-control-sm" id="fCategory" type="text" placeholder="e.g. Karting, F4" list="catDatalist" />
+                    <datalist id="catDatalist"></datalist>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Nationality</label>
+                    <input class="form-control form-control-sm" id="fNationality" type="text" placeholder="e.g. British" />
+                  </div>
+                  <div class="col-12 mt-1">
+                    <div class="mlo-section-label mb-1" style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#9aa5b4;">Parent / Guardian</div>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label">Parent / Guardian Name</label>
+                    <input class="form-control form-control-sm" id="fParentName" type="text" placeholder="Full name" />
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Phone</label>
+                    <input class="form-control form-control-sm" id="fParentPhone" type="tel" placeholder="+44 7700 000000" />
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Email</label>
+                    <input class="form-control form-control-sm" id="fParentEmail" type="email" placeholder="email@example.com" />
+                  </div>
+                  <div class="col-12 mt-1">
+                    <div class="mlo-section-label mb-1" style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#9aa5b4;">Enquiry</div>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">How did they hear about us?</label>
+                    <input class="form-control form-control-sm" id="fSource" type="text" placeholder="e.g. Instagram, Referral" />
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Assigned To</label>
+                    <input class="form-control form-control-sm" id="fAssignedTo" type="text" placeholder="Staff member" list="staffDatalist" />
+                    <datalist id="staffDatalist"></datalist>
+                  </div>
+                  <div class="col-12 d-flex gap-1 mt-2">
+                    <button class="btn btn-sm btn-primary" id="btnSaveContact" type="button">Save</button>
+                    <button class="btn btn-sm btn-outline-danger" id="btnDeleteProspect" type="button">Delete</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- STATUS TAB -->
+              <div class="tab-pane fade" id="pane-status" role="tabpanel">
+                <div class="row g-2">
+                  <div class="col-12">
+                    <label class="form-label">Stage</label>
+                    <div class="acd-stage-strip" id="acdStagePipeline"></div>
+                    <select class="form-select form-select-sm" id="fStatus">
+                      <option value="lead">Lead</option>
+                      <option value="qualified">Qualified</option>
+                      <option value="booked">Test Day Booked</option>
+                      <option value="testing">Currently Testing</option>
+                      <option value="post_review">Post-Test Review</option>
+                      <option value="offer_made">Offer Made</option>
+                      <option value="signed">Signed</option>
+                      <option value="cancelled">Cancelled</option>
+                    </select>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label">Notes</label>
+                    <textarea class="form-control form-control-sm" id="fNotes" rows="6" placeholder="Any additional notes about this prospect…"></textarea>
+                  </div>
+                  <div class="col-12 d-flex gap-1">
+                    <button class="btn btn-sm btn-primary" id="btnSaveStatus" type="button">Save</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- SESSIONS TAB -->
+              <div class="tab-pane fade" id="pane-sessions" role="tabpanel">
+                <div id="acdSessionsList">
+                  <div class="text-secondary" style="font-size:0.8rem;">No sessions logged.</div>
+                </div>
+                <div class="acd-add-session mt-2">
+                  <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#9aa5b4;margin-bottom:6px;">Log New Session</div>
+                  <div class="row g-2">
+                    <div class="col-6">
+                      <label class="form-label">Date</label>
+                      <input class="form-control form-control-sm" id="sesDate" type="date" />
+                    </div>
+                    <div class="col-6">
+                      <label class="form-label">Circuit / Venue</label>
+                      <input class="form-control form-control-sm" id="sesVenue" type="text" placeholder="e.g. Silverstone" />
+                    </div>
+                    <div class="col-6">
+                      <label class="form-label">Coach / Engineer</label>
+                      <input class="form-control form-control-sm" id="sesCoach" type="text" placeholder="Name" list="staffDatalist" />
+                    </div>
+                    <div class="col-6">
+                      <label class="form-label">Rating</label>
+                      <select class="form-select form-select-sm" id="sesRating">
+                        <option value="">—</option>
+                        <option value="1">⭐ 1 – Poor</option>
+                        <option value="2">⭐⭐ 2 – Below average</option>
+                        <option value="3">⭐⭐⭐ 3 – Average</option>
+                        <option value="4">⭐⭐⭐⭐ 4 – Good</option>
+                        <option value="5">⭐⭐⭐⭐⭐ 5 – Excellent</option>
+                      </select>
+                    </div>
+                    <div class="col-12">
+                      <label class="form-label">Session Notes / Coach Feedback</label>
+                      <textarea class="form-control form-control-sm" id="sesNotes" rows="3" placeholder="Lap times, observations, areas to improve…"></textarea>
+                    </div>
+                    <div class="col-12">
+                      <label class="form-label">Cloud Drive Link (data files, video, telemetry…)</label>
+                      <div class="d-flex gap-1">
+                        <input class="form-control form-control-sm" id="sesCloudLink" type="url" placeholder="https://drive.google.com/…" />
+                        <button class="btn btn-sm btn-outline-secondary" id="btnSesPickDrive" type="button" title="Open Google Drive Picker">Drive</button>
+                      </div>
+                    </div>
+                    <div class="col-12">
+                      <button class="btn btn-sm btn-primary w-100" id="btnAddSession" type="button">+ Log Session</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- FILES TAB -->
+              <div class="tab-pane fade" id="pane-files" role="tabpanel">
+                <div class="mb-2">
+                  <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#9aa5b4;margin-bottom:6px;">Attachments</div>
+                  <div id="acdAttList"></div>
+                </div>
+                <div class="d-flex gap-1 mt-2">
+                  <input class="form-control form-control-sm" id="attName" type="text" placeholder="Name" style="max-width:160px;" />
+                  <input class="form-control form-control-sm" id="attUrl" type="url" placeholder="URL" />
+                  <button class="btn btn-sm btn-outline-secondary" id="btnAttDrive" type="button">Drive</button>
+                  <button class="btn btn-sm btn-outline-secondary" id="btnAttAdd" type="button">Add</button>
+                </div>
+                <div class="text-secondary mt-1" style="font-size:0.72rem;">
+                  Paste any Google Drive, Dropbox or OneDrive link. Use Drive to pick via the Google Picker.
+                </div>
+              </div>
+
+            </div><!-- tab-content -->
+          </div><!-- acdInspectorForm -->
+        </div><!-- mlo-pane-content -->
+      </section>
+
+    </div><!-- mlo-shell -->
+  </div><!-- rts-main -->
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="config.js"></script>
+  <script src="core.js"></script>
+  <script src="topnav.js?v=20260525"></script>
+  <script>RTS.setActiveNav();</script>
+  <script>
+  (function () {
+    'use strict';
+
+    /* ── Status / stage config ────────────────────────────────────── */
+    const STAGES = [
+      { key: 'lead',        label: 'Lead',              badge: 'badge-lead' },
+      { key: 'qualified',   label: 'Qualified',         badge: 'badge-qualified' },
+      { key: 'booked',      label: 'Test Day Booked',   badge: 'badge-booked' },
+      { key: 'testing',     label: 'Currently Testing', badge: 'badge-testing' },
+      { key: 'post_review', label: 'Post-Test Review',  badge: 'badge-post_review' },
+      { key: 'offer_made',  label: 'Offer Made',        badge: 'badge-offer_made' },
+      { key: 'signed',      label: 'Signed',            badge: 'badge-signed' },
+      { key: 'cancelled',   label: 'Cancelled',         badge: 'badge-cancelled' }
+    ];
+    const STAGE_INDEX = Object.fromEntries(STAGES.map((s, i) => [s.key, i]));
+    const stageByKey = key => STAGES.find(s => s.key === key) || STAGES[0];
+
+    /* ── State ────────────────────────────────────────────────────── */
+    let prospects = [];
+    let selectedId = null;
+    let filterStage = 'all';
+    let filterCat = '';
+
+    /* ── Helpers ──────────────────────────────────────────────────── */
+    function esc(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+    function nowISO() { return new Date().toISOString(); }
+    function uid() {
+      return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+    }
+    function calcAge(dob) {
+      if (!dob) return '—';
+      const diff = Date.now() - new Date(dob).getTime();
+      if (isNaN(diff)) return '—';
+      return Math.floor(diff / (365.25 * 24 * 3600 * 1000));
+    }
+    function formatDate(iso) {
+      if (!iso) return '—';
+      try { return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }); }
+      catch (_) { return iso; }
+    }
+    function lastSession(p) {
+      const sessions = Array.isArray(p.sessions) ? p.sessions : [];
+      if (!sessions.length) return null;
+      return sessions.slice().sort((a, b) => (b.date || '') > (a.date || '') ? 1 : -1)[0];
+    }
+    function starStr(n) {
+      const v = parseInt(n) || 0;
+      return '★'.repeat(v) + '☆'.repeat(Math.max(0, 5 - v));
+    }
+
+    /* ── Auth helper ──────────────────────────────────────────────── */
+    function authHeaders() {
+      const token = localStorage.getItem('auth_token');
+      const h = { 'Content-Type': 'application/json' };
+      if (token) h['Authorization'] = 'Bearer ' + token;
+      return h;
+    }
+
+    /* ── API calls ────────────────────────────────────────────────── */
+    async function apiLoad() {
+      try {
+        const r = await fetch('/api/academy/prospects', { headers: authHeaders() });
+        if (r.status === 401) { window.location.href = 'login.html'; return; }
+        if (!r.ok) throw new Error(await r.text());
+        prospects = await r.json();
+        if (!Array.isArray(prospects)) prospects = [];
+      } catch (e) {
+        console.warn('Academy load error:', e);
+        prospects = [];
+      }
+    }
+    async function apiSave(p) {
+      const url = p.id ? `/api/academy/prospects/${p.id}` : '/api/academy/prospects';
+      const method = p.id ? 'PUT' : 'POST';
+      const r = await fetch(url, { method, headers: authHeaders(), body: JSON.stringify(p) });
+      if (!r.ok) throw new Error(await r.text());
+      return r.json();
+    }
+    async function apiDelete(id) {
+      const r = await fetch(`/api/academy/prospects/${id}`, { method: 'DELETE', headers: authHeaders() });
+      if (!r.ok) throw new Error(await r.text());
+    }
+
+    /* ── Render list ──────────────────────────────────────────────── */
+    function categories() {
+      return [...new Set(prospects.map(p => p.category || '').filter(Boolean))].sort();
+    }
+
+    function renderCatFilter() {
+      const sel = document.getElementById('acdCatFilter');
+      const prev = sel.value;
+      sel.innerHTML = '<option value="">Category: All</option>' +
+        categories().map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+      sel.value = prev;
+
+      const dl = document.getElementById('catDatalist');
+      if (dl) dl.innerHTML = categories().map(c => `<option value="${esc(c)}">`).join('');
+    }
+
+    function renderStaffDatalist() {
+      const settings = (window.RTS && RTS.getSettings) ? RTS.getSettings() : {};
+      const staff = Array.isArray(settings.staff) ? settings.staff.filter(s => s.active !== false).map(s => s.name) : [];
+      document.querySelectorAll('#staffDatalist').forEach(dl => {
+        dl.innerHTML = staff.map(n => `<option value="${esc(n)}">`).join('');
+      });
+    }
+
+    function filteredProspects() {
+      const q = (document.getElementById('acdSearch').value || '').trim().toLowerCase();
+      return prospects.filter(p => {
+        if (filterStage !== 'all' && p.status !== filterStage) return false;
+        if (filterCat && p.category !== filterCat) return false;
+        if (q) {
+          const hay = [p.driver_name, p.parent_name, p.category, p.parent_email].join(' ').toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        return true;
+      });
+    }
+
+    function renderList() {
+      const rows = filteredProspects();
+      const tbody = document.getElementById('acdTbody');
+      document.getElementById('acdCountBadge').textContent = rows.length;
+
+      // Stats
+      document.getElementById('statTotal').textContent = prospects.length;
+      document.getElementById('statLead').textContent = prospects.filter(p => p.status === 'lead').length;
+      document.getElementById('statTesting').textContent = prospects.filter(p => p.status === 'testing').length;
+      document.getElementById('statSigned').textContent = prospects.filter(p => p.status === 'signed').length;
+      document.getElementById('statCancelled').textContent = prospects.filter(p => p.status === 'cancelled').length;
+
+      if (!rows.length) {
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center text-secondary py-4" style="font-size:0.85rem;">No prospects match.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = rows.map(p => {
+        const s = stageByKey(p.status);
+        const ls = lastSession(p);
+        return `<tr data-id="${esc(p.id)}" class="${p.id === selectedId ? 'acd-row-selected' : ''}">
+          <td><strong>${esc(p.driver_name || '—')}</strong></td>
+          <td>${esc(calcAge(p.driver_dob))}</td>
+          <td>${esc(p.parent_name || '—')}</td>
+          <td style="font-size:0.75rem;">${esc(p.category || '—')}</td>
+          <td><span class="acd-badge ${s.badge}">${esc(s.label)}</span></td>
+          <td style="font-size:0.75rem;color:#6c757d;">${ls ? formatDate(ls.date) : '—'}</td>
+          <td><button class="acd-row-del" data-del="${esc(p.id)}" title="Delete prospect">×</button></td>
+        </tr>`;
+      }).join('');
+
+      tbody.querySelectorAll('tr[data-id]').forEach(tr =>
+        tr.addEventListener('click', e => {
+          if (e.target.closest('[data-del]')) return;
+          selectProspect(tr.dataset.id);
+        })
+      );
+      tbody.querySelectorAll('[data-del]').forEach(btn =>
+        btn.addEventListener('click', e => {
+          e.stopPropagation();
+          deleteProspect(btn.dataset.del);
+        })
+      );
+    }
+
+    /* ── Inspector ────────────────────────────────────────────────── */
+    function selectProspect(id) {
+      selectedId = id;
+      const p = prospects.find(x => String(x.id) === String(id));
+      if (!p) { clearInspector(); return; }
+
+      document.getElementById('acdEmptyState').style.display = 'none';
+      document.getElementById('acdInspectorForm').style.display = '';
+      document.getElementById('acdInspectorBadge').textContent = p.driver_name || '—';
+
+      // Contact tab
+      document.getElementById('fDriverName').value = p.driver_name || '';
+      document.getElementById('fDriverDob').value = p.driver_dob || '';
+      document.getElementById('fCategory').value = p.category || '';
+      document.getElementById('fNationality').value = p.nationality || '';
+      document.getElementById('fParentName').value = p.parent_name || '';
+      document.getElementById('fParentPhone').value = p.parent_phone || '';
+      document.getElementById('fParentEmail').value = p.parent_email || '';
+      document.getElementById('fSource').value = p.source || '';
+      document.getElementById('fAssignedTo').value = p.assigned_to || '';
+
+      // Status tab
+      document.getElementById('fStatus').value = p.status || 'lead';
+      document.getElementById('fNotes').value = p.notes || '';
+      renderStagePipeline(p.status || 'lead');
+
+      // Sessions tab
+      renderSessionsList(p);
+
+      // Files tab
+      renderAttachments(p);
+
+      // highlight row
+      renderList();
+    }
+
+    function clearInspector() {
+      selectedId = null;
+      document.getElementById('acdEmptyState').style.display = '';
+      document.getElementById('acdInspectorForm').style.display = 'none';
+      document.getElementById('acdInspectorBadge').textContent = '—';
+      renderList();
+    }
+
+    function renderStagePipeline(currentKey) {
+      const ci = STAGE_INDEX[currentKey] ?? 0;
+      const strip = document.getElementById('acdStagePipeline');
+      strip.innerHTML = STAGES.filter(s => s.key !== 'cancelled').map((s, i) => {
+        let cls = 'acd-stage-pip';
+        if (s.key === currentKey) cls += ' current';
+        else if (i < ci) cls += ' passed';
+        return `<div class="${cls}">${esc(s.label)}</div>`;
+      }).join('');
+    }
+
+    /* ── Session rendering ────────────────────────────────────────── */
+    function renderSessionsList(p) {
+      const container = document.getElementById('acdSessionsList');
+      const sessions = Array.isArray(p.sessions) ? p.sessions : [];
+      if (!sessions.length) {
+        container.innerHTML = '<div class="text-secondary" style="font-size:0.8rem;">No sessions logged yet.</div>';
+        return;
+      }
+      const sorted = sessions.slice().sort((a, b) => (b.date || '') > (a.date || '') ? 1 : -1);
+      container.innerHTML = sorted.map(s => `
+        <div class="acd-session-card" data-ses-id="${esc(s.id)}">
+          <button class="acd-session-del" data-del-ses="${esc(s.id)}" title="Remove session">×</button>
+          <div class="d-flex align-items-center gap-2 mb-1">
+            <span class="acd-session-date">${formatDate(s.date)}</span>
+            ${s.venue ? `<span class="acd-session-venue">@ ${esc(s.venue)}</span>` : ''}
+            ${s.rating ? `<span class="acd-session-stars">${starStr(s.rating)}</span>` : ''}
+          </div>
+          ${s.coach ? `<div style="font-size:0.73rem;color:#6c757d;margin-bottom:2px;">Coach: ${esc(s.coach)}</div>` : ''}
+          ${s.notes ? `<div class="acd-session-notes">${esc(s.notes)}</div>` : ''}
+          ${s.cloud_link ? `<div class="mt-1"><a href="${esc(s.cloud_link)}" class="acd-session-link text-primary" target="_blank" rel="noopener">📁 Open data files</a></div>` : ''}
+        </div>
+      `).join('');
+
+      container.querySelectorAll('[data-del-ses]').forEach(btn =>
+        btn.addEventListener('click', () => deleteSession(p, btn.dataset.delSes))
+      );
+    }
+
+    function deleteSession(p, sesId) {
+      if (!confirm('Remove this session?')) return;
+      p.sessions = (p.sessions || []).filter(s => String(s.id) !== String(sesId));
+      p.updated_at = nowISO();
+      apiSave(p).then(() => {
+        renderSessionsList(p);
+        renderList();
+      }).catch(e => alert('Error: ' + e.message));
+    }
+
+    /* ── Attachment rendering ─────────────────────────────────────── */
+    function renderAttachments(p) {
+      const container = document.getElementById('acdAttList');
+      const atts = Array.isArray(p.attachments) ? p.attachments : [];
+      if (!atts.length) {
+        container.innerHTML = '<div class="text-secondary" style="font-size:0.8rem;">No files attached.</div>';
+        return;
+      }
+      container.innerHTML = '';
+      atts.forEach((a, idx) => {
+        const row = document.createElement('div');
+        row.className = 'acd-att-row';
+        const prov = a.provider === 'gdrive' ? 'Drive' : 'Link';
+        row.innerHTML = `
+          <span class="badge text-bg-secondary me-1" style="font-size:0.63rem;">${esc(prov)}</span>
+          <span class="acd-att-name" data-url="${esc(a.url || '')}" title="${esc(a.url || '')}">${esc(a.name || a.url || 'File')}</span>
+          <div class="d-flex gap-1">
+            <button class="btn btn-sm btn-outline-secondary" style="padding:1px 8px;font-size:0.72rem;" data-open="${idx}">Open</button>
+            <button class="btn btn-sm btn-outline-danger" style="padding:1px 6px;font-size:0.72rem;" data-del="${idx}">×</button>
+          </div>`;
+        row.querySelector('[data-open]').addEventListener('click', () => { if (a.url) window.open(a.url, '_blank'); });
+        row.querySelector('[data-del]').addEventListener('click', () => {
+          p.attachments.splice(idx, 1);
+          p.updated_at = nowISO();
+          apiSave(p).then(() => renderAttachments(p)).catch(e => alert('Error: ' + e.message));
+        });
+        row.querySelector('.acd-att-name').addEventListener('click', () => { if (a.url) window.open(a.url, '_blank'); });
+        container.appendChild(row);
+      });
+    }
+
+    /* ── Save helpers ─────────────────────────────────────────────── */
+    function currentProspect() {
+      return prospects.find(p => String(p.id) === String(selectedId));
+    }
+
+    function buildContactPayload(p) {
+      return Object.assign({}, p, {
+        driver_name: document.getElementById('fDriverName').value.trim(),
+        driver_dob: document.getElementById('fDriverDob').value || null,
+        category: document.getElementById('fCategory').value.trim(),
+        nationality: document.getElementById('fNationality').value.trim(),
+        parent_name: document.getElementById('fParentName').value.trim(),
+        parent_phone: document.getElementById('fParentPhone').value.trim(),
+        parent_email: document.getElementById('fParentEmail').value.trim(),
+        source: document.getElementById('fSource').value.trim(),
+        assigned_to: document.getElementById('fAssignedTo').value.trim(),
+        updated_at: nowISO()
+      });
+    }
+
+    function buildStatusPayload(p) {
+      return Object.assign({}, p, {
+        status: document.getElementById('fStatus').value,
+        notes: document.getElementById('fNotes').value.trim(),
+        updated_at: nowISO()
+      });
+    }
+
+    async function saveProspect(payload) {
+      try {
+        const saved = await apiSave(payload);
+        const id = String(saved.id || payload.id);
+        const idx = prospects.findIndex(p => String(p.id) === id);
+        if (idx >= 0) prospects[idx] = saved;
+        else { prospects.push(saved); selectedId = String(saved.id); }
+        renderCatFilter();
+        renderList();
+        selectProspect(String(saved.id));
+      } catch (e) {
+        alert('Save failed: ' + e.message);
+      }
+    }
+
+    async function deleteProspect(id) {
+      if (!confirm('Delete this prospect? This cannot be undone.')) return;
+      try {
+        await apiDelete(id);
+        prospects = prospects.filter(p => String(p.id) !== String(id));
+        clearInspector();
+        renderCatFilter();
+        renderList();
+      } catch (e) {
+        alert('Delete failed: ' + e.message);
+      }
+    }
+
+    /* ── Event listeners ──────────────────────────────────────────── */
+    document.getElementById('btnAddProspect').addEventListener('click', () => {
+      const now = nowISO();
+      const blank = {
+        id: null, driver_name: '', driver_dob: null, category: '',
+        nationality: '', parent_name: '', parent_phone: '', parent_email: '',
+        source: '', assigned_to: '', status: 'lead', notes: '',
+        sessions: [], attachments: [], created_at: now, updated_at: now
+      };
+      // Optimistically show form
+      selectedId = null;
+      document.getElementById('acdEmptyState').style.display = 'none';
+      document.getElementById('acdInspectorForm').style.display = '';
+      document.getElementById('acdInspectorBadge').textContent = 'New Prospect';
+
+      document.getElementById('fDriverName').value = '';
+      document.getElementById('fDriverDob').value = '';
+      document.getElementById('fCategory').value = '';
+      document.getElementById('fNationality').value = '';
+      document.getElementById('fParentName').value = '';
+      document.getElementById('fParentPhone').value = '';
+      document.getElementById('fParentEmail').value = '';
+      document.getElementById('fSource').value = '';
+      document.getElementById('fAssignedTo').value = '';
+      document.getElementById('fStatus').value = 'lead';
+      document.getElementById('fNotes').value = '';
+      document.getElementById('acdSessionsList').innerHTML = '<div class="text-secondary" style="font-size:0.8rem;">No sessions logged yet.</div>';
+      document.getElementById('acdAttList').innerHTML = '<div class="text-secondary" style="font-size:0.8rem;">No files attached.</div>';
+      renderStagePipeline('lead');
+
+      // Store blank in-progress
+      prospects.push(blank);
+      selectedId = null; // will get real id on save
+
+      // Focus first field
+      document.getElementById('fDriverName').focus();
+    });
+
+    document.getElementById('btnSaveContact').addEventListener('click', async () => {
+      const p = currentProspect() || { id: null, status: 'lead', sessions: [], attachments: [], created_at: nowISO() };
+      const payload = buildContactPayload(p);
+      if (!payload.driver_name) { alert('Driver name is required.'); return; }
+      await saveProspect(payload);
+    });
+
+    document.getElementById('btnSaveStatus').addEventListener('click', async () => {
+      const p = currentProspect();
+      if (!p) { alert('Please save contact details first.'); return; }
+      const payload = buildStatusPayload(p);
+      await saveProspect(payload);
+      renderStagePipeline(payload.status);
+    });
+
+    document.getElementById('fStatus').addEventListener('change', () => {
+      renderStagePipeline(document.getElementById('fStatus').value);
+    });
+
+    document.getElementById('btnDeleteProspect').addEventListener('click', () => {
+      const p = currentProspect();
+      if (p && p.id) deleteProspect(p.id);
+    });
+
+    document.getElementById('btnAddSession').addEventListener('click', async () => {
+      const p = currentProspect();
+      if (!p || !p.id) { alert('Please save the prospect first before logging a session.'); return; }
+      const date = document.getElementById('sesDate').value;
+      if (!date) { alert('Session date is required.'); return; }
+      const session = {
+        id: uid(),
+        date,
+        venue: document.getElementById('sesVenue').value.trim(),
+        coach: document.getElementById('sesCoach').value.trim(),
+        rating: document.getElementById('sesRating').value || null,
+        notes: document.getElementById('sesNotes').value.trim(),
+        cloud_link: document.getElementById('sesCloudLink').value.trim() || null,
+        created_at: nowISO()
+      };
+      p.sessions = Array.isArray(p.sessions) ? p.sessions : [];
+      p.sessions.push(session);
+      p.updated_at = nowISO();
+      try {
+        const saved = await apiSave(p);
+        const idx = prospects.findIndex(x => String(x.id) === String(p.id));
+        if (idx >= 0) prospects[idx] = saved;
+        // Clear session form
+        document.getElementById('sesDate').value = '';
+        document.getElementById('sesVenue').value = '';
+        document.getElementById('sesCoach').value = '';
+        document.getElementById('sesRating').value = '';
+        document.getElementById('sesNotes').value = '';
+        document.getElementById('sesCloudLink').value = '';
+        renderSessionsList(saved);
+        renderList();
+      } catch (e) {
+        alert('Error saving session: ' + e.message);
+      }
+    });
+
+    document.getElementById('btnSesPickDrive').addEventListener('click', async () => {
+      if (!window.RTS || !RTS.pickDriveFiles) {
+        alert('Google Drive Picker not configured. Paste a URL manually, or configure Drive via Settings → Calendar.');
+        return;
+      }
+      try {
+        const picked = await RTS.pickDriveFiles({ multiSelect: false });
+        if (picked && picked.length > 0) {
+          document.getElementById('sesCloudLink').value = picked[0].url || '';
+        }
+      } catch (e) {
+        alert('Drive Picker error: ' + e.message);
+      }
+    });
+
+    document.getElementById('btnAttAdd').addEventListener('click', async () => {
+      const p = currentProspect();
+      if (!p || !p.id) { alert('Please save the prospect first.'); return; }
+      const name = document.getElementById('attName').value.trim();
+      const url = document.getElementById('attUrl').value.trim();
+      if (!name && !url) return;
+      p.attachments = Array.isArray(p.attachments) ? p.attachments : [];
+      p.attachments.push({ provider: 'link', name: name || 'Link', url });
+      p.updated_at = nowISO();
+      document.getElementById('attName').value = '';
+      document.getElementById('attUrl').value = '';
+      try {
+        const saved = await apiSave(p);
+        const idx = prospects.findIndex(x => String(x.id) === String(p.id));
+        if (idx >= 0) prospects[idx] = saved;
+        renderAttachments(saved);
+      } catch (e) {
+        alert('Error: ' + e.message);
+      }
+    });
+
+    document.getElementById('btnAttDrive').addEventListener('click', async () => {
+      const p = currentProspect();
+      if (!p || !p.id) { alert('Please save the prospect first.'); return; }
+      if (!window.RTS || !RTS.pickDriveFiles) {
+        alert('Google Drive Picker not configured. Configure via Settings → Calendar.');
+        return;
+      }
+      try {
+        const picked = await RTS.pickDriveFiles({ multiSelect: true });
+        if (!picked || !picked.length) return;
+        p.attachments = Array.isArray(p.attachments) ? p.attachments : [];
+        picked.forEach(f => p.attachments.push({ provider: 'gdrive', id: f.id, name: f.name, url: f.url, mimeType: f.mimeType }));
+        p.updated_at = nowISO();
+        const saved = await apiSave(p);
+        const idx = prospects.findIndex(x => String(x.id) === String(p.id));
+        if (idx >= 0) prospects[idx] = saved;
+        renderAttachments(saved);
+      } catch (e) {
+        alert('Drive Picker error: ' + e.message);
+      }
+    });
+
+    document.getElementById('acdSearch').addEventListener('input', renderList);
+    document.getElementById('acdCatFilter').addEventListener('change', e => { filterCat = e.target.value; renderList(); });
+
+    document.querySelectorAll('#acdStageList li').forEach(li =>
+      li.addEventListener('click', () => {
+        document.querySelectorAll('#acdStageList li').forEach(x => x.classList.remove('active'));
+        li.classList.add('active');
+        filterStage = li.dataset.filter;
+        renderList();
+      })
+    );
+
+    /* ── Init ─────────────────────────────────────────────────────── */
+    async function init() {
+      RTS.initTriPaneResizers(document.getElementById('acdShell'), 'rts.academy.panes');
+      renderStaffDatalist();
+      await apiLoad();
+      renderCatFilter();
+      renderList();
+    }
+
+    init();
+  })();
+  </script>
+</body>
+</html>

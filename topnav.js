@@ -164,6 +164,11 @@
       { href: 'board-reports.html',         label: 'Board Reports',    key: 'B' },
       { href: 'doc-control.html',           label: 'Document Control', key: 'T' },
       { href: 'export-centre.html',         label: 'Export Centre',    key: 'X' }
+    ]},
+    { label: 'Academy', items: [
+      { href: 'academy-pipeline.html',  label: 'Pipeline',   key: 'P' },
+      { href: 'academy-sessions.html', label: 'Sessions',   key: 'S' },
+      { href: 'academy-reports.html',  label: 'Reports',    key: 'R' }
     ]}
   ];
   const singles = [
@@ -175,7 +180,7 @@
 
   // Default top-level keybinds (letters) — only active when not typing
   // D: Dashboard, S: Sporting, T: Technical, B: Build, P: Performance, R: Reliability
-  // L: Logistics, F: Finance, O: Procurement, H: HR, V: Driver, A: Compliance, X: Executive
+  // L: Logistics, F: Finance, O: Procurement, H: HR, V: Driver, A: Compliance, X: Executive, W: Academy
   const topKeybinds = {
     'D': { type: 'single',  href: 'index.html' },
     'S': { type: 'group',   label: 'Sporting' },
@@ -191,6 +196,7 @@
     'V': { type: 'group',   label: 'Driver' },
     'A': { type: 'group',   label: 'Compliance' },
     'X': { type: 'group',   label: 'Executive' },
+    'W': { type: 'group',   label: 'Academy' },
     'I': { type: 'single',  href: 'integrations.html' }
   };
 
@@ -222,7 +228,7 @@
   const groupKeyMap = {
     'Sporting': 'S', 'Technical': 'T', 'Build': 'B', 'Performance': 'P',
     'Reliability': 'R', 'Projects': 'J', 'Logistics': 'L', 'Finance': 'F',
-    'Procurement': 'O', 'HR': 'H', 'Driver': 'V', 'Compliance': 'A', 'Executive': 'X'
+    'Procurement': 'O', 'HR': 'H', 'Driver': 'V', 'Compliance': 'A', 'Executive': 'X', 'Academy': 'W'
   };
 
     const liSingles = singles.map(t => {

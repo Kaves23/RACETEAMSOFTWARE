@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Race Team OS – Academy Sessions</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="style.css?v=20260525" rel="stylesheet" />
+  <style>
+    body { background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%); }
+
+    .ses-table { width: 100%; font-size: 0.82rem; border-collapse: separate; border-spacing: 0; }
+    .ses-table thead { position: sticky; top: 0; background: #f8f9fa; z-index: 5; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+    .ses-table th { padding: 8px 10px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #6c757d; border-bottom: 2px solid #dee2e6; white-space: nowrap; }
+    .ses-table td { padding: 7px 10px; border-bottom: 1px solid rgba(0,0,0,0.05); vertical-align: middle; color: #1a1d24; }
+    .ses-table tbody tr { cursor: pointer; transition: background 0.1s; }
+    .ses-table tbody tr:hover { background: #f0f2ff; }
+    .ses-table tbody tr.ses-row-selected { background: rgba(26,13,46,0.07) !important; outline: 2px solid #1a0d2e; outline-offset: -2px; }
+
+    .ses-stars { color: #f59e0b; letter-spacing: 1px; }
+
+    .badge-lead        { background: #e2e8f0; color: #475569; }
+    .badge-qualified   { background: #dbeafe; color: #1d4ed8; }
+    .badge-booked      { background: #fef9c3; color: #854d0e; }
+    .badge-testing     { background: #ede9fe; color: #5b21b6; }
+    .badge-post_review { background: #ffedd5; color: #9a3412; }
+    .badge-offer_made  { background: #d1fae5; color: #065f46; }
+    .badge-signed      { background: #bbf7d0; color: #14532d; }
+    .badge-cancelled   { background: #fee2e2; color: #991b1b; }
+    .acd-badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 0.68rem; font-weight: 700; white-space: nowrap; }
+
+    .ses-detail-panel { background: #fff; border: 1px solid rgba(0,0,0,0.1); border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.06); height: 100%; }
+    .ses-detail-header { background: #f8f9fa; border-bottom: 1px solid rgba(0,0,0,0.08); padding: 12px 16px; border-radius: 8px 8px 0 0; }
+    .ses-detail-body { padding: 16px; overflow-y: auto; }
+
+    .ses-info-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+    .ses-info-item { flex: 1; min-width: 120px; }
+    .ses-info-label { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #9aa5b4; margin-bottom: 2px; }
+    .ses-info-value { font-size: 0.87rem; color: #1a1d24; font-weight: 500; }
+
+    .ses-notes-block { background: #f8f9fa; border-radius: 6px; padding: 10px 12px; font-size: 0.82rem; color: #495057; white-space: pre-wrap; word-break: break-word; line-height: 1.6; }
+
+    .filter-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 0 14px; }
+
+    .ev-stats-bar { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+    .ev-stat-card { background: #fff; border: 1px solid rgba(0,0,0,0.1); border-radius: 8px; padding: 10px 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.06); min-width: 110px; }
+    .ev-stat-label { font-size: 0.7rem; color: #6c757d; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+    .ev-stat-value { font-size: 1.5rem; font-weight: 700; color: #1a1d24; line-height: 1.2; }
+
+    .ses-main-layout { display: flex; gap: 12px; }
+    .ses-list-pane { flex: 1; min-width: 0; background: #fff; border: 1px solid rgba(0,0,0,0.1); border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.06); overflow: hidden; }
+    .ses-list-header { background: #f8f9fa; border-bottom: 1px solid rgba(0,0,0,0.1); padding: 10px 12px; }
+    .ses-detail-pane { width: 360px; flex-shrink: 0; }
+    .ses-empty { text-align: center; padding: 40px 20px; color: #9aa5b4; font-size: 0.85rem; }
+  </style>
+</head>
+<body class="light-mode">
+  <div id="rtsTopNav"></div>
+  <div class="rts-version-badge">v3</div>
+  <div class="rts-main container-fluid">
+
+    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+      <div>
+        <h1 class="h4 mb-1">Academy – Sessions</h1>
+        <div class="text-secondary" style="font-size:0.85rem;">All test sessions logged across every prospect.</div>
+      </div>
+      <a href="academy-pipeline.html" class="btn btn-sm btn-outline-secondary">← Pipeline</a>
+    </div>
+
+    <!-- Stats -->
+    <div class="ev-stats-bar">
+      <div class="ev-stat-card"><div class="ev-stat-label">📋 Total Sessions</div><div class="ev-stat-value" id="statTotalSes">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">📅 This Month</div><div class="ev-stat-value" id="statThisMonth">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">⭐ Avg Rating</div><div class="ev-stat-value" id="statAvgRating">—</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">🏁 Unique Venues</div><div class="ev-stat-value" id="statVenues">0</div></div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filter-bar">
+      <input type="text" class="form-control form-control-sm" id="sesSearch" placeholder="Search driver or venue…" style="max-width:220px;" />
+      <input type="month" class="form-control form-control-sm" id="sesMonthFilter" style="max-width:160px;" title="Filter by month" />
+      <select class="form-select form-select-sm" id="sesVenueFilter" style="max-width:180px;">
+        <option value="">Venue: All</option>
+      </select>
+      <select class="form-select form-select-sm" id="sesCoachFilter" style="max-width:180px;">
+        <option value="">Coach: All</option>
+      </select>
+      <select class="form-select form-select-sm" id="sesRatingFilter" style="max-width:140px;">
+        <option value="">Rating: All</option>
+        <option value="5">⭐⭐⭐⭐⭐ 5</option>
+        <option value="4">⭐⭐⭐⭐ 4</option>
+        <option value="3">⭐⭐⭐ 3</option>
+        <option value="2">⭐⭐ 2</option>
+        <option value="1">⭐ 1</option>
+      </select>
+      <span class="badge text-bg-secondary" id="sesCountBadge" style="font-size:0.78rem;padding:5px 10px;">0</span>
+    </div>
+
+    <!-- Main layout: list + detail panel -->
+    <div class="ses-main-layout" style="height: calc(100vh - var(--rts-topbar-h, 52px) - 260px); min-height: 400px;">
+
+      <div class="ses-list-pane">
+        <div class="ses-list-header">
+          <span style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#6c757d;">Test Sessions</span>
+        </div>
+        <div style="overflow-y:auto;height:calc(100% - 44px);">
+          <table class="ses-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Driver</th>
+                <th>Prospect Stage</th>
+                <th>Venue</th>
+                <th>Coach</th>
+                <th style="width:80px;">Rating</th>
+              </tr>
+            </thead>
+            <tbody id="sesTbody">
+              <tr><td colspan="6" class="text-center text-secondary py-4">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="ses-detail-pane">
+        <div class="ses-detail-panel">
+          <div class="ses-detail-header">
+            <div style="font-size:0.8rem;font-weight:700;color:#1a1d24;">Session Detail</div>
+          </div>
+          <div class="ses-detail-body" id="sesDetailBody">
+            <div class="ses-empty">Select a session to view details.</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="config.js"></script>
+  <script src="core.js"></script>
+  <script src="topnav.js?v=20260525"></script>
+  <script>RTS.setActiveNav();</script>
+  <script>
+  (function () {
+    'use strict';
+
+    const STAGES = {
+      lead: 'Lead', qualified: 'Qualified', booked: 'Test Day Booked',
+      testing: 'Currently Testing', post_review: 'Post-Test Review',
+      offer_made: 'Offer Made', signed: 'Signed', cancelled: 'Cancelled'
+    };
+    const STAGE_BADGE = {
+      lead: 'badge-lead', qualified: 'badge-qualified', booked: 'badge-booked',
+      testing: 'badge-testing', post_review: 'badge-post_review', offer_made: 'badge-offer_made',
+      signed: 'badge-signed', cancelled: 'badge-cancelled'
+    };
+
+    let allSessions = []; // flat list of { ...session, _prospect }
+    let selectedSesId = null;
+
+    function esc(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    function formatDate(iso) {
+      if (!iso) return '—';
+      try { return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }); }
+      catch (_) { return iso; }
+    }
+
+    function starStr(n) {
+      const v = parseInt(n) || 0;
+      return '★'.repeat(v) + '☆'.repeat(Math.max(0, 5 - v));
+    }
+
+    function authHeaders() {
+      const token = localStorage.getItem('auth_token');
+      return token ? { 'Authorization': 'Bearer ' + token } : {};
+    }
+
+    async function load() {
+      try {
+        const r = await fetch('/api/academy/prospects', { headers: authHeaders() });
+        if (!r.ok) throw new Error(await r.text());
+        const prospects = await r.json();
+        allSessions = [];
+        (Array.isArray(prospects) ? prospects : []).forEach(p => {
+          (Array.isArray(p.sessions) ? p.sessions : []).forEach(s => {
+            allSessions.push({ ...s, _prospect: p });
+          });
+        });
+        allSessions.sort((a, b) => (b.date || '') > (a.date || '') ? 1 : -1);
+      } catch (e) {
+        console.warn('Sessions load error:', e);
+        allSessions = [];
+      }
+      populateFilters();
+      renderStats();
+      renderTable();
+    }
+
+    function populateFilters() {
+      const venues = [...new Set(allSessions.map(s => s.venue || '').filter(Boolean))].sort();
+      const coaches = [...new Set(allSessions.map(s => s.coach || '').filter(Boolean))].sort();
+      const venSel = document.getElementById('sesVenueFilter');
+      venSel.innerHTML = '<option value="">Venue: All</option>' + venues.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
+      const coachSel = document.getElementById('sesCoachFilter');
+      coachSel.innerHTML = '<option value="">Coach: All</option>' + coaches.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+    }
+
+    function renderStats() {
+      const now = new Date();
+      const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      document.getElementById('statTotalSes').textContent = allSessions.length;
+      document.getElementById('statThisMonth').textContent = allSessions.filter(s => (s.date || '').startsWith(thisMonth)).length;
+      const rated = allSessions.filter(s => s.rating);
+      if (rated.length) {
+        const avg = rated.reduce((sum, s) => sum + parseInt(s.rating), 0) / rated.length;
+        document.getElementById('statAvgRating').textContent = avg.toFixed(1);
+      } else {
+        document.getElementById('statAvgRating').textContent = '—';
+      }
+      document.getElementById('statVenues').textContent = new Set(allSessions.map(s => s.venue || '').filter(Boolean)).size;
+    }
+
+    function filtered() {
+      const q = (document.getElementById('sesSearch').value || '').toLowerCase().trim();
+      const month = document.getElementById('sesMonthFilter').value;
+      const venue = document.getElementById('sesVenueFilter').value;
+      const coach = document.getElementById('sesCoachFilter').value;
+      const rating = document.getElementById('sesRatingFilter').value;
+      return allSessions.filter(s => {
+        if (q) {
+          const hay = [(s._prospect.driver_name || ''), (s.venue || ''), (s.coach || '')].join(' ').toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        if (month && !(s.date || '').startsWith(month)) return false;
+        if (venue && s.venue !== venue) return false;
+        if (coach && s.coach !== coach) return false;
+        if (rating && String(s.rating) !== rating) return false;
+        return true;
+      });
+    }
+
+    function renderTable() {
+      const rows = filtered();
+      document.getElementById('sesCountBadge').textContent = rows.length;
+      const tbody = document.getElementById('sesTbody');
+      if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-secondary py-4" style="font-size:0.85rem;">No sessions match.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = rows.map(s => {
+        const p = s._prospect;
+        const stageLabel = STAGES[p.status] || p.status || '—';
+        const stageBadge = STAGE_BADGE[p.status] || 'text-bg-secondary';
+        return `<tr data-ses-id="${esc(s.id)}" class="${s.id === selectedSesId ? 'ses-row-selected' : ''}">
+          <td>${esc(formatDate(s.date))}</td>
+          <td><strong>${esc(p.driver_name || '—')}</strong><div style="font-size:0.72rem;color:#9aa5b4;">${esc(p.parent_name || '')}</div></td>
+          <td><span class="acd-badge ${stageBadge}">${esc(stageLabel)}</span></td>
+          <td>${esc(s.venue || '—')}</td>
+          <td>${esc(s.coach || '—')}</td>
+          <td class="ses-stars">${s.rating ? starStr(s.rating) : '<span style="color:#dee2e6;">☆☆☆☆☆</span>'}</td>
+        </tr>`;
+      }).join('');
+
+      tbody.querySelectorAll('tr[data-ses-id]').forEach(tr =>
+        tr.addEventListener('click', () => showDetail(tr.dataset.sesId))
+      );
+    }
+
+    function showDetail(sesId) {
+      selectedSesId = sesId;
+      const s = allSessions.find(x => String(x.id) === String(sesId));
+      renderTable();
+      if (!s) return;
+      const p = s._prospect;
+      const body = document.getElementById('sesDetailBody');
+      body.innerHTML = `
+        <div class="ses-info-row">
+          <div class="ses-info-item">
+            <div class="ses-info-label">Date</div>
+            <div class="ses-info-value">${esc(formatDate(s.date))}</div>
+          </div>
+          <div class="ses-info-item">
+            <div class="ses-info-label">Venue</div>
+            <div class="ses-info-value">${esc(s.venue || '—')}</div>
+          </div>
+        </div>
+        <div class="ses-info-row">
+          <div class="ses-info-item">
+            <div class="ses-info-label">Driver</div>
+            <div class="ses-info-value">${esc(p.driver_name || '—')}</div>
+          </div>
+          <div class="ses-info-item">
+            <div class="ses-info-label">Parent</div>
+            <div class="ses-info-value">${esc(p.parent_name || '—')}</div>
+          </div>
+        </div>
+        <div class="ses-info-row">
+          <div class="ses-info-item">
+            <div class="ses-info-label">Coach / Engineer</div>
+            <div class="ses-info-value">${esc(s.coach || '—')}</div>
+          </div>
+          <div class="ses-info-item">
+            <div class="ses-info-label">Rating</div>
+            <div class="ses-info-value ses-stars" style="font-size:1rem;">${s.rating ? starStr(s.rating) : '—'}</div>
+          </div>
+        </div>
+        ${s.notes ? `
+        <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#9aa5b4;margin-bottom:5px;">Session Notes</div>
+        <div class="ses-notes-block">${esc(s.notes)}</div>` : ''}
+        ${s.cloud_link ? `
+        <div class="mt-3">
+          <a href="${esc(s.cloud_link)}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener">📁 Open Data Files</a>
+        </div>` : ''}
+        <div class="mt-3 pt-2 border-top">
+          <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#9aa5b4;margin-bottom:5px;">Prospect</div>
+          <div style="font-size:0.82rem;color:#1a1d24;"><strong>${esc(p.driver_name || '—')}</strong> · ${esc(p.category || 'No category')}</div>
+          <div style="font-size:0.75rem;color:#6c757d;">${esc(p.parent_email || '')}${p.parent_phone ? ' · ' + esc(p.parent_phone) : ''}</div>
+          <div class="mt-1">
+            <a href="academy-pipeline.html" class="btn btn-sm btn-outline-secondary" style="font-size:0.72rem;padding:2px 10px;">Open in Pipeline →</a>
+          </div>
+        </div>`;
+    }
+
+    // Filters
+    ['sesSearch', 'sesMonthFilter', 'sesVenueFilter', 'sesCoachFilter', 'sesRatingFilter'].forEach(id =>
+      document.getElementById(id).addEventListener('input', renderTable)
+    );
+    ['sesVenueFilter', 'sesCoachFilter', 'sesRatingFilter'].forEach(id =>
+      document.getElementById(id).addEventListener('change', renderTable)
+    );
+
+    load();
+  })();
+  </script>
+</body>
+</html>

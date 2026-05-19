@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Race Team OS – Academy Reports</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="style.css?v=20260525" rel="stylesheet" />
+  <style>
+    body { background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%); }
+
+    .rpt-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; }
+    .rpt-card { background: #fff; border: 1px solid rgba(0,0,0,0.1); border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.06); padding: 18px 20px; }
+    .rpt-card-title { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #9aa5b4; margin-bottom: 14px; }
+
+    /* KPI row */
+    .kpi-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+    .kpi-chip { flex: 1; min-width: 120px; background: #fff; border: 1px solid rgba(0,0,0,0.1); border-radius: 8px; padding: 12px 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.06); }
+    .kpi-label { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #9aa5b4; margin-bottom: 4px; }
+    .kpi-value { font-size: 1.6rem; font-weight: 700; color: #1a1d24; line-height: 1.1; }
+    .kpi-sub { font-size: 0.72rem; color: #6c757d; margin-top: 2px; }
+
+    /* Funnel */
+    .funnel-row { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; }
+    .funnel-label { font-size: 0.8rem; font-weight: 600; color: #1a1d24; width: 150px; flex-shrink: 0; }
+    .funnel-bar-wrap { flex: 1; background: #f0f0f0; border-radius: 4px; height: 18px; overflow: hidden; }
+    .funnel-bar { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
+    .funnel-count { font-size: 0.8rem; font-weight: 700; color: #1a1d24; width: 24px; text-align: right; flex-shrink: 0; }
+
+    /* Stage colours for funnel bars */
+    .fb-lead        { background: #94a3b8; }
+    .fb-qualified   { background: #60a5fa; }
+    .fb-booked      { background: #fbbf24; }
+    .fb-testing     { background: #a78bfa; }
+    .fb-post_review { background: #fb923c; }
+    .fb-offer_made  { background: #34d399; }
+    .fb-signed      { background: #16a34a; }
+    .fb-cancelled   { background: #f87171; }
+
+    /* Venue & coach lists */
+    .rank-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f0f0f0; font-size: 0.82rem; }
+    .rank-row:last-child { border-bottom: none; }
+    .rank-name { color: #1a1d24; font-weight: 500; }
+    .rank-count { color: #6c757d; font-size: 0.75rem; }
+
+    /* Activity feed */
+    .activity-item { display: flex; gap: 10px; padding: 7px 0; border-bottom: 1px solid #f0f0f0; align-items: flex-start; }
+    .activity-item:last-child { border-bottom: none; }
+    .activity-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+    .activity-text { font-size: 0.8rem; color: #1a1d24; line-height: 1.4; }
+    .activity-time { font-size: 0.7rem; color: #9aa5b4; margin-top: 1px; }
+
+    .badge-lead        { background: #e2e8f0; color: #475569; }
+    .badge-qualified   { background: #dbeafe; color: #1d4ed8; }
+    .badge-booked      { background: #fef9c3; color: #854d0e; }
+    .badge-testing     { background: #ede9fe; color: #5b21b6; }
+    .badge-post_review { background: #ffedd5; color: #9a3412; }
+    .badge-offer_made  { background: #d1fae5; color: #065f46; }
+    .badge-signed      { background: #bbf7d0; color: #14532d; }
+    .badge-cancelled   { background: #fee2e2; color: #991b1b; }
+    .acd-badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 0.68rem; font-weight: 700; white-space: nowrap; }
+  </style>
+</head>
+<body class="light-mode">
+  <div id="rtsTopNav"></div>
+  <div class="rts-version-badge">v3</div>
+  <div class="rts-main container-fluid">
+
+    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+      <div>
+        <h1 class="h4 mb-1">Academy – Reports</h1>
+        <div class="text-secondary" style="font-size:0.85rem;">Pipeline analytics, session summaries and conversion metrics.</div>
+      </div>
+      <div class="d-flex gap-2">
+        <a href="academy-pipeline.html" class="btn btn-sm btn-outline-secondary">Pipeline</a>
+        <a href="academy-sessions.html" class="btn btn-sm btn-outline-secondary">Sessions</a>
+      </div>
+    </div>
+
+    <!-- Top KPIs -->
+    <div class="kpi-row" id="kpiRow">
+      <div class="kpi-chip"><div class="kpi-label">Total Prospects</div><div class="kpi-value" id="kpiTotal">—</div></div>
+      <div class="kpi-chip"><div class="kpi-label">Active Pipeline</div><div class="kpi-value" id="kpiActive">—</div><div class="kpi-sub">Excl. signed &amp; cancelled</div></div>
+      <div class="kpi-chip"><div class="kpi-label">Conversion Rate</div><div class="kpi-value" id="kpiConversion">—</div><div class="kpi-sub">Lead → Signed</div></div>
+      <div class="kpi-chip"><div class="kpi-label">Total Sessions</div><div class="kpi-value" id="kpiSessions">—</div></div>
+      <div class="kpi-chip"><div class="kpi-label">Sessions This Month</div><div class="kpi-value" id="kpiSesMonth">—</div></div>
+      <div class="kpi-chip"><div class="kpi-label">Avg Session Rating</div><div class="kpi-value" id="kpiAvgRating">—</div></div>
+    </div>
+
+    <div class="rpt-grid">
+
+      <!-- Pipeline Funnel -->
+      <div class="rpt-card">
+        <div class="rpt-card-title">Pipeline Funnel</div>
+        <div id="funnelChart"></div>
+      </div>
+
+      <!-- Categories breakdown -->
+      <div class="rpt-card">
+        <div class="rpt-card-title">Prospects by Category</div>
+        <div id="catChart"></div>
+      </div>
+
+      <!-- Top Venues -->
+      <div class="rpt-card">
+        <div class="rpt-card-title">Top Venues</div>
+        <div id="venueList"></div>
+      </div>
+
+      <!-- Top Coaches -->
+      <div class="rpt-card">
+        <div class="rpt-card-title">Sessions by Coach / Engineer</div>
+        <div id="coachList"></div>
+      </div>
+
+      <!-- Monthly Sessions -->
+      <div class="rpt-card" style="grid-column: 1 / -1;">
+        <div class="rpt-card-title">Recent Activity</div>
+        <div id="activityFeed"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="config.js"></script>
+  <script src="core.js"></script>
+  <script src="topnav.js?v=20260525"></script>
+  <script>RTS.setActiveNav();</script>
+  <script>
+  (function () {
+    'use strict';
+
+    const STAGES = [
+      { key: 'lead',        label: 'Lead',              bar: 'fb-lead' },
+      { key: 'qualified',   label: 'Qualified',         bar: 'fb-qualified' },
+      { key: 'booked',      label: 'Test Day Booked',   bar: 'fb-booked' },
+      { key: 'testing',     label: 'Currently Testing', bar: 'fb-testing' },
+      { key: 'post_review', label: 'Post-Test Review',  bar: 'fb-post_review' },
+      { key: 'offer_made',  label: 'Offer Made',        bar: 'fb-offer_made' },
+      { key: 'signed',      label: 'Signed',            bar: 'fb-signed' },
+      { key: 'cancelled',   label: 'Cancelled',         bar: 'fb-cancelled' }
+    ];
+
+    const STAGE_BADGE = {
+      lead: 'badge-lead', qualified: 'badge-qualified', booked: 'badge-booked',
+      testing: 'badge-testing', post_review: 'badge-post_review', offer_made: 'badge-offer_made',
+      signed: 'badge-signed', cancelled: 'badge-cancelled'
+    };
+
+    function esc(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    function formatDate(iso) {
+      if (!iso) return '—';
+      try { return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }); }
+      catch (_) { return iso; }
+    }
+
+    function authHeaders() {
+      const token = localStorage.getItem('auth_token');
+      return token ? { 'Authorization': 'Bearer ' + token } : {};
+    }
+
+    async function load() {
+      let prospects = [];
+      try {
+        const r = await fetch('/api/academy/prospects', { headers: authHeaders() });
+        if (!r.ok) throw new Error(await r.text());
+        prospects = await r.json();
+        if (!Array.isArray(prospects)) prospects = [];
+      } catch (e) {
+        console.warn('Reports load error:', e);
+        document.getElementById('activityFeed').innerHTML = '<div class="text-secondary" style="font-size:0.85rem;">Could not load data. Check API connection.</div>';
+      }
+      renderReport(prospects);
+    }
+
+    function renderReport(prospects) {
+      const allSessions = [];
+      prospects.forEach(p => {
+        (Array.isArray(p.sessions) ? p.sessions : []).forEach(s => {
+          allSessions.push({ ...s, _prospect: p });
+        });
+      });
+
+      const now = new Date();
+      const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+      /* KPIs */
+      const active = prospects.filter(p => !['signed', 'cancelled'].includes(p.status));
+      const signed = prospects.filter(p => p.status === 'signed').length;
+      const total = prospects.length;
+      const convRate = total > 0 ? ((signed / total) * 100).toFixed(0) + '%' : '—';
+      const sesThisMonth = allSessions.filter(s => (s.date || '').startsWith(thisMonth)).length;
+      const rated = allSessions.filter(s => s.rating);
+      const avgRating = rated.length ? (rated.reduce((sum, s) => sum + parseInt(s.rating), 0) / rated.length).toFixed(1) : '—';
+
+      document.getElementById('kpiTotal').textContent = total;
+      document.getElementById('kpiActive').textContent = active.length;
+      document.getElementById('kpiConversion').textContent = convRate;
+      document.getElementById('kpiSessions').textContent = allSessions.length;
+      document.getElementById('kpiSesMonth').textContent = sesThisMonth;
+      document.getElementById('kpiAvgRating').textContent = avgRating;
+
+      /* Funnel */
+      const maxCount = Math.max(1, ...STAGES.map(s => prospects.filter(p => p.status === s.key).length));
+      document.getElementById('funnelChart').innerHTML = STAGES.map(s => {
+        const count = prospects.filter(p => p.status === s.key).length;
+        const pct = Math.round((count / maxCount) * 100);
+        return `<div class="funnel-row">
+          <div class="funnel-label">${esc(s.label)}</div>
+          <div class="funnel-bar-wrap"><div class="funnel-bar ${s.bar}" style="width:${pct}%"></div></div>
+          <div class="funnel-count">${count}</div>
+        </div>`;
+      }).join('');
+
+      /* Categories */
+      const catMap = {};
+      prospects.forEach(p => { const c = p.category || 'Uncategorised'; catMap[c] = (catMap[c] || 0) + 1; });
+      const catEntries = Object.entries(catMap).sort((a, b) => b[1] - a[1]);
+      const maxCat = Math.max(1, ...catEntries.map(e => e[1]));
+      const catColors = ['#a78bfa', '#60a5fa', '#34d399', '#fbbf24', '#f87171', '#fb923c', '#94a3b8'];
+      document.getElementById('catChart').innerHTML = catEntries.length
+        ? catEntries.map(([cat, cnt], i) => `<div class="funnel-row">
+            <div class="funnel-label">${esc(cat)}</div>
+            <div class="funnel-bar-wrap"><div class="funnel-bar" style="width:${Math.round(cnt/maxCat*100)}%;background:${catColors[i % catColors.length]};"></div></div>
+            <div class="funnel-count">${cnt}</div>
+          </div>`).join('')
+        : '<div class="text-secondary" style="font-size:0.82rem;">No data yet.</div>';
+
+      /* Top venues */
+      const venueMap = {};
+      allSessions.forEach(s => { if (s.venue) venueMap[s.venue] = (venueMap[s.venue] || 0) + 1; });
+      const venueEntries = Object.entries(venueMap).sort((a, b) => b[1] - a[1]).slice(0, 8);
+      document.getElementById('venueList').innerHTML = venueEntries.length
+        ? venueEntries.map(([v, c]) => `<div class="rank-row"><span class="rank-name">${esc(v)}</span><span class="rank-count">${c} session${c !== 1 ? 's' : ''}</span></div>`).join('')
+        : '<div class="text-secondary" style="font-size:0.82rem;">No sessions logged yet.</div>';
+
+      /* Top coaches */
+      const coachMap = {};
+      allSessions.forEach(s => { if (s.coach) coachMap[s.coach] = (coachMap[s.coach] || 0) + 1; });
+      const coachEntries = Object.entries(coachMap).sort((a, b) => b[1] - a[1]).slice(0, 8);
+      document.getElementById('coachList').innerHTML = coachEntries.length
+        ? coachEntries.map(([c, n]) => `<div class="rank-row"><span class="rank-name">${esc(c)}</span><span class="rank-count">${n} session${n !== 1 ? 's' : ''}</span></div>`).join('')
+        : '<div class="text-secondary" style="font-size:0.82rem;">No sessions logged yet.</div>';
+
+      /* Activity feed — most recent 20 events (new prospects + new sessions) */
+      const events = [];
+      prospects.forEach(p => {
+        if (p.created_at) events.push({ ts: p.created_at, type: 'prospect', label: `New prospect: ${p.driver_name || 'Unknown'}`, sub: p.category || '', stage: p.status });
+        (Array.isArray(p.sessions) ? p.sessions : []).forEach(s => {
+          if (s.created_at || s.date) events.push({ ts: s.created_at || s.date, type: 'session', label: `Session logged: ${p.driver_name || 'Unknown'} @ ${s.venue || 'unknown venue'}`, sub: `Coach: ${s.coach || '—'}`, stage: p.status });
+        });
+      });
+      events.sort((a, b) => (b.ts || '') > (a.ts || '') ? 1 : -1);
+      const feed = events.slice(0, 20);
+      const dotColor = { prospect: '#60a5fa', session: '#a78bfa' };
+      document.getElementById('activityFeed').innerHTML = feed.length
+        ? feed.map(e => {
+            const badge = STAGE_BADGE[e.stage] || 'text-bg-secondary';
+            return `<div class="activity-item">
+              <div class="activity-dot" style="background:${dotColor[e.type] || '#94a3b8'};"></div>
+              <div>
+                <div class="activity-text">${esc(e.label)} <span class="acd-badge ${badge}" style="margin-left:4px;">${esc(e.stage || '')}</span></div>
+                ${e.sub ? `<div class="activity-time">${esc(e.sub)}</div>` : ''}
+                <div class="activity-time">${formatDate(e.ts)}</div>
+              </div>
+            </div>`;
+          }).join('')
+        : '<div class="text-secondary" style="font-size:0.82rem;">No activity yet.</div>';
+    }
+
+    load();
+  })();
+  </script>
+</body>
+</html>
