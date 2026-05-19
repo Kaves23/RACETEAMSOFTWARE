@@ -296,22 +296,23 @@
                + (best ? ' &nbsp;·&nbsp; Best ' + esc(best.time_str) : '') : '')
             + '</div>';
           html += '<table style="width:100%;border-collapse:collapse;font-size:0.75rem;">';
-          html += '<thead><tr style="color:#9aa5b4;text-transform:uppercase;font-size:0.66rem;letter-spacing:0.05em;">'
-            + '<th style="padding:2px 4px;font-weight:600;">Lap</th>'
-            + '<th style="padding:2px 4px;font-weight:600;">Time</th>'
-            + '<th style="padding:2px 4px;font-weight:600;">Gap</th>'
+          html += '<thead style="position:sticky;top:0;background:#f8f9fa;z-index:1;"><tr style="color:#6c757d;text-transform:uppercase;font-size:0.66rem;letter-spacing:0.05em;">'
+            + '<th style="padding:4px 6px;font-weight:600;border-bottom:1px solid #dee2e6;">Lap</th>'
+            + '<th style="padding:4px 6px;font-weight:600;border-bottom:1px solid #dee2e6;">Time</th>'
+            + '<th style="padding:4px 6px;font-weight:600;border-bottom:1px solid #dee2e6;">Gap</th>'
             + '</tr></thead><tbody>';
           fi.laps.forEach(function (l) {
-            var bg = l.is_best ? '#fde68a' : l.partial || l.outlap ? '#f1f5f9' : '';
+            var bg = l.is_best ? '#ede9fe' : l.partial || l.outlap ? '#f1f5f9' : '';
             var fw = l.is_best ? '700' : '400';
-            html += '<tr style="background:' + bg + ';font-weight:' + fw + ';">'
+            var clr = l.is_best ? '#5b21b6' : '#1a1d24';
+            html += '<tr style="background:' + bg + ';font-weight:' + fw + ';color:' + clr + ';">';
               + '<td style="padding:2px 6px;">' + esc(String(l.lap)) + '</td>'
               + '<td style="padding:2px 6px;font-variant-numeric:tabular-nums;">' + esc(l.time_str || '—') + '</td>'
-              + '<td style="padding:2px 6px;color:#6c757d;font-variant-numeric:tabular-nums;">'
-              + (l.is_best ? '<span style="color:#b45309;font-size:0.7rem;">BEST</span>'
-                : l.outlap ? '<span style="color:#9aa5b4;font-size:0.7rem;">OUT</span>'
-                : l.partial ? '<span style="color:#9aa5b4;font-size:0.7rem;">PART</span>'
-                : esc(l.gap_str || '—'))
+              + '<td style="padding:2px 6px;font-variant-numeric:tabular-nums;">'
+              + (l.is_best ? '<span style="color:#5b21b6;font-size:0.7rem;font-weight:700;">BEST</span>'
+                : l.outlap ? '<span style="color:#6c757d;font-size:0.7rem;">OUT</span>'
+                : l.partial ? '<span style="color:#6c757d;font-size:0.7rem;">PART</span>'
+                : '<span style="color:#1a1d24;">' + esc(l.gap_str || '—') + '</span>')
               + '</td></tr>';
           });
           html += '</tbody></table>';
@@ -361,17 +362,9 @@
         ${s.notes ? `
         <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#9aa5b4;margin-bottom:5px;">Session Notes</div>
         <div class="ses-notes-block">${esc(s.notes)}</div>` : ''}
-        ${s.cloud_link ? `
-        <div class="mt-3">
-          <a href="${esc(s.cloud_link)}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener">📁 Open Data Files</a>
-        </div>` : ''}
-        <div class="mt-3 pt-2 border-top">
-          <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#9aa5b4;margin-bottom:5px;">Prospect</div>
-          <div style="font-size:0.82rem;color:#1a1d24;"><strong>${esc(p.driver_name || '—')}</strong> · ${esc(p.category || 'No category')}</div>
-          <div style="font-size:0.75rem;color:#6c757d;">${esc(p.parent_email || '')}${p.parent_phone ? ' · ' + esc(p.parent_phone) : ''}</div>
-          <div class="mt-1">
-            <a href="academy-pipeline.html" class="btn btn-sm btn-outline-secondary" style="font-size:0.72rem;padding:2px 10px;">Open in Pipeline →</a>
-          </div>
+        <div class="mt-3" style="display:flex;gap:8px;flex-wrap:wrap;">
+          <a href="academy-pipeline.html" class="btn btn-sm btn-outline-secondary" style="font-size:0.72rem;padding:2px 10px;">Open in Pipeline →</a>
+          ${s.cloud_link ? `<a href="${esc(s.cloud_link)}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" style="font-size:0.72rem;padding:2px 10px;"><i class="bi bi-folder2-open me-1"></i>Data Files</a>` : ''}
         </div>`;
 
       // Lap data from XRK (populated by academy-data.html)
@@ -383,7 +376,9 @@
             <i class="bi bi-activity me-1"></i>Lap Times
             <a href="academy-data.html" style="float:right;font-size:0.7rem;color:#1a0d2e;font-weight:600;letter-spacing:0;">View in Data →</a>
           </div>
-          ${lapTimeMini(lapEntries)}
+          <div style="max-height:340px;overflow-y:auto;border:1px solid #e9ecef;border-radius:6px;">
+            ${lapTimeMini(lapEntries)}
+          </div>
         </div>`;
       }
     }
