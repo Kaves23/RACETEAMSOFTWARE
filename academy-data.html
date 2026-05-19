@@ -76,9 +76,8 @@
     .vw-kpi.hi .vw-kpi-value { color:#fbbf24; }
 
     /* Content grid */
-    .vw-content    { padding:16px 20px;display:grid;grid-template-columns:1fr 295px;gap:14px; }
+    .vw-content    { padding:16px 20px;display:flex;flex-direction:column;gap:14px; }
     .vw-col-main   { display:flex;flex-direction:column;gap:14px;min-width:0; }
-    .vw-col-side   { display:flex;flex-direction:column;gap:14px; }
     .vw-card       { background:#fff;border:1px solid rgba(0,0,0,0.09);border-radius:10px;
                      box-shadow:0 2px 6px rgba(0,0,0,0.05);overflow:hidden; }
     .vw-card-header { padding:9px 16px;border-bottom:1px solid rgba(0,0,0,0.07);
@@ -521,12 +520,21 @@ async function scanDir(handle, path, depth) {
   return items;
 }
 
-function buildTree(raw) {
+function buildTree(raw, rootName) {
   var map = {};
   raw.forEach(function (f) {
-    // Use last 2 path components as [driver, date] regardless of scan depth
-    var driver  = f.path.length >= 2 ? f.path[f.path.length - 2] : (f.path[0] || 'Unknown');
-    var dateRaw = f.path.length >= 1 ? f.path[f.path.length - 1] : 'Unknown';
+    var driver, dateRaw;
+    if (f.path.length >= 2) {
+      driver  = f.path[f.path.length - 2];
+      dateRaw = f.path[f.path.length - 1];
+    } else if (f.path.length === 1) {
+      driver  = rootName || '—';
+      dateRaw = f.path[0];
+    } else {
+      // Files found at root level — use the root folder name as date
+      driver  = rootName || '—';
+      dateRaw = rootName || '—';
+    }
     var key     = driver + '::' + dateRaw;
     if (!map[key]) {
       map[key] = {
@@ -751,43 +759,6 @@ function renderViewer(data, name, driver, dateDisplay) {
       + '</tr>';
   }).join('');
 
-  /* Channel list grouped */
-  var grouped = {};
-  chs.forEach(function (ch) {
-    if (!grouped[ch.group]) grouped[ch.group] = [];
-    grouped[ch.group].push(ch);
-  });
-  var grpOrder = ['Timing','Engine','Motion / IMU','GPS','Temperature','Lambda','Electrical','CHX / TCH','Odometer','Alarms','Other'];
-  var chHtml = '';
-  grpOrder.forEach(function (g) {
-    if (!grouped[g] || !grouped[g].length) return;
-    chHtml += '<div class="ch-grp-lbl">' + esc(g) + '</div>';
-    grouped[g].forEach(function (ch) {
-      chHtml += '<div class="ch-row">'
-        + '<span class="ch-name">' + esc(ch.shortName) + '</span>'
-        + '<span class="ch-long">' + esc(ch.longName)  + '</span>'
-        + '<span class="ch-rate ' + rateCls(ch.hz) + '">' + esc(rateLabel(ch.hz)) + '</span>'
-        + '</div>';
-    });
-  });
-
-  /* Session meta grid */
-  var hw = (meta.hardware || '').split('|').filter(Boolean).join('\n');
-  var metaItems = [
-    ['Track',        meta.track || p.track],
-    ['Championship', meta.championship],
-    ['Session Type', meta.session_type],
-    ['Mode',         meta.race_mode],
-    ['Date',         fmtDate(meta.date)],
-    ['Time',         meta.time],
-    ['Vehicle',      meta.vehicle || meta.vehicle_type],
-    ['Driver',       meta.driver],
-  ].filter(function (x) { return x[1]; });
-  var metaGrid = metaItems.map(function (x) {
-    return '<div><div class="meta-lbl">' + esc(x[0]) + '</div>'
-      + '<div class="meta-val">' + esc(x[1]) + '</div></div>';
-  }).join('');
-
   /* Lap consistency strip */
   var completeLaps = laps.filter(function (l) { return !l.partial; });
   var stripBars = completeLaps.map(function (l) {
@@ -854,24 +825,7 @@ function renderViewer(data, name, driver, dateDisplay) {
     + '</tr></thead><tbody>' + lapRows + '</tbody></table>'
     + '</div></div>'
 
-    + '</div>'  /* end left */
-
-    /* — right column — */
-    + '<div class="vw-col-side">'
-
-    + '<div class="vw-card">'
-    + '<div class="vw-card-header"><span style="background:#f59e0b;width:8px;height:8px;border-radius:50%;display:inline-block"></span>Session Info</div>'
-    + '<div class="vw-card-body"><div class="meta-grid">' + metaGrid + '</div>'
-    + (hw ? '<div class="meta-hw"><b style="display:block;font-size:0.58rem;color:#94a3b8;margin-bottom:3px">HARDWARE</b>' + esc(hw) + '</div>' : '')
-    + '</div></div>'
-
-    + '<div class="vw-card">'
-    + '<div class="vw-card-header"><span style="background:#3b82f6;width:8px;height:8px;border-radius:50%;display:inline-block"></span>'
-    + 'Channels <span style="font-weight:400;text-transform:none;margin-left:4px;font-size:0.7rem">(' + chs.length + ' recorded)</span></div>'
-    + '<div class="vw-card-body" style="max-height:440px;overflow-y:auto;padding:6px 12px">' + chHtml + '</div>'
-    + '</div>'
-
-    + '</div>'  /* end right */
+    + '</div>'  /* end col-main */
     + '</div>'; /* end vw-content */
 
   /* Draw chart after DOM is ready */
@@ -1019,7 +973,7 @@ document.getElementById('btnPickFolder').addEventListener('click', async functio
       + '</div>';
 
     var raw = await scanDir(rootH, [], 0);
-    fileTree = buildTree(raw);
+    fileTree = buildTree(raw, rootH.name);
     cache    = {};  // clear cache on new folder
     renderTree(fileTree);
 
