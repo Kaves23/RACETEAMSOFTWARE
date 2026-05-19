@@ -168,7 +168,8 @@
     { label: 'Academy', items: [
       { href: 'academy-pipeline.html',  label: 'Pipeline',   key: 'P' },
       { href: 'academy-sessions.html', label: 'Sessions',   key: 'S' },
-      { href: 'academy-reports.html',  label: 'Reports',    key: 'R' }
+      { href: 'academy-reports.html',  label: 'Reports',    key: 'R' },
+      { href: 'academy-data.html',     label: 'Data',       key: 'D' }
     ]}
   ];
   const singles = [

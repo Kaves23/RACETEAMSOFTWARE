@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Academy Data | Race Team Software</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <style>
+    .acd-data-page { display:flex;flex-direction:column;height:calc(100vh - 56px);overflow:hidden; }
+    .acd-toolbar   { flex-shrink:0;padding:10px 20px;display:flex;align-items:center;gap:10px;
+                     border-bottom:1px solid rgba(0,0,0,0.09);background:#fff; }
+    .acd-body      { flex:1;display:flex;overflow:hidden; }
+
+    /* ── Tree pane ── */
+    .tree-pane     { width:220px;flex-shrink:0;border-right:1px solid rgba(0,0,0,0.09);
+                     overflow-y:auto;background:#f8f9fa;padding:8px 0; }
+    .tree-group-label { padding:10px 14px 4px;font-size:0.65rem;font-weight:800;
+                        text-transform:uppercase;letter-spacing:0.08em;color:#94a3b8; }
+    .tree-date-row { padding:5px 14px;cursor:pointer;font-size:0.82rem;color:#374151;
+                     border-left:3px solid transparent;transition:all .1s;
+                     display:flex;align-items:center;gap:6px; }
+    .tree-date-row:hover  { background:rgba(99,102,241,0.07);color:#1a0d2e; }
+    .tree-date-row.active { background:rgba(26,13,46,0.08);border-left-color:#1a0d2e;
+                            color:#1a0d2e;font-weight:700; }
+    .tree-date-count { margin-left:auto;background:#e2e8f0;border-radius:10px;
+                       padding:0 6px;font-size:0.65rem;font-weight:700;color:#6c757d; }
+
+    /* ── Files pane ── */
+    .files-pane    { width:340px;flex-shrink:0;border-right:1px solid rgba(0,0,0,0.09);
+                     overflow-y:auto;padding:12px;background:#fff; }
+    .files-header  { padding:6px 2px 8px;font-size:0.67rem;font-weight:800;
+                     text-transform:uppercase;letter-spacing:0.07em;color:#94a3b8;
+                     border-bottom:2px solid #e2e8f0;margin-bottom:10px; }
+    .session-card  { border:1px solid rgba(0,0,0,0.1);border-radius:10px;padding:12px 14px;
+                     margin-bottom:10px;cursor:pointer;transition:all .15s;
+                     background:#fff;position:relative;overflow:hidden; }
+    .session-card:hover { border-color:#1a0d2e;box-shadow:0 3px 12px rgba(26,13,46,0.12);
+                          transform:translateY(-1px); }
+    .session-card-accent { position:absolute;left:0;top:0;bottom:0;width:4px;
+                           background:#1a0d2e;border-radius:4px 0 0 4px; }
+    .session-card-time   { font-size:1.1rem;font-weight:800;color:#1a0d2e;
+                           font-family:'Space Grotesk',monospace; }
+    .session-card-track  { font-size:0.78rem;color:#6c757d;margin-top:1px; }
+    .session-card-name   { font-size:0.72rem;color:#94a3b8;margin-top:3px; }
+    .session-card-stats  { display:flex;gap:8px;margin-top:8px;flex-wrap:wrap; }
+    .session-stat-pill   { background:#f1f5f9;border-radius:20px;padding:2px 9px;
+                           font-size:0.68rem;font-weight:700;color:#475569; }
+    .session-stat-pill.best { background:#fef3c7;color:#92400e; }
+    .session-view-btn    { position:absolute;right:12px;top:50%;transform:translateY(-50%);
+                           background:#1a0d2e;color:#fff;border:none;border-radius:6px;
+                           padding:4px 12px;font-size:0.72rem;font-weight:700;
+                           opacity:0;transition:opacity .2s; }
+    .session-card:hover .session-view-btn { opacity:1; }
+
+    /* ── Viewer pane ── */
+    .viewer-pane   { flex:1;overflow-y:auto;background:#f5f7fa;padding:0; }
+    .vw-breadcrumb { display:flex;align-items:center;gap:8px;padding:10px 20px;
+                     background:#fff;border-bottom:1px solid rgba(0,0,0,0.08);
+                     font-size:0.78rem;color:#6c757d; }
+    .vw-back-btn   { background:none;border:1px solid rgba(0,0,0,0.15);border-radius:5px;
+                     padding:3px 10px;font-size:0.72rem;color:#475569;cursor:pointer; }
+    .vw-back-btn:hover { background:#f1f5f9; }
+
+    /* KPI bar */
+    .vw-kpi-bar    { display:flex;gap:0;background:#1a0d2e; }
+    .vw-kpi        { flex:1;padding:14px 16px;border-right:1px solid rgba(255,255,255,0.08); }
+    .vw-kpi:last-child { border-right:none; }
+    .vw-kpi-label  { font-size:0.6rem;font-weight:800;text-transform:uppercase;
+                     letter-spacing:0.08em;color:rgba(255,255,255,0.45);margin-bottom:2px; }
+    .vw-kpi-value  { font-size:1.25rem;font-weight:800;color:#fff;
+                     font-family:'Space Grotesk',monospace;line-height:1; }
+    .vw-kpi-sub    { font-size:0.62rem;color:rgba(255,255,255,0.4);margin-top:2px; }
+    .vw-kpi.hi .vw-kpi-value { color:#fbbf24; }
+
+    /* Content grid */
+    .vw-content    { padding:16px 20px;display:grid;grid-template-columns:1fr 295px;gap:14px; }
+    .vw-col-main   { display:flex;flex-direction:column;gap:14px;min-width:0; }
+    .vw-col-side   { display:flex;flex-direction:column;gap:14px; }
+    .vw-card       { background:#fff;border:1px solid rgba(0,0,0,0.09);border-radius:10px;
+                     box-shadow:0 2px 6px rgba(0,0,0,0.05);overflow:hidden; }
+    .vw-card-header { padding:9px 16px;border-bottom:1px solid rgba(0,0,0,0.07);
+                      font-size:0.67rem;font-weight:800;text-transform:uppercase;
+                      letter-spacing:0.08em;color:#94a3b8;background:#f8f9fa;
+                      display:flex;align-items:center;gap:6px; }
+    .vw-card-body  { padding:14px 16px; }
+    .chart-wrap    { position:relative;height:230px; }
+
+    /* Lap table */
+    .lap-table     { width:100%;border-collapse:separate;border-spacing:0;font-size:0.81rem; }
+    .lap-table thead th { padding:7px 10px;font-size:0.62rem;font-weight:800;
+                          text-transform:uppercase;letter-spacing:0.06em;color:#94a3b8;
+                          border-bottom:2px solid #e2e8f0;white-space:nowrap; }
+    .lap-table tbody td { padding:6px 10px;border-bottom:1px solid rgba(0,0,0,0.04);
+                          vertical-align:middle; }
+    .lap-table tbody tr:last-child td { border-bottom:none; }
+    .lr-best  { background:#fffbeb; }
+    .lr-great { background:#f0fdf4; }
+    .lr-good  { background:#eff6ff; }
+    .lr-slow  { background:#fff7ed; }
+    .lr-vslow { background:#fef2f2; }
+    .lr-part  { opacity:.42; }
+    .lr-out   { font-style:italic;opacity:.65; }
+    .lap-num  { font-weight:800;color:#1a0d2e;text-align:center; }
+    .lap-time { font-family:'Space Grotesk',monospace;font-weight:700;font-size:0.88rem; }
+    .lap-gap  { font-family:'Space Grotesk',monospace;font-size:0.78rem;color:#6c757d; }
+    .lap-delta { font-family:'Space Grotesk',monospace;font-size:0.76rem; }
+    .lap-delta.pos { color:#ef4444; }
+    .lap-delta.neg { color:#22c55e; }
+    .lap-badge { font-size:0.6rem;font-weight:800;border-radius:20px;padding:2px 7px; }
+    .lb-best { background:#fef3c7;color:#92400e; }
+    .lb-part { background:#f1f5f9;color:#94a3b8; }
+    .lb-out  { background:#ede9fe;color:#6d28d9; }
+    .qbar    { width:4px;height:22px;border-radius:2px;display:inline-block; }
+    .dbar-wrap  { display:flex;align-items:center;gap:4px; }
+    .dbar-inner { height:5px;border-radius:3px;min-width:2px; }
+
+    /* Session meta */
+    .meta-grid { display:grid;grid-template-columns:1fr 1fr;gap:8px; }
+    .meta-lbl  { font-size:0.6rem;font-weight:800;text-transform:uppercase;
+                 letter-spacing:0.06em;color:#94a3b8; }
+    .meta-val  { font-size:0.83rem;color:#1a1d24;font-weight:600;margin-top:1px; }
+    .meta-hw   { background:#f1f5f9;border-radius:6px;padding:8px 10px;font-size:0.71rem;
+                 font-family:monospace;color:#475569;margin-top:8px;line-height:1.8;
+                 word-break:break-all; }
+
+    /* Channels */
+    .ch-grp-lbl { font-size:0.6rem;font-weight:800;text-transform:uppercase;
+                  letter-spacing:0.06em;color:#94a3b8;padding:8px 0 2px;
+                  border-bottom:1px solid #f1f5f9;margin-bottom:3px; }
+    .ch-row  { display:flex;align-items:center;padding:2px 0;gap:6px; }
+    .ch-name { font-size:0.76rem;font-weight:700;color:#374151;min-width:52px;font-family:monospace; }
+    .ch-long { font-size:0.71rem;color:#6c757d;flex:1; }
+    .ch-rate { font-size:0.63rem;font-weight:800;padding:1px 6px;border-radius:10px;white-space:nowrap; }
+    .cr-hi { background:#dbeafe;color:#1d4ed8; }
+    .cr-md { background:#d1fae5;color:#065f46; }
+    .cr-lo { background:#e0e7ff;color:#3730a3; }
+    .cr-ev { background:#f1f5f9;color:#64748b; }
+
+    /* Lap strip */
+    .lap-strip { display:flex;gap:2px;height:18px;align-items:flex-end; }
+    .ls-bar    { flex:1;border-radius:2px 2px 0 0;min-width:3px; }
+
+    /* Empty states */
+    .acd-empty       { display:flex;flex-direction:column;align-items:center;
+                       justify-content:center;height:100%;padding:40px;
+                       text-align:center;color:#94a3b8;gap:10px; }
+    .acd-empty-icon  { font-size:3rem;opacity:.25; }
+    .acd-empty-title { font-size:1rem;font-weight:700;color:#475569; }
+    .acd-empty-sub   { font-size:0.82rem;max-width:280px;line-height:1.6; }
+
+    /* Toolbar chips */
+    .acd-stat-chip { background:#f1f5f9;border-radius:20px;padding:3px 12px;
+                     font-size:0.72rem;font-weight:700;color:#475569;
+                     display:flex;align-items:center;gap:4px; }
+    .acd-stat-chip b { color:#1a0d2e; }
+    .folder-chip { background:#ede9fe;color:#4c1d95;border-radius:20px;padding:3px 12px;
+                   font-size:0.72rem;font-weight:700;display:flex;align-items:center;gap:4px;
+                   max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+
+    @keyframes spin { to { transform:rotate(360deg); } }
+  </style>
+</head>
+<body>
+<div id="rtsTopNav"></div>
+
+<div class="acd-data-page">
+  <!-- Toolbar -->
+  <div class="acd-toolbar">
+    <button id="btnPickFolder"
+      style="background:#1a0d2e;color:#fff;font-weight:700;font-size:0.78rem;
+             border-radius:6px;padding:5px 14px;border:none;cursor:pointer;">
+      📂 Select Data Folder
+    </button>
+    <div id="folderChip" class="folder-chip" style="display:none">
+      📁 <span id="folderName"></span>
+    </div>
+    <div style="flex:1"></div>
+    <div id="statsRow" style="display:none;gap:8px">
+      <div class="acd-stat-chip">Drivers <b id="stD">0</b></div>
+      <div class="acd-stat-chip">Sessions <b id="stS">0</b></div>
+      <div class="acd-stat-chip">Files <b id="stF">0</b></div>
+    </div>
+  </div>
+
+  <!-- 3-pane body -->
+  <div class="acd-body">
+    <!-- Tree -->
+    <div class="tree-pane" id="treePane">
+      <div class="acd-empty" style="padding:20px">
+        <div class="acd-empty-icon">📂</div>
+        <div class="acd-empty-title">No folder loaded</div>
+        <div class="acd-empty-sub">Click "Select Data Folder" to browse your AiM session files</div>
+      </div>
+    </div>
+
+    <!-- Files -->
+    <div class="files-pane" id="filesPane">
+      <div class="acd-empty">
+        <div class="acd-empty-icon">📋</div>
+        <div class="acd-empty-title">Select a session</div>
+        <div class="acd-empty-sub">Pick a driver and date from the left panel</div>
+      </div>
+    </div>
+
+    <!-- Viewer -->
+    <div class="viewer-pane" id="viewerPane">
+      <div class="acd-empty">
+        <div class="acd-empty-icon">📊</div>
+        <div class="acd-empty-title">Open a session file</div>
+        <div class="acd-empty-sub">Click any session card to view the full telemetry analysis</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="core.js"></script>
+<script src="topnav.js"></script>
+<script>
+'use strict';
+
+/* ═══════════════════════════════════════════════════════════════
+   XRK BINARY PARSER
+   All offsets verified against actual AiM MyChron 5 session files.
+   ═══════════════════════════════════════════════════════════════ */
+
+function findB(arr, pat, start) {
+  start = start || 0;
+  outer: for (var i = start; i <= arr.length - pat.length; i++) {
+    for (var j = 0; j < pat.length; j++) {
+      if (arr[i + j] !== pat[j]) continue outer;
+    }
+    return i;
+  }
+  return -1;
+}
+
+function findAll(arr, pat) {
+  var out = [], pos = 0;
+  for (;;) {
+    pos = findB(arr, pat, pos);
+    if (pos === -1) break;
+    out.push(pos);
+    pos++;
+  }
+  return out;
+}
+
+function cstr(arr, off, maxLen) {
+  maxLen = maxLen || 64;
+  var end = off;
+  while (end < arr.length && end < off + maxLen && arr[end] !== 0) end++;
+  try { return new TextDecoder('utf-8').decode(arr.slice(off, end)).trim(); }
+  catch (e) { return ''; }
+}
+
+function tagVal(arr, tagBytes) {
+  var pos = findB(arr, tagBytes);
+  if (pos === -1) return '';
+  var gt = pos + tagBytes.length;
+  while (gt < arr.length && gt < pos + 24 && arr[gt] !== 0x3e) gt++;
+  gt++;
+  var end = gt;
+  while (end < arr.length && arr[end] !== 0 && arr[end] !== 0x3c && end - gt < 128) end++;
+  try { return new TextDecoder('utf-8').decode(arr.slice(gt, end)).trim(); }
+  catch (e) { return ''; }
+}
+
+/* Tag byte patterns */
+var T = {
+  hLAP:  [0x3c,0x68,0x4c,0x41,0x50],
+  hCHS:  [0x3c,0x68,0x43,0x48,0x53],
+  hTMD:  [0x3c,0x68,0x54,0x4d,0x44,0x00],
+  hTMT:  [0x3c,0x68,0x54,0x4d,0x54,0x00],
+  hTRK:  [0x3c,0x68,0x54,0x52,0x4b,0x20],
+  hPDLT: [0x3c,0x68,0x50,0x44,0x4c,0x54],
+  hRACM: [0x3c,0x68,0x52,0x41,0x43,0x4d],
+  hCMP:  [0x3c,0x68,0x43,0x4d,0x50,0x00],
+  hVEH:  [0x3c,0x68,0x56,0x45,0x48,0x00],
+  hVTY:  [0x3c,0x68,0x56,0x54,0x59,0x00],
+  hNDV:  [0x3c,0x68,0x4e,0x44,0x56,0x00],
+  hHWNF: [0x3c,0x68,0x48,0x57,0x4e,0x46,0x35],
+};
+
+function parseMeta(arr) {
+  return {
+    date:         tagVal(arr, T.hTMD),
+    time:         tagVal(arr, T.hTMT),
+    track:        tagVal(arr, T.hTRK),
+    session_type: tagVal(arr, T.hPDLT),
+    race_mode:    tagVal(arr, T.hRACM),
+    championship: tagVal(arr, T.hCMP),
+    vehicle:      tagVal(arr, T.hVEH),
+    vehicle_type: tagVal(arr, T.hVTY),
+    driver:       tagVal(arr, T.hNDV),
+    hardware:     tagVal(arr, T.hHWNF),
+  };
+}
+
+function parseLaps(arr) {
+  return findAll(arr, T.hLAP).map(function (pos) {
+    var dv = new DataView(arr.buffer, arr.byteOffset + pos + 12);
+    var lap = dv.getUint16(2, true);
+    var dur = dv.getUint32(4, true);
+    var cum = dv.getUint32(16, true);
+    return { lap: lap, duration_ms: dur, start_ms: cum - dur, end_ms: cum };
+  }).sort(function (a, b) { return a.lap - b.lap; });
+}
+
+/* Channel grouping map */
+var CH_GRP = {
+  'Timing':       ['LAP','MClk','PreT','RollT','BestT','DistL','+-BR','+-BT','+-PL','+-RL'],
+  'Engine':       ['RPM','JShf','WSpd','ClGr'],
+  'Motion / IMU': ['AccX','AccY','AccZ','GyrX','GyrY','GyrZ','StrA','PtcA','YawA'],
+  'GPS':          ['iGPS','InlA','LatA','VerA','Roll','Ptch','YawR','RolA','QuaX','QuaY','QuaZ','QuaW'],
+  'Temperature':  ['TC 1','TC 2','WAT','TR 2','LogT','WhFL','WhFR','WhRL','WhRR'],
+  'Lambda':       ['Lmd','AFR','LmdT','LDg','extV','PWM','LTm','Dgn'],
+  'Electrical':   ['VBat','VBIn','Luma','Lat Gri'],
+  'CHX / TCH':    ['CHX1','CHX2','CHX3','CHX4','TCH0','TCH1','TCH2','TCH3'],
+  'Odometer':     ['ODO','odo1','odo2','odo3','odo4'],
+  'Alarms':       ['Al1max','Al1min','Al2max','Al2min'],
+};
+
+function parseCh(arr) {
+  var seen = {}, chs = [];
+  findAll(arr, T.hCHS).forEach(function (pos) {
+    var ps = pos + 12;
+    if (ps + 112 > arr.length) return;
+    var p  = arr.slice(ps, ps + 112);
+    var dv = new DataView(p.buffer, p.byteOffset);
+    var idx = dv.getUint16(0, true);
+    if (seen[idx]) return;
+    var sn = cstr(p, 24, 8);
+    if (!sn) return;
+    seen[idx] = 1;
+    var ln  = cstr(p, 32, 24);
+    var hz  = Math.floor(dv.getUint32(64, true) / 1000);
+    var grp = 'Other';
+    for (var g in CH_GRP) {
+      if (CH_GRP[g].indexOf(sn) >= 0 || CH_GRP[g].indexOf(ln) >= 0) { grp = g; break; }
+    }
+    chs.push({ index: idx, shortName: sn, longName: ln, hz: hz, group: grp });
+  });
+  return chs.sort(function (a, b) { return a.index - b.index; });
+}
+
+function annotate(laps) {
+  if (!laps.length) return laps;
+  var mid    = laps.length > 2 ? laps.slice(1, -1) : laps;
+  var sorted = mid.slice().sort(function (a, b) { return a.duration_ms - b.duration_ms; });
+  var median = sorted[Math.floor(sorted.length / 2)]
+               ? sorted[Math.floor(sorted.length / 2)].duration_ms : 0;
+  var pt = median * 0.7;
+  var complete = laps.filter(function (l) { return l.duration_ms >= pt; });
+  var bestMs   = complete.length
+    ? Math.min.apply(null, complete.map(function (l) { return l.duration_ms; })) : 0;
+
+  return laps.map(function (l, i) {
+    var part   = l.duration_ms < pt;
+    var out    = (i === 0 && !part);
+    var gapMs  = part ? null : l.duration_ms - bestMs;
+    var gapPct = (!part && bestMs) ? (l.duration_ms - bestMs) / bestMs * 100 : null;
+    var dMs    = i > 0 ? l.duration_ms - laps[i - 1].duration_ms : null;
+    return Object.assign({}, l, {
+      partial:   part,
+      outlap:    out,
+      gap_ms:    gapMs,
+      gap_pct:   gapPct,
+      delta_ms:  dMs,
+      is_best:   !part && l.duration_ms === bestMs,
+      time_str:  fmtMs(l.duration_ms),
+      gap_str:   gapMs !== null ? (gapMs >= 0 ? '+' : '') + fmtMs(gapMs) : '—',
+      delta_str: dMs  !== null ? (dMs  >= 0 ? '+' : '') + (dMs / 1000).toFixed(3) + 's' : '—',
+    });
+  });
+}
+
+function buildSummary(laps) {
+  var complete = laps.filter(function (l) { return !l.partial && !l.outlap; });
+  var bestMs   = complete.length
+    ? Math.min.apply(null, complete.map(function (l) { return l.duration_ms; })) : 0;
+  var avgMs    = complete.length
+    ? Math.round(complete.reduce(function (s, l) { return s + l.duration_ms; }, 0) / complete.length) : 0;
+  var bestLap  = laps.find(function (l) { return l.is_best; });
+  var totalMs  = laps.length ? laps[laps.length - 1].end_ms : 0;
+  var stdDev   = 0;
+  if (complete.length > 1) {
+    var mean     = avgMs;
+    var variance = complete.reduce(function (s, l) { return s + Math.pow(l.duration_ms - mean, 2); }, 0) / complete.length;
+    stdDev = Math.sqrt(variance);
+  }
+  return {
+    total_laps:       laps.length,
+    complete_laps:    complete.length,
+    best_ms:          bestMs,
+    best_str:         fmtMs(bestMs),
+    best_lap_num:     bestLap ? bestLap.lap : null,
+    avg_ms:           avgMs,
+    avg_str:          fmtMs(avgMs),
+    total_ms:         totalMs,
+    total_str:        fmtMs(totalMs),
+    std_dev_ms:       Math.round(stdDev),
+    consistency_str:  '±' + (stdDev / 1000).toFixed(3) + 's',
+  };
+}
+
+function parseXRK(buf) {
+  var arr  = new Uint8Array(buf);
+  var meta = parseMeta(arr);
+  var raw  = parseLaps(arr);
+  var chs  = parseCh(arr);
+  var laps = annotate(raw);
+  var sum  = buildSummary(laps);
+  return { metadata: meta, laps: laps, channels: chs, summary: sum };
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   UTILITIES
+   ═══════════════════════════════════════════════════════════════ */
+
+function fmtMs(ms) {
+  if (ms === null || ms === undefined) return '—';
+  var sign = ms < 0 ? '-' : '', abs = Math.abs(ms);
+  var m = Math.floor(abs / 60000);
+  var s = (abs % 60000) / 1000;
+  return sign + m + ':' + (s.toFixed(3)).padStart(6, '0');
+}
+
+function esc(s) {
+  return String(s || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function lapRowCls(l) {
+  if (l.partial) return 'lr-part';
+  if (l.outlap)  return 'lr-out';
+  if (l.is_best) return 'lr-best';
+  var p = l.gap_pct || 100;
+  return p < 1 ? 'lr-great' : p < 3 ? 'lr-good' : p < 6 ? 'lr-slow' : 'lr-vslow';
+}
+
+function lapQC(l) {
+  if (l.partial) return '#cbd5e1';
+  if (l.outlap)  return '#a78bfa';
+  if (l.is_best) return '#f59e0b';
+  var p = l.gap_pct || 100;
+  return p < 1 ? '#22c55e' : p < 3 ? '#3b82f6' : p < 6 ? '#f97316' : '#ef4444';
+}
+
+function parseFilename(name) {
+  var base  = name.replace(/\.xrk$/i, '');
+  var parts = base.split('_');
+  if (parts.length >= 4) {
+    var tr  = parts[0].trim();
+    var ses = parts.slice(1, -2).join(' ');
+    var run = parts[parts.length - 2].toUpperCase();
+    var t   = parts[parts.length - 1];
+    return {
+      track:   tr,
+      session: cap(ses),
+      run:     run,
+      timeStr: t.length === 4 ? t.slice(0, 2) + ':' + t.slice(2) : t,
+    };
+  }
+  return { track: base, session: '', run: '', timeStr: '' };
+}
+
+function parseDateFolder(n) {
+  var m = n.match(/^(\d{2})(\d{2})(\d{4})$/);
+  if (m) {
+    var mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return parseInt(m[1]) + ' ' + mo[parseInt(m[2]) - 1] + ' ' + m[3];
+  }
+  return n;
+}
+
+function cap(s) {
+  return s.replace(/\b\w/g, function (c) { return c.toUpperCase(); });
+}
+
+function fmtDate(d) {
+  if (!d) return '';
+  var m = d.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  if (m) {
+    var mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return parseInt(m[2]) + ' ' + mo[parseInt(m[1]) - 1] + ' ' + m[3];
+  }
+  return d;
+}
+
+function rateLabel(hz) { return hz ? hz + ' Hz' : 'event'; }
+function rateCls(hz)   { return hz >= 50 ? 'cr-hi' : hz >= 20 ? 'cr-md' : hz > 0 ? 'cr-lo' : 'cr-ev'; }
+
+/* ═══════════════════════════════════════════════════════════════
+   FILE SYSTEM ACCESS API — FOLDER SCANNER
+   ═══════════════════════════════════════════════════════════════ */
+
+var rootH     = null;
+var fileTree  = [];
+var cache     = {};
+
+async function scanDir(handle, path, depth) {
+  var items = [];
+  try {
+    for await (var [name, entry] of handle.entries()) {
+      if (depth === 0 && entry.kind === 'directory') {
+        var sub = await scanDir(entry, [name], 1);
+        items.push.apply(items, sub);
+      } else if (depth === 1 && entry.kind === 'directory') {
+        var sub2 = await scanDir(entry, path.concat([name]), 2);
+        items.push.apply(items, sub2);
+      } else if (depth === 2 && entry.kind === 'file' && name.toLowerCase().endsWith('.xrk')) {
+        items.push({ path: path, name: name, handle: entry });
+      }
+    }
+  } catch (e) { console.warn('scanDir:', e); }
+  return items;
+}
+
+function buildTree(raw) {
+  var map = {};
+  raw.forEach(function (f) {
+    var driver  = f.path[0] || 'Unknown';
+    var dateRaw = f.path[1] || 'Unknown';
+    var key     = driver + '::' + dateRaw;
+    if (!map[key]) {
+      map[key] = {
+        driver:      driver,
+        dateRaw:     dateRaw,
+        dateDisplay: parseDateFolder(dateRaw),
+        files:       [],
+      };
+    }
+    map[key].files.push({
+      name:   f.name,
+      handle: f.handle,
+      parsed: parseFilename(f.name),
+    });
+  });
+  return Object.values(map).sort(function (a, b) {
+    if (a.driver !== b.driver) return a.driver.localeCompare(b.driver);
+    return b.dateRaw.localeCompare(a.dateRaw);   // newest date first
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TREE PANE
+   ═══════════════════════════════════════════════════════════════ */
+
+function renderTree(tree) {
+  var pane = document.getElementById('treePane');
+  if (!tree.length) {
+    pane.innerHTML = '<div class="acd-empty" style="padding:20px">'
+      + '<div class="acd-empty-icon">📭</div>'
+      + '<div class="acd-empty-title">No XRK files found</div>'
+      + '<div class="acd-empty-sub">Check the folder contains Driver/Date/file.xrk structure</div>'
+      + '</div>';
+    return;
+  }
+  var byD = {};
+  tree.forEach(function (s) {
+    if (!byD[s.driver]) byD[s.driver] = [];
+    byD[s.driver].push(s);
+  });
+  var html = '';
+  Object.keys(byD).forEach(function (driver) {
+    html += '<div class="tree-group-label">' + esc(driver) + '</div>';
+    byD[driver].forEach(function (s) {
+      var key = s.driver + '::' + s.dateRaw;
+      html += '<div class="tree-date-row" data-key="' + esc(key) + '" '
+        + 'onclick="selSess(\'' + esc(key).replace(/'/g, "\\'") + '\')">'
+        + '📅 ' + esc(s.dateDisplay)
+        + '<span class="tree-date-count">' + s.files.length + '</span>'
+        + '</div>';
+    });
+  });
+  pane.innerHTML = html;
+}
+
+function selSess(key) {
+  document.querySelectorAll('.tree-date-row').forEach(function (el) {
+    el.classList.remove('active');
+  });
+  var el = document.querySelector('.tree-date-row[data-key="' + key.replace(/"/g, '\\"') + '"]');
+  if (el) el.classList.add('active');
+  var s = fileTree.find(function (s) { return s.driver + '::' + s.dateRaw === key; });
+  if (s) renderFiles(s);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   FILES PANE
+   ═══════════════════════════════════════════════════════════════ */
+
+function renderFiles(session) {
+  var pane = document.getElementById('filesPane');
+  var html = '<div class="files-header">'
+    + esc(session.driver) + ' &nbsp;·&nbsp; ' + esc(session.dateDisplay)
+    + '<span style="font-weight:400;color:#94a3b8;margin-left:6px">'
+    + session.files.length + ' file' + (session.files.length !== 1 ? 's' : '')
+    + '</span></div>';
+
+  session.files.forEach(function (f) {
+    var p   = f.parsed;
+    var cd  = cache[f.name];
+    var bestStr  = cd && cd.summary ? cd.summary.best_str : '';
+    var lapCount = cd && cd.summary ? cd.summary.complete_laps + ' laps' : '';
+    var avgStr   = cd && cd.summary ? cd.summary.avg_str : '';
+
+    html += '<div class="session-card" onclick="openFile(\''
+      + esc(f.name).replace(/'/g, "\\'") + '\',\''
+      + esc(session.driver).replace(/'/g, "\\'") + '\',\''
+      + esc(session.dateDisplay).replace(/'/g, "\\'") + '\',\''
+      + esc(session.dateRaw).replace(/'/g, "\\'") + '\')">'
+      + '<div class="session-card-accent"></div>'
+      + '<div class="d-flex align-items-start gap-2">'
+      + '<div style="font-size:1.5rem;line-height:1;margin-top:2px">⏱</div>'
+      + '<div style="flex:1;padding-right:58px">'
+      + '<div class="session-card-time">' + esc(p.timeStr || f.name) + '</div>'
+      + '<div class="session-card-track">' + esc(p.track) + '</div>'
+      + '<div class="session-card-name">' + esc(p.session)
+        + (p.run ? ' &nbsp;·&nbsp; Run ' + esc(p.run) : '') + '</div>'
+      + '<div class="session-card-stats">'
+      + (bestStr  ? '<span class="session-stat-pill best">Best ' + esc(bestStr) + '</span>' : '')
+      + (lapCount ? '<span class="session-stat-pill">' + esc(lapCount) + '</span>' : '')
+      + (avgStr && avgStr !== '—' ? '<span class="session-stat-pill">Avg ' + esc(avgStr) + '</span>' : '')
+      + (!cd ? '<span class="session-stat-pill" style="background:#fef9c3;color:#92400e">Click to parse ›</span>' : '')
+      + '</div></div></div>'
+      + '<button class="session-view-btn">View →</button>'
+      + '</div>';
+  });
+  pane.innerHTML = html;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   OPEN FILE
+   ═══════════════════════════════════════════════════════════════ */
+
+async function openFile(name, driver, dateDisplay, dateRaw) {
+  var vp = document.getElementById('viewerPane');
+  vp.innerHTML = '<div class="acd-empty">'
+    + '<div class="acd-empty-icon" style="animation:spin .8s linear infinite">⚙️</div>'
+    + '<div class="acd-empty-title">Parsing ' + esc(name) + '…</div>'
+    + '</div>';
+
+  try {
+    var data = cache[name];
+    if (!data) {
+      var fh = null;
+      for (var i = 0; i < fileTree.length; i++) {
+        var ff = fileTree[i].files.find(function (x) { return x.name === name; });
+        if (ff) { fh = ff.handle; break; }
+      }
+      if (!fh) throw new Error('File handle not found for: ' + name);
+
+      // Try JSON sidecar first (pre-parsed by xrk-parser.py — instant load)
+      try {
+        var driverH = await rootH.getDirectoryHandle(driver);
+        var dateH   = await driverH.getDirectoryHandle(dateRaw);
+        var jH      = await dateH.getFileHandle(name.replace(/\.xrk$/i, '.json'));
+        var jFile   = await jH.getFile();
+        var jText   = await jFile.text();
+        data = JSON.parse(jText);
+        // Ensure annotation fields exist (sidecar may be minimal)
+        if (data.laps && data.laps[0] && !data.laps[0].time_str) {
+          data.laps    = annotate(data.laps);
+          data.summary = buildSummary(data.laps);
+        }
+      } catch (_) {
+        // Fallback: parse binary XRK in-browser
+        var file = await fh.getFile();
+        var buf  = await file.arrayBuffer();
+        data = parseXRK(buf);
+      }
+      cache[name] = data;
+    }
+    renderViewer(data, name, driver, dateDisplay);
+
+    // Refresh file cards to show parsed stats
+    var activeKey = document.querySelector('.tree-date-row.active');
+    if (activeKey) {
+      var s = fileTree.find(function (x) {
+        return x.driver + '::' + x.dateRaw === activeKey.dataset.key;
+      });
+      if (s) renderFiles(s);
+    }
+  } catch (e) {
+    vp.innerHTML = '<div class="acd-empty">'
+      + '<div class="acd-empty-icon">⚠️</div>'
+      + '<div class="acd-empty-title">Error loading file</div>'
+      + '<div class="acd-empty-sub">' + esc(e.message) + '</div>'
+      + '</div>';
+    console.error('openFile error:', e);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   VIEWER RENDERER
+   ═══════════════════════════════════════════════════════════════ */
+
+var activeChart = null;
+
+function renderViewer(data, name, driver, dateDisplay) {
+  var meta = data.metadata;
+  var laps = data.laps;
+  var chs  = data.channels;
+  var sum  = data.summary;
+  var p    = parseFilename(name);
+
+  if (activeChart) { activeChart.destroy(); activeChart = null; }
+
+  /* KPI bar */
+  var kpis = [
+    { label: 'Best Lap',     value: sum.best_str,        sub: 'Lap ' + sum.best_lap_num, hi: true  },
+    { label: 'Average',      value: sum.avg_str,          sub: sum.complete_laps + ' clean laps',  hi: false },
+    { label: 'Consistency',  value: sum.consistency_str,  sub: 'std deviation',           hi: false },
+    { label: 'Session Time', value: sum.total_str,        sub: sum.total_laps + ' total laps', hi: false },
+    { label: 'Track',        value: meta.track || p.track || '—', sub: meta.championship || '', hi: false },
+    { label: 'Date / Time',  value: fmtDate(meta.date),   sub: meta.time || '',           hi: false },
+  ];
+
+  /* Lap table rows */
+  var lapRows = laps.map(function (l) {
+    var qc    = lapQC(l);
+    var badge = '';
+    if      (l.is_best)  badge = '<span class="lap-badge lb-best">★ BEST</span>';
+    else if (l.partial)  badge = '<span class="lap-badge lb-part">partial</span>';
+    else if (l.outlap)   badge = '<span class="lap-badge lb-out">outlap</span>';
+
+    var dbar = '<span class="lap-delta" style="color:#cbd5e1">—</span>';
+    if (l.delta_ms !== null) {
+      var pct = Math.min(Math.abs(l.delta_ms) / 5000 * 100, 100);
+      var col = l.delta_ms > 0 ? '#ef4444' : '#22c55e';
+      dbar = '<div class="dbar-wrap">'
+        + '<span class="lap-delta ' + (l.delta_ms > 0 ? 'pos' : l.delta_ms < 0 ? 'neg' : '') + '">'
+        + esc(l.delta_str) + '</span>'
+        + '<div style="flex:1;min-width:24px">'
+        + '<div class="dbar-inner" style="width:' + pct.toFixed(0) + '%;background:' + col + '"></div>'
+        + '</div></div>';
+    }
+    return '<tr class="' + lapRowCls(l) + '">'
+      + '<td><span class="qbar" style="background:' + qc + '"></span></td>'
+      + '<td class="lap-num">' + l.lap + '</td>'
+      + '<td class="lap-time">' + esc(l.time_str) + '</td>'
+      + '<td class="lap-gap">'  + esc(l.gap_str)  + '</td>'
+      + '<td>' + dbar + '</td>'
+      + '<td>' + badge + '</td>'
+      + '</tr>';
+  }).join('');
+
+  /* Channel list grouped */
+  var grouped = {};
+  chs.forEach(function (ch) {
+    if (!grouped[ch.group]) grouped[ch.group] = [];
+    grouped[ch.group].push(ch);
+  });
+  var grpOrder = ['Timing','Engine','Motion / IMU','GPS','Temperature','Lambda','Electrical','CHX / TCH','Odometer','Alarms','Other'];
+  var chHtml = '';
+  grpOrder.forEach(function (g) {
+    if (!grouped[g] || !grouped[g].length) return;
+    chHtml += '<div class="ch-grp-lbl">' + esc(g) + '</div>';
+    grouped[g].forEach(function (ch) {
+      chHtml += '<div class="ch-row">'
+        + '<span class="ch-name">' + esc(ch.shortName) + '</span>'
+        + '<span class="ch-long">' + esc(ch.longName)  + '</span>'
+        + '<span class="ch-rate ' + rateCls(ch.hz) + '">' + esc(rateLabel(ch.hz)) + '</span>'
+        + '</div>';
+    });
+  });
+
+  /* Session meta grid */
+  var hw = (meta.hardware || '').split('|').filter(Boolean).join('\n');
+  var metaItems = [
+    ['Track',        meta.track || p.track],
+    ['Championship', meta.championship],
+    ['Session Type', meta.session_type],
+    ['Mode',         meta.race_mode],
+    ['Date',         fmtDate(meta.date)],
+    ['Time',         meta.time],
+    ['Vehicle',      meta.vehicle || meta.vehicle_type],
+    ['Driver',       meta.driver],
+  ].filter(function (x) { return x[1]; });
+  var metaGrid = metaItems.map(function (x) {
+    return '<div><div class="meta-lbl">' + esc(x[0]) + '</div>'
+      + '<div class="meta-val">' + esc(x[1]) + '</div></div>';
+  }).join('');
+
+  /* Lap consistency strip */
+  var completeLaps = laps.filter(function (l) { return !l.partial; });
+  var stripBars = completeLaps.map(function (l) {
+    var h = Math.min(18, 4 + (l.gap_pct || 0) * 1.5);
+    return '<div class="ls-bar" style="background:' + lapQC(l) + ';height:' + h + 'px" '
+      + 'title="Lap ' + l.lap + ': ' + l.time_str + '"></div>';
+  }).join('');
+
+  /* Build HTML */
+  var vp = document.getElementById('viewerPane');
+  vp.innerHTML =
+    /* breadcrumb */
+    '<div class="vw-breadcrumb">'
+    + '<button class="vw-back-btn" onclick="clearViewer()">← Back</button>'
+    + '<span style="color:#cbd5e1">/</span>'
+    + '<span style="color:#1a0d2e;font-weight:700">' + esc(driver) + '</span>'
+    + '<span style="color:#cbd5e1">/</span>'
+    + '<span style="color:#1a0d2e;font-weight:700">' + esc(dateDisplay) + '</span>'
+    + '<span style="color:#cbd5e1">/</span>'
+    + '<span style="color:#1a0d2e;font-weight:700">' + esc(p.timeStr || name) + ' &nbsp;' + esc(p.track) + '</span>'
+    + (p.session ? '<span style="color:#94a3b8;margin-left:4px">— ' + esc(p.session) + '</span>' : '')
+    + '</div>'
+
+    /* KPI bar */
+    + '<div class="vw-kpi-bar">'
+    + kpis.map(function (k) {
+        return '<div class="vw-kpi' + (k.hi ? ' hi' : '') + '">'
+          + '<div class="vw-kpi-label">'  + esc(k.label) + '</div>'
+          + '<div class="vw-kpi-value">'  + esc(k.value) + '</div>'
+          + (k.sub ? '<div class="vw-kpi-sub">' + esc(k.sub) + '</div>' : '')
+          + '</div>';
+      }).join('')
+    + '</div>'
+
+    /* consistency strip */
+    + '<div style="background:#1a0d2e;padding:5px 20px 8px;display:flex;align-items:flex-end;gap:2px">'
+    + stripBars
+    + '<span style="font-size:0.58rem;color:rgba(255,255,255,0.2);margin-left:10px;'
+    + 'align-self:center;letter-spacing:0.06em;text-transform:uppercase">Lap Consistency</span>'
+    + '</div>'
+
+    /* 2-column content */
+    + '<div class="vw-content">'
+
+    /* — left column — */
+    + '<div class="vw-col-main">'
+
+    + '<div class="vw-card">'
+    + '<div class="vw-card-header"><span style="background:#6366f1;width:8px;height:8px;border-radius:50%;display:inline-block"></span>Lap Time Progression</div>'
+    + '<div class="vw-card-body"><div class="chart-wrap"><canvas id="lapChart"></canvas></div></div>'
+    + '</div>'
+
+    + '<div class="vw-card">'
+    + '<div class="vw-card-header">'
+    + '<span style="background:#22c55e;width:8px;height:8px;border-radius:50%;display:inline-block"></span>'
+    + 'Lap Analysis'
+    + '<span style="margin-left:auto;font-weight:400;text-transform:none;font-size:0.65rem;color:#94a3b8">'
+    + sum.complete_laps + ' clean &nbsp;·&nbsp; best ' + esc(sum.best_str)
+    + ' &nbsp;·&nbsp; avg ' + esc(sum.avg_str) + ' &nbsp;·&nbsp; ' + esc(sum.consistency_str)
+    + '</span></div>'
+    + '<div class="vw-card-body" style="padding:0">'
+    + '<table class="lap-table"><thead><tr>'
+    + '<th style="width:6px"></th><th>#</th><th>Lap Time</th><th>Gap to Best</th><th>Delta Prev</th><th></th>'
+    + '</tr></thead><tbody>' + lapRows + '</tbody></table>'
+    + '</div></div>'
+
+    + '</div>'  /* end left */
+
+    /* — right column — */
+    + '<div class="vw-col-side">'
+
+    + '<div class="vw-card">'
+    + '<div class="vw-card-header"><span style="background:#f59e0b;width:8px;height:8px;border-radius:50%;display:inline-block"></span>Session Info</div>'
+    + '<div class="vw-card-body"><div class="meta-grid">' + metaGrid + '</div>'
+    + (hw ? '<div class="meta-hw"><b style="display:block;font-size:0.58rem;color:#94a3b8;margin-bottom:3px">HARDWARE</b>' + esc(hw) + '</div>' : '')
+    + '</div></div>'
+
+    + '<div class="vw-card">'
+    + '<div class="vw-card-header"><span style="background:#3b82f6;width:8px;height:8px;border-radius:50%;display:inline-block"></span>'
+    + 'Channels <span style="font-weight:400;text-transform:none;margin-left:4px;font-size:0.7rem">(' + chs.length + ' recorded)</span></div>'
+    + '<div class="vw-card-body" style="max-height:440px;overflow-y:auto;padding:6px 12px">' + chHtml + '</div>'
+    + '</div>'
+
+    + '</div>'  /* end right */
+    + '</div>'; /* end vw-content */
+
+  /* Draw chart after DOM is ready */
+  requestAnimationFrame(function () { drawChart(laps, sum); });
+}
+
+function clearViewer() {
+  if (activeChart) { activeChart.destroy(); activeChart = null; }
+  document.getElementById('viewerPane').innerHTML =
+    '<div class="acd-empty">'
+    + '<div class="acd-empty-icon">📊</div>'
+    + '<div class="acd-empty-title">Open a session file</div>'
+    + '<div class="acd-empty-sub">Click any session card to view the full telemetry analysis</div>'
+    + '</div>';
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CHART.JS — LAP TIME PROGRESSION
+   ═══════════════════════════════════════════════════════════════ */
+
+function drawChart(laps, sum) {
+  var canvas = document.getElementById('lapChart');
+  if (!canvas) return;
+
+  var labels = laps.map(function (l) { return 'L' + l.lap; });
+  var values = laps.map(function (l) { return +(l.duration_ms / 1000).toFixed(3); });
+  var ptC    = laps.map(lapQC);
+  var ptS    = laps.map(function (l) { return l.is_best ? 9 : l.partial ? 3 : 6; });
+
+  var bSec = sum.best_ms / 1000;
+  var aSec = sum.avg_ms  / 1000;
+  var comp = laps.filter(function (l) { return !l.partial; });
+  var maxSec = comp.length ? Math.max.apply(null, comp.map(function (l) { return l.duration_ms / 1000; })) : bSec + 5;
+  var yMin = Math.floor((bSec - 0.5) * 2) / 2;
+  var yMax = Math.ceil((maxSec + 0.5) * 2) / 2;
+
+  activeChart = new Chart(canvas.getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'Lap Time',
+          data: values,
+          borderColor: '#6366f1',
+          backgroundColor: 'rgba(99,102,241,0.05)',
+          borderWidth: 2,
+          pointBackgroundColor: ptC,
+          pointBorderColor:     ptC,
+          pointRadius:     ptS,
+          pointHoverRadius: 8,
+          tension: 0.25,
+          fill: true,
+        },
+        {
+          label: 'Best',
+          data: laps.map(function () { return bSec; }),
+          borderColor: '#f59e0b',
+          borderWidth: 1.5,
+          borderDash: [6, 4],
+          pointRadius: 0,
+          fill: false,
+        },
+        {
+          label: 'Avg',
+          data: laps.map(function () { return aSec; }),
+          borderColor: '#94a3b8',
+          borderWidth: 1,
+          borderDash: [3, 3],
+          pointRadius: 0,
+          fill: false,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: function (items) { return 'Lap ' + laps[items[0].dataIndex].lap; },
+            label: function (item) {
+              if (item.datasetIndex === 0) {
+                var l = laps[item.dataIndex];
+                var lines = ['  Time:  ' + l.time_str];
+                if (l.gap_str   !== '—') lines.push('  Gap:   ' + l.gap_str);
+                if (l.delta_str !== '—') lines.push('  Δ Prev: ' + l.delta_str);
+                if (l.is_best) lines.push('  ★ BEST LAP');
+                if (l.outlap)  lines.push('  Outlap');
+                if (l.partial) lines.push('  Partial lap');
+                return lines;
+              }
+              if (item.datasetIndex === 1) return '  Best: ' + fmtMs(sum.best_ms);
+              if (item.datasetIndex === 2) return '  Avg:  ' + fmtMs(sum.avg_ms);
+              return null;
+            },
+          },
+          backgroundColor: 'rgba(26,13,46,0.94)',
+          titleColor:  '#fff',
+          bodyColor:   'rgba(255,255,255,0.72)',
+          borderColor: 'rgba(99,102,241,0.4)',
+          borderWidth: 1,
+          padding: 10,
+          cornerRadius: 6,
+        },
+      },
+      scales: {
+        x: {
+          grid:  { color: 'rgba(0,0,0,0.04)' },
+          ticks: { font: { size: 10, family: 'Space Grotesk' }, color: '#94a3b8' },
+        },
+        y: {
+          min: yMin, max: yMax,
+          grid:  { color: 'rgba(0,0,0,0.06)' },
+          ticks: {
+            font: { size: 10, family: 'Space Grotesk' },
+            color: '#94a3b8',
+            callback: function (v) { return fmtMs(Math.round(v * 1000)); },
+          },
+        },
+      },
+    },
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   FOLDER PICKER
+   ═══════════════════════════════════════════════════════════════ */
+
+document.getElementById('btnPickFolder').addEventListener('click', async function () {
+  if (!window.showDirectoryPicker) {
+    alert('The File System Access API requires Google Chrome or Microsoft Edge.\nSafari is not supported.');
+    return;
+  }
+  try {
+    rootH = await window.showDirectoryPicker({ mode: 'read' });
+    document.getElementById('folderName').textContent = rootH.name;
+    document.getElementById('folderChip').style.display = 'flex';
+    document.getElementById('treePane').innerHTML =
+      '<div class="acd-empty" style="padding:20px">'
+      + '<div class="acd-empty-icon" style="animation:spin .8s linear infinite">⚙️</div>'
+      + '<div class="acd-empty-title">Scanning…</div>'
+      + '</div>';
+
+    var raw = await scanDir(rootH, [], 0);
+    fileTree = buildTree(raw);
+    cache    = {};  // clear cache on new folder
+    renderTree(fileTree);
+
+    // Stats chips
+    var drivers  = new Set(fileTree.map(function (s) { return s.driver; })).size;
+    var sessions = fileTree.length;
+    var files    = fileTree.reduce(function (n, s) { return n + s.files.length; }, 0);
+    document.getElementById('stD').textContent = drivers;
+    document.getElementById('stS').textContent = sessions;
+    document.getElementById('stF').textContent = files;
+    document.getElementById('statsRow').style.display = 'flex';
+
+    // Auto-select first entry
+    if (fileTree.length) {
+      var first = fileTree[0];
+      selSess(first.driver + '::' + first.dateRaw);
+    }
+  } catch (e) {
+    if (e.name !== 'AbortError') console.error('Folder picker error:', e);
+  }
+});
+</script>
+</body>
+</html>
