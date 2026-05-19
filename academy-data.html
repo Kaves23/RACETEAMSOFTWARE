@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Academy Data | Race Team Software</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <style>
@@ -171,10 +172,10 @@
     <button id="btnPickFolder"
       style="background:#1a0d2e;color:#fff;font-weight:700;font-size:0.78rem;
              border-radius:6px;padding:5px 14px;border:none;cursor:pointer;">
-      📂 Select Data Folder
+      <i class="bi bi-folder2-open me-1"></i> Select Data Folder
     </button>
     <div id="folderChip" class="folder-chip" style="display:none">
-      📁 <span id="folderName"></span>
+      <i class="bi bi-folder-fill me-1"></i><span id="folderName"></span>
     </div>
     <div style="flex:1"></div>
     <div id="statsRow" style="display:none;gap:8px">
@@ -189,7 +190,7 @@
     <!-- Tree -->
     <div class="tree-pane" id="treePane">
       <div class="acd-empty" style="padding:20px">
-        <div class="acd-empty-icon">📂</div>
+        <div class="acd-empty-icon"><i class="bi bi-folder2-open"></i></div>
         <div class="acd-empty-title">No folder loaded</div>
         <div class="acd-empty-sub">Click "Select Data Folder" to browse your AiM session files</div>
       </div>
@@ -198,7 +199,7 @@
     <!-- Files -->
     <div class="files-pane" id="filesPane">
       <div class="acd-empty">
-        <div class="acd-empty-icon">📋</div>
+        <div class="acd-empty-icon"><i class="bi bi-card-list"></i></div>
         <div class="acd-empty-title">Select a session</div>
         <div class="acd-empty-sub">Pick a driver and date from the left panel</div>
       </div>
@@ -207,7 +208,7 @@
     <!-- Viewer -->
     <div class="viewer-pane" id="viewerPane">
       <div class="acd-empty">
-        <div class="acd-empty-icon">📊</div>
+        <div class="acd-empty-icon"><i class="bi bi-bar-chart-line"></i></div>
         <div class="acd-empty-title">Open a session file</div>
         <div class="acd-empty-sub">Click any session card to view the full telemetry analysis</div>
       </div>
@@ -504,28 +505,28 @@ var fileTree  = [];
 var cache     = {};
 
 async function scanDir(handle, path, depth) {
+  if (depth > 6) return [];
   var items = [];
   try {
-    for await (var [name, entry] of handle.entries()) {
-      if (depth === 0 && entry.kind === 'directory') {
-        var sub = await scanDir(entry, [name], 1);
+    for await (var entry of handle.values()) {
+      var name = entry.name;
+      if (entry.kind === 'directory') {
+        var sub = await scanDir(entry, path.concat([name]), depth + 1);
         items.push.apply(items, sub);
-      } else if (depth === 1 && entry.kind === 'directory') {
-        var sub2 = await scanDir(entry, path.concat([name]), 2);
-        items.push.apply(items, sub2);
-      } else if (depth === 2 && entry.kind === 'file' && name.toLowerCase().endsWith('.xrk')) {
+      } else if (entry.kind === 'file' && name.toLowerCase().endsWith('.xrk')) {
         items.push({ path: path, name: name, handle: entry });
       }
     }
-  } catch (e) { console.warn('scanDir:', e); }
+  } catch (e) { console.warn('scanDir error at /' + path.join('/') + ':', e); }
   return items;
 }
 
 function buildTree(raw) {
   var map = {};
   raw.forEach(function (f) {
-    var driver  = f.path[0] || 'Unknown';
-    var dateRaw = f.path[1] || 'Unknown';
+    // Use last 2 path components as [driver, date] regardless of scan depth
+    var driver  = f.path.length >= 2 ? f.path[f.path.length - 2] : (f.path[0] || 'Unknown');
+    var dateRaw = f.path.length >= 1 ? f.path[f.path.length - 1] : 'Unknown';
     var key     = driver + '::' + dateRaw;
     if (!map[key]) {
       map[key] = {
@@ -555,9 +556,9 @@ function renderTree(tree) {
   var pane = document.getElementById('treePane');
   if (!tree.length) {
     pane.innerHTML = '<div class="acd-empty" style="padding:20px">'
-      + '<div class="acd-empty-icon">📭</div>'
+      + '<div class="acd-empty-icon"><i class="bi bi-folder-x"></i></div>'
       + '<div class="acd-empty-title">No XRK files found</div>'
-      + '<div class="acd-empty-sub">Check the folder contains Driver/Date/file.xrk structure</div>'
+      + '<div class="acd-empty-sub">Make sure you selected the root data folder (the one containing driver sub-folders).</div>'
       + '</div>';
     return;
   }
@@ -573,7 +574,7 @@ function renderTree(tree) {
       var key = s.driver + '::' + s.dateRaw;
       html += '<div class="tree-date-row" data-key="' + esc(key) + '" '
         + 'onclick="selSess(\'' + esc(key).replace(/'/g, "\\'") + '\')">'
-        + '📅 ' + esc(s.dateDisplay)
+        + '<i class="bi bi-calendar3 me-1"></i>' + esc(s.dateDisplay)
         + '<span class="tree-date-count">' + s.files.length + '</span>'
         + '</div>';
     });
@@ -617,7 +618,7 @@ function renderFiles(session) {
       + esc(session.dateRaw).replace(/'/g, "\\'") + '\')">'
       + '<div class="session-card-accent"></div>'
       + '<div class="d-flex align-items-start gap-2">'
-      + '<div style="font-size:1.5rem;line-height:1;margin-top:2px">⏱</div>'
+      + '<div style="font-size:1.1rem;line-height:1;margin-top:3px;color:#1a0d2e"><i class="bi bi-stopwatch"></i></div>'
       + '<div style="flex:1;padding-right:58px">'
       + '<div class="session-card-time">' + esc(p.timeStr || f.name) + '</div>'
       + '<div class="session-card-track">' + esc(p.track) + '</div>'
@@ -642,8 +643,7 @@ function renderFiles(session) {
 async function openFile(name, driver, dateDisplay, dateRaw) {
   var vp = document.getElementById('viewerPane');
   vp.innerHTML = '<div class="acd-empty">'
-    + '<div class="acd-empty-icon" style="animation:spin .8s linear infinite">⚙️</div>'
-    + '<div class="acd-empty-title">Parsing ' + esc(name) + '…</div>'
+    + '<div class="acd-empty-icon"><div style="width:2.4rem;height:2.4rem;border:3px solid #e2e8f0;border-top-color:#1a0d2e;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto"></div></div>'
     + '</div>';
 
   try {
@@ -689,7 +689,7 @@ async function openFile(name, driver, dateDisplay, dateRaw) {
     }
   } catch (e) {
     vp.innerHTML = '<div class="acd-empty">'
-      + '<div class="acd-empty-icon">⚠️</div>'
+      + '<div class="acd-empty-icon"><i class="bi bi-exclamation-triangle" style="color:#ef4444"></i></div>'
       + '<div class="acd-empty-title">Error loading file</div>'
       + '<div class="acd-empty-sub">' + esc(e.message) + '</div>'
       + '</div>';
@@ -726,7 +726,7 @@ function renderViewer(data, name, driver, dateDisplay) {
   var lapRows = laps.map(function (l) {
     var qc    = lapQC(l);
     var badge = '';
-    if      (l.is_best)  badge = '<span class="lap-badge lb-best">★ BEST</span>';
+    if      (l.is_best)  badge = '<span class="lap-badge lb-best"><i class="bi bi-star-fill me-1"></i>BEST</span>';
     else if (l.partial)  badge = '<span class="lap-badge lb-part">partial</span>';
     else if (l.outlap)   badge = '<span class="lap-badge lb-out">outlap</span>';
 
@@ -882,7 +882,7 @@ function clearViewer() {
   if (activeChart) { activeChart.destroy(); activeChart = null; }
   document.getElementById('viewerPane').innerHTML =
     '<div class="acd-empty">'
-    + '<div class="acd-empty-icon">📊</div>'
+    + '<div class="acd-empty-icon"><i class="bi bi-bar-chart-line"></i></div>'
     + '<div class="acd-empty-title">Open a session file</div>'
     + '<div class="acd-empty-sub">Click any session card to view the full telemetry analysis</div>'
     + '</div>';
@@ -1014,7 +1014,7 @@ document.getElementById('btnPickFolder').addEventListener('click', async functio
     document.getElementById('folderChip').style.display = 'flex';
     document.getElementById('treePane').innerHTML =
       '<div class="acd-empty" style="padding:20px">'
-      + '<div class="acd-empty-icon" style="animation:spin .8s linear infinite">⚙️</div>'
+      + '<div class="acd-empty-icon"><div style="width:2.4rem;height:2.4rem;border:3px solid #e2e8f0;border-top-color:#1a0d2e;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto"></div></div>'
       + '<div class="acd-empty-title">Scanning…</div>'
       + '</div>';
 
