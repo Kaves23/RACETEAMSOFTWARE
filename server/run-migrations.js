@@ -95,7 +95,9 @@ async function runMigrations() {
     '074_telemetry_sessions.sql',
     '075_sporting_entries_extra_fields.sql',
     '076_regulations_align_columns.sql',
-    '078_academy_prospects.sql'
+    '077_fix_box_contents_dedup_and_constraint.sql',
+    '078_academy_prospects.sql',
+    '079_academy_activities_tasks.sql'
   ];
   
   let appliedCount = 0, skippedCount = 0;
