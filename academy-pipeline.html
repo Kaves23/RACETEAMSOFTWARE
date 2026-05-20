@@ -195,7 +195,7 @@
                 <th>Driver Name</th>
                 <th style="width:45px;">Age</th>
                 <th>Parent / Guardian</th>
-                <th style="width:90px;">Category</th>
+                <th style="width:110px;">Class / Venue</th>
                 <th style="width:105px;">Status</th>
                 <th style="width:90px;">Last Session</th>
                 <th style="width:28px;"></th>
@@ -256,9 +256,26 @@
                     <input class="form-control form-control-sm" id="fDriverDob" type="date" />
                   </div>
                   <div class="col-6">
-                    <label class="form-label">Category</label>
-                    <input class="form-control form-control-sm" id="fCategory" type="text" placeholder="e.g. Karting, F4" list="catDatalist" />
-                    <datalist id="catDatalist"></datalist>
+                    <label class="form-label">Test Class</label>
+                    <input class="form-control form-control-sm" id="fCategory" type="text" placeholder="e.g. Mini Rok, OK-Junior" list="catDatalist" />
+                    <datalist id="catDatalist">
+                      <option value="Bambino"></option>
+                      <option value="Mini Rok"></option>
+                      <option value="Micro Max"></option>
+                      <option value="Cadet"></option>
+                      <option value="Junior Rok"></option>
+                      <option value="OK-Junior"></option>
+                      <option value="Rotax Junior"></option>
+                      <option value="KZ2"></option>
+                    </datalist>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Test Venue</label>
+                    <select class="form-select form-select-sm" id="fTestVenue">
+                      <option value="">— Select —</option>
+                      <option value="Killarney">Killarney</option>
+                      <option value="Red Star">Red Star</option>
+                    </select>
                   </div>
                   <div class="col-6">
                     <label class="form-label">Nationality</label>
@@ -652,7 +669,7 @@
         if (filterStage !== 'all' && p.status !== filterStage) return false;
         if (filterCat && p.category !== filterCat) return false;
         if (q) {
-          const hay = [p.driver_name, p.parent_name, p.category, p.parent_email].join(' ').toLowerCase();
+          const hay = [p.driver_name, p.parent_name, p.category, p.test_venue, p.parent_email].join(' ').toLowerCase();
           if (!hay.includes(q)) return false;
         }
         return true;
@@ -682,7 +699,7 @@
           <td><strong>${esc(p.driver_name || '—')}</strong></td>
           <td>${esc(calcAge(p.driver_dob))}</td>
           <td>${esc(p.parent_name || '—')}</td>
-          <td style="font-size:0.75rem;">${esc(p.category || '—')}</td>
+          <td style="font-size:0.75rem;">${esc(p.category || '—')}${p.test_venue ? '<br><span style="color:#9aa5b4;font-size:0.68rem;">' + esc(p.test_venue) + '</span>' : ''}</td>
           <td><span class="acd-badge ${s.badge}">${esc(s.label)}</span></td>
           <td style="font-size:0.75rem;color:#6c757d;">${ls ? formatDate(ls.date) : '—'}</td>
           <td><button class="acd-row-del" data-del="${esc(p.id)}" title="Delete prospect">×</button></td>
@@ -717,6 +734,7 @@
       document.getElementById('fDriverName').value = p.driver_name || '';
       document.getElementById('fDriverDob').value = p.driver_dob ? String(p.driver_dob).slice(0, 10) : '';
       document.getElementById('fCategory').value = p.category || '';
+      document.getElementById('fTestVenue').value = p.test_venue || '';
       document.getElementById('fNationality').value = p.nationality || '';
       document.getElementById('fParentName').value = p.parent_name || '';
       document.getElementById('fParentPhone').value = p.parent_phone || '';
@@ -887,6 +905,7 @@
         driver_name: document.getElementById('fDriverName').value.trim(),
         driver_dob: document.getElementById('fDriverDob').value || null,
         category: document.getElementById('fCategory').value.trim(),
+        test_venue: document.getElementById('fTestVenue').value,
         nationality: document.getElementById('fNationality').value.trim(),
         parent_name: document.getElementById('fParentName').value.trim(),
         parent_phone: document.getElementById('fParentPhone').value.trim(),
@@ -937,7 +956,7 @@
     document.getElementById('btnAddProspect').addEventListener('click', () => {
       const now = nowISO();
       const blank = {
-        id: null, driver_name: '', driver_dob: null, category: '',
+        id: null, driver_name: '', driver_dob: null, category: '', test_venue: '',
         nationality: '', parent_name: '', parent_phone: '', parent_email: '',
         source: '', assigned_to: '', status: 'lead', notes: '',
         sessions: [], attachments: [], activities: [], tasks: [], created_at: now, updated_at: now
@@ -951,6 +970,7 @@
       document.getElementById('fDriverName').value = '';
       document.getElementById('fDriverDob').value = '';
       document.getElementById('fCategory').value = '';
+      document.getElementById('fTestVenue').value = '';
       document.getElementById('fNationality').value = '';
       document.getElementById('fParentName').value = '';
       document.getElementById('fParentPhone').value = '';

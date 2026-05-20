@@ -23,7 +23,7 @@ router.post('/', async (req, res, next) => {
       driver_name, driver_dob, category, nationality,
       parent_name, parent_phone, parent_email,
       source, assigned_to, status, notes,
-      sessions, attachments, activities, tasks
+      sessions, attachments, activities, tasks, test_venue
     } = req.body;
     if (!driver_name) return res.status(400).json({ error: 'driver_name required' });
     const r = await pool.query(
@@ -31,15 +31,16 @@ router.post('/', async (req, res, next) => {
          (driver_name, driver_dob, category, nationality,
           parent_name, parent_phone, parent_email,
           source, assigned_to, status, notes,
-          sessions, attachments, activities, tasks)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+          sessions, attachments, activities, tasks, test_venue)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
        RETURNING *`,
       [
         driver_name, driver_dob || null, category || null, nationality || null,
         parent_name || null, parent_phone || null, parent_email || null,
         source || null, assigned_to || null, status || 'lead', notes || null,
         JSON.stringify(sessions || []), JSON.stringify(attachments || []),
-        JSON.stringify(activities || []), JSON.stringify(tasks || [])
+        JSON.stringify(activities || []), JSON.stringify(tasks || []),
+        test_venue || null
       ]
     );
     res.status(201).json(r.rows[0]);
@@ -53,22 +54,23 @@ router.put('/:id', async (req, res, next) => {
       driver_name, driver_dob, category, nationality,
       parent_name, parent_phone, parent_email,
       source, assigned_to, status, notes,
-      sessions, attachments, activities, tasks
+      sessions, attachments, activities, tasks, test_venue
     } = req.body;
     const r = await pool.query(
       `UPDATE academy_prospects SET
          driver_name=$1, driver_dob=$2, category=$3, nationality=$4,
          parent_name=$5, parent_phone=$6, parent_email=$7,
          source=$8, assigned_to=$9, status=$10, notes=$11,
-         sessions=$12, attachments=$13, activities=$14, tasks=$15, updated_at=NOW()
-       WHERE id=$16 RETURNING *`,
+         sessions=$12, attachments=$13, activities=$14, tasks=$15,
+         test_venue=$16, updated_at=NOW()
+       WHERE id=$17 RETURNING *`,
       [
         driver_name, driver_dob || null, category || null, nationality || null,
         parent_name || null, parent_phone || null, parent_email || null,
         source || null, assigned_to || null, status || 'lead', notes || null,
         JSON.stringify(sessions || []), JSON.stringify(attachments || []),
         JSON.stringify(activities || []), JSON.stringify(tasks || []),
-        req.params.id
+        test_venue || null, req.params.id
       ]
     );
     if (!r.rows.length) return res.status(404).json({ error: 'Not found' });
