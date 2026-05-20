@@ -83,7 +83,9 @@
     .acd-session-notes { font-size: 0.75rem; color: #495057; margin-top: 3px; white-space: pre-wrap; word-break: break-word; }
     .acd-session-link { font-size: 0.72rem; }
     .acd-session-del { position: absolute; top: 6px; right: 8px; background: none; border: none; color: #dc3545; font-size: 0.85rem; cursor: pointer; opacity: 0; transition: opacity 0.15s; padding: 0 3px; }
-    .acd-session-card:hover .acd-session-del { opacity: 1; }
+    .acd-session-edit { position: absolute; top: 6px; right: 28px; background: none; border: none; color: #6c757d; font-size: 0.82rem; cursor: pointer; opacity: 0; transition: opacity 0.15s; padding: 0 3px; }
+    .acd-session-card:hover .acd-session-del, .acd-session-card:hover .acd-session-edit { opacity: 1; }
+    .acd-session-card.editing { border-color: #1a0d2e; background: #f0edf8; }
 
     /* Add session form */
     .acd-add-session { background: #fff; border: 1px dashed #dee2e6; border-radius: 6px; padding: 10px; margin-top: 6px; }
@@ -760,6 +762,8 @@
     }
 
     /* ── Session rendering ────────────────────────────────────────── */
+    let _editingSesId = null;
+
     function renderSessionsList(p) {
       const container = document.getElementById('acdSessionsList');
       const sessions = Array.isArray(p.sessions) ? p.sessions : [];
@@ -769,7 +773,8 @@
       }
       const sorted = sessions.slice().sort((a, b) => (b.date || '') > (a.date || '') ? 1 : -1);
       container.innerHTML = sorted.map(s => `
-        <div class="acd-session-card" data-ses-id="${esc(s.id)}">
+        <div class="acd-session-card${_editingSesId === String(s.id) ? ' editing' : ''}" data-ses-id="${esc(s.id)}">
+          <button class="acd-session-edit" data-edit-ses="${esc(s.id)}" title="Edit session"><i class="bi bi-pencil"></i></button>
           <button class="acd-session-del" data-del-ses="${esc(s.id)}" title="Remove session">×</button>
           <div class="d-flex align-items-center gap-2 mb-1">
             <span class="acd-session-date">${formatDate(s.date)}</span>
@@ -785,6 +790,50 @@
       container.querySelectorAll('[data-del-ses]').forEach(btn =>
         btn.addEventListener('click', () => deleteSession(p, btn.dataset.delSes))
       );
+      container.querySelectorAll('[data-edit-ses]').forEach(btn =>
+        btn.addEventListener('click', () => beginEditSession(p, btn.dataset.editSes))
+      );
+    }
+
+    function beginEditSession(p, sesId) {
+      const s = (p.sessions || []).find(x => String(x.id) === String(sesId));
+      if (!s) return;
+      _editingSesId = String(sesId);
+      document.getElementById('sesDate').value = s.date || '';
+      document.getElementById('sesVenue').value = s.venue || '';
+      document.getElementById('sesCoach').value = s.coach || '';
+      document.getElementById('sesRating').value = s.rating || '';
+      document.getElementById('sesNotes').value = s.notes || '';
+      document.getElementById('sesCloudLink').value = s.cloud_link || '';
+      const btn = document.getElementById('btnAddSession');
+      btn.textContent = 'Save Changes';
+      btn.classList.replace('btn-primary', 'btn-success');
+      // Show cancel button if not already present
+      if (!document.getElementById('btnCancelEditSes')) {
+        const cancel = document.createElement('button');
+        cancel.id = 'btnCancelEditSes';
+        cancel.type = 'button';
+        cancel.className = 'btn btn-sm btn-outline-secondary w-100 mt-1';
+        cancel.textContent = 'Cancel Edit';
+        cancel.addEventListener('click', cancelEditSession);
+        btn.parentNode.after(cancel.parentNode ? cancel : (() => { const d = document.createElement('div'); d.className = 'col-12'; d.appendChild(cancel); return d; })());
+        btn.closest('.row').appendChild((() => { const d = document.createElement('div'); d.className = 'col-12'; d.appendChild(cancel); return d; })());
+      }
+      renderSessionsList(p);
+      // Scroll form into view
+      document.querySelector('.acd-add-session').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function cancelEditSession() {
+      _editingSesId = null;
+      const btn = document.getElementById('btnAddSession');
+      btn.textContent = '+ Log Session';
+      btn.classList.replace('btn-success', 'btn-primary');
+      ['sesDate','sesVenue','sesCoach','sesRating','sesNotes','sesCloudLink'].forEach(id => { document.getElementById(id).value = ''; });
+      const c = document.getElementById('btnCancelEditSes');
+      if (c) c.closest('.col-12').remove();
+      const p = currentProspect();
+      if (p) renderSessionsList(p);
     }
 
     function deleteSession(p, sesId) {
@@ -951,30 +1000,39 @@
       if (!p || !p.id) { alert('Please save the prospect first before logging a session.'); return; }
       const date = document.getElementById('sesDate').value;
       if (!date) { alert('Session date is required.'); return; }
-      const session = {
-        id: uid(),
-        date,
-        venue: document.getElementById('sesVenue').value.trim(),
-        coach: document.getElementById('sesCoach').value.trim(),
-        rating: document.getElementById('sesRating').value || null,
-        notes: document.getElementById('sesNotes').value.trim(),
-        cloud_link: document.getElementById('sesCloudLink').value.trim() || null,
-        created_at: nowISO()
-      };
       p.sessions = Array.isArray(p.sessions) ? p.sessions : [];
-      p.sessions.push(session);
+
+      if (_editingSesId) {
+        // Update existing session
+        const ses = p.sessions.find(x => String(x.id) === String(_editingSesId));
+        if (ses) {
+          ses.date   = date;
+          ses.venue  = document.getElementById('sesVenue').value.trim();
+          ses.coach  = document.getElementById('sesCoach').value.trim();
+          ses.rating = document.getElementById('sesRating').value || null;
+          ses.notes  = document.getElementById('sesNotes').value.trim();
+          ses.cloud_link = document.getElementById('sesCloudLink').value.trim() || null;
+        }
+      } else {
+        // Add new session
+        p.sessions.push({
+          id: uid(),
+          date,
+          venue: document.getElementById('sesVenue').value.trim(),
+          coach: document.getElementById('sesCoach').value.trim(),
+          rating: document.getElementById('sesRating').value || null,
+          notes: document.getElementById('sesNotes').value.trim(),
+          cloud_link: document.getElementById('sesCloudLink').value.trim() || null,
+          created_at: nowISO()
+        });
+      }
+
       p.updated_at = nowISO();
       try {
         const saved = await apiSave(p);
         const idx = prospects.findIndex(x => String(x.id) === String(p.id));
         if (idx >= 0) prospects[idx] = saved;
-        // Clear session form
-        document.getElementById('sesDate').value = '';
-        document.getElementById('sesVenue').value = '';
-        document.getElementById('sesCoach').value = '';
-        document.getElementById('sesRating').value = '';
-        document.getElementById('sesNotes').value = '';
-        document.getElementById('sesCloudLink').value = '';
+        cancelEditSession();
         renderSessionsList(saved);
         renderList();
       } catch (e) {
