@@ -1010,6 +1010,49 @@ function saveXRKIndex(driverFolder, dateFolder, fileName, summary, laps) {
     if (!fi) entry.files.push({ name: fileName, summary: summary, laps: lapData });
     else     { fi.summary = summary; fi.laps = lapData; }
     localStorage.setItem('rts_xrk_index', JSON.stringify(idx));
+
+    // Also persist to the server so all devices can see the lap data
+    if (dateISO) syncLapDataToSession(driverFolder, dateISO, fileName, summary, lapData);
+  } catch (_) {}
+}
+
+/* Sync lap data to the matching session in the DB so it's available on all devices */
+async function syncLapDataToSession(driverFolder, dateISO, fileName, summary, lapData) {
+  try {
+    var token = localStorage.getItem('rts_token') || localStorage.getItem('auth_token') || '';
+    var headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+
+    var r = await fetch('/api/academy/prospects', { headers: headers });
+    if (!r.ok) return;
+    var prospects = await r.json();
+
+    var surname = driverFolder.toLowerCase();
+    var matched = null;
+    var matchedProspect = null;
+
+    (Array.isArray(prospects) ? prospects : []).forEach(function (p) {
+      var dname = (p.driver_name || '').toLowerCase();
+      if (!dname.includes(surname) && !surname.includes(dname.split(' ').pop())) return;
+      var sessions = Array.isArray(p.sessions) ? p.sessions : [];
+      sessions.forEach(function (s) {
+        if (s.date === dateISO && !matched) { matched = s; matchedProspect = p; }
+      });
+    });
+
+    if (!matched || !matchedProspect) return;
+
+    // Build the lap_data payload — merge existing files, add/update this one
+    var existing = Array.isArray(matched.lap_data) ? matched.lap_data : [];
+    var fi = existing.find(function (f) { return f.name === fileName; });
+    if (!fi) existing.push({ name: fileName, summary: summary, laps: lapData });
+    else     { fi.summary = summary; fi.laps = lapData; }
+
+    await fetch('/api/academy/prospects/' + matchedProspect.id + '/sessions/' + matched.id, {
+      method: 'PATCH',
+      headers: headers,
+      body: JSON.stringify({ lap_data: existing })
+    });
   } catch (_) {}
 }
 

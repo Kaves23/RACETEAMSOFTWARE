@@ -74,6 +74,24 @@ router.put('/:id', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+/* PATCH update a single session inside a prospect (e.g. attach lap data) */
+router.patch('/:id/sessions/:sesId', async (req, res, next) => {
+  try {
+    const row = await pool.query('SELECT sessions FROM academy_prospects WHERE id=$1', [req.params.id]);
+    if (!row.rows.length) return res.status(404).json({ error: 'Prospect not found' });
+    let sessions = row.rows[0].sessions;
+    if (!Array.isArray(sessions)) sessions = [];
+    const idx = sessions.findIndex(s => String(s.id) === String(req.params.sesId));
+    if (idx === -1) return res.status(404).json({ error: 'Session not found' });
+    sessions[idx] = { ...sessions[idx], ...req.body };
+    await pool.query(
+      'UPDATE academy_prospects SET sessions=$1, updated_at=NOW() WHERE id=$2',
+      [JSON.stringify(sessions), req.params.id]
+    );
+    res.json(sessions[idx]);
+  } catch (e) { next(e); }
+});
+
 /* DELETE prospect */
 router.delete('/:id', async (req, res, next) => {
   try {
