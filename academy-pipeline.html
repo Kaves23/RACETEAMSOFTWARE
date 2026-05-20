@@ -155,11 +155,11 @@
 
     <!-- Stats Bar -->
     <div class="ev-stats-bar">
-      <div class="ev-stat-card"><div class="ev-stat-label">👤 Total</div><div class="ev-stat-value" id="statTotal">0</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">🔵 Lead</div><div class="ev-stat-value" id="statLead">0</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">🟣 Testing</div><div class="ev-stat-value" id="statTesting">0</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">✅ Signed</div><div class="ev-stat-value" id="statSigned">0</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">❌ Cancelled</div><div class="ev-stat-value" id="statCancelled">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label"><i class="bi bi-people-fill"></i> Total</div><div class="ev-stat-value" id="statTotal">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label"><i class="bi bi-circle-fill" style="color:#94a3b8;"></i> Lead</div><div class="ev-stat-value" id="statLead">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label"><i class="bi bi-circle-fill" style="color:#7c3aed;"></i> Testing</div><div class="ev-stat-value" id="statTesting">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label"><i class="bi bi-check-circle-fill" style="color:#16a34a;"></i> Signed</div><div class="ev-stat-value" id="statSigned">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label"><i class="bi bi-x-circle-fill" style="color:#dc3545;"></i> Cancelled</div><div class="ev-stat-value" id="statCancelled">0</div></div>
     </div>
 
     <div class="mlo-shell" id="acdShell">
@@ -300,7 +300,7 @@
                   </div>
                   <div class="col-6">
                     <label class="form-label">Assigned To</label>
-                    <input class="form-control form-control-sm" id="fAssignedTo" type="text" placeholder="Staff member" list="staffDatalist" />
+                    <select class="form-select form-select-sm acd-staff-select" id="fAssignedTo"><option value="">— Select —</option></select>
                     <datalist id="staffDatalist"></datalist>
                   </div>
                   <div class="col-12 d-flex gap-1 mt-2">
@@ -359,7 +359,7 @@
                       </div>
                       <div class="col-6">
                         <label class="form-label">Assigned To</label>
-                        <input class="form-control form-control-sm" id="taskAssigned" type="text" placeholder="Staff member" list="staffDatalist" />
+                        <select class="form-select form-select-sm acd-staff-select" id="taskAssigned"><option value="">— Select —</option></select>
                       </div>
                       <div class="col-12">
                         <button class="btn btn-sm btn-outline-primary w-100" id="btnAddTask" type="button">+ Add Task</button>
@@ -398,7 +398,7 @@
                     </div>
                     <div class="col-12">
                       <label class="form-label">Staff Member</label>
-                      <input class="form-control form-control-sm" id="actStaff" type="text" placeholder="Who made contact?" list="staffDatalist" />
+                      <select class="form-select form-select-sm acd-staff-select" id="actStaff"><option value="">— Select —</option></select>
                     </div>
                     <div class="col-12">
                       <label class="form-label">Summary</label>
@@ -434,17 +434,17 @@
                     </div>
                     <div class="col-6">
                       <label class="form-label">Coach / Engineer</label>
-                      <input class="form-control form-control-sm" id="sesCoach" type="text" placeholder="Name" list="staffDatalist" />
+                      <select class="form-select form-select-sm acd-staff-select" id="sesCoach"><option value="">— Select —</option></select>
                     </div>
                     <div class="col-6">
                       <label class="form-label">Rating</label>
                       <select class="form-select form-select-sm" id="sesRating">
                         <option value="">—</option>
-                        <option value="1">⭐ 1 – Poor</option>
-                        <option value="2">⭐⭐ 2 – Below average</option>
-                        <option value="3">⭐⭐⭐ 3 – Average</option>
-                        <option value="4">⭐⭐⭐⭐ 4 – Good</option>
-                        <option value="5">⭐⭐⭐⭐⭐ 5 – Excellent</option>
+                        <option value="1">1 – Poor</option>
+                        <option value="2">2 – Below average</option>
+                        <option value="3">3 – Average</option>
+                        <option value="4">4 – Good</option>
+                        <option value="5">5 – Excellent</option>
                       </select>
                     </div>
                     <div class="col-12">
@@ -546,7 +546,9 @@
     }
     function starStr(n) {
       const v = parseInt(n) || 0;
-      return '★'.repeat(v) + '☆'.repeat(Math.max(0, 5 - v));
+      return Array.from({length: 5}, (_, i) =>
+        `<i class="bi bi-star${i < v ? '-fill' : ''}" style="color:${i < v ? '#f59e0b' : '#dee2e6'};font-size:0.8rem;"></i>`
+      ).join('');
     }
 
     /* ── Auth helper ──────────────────────────────────────────────── */
@@ -603,6 +605,12 @@
       const staff = Array.isArray(settings.staff) ? settings.staff.filter(s => s.active !== false).map(s => s.name) : [];
       document.querySelectorAll('#staffDatalist').forEach(dl => {
         dl.innerHTML = staff.map(n => `<option value="${esc(n)}">`).join('');
+      });
+      const opts = '<option value="">\u2014 Select \u2014</option>' + staff.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+      document.querySelectorAll('.acd-staff-select').forEach(sel => {
+        const prev = sel.value;
+        sel.innerHTML = opts;
+        if (prev) sel.value = prev; // restore previously selected value
       });
     }
 
@@ -676,7 +684,7 @@
 
       // Contact tab
       document.getElementById('fDriverName').value = p.driver_name || '';
-      document.getElementById('fDriverDob').value = p.driver_dob || '';
+      document.getElementById('fDriverDob').value = p.driver_dob ? String(p.driver_dob).slice(0, 10) : '';
       document.getElementById('fCategory').value = p.category || '';
       document.getElementById('fNationality').value = p.nationality || '';
       document.getElementById('fParentName').value = p.parent_name || '';
@@ -741,7 +749,7 @@
           </div>
           ${s.coach ? `<div style="font-size:0.73rem;color:#6c757d;margin-bottom:2px;">Coach: ${esc(s.coach)}</div>` : ''}
           ${s.notes ? `<div class="acd-session-notes">${esc(s.notes)}</div>` : ''}
-          ${s.cloud_link ? `<div class="mt-1"><a href="${esc(s.cloud_link)}" class="acd-session-link text-primary" target="_blank" rel="noopener">📁 Open data files</a></div>` : ''}
+          ${s.cloud_link ? `<div class="mt-1"><a href="${esc(s.cloud_link)}" class="acd-session-link text-primary" target="_blank" rel="noopener"><i class="bi bi-folder2-open"></i> Open data files</a></div>` : ''}
         </div>
       `).join('');
 
