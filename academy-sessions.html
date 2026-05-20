@@ -113,11 +113,12 @@
                 <th>Prospect Stage</th>
                 <th>Venue</th>
                 <th>Coach</th>
+                <th>Times</th>
                 <th style="width:80px;">Rating</th>
               </tr>
             </thead>
             <tbody id="sesTbody">
-              <tr><td colspan="6" class="text-center text-secondary py-4">Loading…</td></tr>
+              <tr><td colspan="7" class="text-center text-secondary py-4">Loading…</td></tr>
             </tbody>
           </table>
         </div>
@@ -245,12 +246,28 @@
       });
     }
 
+    function renderRunTimes(lapData) {
+      if (!Array.isArray(lapData) || !lapData.length) return '<span style="color:#dee2e6;">—</span>';
+      return lapData.slice(0, 3).map(function (fi, i) {
+        var s = fi.summary || {};
+        var best = s.best_str || '—';
+        var avg  = s.avg_str  || '—';
+        var laps = s.total_laps || (fi.laps ? fi.laps.length : '?');
+        return '<div style="display:flex;align-items:baseline;gap:6px;line-height:1.55;">'
+          + '<span style="font-size:0.67rem;font-weight:700;color:#fff;background:#1a0d2e;border-radius:3px;padding:0 4px;flex-shrink:0;">S' + (i + 1) + '</span>'
+          + '<span style="font-size:0.78rem;font-weight:700;color:#5b21b6;font-variant-numeric:tabular-nums;">' + esc(best) + '</span>'
+          + '<span style="font-size:0.72rem;color:#6c757d;font-variant-numeric:tabular-nums;">avg ' + esc(avg) + '</span>'
+          + '<span style="font-size:0.67rem;color:#9aa5b4;">' + laps + ' laps</span>'
+          + '</div>';
+      }).join('');
+    }
+
     function renderTable() {
       const rows = filtered();
       document.getElementById('sesCountBadge').textContent = rows.length;
       const tbody = document.getElementById('sesTbody');
       if (!rows.length) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-secondary py-4" style="font-size:0.85rem;">No sessions match.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-secondary py-4" style="font-size:0.85rem;">No sessions match.</td></tr>';
         return;
       }
       tbody.innerHTML = rows.map(s => {
@@ -263,6 +280,7 @@
           <td><span class="acd-badge ${stageBadge}">${esc(stageLabel)}</span></td>
           <td>${esc(s.venue || '—')}</td>
           <td>${esc(s.coach || '—')}</td>
+          <td style="min-width:160px;">${renderRunTimes(s.lap_data)}</td>
           <td class="ses-stars">${s.rating ? starStr(s.rating) : '<span style="color:#dee2e6;">☆☆☆☆☆</span>'}</td>
         </tr>`;
       }).join('');
