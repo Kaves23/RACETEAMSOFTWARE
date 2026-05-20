@@ -181,7 +181,7 @@
 
   // Default top-level keybinds (letters) — only active when not typing
   // D: Dashboard, S: Sporting, T: Technical, B: Build, P: Performance, R: Reliability
-  // L: Logistics, F: Finance, O: Procurement, H: HR, V: Driver, A: Compliance, X: Executive, W: Academy
+  // L: Logistics, F: Finance, O: Procurement, H: HR, V: Driver, C: Compliance, X: Executive, A: Academy
   const topKeybinds = {
     'D': { type: 'single',  href: 'index.html' },
     'S': { type: 'group',   label: 'Sporting' },
@@ -195,9 +195,9 @@
     'O': { type: 'group',   label: 'Procurement' },
     'H': { type: 'group',   label: 'HR' },
     'V': { type: 'group',   label: 'Driver' },
-    'A': { type: 'group',   label: 'Compliance' },
+    'C': { type: 'group',   label: 'Compliance' },
     'X': { type: 'group',   label: 'Executive' },
-    'W': { type: 'group',   label: 'Academy' },
+    'A': { type: 'group',   label: 'Academy' },
     'I': { type: 'single',  href: 'integrations.html' }
   };
 
@@ -229,7 +229,7 @@
   const groupKeyMap = {
     'Sporting': 'S', 'Technical': 'T', 'Build': 'B', 'Performance': 'P',
     'Reliability': 'R', 'Projects': 'J', 'Logistics': 'L', 'Finance': 'F',
-    'Procurement': 'O', 'HR': 'H', 'Driver': 'V', 'Compliance': 'A', 'Executive': 'X', 'Academy': 'W'
+    'Procurement': 'O', 'HR': 'H', 'Driver': 'V', 'Compliance': 'C', 'Executive': 'X', 'Academy': 'A'
   };
 
     const liSingles = singles.map(t => {
