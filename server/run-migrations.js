@@ -97,7 +97,8 @@ async function runMigrations() {
     '076_regulations_align_columns.sql',
     '077_fix_box_contents_dedup_and_constraint.sql',
     '078_academy_prospects.sql',
-    '079_academy_activities_tasks.sql'
+    '079_academy_activities_tasks.sql',
+    '080_seed_asanda_mcgwaba.sql'
   ];
   
   let appliedCount = 0, skippedCount = 0;
