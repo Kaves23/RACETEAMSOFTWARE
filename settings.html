@@ -548,6 +548,7 @@
                     <select id="f_lt_provider" class="form-select form-select-sm">
                       <option value="apex">Apex Timing (apex-timing.com)</option>
                       <option value="race-monitor">Race Monitor (race-monitor.com)</option>
+                      <option value="speedhive">SpeedHive (mylaps.com)</option>
                     </select>
                     <div class="form-text">Pick the live-timing service for this event. The ticker and dashboards stay identical — only the source changes.</div>
                   </div>
@@ -560,6 +561,11 @@
                     <label class="form-label">Race Monitor Event URL or Race ID</label>
                     <input id="f_lt_url_rm" class="form-control form-control-sm" type="text" placeholder="https://www.race-monitor.com/Live/Race/165374">
                     <div class="form-text">Paste the full race URL (or just the numeric race id). Find your race under Live Timing → Kart / Road etc.</div>
+                  </div>
+                  <div class="col-12 mb-2" id="row_lt_url_sh" style="display:none;">
+                    <label class="form-label">SpeedHive Session URL</label>
+                    <input id="f_lt_url_sh" class="form-control form-control-sm" type="url" placeholder="https://speedhive.mylaps.com/livetiming/…/sessions/…">
+                    <div class="form-text">Paste the full SpeedHive live-timing session URL from mylaps.com.</div>
                   </div>
                   <div class="col-12 mb-2 d-flex gap-2 align-items-center flex-wrap">
                     <button class="btn btn-sm btn-outline-secondary mlo-btn" id="btnLtTest" type="button">Test Connection</button>
@@ -872,8 +878,10 @@
       f_lt_provider: document.getElementById('f_lt_provider'),
       f_lt_url: document.getElementById('f_lt_url'),
       f_lt_url_rm: document.getElementById('f_lt_url_rm'),
+      f_lt_url_sh: document.getElementById('f_lt_url_sh'),
       row_lt_url_apex: document.getElementById('row_lt_url_apex'),
       row_lt_url_rm: document.getElementById('row_lt_url_rm'),
+      row_lt_url_sh: document.getElementById('row_lt_url_sh'),
       f_lt_badge: document.getElementById('f_lt_badge'),
       f_lt_ticker: document.getElementById('f_lt_ticker'),
       f_lt_tickermode: document.getElementById('f_lt_tickermode'),
@@ -1423,9 +1431,10 @@
       if(ui.section==='liveTiming') {
         const lt = settings.liveTiming || {};
         els.f_lt_enabled.checked = !!lt.enabled;
-        els.f_lt_provider.value = lt.provider === 'race-monitor' ? 'race-monitor' : 'apex';
+        els.f_lt_provider.value = ['race-monitor','speedhive'].includes(lt.provider) ? lt.provider : 'apex';
         els.f_lt_url.value = lt.url || '';
         els.f_lt_url_rm.value = lt.urlRm || '';
+        els.f_lt_url_sh.value = lt.urlSh || '';
         toggleLtProviderRows();
         els.f_lt_badge.checked = lt.showBadge !== false;
         els.f_lt_ticker.checked = lt.showTicker !== false;
@@ -1440,9 +1449,10 @@
       if(ui.section==='liveTiming') {
         settings.liveTiming = settings.liveTiming || {};
         settings.liveTiming.enabled = !!els.f_lt_enabled.checked;
-        settings.liveTiming.provider = els.f_lt_provider.value === 'race-monitor' ? 'race-monitor' : 'apex';
+        settings.liveTiming.provider = ['race-monitor','speedhive'].includes(els.f_lt_provider.value) ? els.f_lt_provider.value : 'apex';
         settings.liveTiming.url = els.f_lt_url.value.trim();
         settings.liveTiming.urlRm = els.f_lt_url_rm.value.trim();
+        settings.liveTiming.urlSh = els.f_lt_url_sh.value.trim();
         settings.liveTiming.showBadge = !!els.f_lt_badge.checked;
         settings.liveTiming.showTicker = !!els.f_lt_ticker.checked;
         settings.liveTiming.tickerMode = els.f_lt_tickermode.value || 'all';
@@ -1454,7 +1464,7 @@
         // Restart the live timing module if it's running
         if (window.RTSLiveTiming) {
           RTSLiveTiming.stop();
-          const activeUrl = settings.liveTiming.provider === 'race-monitor' ? settings.liveTiming.urlRm : settings.liveTiming.url;
+          const activeUrl = settings.liveTiming.provider === 'race-monitor' ? settings.liveTiming.urlRm : settings.liveTiming.provider === 'speedhive' ? settings.liveTiming.urlSh : settings.liveTiming.url;
           if (settings.liveTiming.enabled && activeUrl) RTSLiveTiming.start(settings.liveTiming);
         }
         if (RTS.showToast) RTS.showToast('✅ Live Timing settings saved', 'success');
@@ -2035,15 +2045,16 @@
     }
 
     function toggleLtProviderRows() {
-      const isRm = els.f_lt_provider.value === 'race-monitor';
-      els.row_lt_url_apex.style.display = isRm ? 'none' : '';
-      els.row_lt_url_rm.style.display   = isRm ? '' : 'none';
+      const v = els.f_lt_provider.value;
+      els.row_lt_url_apex.style.display = v === 'apex'        ? '' : 'none';
+      els.row_lt_url_rm.style.display   = v === 'race-monitor'? '' : 'none';
+      els.row_lt_url_sh.style.display   = v === 'speedhive'   ? '' : 'none';
     }
     els.f_lt_provider.addEventListener('change', toggleLtProviderRows);
 
     els.btnLtTest.addEventListener('click', async () => {
-      const provider = els.f_lt_provider.value === 'race-monitor' ? 'race-monitor' : 'apex';
-      const url = (provider === 'race-monitor' ? els.f_lt_url_rm.value : els.f_lt_url.value).trim();
+      const provider = ['race-monitor','speedhive'].includes(els.f_lt_provider.value) ? els.f_lt_provider.value : 'apex';
+      const url = (provider === 'race-monitor' ? els.f_lt_url_rm.value : provider === 'speedhive' ? els.f_lt_url_sh.value : els.f_lt_url.value).trim();
       if (!url) { els.ltTestStatus.textContent = 'Enter a URL first.'; return; }
       els.ltTestStatus.textContent = 'Probing via server…';
       els.btnLtTest.disabled = true;
@@ -2058,6 +2069,15 @@
             els.ltTestStatus.textContent = `ℹ️ Race ${d.raceId} reachable but not currently broadcasting ("No current race").`;
           } else {
             els.ltTestStatus.textContent = `✅ Race ${d.raceId} reachable via api.race-monitor.com (HTTP ${d.pageStatus}, ${d.bodyLength} bytes).`;
+          }
+        } else if (provider === 'speedhive') {
+          // SpeedHive — just verify URL is reachable (cross-origin iframe only)
+          try {
+            els.ltTestStatus.textContent = 'Checking SpeedHive URL…';
+            const resp = await fetch(url, { method: 'HEAD', mode: 'no-cors', signal: AbortSignal.timeout(10000) });
+            els.ltTestStatus.textContent = '✅ SpeedHive URL appears reachable. Click "Open Timing Page" to view live.';
+          } catch (e) {
+            els.ltTestStatus.textContent = '⚠️ Could not reach URL: ' + e.message;
           }
         } else {
           // Apex Timing — use existing server-side discovery endpoint
@@ -2079,8 +2099,8 @@
     });
 
     els.btnLtOpen.addEventListener('click', () => {
-      const provider = els.f_lt_provider.value === 'race-monitor' ? 'race-monitor' : 'apex';
-      const url = (provider === 'race-monitor' ? els.f_lt_url_rm.value : els.f_lt_url.value).trim();
+      const provider = ['race-monitor','speedhive'].includes(els.f_lt_provider.value) ? els.f_lt_provider.value : 'apex';
+      const url = (provider === 'race-monitor' ? els.f_lt_url_rm.value : provider === 'speedhive' ? els.f_lt_url_sh.value : els.f_lt_url.value).trim();
       if (url) window.open(url, '_blank', 'noopener');
     });
 

@@ -62,8 +62,8 @@
       stopped = false;
       config = cfg;
       // Resolve the active URL based on the chosen provider
-      const provider = (config && config.provider === 'race-monitor') ? 'race-monitor' : 'apex';
-      const activeUrl = provider === 'race-monitor' ? (config && config.urlRm) : (config && config.url);
+      const provider = ['race-monitor','speedhive'].includes(config && config.provider) ? config.provider : 'apex';
+      const activeUrl = provider === 'race-monitor' ? (config && config.urlRm) : provider === 'speedhive' ? (config && config.urlSh) : (config && config.url);
       if (!activeUrl) return;
       // Normalise `url` so the rest of this module (which reads config.url) keeps working
       config = Object.assign({}, config, { provider, url: activeUrl });
