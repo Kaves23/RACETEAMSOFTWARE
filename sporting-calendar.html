@@ -404,6 +404,8 @@
     'Race Weekend':       '#e32636',
     'Race/Event':         '#e32636',
     'Practice':           '#3b82f6',
+    'Academy Test AM':    '#84cc16',
+    'Academy Test PM':    '#fbbf24',
     'Academy Test':       '#fbbf24',
   };
   function seriesColor(s) {
@@ -514,14 +516,18 @@
           const acProspects = Array.isArray(acData) ? acData : [];
           acProspects.forEach(p => {
             if (!p.driver_name) return;
-            const dates = Array.isArray(p.booked_dates) ? p.booked_dates.filter(Boolean) : [];
-            dates.forEach((date, i) => {
+          const dates = Array.isArray(p.booked_dates) ? p.booked_dates.filter(Boolean) : [];
+            dates.forEach((entry, i) => {
+              const date   = typeof entry === 'string' ? entry : (entry.date || '');
+              const period = typeof entry === 'string' ? '' : (entry.period || '');
               if (!date) return;
               const iso = String(date).slice(0,10);
+              const periodLabel = period ? ' (' + period.toUpperCase() + ')' : '';
+              const seriesKey = period === 'am' ? 'Academy Test AM' : 'Academy Test PM';
               allEvents.push({
                 id: `academy_${p.id}_${i}`,
-                event_name: `Academy: ${p.driver_name}`,
-                series: 'Academy Test',
+                event_name: `Academy: ${p.driver_name}${periodLabel}`,
+                series: seriesKey,
                 start_date: iso,
                 end_date:   iso,
                 circuit: p.test_venue || '',
