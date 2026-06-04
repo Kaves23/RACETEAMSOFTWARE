@@ -404,6 +404,7 @@
     'Race Weekend':       '#e32636',
     'Race/Event':         '#e32636',
     'Practice':           '#3b82f6',
+    'Academy Test':       '#fbbf24',
   };
   function seriesColor(s) {
     if (!s) return '#a64dff';
@@ -504,6 +505,37 @@
         const da = toISO(a.start_date||''), db = toISO(b.start_date||'');
         return da < db ? -1 : da > db ? 1 : 0;
       });
+
+      // Inject academy booked test dates as bright-yellow events
+      try {
+        const acRes = await fetch('/api/academy/prospects', { headers: getAuthHeaders() });
+        if (acRes.ok) {
+          const acData = await acRes.json();
+          const acProspects = Array.isArray(acData) ? acData : [];
+          acProspects.forEach(p => {
+            if (!p.driver_name) return;
+            const dates = Array.isArray(p.booked_dates) ? p.booked_dates.filter(Boolean) : [];
+            dates.forEach((date, i) => {
+              if (!date) return;
+              const iso = String(date).slice(0,10);
+              allEvents.push({
+                id: `academy_${p.id}_${i}`,
+                event_name: `Academy: ${p.driver_name}`,
+                series: 'Academy Test',
+                start_date: iso,
+                end_date:   iso,
+                circuit: p.test_venue || '',
+                notes: `Test driver prospect. Category: ${p.category || '—'}`,
+                _source: 'academy',
+              });
+            });
+          });
+          allEvents.sort((a,b) => {
+            const da = toISO(a.start_date||''), db = toISO(b.start_date||'');
+            return da < db ? -1 : da > db ? 1 : 0;
+          });
+        }
+      } catch(_) { /* ignore academy fetch errors */ }
     } catch(e) { allEvents = []; }
     updateStats();
     buildLegend();
@@ -797,7 +829,8 @@
         const col = seriesColor(ev.series||ev.event_type||ev.type||'Other');
         const pill = document.createElement('div');
         pill.className = 'cal-ev-pill';
-        pill.style.background = col; pill.style.color = '#fff';
+        pill.style.background = col;
+        pill.style.color = ev._source === 'academy' ? '#1a0d2e' : '#fff';
         pill.textContent = (pos==='single'||pos==='start') ? (ev.event_name||ev.name||'—') : '\u00A0';
         if (pos==='mid'||pos==='end') { pill.style.opacity='.7'; pill.style.borderRadius='0'; }
         if (pos==='start') pill.style.borderRadius='4px 0 0 4px';
@@ -862,7 +895,8 @@
           const col = seriesColor(ev.series||ev.event_type||ev.type||'');
           const pill = document.createElement('div');
           pill.className = 'cal-ev-pill';
-          pill.style.background = col; pill.style.color = '#fff';
+          pill.style.background = col;
+          pill.style.color = ev._source === 'academy' ? '#1a0d2e' : '#fff';
           pill.textContent = ev.event_name||ev.name||'—';
           pill.addEventListener('click', ev2 => { ev2.stopPropagation(); showPopup(ev, ev2); });
           bc.appendChild(pill);

@@ -137,6 +137,10 @@
     .acd-task-assignee { font-size: 0.7rem; color: #6c757d; }
     .acd-task-del { background: none; border: none; color: #dc3545; font-size: 0.82rem; cursor: pointer; padding: 0 3px; opacity: 0; transition: opacity 0.15s; flex-shrink: 0; }
     .acd-task-row:hover .acd-task-del { opacity: 1; }
+
+    /* Booked test date chips in list */
+    .acd-test-dates { display: flex; gap: 3px; flex-wrap: wrap; margin-top: 3px; }
+    .acd-test-date { font-size: 0.64rem; font-weight: 700; background: #fef9c3; color: #854d0e; padding: 1px 5px; border-radius: 3px; white-space: nowrap; border: 1px solid #fde68a; }
   </style>
 </head>
 <body class="light-mode">
@@ -333,9 +337,28 @@
                       <option value="cancelled">Cancelled</option>
                     </select>
                   </div>
+                  <div class="col-12 mt-1">
+                    <div class="mlo-section-label mb-1" style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#9aa5b4;"><i class="bi bi-calendar3 me-1"></i>Booked Test Dates</div>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Date 1</label>
+                    <input class="form-control form-control-sm" id="fBookedDate1" type="date" />
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Date 2</label>
+                    <input class="form-control form-control-sm" id="fBookedDate2" type="date" />
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Date 3</label>
+                    <input class="form-control form-control-sm" id="fBookedDate3" type="date" />
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label">Date 4</label>
+                    <input class="form-control form-control-sm" id="fBookedDate4" type="date" />
+                  </div>
                   <div class="col-12">
                     <label class="form-label">Notes</label>
-                    <textarea class="form-control form-control-sm" id="fNotes" rows="6" placeholder="Any additional notes about this prospect…"></textarea>
+                    <textarea class="form-control form-control-sm" id="fNotes" rows="5" placeholder="Any additional notes about this prospect…"></textarea>
                   </div>
                   <div class="col-12 d-flex gap-1">
                     <button class="btn btn-sm btn-primary" id="btnSaveStatus" type="button">Save</button>
@@ -573,6 +596,16 @@
       try { return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }); }
       catch (_) { return iso; }
     }
+    function formatDateShort(iso) {
+      if (!iso) return '';
+      try { return new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); }
+      catch (_) { return iso; }
+    }
+    function bookedDatesMiniHtml(p) {
+      const dates = (p.booked_dates || []).filter(Boolean);
+      if (!dates.length) return '';
+      return '<div class="acd-test-dates">' + dates.map(d => `<span class="acd-test-date">${formatDateShort(d)}</span>`).join('') + '</div>';
+    }
     function lastSession(p) {
       const sessions = Array.isArray(p.sessions) ? p.sessions : [];
       if (!sessions.length) return null;
@@ -697,7 +730,7 @@
         const s = stageByKey(p.status);
         const ls = lastSession(p);
         return `<tr data-id="${esc(p.id)}" class="${p.id === selectedId ? 'acd-row-selected' : ''}">
-          <td><strong>${esc(p.driver_name || '—')}</strong></td>
+          <td><strong>${esc(p.driver_name || '—')}</strong>${bookedDatesMiniHtml(p)}</td>
           <td>${esc(calcAge(p.driver_dob))}</td>
           <td>${esc(p.parent_name || '—')}</td>
           <td style="font-size:0.75rem;">${esc(p.category || '—')}</td>
@@ -747,6 +780,12 @@
       // Status tab
       document.getElementById('fStatus').value = p.status || 'lead';
       document.getElementById('fNotes').value = p.notes || '';
+      // Booked dates
+      const bd = Array.isArray(p.booked_dates) ? p.booked_dates : [];
+      document.getElementById('fBookedDate1').value = bd[0] ? String(bd[0]).slice(0,10) : '';
+      document.getElementById('fBookedDate2').value = bd[1] ? String(bd[1]).slice(0,10) : '';
+      document.getElementById('fBookedDate3').value = bd[2] ? String(bd[2]).slice(0,10) : '';
+      document.getElementById('fBookedDate4').value = bd[3] ? String(bd[3]).slice(0,10) : '';
       renderStagePipeline(p.status || 'lead');
 
       // Sessions tab
@@ -922,6 +961,12 @@
       return Object.assign({}, p, {
         status: document.getElementById('fStatus').value,
         notes: document.getElementById('fNotes').value.trim(),
+        booked_dates: [
+          document.getElementById('fBookedDate1').value || null,
+          document.getElementById('fBookedDate2').value || null,
+          document.getElementById('fBookedDate3').value || null,
+          document.getElementById('fBookedDate4').value || null,
+        ],
         updated_at: nowISO()
       });
     }
@@ -981,6 +1026,10 @@
       document.getElementById('fAssignedTo').value = '';
       document.getElementById('fStatus').value = 'lead';
       document.getElementById('fNotes').value = '';
+      document.getElementById('fBookedDate1').value = '';
+      document.getElementById('fBookedDate2').value = '';
+      document.getElementById('fBookedDate3').value = '';
+      document.getElementById('fBookedDate4').value = '';
       document.getElementById('acdSessionsList').innerHTML = '<div class="text-secondary" style="font-size:0.8rem;">No sessions logged yet.</div>';
       document.getElementById('acdAttList').innerHTML = '<div class="text-secondary" style="font-size:0.8rem;">No files attached.</div>';
       renderStagePipeline('lead');
