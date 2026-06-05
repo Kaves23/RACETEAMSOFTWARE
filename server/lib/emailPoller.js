@@ -19,12 +19,13 @@
  *   PIPELINE_IMAP_INTERVAL_MS — poll interval in ms (default: 300000 = 5 min)
  */
 
-const { ImapFlow } = require('imapflow');
+const { ImapFlow }     = require('imapflow');
+const { simpleParser } = require('mailparser');
 
 const DEFAULT_HOST     = 'mail.ftwmotorsport.com';
 const DEFAULT_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
-/* ── Tiny HTML stripper ───────────────────────────────────────────────────── */
+/* ── Tiny HTML stripper (fallback for html-only emails) ──────────────────── */
 function stripHtml(str) {
   return (str || '')
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
@@ -37,70 +38,6 @@ function stripHtml(str) {
     .replace(/&quot;/gi, '"')
     .replace(/\s{2,}/g, ' ')
     .trim();
-}
-
-/* ── Decode quoted-printable encoding ────────────────────────────────────── */
-function decodeQP(str) {
-  return str
-    .replace(/=\r\n/g, '')   // soft line breaks (CRLF)
-    .replace(/=\n/g, '')     // soft line breaks (LF)
-    .replace(/=([0-9A-Fa-f]{2})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
-}
-
-/* ── Extract clean plain text from a raw RFC 2822 message ─────────────────── */
-function extractPlainText(rawBuffer) {
-  const raw = Buffer.isBuffer(rawBuffer) ? rawBuffer.toString('utf8') : String(rawBuffer || '');
-
-  // Split headers from body at the first blank line
-  const sep = raw.indexOf('\r\n\r\n');
-  if (sep === -1) return stripHtml(raw).replace(/\s+/g, ' ').trim();
-
-  const headerBlock = raw.slice(0, sep);
-  const body        = raw.slice(sep + 4);
-  const headersLow  = headerBlock.toLowerCase();
-
-  // Detect multipart boundary
-  const boundaryMatch = headersLow.match(/boundary=["']?([^"'\r\n;]+)["']?/);
-  if (boundaryMatch) {
-    const boundary = boundaryMatch[1].trim();
-    const parts    = raw.split('--' + boundary);
-
-    // First pass: prefer text/plain
-    for (const part of parts) {
-      const ps = part.indexOf('\r\n\r\n');
-      if (ps === -1) continue;
-      const ph  = part.slice(0, ps).toLowerCase();
-      const pb  = part.slice(ps + 4).replace(/\r?\n--.*$/s, ''); // strip trailing boundary
-      if (!ph.includes('content-type: text/plain') && !ph.includes('content-type:text/plain')) continue;
-      const text = ph.includes('quoted-printable') ? decodeQP(pb) : pb;
-      return text.replace(/\s+/g, ' ').trim();
-    }
-
-    // Second pass: fall back to text/html
-    for (const part of parts) {
-      const ps = part.indexOf('\r\n\r\n');
-      if (ps === -1) continue;
-      const ph  = part.slice(0, ps).toLowerCase();
-      const pb  = part.slice(ps + 4).replace(/\r?\n--.*$/s, '');
-      if (!ph.includes('text/html')) continue;
-      const text = ph.includes('quoted-printable') ? decodeQP(pb) : pb;
-      return stripHtml(text).replace(/\s+/g, ' ').trim();
-    }
-  }
-
-  // Single-part message
-  if (headersLow.includes('quoted-printable')) {
-    return decodeQP(body).replace(/\s+/g, ' ').trim();
-  }
-  if (headersLow.includes('base64')) {
-    try {
-      return Buffer.from(body.replace(/\s/g, ''), 'base64').toString('utf8').replace(/\s+/g, ' ').trim();
-    } catch (_) {}
-  }
-  if (headersLow.includes('text/html')) {
-    return stripHtml(body).replace(/\s+/g, ' ').trim();
-  }
-  return body.replace(/\s+/g, ' ').trim();
 }
 
 /* ── Extract addresses from an envelope address list ─────────────────────── */
@@ -194,12 +131,14 @@ async function processMessage(pool, client, msg) {
   const fromEmail = fromAddr ? fromAddr.email : (emailList[0] || '');
   const fromName  = fromAddr ? (fromAddr.name || null) : null;
 
-  // Subject + snippet (plain text, trimmed to 400 chars)
+  // Subject + snippet — use mailparser to handle all MIME/encoding combinations
   const subject = env.subject || '(no subject)';
   let snippet = '';
   try {
     if (msg.source) {
-      snippet = extractPlainText(msg.source).slice(0, 400);
+      const parsed = await simpleParser(msg.source, { skipHtmlToText: false });
+      const text = parsed.text || (parsed.html ? stripHtml(parsed.html) : '');
+      snippet = text.replace(/\s+/g, ' ').trim().slice(0, 400);
     }
   } catch (_) {}
 
