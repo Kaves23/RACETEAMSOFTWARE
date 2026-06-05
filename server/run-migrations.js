@@ -100,7 +100,8 @@ async function runMigrations() {
     '079_academy_activities_tasks.sql',
     '080_seed_asanda_mcgwaba.sql',
     '081_academy_test_venue.sql',
-    '082_academy_booked_dates.sql'
+    '082_academy_booked_dates.sql',
+    '083_academy_email_inbox.sql'
   ];
   
   let appliedCount = 0, skippedCount = 0;
