@@ -122,6 +122,12 @@
       { href: 'medical-fitness.html',   label: 'Medical Fitness',  key: 'M' },
       { href: 'staff-reviews.html',     label: 'Reviews',          key: 'V' }
     ]},
+    { label: 'Academy', items: [
+      { href: 'academy-pipeline.html',  label: 'Pipeline',         key: 'P' },
+      { href: 'academy-sessions.html',  label: 'Sessions',         key: 'S' },
+      { href: 'academy-data.html',      label: 'Data',             key: 'D' },
+      { href: 'academy-reports.html',   label: 'Reports',          key: 'R' }
+    ]},
     { label: 'Driver', items: [
       { href: 'drivers.html',           label: 'Profiles',         key: 'P' },
       { href: 'driver-dashboard.html',  label: 'Driver Portal',    key: 'D' },
@@ -201,7 +207,7 @@
   const groupKeyMap = {
     'Sporting': 'S', 'Technical': 'T', 'Build': 'B', 'Performance': 'P',
     'Reliability': 'R', 'Projects': 'J', 'Logistics': 'L', 'Finance': 'F',
-    'Procurement': 'O', 'HR': 'H', 'Driver': 'V', 'Compliance': 'A', 'Executive': 'X'
+    'Procurement': 'O', 'HR': 'H', 'Academy': 'Y', 'Driver': 'V', 'Compliance': 'A', 'Executive': 'X'
   };
 
     const liSingles = singles.map(t => {
