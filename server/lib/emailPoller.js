@@ -28,6 +28,7 @@ const DEFAULT_INTERVAL = 5 * 60 * 1000; // 5 minutes
 function stripHtml(str) {
   return (str || '')
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
     .replace(/<[^>]+>/g, ' ')
     .replace(/&nbsp;/gi, ' ')
     .replace(/&amp;/gi, '&')
@@ -36,6 +37,70 @@ function stripHtml(str) {
     .replace(/&quot;/gi, '"')
     .replace(/\s{2,}/g, ' ')
     .trim();
+}
+
+/* ── Decode quoted-printable encoding ────────────────────────────────────── */
+function decodeQP(str) {
+  return str
+    .replace(/=\r\n/g, '')   // soft line breaks (CRLF)
+    .replace(/=\n/g, '')     // soft line breaks (LF)
+    .replace(/=([0-9A-Fa-f]{2})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+}
+
+/* ── Extract clean plain text from a raw RFC 2822 message ─────────────────── */
+function extractPlainText(rawBuffer) {
+  const raw = Buffer.isBuffer(rawBuffer) ? rawBuffer.toString('utf8') : String(rawBuffer || '');
+
+  // Split headers from body at the first blank line
+  const sep = raw.indexOf('\r\n\r\n');
+  if (sep === -1) return stripHtml(raw).replace(/\s+/g, ' ').trim();
+
+  const headerBlock = raw.slice(0, sep);
+  const body        = raw.slice(sep + 4);
+  const headersLow  = headerBlock.toLowerCase();
+
+  // Detect multipart boundary
+  const boundaryMatch = headersLow.match(/boundary=["']?([^"'\r\n;]+)["']?/);
+  if (boundaryMatch) {
+    const boundary = boundaryMatch[1].trim();
+    const parts    = raw.split('--' + boundary);
+
+    // First pass: prefer text/plain
+    for (const part of parts) {
+      const ps = part.indexOf('\r\n\r\n');
+      if (ps === -1) continue;
+      const ph  = part.slice(0, ps).toLowerCase();
+      const pb  = part.slice(ps + 4).replace(/\r?\n--.*$/s, ''); // strip trailing boundary
+      if (!ph.includes('content-type: text/plain') && !ph.includes('content-type:text/plain')) continue;
+      const text = ph.includes('quoted-printable') ? decodeQP(pb) : pb;
+      return text.replace(/\s+/g, ' ').trim();
+    }
+
+    // Second pass: fall back to text/html
+    for (const part of parts) {
+      const ps = part.indexOf('\r\n\r\n');
+      if (ps === -1) continue;
+      const ph  = part.slice(0, ps).toLowerCase();
+      const pb  = part.slice(ps + 4).replace(/\r?\n--.*$/s, '');
+      if (!ph.includes('text/html')) continue;
+      const text = ph.includes('quoted-printable') ? decodeQP(pb) : pb;
+      return stripHtml(text).replace(/\s+/g, ' ').trim();
+    }
+  }
+
+  // Single-part message
+  if (headersLow.includes('quoted-printable')) {
+    return decodeQP(body).replace(/\s+/g, ' ').trim();
+  }
+  if (headersLow.includes('base64')) {
+    try {
+      return Buffer.from(body.replace(/\s/g, ''), 'base64').toString('utf8').replace(/\s+/g, ' ').trim();
+    } catch (_) {}
+  }
+  if (headersLow.includes('text/html')) {
+    return stripHtml(body).replace(/\s+/g, ' ').trim();
+  }
+  return body.replace(/\s+/g, ' ').trim();
 }
 
 /* ── Extract addresses from an envelope address list ─────────────────────── */
@@ -80,13 +145,11 @@ async function pollOnce(pool) {
   try {
     const lock = await client.getMailboxLock('INBOX');
     try {
-      // Fetch all UNSEEN messages
+      // Fetch all UNSEEN messages with full source for proper MIME parsing
       const messages = [];
       for await (const msg of client.fetch({ seen: false }, {
         envelope: true,
-        bodyStructure: true,
-        source: false,
-        bodyParts: ['text']
+        source: true
       })) {
         messages.push(msg);
       }
@@ -131,15 +194,12 @@ async function processMessage(pool, client, msg) {
   const fromEmail = fromAddr ? fromAddr.email : (emailList[0] || '');
   const fromName  = fromAddr ? (fromAddr.name || null) : null;
 
-  // Subject + snippet (plain text body, trimmed to 400 chars)
+  // Subject + snippet (plain text, trimmed to 400 chars)
   const subject = env.subject || '(no subject)';
   let snippet = '';
   try {
-    // imapflow bodyParts returns a Map
-    const textPart = msg.bodyParts && msg.bodyParts.get('text');
-    if (textPart) {
-      const raw = Buffer.isBuffer(textPart) ? textPart.toString('utf8') : String(textPart);
-      snippet = stripHtml(raw).slice(0, 400);
+    if (msg.source) {
+      snippet = extractPlainText(msg.source).slice(0, 400);
     }
   } catch (_) {}
 
