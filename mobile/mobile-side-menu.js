@@ -68,16 +68,18 @@
     if (!navBar) return;
 
     var navItems = Array.prototype.slice.call(navBar.querySelectorAll('.nav-item'));
-    if (navItems.length < 6) return;
+    if (!navItems.length) return;
 
-    var keepCount = 4;
-    if (document.getElementById('navLogistics') && document.getElementById('navSporting') && document.getElementById('navProjects')) {
-      // Keep browse tabs visible on browse page.
-      keepCount = 5;
-    }
+    var logTripItem = navItems.find(function (item) {
+      var href = (item.getAttribute('href') || '').toLowerCase();
+      return href.indexOf('vehicles.html?log=1') !== -1;
+    }) || null;
 
-    var kept = navItems.slice(0, keepCount);
-    var drawerParts = createDrawer(navItems);
+    var kept = logTripItem ? [logTripItem] : [navItems[0]];
+    var drawerItems = navItems.filter(function (item) {
+      return !kept.includes(item);
+    });
+    var drawerParts = createDrawer(drawerItems);
 
     while (navBar.firstChild) {
       navBar.removeChild(navBar.firstChild);

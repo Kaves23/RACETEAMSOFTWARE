@@ -157,6 +157,73 @@
     .acd-inbox-table tr:last-child td { border-bottom: none; }
     .acd-inbox-snippet { font-size: 0.75rem; color: #6c757d; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
     .acd-inbox-empty { text-align: center; color: #9aa5b4; padding: 30px; font-size: 0.85rem; }
+
+    #acdMobileInspectorClose { display: none; }
+    .acd-mobile-inspector-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.32);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.18s ease;
+      z-index: 1390;
+    }
+
+    @media (max-width: 991.98px) {
+      .rts-main.container-fluid { padding-left: 10px; padding-right: 10px; }
+      .ev-stats-bar { gap: 8px; }
+      .ev-stat-card { min-width: calc(50% - 4px); padding: 8px 10px; }
+      .ev-stat-value { font-size: 1.2rem; }
+      .acd-stage-bar li { font-size: 0.72rem; padding: 3px 9px; }
+
+      #acdShell.mlo-shell { display: block; }
+      #acdShell .mlo-pane-mid { border-radius: 8px; }
+      #acdShell .mlo-pane-mid .mlo-pane-content { max-height: calc(100dvh - 330px); overflow: auto; }
+      #acdShell .mlo-resizer { display: none; }
+
+      #acdShell .mlo-pane-right {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        top: auto;
+        width: auto;
+        height: min(86dvh, 760px);
+        margin: 0;
+        border-radius: 14px 14px 0 0;
+        border-left: none;
+        border-right: none;
+        box-shadow: 0 -10px 26px rgba(0,0,0,0.24);
+        transform: translateY(102%);
+        transition: transform 0.2s ease;
+        z-index: 1400;
+      }
+
+      body.acd-mobile-inspector-open #acdShell .mlo-pane-right {
+        transform: translateY(0);
+      }
+
+      body.acd-mobile-inspector-open .acd-mobile-inspector-overlay {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      #acdMobileInspectorClose {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        border-radius: 7px;
+        border: 1px solid #dee2e6;
+        background: #fff;
+        color: #6c757d;
+        font-size: 1rem;
+      }
+
+      #acdShell .mlo-pane-right .mlo-pane-content { overflow: auto; }
+      #acdShell #acdTabs .nav-link { font-size: 0.75rem; padding: 6px 8px; }
+    }
   </style>
 </head>
 <body class="light-mode">
@@ -238,11 +305,14 @@
       <div class="mlo-resizer" data-resize="right"></div>
 
       <!-- RIGHT PANE: Inspector -->
-      <section class="mlo-pane mlo-pane-right mlo-inspector" aria-label="Prospect inspector">
+      <section class="mlo-pane mlo-pane-right mlo-inspector" id="acdInspectorPane" aria-label="Prospect inspector">
         <div class="mlo-pane-header">
           <div class="d-flex align-items-center justify-content-between">
             <div class="mlo-title">Inspector</div>
-            <span class="badge text-bg-secondary" id="acdInspectorBadge">—</span>
+            <div class="d-flex align-items-center gap-2">
+              <span class="badge text-bg-secondary" id="acdInspectorBadge">—</span>
+              <button type="button" id="acdMobileInspectorClose" aria-label="Close inspector"><i class="bi bi-x-lg"></i></button>
+            </div>
           </div>
         </div>
         <div class="mlo-pane-content" id="acdInspectorContent">
@@ -517,6 +587,7 @@
       </section>
 
     </div><!-- mlo-shell -->
+    <div class="acd-mobile-inspector-overlay" id="acdMobileInspectorOverlay"></div>
   </div><!-- rts-main -->
 
   <!-- EMAIL INBOX MODAL -->
@@ -854,6 +925,8 @@
       const p = prospects.find(x => String(x.id) === String(id));
       if (!p) { clearInspector(); return; }
 
+      if (isMobileInspectorMode()) openMobileInspector();
+
       document.getElementById('acdEmptyState').style.display = 'none';
       document.getElementById('acdInspectorForm').style.display = '';
       document.getElementById('acdInspectorBadge').textContent = p.driver_name || '—';
@@ -902,7 +975,20 @@
       document.getElementById('acdEmptyState').style.display = '';
       document.getElementById('acdInspectorForm').style.display = 'none';
       document.getElementById('acdInspectorBadge').textContent = '—';
+      closeMobileInspector();
       renderList();
+    }
+
+    function isMobileInspectorMode() {
+      return window.matchMedia('(max-width: 991.98px)').matches;
+    }
+
+    function openMobileInspector() {
+      document.body.classList.add('acd-mobile-inspector-open');
+    }
+
+    function closeMobileInspector() {
+      document.body.classList.remove('acd-mobile-inspector-open');
     }
 
     function renderStagePipeline(currentKey) {
@@ -1129,6 +1215,7 @@
       document.getElementById('acdSessionsList').innerHTML = '<div class="text-secondary" style="font-size:0.8rem;">No sessions logged yet.</div>';
       document.getElementById('acdAttList').innerHTML = '<div class="text-secondary" style="font-size:0.8rem;">No files attached.</div>';
       renderStagePipeline('lead');
+      if (isMobileInspectorMode()) openMobileInspector();
 
       // Store blank in-progress
       prospects.push(blank);
@@ -1619,6 +1706,8 @@
 
     /* ── Init ─────────────────────────────────────────────────────── */
     async function init() {
+      document.getElementById('acdMobileInspectorOverlay').addEventListener('click', closeMobileInspector);
+      document.getElementById('acdMobileInspectorClose').addEventListener('click', closeMobileInspector);
       RTS.initTriPaneResizers(document.getElementById('acdShell'), 'rts.academy.panes.v2');
       await renderStaffDatalist();
       await apiLoad();

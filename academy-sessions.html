@@ -2,7 +2,6 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <link rel="icon" type="image/png" href="favicon.png">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Race Team OS – Academy Sessions</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
@@ -54,6 +53,23 @@
     .ses-list-header { background: #f8f9fa; border-bottom: 1px solid rgba(0,0,0,0.1); padding: 10px 12px; }
     .ses-detail-pane { width: 360px; flex-shrink: 0; }
     .ses-empty { text-align: center; padding: 40px 20px; color: #9aa5b4; font-size: 0.85rem; }
+
+    @media (max-width: 991.98px) {
+      .rts-main.container-fluid { padding-left: 10px; padding-right: 10px; }
+      .ev-stats-bar { gap: 8px; }
+      .ev-stat-card { min-width: calc(50% - 4px); padding: 8px 10px; }
+      .ev-stat-value { font-size: 1.2rem; }
+      .filter-bar { gap: 6px; }
+      .filter-bar .form-control,
+      .filter-bar .form-select { max-width: none !important; width: 100%; }
+      .ses-main-layout { display: block; height: auto !important; min-height: 0 !important; }
+      .ses-list-pane { margin-bottom: 10px; }
+      .ses-list-pane > div[style*='overflow-y:auto'] { max-height: 56dvh; }
+      .ses-detail-pane { width: 100%; }
+      .ses-detail-body { max-height: 40dvh; }
+      .ses-table { font-size: 0.76rem; }
+      .ses-table th, .ses-table td { padding: 6px 7px; }
+    }
   </style>
 </head>
 <body class="light-mode">
@@ -71,10 +87,10 @@
 
     <!-- Stats -->
     <div class="ev-stats-bar">
-      <div class="ev-stat-card"><div class="ev-stat-label"><i class="bi bi-clipboard2-data-fill"></i> Total Sessions</div><div class="ev-stat-value" id="statTotalSes">0</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label"><i class="bi bi-calendar-month-fill"></i> This Month</div><div class="ev-stat-value" id="statThisMonth">0</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label"><i class="bi bi-star-fill" style="color:#f59e0b;"></i> Avg Rating</div><div class="ev-stat-value" id="statAvgRating">—</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label"><i class="bi bi-geo-alt-fill"></i> Unique Venues</div><div class="ev-stat-value" id="statVenues">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">📋 Total Sessions</div><div class="ev-stat-value" id="statTotalSes">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">📅 This Month</div><div class="ev-stat-value" id="statThisMonth">0</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">⭐ Avg Rating</div><div class="ev-stat-value" id="statAvgRating">—</div></div>
+      <div class="ev-stat-card"><div class="ev-stat-label">🏁 Unique Venues</div><div class="ev-stat-value" id="statVenues">0</div></div>
     </div>
 
     <!-- Filters -->
@@ -89,11 +105,11 @@
       </select>
       <select class="form-select form-select-sm" id="sesRatingFilter" style="max-width:140px;">
         <option value="">Rating: All</option>
-        <option value="5">5 – Excellent</option>
-        <option value="4">4 – Good</option>
-        <option value="3">3 – Average</option>
-        <option value="2">2 – Below Average</option>
-        <option value="1">1 – Poor</option>
+        <option value="5">⭐⭐⭐⭐⭐ 5</option>
+        <option value="4">⭐⭐⭐⭐ 4</option>
+        <option value="3">⭐⭐⭐ 3</option>
+        <option value="2">⭐⭐ 2</option>
+        <option value="1">⭐ 1</option>
       </select>
       <span class="badge text-bg-secondary" id="sesCountBadge" style="font-size:0.78rem;padding:5px 10px;">0</span>
     </div>
@@ -142,7 +158,7 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="config.js"></script>
   <script src="core.js"></script>
-  <script src="topnav.js?v=20260520"></script>
+  <script src="topnav.js?v=20260519"></script>
   <script>RTS.setActiveNav();</script>
   <script>
   (function () {
@@ -161,7 +177,6 @@
 
     let allSessions = []; // flat list of { ...session, _prospect }
     let selectedSesId = null;
-    let _rptSes = null, _rptProspect = null, _rptLaps = [];
 
     function esc(s) {
       return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
@@ -176,9 +191,7 @@
 
     function starStr(n) {
       const v = parseInt(n) || 0;
-      const filled = Array(v).fill('<i class="bi bi-star-fill" style="color:#f59e0b;"></i>').join('');
-      const empty  = Array(Math.max(0, 5 - v)).fill('<i class="bi bi-star" style="color:#dee2e6;"></i>').join('');
-      return filled + empty;
+      return '★'.repeat(v) + '☆'.repeat(Math.max(0, 5 - v));
     }
 
     function authHeaders() {
@@ -285,7 +298,7 @@
           <td>${esc(s.venue || '—')}</td>
           <td>${esc(s.coach || '—')}</td>
           <td style="min-width:160px;">${renderRunTimes(s.lap_data)}</td>
-          <td class="ses-stars">${s.rating ? starStr(s.rating) : Array(5).fill('<i class="bi bi-star" style="color:#dee2e6;"></i>').join('')}</td>
+          <td class="ses-stars">${s.rating ? starStr(s.rating) : '<span style="color:#dee2e6;">☆☆☆☆☆</span>'}</td>
         </tr>`;
       }).join('');
 
@@ -354,7 +367,6 @@
       renderTable();
       if (!s) return;
       const p = s._prospect;
-      _rptSes = s; _rptProspect = p; _rptLaps = [];
       const body = document.getElementById('sesDetailBody');
       body.innerHTML = `
         <div class="ses-info-row">
@@ -390,19 +402,14 @@
         ${s.notes ? `
         <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#9aa5b4;margin-bottom:5px;">Session Notes</div>
         <div class="ses-notes-block">${esc(s.notes)}</div>` : ''}
-        <div class="mt-3" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <div class="mt-3" style="display:flex;gap:8px;flex-wrap:wrap;">
           <a href="academy-pipeline.html" class="btn btn-sm btn-outline-secondary" style="font-size:0.72rem;padding:2px 10px;">Open in Pipeline →</a>
           ${s.cloud_link ? `<a href="${esc(s.cloud_link)}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" style="font-size:0.72rem;padding:2px 10px;"><i class="bi bi-folder2-open me-1"></i>Data Files</a>` : ''}
-          <button onclick="window.__acdPrintReport()" class="btn btn-sm btn-dark" style="font-size:0.72rem;padding:2px 10px;"><i class="bi bi-file-earmark-text me-1"></i>Driver Report</button>
         </div>`;
 
       // Lap data from XRK — server-stored (all devices) or localStorage fallback
       var lapEntries = getLapSessions(p.driver_name, s.date, s.lap_data);
       if (lapEntries.length) {
-        // Flatten all laps for report
-        lapEntries.forEach(function(entry) {
-          entry.files.forEach(function(fi) { if (fi.laps) _rptLaps = _rptLaps.concat(fi.laps); });
-        });
         body.innerHTML += `
         <div class="mt-3 pt-2 border-top">
           <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#9aa5b4;margin-bottom:6px;">
@@ -415,285 +422,6 @@
         </div>`;
       }
     }
-
-    // ── Driver Report Generator ────────────────────────────────────────
-    window.__acdPrintReport = function () {
-      const s = _rptSes, p = _rptProspect, laps = _rptLaps;
-      if (!s || !p) { alert('Select a session first.'); return; }
-
-      const settings = (window.RTS && RTS.getSettings) ? RTS.getSettings() : {};
-      const teamName = (settings.teamName || 'Race Team').trim() || 'Race Team';
-      const brandColor = settings.brandColor || '#e32636';
-      const darkPurple = '#1a0d2e';
-
-      // Age calculation
-      const calcAge = dob => {
-        if (!dob) return null;
-        const b = new Date(String(dob).slice(0, 10));
-        const now = new Date();
-        let age = now.getFullYear() - b.getFullYear();
-        if (now < new Date(now.getFullYear(), b.getMonth(), b.getDate())) age--;
-        return age;
-      };
-      const age = calcAge(p.driver_dob);
-
-      // Lap stats
-      const parseSec = str => {
-        const c = (str || '').replace(/[^0-9:.]/g, '');
-        if (!c) return null;
-        if (c.includes(':')) { const [m, s] = c.split(':'); return parseInt(m) * 60 + parseFloat(s); }
-        return parseFloat(c) || null;
-      };
-      const fmtSec = sec => {
-        if (sec == null) return '—';
-        const m = Math.floor(sec / 60), s = sec % 60;
-        return m > 0 ? `${m}:${String(Math.floor(s)).padStart(2, '0')}.${(s % 1).toFixed(3).slice(2)}` : sec.toFixed(3);
-      };
-      const validLaps = laps.filter(l => !l.outlap && !l.partial && parseSec(l.time_str) !== null);
-      const lapTimes = validLaps.map(l => parseSec(l.time_str));
-      const bestTime = lapTimes.length ? Math.min(...lapTimes) : null;
-      const avgTime  = lapTimes.length ? lapTimes.reduce((a, b) => a + b, 0) / lapTimes.length : null;
-      const consistency = (lapTimes.length >= 2)
-        ? (Math.max(...lapTimes) - Math.min(...lapTimes)).toFixed(3) + 's spread'
-        : null;
-
-      // SVG chart
-      const buildChart = () => {
-        const pts = validLaps.map((l, i) => ({ i, t: parseSec(l.time_str), best: l.is_best, lap: l.lap, str: l.time_str })).filter(x => x.t);
-        if (pts.length < 2) return '';
-        const W = 500, H = 110, PL = 46, PR = 8, PT = 14, PB = 22;
-        const cW = W - PL - PR, cH = H - PT - PB;
-        let minT = Math.min(...pts.map(x => x.t)), maxT = Math.max(...pts.map(x => x.t));
-        if (minT === maxT) { minT -= 0.5; maxT += 0.5; }
-        const rng = maxT - minT;
-        const xOf = i => PL + (i / (pts.length - 1)) * cW;
-        const yOf = t => PT + cH - ((t - minT) / rng) * cH;
-        let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;">`;
-        svg += `<rect x="${PL}" y="${PT}" width="${cW}" height="${cH}" fill="#f8f9fa" rx="3"/>`;
-        [0, 1, 2, 3].forEach(i => {
-          const t = minT + rng * i / 3, y = yOf(t);
-          svg += `<line x1="${PL}" y1="${y}" x2="${PL+cW}" y2="${y}" stroke="#dee2e6" stroke-width="0.6" stroke-dasharray="4,3"/>`;
-          svg += `<text x="${PL-3}" y="${y+3}" font-size="7" fill="#9aa5b4" text-anchor="end" font-family="Arial,sans-serif">${fmtSec(t)}</text>`;
-        });
-        const polyPts = pts.map((x, i) => `${xOf(i)},${yOf(x.t)}`).join(' ');
-        svg += `<polyline points="${polyPts}" fill="none" stroke="${brandColor}" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" opacity="0.85"/>`;
-        pts.forEach((x, i) => {
-          const cx = xOf(i), cy = yOf(x.t);
-          svg += `<circle cx="${cx}" cy="${cy}" r="${x.best ? 4.5 : 2.5}" fill="${x.best ? '#5b21b6' : brandColor}" stroke="white" stroke-width="${x.best ? 1.5 : 0.8}"/>`;
-          if (pts.length <= 20 || i % Math.ceil(pts.length / 15) === 0)
-            svg += `<text x="${cx}" y="${H-4}" font-size="7" fill="#9aa5b4" text-anchor="middle" font-family="Arial,sans-serif">${x.lap}</text>`;
-        });
-        const bestPt = pts.find(x => x.best);
-        if (bestPt) {
-          const bi = pts.indexOf(bestPt), cx = xOf(bi), cy = yOf(bestPt.t);
-          const anchor = cx > W * 0.65 ? 'end' : 'start', dx = cx > W * 0.65 ? -7 : 7;
-          svg += `<text x="${cx+dx}" y="${cy-6}" font-size="7.5" fill="#5b21b6" font-weight="700" text-anchor="${anchor}" font-family="Arial,sans-serif">BEST ${bestPt.str}</text>`;
-        }
-        svg += `<line x1="${PL}" y1="${PT}" x2="${PL}" y2="${PT+cH}" stroke="#adb5bd" stroke-width="1"/>`;
-        svg += `<line x1="${PL}" y1="${PT+cH}" x2="${PL+cW}" y2="${PT+cH}" stroke="#adb5bd" stroke-width="1"/>`;
-        svg += `<text x="${PL+cW/2}" y="${H-1}" font-size="7.5" fill="#9aa5b4" text-anchor="middle" font-family="Arial,sans-serif">Lap Number</text>`;
-        svg += '</svg>';
-        return svg;
-      };
-
-      // Lap table (up to 50 laps in 2 columns)
-      const lapTableHTML = () => {
-        if (!laps.length) return '';
-        const rows = laps.slice(0, 60).map(l => {
-          const isBest = l.is_best, isOut = l.outlap, isPart = l.partial;
-          const bg = isBest ? '#ede9fe' : (isOut || isPart) ? '#f8f9fa' : '#fff';
-          const fw = isBest ? '700' : '400';
-          const clr = isBest ? '#5b21b6' : '#1a1d24';
-          const badge = isBest ? ' <span style="font-size:6pt;background:#5b21b6;color:#fff;border-radius:3px;padding:0 3px;">BEST</span>'
-                      : isOut  ? ' <span style="font-size:6pt;color:#9aa5b4;">OUT</span>'
-                      : isPart ? ' <span style="font-size:6pt;color:#9aa5b4;">PART</span>' : '';
-          return `<tr style="background:${bg};font-weight:${fw};color:${clr};">
-            <td style="padding:1.5px 5px;border-bottom:1px solid #f0f0f0;font-variant-numeric:tabular-nums;">${l.lap}</td>
-            <td style="padding:1.5px 5px;border-bottom:1px solid #f0f0f0;font-variant-numeric:tabular-nums;">${esc(l.time_str || '—')}${badge}</td>
-            <td style="padding:1.5px 5px;border-bottom:1px solid #f0f0f0;font-variant-numeric:tabular-nums;">${esc(l.gap_str || '—')}</td>
-          </tr>`;
-        }).join('');
-        return `<table style="width:100%;border-collapse:collapse;font-size:7.5pt;font-family:Arial,sans-serif;">
-          <thead><tr style="background:#f1f1f1;color:#6c757d;font-size:6.5pt;text-transform:uppercase;letter-spacing:0.05em;">
-            <th style="padding:2px 5px;border-bottom:1.5px solid #dee2e6;text-align:left;">Lap</th>
-            <th style="padding:2px 5px;border-bottom:1.5px solid #dee2e6;text-align:left;">Time</th>
-            <th style="padding:2px 5px;border-bottom:1.5px solid #dee2e6;text-align:left;">Gap</th>
-          </tr></thead><tbody>${rows}</tbody>
-        </table>`;
-      };
-
-      // Star rating unicode
-      const stars = n => '★'.repeat(parseInt(n) || 0) + '☆'.repeat(Math.max(0, 5 - (parseInt(n) || 0)));
-
-      const chartSVG = buildChart();
-      const hasLapData = validLaps.length > 0;
-
-      const html = `<!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"/>
-<title>Driver Assessment Report – ${esc(p.driver_name || 'Driver')}</title>
-<style>
-  @page { size: A4 portrait; margin: 0; }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Segoe UI', Arial, Helvetica, sans-serif; background: #fff; color: #1a1d24; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .page { width: 210mm; min-height: 297mm; padding: 0; display: flex; flex-direction: column; }
-
-  /* Header */
-  .rpt-header { background: ${darkPurple}; color: #fff; padding: 14mm 15mm 10mm; display: flex; align-items: flex-start; justify-content: space-between; }
-  .rpt-team-name { font-size: 22pt; font-weight: 800; letter-spacing: 0.02em; line-height: 1; }
-  .rpt-team-sub { font-size: 8pt; letter-spacing: 0.18em; text-transform: uppercase; margin-top: 4px; opacity: 0.65; }
-  .rpt-doc-title { text-align: right; }
-  .rpt-doc-title-main { font-size: 11pt; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
-  .rpt-doc-title-sub { font-size: 8pt; opacity: 0.6; margin-top: 3px; }
-  .rpt-accent-bar { height: 4px; background: ${brandColor}; }
-
-  /* Body */
-  .rpt-body { padding: 8mm 15mm 8mm; flex: 1; }
-
-  /* Section headings */
-  .rpt-section-label { font-size: 7pt; font-weight: 800; text-transform: uppercase; letter-spacing: 0.15em; color: ${brandColor}; border-bottom: 1.5px solid ${brandColor}; padding-bottom: 3px; margin-bottom: 8px; }
-
-  /* Driver profile */
-  .rpt-driver-name { font-size: 20pt; font-weight: 800; color: ${darkPurple}; line-height: 1.1; margin-bottom: 7px; }
-  .rpt-info-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px 12px; margin-bottom: 10px; }
-  .rpt-info-cell { border: 1px solid #e9ecef; border-radius: 5px; padding: 5px 8px; background: #f8f9fa; }
-  .rpt-info-label { font-size: 6.5pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #9aa5b4; margin-bottom: 1px; }
-  .rpt-info-value { font-size: 9pt; font-weight: 600; color: #1a1d24; }
-
-  /* Session strip */
-  .rpt-session-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 10px; }
-  .rpt-sess-box { background: ${darkPurple}; color: #fff; border-radius: 6px; padding: 7px 10px; }
-  .rpt-sess-box-label { font-size: 6pt; text-transform: uppercase; letter-spacing: 0.12em; opacity: 0.6; margin-bottom: 2px; }
-  .rpt-sess-box-value { font-size: 10pt; font-weight: 700; line-height: 1.2; }
-
-  /* Performance */
-  .rpt-stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 8px; }
-  .rpt-stat-box { border: 1.5px solid #dee2e6; border-radius: 5px; padding: 6px 8px; text-align: center; }
-  .rpt-stat-label { font-size: 6pt; text-transform: uppercase; letter-spacing: 0.1em; color: #9aa5b4; margin-bottom: 2px; }
-  .rpt-stat-value { font-size: 12pt; font-weight: 800; color: ${darkPurple}; line-height: 1; }
-  .rpt-stat-value.highlight { color: #5b21b6; }
-
-  /* Chart container */
-  .rpt-chart { border: 1px solid #e9ecef; border-radius: 6px; padding: 8px 10px; background: #fff; margin-bottom: 8px; }
-  .rpt-chart-title { font-size: 7pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #9aa5b4; margin-bottom: 6px; }
-
-  /* Lap table */
-  .rpt-lap-table-wrap { display: grid; grid-template-columns: ${laps.length > 25 ? '1fr 1fr' : '1fr 2fr'}; gap: 10px; margin-bottom: 8px; align-items: start; }
-
-  /* Notes */
-  .rpt-notes-text { font-size: 9pt; color: #1a1d24; line-height: 1.55; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 5px; padding: 8px 10px; white-space: pre-wrap; margin-bottom: 10px; }
-  .rpt-blank-lines { margin-bottom: 10px; }
-  .rpt-blank-line { border-bottom: 1px solid #dee2e6; height: 22px; margin-bottom: 2px; }
-
-  /* Signature row */
-  .rpt-sig-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-top: 4px; }
-  .rpt-sig-box { border-top: 1.5px solid #1a1d24; padding-top: 5px; }
-  .rpt-sig-label { font-size: 7pt; color: #9aa5b4; text-transform: uppercase; letter-spacing: 0.1em; }
-
-  /* Footer */
-  .rpt-footer { background: ${darkPurple}; color: rgba(255,255,255,0.55); padding: 5mm 15mm; display: flex; justify-content: space-between; align-items: center; font-size: 7pt; letter-spacing: 0.06em; }
-  .rpt-footer-brand { color: #fff; font-weight: 700; font-size: 8pt; }
-
-  @media print {
-    body { margin: 0; }
-    .page { page-break-after: avoid; }
-    .no-print { display: none; }
-  }
-</style>
-</head>
-<body>
-<div class="page">
-
-  <!-- Header -->
-  <div class="rpt-header">
-    <div>
-      <div class="rpt-team-name">${esc(teamName)}</div>
-      <div class="rpt-team-sub">Academy Programme</div>
-    </div>
-    <div class="rpt-doc-title">
-      <div class="rpt-doc-title-main">Driver Assessment Report</div>
-      <div class="rpt-doc-title-sub">CONFIDENTIAL &nbsp;·&nbsp; Session Analysis</div>
-    </div>
-  </div>
-  <div class="rpt-accent-bar"></div>
-
-  <div class="rpt-body">
-
-    <!-- Driver Profile -->
-    <div class="rpt-section-label" style="margin-top:4px;">Driver Profile</div>
-    <div class="rpt-driver-name">${esc(p.driver_name || '—')}</div>
-    <div class="rpt-info-grid">
-      ${age != null ? `<div class="rpt-info-cell"><div class="rpt-info-label">Age</div><div class="rpt-info-value">${age} years</div></div>` : ''}
-      ${p.driver_dob ? `<div class="rpt-info-cell"><div class="rpt-info-label">Date of Birth</div><div class="rpt-info-value">${esc(String(p.driver_dob).slice(0,10))}</div></div>` : ''}
-      ${p.category ? `<div class="rpt-info-cell"><div class="rpt-info-label">Category</div><div class="rpt-info-value">${esc(p.category)}</div></div>` : ''}
-      ${p.nationality ? `<div class="rpt-info-cell"><div class="rpt-info-label">Nationality</div><div class="rpt-info-value">${esc(p.nationality)}</div></div>` : ''}
-      ${p.parent_name ? `<div class="rpt-info-cell"><div class="rpt-info-label">Parent / Guardian</div><div class="rpt-info-value">${esc(p.parent_name)}</div></div>` : ''}
-      ${p.parent_phone ? `<div class="rpt-info-cell"><div class="rpt-info-label">Contact</div><div class="rpt-info-value">${esc(p.parent_phone)}</div></div>` : ''}
-    </div>
-
-    <!-- Session Overview -->
-    <div class="rpt-section-label">Session Overview</div>
-    <div class="rpt-session-strip">
-      <div class="rpt-sess-box"><div class="rpt-sess-box-label">Date</div><div class="rpt-sess-box-value">${esc(formatDate(s.date))}</div></div>
-      <div class="rpt-sess-box"><div class="rpt-sess-box-label">Venue</div><div class="rpt-sess-box-value" style="font-size:9pt;">${esc(s.venue || '—')}</div></div>
-      <div class="rpt-sess-box"><div class="rpt-sess-box-label">Coach / Engineer</div><div class="rpt-sess-box-value" style="font-size:9pt;">${esc(s.coach || '—')}</div></div>
-      <div class="rpt-sess-box" style="background:${brandColor};"><div class="rpt-sess-box-label">Rating</div><div class="rpt-sess-box-value" style="letter-spacing:2px;">${stars(s.rating)}</div></div>
-    </div>
-
-    ${hasLapData ? `
-    <!-- Performance Analysis -->
-    <div class="rpt-section-label">Performance Analysis</div>
-    <div class="rpt-stats-row">
-      <div class="rpt-stat-box"><div class="rpt-stat-label">Total Laps</div><div class="rpt-stat-value">${laps.length}</div></div>
-      <div class="rpt-stat-box"><div class="rpt-stat-label">Valid Laps</div><div class="rpt-stat-value">${validLaps.length}</div></div>
-      <div class="rpt-stat-box"><div class="rpt-stat-label">Best Lap</div><div class="rpt-stat-value highlight">${fmtSec(bestTime)}</div></div>
-      <div class="rpt-stat-box"><div class="rpt-stat-label">Average Lap</div><div class="rpt-stat-value">${fmtSec(avgTime)}</div></div>
-    </div>
-    ${chartSVG ? `<div class="rpt-chart"><div class="rpt-chart-title">Lap Time Progression</div>${chartSVG}</div>` : ''}
-    ${laps.length ? `<div class="rpt-lap-table-wrap"><div>${lapTableHTML()}</div><div></div></div>` : ''}
-    ` : ''}
-
-    <!-- Session Notes -->
-    ${s.notes ? `<div class="rpt-section-label">Session Notes</div>
-    <div class="rpt-notes-text">${esc(s.notes)}</div>` : ''}
-
-    <!-- Coach Assessment -->
-    <div class="rpt-section-label">Coach / Engineer Assessment &amp; Recommendations</div>
-    <div class="rpt-blank-lines">
-      ${Array(7).fill('<div class="rpt-blank-line"></div>').join('')}
-    </div>
-
-    <!-- Signatures -->
-    <div class="rpt-sig-row">
-      <div class="rpt-sig-box"><div class="rpt-sig-label">Coach / Engineer</div></div>
-      <div class="rpt-sig-box"><div class="rpt-sig-label">Parent / Guardian</div></div>
-      <div class="rpt-sig-box"><div class="rpt-sig-label">Date</div></div>
-    </div>
-
-  </div><!-- /body -->
-
-  <!-- Footer -->
-  <div class="rpt-footer">
-    <span class="rpt-footer-brand">${esc(teamName)}</span>
-    <span>CONFIDENTIAL &nbsp;·&nbsp; Academy Driver Assessment &nbsp;·&nbsp; ${esc(formatDate(s.date))}</span>
-    <span>Generated ${new Date().toLocaleDateString('en-GB')}</span>
-  </div>
-
-</div>
-
-<div class="no-print" style="text-align:center;padding:16px;background:#f1f1f1;">
-  <button onclick="window.print()" style="background:${darkPurple};color:#fff;border:none;padding:10px 28px;border-radius:6px;font-size:14px;cursor:pointer;font-weight:700;">Print / Save as PDF</button>
-  <button onclick="window.close()" style="background:#6c757d;color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:14px;cursor:pointer;margin-left:10px;">Close</button>
-</div>
-
-<script>setTimeout(function(){ window.print(); }, 600);<\/script>
-</body></html>`;
-
-      const win = window.open('', '_blank', 'width=900,height=1100');
-      if (!win) { alert('Please allow pop-ups to generate the report.'); return; }
-      win.document.open();
-      win.document.write(html);
-      win.document.close();
-    };
 
     // Filters
     ['sesSearch', 'sesMonthFilter', 'sesVenueFilter', 'sesCoachFilter', 'sesRatingFilter'].forEach(id =>
