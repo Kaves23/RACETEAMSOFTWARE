@@ -282,6 +282,7 @@ app.use('/api/driver-licences',      requireAuth, require('./routes/driver-licen
 app.use('/api/driver-preferences',   requireAuth, require('./routes/driver-preferences'));
 app.use('/api/junior-programme',     requireAuth, require('./routes/junior-programme'));
 app.use('/api/academy/prospects',    requireAuth, require('./routes/academy'));
+app.use('/api/academy/email-inbox',  requireAuth, require('./routes/academy-email-inbox'));
 // Phase 3 — Compliance
 app.use('/api/policies',             requireAuth, require('./routes/policies'));
 app.use('/api/legal-contracts',      requireAuth, require('./routes/legal-contracts'));
@@ -557,6 +558,7 @@ function getNetworkAddresses() {
 
 // Start server
 const port = Number(process.env.PORT || constants.DEFAULT_PORT);
+const { startEmailPoller } = require('./lib/emailPoller');
 app.listen(port, '0.0.0.0', () => {
   const networkIPs = getNetworkAddresses();
   const networkIP = networkIPs.length > 0 ? networkIPs[0] : 'N/A';
@@ -573,6 +575,9 @@ app.listen(port, '0.0.0.0', () => {
   console.log(`🔒 Security: Helmet CSP enabled`);
   console.log(`⏰ Session cleanup: Every ${constants.SESSION_CLEANUP_INTERVAL_MS / 60000} minutes`);
   console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
+
+  // Start pipeline email poller (requires PIPELINE_IMAP_USER + PIPELINE_IMAP_PASS in .env)
+  startEmailPoller(db.pool);
 });
 
 // Graceful shutdown

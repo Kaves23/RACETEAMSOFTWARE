@@ -148,6 +148,14 @@
     .acd-period-toggle button:first-child { border-right: 1px solid #dee2e6; }
     .acd-period-toggle button.active-am { background: #ecfccb; color: #365314; }
     .acd-period-toggle button.active-pm { background: #fef9c3; color: #854d0e; }
+
+    /* Email inbox modal */
+    .acd-inbox-table { width: 100%; font-size: 0.82rem; border-collapse: collapse; }
+    .acd-inbox-table th { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #6c757d; padding: 6px 8px; border-bottom: 2px solid #dee2e6; white-space: nowrap; }
+    .acd-inbox-table td { padding: 7px 8px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+    .acd-inbox-table tr:last-child td { border-bottom: none; }
+    .acd-inbox-snippet { font-size: 0.75rem; color: #6c757d; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
+    .acd-inbox-empty { text-align: center; color: #9aa5b4; padding: 30px; font-size: 0.85rem; }
   </style>
 </head>
 <body class="light-mode">
@@ -160,7 +168,13 @@
         <h1 class="h4 mb-1">Academy – Test Driver Pipeline</h1>
         <div class="text-secondary" style="font-size:0.85rem;">Manage introduction drive prospects from first enquiry through to signed.</div>
       </div>
-      <button class="btn btn-sm btn-primary" id="btnAddProspect" type="button">+ Add Prospect</button>
+      <div class="d-flex gap-2 align-items-center">
+        <button class="btn btn-sm btn-outline-secondary position-relative" id="btnEmailInbox" type="button">
+          <i class="bi bi-envelope me-1"></i>Email Inbox
+          <span class="badge rounded-pill bg-warning text-dark position-absolute" id="emailInboxBadge" style="top:-7px;right:-7px;font-size:0.6rem;display:none;">0</span>
+        </button>
+        <button class="btn btn-sm btn-primary" id="btnAddProspect" type="button">+ Add Prospect</button>
+      </div>
     </div>
 
     <!-- Stats Bar -->
@@ -503,6 +517,42 @@
 
     </div><!-- mlo-shell -->
   </div><!-- rts-main -->
+
+  <!-- EMAIL INBOX MODAL -->
+  <div class="modal fade" id="emailInboxModal" tabindex="-1" aria-labelledby="emailInboxModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header py-2">
+          <h6 class="modal-title fs-6" id="emailInboxModalLabel"><i class="bi bi-envelope-open me-1"></i>Email Inbox — Unmatched Emails <span class="badge text-bg-secondary ms-1" id="emailInboxModalBadge" style="font-size:0.7rem;">0</span></h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body p-0">
+          <div class="px-3 py-2" style="font-size:0.78rem;color:#6c757d;background:#f8f9fa;border-bottom:1px solid #dee2e6;">
+            These emails were CC'd to <strong>testdrive@ftwmotorsport.com</strong> but didn't match a prospect's email address. Link each one to the correct prospect or dismiss it.
+          </div>
+          <div id="emailInboxTableWrap" style="overflow-x:auto;">
+            <div class="acd-inbox-empty" id="emailInboxEmpty"><i class="bi bi-check-circle text-success"></i> No unmatched emails — all clear.</div>
+            <table class="acd-inbox-table" id="emailInboxTable" style="display:none;">
+              <thead>
+                <tr>
+                  <th>From</th>
+                  <th>Subject</th>
+                  <th>Preview</th>
+                  <th>Received</th>
+                  <th style="min-width:200px;">Link to Prospect</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="emailInboxTbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="modal-footer py-2">
+          <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- ADD TASK MODAL -->
   <div class="modal fade" id="addTaskModal" tabindex="-1" aria-labelledby="addTaskModalLabel" aria-hidden="true">
@@ -1452,6 +1502,120 @@
       });
     });
 
+    /* ── Email Inbox ───────────────────────────────────────────────── */
+    async function loadEmailInboxCount() {
+      try {
+        const r = await fetch('/api/academy/email-inbox/count', { headers: authHeaders() });
+        if (!r.ok) return;
+        const { count } = await r.json();
+        const badge = document.getElementById('emailInboxBadge');
+        if (badge) {
+          badge.textContent = count;
+          badge.style.display = count > 0 ? '' : 'none';
+        }
+      } catch (_) {}
+    }
+
+    async function openEmailInbox() {
+      // Refresh prospect dropdown options
+      const prospectOpts = '<option value="">— Select prospect —</option>' +
+        prospects.filter(p => p.id).map(p =>
+          `<option value="${esc(p.id)}">${esc(p.driver_name || '—')}${p.parent_email ? ' (' + esc(p.parent_email) + ')' : ''}</option>`
+        ).join('');
+
+      let items = [];
+      try {
+        const r = await fetch('/api/academy/email-inbox', { headers: authHeaders() });
+        if (r.ok) ({ items } = await r.json());
+      } catch (e) {
+        alert('Could not load inbox: ' + e.message);
+        return;
+      }
+
+      const tbody   = document.getElementById('emailInboxTbody');
+      const table   = document.getElementById('emailInboxTable');
+      const empty   = document.getElementById('emailInboxEmpty');
+      const modalBadge = document.getElementById('emailInboxModalBadge');
+      if (modalBadge) modalBadge.textContent = items.length;
+
+      if (!items.length) {
+        table.style.display = 'none';
+        empty.style.display = '';
+      } else {
+        empty.style.display = 'none';
+        table.style.display = '';
+        tbody.innerHTML = items.map(item => {
+          const fromLabel = item.from_name ? `${esc(item.from_name)} &lt;${esc(item.from_email)}&gt;` : esc(item.from_email);
+          const dateLabel = item.received_at
+            ? new Date(item.received_at).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })
+            : '—';
+          return `
+            <tr data-inbox-id="${esc(item.id)}">
+              <td style="white-space:nowrap;">${fromLabel}</td>
+              <td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(item.subject || '(no subject)')}</td>
+              <td><div class="acd-inbox-snippet">${esc(item.snippet || '')}</div></td>
+              <td style="white-space:nowrap;font-size:0.75rem;">${dateLabel}</td>
+              <td>
+                <select class="form-select form-select-sm inbox-prospect-sel" style="font-size:0.75rem;">${prospectOpts}</select>
+              </td>
+              <td style="white-space:nowrap;">
+                <button class="btn btn-sm btn-outline-primary py-0 px-2 me-1 inbox-link-btn" style="font-size:0.72rem;">Link</button>
+                <button class="btn btn-sm btn-outline-secondary py-0 px-2 inbox-dismiss-btn" style="font-size:0.72rem;">Dismiss</button>
+              </td>
+            </tr>`;
+        }).join('');
+
+        tbody.querySelectorAll('tr[data-inbox-id]').forEach(tr => {
+          const id = tr.dataset.inboxId;
+
+          tr.querySelector('.inbox-link-btn').addEventListener('click', async () => {
+            const prospect_id = tr.querySelector('.inbox-prospect-sel').value;
+            if (!prospect_id) { alert('Please select a prospect to link this email to.'); return; }
+            try {
+              const r = await fetch(`/api/academy/email-inbox/${id}/link`, {
+                method: 'POST',
+                headers: authHeaders(),
+                body: JSON.stringify({ prospect_id })
+              });
+              if (!r.ok) throw new Error(await r.text());
+              tr.remove();
+              // If the linked prospect is currently open, reload its data so activity appears
+              if (String(prospect_id) === String(selectedId)) {
+                const pr = await fetch(`/api/academy/prospects/${prospect_id}`, { headers: authHeaders() });
+                if (pr.ok) {
+                  const saved = await pr.json();
+                  const idx = prospects.findIndex(x => String(x.id) === String(prospect_id));
+                  if (idx >= 0) prospects[idx] = saved;
+                  renderActivities(saved);
+                }
+              }
+              // Update counts
+              const remaining = tbody.querySelectorAll('tr[data-inbox-id]').length;
+              if (modalBadge) modalBadge.textContent = remaining;
+              if (!remaining) { table.style.display = 'none'; empty.style.display = ''; }
+              loadEmailInboxCount();
+            } catch (e) { alert('Link failed: ' + e.message); }
+          });
+
+          tr.querySelector('.inbox-dismiss-btn').addEventListener('click', async () => {
+            try {
+              const r = await fetch(`/api/academy/email-inbox/${id}`, { method: 'DELETE', headers: authHeaders() });
+              if (!r.ok) throw new Error(await r.text());
+              tr.remove();
+              const remaining = tbody.querySelectorAll('tr[data-inbox-id]').length;
+              if (modalBadge) modalBadge.textContent = remaining;
+              if (!remaining) { table.style.display = 'none'; empty.style.display = ''; }
+              loadEmailInboxCount();
+            } catch (e) { alert('Dismiss failed: ' + e.message); }
+          });
+        });
+      }
+
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('emailInboxModal')).show();
+    }
+
+    document.getElementById('btnEmailInbox').addEventListener('click', openEmailInbox);
+
     /* ── Init ─────────────────────────────────────────────────────── */
     async function init() {
       RTS.initTriPaneResizers(document.getElementById('acdShell'), 'rts.academy.panes.v2');
@@ -1459,6 +1623,7 @@
       await apiLoad();
       renderCatFilter();
       renderList();
+      loadEmailInboxCount();
     }
 
     init();
