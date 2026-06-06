@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" type="image/png" href="../favicon.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Academy Reports · Race Team OS</title>
+  <link rel="stylesheet" href="mobile.css">
+  <script src="mobile-auth.js"></script>
+</head>
+<body>
+<div class="app">
+  <header class="app-header">
+    <div class="page-bar">
+      <div class="page-bar-brand" onclick="window.location.href='academy-pipeline.html'" style="cursor:pointer;"><div class="page-bar-mark">RT</div><span class="page-bar-title">Academy Reports</span></div>
+    </div>
+    <div class="pill-strip" style="padding-top:8px;padding-bottom:10px;">
+      <a href="academy-pipeline.html" class="pill" style="text-decoration:none;">Pipeline</a>
+      <a href="academy-sessions.html" class="pill" style="text-decoration:none;">Sessions</a>
+      <a href="academy-reports.html" class="pill active" style="text-decoration:none;">Reports</a>
+      <a href="academy-data.html" class="pill" style="text-decoration:none;">Data</a>
+    </div>
+  </header>
+  <main class="app-body" style="padding:12px;">
+    <div class="kpis" id="kpis"></div>
+    <div class="card" style="margin-top:10px;"><div class="card-h">Pipeline Funnel</div><div id="funnel"></div></div>
+    <div class="card" style="margin-top:10px;"><div class="card-h">Top Categories</div><div id="cats"></div></div>
+  </main>
+  <nav class="app-nav"><div class="nav-bar">
+    <a href="dashboard.html" class="nav-item"><span class="nav-icon">🏠</span><span class="nav-label">Dashboard</span><div class="nav-dot"></div></a>
+    <a href="browse.html" class="nav-item"><span class="nav-icon">📦</span><span class="nav-label">Logistics</span><div class="nav-dot"></div></a>
+    <a href="browse.html?tab=sporting" class="nav-item"><span class="nav-icon">🏁</span><span class="nav-label">Sporting</span><div class="nav-dot"></div></a>
+    <a href="browse.html?tab=projects" class="nav-item"><span class="nav-icon">📋</span><span class="nav-label">Projects</span><div class="nav-dot"></div></a>
+    <a href="browse.html?tab=academy" class="nav-item active"><span class="nav-icon">🎓</span><span class="nav-label">Academy</span><div class="nav-dot"></div></a>
+    <a href="vehicles.html?log=1" class="nav-item"><span class="nav-icon">🚚</span><span class="nav-label">Log Trip</span><div class="nav-dot"></div></a>
+    <a href="scan.html" class="nav-item"><span class="nav-icon">📷</span><span class="nav-label">Scan</span><div class="nav-dot"></div></a>
+  </div></nav>
+</div>
+<style>
+  .kpis{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .k{background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px}
+  .k-l{font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em}
+  .k-v{font-size:20px;font-weight:800;color:var(--text);margin-top:2px}
+  .card{background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px}
+  .card-h{font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
+  .bar-row{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+  .bar-l{width:105px;font-size:12px;color:var(--text-2)}
+  .bar-w{flex:1;height:14px;background:#f1f3f4;border-radius:4px;overflow:hidden}
+  .bar{height:100%;background:#1a0d2e}
+  .bar-c{font-size:12px;font-weight:700;color:var(--text);min-width:18px;text-align:right}
+</style>
+<script>
+(function(){
+  if (!localStorage.getItem('auth_token')) window.location.replace('index.html');
+  function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+  var stages=['lead','qualified','booked','testing','post_review','offer_made','signed','cancelled'];
+  function label(k){ return ({lead:'Lead',qualified:'Qualified',booked:'Booked',testing:'Testing',post_review:'Review',offer_made:'Offer',signed:'Signed',cancelled:'Cancelled'})[k]||k; }
+  mobileFetch('/api/academy/prospects').then(function(ps){
+    ps = Array.isArray(ps)?ps:[];
+    var allS=[]; ps.forEach(function(p){ (Array.isArray(p.sessions)?p.sessions:[]).forEach(function(s){ allS.push(s); }); });
+    var signed = ps.filter(function(p){return p.status==='signed';}).length;
+    var active = ps.filter(function(p){return p.status!=='signed' && p.status!=='cancelled';}).length;
+    var rated = allS.filter(function(s){return s.rating;});
+    var avg = rated.length ? (rated.reduce(function(a,s){return a + (parseInt(s.rating)||0);},0)/rated.length).toFixed(1) : '—';
+    document.getElementById('kpis').innerHTML = ''+
+      '<div class="k"><div class="k-l">Total Prospects</div><div class="k-v">'+ps.length+'</div></div>'+
+      '<div class="k"><div class="k-l">Active Pipeline</div><div class="k-v">'+active+'</div></div>'+
+      '<div class="k"><div class="k-l">Conversion</div><div class="k-v">'+(ps.length?Math.round((signed/ps.length)*100):0)+'%</div></div>'+
+      '<div class="k"><div class="k-l">Avg Rating</div><div class="k-v">'+avg+'</div></div>';
+    var counts = {}; stages.forEach(function(s){counts[s]=0;});
+    ps.forEach(function(p){ counts[p.status||'lead'] = (counts[p.status||'lead']||0) + 1; });
+    var max = 1; stages.forEach(function(s){ if (counts[s] > max) max = counts[s]; });
+    document.getElementById('funnel').innerHTML = stages.map(function(s){ return '<div class="bar-row"><div class="bar-l">'+label(s)+'</div><div class="bar-w"><div class="bar" style="width:'+Math.round((counts[s]/max)*100)+'%"></div></div><div class="bar-c">'+counts[s]+'</div></div>'; }).join('');
+
+    var cat={}; ps.forEach(function(p){ var c=p.category||'Uncategorised'; cat[c]=(cat[c]||0)+1; });
+    var ce = Object.keys(cat).map(function(k){return {k:k,v:cat[k]};}).sort(function(a,b){return b.v-a.v;});
+    var maxC = ce.length ? ce[0].v : 1;
+    document.getElementById('cats').innerHTML = ce.length ? ce.map(function(x){ return '<div class="bar-row"><div class="bar-l">'+esc(x.k)+'</div><div class="bar-w"><div class="bar" style="width:'+Math.round((x.v/maxC)*100)+'%"></div></div><div class="bar-c">'+x.v+'</div></div>'; }).join('') : '<div style="font-size:13px;color:var(--text-3)">No data yet.</div>';
+  }).catch(function(){
+    document.getElementById('kpis').innerHTML = '<div style="color:var(--danger);font-size:13px">Could not load reports.</div>';
+  });
+})();
+</script>
+<script src="mobile-side-menu.js"></script>
+</body>
+</html>

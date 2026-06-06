@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" type="image/png" href="../favicon.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Academy Data · Race Team OS</title>
+  <link rel="stylesheet" href="mobile.css">
+  <script src="mobile-auth.js"></script>
+</head>
+<body>
+<div class="app">
+  <header class="app-header">
+    <div class="page-bar">
+      <div class="page-bar-brand" onclick="window.location.href='academy-pipeline.html'" style="cursor:pointer;"><div class="page-bar-mark">RT</div><span class="page-bar-title">Academy Data</span></div>
+      <a href="../academy-data.html" class="btn-mini" style="text-decoration:none;">Desktop Tool</a>
+    </div>
+    <div style="padding:10px 16px 12px;"><input id="q" type="search" placeholder="Search driver/session/venue..." style="width:100%;height:36px;border:1px solid var(--border);border-radius:8px;padding:0 10px;"></div>
+  </header>
+  <main class="app-body"><div id="list"></div></main>
+  <nav class="app-nav"><div class="nav-bar">
+    <a href="dashboard.html" class="nav-item"><span class="nav-icon">🏠</span><span class="nav-label">Dashboard</span><div class="nav-dot"></div></a>
+    <a href="browse.html" class="nav-item"><span class="nav-icon">📦</span><span class="nav-label">Logistics</span><div class="nav-dot"></div></a>
+    <a href="browse.html?tab=sporting" class="nav-item"><span class="nav-icon">🏁</span><span class="nav-label">Sporting</span><div class="nav-dot"></div></a>
+    <a href="browse.html?tab=projects" class="nav-item"><span class="nav-icon">📋</span><span class="nav-label">Projects</span><div class="nav-dot"></div></a>
+    <a href="browse.html?tab=academy" class="nav-item active"><span class="nav-icon">🎓</span><span class="nav-label">Academy</span><div class="nav-dot"></div></a>
+    <a href="vehicles.html?log=1" class="nav-item"><span class="nav-icon">🚚</span><span class="nav-label">Log Trip</span><div class="nav-dot"></div></a>
+    <a href="scan.html" class="nav-item"><span class="nav-icon">📷</span><span class="nav-label">Scan</span><div class="nav-dot"></div></a>
+  </div></nav>
+</div>
+<style>
+  .row{padding:12px 16px;border-bottom:1px solid var(--border);background:#fff}
+  .r1{font-size:14px;font-weight:700;color:var(--text)}
+  .r2{font-size:12px;color:var(--text-3);margin-top:2px}
+  .actions{display:flex;gap:8px;margin-top:8px}
+  .btn-mini{border:1px solid var(--border);background:#fff;border-radius:7px;padding:6px 10px;font-size:12px;font-weight:700}
+</style>
+<script>
+(function(){
+  if (!localStorage.getItem('auth_token')) window.location.replace('index.html');
+  var rows = [];
+  function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+  function load(){
+    mobileFetch('/api/academy/prospects').then(function(ps){
+      rows = [];
+      (Array.isArray(ps)?ps:[]).forEach(function(p){
+        (Array.isArray(p.sessions)?p.sessions:[]).forEach(function(s){
+          rows.push({driver:p.driver_name||'Unknown', date:s.date||'', venue:s.venue||'', coach:s.coach||'', link:s.cloud_link||'', notes:s.notes||''});
+        });
+      });
+      rows.sort(function(a,b){ return String(b.date).localeCompare(String(a.date)); });
+      render();
+    }).catch(function(){ document.getElementById('list').innerHTML='<div style="padding:20px;color:var(--danger)">Could not load data sessions.</div>'; });
+  }
+  function render(){
+    var q = (document.getElementById('q').value||'').toLowerCase().trim();
+    var out = rows.filter(function(r){
+      if (!q) return true;
+      return r.driver.toLowerCase().includes(q) || r.venue.toLowerCase().includes(q) || r.coach.toLowerCase().includes(q) || r.notes.toLowerCase().includes(q);
+    });
+    document.getElementById('list').innerHTML = out.length ? out.map(function(r,i){
+      var id = 'open'+i;
+      return '<div class="row"><div class="r1">'+esc(r.driver)+'</div><div class="r2">'+esc(r.date||'—')+' · '+esc(r.venue||'—')+' · Coach: '+esc(r.coach||'—')+'</div>'+
+      '<div class="actions">'+(r.link?('<a class="btn-mini" href="'+esc(r.link)+'" target="_blank" rel="noopener" style="text-decoration:none;">Open Data Files</a>'):'<span class="btn-mini" style="opacity:.45;">No file link</span>')+'</div></div>';
+    }).join('') : '<div style="padding:20px;color:var(--text-3)">No session data found.</div>';
+  }
+  document.getElementById('q').addEventListener('input', render);
+  load();
+})();
+</script>
+<script src="mobile-side-menu.js"></script>
+</body>
+</html>

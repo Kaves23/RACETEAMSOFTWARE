@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" type="image/png" href="../favicon.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <title>Academy Pipeline · Race Team OS</title>
+  <link rel="stylesheet" href="mobile.css">
+  <script src="mobile-auth.js"></script>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="app-header">
+    <div class="offline-banner" id="offlineBanner">Offline — showing cached data</div>
+    <div class="page-bar">
+      <div class="page-bar-brand" onclick="window.location.href='browse.html?tab=academy'" style="cursor:pointer;">
+        <div class="page-bar-mark">RT</div>
+        <span class="page-bar-title">Academy Pipeline</span>
+      </div>
+      <button class="btn-mini" id="btnAdd">+ Add</button>
+    </div>
+    <div style="padding:10px 16px 12px;display:flex;gap:8px;align-items:center;">
+      <input type="search" id="searchInput" placeholder="Search prospects..." autocomplete="off"
+        style="width:100%;box-sizing:border-box;height:36px;border:1px solid var(--border);border-radius:var(--r);padding:0 10px;font-size:14px;background:var(--bg);outline:none;">
+    </div>
+    <div class="pill-strip" id="statusStrip" style="padding-top:0;">
+      <button class="pill active" data-status="">All</button>
+      <button class="pill" data-status="lead">Lead</button>
+      <button class="pill" data-status="qualified">Qualified</button>
+      <button class="pill" data-status="booked">Booked</button>
+      <button class="pill" data-status="testing">Testing</button>
+      <button class="pill" data-status="signed">Signed</button>
+    </div>
+  </header>
+
+  <main class="app-body" id="appBody">
+    <div id="listBody"></div>
+  </main>
+
+  <nav class="app-nav">
+    <div class="nav-bar">
+      <a href="dashboard.html" class="nav-item">
+        <span class="nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"/><polyline points="9 21 9 12 15 12 15 21"/></svg></span>
+        <span class="nav-label">Dashboard</span><div class="nav-dot"></div>
+      </a>
+      <a href="browse.html" class="nav-item"><span class="nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></span><span class="nav-label">Logistics</span><div class="nav-dot"></div></a>
+      <a href="browse.html?tab=sporting" class="nav-item"><span class="nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span><span class="nav-label">Sporting</span><div class="nav-dot"></div></a>
+      <a href="browse.html?tab=projects" class="nav-item"><span class="nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="3" y1="5" x2="21" y2="5"/><rect x="4" y="8" width="9" height="3" rx="1"/></svg></span><span class="nav-label">Projects</span><div class="nav-dot"></div></a>
+      <a href="browse.html?tab=academy" class="nav-item active"><span class="nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 9l10-5 10 5-10 5-10-5z"/><path d="M6 11.5v4.5c0 1.6 2.7 3 6 3s6-1.4 6-3v-4.5"/></svg></span><span class="nav-label">Academy</span><div class="nav-dot"></div></a>
+      <a href="vehicles.html?log=1" class="nav-item"><span class="nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 10l1-3a2 2 0 0 1 1.9-1.4h12.2A2 2 0 0 1 20 7l1 3v7H3v-7z"/></svg></span><span class="nav-label">Log Trip</span><div class="nav-dot"></div></a>
+      <a href="scan.html" class="nav-item"><span class="nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2"/></svg></span><span class="nav-label">Scan</span><div class="nav-dot"></div></a>
+    </div>
+  </nav>
+</div>
+
+<div class="drawer-overlay" id="drawerOverlay"></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-handle"><div class="drawer-handle-bar"></div></div>
+  <div class="drawer-header">
+    <div>
+      <div class="drawer-title" id="dName">Prospect</div>
+      <div style="font-size:12px;color:var(--text-3);" id="dMeta">Details</div>
+    </div>
+    <span class="tag" id="dStatus">lead</span>
+  </div>
+  <div class="drawer-body" id="drawerBody"></div>
+</div>
+
+<div class="drawer-overlay" id="addOverlay"></div>
+<div class="drawer" id="addDrawer">
+  <div class="drawer-handle"><div class="drawer-handle-bar"></div></div>
+  <div class="drawer-header"><div class="drawer-title">Add Prospect</div></div>
+  <div class="drawer-body" style="padding:12px 16px 24px;display:grid;gap:8px;">
+    <input id="aDriver" class="form-field" placeholder="Driver name">
+    <input id="aParent" class="form-field" placeholder="Parent name">
+    <input id="aPhone" class="form-field" placeholder="Parent phone">
+    <input id="aEmail" class="form-field" placeholder="Parent email">
+    <input id="aCategory" class="form-field" placeholder="Category">
+    <button class="btn-mini" id="btnSaveAdd" style="height:36px;">Save Prospect</button>
+  </div>
+</div>
+
+<style>
+  .prospect-row { display:flex; gap:10px; padding:12px 16px; border-bottom:1px solid var(--border); background:#fff; }
+  .prospect-row:active { background:var(--surface-2); }
+  .pr-main { flex:1; min-width:0; }
+  .pr-name { font-size:14px; font-weight:700; color:var(--text); }
+  .pr-sub { font-size:12px; color:var(--text-3); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .pr-status { font-size:11px; font-weight:700; border-radius:12px; padding:2px 8px; background:#f3f4f6; color:#374151; align-self:flex-start; }
+  .btn-mini { border:1px solid var(--border); background:#fff; border-radius:7px; padding:6px 10px; font-size:12px; font-weight:700; }
+  .form-field { height:36px; border:1px solid var(--border); border-radius:8px; padding:0 10px; font-size:14px; }
+  .d-section { margin-bottom:12px; }
+  .d-label { font-size:11px; color:var(--text-3); text-transform:uppercase; letter-spacing:.06em; margin-bottom:4px; }
+  .d-val { font-size:13px; color:var(--text); }
+  .d-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; }
+</style>
+
+<script>
+(function(){
+  'use strict';
+  if (!localStorage.getItem('auth_token')) window.location.replace('index.html');
+
+  var prospects = [];
+  var selected = null;
+  var statusFilter = '';
+
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+  function setOffline(){ document.getElementById('offlineBanner').classList.toggle('visible', !navigator.onLine); }
+  window.addEventListener('online', setOffline); window.addEventListener('offline', setOffline); setOffline();
+
+  function openDrawer(id){
+    selected = prospects.find(function(p){ return String(p.id) === String(id); }) || null;
+    if (!selected) return;
+    document.getElementById('dName').textContent = selected.driver_name || 'Prospect';
+    document.getElementById('dMeta').textContent = (selected.parent_name || 'No parent') + ' · ' + (selected.category || 'No class');
+    document.getElementById('dStatus').textContent = selected.status || 'lead';
+
+    var sessions = Array.isArray(selected.sessions) ? selected.sessions : [];
+    var sessionHtml = sessions.length ? sessions.slice().sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); }).slice(0,6).map(function(s){
+      return '<div class="d-val" style="padding:6px 0;border-bottom:1px solid var(--border);">' + esc(s.date || '—') + ' · ' + esc(s.venue || '—') + '</div>';
+    }).join('') : '<div class="d-val">No sessions yet.</div>';
+
+    document.getElementById('drawerBody').innerHTML = '' +
+      '<div class="d-section"><div class="d-label">Contact</div><div class="d-val">' + esc(selected.parent_phone || 'No phone') + '</div><div class="d-val">' + esc(selected.parent_email || 'No email') + '</div></div>' +
+      '<div class="d-section"><div class="d-label">Notes</div><div class="d-val">' + esc(selected.notes || 'No notes') + '</div></div>' +
+      '<div class="d-section"><div class="d-label">Sessions</div>' + sessionHtml + '</div>' +
+      '<div class="d-actions">' +
+        '<button class="btn-mini" id="btnCall">Call</button>' +
+        '<button class="btn-mini" id="btnEmail">Email</button>' +
+        '<button class="btn-mini" id="btnStatus" style="grid-column:1/-1;">Move to next stage</button>' +
+      '</div>';
+
+    document.getElementById('btnCall').onclick = function(){ if (selected.parent_phone) window.location.href = 'tel:' + selected.parent_phone; };
+    document.getElementById('btnEmail').onclick = function(){ if (selected.parent_email) window.location.href = 'mailto:' + selected.parent_email; };
+    document.getElementById('btnStatus').onclick = moveStage;
+
+    document.getElementById('drawerOverlay').classList.add('active');
+    document.getElementById('drawer').classList.add('open');
+  }
+
+  function closeDrawer(){ document.getElementById('drawerOverlay').classList.remove('active'); document.getElementById('drawer').classList.remove('open'); }
+
+  function openAdd(){ document.getElementById('addOverlay').classList.add('active'); document.getElementById('addDrawer').classList.add('open'); }
+  function closeAdd(){ document.getElementById('addOverlay').classList.remove('active'); document.getElementById('addDrawer').classList.remove('open'); }
+
+  function nextStatus(cur){
+    var flow = ['lead','qualified','booked','testing','post_review','offer_made','signed'];
+    var i = flow.indexOf(cur || 'lead');
+    if (i < 0 || i === flow.length - 1) return cur || 'lead';
+    return flow[i + 1];
+  }
+
+  function saveProspect(p){
+    return mobileFetch('/api/academy/prospects/' + encodeURIComponent(p.id), {
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        driver_name:p.driver_name || '', driver_dob:p.driver_dob || null, category:p.category || '', nationality:p.nationality || '',
+        parent_name:p.parent_name || '', parent_phone:p.parent_phone || '', parent_email:p.parent_email || '',
+        source:p.source || '', assigned_to:p.assigned_to || '', status:p.status || 'lead', notes:p.notes || '',
+        sessions:Array.isArray(p.sessions)?p.sessions:[], attachments:Array.isArray(p.attachments)?p.attachments:[]
+      })
+    });
+  }
+
+  function moveStage(){
+    if (!selected) return;
+    selected.status = nextStatus(selected.status);
+    saveProspect(selected).then(function(saved){
+      prospects = prospects.map(function(p){ return String(p.id) === String(saved.id) ? saved : p; });
+      render();
+      openDrawer(saved.id);
+    }).catch(function(){ alert('Could not update stage'); });
+  }
+
+  function render(){
+    var q = (document.getElementById('searchInput').value || '').toLowerCase().trim();
+    var rows = prospects.filter(function(p){
+      if (statusFilter && p.status !== statusFilter) return false;
+      if (!q) return true;
+      return (p.driver_name || '').toLowerCase().includes(q) || (p.parent_name || '').toLowerCase().includes(q) || (p.category || '').toLowerCase().includes(q);
+    });
+
+    var html = rows.length ? rows.map(function(p){
+      return '<div class="prospect-row" data-id="' + esc(p.id) + '">' +
+        '<div class="pr-main"><div class="pr-name">' + esc(p.driver_name || 'Unknown') + '</div>' +
+        '<div class="pr-sub">' + esc(p.parent_name || 'No parent') + ' · ' + esc(p.category || 'No class') + '</div></div>' +
+        '<div class="pr-status">' + esc(p.status || 'lead') + '</div></div>';
+    }).join('') : '<div style="padding:24px 16px;color:var(--text-3);font-size:13px;">No prospects found.</div>';
+
+    document.getElementById('listBody').innerHTML = html;
+    document.querySelectorAll('.prospect-row').forEach(function(el){
+      el.addEventListener('click', function(){ openDrawer(el.getAttribute('data-id')); });
+    });
+  }
+
+  function load(){
+    mobileFetch('/api/academy/prospects').then(function(data){ prospects = Array.isArray(data) ? data : []; render(); }).catch(function(){
+      document.getElementById('listBody').innerHTML = '<div style="padding:24px 16px;color:var(--danger);font-size:13px;">Could not load prospects.</div>';
+    });
+  }
+
+  document.getElementById('searchInput').addEventListener('input', render);
+  document.getElementById('statusStrip').addEventListener('click', function(e){
+    var b = e.target.closest('[data-status]'); if (!b) return;
+    statusFilter = b.getAttribute('data-status') || '';
+    document.querySelectorAll('#statusStrip .pill').forEach(function(x){ x.classList.toggle('active', x === b); });
+    render();
+  });
+
+  document.getElementById('drawerOverlay').addEventListener('click', closeDrawer);
+  document.getElementById('addOverlay').addEventListener('click', closeAdd);
+  document.getElementById('btnAdd').addEventListener('click', openAdd);
+  document.getElementById('btnSaveAdd').addEventListener('click', function(){
+    var payload = {
+      driver_name: document.getElementById('aDriver').value.trim(),
+      parent_name: document.getElementById('aParent').value.trim(),
+      parent_phone: document.getElementById('aPhone').value.trim(),
+      parent_email: document.getElementById('aEmail').value.trim(),
+      category: document.getElementById('aCategory').value.trim(),
+      status:'lead', notes:'', sessions:[], attachments:[]
+    };
+    if (!payload.driver_name) { alert('Driver name is required'); return; }
+    mobileFetch('/api/academy/prospects', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) })
+      .then(function(){ closeAdd(); load(); })
+      .catch(function(){ alert('Could not create prospect'); });
+  });
+
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function(){});
+  load();
+})();
+</script>
+<script src="mobile-side-menu.js"></script>
+</body>
+</html>
