@@ -1151,7 +1151,8 @@
 
       function renderLtTicker(state) {
         const ltCfg = getLtSettings();
-        const ltActiveUrl = ltCfg ? (ltCfg.provider === 'race-monitor' ? ltCfg.urlRm : ltCfg.url) : '';
+        const ltProvider = ltCfg ? (['race-monitor', 'speedhive'].includes(ltCfg.provider) ? ltCfg.provider : 'apex') : 'apex';
+        const ltActiveUrl = ltCfg ? (ltProvider === 'race-monitor' ? ltCfg.urlRm : ltProvider === 'speedhive' ? ltCfg.urlSh : ltCfg.url) : '';
         const rowEl   = document.getElementById('rtsLtRow');
         const badgeEl = document.getElementById('rtsLtBadge');
         const dotEl   = document.getElementById('rtsLtDot');
@@ -1299,7 +1300,8 @@
         const tryStart = () => {
           const ltCfg = getLtSettings();
           if (!ltCfg || !ltCfg.enabled) return;
-          const activeUrl = ltCfg.provider === 'race-monitor' ? ltCfg.urlRm : ltCfg.url;
+          const provider = ['race-monitor', 'speedhive'].includes(ltCfg.provider) ? ltCfg.provider : 'apex';
+          const activeUrl = provider === 'race-monitor' ? ltCfg.urlRm : provider === 'speedhive' ? ltCfg.urlSh : ltCfg.url;
           if (!activeUrl) return;
 
           // Dynamically load live-timing.js if not already present
