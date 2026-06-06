@@ -181,7 +181,7 @@
 
   // Default top-level keybinds (letters) — only active when not typing
   // D: Dashboard, S: Sporting, T: Technical, B: Build, P: Performance, R: Reliability
-  // L: Logistics, F: Finance, O: Procurement, H: HR, V: Driver, C: Compliance, X: Executive, A: Academy
+  // L: Logistics, F: Finance, O: Procurement, H: HR, V: Driver, A: Compliance, X: Executive, W: Academy
   const topKeybinds = {
     'D': { type: 'single',  href: 'index.html' },
     'S': { type: 'group',   label: 'Sporting' },
@@ -195,9 +195,9 @@
     'O': { type: 'group',   label: 'Procurement' },
     'H': { type: 'group',   label: 'HR' },
     'V': { type: 'group',   label: 'Driver' },
-    'C': { type: 'group',   label: 'Compliance' },
+    'A': { type: 'group',   label: 'Compliance' },
     'X': { type: 'group',   label: 'Executive' },
-    'A': { type: 'group',   label: 'Academy' },
+    'W': { type: 'group',   label: 'Academy' },
     'I': { type: 'single',  href: 'integrations.html' }
   };
 
@@ -229,7 +229,7 @@
   const groupKeyMap = {
     'Sporting': 'S', 'Technical': 'T', 'Build': 'B', 'Performance': 'P',
     'Reliability': 'R', 'Projects': 'J', 'Logistics': 'L', 'Finance': 'F',
-    'Procurement': 'O', 'HR': 'H', 'Driver': 'V', 'Compliance': 'C', 'Executive': 'X', 'Academy': 'A'
+    'Procurement': 'O', 'HR': 'H', 'Driver': 'V', 'Compliance': 'A', 'Executive': 'X', 'Academy': 'W'
   };
 
     const liSingles = singles.map(t => {
@@ -258,7 +258,7 @@
         <div class="rts-topbar-inner">
           <div class="rts-topbar-row1">
             <div class="rts-brand">
-              <img src="logo.png" alt="Race Team OS" class="rts-brand-logo" style="height:32px;width:32px;object-fit:contain;">
+              <span class="rts-brand-mark">RT</span>
               <span class="rts-brand-text">Race Team OS</span>
             </div>
             <div class="rts-lt-badge" id="rtsLtBadge" style="display:none;">

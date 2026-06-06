@@ -61,14 +61,9 @@
     start(cfg) {
       stopped = false;
       config = cfg;
-      // Resolve the active URL based on the chosen provider
-      const provider = ['race-monitor','speedhive'].includes(config && config.provider) ? config.provider : 'apex';
-      const activeUrl = provider === 'race-monitor' ? (config && config.urlRm) : provider === 'speedhive' ? (config && config.urlSh) : (config && config.url);
-      if (!activeUrl) return;
-      // Normalise `url` so the rest of this module (which reads config.url) keeps working
-      config = Object.assign({}, config, { provider, url: activeUrl });
+      if (!config || !config.url) return;
       buildDriverMatchMap();
-      // Use server-side proxy polling — neither provider exposes a browser-friendly WS
+      // Use server-side proxy polling — Apex Timing has no public WebSocket endpoint
       startIframeFallback();
     },
 
@@ -258,10 +253,7 @@
   // ---------------------------------------------------------------------------
   function startIframeFallback() {
     if (stopped) return;
-    // Race Monitor: proxy holds a live WebSocket, so fast polling is cheap.
-    // Apex: honours user setting (default 10s) since it hits the timing server directly.
-    const defaultInterval = (config && config.provider === 'race-monitor') ? 2 : 10;
-    const intervalMs = ((config.intervalSec && config.intervalSec < defaultInterval ? config.intervalSec : defaultInterval)) * 1000;
+    const intervalMs = ((config.intervalSec || 10)) * 1000;
     tryFetchSnapshot();
     pollTimer = setInterval(() => { if (!stopped) tryFetchSnapshot(); }, intervalMs);
   }
@@ -286,10 +278,7 @@
       fireUpdate();
       return;
     }
-    const proxyBase = (config && config.provider === 'race-monitor')
-      ? '/api/race-monitor-proxy'
-      : '/api/apex-proxy';
-    const proxyUrl = `${proxyBase}?slug=${encodeURIComponent(slug)}`;
+    const proxyUrl = `/api/apex-proxy?slug=${encodeURIComponent(slug)}`;
     dbg('Polling via server proxy:', proxyUrl);
 
     try {
