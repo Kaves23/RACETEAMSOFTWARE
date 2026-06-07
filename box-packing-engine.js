@@ -194,7 +194,11 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
         id: String(c.id), boxId: c.box_id, itemId: c.item_id,
         itemType: c.item_type || 'equipment', packedAt: c.packed_at,
         positionInBox: c.position_in_box, quantityPacked: c.quantity_packed || 1,
-        variantLabel: c.variant_label || null
+        variantLabel: c.variant_label || null,
+        itemName: c.item_name || c.name || null,
+        itemBarcode: c.item_barcode || c.barcode || null,
+        itemCategory: c.category || null,
+        serialNumber: c.serial_number || c.serialNumber || null
       }));
     } else {
       boxContents = [];
@@ -2044,7 +2048,12 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
 
     const html = contents.map(content => {
       const item = getItem(content.itemId, content.itemType);
-      if (!item) return '';
+      const resolvedItem = item || {
+        barcode: content.itemBarcode || content.itemId,
+        name: content.itemName || 'Packed item',
+        category: content.itemCategory || 'Uncategorized',
+        serialNumber: content.serialNumber || ''
+      };
       
       // Show quantity for inventory items
       const quantityBadge = content.itemType === 'inventory' && content.quantityPacked 
@@ -2059,10 +2068,10 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       return `
         <div class="packed-item">
           <div class="packed-item-info">
-            <div class="packed-item-barcode">${quantityBadge}${esc(item.barcode)}</div>
-            <div class="packed-item-name">${esc(item.name)}${variantBadge}</div>
+            <div class="packed-item-barcode">${quantityBadge}${esc(resolvedItem.barcode)}</div>
+            <div class="packed-item-name">${esc(resolvedItem.name)}${variantBadge}</div>
             <div style="font-size:.75rem;color:#5f6368;margin-top:3px">
-              ${esc(item.category || 'Uncategorized')} · ${content.itemType === 'equipment' ? 'Equipment' : content.itemType === 'inventory' ? 'Inventory' : 'Asset'}${item.serialNumber ? ` · <span style="font-family:monospace;color:#1a73e8">SN: ${esc(item.serialNumber)}</span>` : ''}
+              ${esc(resolvedItem.category || 'Uncategorized')} · ${content.itemType === 'equipment' ? 'Equipment' : content.itemType === 'inventory' ? 'Inventory' : 'Asset'}${resolvedItem.serialNumber ? ` · <span style="font-family:monospace;color:#1a73e8">SN: ${esc(resolvedItem.serialNumber)}</span>` : ''}
             </div>
           </div>
           <button class="btn-remove-item" onclick="BoxPacking.removeItem('${content.id}')">✕</button>
@@ -2804,7 +2813,11 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
           quantityPacked: c.quantity_packed || 1,
           packedAt: c.packed_at,
           positionInBox: c.position_in_box,
-          variantLabel: c.variant_label || null
+          variantLabel: c.variant_label || null,
+          itemName: c.item_name || c.name || null,
+          itemBarcode: c.item_barcode || c.barcode || null,
+          itemCategory: c.category || null,
+          serialNumber: c.serial_number || c.serialNumber || null
         }));
       }
     } catch (e) {
