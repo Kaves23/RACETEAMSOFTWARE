@@ -2,9 +2,9 @@
 // Include this before core.js on pages where you want to override defaults.
 window.RTS_CONFIG = {
   // Software build version — updated on every deployment
-  buildVersion: '0f0cd2a',
+  buildVersion: '45d4093',
   buildDate:    '2026-06-07',
-  buildNote:    'Fix inventory table panel layout spacing',
+  buildNote:    'Fix packed inventory visibility when local cache is partial',
   // API Configuration
   api: {
     baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)
