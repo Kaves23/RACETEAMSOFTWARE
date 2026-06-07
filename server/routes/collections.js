@@ -13,6 +13,7 @@ const VALID_TABLES = [
 // Module-level cache for column lists — populated on first write per table,
 // valid for the process lifetime. Avoids a system-catalog query on every POST/PUT.
 const _schemaCache = new Map();
+const SHOPIFY_LINKED_CONDITION = '(shopify_variant_id IS NOT NULL OR shopify_product_id IS NOT NULL)';
 
 async function getValidColumns(tableName) {
   if (_schemaCache.has(tableName)) return _schemaCache.get(tableName);
@@ -55,6 +56,17 @@ router.get('/:table', async (req, res) => {
     if (category) {
       conditions.push('category = $' + (params.length + 1));
       params.push(category);
+    }
+
+    // Guardrail: inventory list defaults to non-Shopify items.
+    if (table === 'inventory') {
+      const includeShopify = String(req.query.include_shopify || '').toLowerCase() === 'true';
+      const onlyShopify = String(req.query.only_shopify || '').toLowerCase() === 'true';
+      if (onlyShopify) {
+        conditions.push(SHOPIFY_LINKED_CONDITION);
+      } else if (!includeShopify) {
+        conditions.push(`NOT ${SHOPIFY_LINKED_CONDITION}`);
+      }
     }
     
     if (conditions.length > 0) {
@@ -103,6 +115,13 @@ router.post('/:table', async (req, res) => {
   try {
     const table = validateTable(req.params.table);
     const data = req.body;
+
+    if (table === 'inventory' && (data.shopify_variant_id || data.shopify_product_id)) {
+      return res.status(409).json({
+        success: false,
+        error: 'Shopify-linked inventory items must be created via Shopify routes only.'
+      });
+    }
     
     // Generate ID if not provided
     if (!data.id) {
@@ -144,6 +163,26 @@ router.put('/:table/:id', async (req, res) => {
     const table = validateTable(req.params.table);
     const { id } = req.params;
     const data = req.body;
+
+    if (table === 'inventory' && (data.shopify_variant_id || data.shopify_product_id)) {
+      return res.status(409).json({
+        success: false,
+        error: 'Shopify link fields are managed only by Shopify routes.'
+      });
+    }
+
+    if (table === 'inventory') {
+      const linkedRow = await db.query(
+        `SELECT id FROM inventory WHERE id = $1 AND ${SHOPIFY_LINKED_CONDITION} LIMIT 1`,
+        [id]
+      );
+      if (linkedRow.rows.length > 0) {
+        return res.status(409).json({
+          success: false,
+          error: 'Shopify-linked items cannot be edited through generic inventory routes.'
+        });
+      }
+    }
     
     // Fix 19: Validate driver color uniqueness before saving
     if (table === 'drivers' && data.color) {
@@ -215,6 +254,19 @@ router.delete('/:table/:id', async (req, res) => {
     const table = validateTable(req.params.table);
     const { id } = req.params;
 
+    if (table === 'inventory') {
+      const linkedRow = await db.query(
+        `SELECT id FROM inventory WHERE id = $1 AND ${SHOPIFY_LINKED_CONDITION} LIMIT 1`,
+        [id]
+      );
+      if (linkedRow.rows.length > 0) {
+        return res.status(409).json({
+          success: false,
+          error: 'Shopify-linked items cannot be deleted through generic inventory routes.'
+        });
+      }
+    }
+
     // Defence-in-depth: clean up orphans that DB triggers also handle.
     // Triggers in migration 041 are the primary guarantee; these run first
     // so that if this code path somehow precedes the trigger, rows are gone.
@@ -255,6 +307,16 @@ router.post('/:table/bulk', async (req, res) => {
     
     if (!Array.isArray(items)) {
       return res.status(400).json({ success: false, error: 'Items must be an array' });
+    }
+
+    if (table === 'inventory') {
+      const hasShopifyLinked = items.some(it => it && (it.shopify_variant_id || it.shopify_product_id));
+      if (hasShopifyLinked) {
+        return res.status(409).json({
+          success: false,
+          error: 'Shopify-linked items are not allowed in generic inventory bulk upsert.'
+        });
+      }
     }
     
     const results = [];

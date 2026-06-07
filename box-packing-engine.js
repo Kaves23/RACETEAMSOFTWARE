@@ -592,9 +592,9 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       // Use RTS_API if available, otherwise fallback to RTS wrapper
       let response = null;
       if (typeof RTS_API !== 'undefined' && RTS_API.getCollectionItems) {
-        response = await RTS_API.getCollectionItems('inventory');
+        response = await RTS_API.getCollectionItems('inventory', { include_shopify: true });
       } else if (typeof RTS !== 'undefined' && RTS.apiGetCollectionItems) {
-        response = await RTS.apiGetCollectionItems('inventory');
+        response = await RTS.apiGetCollectionItems('inventory', { include_shopify: true });
       }
       
       // Extract items array from response object

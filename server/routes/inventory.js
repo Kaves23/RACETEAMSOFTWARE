@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../db');
 const { logActivity } = require('../lib/activityLog');
+const SHOPIFY_LINKED_CONDITION = '(shopify_variant_id IS NOT NULL OR shopify_product_id IS NOT NULL)';
 
 // POST /api/inventory/pack - Pack inventory item into box (with quantity)
 router.post('/pack', async (req, res, next) => {
@@ -133,6 +134,18 @@ router.post('/unpack', async (req, res, next) => {
     
     try {
       await client.query('BEGIN');
+
+      const itemCheck = await client.query(
+        `SELECT id, name FROM inventory WHERE id = $1 AND ${SHOPIFY_LINKED_CONDITION} LIMIT 1`,
+        [itemId]
+      );
+      if (itemCheck.rows.length > 0) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({
+          success: false,
+          error: 'Shopify-linked items cannot be unpacked via generic inventory route. Use Shopify return/billing flow.'
+        });
+      }
       
       if (boxId) {
         // Unpack from specific box
@@ -433,6 +446,24 @@ router.put('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
     const updates = req.body;
+
+    if (updates.shopify_variant_id || updates.shopify_product_id) {
+      return res.status(409).json({
+        success: false,
+        error: 'Shopify link fields are managed only by Shopify routes.'
+      });
+    }
+
+    const linkedItem = await pool.query(
+      `SELECT id FROM inventory WHERE id = $1 AND ${SHOPIFY_LINKED_CONDITION} LIMIT 1`,
+      [id]
+    );
+    if (linkedItem.rows.length > 0) {
+      return res.status(409).json({
+        success: false,
+        error: 'Shopify-linked items cannot be edited via generic inventory route.'
+      });
+    }
     
     // Build dynamic UPDATE query
     const fields = [];
@@ -531,6 +562,17 @@ router.get('/:id/history', async (req, res, next) => {
 router.delete('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
+
+    const linkedItem = await pool.query(
+      `SELECT id FROM inventory WHERE id = $1 AND ${SHOPIFY_LINKED_CONDITION} LIMIT 1`,
+      [id]
+    );
+    if (linkedItem.rows.length > 0) {
+      return res.status(409).json({
+        success: false,
+        error: 'Shopify-linked items cannot be deleted via generic inventory route.'
+      });
+    }
     
     const result = await pool.query(
       'DELETE FROM inventory WHERE id = $1 RETURNING *',
