@@ -14,8 +14,9 @@ function run(cmd) {
   return cp.execSync(cmd, { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 }
 
-function getGitEntries() {
-  const raw = run(`git log -n ${MAX_COMMITS} --date=iso-strict --pretty=format:%h%x09%cI%x09%s`);
+function getGitEntries(extraCommits = 0) {
+  const count = MAX_COMMITS + Math.max(0, extraCommits);
+  const raw = run(`git log -n ${count} --date=iso-strict --pretty=format:%h%x09%cI%x09%s`);
   if (!raw) return [];
   return raw
     .split('\n')
@@ -54,8 +55,11 @@ function sameJson(aText, bText) {
 
 function main() {
   const checkOnly = process.argv.includes('--check');
+  const skipCurrent = process.argv.includes('--skip-current');
 
-  const entries = getGitEntries();
+  let entries = getGitEntries(skipCurrent ? 1 : 0);
+  if (skipCurrent) entries = entries.slice(1);
+
   if (entries.length === 0) {
     console.error('No git commits found.');
     process.exit(1);

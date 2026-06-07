@@ -2,9 +2,9 @@
 // Include this before core.js on pages where you want to override defaults.
 window.RTS_CONFIG = {
   // Software build version — updated on every deployment
-  buildVersion: 'd98df7a',
+  buildVersion: '963074a',
   buildDate:    '2026-06-07',
-  buildNote:    'Unify logistics inventory flow and Shopify sync consistency',
+  buildNote:    'Automate build metadata updates and enforce freshness',
   // API Configuration
   api: {
     baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)
