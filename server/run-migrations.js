@@ -101,7 +101,8 @@ async function runMigrations() {
     '080_seed_asanda_mcgwaba.sql',
     '081_academy_test_venue.sql',
     '082_academy_booked_dates.sql',
-    '083_academy_email_inbox.sql'
+    '083_academy_email_inbox.sql',
+    '084_shopify_inventory_guard.sql'
   ];
   
   let appliedCount = 0, skippedCount = 0;

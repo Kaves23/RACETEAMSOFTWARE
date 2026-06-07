@@ -4,6 +4,22 @@ const { pool } = require('../db');
 const { logActivity } = require('../lib/activityLog');
 const SHOPIFY_LINKED_CONDITION = '(shopify_variant_id IS NOT NULL OR shopify_product_id IS NOT NULL)';
 
+async function logShopifyGuardBlock(req, entityId, reason, details = {}) {
+  await logActivity(pool, {
+    entityType: 'inventory',
+    entityId: String(entityId || 'unknown'),
+    entityName: 'Shopify-linked inventory',
+    action: 'policy_blocked',
+    userId: req.user?.userId || null,
+    userName: req.user?.username || null,
+    details: {
+      policy: 'shopify_inventory_separation',
+      reason,
+      ...details
+    }
+  });
+}
+
 // POST /api/inventory/pack - Pack inventory item into box (with quantity)
 router.post('/pack', async (req, res, next) => {
   try {
@@ -140,6 +156,10 @@ router.post('/unpack', async (req, res, next) => {
         [itemId]
       );
       if (itemCheck.rows.length > 0) {
+        await logShopifyGuardBlock(req, itemId, 'inventory_unpack_rejected_linked_row', {
+          route: '/api/inventory/unpack',
+          boxId: boxId || null
+        });
         await client.query('ROLLBACK');
         return res.status(409).json({
           success: false,
@@ -448,6 +468,11 @@ router.put('/:id', async (req, res, next) => {
     const updates = req.body;
 
     if (updates.shopify_variant_id || updates.shopify_product_id) {
+      await logShopifyGuardBlock(req, id, 'inventory_update_rejected_shopify_fields', {
+        route: '/api/inventory/:id',
+        has_shopify_variant_id: !!updates.shopify_variant_id,
+        has_shopify_product_id: !!updates.shopify_product_id
+      });
       return res.status(409).json({
         success: false,
         error: 'Shopify link fields are managed only by Shopify routes.'
@@ -459,6 +484,9 @@ router.put('/:id', async (req, res, next) => {
       [id]
     );
     if (linkedItem.rows.length > 0) {
+      await logShopifyGuardBlock(req, id, 'inventory_update_rejected_linked_row', {
+        route: '/api/inventory/:id'
+      });
       return res.status(409).json({
         success: false,
         error: 'Shopify-linked items cannot be edited via generic inventory route.'
@@ -568,6 +596,9 @@ router.delete('/:id', async (req, res, next) => {
       [id]
     );
     if (linkedItem.rows.length > 0) {
+      await logShopifyGuardBlock(req, id, 'inventory_delete_rejected_linked_row', {
+        route: '/api/inventory/:id'
+      });
       return res.status(409).json({
         success: false,
         error: 'Shopify-linked items cannot be deleted via generic inventory route.'

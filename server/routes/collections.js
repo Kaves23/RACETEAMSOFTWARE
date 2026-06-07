@@ -3,6 +3,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const { logActivity } = require('../lib/activityLog');
 
 // Valid table names (whitelist for security)
 const VALID_TABLES = [
@@ -14,6 +15,22 @@ const VALID_TABLES = [
 // valid for the process lifetime. Avoids a system-catalog query on every POST/PUT.
 const _schemaCache = new Map();
 const SHOPIFY_LINKED_CONDITION = '(shopify_variant_id IS NOT NULL OR shopify_product_id IS NOT NULL)';
+
+async function logShopifyGuardBlock(req, entityId, reason, details = {}) {
+  await logActivity(db, {
+    entityType: 'inventory',
+    entityId: String(entityId || 'unknown'),
+    entityName: 'Shopify-linked inventory',
+    action: 'policy_blocked',
+    userId: req.user?.userId || null,
+    userName: req.user?.username || null,
+    details: {
+      policy: 'shopify_inventory_separation',
+      reason,
+      ...details
+    }
+  });
+}
 
 async function getValidColumns(tableName) {
   if (_schemaCache.has(tableName)) return _schemaCache.get(tableName);
@@ -115,17 +132,22 @@ router.post('/:table', async (req, res) => {
   try {
     const table = validateTable(req.params.table);
     const data = req.body;
-
-    if (table === 'inventory' && (data.shopify_variant_id || data.shopify_product_id)) {
-      return res.status(409).json({
-        success: false,
-        error: 'Shopify-linked inventory items must be created via Shopify routes only.'
-      });
-    }
     
     // Generate ID if not provided
     if (!data.id) {
       data.id = require('crypto').randomUUID();
+    }
+
+    if (table === 'inventory' && (data.shopify_variant_id || data.shopify_product_id)) {
+      await logShopifyGuardBlock(req, data.id, 'collections_create_rejected', {
+        route: '/api/collections/inventory',
+        has_shopify_variant_id: !!data.shopify_variant_id,
+        has_shopify_product_id: !!data.shopify_product_id
+      });
+      return res.status(409).json({
+        success: false,
+        error: 'Shopify-linked inventory items must be created via Shopify routes only.'
+      });
     }
     
     // Strip keys that don't correspond to real columns (prevents 500 on schema changes)
@@ -165,6 +187,11 @@ router.put('/:table/:id', async (req, res) => {
     const data = req.body;
 
     if (table === 'inventory' && (data.shopify_variant_id || data.shopify_product_id)) {
+      await logShopifyGuardBlock(req, id, 'collections_update_rejected_shopify_fields', {
+        route: '/api/collections/inventory/:id',
+        has_shopify_variant_id: !!data.shopify_variant_id,
+        has_shopify_product_id: !!data.shopify_product_id
+      });
       return res.status(409).json({
         success: false,
         error: 'Shopify link fields are managed only by Shopify routes.'
@@ -177,6 +204,9 @@ router.put('/:table/:id', async (req, res) => {
         [id]
       );
       if (linkedRow.rows.length > 0) {
+        await logShopifyGuardBlock(req, id, 'collections_update_rejected_linked_row', {
+          route: '/api/collections/inventory/:id'
+        });
         return res.status(409).json({
           success: false,
           error: 'Shopify-linked items cannot be edited through generic inventory routes.'
@@ -260,6 +290,9 @@ router.delete('/:table/:id', async (req, res) => {
         [id]
       );
       if (linkedRow.rows.length > 0) {
+        await logShopifyGuardBlock(req, id, 'collections_delete_rejected_linked_row', {
+          route: '/api/collections/inventory/:id'
+        });
         return res.status(409).json({
           success: false,
           error: 'Shopify-linked items cannot be deleted through generic inventory routes.'
@@ -312,6 +345,10 @@ router.post('/:table/bulk', async (req, res) => {
     if (table === 'inventory') {
       const hasShopifyLinked = items.some(it => it && (it.shopify_variant_id || it.shopify_product_id));
       if (hasShopifyLinked) {
+        await logShopifyGuardBlock(req, 'bulk', 'collections_bulk_rejected_shopify_items', {
+          route: '/api/collections/inventory/bulk',
+          item_count: items.length
+        });
         return res.status(409).json({
           success: false,
           error: 'Shopify-linked items are not allowed in generic inventory bulk upsert.'
