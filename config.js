@@ -2,9 +2,9 @@
 // Include this before core.js on pages where you want to override defaults.
 window.RTS_CONFIG = {
   // Software build version — updated on every deployment
-  buildVersion: 'f3f906b',
-  buildDate:    '2026-04-26',
-  buildNote:    'Race sessions & lap times persist to DB; live timing URL synced for all users; box packing compact cards; event notes Add Task modal redesign',
+  buildVersion: 'd98df7a',
+  buildDate:    '2026-06-07',
+  buildNote:    'Unify logistics inventory flow and Shopify sync consistency',
   // API Configuration
   api: {
     baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)

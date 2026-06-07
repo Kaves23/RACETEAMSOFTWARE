@@ -118,6 +118,41 @@ Central directory for shared data used across the app (right‑pane inspector wi
   - `safeLoadJSON`, `safeSaveJSON`, `deepMerge`, `moneyZAR`, `confirmPrompt`, etc.
   - Crosshair overlay: `RTS.enableCrosshair(opts)`, `RTS.disableCrosshair()`
 
+## Build Metadata Automation
+
+This repo uses two metadata files for the History/build banner experience:
+
+- `git-log.json` (commit timeline consumed by History page)
+- `config.js` (`buildVersion`, `buildDate`, `buildNote`)
+
+To keep them current automatically:
+
+1. Install repo hooks once:
+
+```bash
+bash scripts/install-git-hooks.sh
+```
+
+2. The pre-commit hook will now:
+
+- run `node scripts/update-build-metadata.js`
+- stage updated metadata files automatically
+
+3. CI guard:
+
+- `.github/workflows/metadata-guard.yml` runs `node scripts/update-build-metadata.js --check`
+- PRs/pushes fail if metadata is stale
+
+Manual commands:
+
+```bash
+# Regenerate metadata
+node scripts/update-build-metadata.js
+
+# Check-only mode (non-zero exit if stale)
+node scripts/update-build-metadata.js --check
+```
+
 ## Persistence
 
 All data is stored in localStorage under `rts.*` keys, for example:
