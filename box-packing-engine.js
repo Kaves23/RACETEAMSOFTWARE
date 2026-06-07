@@ -529,8 +529,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     
     // Fire inventory load in the background — boxes render immediately without waiting
     loadInventoryItems().then(() => {
-      const badge = document.getElementById('inventoryCount');
-      if (badge) badge.textContent = inventoryItems.length;
+      updateInventoryTabCounts();
       if (currentFilter === 'inventory') renderItems();
       if (currentFilter === 'shopify') renderLocalShopifyTab();
       // Re-render box contents if a box is open — inventory items may have been invisible
@@ -566,6 +565,25 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     banner.innerHTML = `<span style="font-size:1.1rem">⚠️</span><div><strong>${items.length} unassigned item${items.length > 1 ? 's' : ''}</strong> — no box or location set.<br><span style="opacity:.8">${names}${more}</span></div>`;
   }
 
+  function isShopifyLinkedInventoryItem(item) {
+    return !!(item && (item.shopify_variant_id || item.shopify_inventory_item_id || item.shopify_product_id));
+  }
+
+  function getNonShopifyInventoryItems() {
+    return inventoryItems.filter(i => !isShopifyLinkedInventoryItem(i));
+  }
+
+  function getShopifyLinkedInventoryItems() {
+    return inventoryItems.filter(i => isShopifyLinkedInventoryItem(i));
+  }
+
+  function updateInventoryTabCounts() {
+    const invBadge = document.getElementById('inventoryCount');
+    if (invBadge) invBadge.textContent = getNonShopifyInventoryItems().length;
+    const shopifyBadge = document.getElementById('shopifyCount');
+    if (shopifyBadge) shopifyBadge.textContent = getShopifyLinkedInventoryItems().length;
+  }
+
   // Load inventory items from database
   async function loadInventoryItems() {
     try {
@@ -591,9 +609,11 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
         inventoryItems = [];
         console.log('📋 No inventory items found');
       }
+      updateInventoryTabCounts();
     } catch (error) {
       console.error('❌ Error loading inventory items:', error);
       inventoryItems = [];
+      updateInventoryTabCounts();
     }
   }
   
@@ -1056,6 +1076,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
             <div style="flex:1;min-width:0">
               <div style="font-size:.78rem;font-weight:600;color:#202124;line-height:1.3;margin-bottom:2px">${esc(p.name)}</div>
               <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+                <span style="font-size:.66rem;font-weight:800;color:#137333;background:#e6f4ea;border:1px solid #b7dfc4;padding:1px 5px;border-radius:999px">SHOPIFY</span>
                 ${p.sku ? `<span style="font-family:monospace;font-size:.68rem;color:#1a73e8">${esc(p.sku)}</span>` : ''}
                 <span style="font-size:.68rem;color:#5f6368;background:#f0f0f0;padding:1px 5px;border-radius:3px">${esc(p.category)}</span>
                 <span style="font-size:.68rem;font-weight:700;color:${qtyColour}">${qty} in stock</span>
@@ -1081,7 +1102,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       await loadInventoryItems();
     }
 
-    const shopifyItems = inventoryItems.filter(i => i.shopify_variant_id || i.shopify_inventory_item_id);
+    const shopifyItems = getShopifyLinkedInventoryItems();
     const locationId = document.getElementById('shopifyLocationSelect')?.value || '';
     const locationName = getShopifyLocationName(locationId);
 
@@ -1148,6 +1169,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
             <div style="flex:1;min-width:0">
               <div style="font-size:.78rem;font-weight:600;color:#202124;line-height:1.3;margin-bottom:2px">${esc(item.name)}</div>
               <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+                <span style="font-size:.66rem;font-weight:800;color:#137333;background:#e6f4ea;border:1px solid #b7dfc4;padding:1px 5px;border-radius:999px">SHOPIFY</span>
                 ${item.sku ? `<span style="font-family:monospace;font-size:.68rem;color:#1a73e8">${esc(item.sku)}</span>` : ''}
                 ${item.category ? `<span style="font-size:.68rem;color:#5f6368;background:#f0f0f0;padding:1px 5px;border-radius:3px">${esc(item.category)}</span>` : ''}
                 ${locationId
@@ -1268,7 +1290,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
         }
 
       } else {
-        // ── No box selected: import only, switch to Inventory tab ──
+        // ── No box selected: import only, keep in Shopify tab ──
         showLoading('Shopify', `Importing ${name}…`);
         const importResp = await fetch('/api/shopify/lazy-import', {
           method: 'POST',
@@ -1283,8 +1305,8 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
         }
         await loadInventoryItems();
         hideLoading();
-        showToast(`✅ "${name}" imported — drag it from the Inventory tab to a box`, 'success');
-        switchItemsTab('inventory');
+        showToast(`✅ "${name}" imported — drag it from the Shopify tab to a box`, 'success');
+        switchItemsTab('shopify');
       }
 
     } catch (err) {
@@ -1750,7 +1772,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
 
     // If inventory filter is selected, show only inventory items
     if (currentFilter === 'inventory') {
-      allItems = inventoryItems.map(inv => {
+      allItems = getNonShopifyInventoryItems().map(inv => {
         // Calculate packed quantity across all boxes
         const packedQty = (window.inventoryPackedQuantities?.get(inv.id) || 
                           window.inventoryPackedQuantities?.get(String(inv.id))) || 0;
