@@ -1833,14 +1833,16 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       let isPacked = false, isPackedStyle = '', isPackedClass = '', draggable = true, cursorStyle = 'cursor:move', quantityInfo = '';
       if (item.type === 'inventory') {
         const allPacked = (item.availableQuantity || 0) === 0;
-        isPacked = allPacked; isPackedStyle = allPacked ? 'opacity:0.4' : ''; isPackedClass = allPacked ? 'in-box' : '';
+        isPacked = allPacked; isPackedStyle = allPacked ? 'opacity:0.88' : ''; isPackedClass = allPacked ? 'in-box' : '';
         draggable = !allPacked; cursorStyle = allPacked ? 'cursor:not-allowed' : 'cursor:move';
         const totalQty = item.totalQuantity || 0, packedQty = item.packedQuantity || 0, availQty = item.availableQuantity || 0;
         quantityInfo = `<span style="color:#34a853;font-weight:700">${availQty}</span><span style="color:#9aa0a6"> av</span> <span style="color:#9aa0a6">/</span> <span style="color:#ea4335;font-weight:700">${packedQty}</span><span style="color:#9aa0a6"> pk</span> <span style="color:#9aa0a6">/</span> <span style="color:#1a73e8;font-weight:700">${totalQty}</span><span style="color:#9aa0a6"> tot</span>`;
       } else {
-        isPacked = !!item.currentBoxId; isPackedStyle = isPacked ? 'opacity:0.4' : ''; isPackedClass = isPacked ? 'in-box' : '';
+        isPacked = !!item.currentBoxId; isPackedStyle = isPacked ? 'opacity:0.88' : ''; isPackedClass = isPacked ? 'in-box' : '';
         draggable = !isPacked; cursorStyle = isPacked ? 'cursor:not-allowed' : 'cursor:move';
       }
+      const packedSummary = isPacked ? getPackedSummary(item) : null;
+      const packedCardClass = isPacked ? 'packed-item-card' : '';
       const isSelected = selectedItems.has(item.id);
       const selectedClass = isSelected ? 'item-selected' : '';
       const itemTypeKey = (item.itemType || item.type || 'equipment').toLowerCase();
@@ -1849,7 +1851,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       const typeName = assetTypeObj ? assetTypeObj.name : (item.itemType || item.type || 'equipment');
       const serialNum = item.serialNumber || 'No S/N';
       return `
-        <div class="item-card ${isPackedClass} ${selectedClass}" draggable="${draggable}" data-item-id="${item.id}" data-item-type="${item.type}" style="position:relative;padding:4px 6px 4px 22px!important;${cursorStyle}">
+        <div class="item-card ${isPackedClass} ${packedCardClass} ${selectedClass}" draggable="${draggable}" data-item-id="${item.id}" data-item-type="${item.type}" style="position:relative;padding:4px 6px 4px 22px!important;${cursorStyle}">
           <input type="checkbox" class="item-checkbox" data-item-id="${item.id}" onclick="event.stopPropagation(); toggleItemSelection('${item.id}')" ${isSelected ? 'checked' : ''} style="position:absolute;left:3px;top:50%;transform:translateY(-50%);margin:0">
           <div style="${isPackedStyle}">
             <div style="display:flex;align-items:baseline;gap:5px;min-width:0;margin-bottom:1px">
@@ -1863,10 +1865,10 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
               ${item.hasVariants ? '<span style="background:#e65100;color:#fff;font-weight:600;padding:1px 4px;border-radius:3px;flex-shrink:0">SIZES</span>' : ''}
               <span style="color:#5f6368;font-family:monospace;white-space:nowrap;flex-shrink:0"><b>SN:</b>${esc(serialNum)}</span>
               ${quantityInfo ? `<span style="margin-left:auto;white-space:nowrap;flex-shrink:0">${quantityInfo}</span>` : ''}
-              ${isPacked ? `<span style="margin-left:auto;color:#ea4335;font-weight:700;white-space:nowrap;flex-shrink:0">IN ${esc(boxName)}</span>` : ''}
+              ${isPacked ? `<span style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;min-width:0"><span class="item-packed-pill">${esc(packedSummary?.label || `Packed in ${boxName}`)}</span>${packedSummary?.where ? `<span class="item-packed-where">${esc(packedSummary.where)}</span>` : ''}</span>` : ''}
             </div>
           </div>
-          ${isPacked ? `<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:2"><div style="background:rgba(220,53,69,0.88);color:#fff;font-weight:900;font-size:.8rem;padding:3px 12px;border-radius:4px;letter-spacing:2px;box-shadow:0 1px 4px rgba(0,0,0,.3)">PACKED</div></div>` : ''}
+          ${isPacked ? `<div class="item-packed-chip">PACKED</div>` : ''}
         </div>
       `;
     }).join('');
@@ -4221,6 +4223,56 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
   function getBoxName(id) {
     const box = getBox(id);
     return box ? box.name : 'Unknown Box';
+  }
+
+  function getLocationName(id) {
+    if (!id) return '';
+    const loc = allLocations.find(l => String(l.id) === String(id));
+    return loc?.name || String(id);
+  }
+
+  function getPackedSummary(item) {
+    if (!item) return null;
+
+    if (item.type === 'inventory') {
+      const refs = boxContents.filter(c => c.itemType === 'inventory' && String(c.itemId) === String(item.id));
+      if (!refs.length) return null;
+
+      const uniqueBoxes = [...new Set(refs.map(c => c.boxId))]
+        .map(getBox)
+        .filter(Boolean);
+      if (!uniqueBoxes.length) return { label: 'Packed', where: '' };
+
+      if (uniqueBoxes.length === 1) {
+        const b = uniqueBoxes[0];
+        const whereParts = [];
+        const locName = getLocationName(b.location);
+        if (locName) whereParts.push(locName);
+        if (b.truckId) whereParts.push(`Truck ${b.truckId}`);
+        return {
+          label: `Packed in ${b.name || b.barcode || 'box'}`,
+          where: whereParts.join(' • ')
+        };
+      }
+
+      const sample = uniqueBoxes.slice(0, 2).map(b => b.name || b.barcode || 'Box').join(', ');
+      const more = uniqueBoxes.length > 2 ? ` +${uniqueBoxes.length - 2} more` : '';
+      return {
+        label: `Packed in ${uniqueBoxes.length} boxes`,
+        where: `${sample}${more}`
+      };
+    }
+
+    const box = item.currentBoxId ? getBox(item.currentBoxId) : null;
+    if (!box) return null;
+    const whereParts = [];
+    const locName = getLocationName(box.location);
+    if (locName) whereParts.push(locName);
+    if (box.truckId) whereParts.push(`Truck ${box.truckId}`);
+    return {
+      label: `Packed in ${box.name || box.barcode || 'box'}`,
+      where: whereParts.join(' • ')
+    };
   }
 
   function getItem(id, type) {
