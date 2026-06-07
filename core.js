@@ -1224,8 +1224,11 @@
       });
     },
 
-    // Get all box contents
-    async getBoxContents() {
+    // Get box contents (all boxes, or a single box when boxId is provided)
+    async getBoxContents(boxId = null) {
+      if (boxId) {
+        return await apiRequest(`/box-contents/${encodeURIComponent(boxId)}`);
+      }
       return await apiRequest('/box-contents');
     },
 
@@ -1320,8 +1323,15 @@
     },
 
     // Generic collection methods (for tables like drivers, tasks, notes, etc.)
-    async getCollectionItems(tableName) {
-      return await apiRequest(`/collections/${tableName}`);
+    async getCollectionItems(tableName, filters = {}) {
+      const params = new URLSearchParams();
+      Object.entries(filters || {}).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          params.append(key, String(value));
+        }
+      });
+      const qs = params.toString();
+      return await apiRequest(`/collections/${tableName}${qs ? `?${qs}` : ''}`);
     },
 
     async createCollectionItem(tableName, data) {

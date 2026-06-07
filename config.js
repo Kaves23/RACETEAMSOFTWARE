@@ -2,9 +2,9 @@
 // Include this before core.js on pages where you want to override defaults.
 window.RTS_CONFIG = {
   // Software build version — updated on every deployment
-  buildVersion: '45d4093',
+  buildVersion: 'a0d6be0',
   buildDate:    '2026-06-07',
-  buildNote:    'Fix packed inventory visibility when local cache is partial',
+  buildNote:    'Fix selected-box contents refresh in box packing',
   // API Configuration
   api: {
     baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)
