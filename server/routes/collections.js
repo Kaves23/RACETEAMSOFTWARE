@@ -61,7 +61,9 @@ router.get('/:table', async (req, res) => {
       sql += ' WHERE ' + conditions.join(' AND ');
     }
     
-    sql += ' ORDER BY created_at DESC LIMIT 500';
+    // Inventory can be significantly larger; avoid silently hiding older SKUs.
+    const limit = table === 'inventory' ? 5000 : 500;
+    sql += ` ORDER BY created_at DESC LIMIT ${limit}`;
     
     const result = await db.query(sql, params);
     // Reference collections (drivers, staff, locations) change infrequently — allow browser to cache for 30 s

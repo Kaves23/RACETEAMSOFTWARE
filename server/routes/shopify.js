@@ -57,7 +57,7 @@ router.post('/test-connection', async (req, res, next) => {
  */
 router.post('/sync-inventory', async (req, res, next) => {
   try {
-    const { locationMapping } = req.body;
+    const { locationMapping = {}, overwriteExisting = true, syncLocations = true } = req.body || {};
 
     // Credentials come from the database (set via OAuth)
     const cfg = await loadShopifyCredentials();
@@ -129,7 +129,7 @@ router.post('/sync-inventory', async (req, res, next) => {
           
           // Build location distribution from inventory levels
           let locationDist = {};
-          if (variant.inventory_item_id) {
+          if (syncLocations && variant.inventory_item_id) {
             // Fetch inventory levels for this variant
             const levelsUrl = `https://${shop}/admin/api/2026-01/inventory_levels.json?inventory_item_ids=${variant.inventory_item_id}`;
             const levelsResponse = await fetch(levelsUrl, {
@@ -161,13 +161,8 @@ router.post('/sync-inventory', async (req, res, next) => {
           inventoryItem.location_distribution = JSON.stringify(locationDist);
           
           // Insert or update using ON CONFLICT
-          const query = `
-            INSERT INTO inventory (
-              name, sku, category, quantity, unit_of_measure, min_quantity,
-              location_id, supplier, lead_time_days, unit_cost, notes, auto_reorder,
-              shopify_product_id, shopify_variant_id, shopify_sync_at, location_distribution
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
-            ON CONFLICT (sku) 
+          const onConflictClause = overwriteExisting
+            ? `ON CONFLICT (sku)
             DO UPDATE SET
               name = EXCLUDED.name,
               category = EXCLUDED.category,
@@ -179,10 +174,19 @@ router.post('/sync-inventory', async (req, res, next) => {
               shopify_variant_id = EXCLUDED.shopify_variant_id,
               shopify_sync_at = EXCLUDED.shopify_sync_at,
               location_distribution = EXCLUDED.location_distribution,
-              updated_at = NOW()
+              updated_at = NOW()`
+            : `ON CONFLICT (sku) DO NOTHING`;
+
+          const query = `
+            INSERT INTO inventory (
+              name, sku, category, quantity, unit_of_measure, min_quantity,
+              location_id, supplier, lead_time_days, unit_cost, notes, auto_reorder,
+              shopify_product_id, shopify_variant_id, shopify_sync_at, location_distribution
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+            ${onConflictClause}
           `;
           
-          await pool.query(query, [
+          const upsertResult = await pool.query(query, [
             inventoryItem.name,
             inventoryItem.sku,
             inventoryItem.category,
@@ -201,12 +205,24 @@ router.post('/sync-inventory', async (req, res, next) => {
             inventoryItem.location_distribution
           ]);
           
-          synced++;
+          if (upsertResult.rowCount > 0) synced++;
         }
       } catch (itemError) {
         console.error(`Error syncing product ${product.id}:`, itemError);
         errors.push({ product: product.title, error: itemError.message });
       }
+    }
+
+    // Persist last successful sync timestamp for UI status display.
+    const lastSync = new Date().toISOString();
+    try {
+      await pool.query(
+        `INSERT INTO settings (key, value) VALUES ('shopify_config', $1)
+         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+        [JSON.stringify({ ...cfg, lastSync })]
+      );
+    } catch (cfgErr) {
+      console.warn('Could not update Shopify lastSync timestamp:', cfgErr.message);
     }
     
     res.json({
@@ -519,7 +535,7 @@ router.post('/lazy-import', async (req, res, next) => {
         vals.push(String(shopify_inventory_item_id));
       }
       if (shopify_quantity != null) {
-        const newQty = Math.max(1, parseInt(shopify_quantity) || 1);
+        const newQty = Math.max(0, parseInt(shopify_quantity) || 0);
         if (newQty > (existing.rows[0].quantity || 0)) {
           updates.push(`quantity = $${vals.length + 1}`);
           vals.push(newQty);
@@ -589,7 +605,7 @@ router.post('/lazy-import', async (req, res, next) => {
         [newId, name, sku || null, categoryName,
          parseFloat(price) || null, vendor || null,
          String(shopify_product_id), String(shopify_variant_id),
-         Math.max(1, parseInt(shopify_quantity) || 1),
+          Math.max(0, parseInt(shopify_quantity) || 0),
          shopify_inventory_item_id ? String(shopify_inventory_item_id) : null]
       );
     } catch (insertErr) {
@@ -610,7 +626,7 @@ router.post('/lazy-import', async (req, res, next) => {
           [newId, name, sku || null, categoryName,
            parseFloat(price) || null, vendor || null,
            String(shopify_product_id), String(shopify_variant_id),
-           Math.max(1, parseInt(shopify_quantity) || 1)]
+           Math.max(0, parseInt(shopify_quantity) || 0)]
         );
       } else {
         throw insertErr;

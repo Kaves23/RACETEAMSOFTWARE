@@ -530,7 +530,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     // Fire inventory load in the background — boxes render immediately without waiting
     loadInventoryItems().then(() => {
       const badge = document.getElementById('inventoryCount');
-      if (badge) badge.textContent = inventoryItems.filter(i => !i.shopify_variant_id).length;
+      if (badge) badge.textContent = inventoryItems.length;
       if (currentFilter === 'inventory') renderItems();
       if (currentFilter === 'shopify') renderLocalShopifyTab();
       // Re-render box contents if a box is open — inventory items may have been invisible
@@ -1750,7 +1750,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
 
     // If inventory filter is selected, show only inventory items
     if (currentFilter === 'inventory') {
-      allItems = inventoryItems.filter(inv => !inv.shopify_variant_id).map(inv => {
+      allItems = inventoryItems.map(inv => {
         // Calculate packed quantity across all boxes
         const packedQty = (window.inventoryPackedQuantities?.get(inv.id) || 
                           window.inventoryPackedQuantities?.get(String(inv.id))) || 0;

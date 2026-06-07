@@ -39,10 +39,17 @@ router.get('/draft', async (req, res, next) => {
       scannedAt: r.scanned_at || null
     }));
 
-    // Also load standalone asset / inventory placements
+    // Legacy cleanup: inventory is no longer a direct load-planning item type.
+    // Purge old draft rows so they do not keep reappearing in the UI.
+    await pool.query(
+      `DELETE FROM load_plan_assets WHERE load_plan_id = $1 AND item_type = 'inventory'`,
+      [plan.id]
+    );
+
+    // Load standalone asset placements only
     const assetsResult = await pool.query(
       `SELECT item_type, item_id, truck_zone, added_at
-       FROM load_plan_assets WHERE load_plan_id = $1 ORDER BY added_at`,
+       FROM load_plan_assets WHERE load_plan_id = $1 AND item_type = 'asset' ORDER BY added_at`,
       [plan.id]
     );
 
@@ -118,7 +125,6 @@ router.put('/draft', async (req, res, next) => {
     // Split placements by type
     const boxPlacements   = placements.filter(p => p.type === 'box' || p.boxId);
     const assetPlacements = placements.filter(p => p.type === 'asset' || (p.assetId && !p.boxId));
-    const invPlacements   = placements.filter(p => p.type === 'inventory' || (p.inventoryId && !p.boxId));
 
     // Bulk INSERT box placements — filter to only box IDs that exist in the boxes table
     if (boxPlacements.length > 0) {
@@ -153,12 +159,11 @@ router.put('/draft', async (req, res, next) => {
       }
     }
 
-    // Replace asset / inventory placements
+    // Replace asset placements
     await client.query('DELETE FROM load_plan_assets WHERE load_plan_id = $1', [planId]);
 
     const allItemPlacements = [
-      ...assetPlacements.map(p => ({ itemType: 'asset',     itemId: p.assetId,     zone: p.zone, ts: p.timestamp })),
-      ...invPlacements.map(p   => ({ itemType: 'inventory', itemId: p.inventoryId, zone: p.zone, ts: p.timestamp }))
+      ...assetPlacements.map(p => ({ itemType: 'asset', itemId: p.assetId, zone: p.zone, ts: p.timestamp }))
     ].filter(p => p.itemId);
 
     if (allItemPlacements.length > 0) {

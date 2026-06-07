@@ -236,7 +236,8 @@ console.log('📦 load-engine.js loading...');
       const draftResp = await window.RTS_API.getLoadPlanDraft(defaultTruckId);
       if (draftResp && draftResp.success && draftResp.plan) {
         const plan = draftResp.plan;
-        const placements = purgeOrphanPlacements(draftResp.placements || []);
+        const placements = purgeOrphanPlacements(draftResp.placements || [])
+          .filter(p => p.type !== 'inventory');
         currentLoad = {
           id: plan.id,
           eventId: plan.event_id || null,
@@ -448,7 +449,7 @@ console.log('📦 load-engine.js loading...');
               id: resp.plan.id,
               eventId: resp.plan.event_id || null,
               truckId: resp.plan.truck_id,
-              placements: purgeOrphanPlacements(resp.placements || []),
+              placements: purgeOrphanPlacements(resp.placements || []).filter(p => p.type !== 'inventory'),
               status: resp.plan.status || 'Draft',
               createdAt: resp.plan.created_at,
               updatedAt: resp.plan.updated_at
@@ -647,7 +648,6 @@ console.log('📦 load-engine.js loading...');
     populateFilterDropdowns();
     renderBoxes();
     renderAssets();
-    renderInventory();
     renderTruckZones();
     updateStats();
     if (currentView === '3D') render3D();
@@ -1656,19 +1656,7 @@ console.log('📦 load-engine.js loading...');
   }
 
   function placeInventory(inventoryId, zone) {
-    if (currentLoad.placements.some(p => p.type === 'inventory' && p.inventoryId === inventoryId)) {
-      alert('Item is already loaded!');
-      return;
-    }
-    currentLoad.placements.push({
-      type: 'inventory',
-      inventoryId,
-      zone,
-      timestamp: new Date().toISOString()
-    });
-    currentLoad.updatedAt = new Date().toISOString();
-    saveData();
-    renderAll();
+    alert('Inventory can no longer be placed directly in Load Planning. Pack inventory into boxes in Box Packing first.');
   }
 
   function removeInventory(inventoryId) {

@@ -1149,6 +1149,10 @@
               } catch (e) {
                 console.warn('Failed to parse location_distribution:', e);
               }
+
+              const resolvedLocation = item.location_id
+                ? (LOCATIONS.find(l => String(l.id) === String(item.location_id))?.name || item.location_id)
+                : (Object.keys(locationDist)[0] || '');
               
               return {
                 id: item.id,
@@ -1158,7 +1162,7 @@
                 qty: parseFloat(item.quantity) || 0,
                 uom: item.unit_of_measure || 'ea',
                 reorder: parseFloat(item.min_quantity) || 0,
-                location: item.location_id || '',
+                location: resolvedLocation,
                 locationDist: locationDist,
                 supplier: item.supplier || '',
                 leadDays: parseInt(item.lead_time_days) || 0,
@@ -2941,13 +2945,19 @@
         document.getElementById('syncProgressText').textContent = 'Fetching products from Shopify...';
 
         try {
+          const overwriteExisting = document.getElementById('shopifyOverwriteExisting')?.checked !== false;
+          const syncLocations = document.getElementById('shopifySyncLocations')?.checked !== false;
           const response = await fetch(`${RTS_CONFIG.api.baseURL}/shopify/sync-inventory`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
               'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ locationMapping: {} })
+            body: JSON.stringify({
+              overwriteExisting,
+              syncLocations,
+              locationMapping: {}
+            })
           });
 
           const data = await response.json();
