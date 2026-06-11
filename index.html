@@ -596,10 +596,11 @@
     // Alerts
     const openTasks = tasks.filter(t => !['Done','Closed','Complete'].includes(String(t.status||'').trim()));
     const checkedOut = assets.filter(a => String(a.status||'').toLowerCase().includes('checked'));
+    let assetsOutCount = checkedOut.length;
     const openInc = incidents.filter(x => !['Closed','Resolved'].includes(String(x.status||'').trim()));
 
     el('dashOpenTasks').textContent = openTasks.length;
-    el('dashCheckedOut').textContent = checkedOut.length;
+    el('dashCheckedOut').textContent = assetsOutCount;
     el('dashLowStock').textContent = '…';
     el('dashOpenIncidents').textContent = openInc.length;
 
@@ -620,6 +621,10 @@
         el('dashMaintDue').textContent = mCount;
         const mBadge = el('dashMaintBadge');
         mBadge.className = mOverdue > 0 ? 'badge text-bg-danger' : mCount > 0 ? 'badge text-bg-warning' : 'badge text-bg-secondary';
+
+        // Assets out counts both checked-out items and truck-packed/loaded assets.
+        assetsOutCount = Number(data.assetsOut?.count) || 0;
+        el('dashCheckedOut').textContent = assetsOutCount;
 
         // Re-run readiness with live data
         _lsCountForReadiness = lsCount;
@@ -698,7 +703,7 @@
       let score = 100;
       score -= Math.min(50, openTasks.length * 3);
       score -= Math.min(25, _lsCountForReadiness * 5);
-      score -= Math.min(20, checkedOut.length * 4);
+      score -= Math.min(20, assetsOutCount * 4);
       score -= Math.min(20, openInc.length * 6);
       score -= Math.min(15, _maintCountForReadiness * 3);
       score = Math.max(0, Math.min(100, score));
@@ -713,7 +718,7 @@
       const addNote = (s)=>{ const li=document.createElement('li'); li.textContent=s; notes.appendChild(li); };
       if(openTasks.length) addNote(`${openTasks.length} open tasks`);
       if(_lsCountForReadiness) addNote(`${_lsCountForReadiness} low-stock items`);
-      if(checkedOut.length) addNote(`${checkedOut.length} checked-out assets`);
+      if(assetsOutCount) addNote(`${assetsOutCount} assets out`);
       if(openInc.length) addNote(`${openInc.length} open incidents`);
       if(_maintCountForReadiness) addNote(`${_maintCountForReadiness} assets due for maintenance`);
       if(!notes.children.length) addNote('No active alerts — all systems nominal');
@@ -728,7 +733,7 @@
       };
       kpiAlert('dashOpenTasks',     openTasks.length,          3, 8);
       kpiAlert('dashLowStock',      _lsCountForReadiness,      1, 5);
-      kpiAlert('dashCheckedOut',    checkedOut.length,          2, 6);
+      kpiAlert('dashCheckedOut',    assetsOutCount,             2, 6);
       kpiAlert('dashOpenIncidents', openInc.length,             1, 3);
       kpiAlert('dashMaintDue',      _maintCountForReadiness,   1, 5);
     }

@@ -258,7 +258,7 @@
         <div class="rts-topbar-inner">
           <div class="rts-topbar-row1">
             <div class="rts-brand">
-              <span class="rts-brand-mark">RT</span>
+              <img class="rts-brand-mark" src="favicon-64.png" alt="Race Team OS icon">
               <span class="rts-brand-text">Race Team OS</span>
             </div>
             <div class="rts-lt-badge" id="rtsLtBadge" style="display:none;">
