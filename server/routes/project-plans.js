@@ -153,6 +153,127 @@ router.post('/', async (req, res, next) => {
   }
 });
 
+// POST /api/project-plans/:id/duplicate — clone a plan with all tasks + links in one transaction
+router.post('/:id/duplicate', async (req, res, next) => {
+  const { name, as_template } = req.body || {};
+  const asTemplate = as_template === true || as_template === 'true';
+  let client;
+  try {
+    client = await pool.connect();
+    await client.query('BEGIN');
+
+    // 1. Load source plan
+    const srcPlanRes = await client.query('SELECT * FROM project_plans WHERE id = $1', [req.params.id]);
+    if (srcPlanRes.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ success: false, error: 'Source plan not found' });
+    }
+    const src = srcPlanRes.rows[0];
+    const newName = (name && name.trim()) ? name.trim() : `${src.name} (Copy)`;
+
+    // 2. Create the new plan
+    const newPlanId = crypto.randomUUID();
+    const newPlanRes = await client.query(`
+      INSERT INTO project_plans
+        (id, name, event_id, start_date, end_date, color, status, description,
+         project_type, owner_staff_id, risk_level, priority, created_by_user_id)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+      RETURNING *
+    `, [
+      newPlanId,
+      newName,
+      src.event_id || null,
+      src.start_date || null,
+      src.end_date || null,
+      src.color || '#a64dff',
+      asTemplate ? 'planned' : (src.status || 'active'),
+      src.description || null,
+      src.project_type || null,
+      src.owner_staff_id || null,
+      asTemplate ? null : (src.risk_level || null),
+      src.priority || 'medium',
+      req.user?.id || null
+    ]);
+
+    // 3. Load all source tasks
+    const tasksRes = await client.query(
+      'SELECT * FROM project_tasks WHERE plan_id = $1 ORDER BY sort_order ASC, created_at ASC',
+      [req.params.id]
+    );
+    const srcTasks = tasksRes.rows;
+
+    // Pre-generate new IDs for every task so parent remapping works regardless of order
+    const idMap = {};
+    for (const t of srcTasks) idMap[t.id] = crypto.randomUUID();
+
+    // Determine insertable columns dynamically (handles schema drift), excluding generated ones
+    const skipCols = new Set(['created_at', 'updated_at']);
+    const overrideCols = new Set(['id', 'plan_id', 'parent_task_id']);
+
+    let copiedTasks = 0;
+    for (const t of srcTasks) {
+      const cols = [];
+      const vals = [];
+      for (const col of Object.keys(t)) {
+        if (skipCols.has(col) || overrideCols.has(col)) continue;
+        cols.push(col);
+        if (asTemplate && col === 'progress') vals.push(0);
+        else if (asTemplate && col === 'status') vals.push('not_started');
+        else if (asTemplate && (col === 'actual_start_date' || col === 'actual_end_date' || col === 'blocker_reason')) vals.push(null);
+        else vals.push(t[col]);
+      }
+      // Prepend overridden columns
+      cols.unshift('id', 'plan_id', 'parent_task_id');
+      vals.unshift(idMap[t.id], newPlanId, t.parent_task_id ? (idMap[t.parent_task_id] || null) : null);
+
+      const placeholders = cols.map((_, i) => `$${i + 1}`).join(',');
+      await client.query(
+        `INSERT INTO project_tasks (${cols.join(',')}) VALUES (${placeholders})`,
+        vals
+      );
+      copiedTasks++;
+    }
+
+    // 4. Copy dependency links (only those whose endpoints were copied)
+    const linksRes = await client.query(`
+      SELECT l.* FROM project_task_links l
+      JOIN project_tasks ft ON ft.id = l.from_task_id
+      WHERE ft.plan_id = $1
+    `, [req.params.id]);
+
+    let copiedLinks = 0;
+    for (const link of linksRes.rows) {
+      const fromNew = idMap[link.from_task_id];
+      const toNew = idMap[link.to_task_id];
+      if (!fromNew || !toNew) continue;
+      await client.query(`
+        INSERT INTO project_task_links (id, from_task_id, to_task_id, link_type, lag_days)
+        VALUES ($1,$2,$3,$4,$5)
+        ON CONFLICT (from_task_id, to_task_id) DO NOTHING
+      `, [
+        crypto.randomUUID(),
+        fromNew,
+        toNew,
+        link.link_type || 'finish_to_start',
+        link.lag_days || 0
+      ]);
+      copiedLinks++;
+    }
+
+    await client.query('COMMIT');
+    res.status(201).json({
+      success: true,
+      data: newPlanRes.rows[0],
+      copied: { tasks: copiedTasks, links: copiedLinks }
+    });
+  } catch (error) {
+    if (client) { try { await client.query('ROLLBACK'); } catch (_) {} }
+    next(error);
+  } finally {
+    if (client) client.release();
+  }
+});
+
 // PUT /api/project-plans/:id — update plan
 router.put('/:id', async (req, res, next) => {
   const {
@@ -563,7 +684,7 @@ router.get('/:id/detail', async (req, res, next) => {
              e.name      AS event_name,
              e.start_date AS event_start_date,
              e.end_date   AS event_end_date,
-             u.name       AS owner_name
+             COALESCE(u.full_name, u.username) AS owner_name
       FROM project_plans p
       LEFT JOIN events e ON e.id = p.event_id
       LEFT JOIN users  u ON u.id = p.owner_staff_id
