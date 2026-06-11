@@ -4892,6 +4892,47 @@
     window.location.href = `project-detail.html?id=${planId}&edit=1`;
   }
 
+  async function pmFetchAllPlanTasks(planId) {
+    const pageSize = 500;
+    const seenIds = new Set();
+    const all = [];
+    let page = 1;
+
+    for (let guard = 0; guard < 100; guard++) {
+      const resp = await api(`${API}/project-plans/${planId}/tasks?page=${page}&limit=${pageSize}`);
+      const batch = Array.isArray(resp?.data) ? resp.data : [];
+
+      let newCount = 0;
+      for (const t of batch) {
+        const key = String(t?.id ?? '');
+        if (key && !seenIds.has(key)) {
+          seenIds.add(key);
+          all.push(t);
+          newCount++;
+        }
+      }
+
+      const pag = resp?.pagination || resp?.meta || {};
+      const totalPages = Number(pag.totalPages || pag.total_pages || 0);
+      const hasNext = pag.hasNext ?? pag.has_next;
+
+      if (totalPages && page < totalPages) { page++; continue; }
+      if (hasNext === true) { page++; continue; }
+
+      // Fallback: if API is silently paginated without metadata, probe next page.
+      if (!totalPages && hasNext === undefined && batch.length === 20 && newCount > 0) {
+        page++;
+        continue;
+      }
+
+      // Stop if fewer than requested items, empty page, or repeated page payload.
+      if (batch.length < pageSize || batch.length === 0 || newCount === 0) break;
+      page++;
+    }
+
+    return all;
+  }
+
   async function pmDuplicateProject(planId) {
     const sourcePlan = (state.plans || []).find(p => String(p.id) === String(planId));
     if (!sourcePlan) {
@@ -4916,10 +4957,10 @@
 
     try {
       const [tasksResp, linksResp] = await Promise.all([
-        api(`${API}/project-plans/${planId}/tasks`),
+        pmFetchAllPlanTasks(planId),
         api(`${API}/project-plans/${planId}/links`)
       ]);
-      const sourceTasks = (tasksResp.data || []).slice().sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+      const sourceTasks = (tasksResp || []).slice().sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
       const sourceLinks = (linksResp.data || []).slice();
 
       const createPlanResp = await api(`${API}/project-plans`, {

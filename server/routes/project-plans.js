@@ -577,6 +577,7 @@ router.get('/:id/detail', async (req, res, next) => {
     const statsRes = await pool.query(`
       SELECT
         COUNT(*)                                                          AS total_tasks,
+        COUNT(*) FILTER (WHERE parent_task_id IS NULL)                    AS top_level_tasks,
         COUNT(*) FILTER (WHERE status = 'completed')                     AS completed_tasks,
         COUNT(*) FILTER (WHERE status IN ('blocked','waiting_on'))       AS blocked_tasks,
         COUNT(*) FILTER (WHERE status NOT IN ('completed','cancelled')
@@ -585,7 +586,7 @@ router.get('/:id/detail', async (req, res, next) => {
                           AND priority = 'critical')                     AS critical_tasks,
         ROUND(AVG(progress))                                             AS avg_progress
       FROM project_tasks
-      WHERE plan_id = $1 AND parent_task_id IS NULL
+      WHERE plan_id = $1
     `, [req.params.id]);
 
     res.json({
