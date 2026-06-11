@@ -4790,7 +4790,7 @@
       const endFmt = p.end_date ? new Date(p.end_date).toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'2-digit'}) : '—';
       const startFmt = p.start_date ? new Date(p.start_date).toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'2-digit'}) : '—';
       const priorityLabel = { low:'Low', medium:'Medium', high:'High', critical:'Critical' }[p.priority] || (p.priority || '—');
-      return `<tr onclick="if(!event.target.closest('.prow-edit-btn')) pmOpenProject(${p.id})" title="Open project: ${esc(p.name)}">
+      return `<tr onclick="if(!event.target.closest('.prow-action-btn')) pmOpenProject(${p.id})" title="Open project: ${esc(p.name)}">
         <td>
           <div class="prow-name">${esc(p.name)}
             ${p.description ? `<small>${esc(p.description.slice(0,55))}${p.description.length>55?'…':''}</small>` : ''}
@@ -4810,7 +4810,10 @@
         </td>
         <td>${p.task_count != null ? p.task_count : '—'}</td>
         <td>${riskLvl ? `<span class="prow-risk-badge risk-${riskLvl}">${riskLvl.charAt(0).toUpperCase()+riskLvl.slice(1)}</span>` : '<span style="color:#bbb">—</span>'}</td>
-        <td><button class="prow-edit-btn" onclick="event.stopPropagation(); pmEditProject(${p.id})" title="Edit project details" style="background:none;border:none;cursor:pointer;color:#a64dff;font-size:14px;padding:2px 6px;border-radius:3px;">✏️</button></td>
+        <td>
+          <button class="prow-action-btn prow-dup-btn" onclick="event.stopPropagation(); pmDuplicateProject(${p.id})" title="Duplicate project with tasks and links" style="background:none;border:none;cursor:pointer;color:#2980b9;font-size:14px;padding:2px 6px;border-radius:3px;">⧉</button>
+          <button class="prow-action-btn prow-edit-btn" onclick="event.stopPropagation(); pmEditProject(${p.id})" title="Edit project details" style="background:none;border:none;cursor:pointer;color:#a64dff;font-size:14px;padding:2px 6px;border-radius:3px;">✏️</button>
+        </td>
       </tr>`;
     }).join('');
 
@@ -4844,6 +4847,184 @@
   }
   function pmEditProject(planId) {
     window.location.href = `project-detail.html?id=${planId}&edit=1`;
+  }
+
+  async function pmDuplicateProject(planId) {
+    const sourcePlan = (state.plans || []).find(p => String(p.id) === String(planId));
+    if (!sourcePlan) {
+      alert('Could not find that project to duplicate.');
+      return;
+    }
+
+    const suggestedName = `${sourcePlan.name || 'Project'} (Copy)`;
+    const enteredName = prompt('Name for duplicated project:', suggestedName);
+    if (enteredName === null) return;
+    const newName = enteredName.trim();
+    if (!newName) {
+      alert('Project name is required.');
+      return;
+    }
+
+    const duplicateAsTemplate = confirm(
+      'Create this as a clean template copy?\n\n' +
+      'OK = reset task progress/status to a fresh plan\n' +
+      'Cancel = make an exact duplicate'
+    );
+
+    try {
+      const [tasksResp, linksResp] = await Promise.all([
+        api(`${API}/project-plans/${planId}/tasks`),
+        api(`${API}/project-plans/${planId}/links`)
+      ]);
+      const sourceTasks = (tasksResp.data || []).slice().sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+      const sourceLinks = (linksResp.data || []).slice();
+
+      const createPlanResp = await api(`${API}/project-plans`, {
+        method: 'POST',
+        body: JSON.stringify({
+          name: newName,
+          event_id: sourcePlan.event_id || null,
+          start_date: sourcePlan.start_date || null,
+          end_date: sourcePlan.end_date || null,
+          color: sourcePlan.color || '#a64dff',
+          description: sourcePlan.description || null,
+          project_type: sourcePlan.project_type || null,
+          owner_staff_id: sourcePlan.owner_staff_id || null,
+          risk_level: sourcePlan.risk_level || null,
+          priority: sourcePlan.priority || 'medium'
+        })
+      });
+
+      const newPlanId = createPlanResp?.data?.id;
+      if (!newPlanId) throw new Error('Failed to create duplicate plan.');
+
+      if (duplicateAsTemplate) {
+        await api(`${API}/project-plans/${newPlanId}`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            status: 'planned',
+            risk_level: null,
+            actual_end_date: null
+          })
+        });
+      }
+
+      const taskIdMap = {};
+      const pending = sourceTasks.slice();
+      let guard = 0;
+      while (pending.length && guard < sourceTasks.length + 10) {
+        guard++;
+        let progressed = false;
+
+        for (let i = 0; i < pending.length; i++) {
+          const t = pending[i];
+          const parentSourceId = t.parent_task_id || null;
+          if (parentSourceId && !taskIdMap[parentSourceId]) continue;
+
+          const createTaskResp = await api(`${API}/project-plans/tasks`, {
+            method: 'POST',
+            body: JSON.stringify({
+              plan_id: newPlanId,
+              parent_task_id: parentSourceId ? taskIdMap[parentSourceId] : null,
+              title: t.title,
+              description: t.description || null,
+              start_date: t.start_date || null,
+              end_date: t.end_date || null,
+              progress: duplicateAsTemplate ? 0 : (Number(t.progress) || 0),
+              color: t.color || null,
+              assignee_user_id: t.assignee_user_id || null,
+              priority: t.priority || 'medium',
+              status: duplicateAsTemplate ? 'not_started' : (t.status || 'not_started'),
+              is_milestone: !!t.is_milestone,
+              linked_entity_type: t.linked_entity_type || null,
+              linked_entity_id: t.linked_entity_id || null,
+              sort_order: Number(t.sort_order) || 0
+            })
+          });
+
+          const newTask = createTaskResp?.data;
+          if (!newTask?.id) throw new Error('Failed to duplicate a task.');
+          taskIdMap[t.id] = newTask.id;
+
+          const extraFields = {};
+          if (t.department) extraFields.department = t.department;
+          if (t.task_type) extraFields.task_type = t.task_type;
+          if (duplicateAsTemplate) {
+            extraFields.actual_start_date = null;
+            extraFields.actual_end_date = null;
+            extraFields.blocker_reason = null;
+          } else {
+            if (t.actual_start_date) extraFields.actual_start_date = t.actual_start_date;
+            if (t.actual_end_date) extraFields.actual_end_date = t.actual_end_date;
+            if (t.blocker_reason) extraFields.blocker_reason = t.blocker_reason;
+          }
+          if (Object.keys(extraFields).length) {
+            await api(`${API}/project-plans/tasks/${newTask.id}`, {
+              method: 'PUT',
+              body: JSON.stringify(extraFields)
+            });
+          }
+
+          pending.splice(i, 1);
+          i--;
+          progressed = true;
+        }
+
+        if (!progressed && pending.length) {
+          const t = pending.shift();
+          const createTaskResp = await api(`${API}/project-plans/tasks`, {
+            method: 'POST',
+            body: JSON.stringify({
+              plan_id: newPlanId,
+              parent_task_id: null,
+              title: t.title,
+              description: t.description || null,
+              start_date: t.start_date || null,
+              end_date: t.end_date || null,
+              progress: duplicateAsTemplate ? 0 : (Number(t.progress) || 0),
+              color: t.color || null,
+              assignee_user_id: t.assignee_user_id || null,
+              priority: t.priority || 'medium',
+              status: duplicateAsTemplate ? 'not_started' : (t.status || 'not_started'),
+              is_milestone: !!t.is_milestone,
+              linked_entity_type: t.linked_entity_type || null,
+              linked_entity_id: t.linked_entity_id || null,
+              sort_order: Number(t.sort_order) || 0
+            })
+          });
+          const newTask = createTaskResp?.data;
+          if (!newTask?.id) throw new Error('Failed to duplicate a task.');
+          taskIdMap[t.id] = newTask.id;
+        }
+      }
+
+      for (const link of sourceLinks) {
+        const fromNew = taskIdMap[link.from_task_id];
+        const toNew = taskIdMap[link.to_task_id];
+        if (!fromNew || !toNew) continue;
+        await api(`${API}/project-plans/task-links`, {
+          method: 'POST',
+          body: JSON.stringify({
+            from_task_id: fromNew,
+            to_task_id: toNew,
+            link_type: link.link_type || 'finish_to_start',
+            lag_days: Number(link.lag_days) || 0
+          })
+        });
+      }
+
+      await loadPlans();
+      await loadPlan(newPlanId);
+      pmRenderProjectsTable();
+      if (window.RTS && typeof window.RTS.showToast === 'function') {
+        window.RTS.showToast(
+          duplicateAsTemplate ? 'Template project created successfully' : 'Project duplicated successfully',
+          'success'
+        );
+      }
+    } catch (err) {
+      alert(`Failed to duplicate project: ${err.message || err}`);
+    }
   }
 
   // ════════════════════════════════════════════════════════════════
