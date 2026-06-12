@@ -195,16 +195,32 @@ async function upsertEvent(ev) {
   const runPlan     = j(ev.runPlan     || ev.run_plan     || []);
   const sessionLogs = j(ev.sessionLogs || ev.session_logs || {});
 
+  // Budget fields (Finance Phase 2) — only updated when explicitly provided.
+  const pick = (...keys) => { for (const k of keys) { if (ev[k] !== undefined && ev[k] !== null && ev[k] !== '') return ev[k]; } return null; };
+  const entryFee      = pick('entryFee', 'entry_fee');
+  const travelBudget  = pick('travelBudget', 'travel_budget');
+  const accomBudget   = pick('accommodationBudget', 'accommodation_budget');
+  const cateringBudget= pick('cateringBudget', 'catering_budget');
+  const otherBudget   = pick('otherBudget', 'other_budget');
+  const budgetCurrency= pick('budgetCurrency', 'budget_currency');
+
   // Try UPDATE first (most common case — event already exists)
   const updateSql = `
     UPDATE events
-    SET run_plan     = $1,
-        session_logs = $2,
-        updated_at   = NOW()
+    SET run_plan             = $1,
+        session_logs         = $2,
+        entry_fee            = COALESCE($4, entry_fee),
+        travel_budget        = COALESCE($5, travel_budget),
+        accommodation_budget = COALESCE($6, accommodation_budget),
+        catering_budget      = COALESCE($7, catering_budget),
+        other_budget         = COALESCE($8, other_budget),
+        budget_currency      = COALESCE($9, budget_currency),
+        updated_at           = NOW()
     WHERE id = $3
     RETURNING id
   `;
-  const upResult = await query(updateSql, [runPlan, sessionLogs, ev.id]);
+  const upResult = await query(updateSql, [runPlan, sessionLogs, ev.id,
+    entryFee, travelBudget, accomBudget, cateringBudget, otherBudget, budgetCurrency]);
 
   if (upResult.rows.length > 0) {
     return upResult.rows[0]; // updated successfully

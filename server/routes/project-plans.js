@@ -113,7 +113,8 @@ router.get('/:id', async (req, res, next) => {
 router.post('/', async (req, res, next) => {
   const {
     name, event_id, start_date, end_date, color, description,
-    project_type, owner_staff_id, risk_level, priority
+    project_type, owner_staff_id, risk_level, priority,
+    budget, currency
   } = req.body;
   if (!name || !name.trim()) {
     return res.status(400).json({ success: false, error: 'name is required' });
@@ -126,8 +127,8 @@ router.post('/', async (req, res, next) => {
     const result = await client.query(`
       INSERT INTO project_plans
         (id, name, event_id, start_date, end_date, color, description,
-         project_type, owner_staff_id, risk_level, priority, created_by_user_id)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+         project_type, owner_staff_id, risk_level, priority, budget, currency, created_by_user_id)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
       RETURNING *
     `, [
       id,
@@ -141,6 +142,8 @@ router.post('/', async (req, res, next) => {
       owner_staff_id || null,
       risk_level || null,
       priority || 'medium',
+      budget || null,
+      currency || 'ZAR',
       req.user?.id || null
     ]);
     await client.query('COMMIT');
@@ -278,7 +281,8 @@ router.post('/:id/duplicate', async (req, res, next) => {
 router.put('/:id', async (req, res, next) => {
   const {
     name, event_id, start_date, end_date, color, status, description,
-    project_type, owner_staff_id, risk_level, priority, actual_end_date
+    project_type, owner_staff_id, risk_level, priority, actual_end_date,
+    budget, spent, currency
   } = req.body;
   let client;
   try {
@@ -303,6 +307,9 @@ router.put('/:id', async (req, res, next) => {
         risk_level      = COALESCE($10, risk_level),
         priority        = COALESCE($11, priority),
         actual_end_date = $12,
+        budget          = COALESCE($14, budget),
+        spent           = COALESCE($15, spent),
+        currency        = COALESCE($16, currency),
         updated_at      = NOW()
       WHERE id = $13
       RETURNING *
@@ -319,7 +326,10 @@ router.put('/:id', async (req, res, next) => {
       risk_level || null,
       priority || null,
       actual_end_date !== undefined ? (actual_end_date || null) : undefined,
-      req.params.id
+      req.params.id,
+      budget !== undefined ? (budget || null) : undefined,
+      spent !== undefined ? (spent || null) : undefined,
+      currency || null
     ]);
     await client.query('COMMIT');
     res.json({ success: true, data: result.rows[0] });
@@ -384,7 +394,8 @@ router.post('/tasks', async (req, res, next) => {
     plan_id, parent_task_id, title, description,
     start_date, end_date, progress, color,
     assignee_user_id, priority, status, is_milestone,
-    linked_entity_type, linked_entity_id, sort_order
+    linked_entity_type, linked_entity_id, sort_order,
+    estimated_cost, actual_cost
   } = req.body;
   if (!plan_id) return res.status(400).json({ success: false, error: 'plan_id is required' });
   if (!title || !title.trim()) return res.status(400).json({ success: false, error: 'title is required' });
@@ -403,8 +414,9 @@ router.post('/tasks', async (req, res, next) => {
         id, plan_id, parent_task_id, title, description,
         start_date, end_date, progress, color,
         assignee_user_id, priority, status, is_milestone,
-        linked_entity_type, linked_entity_id, sort_order
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+        linked_entity_type, linked_entity_id, sort_order,
+        estimated_cost, actual_cost
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
       RETURNING *
     `, [
       id, plan_id, parent_task_id || null, title.trim(), description || null,
@@ -412,7 +424,8 @@ router.post('/tasks', async (req, res, next) => {
       assignee_user_id || null, priority || 'medium', status || 'not_started',
       is_milestone || false,
       linked_entity_type || null, linked_entity_id || null,
-      sort_order ?? 0
+      sort_order ?? 0,
+      estimated_cost || null, actual_cost || null
     ]);
     await client.query('COMMIT');
     res.status(201).json({ success: true, data: result.rows[0] });
@@ -431,7 +444,8 @@ router.put('/tasks/:taskId', async (req, res, next) => {
     start_date, end_date, progress, color,
     assignee_user_id, priority, status, is_milestone,
     linked_entity_type, linked_entity_id, sort_order,
-    department, task_type, actual_start_date, actual_end_date, blocker_reason
+    department, task_type, actual_start_date, actual_end_date, blocker_reason,
+    estimated_cost, actual_cost
   } = req.body;
   let client;
   try {
@@ -463,6 +477,8 @@ router.put('/tasks/:taskId', async (req, res, next) => {
         actual_start_date   = $17,
         actual_end_date     = $18,
         blocker_reason      = $19,
+        estimated_cost      = COALESCE($21, estimated_cost),
+        actual_cost         = COALESCE($22, actual_cost),
         updated_at          = NOW()
       WHERE id = $20
       RETURNING *
@@ -486,7 +502,9 @@ router.put('/tasks/:taskId', async (req, res, next) => {
       actual_start_date !== undefined ? (actual_start_date || null) : undefined,
       actual_end_date !== undefined ? (actual_end_date || null) : undefined,
       blocker_reason !== undefined ? (blocker_reason || null) : undefined,
-      req.params.taskId
+      req.params.taskId,
+      estimated_cost !== undefined ? (estimated_cost || null) : undefined,
+      actual_cost !== undefined ? (actual_cost || null) : undefined
     ]);
     await client.query('COMMIT');
     res.json({ success: true, data: result.rows[0] });

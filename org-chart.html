@@ -109,6 +109,11 @@
               <div class="col"><label class="form-label">Start Date</label><input class="form-control" id="stfFStart" type="date" /></div>
               <div class="col"><label class="form-label">Nationality</label><input class="form-control" id="stfFNat" /></div>
             </div>
+            <div class="row g-2 mb-2">
+              <div class="col"><label class="form-label">Annual Salary (R)</label><input class="form-control" id="stfFSalary" type="number" min="0" step="0.01" placeholder="0.00" /></div>
+              <div class="col"><label class="form-label">Hourly Rate (R)</label><input class="form-control" id="stfFHourly" type="number" min="0" step="0.01" placeholder="0.00" /></div>
+              <div class="col"><label class="form-label">Annual Benefits (R)</label><input class="form-control" id="stfFBenefits" type="number" min="0" step="0.01" placeholder="0.00" /></div>
+            </div>
             <div class="mb-3"><label class="form-label">Notes</label><textarea class="form-control" id="stfFNotes" rows="3"></textarea></div>
             <div class="d-flex gap-2">
               <button type="button" class="btn btn-primary btn-sm" id="stfBtnSave">Save</button>
@@ -148,11 +153,12 @@
       document.getElementById('stfFDept').value=e.department||'';document.getElementById('stfFReports').value=e.reports_to||'';
       document.getElementById('stfFEmp').value=e.employment_type||'full_time';document.getElementById('stfFContact').value=e.contact||'';
       document.getElementById('stfFStart').value=e.start_date||'';document.getElementById('stfFNat').value=e.nationality||'';
+      document.getElementById('stfFSalary').value=e.salary_annual||'';document.getElementById('stfFHourly').value=e.hourly_rate||'';document.getElementById('stfFBenefits').value=e.benefits_cost_annual||'';
       document.getElementById('stfFNotes').value=e.notes||'';
       document.getElementById('stfBtnDelete').style.display='';renderList();}
     document.getElementById('btnAddStf').addEventListener('click',()=>{selectedId=null;document.getElementById('stfDetailEmpty').style.display='none';document.getElementById('stfForm').style.display='';document.getElementById('stfDetailTitle').textContent='New Staff';document.getElementById('stfForm').reset();document.getElementById('stfBtnDelete').style.display='none';});
     document.getElementById('stfBtnSave').addEventListener('click',async()=>{
-      const body={name:document.getElementById('stfFName').value.trim(),role:document.getElementById('stfFRole').value.trim(),department:document.getElementById('stfFDept').value.trim(),reports_to:document.getElementById('stfFReports').value.trim(),employment_type:document.getElementById('stfFEmp').value,contact:document.getElementById('stfFContact').value.trim(),start_date:document.getElementById('stfFStart').value||null,nationality:document.getElementById('stfFNat').value.trim(),notes:document.getElementById('stfFNotes').value.trim()};
+      const body={name:document.getElementById('stfFName').value.trim(),role:document.getElementById('stfFRole').value.trim(),department:document.getElementById('stfFDept').value.trim(),reports_to:document.getElementById('stfFReports').value.trim(),employment_type:document.getElementById('stfFEmp').value,contact:document.getElementById('stfFContact').value.trim(),start_date:document.getElementById('stfFStart').value||null,nationality:document.getElementById('stfFNat').value.trim(),notes:document.getElementById('stfFNotes').value.trim(),salary_annual:parseFloat(document.getElementById('stfFSalary').value)||null,hourly_rate:parseFloat(document.getElementById('stfFHourly').value)||null,benefits_cost_annual:parseFloat(document.getElementById('stfFBenefits').value)||null};
       if(!body.name){alert('Full name is required.');return;}
       try{const url=selectedId?`/api/staff/${selectedId}`:'/api/staff';const r=await fetch(url,{method:selectedId?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error(await r.text());await load();}catch(e){alert('Save failed: '+e.message);}});
     document.getElementById('stfBtnDelete').addEventListener('click',async()=>{if(!selectedId||!confirm('Remove this staff member?'))return;try{await fetch(`/api/staff/${selectedId}`,{method:'DELETE'});selectedId=null;document.getElementById('stfDetailEmpty').style.display='';document.getElementById('stfForm').style.display='none';await load();}catch(e){alert('Delete failed: '+e.message);}});

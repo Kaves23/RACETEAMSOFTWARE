@@ -355,6 +355,12 @@ app.get('/api/events', requireAuth, async (req, res) => {
       circuitName: r.circuit_name,
       runPlan:     r.run_plan     || [],
       sessionLogs: r.session_logs || {},
+      entryFee:            r.entry_fee,
+      travelBudget:        r.travel_budget,
+      accommodationBudget: r.accommodation_budget,
+      cateringBudget:      r.catering_budget,
+      otherBudget:         r.other_budget,
+      budgetCurrency:      r.budget_currency || 'ZAR',
     }));
     res.json({ ok: true, collection: 'events', items });
   } catch (err) {

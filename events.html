@@ -382,6 +382,32 @@
                     <textarea id="f_ev_brief" class="form-control form-control-sm" rows="3" placeholder="Key timetable items, goals, constraints, sponsor deliverables…"></textarea>
                   </div>
 
+                  <div class="col-12 ev-form-section-head"><svg width="10" height="10" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> Budget (R)</div>
+
+                  <div class="col-6 col-md-4">
+                    <label class="form-label">Entry fee</label>
+                    <input id="f_ev_entry_fee" type="number" min="0" step="0.01" class="form-control form-control-sm" placeholder="0.00" />
+                  </div>
+                  <div class="col-6 col-md-4">
+                    <label class="form-label">Travel</label>
+                    <input id="f_ev_travel" type="number" min="0" step="0.01" class="form-control form-control-sm" placeholder="0.00" />
+                  </div>
+                  <div class="col-6 col-md-4">
+                    <label class="form-label">Accommodation</label>
+                    <input id="f_ev_accom" type="number" min="0" step="0.01" class="form-control form-control-sm" placeholder="0.00" />
+                  </div>
+                  <div class="col-6 col-md-4">
+                    <label class="form-label">Catering</label>
+                    <input id="f_ev_catering" type="number" min="0" step="0.01" class="form-control form-control-sm" placeholder="0.00" />
+                  </div>
+                  <div class="col-6 col-md-4">
+                    <label class="form-label">Other</label>
+                    <input id="f_ev_other_budget" type="number" min="0" step="0.01" class="form-control form-control-sm" placeholder="0.00" />
+                  </div>
+                  <div class="col-6 col-md-4 d-flex align-items-end">
+                    <div class="text-secondary small">Total: <strong id="f_ev_budget_total">R0.00</strong></div>
+                  </div>
+
                   <div class="col-12 ev-form-section-head"><svg width="10" height="10" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="7" r="4"/><path d="M2 18c0-4 3.6-6 8-6s8 2 8 6"/></svg> Team</div>
 
                   <div class="col-12">
@@ -740,6 +766,12 @@
         runPlan: dbEv.run_plan || [],
         checklists: dbEv.checklists || [],
         sessionLogs: dbEv.session_logs || {},
+        entryFee: dbEv.entry_fee ?? '',
+        travelBudget: dbEv.travel_budget ?? '',
+        accommodationBudget: dbEv.accommodation_budget ?? '',
+        cateringBudget: dbEv.catering_budget ?? '',
+        otherBudget: dbEv.other_budget ?? '',
+        budgetCurrency: dbEv.budget_currency || 'ZAR',
         createdAt: dbEv.created_at,
         updatedAt: dbEv.updated_at
       };
@@ -763,7 +795,13 @@
         setups: localEv.setups || [],
         run_plan: localEv.runPlan || [],
         checklists: localEv.checklists || [],
-        session_logs: localEv.sessionLogs || {}
+        session_logs: localEv.sessionLogs || {},
+        entry_fee: localEv.entryFee === '' || localEv.entryFee == null ? null : Number(localEv.entryFee),
+        travel_budget: localEv.travelBudget === '' || localEv.travelBudget == null ? null : Number(localEv.travelBudget),
+        accommodation_budget: localEv.accommodationBudget === '' || localEv.accommodationBudget == null ? null : Number(localEv.accommodationBudget),
+        catering_budget: localEv.cateringBudget === '' || localEv.cateringBudget == null ? null : Number(localEv.cateringBudget),
+        other_budget: localEv.otherBudget === '' || localEv.otherBudget == null ? null : Number(localEv.otherBudget),
+        budget_currency: localEv.budgetCurrency || 'ZAR'
       };
     }
     
@@ -839,6 +877,12 @@
       f_status: document.getElementById('f_ev_status'),
       f_venue: document.getElementById('f_ev_venue'),
       f_brief: document.getElementById('f_ev_brief'),
+      f_entryFee: document.getElementById('f_ev_entry_fee'),
+      f_travel: document.getElementById('f_ev_travel'),
+      f_accom: document.getElementById('f_ev_accom'),
+      f_catering: document.getElementById('f_ev_catering'),
+      f_otherBudget: document.getElementById('f_ev_other_budget'),
+      f_budgetTotal: document.getElementById('f_ev_budget_total'),
       f_drivers: document.getElementById('f_ev_drivers_sel'),
       driversTbody: document.getElementById('evDriversTbody'),
       btnAddDriver: document.getElementById('btnAddDriver'),
@@ -897,6 +941,17 @@
     };
 
     RTS.initTriPaneResizers(els.shell, LS_PANES);
+
+    function updateBudgetTotal(){
+      if (!els.f_budgetTotal) return;
+      const n = el => parseFloat(el && el.value) || 0;
+      const total = n(els.f_entryFee)+n(els.f_travel)+n(els.f_accom)+n(els.f_catering)+n(els.f_otherBudget);
+      const sym = (window.curr && window.curr()) || 'R';
+      els.f_budgetTotal.textContent = sym + total.toLocaleString('en-ZA', { minimumFractionDigits:2, maximumFractionDigits:2 });
+    }
+    [els.f_entryFee, els.f_travel, els.f_accom, els.f_catering, els.f_otherBudget].forEach(elm=>{
+      if (elm) elm.addEventListener('input', updateBudgetTotal);
+    });
 
     async function saveAll() {
       RTS.safeSaveJSON(LS_UI, ui);
@@ -2016,6 +2071,12 @@
       }
       els.f_venue.value = ev.venue||'';
       els.f_brief.value = ev.brief||'';
+      els.f_entryFee.value = ev.entryFee ?? '';
+      els.f_travel.value = ev.travelBudget ?? '';
+      els.f_accom.value = ev.accommodationBudget ?? '';
+      els.f_catering.value = ev.cateringBudget ?? '';
+      els.f_otherBudget.value = ev.otherBudget ?? '';
+      updateBudgetTotal();
 
       // drivers
       const driverIds = Array.isArray(ev.drivers) ? ev.drivers : [];
@@ -2053,6 +2114,11 @@
       ev.status = els.f_status.value;
       ev.venue = els.f_venue.value.trim();
       ev.brief = els.f_brief.value.trim();
+      ev.entryFee = els.f_entryFee.value === '' ? '' : Number(els.f_entryFee.value);
+      ev.travelBudget = els.f_travel.value === '' ? '' : Number(els.f_travel.value);
+      ev.accommodationBudget = els.f_accom.value === '' ? '' : Number(els.f_accom.value);
+      ev.cateringBudget = els.f_catering.value === '' ? '' : Number(els.f_catering.value);
+      ev.otherBudget = els.f_otherBudget.value === '' ? '' : Number(els.f_otherBudget.value);
 
   // drivers: do not overwrite from the hidden multi-select; keep the event's current drivers
   ev.drivers = Array.isArray(ev.drivers) ? ev.drivers : (ev.drivers ? [ev.drivers] : []);
