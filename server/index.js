@@ -209,6 +209,11 @@ app.use('/api/fin-invoices',    requireAuth, require('./routes/fin-invoices'));
 app.use('/api/driver-packages', requireAuth, require('./routes/driver-packages'));
 app.use('/api/fin-rollup',      requireAuth, require('./routes/fin-rollup'));
 app.use('/api/fin-dashboard',   requireAuth, require('./routes/fin-dashboard'));
+app.use('/api/fin-requisitions',     requireAuth, require('./routes/fin-requisitions'));
+app.use('/api/fin-purchase-orders',  requireAuth, require('./routes/fin-purchase-orders'));
+app.use('/api/fin-audit',            requireAuth, require('./routes/fin-audit'));
+app.use('/api/fin-cost-cap',         requireAuth, require('./routes/fin-cost-cap'));
+app.use('/api/fin-forecast',         requireAuth, require('./routes/fin-forecast'));
 
 // Event Notes extras — comments + links per task
 app.use('/api/task-comments', requireAuth, require('./routes/task-comments'));

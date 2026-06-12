@@ -107,7 +107,8 @@ async function runMigrations() {
     '086_expenses_extended_fields.sql',
     '087_finance_invoices.sql',
     '088_driver_packages.sql',
-    '089_crossmodule_cost_fields.sql'
+    '089_crossmodule_cost_fields.sql',
+    '090_finance_phase5.sql'
   ];
   
   let appliedCount = 0, skippedCount = 0;

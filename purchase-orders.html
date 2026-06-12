@@ -7,23 +7,236 @@
   <title>Race Team OS – Purchase Orders</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="style.css?v=20260525" rel="stylesheet" />
+  <style>
+    body { background: linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%); }
+    .po-table { width:100%; font-size:.85rem; background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:8px; overflow:hidden; }
+    .po-table th { background:#f8f9fa; padding:8px 12px; font-size:.7rem; text-transform:uppercase; letter-spacing:.04em; color:#6c757d; border-bottom:2px solid #dee2e6; text-align:left; }
+    .po-table td { padding:8px 12px; border-bottom:1px solid #f0f0f0; }
+    .po-table tr:last-child td { border-bottom:none; }
+    .pill { display:inline-block; padding:2px 8px; border-radius:3px; font-size:.7rem; font-weight:700; text-transform:uppercase; }
+    .p-draft     { background:#e5e7eb; color:#374151; }
+    .p-submitted { background:#fef3c7; color:#92400e; }
+    .p-approved  { background:#d1fae5; color:#065f46; }
+    .p-ordered   { background:#dbeafe; color:#1e40af; }
+    .p-received  { background:#bbf7d0; color:#14532d; }
+    .p-cancelled { background:#fee2e2; color:#991b1b; }
+    .kpi-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:12px; margin-bottom:18px; }
+    .kpi      { background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:8px; padding:14px 16px; }
+    .kpi-l    { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:#6c757d; }
+    .kpi-v    { font-size:1.4rem; font-weight:700; color:#1a1d24; }
+  </style>
 </head>
 <body class="light-mode">
   <div id="rtsTopNav"></div>
   <div class="rts-main container-fluid">
-    <div class="pt-3 pb-2 mb-3 border-bottom">
-      <h1 class="h4 mb-1">Purchase Orders</h1>
-      <div class="text-secondary" style="font-size:.85rem;">Supplier purchase orders and fulfilment tracking.</div>
+    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+      <div>
+        <h1 class="h4 mb-1">Purchase Orders</h1>
+        <div class="text-secondary" style="font-size:.85rem;">Outgoing PO tracking, supplier and delivery status.</div>
+      </div>
+      <div class="d-flex gap-2">
+        <select id="poFilter" class="form-select form-select-sm" style="width:auto;">
+          <option value="">All statuses</option>
+          <option value="draft">Draft</option>
+          <option value="ordered">Ordered</option>
+          <option value="received">Received</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+        <button class="btn btn-sm btn-primary" id="btnNew">+ New PO</button>
+      </div>
     </div>
-    <div class="text-center py-5 text-secondary">
-      <div style="font-size:3rem;">🗒️</div>
-      <h5 class="mt-3">Coming Soon</h5>
-      <p class="mb-0" style="font-size:.9rem;">Create and track purchase orders against suppliers here.</p>
+
+    <div class="kpi-grid">
+      <div class="kpi"><div class="kpi-l">Open POs</div><div class="kpi-v" id="kpiOpen">—</div></div>
+      <div class="kpi"><div class="kpi-l">Outstanding Value</div><div class="kpi-v" id="kpiValue">—</div></div>
+      <div class="kpi"><div class="kpi-l">Awaiting Delivery</div><div class="kpi-v" id="kpiAwaiting">—</div></div>
+      <div class="kpi"><div class="kpi-l">Received (30d)</div><div class="kpi-v" id="kpiReceived">—</div></div>
+    </div>
+
+    <div id="poList"><div class="text-secondary" style="font-size:.85rem;">Loading…</div></div>
+  </div>
+
+  <div class="modal fade" id="poModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header py-2">
+          <h5 class="modal-title" id="poModalTitle">New Purchase Order</h5>
+          <button class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-2">
+            <div class="col-md-6"><label class="form-label small">Supplier</label><input id="pfSupplier" class="form-control form-control-sm"></div>
+            <div class="col-md-3"><label class="form-label small">Order date</label><input id="pfOrderDate" type="date" class="form-control form-control-sm"></div>
+            <div class="col-md-3"><label class="form-label small">Expected delivery</label><input id="pfExpDate" type="date" class="form-control form-control-sm"></div>
+            <div class="col-md-6"><label class="form-label small">Linked event</label><select id="pfEvent" class="form-select form-select-sm"><option value="">—</option></select></div>
+            <div class="col-md-6"><label class="form-label small">Linked budget</label><select id="pfBudget" class="form-select form-select-sm"><option value="">—</option></select></div>
+            <div class="col-md-4"><label class="form-label small">Total amount (R)</label><input id="pfTotal" type="number" min="0" step="0.01" class="form-control form-control-sm"></div>
+            <div class="col-md-4"><label class="form-label small">Currency</label><input id="pfCurrency" class="form-control form-control-sm" value="ZAR"></div>
+            <div class="col-md-4"><label class="form-label small">Status</label>
+              <select id="pfStatus" class="form-select form-select-sm">
+                <option value="draft">Draft</option>
+                <option value="ordered">Ordered</option>
+                <option value="received">Received</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
+            <div class="col-12"><label class="form-label small">Items / description</label><textarea id="pfItems" class="form-control form-control-sm" rows="3"></textarea></div>
+            <div class="col-12"><label class="form-label small">Notes</label><textarea id="pfNotes" class="form-control form-control-sm" rows="2"></textarea></div>
+          </div>
+        </div>
+        <div class="modal-footer py-2">
+          <button class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-sm btn-primary" id="btnSavePO">Save</button>
+        </div>
+      </div>
     </div>
   </div>
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="topnav.js?v=20260520"></script>
   <script src="config.js"></script>
   <script src="core.js"></script>
+  <script>
+  (function(){
+    'use strict';
+    const sym  = (window.curr && window.curr()) || 'R';
+    const fmt0 = n => sym + (Number(n)||0).toLocaleString('en-ZA',{minimumFractionDigits:0,maximumFractionDigits:0});
+    const fmt2 = n => sym + (Number(n)||0).toLocaleString('en-ZA',{minimumFractionDigits:2,maximumFractionDigits:2});
+    const esc  = s => String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+    async function api(path, opts={}) {
+      if (window.RTS_API && typeof RTS_API.request === 'function') return await RTS_API.request(path, opts);
+      const base = (window.RTS_CONFIG?.api?.baseURL) || '/api';
+      const token = localStorage.getItem('auth_token');
+      const r = await fetch(`${base}${path}`, { ...opts, headers: { 'Content-Type':'application/json', ...(token?{Authorization:`Bearer ${token}`}:{}), ...(opts.headers||{}) } });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.status === 204 ? null : await r.json();
+    }
+
+    let pos = [], events = [], budgets = [];
+    let editingId = null;
+    const modal = new bootstrap.Modal(document.getElementById('poModal'));
+    const pillCls = (s) => 'pill p-' + (s||'draft');
+
+    function renderList() {
+      const filter = document.getElementById('poFilter').value;
+      const list = filter ? pos.filter(p => p.status === filter) : pos;
+      const open = pos.filter(p => !['received','cancelled'].includes(p.status));
+      const awaitingD = pos.filter(p => p.status === 'ordered');
+      const since = Date.now() - 30*86400000;
+      const recv30 = pos.filter(p => p.status === 'received' && p.received_at && new Date(p.received_at).getTime() > since);
+      document.getElementById('kpiOpen').textContent = open.length;
+      document.getElementById('kpiValue').textContent = fmt0(open.reduce((s,p) => s + (Number(p.total_amount)||0), 0));
+      document.getElementById('kpiAwaiting').textContent = awaitingD.length;
+      document.getElementById('kpiReceived').textContent = recv30.length;
+
+      const el = document.getElementById('poList');
+      if (!list.length) { el.innerHTML = '<div class="text-secondary" style="font-size:.85rem;">No purchase orders match.</div>'; return; }
+      el.innerHTML = `<table class="po-table">
+        <thead><tr>
+          <th style="width:120px;">Number</th><th>Supplier</th>
+          <th style="width:130px;">Event</th><th style="width:90px;">Order date</th>
+          <th style="width:90px;">Expected</th>
+          <th style="width:120px;text-align:right;">Total</th><th style="width:110px;">Status</th>
+          <th style="width:160px;text-align:right;">Actions</th>
+        </tr></thead>
+        <tbody>${list.map(p => `<tr data-id="${esc(p.id)}">
+          <td><strong>${esc(p.po_number||'—')}</strong></td>
+          <td>${esc(p.supplier||'—')}</td>
+          <td>${esc(p.event_name||'—')}</td>
+          <td>${p.order_date ? new Date(p.order_date).toLocaleDateString('en-GB',{day:'2-digit',month:'short'}) : '—'}</td>
+          <td>${p.expected_delivery_date ? new Date(p.expected_delivery_date).toLocaleDateString('en-GB',{day:'2-digit',month:'short'}) : '—'}</td>
+          <td style="text-align:right;">${fmt2(p.total_amount)}</td>
+          <td><span class="${pillCls(p.status)}">${esc(p.status||'draft')}</span></td>
+          <td style="text-align:right;white-space:nowrap;">
+            <button class="btn btn-sm btn-outline-secondary act-edit" style="padding:0 6px;font-size:.7rem;">Edit</button>
+            ${p.status==='ordered' ? `<button class="btn btn-sm btn-outline-success act-receive" style="padding:0 6px;font-size:.7rem;">Receive</button>` : ''}
+            <button class="btn btn-sm btn-outline-danger act-del" style="padding:0 6px;font-size:.7rem;">×</button>
+          </td>
+        </tr>`).join('')}</tbody></table>`;
+    }
+
+    function fillSelects() {
+      document.getElementById('pfEvent').innerHTML = '<option value="">—</option>' + events.map(e => `<option value="${esc(e.id)}">${esc(e.name||e.id)}</option>`).join('');
+      document.getElementById('pfBudget').innerHTML = '<option value="">—</option>' + budgets.map(b => `<option value="${esc(b.id)}">${esc(b.name||b.id)}</option>`).join('');
+    }
+
+    function openModal(po) {
+      editingId = po?.id || null;
+      document.getElementById('poModalTitle').textContent = po ? `Edit ${po.po_number||'PO'}` : 'New Purchase Order';
+      document.getElementById('pfSupplier').value  = po?.supplier || '';
+      document.getElementById('pfOrderDate').value = po?.order_date ? String(po.order_date).slice(0,10) : '';
+      document.getElementById('pfExpDate').value   = po?.expected_delivery_date ? String(po.expected_delivery_date).slice(0,10) : '';
+      document.getElementById('pfEvent').value     = po?.event_id || '';
+      document.getElementById('pfBudget').value    = po?.budget_id || '';
+      document.getElementById('pfTotal').value     = po?.total_amount ?? '';
+      document.getElementById('pfCurrency').value  = po?.currency || 'ZAR';
+      document.getElementById('pfStatus').value    = po?.status || 'draft';
+      document.getElementById('pfItems').value     = po?.items || '';
+      document.getElementById('pfNotes').value     = po?.notes || '';
+      modal.show();
+    }
+
+    async function savePO() {
+      const body = {
+        supplier:               document.getElementById('pfSupplier').value.trim() || null,
+        order_date:             document.getElementById('pfOrderDate').value || null,
+        expected_delivery_date: document.getElementById('pfExpDate').value || null,
+        event_id:               document.getElementById('pfEvent').value || null,
+        budget_id:              document.getElementById('pfBudget').value || null,
+        total_amount:           Number(document.getElementById('pfTotal').value) || 0,
+        currency:               document.getElementById('pfCurrency').value.trim() || 'ZAR',
+        status:                 document.getElementById('pfStatus').value || 'draft',
+        items:                  document.getElementById('pfItems').value || null,
+        notes:                  document.getElementById('pfNotes').value || null
+      };
+      try {
+        if (editingId) await api(`/fin-purchase-orders/${editingId}`, { method:'PUT', body: JSON.stringify(body) });
+        else           await api(`/fin-purchase-orders`,              { method:'POST', body: JSON.stringify(body) });
+        modal.hide();
+        await load();
+      } catch (e) { alert('Save failed: ' + e.message); }
+    }
+
+    async function load() {
+      try {
+        const [pRes, eRes, bRes] = await Promise.all([
+          api('/fin-purchase-orders'),
+          api('/collections/events').catch(()=>({ items:[] })),
+          api('/fin-budgets').catch(()=>[])
+        ]);
+        pos     = (pRes && pRes.data) || [];
+        events  = (eRes && (eRes.items || eRes.data)) || [];
+        budgets = Array.isArray(bRes) ? bRes : (bRes?.data || []);
+        fillSelects();
+        renderList();
+      } catch (e) {
+        document.getElementById('poList').innerHTML = `<div class="text-danger" style="font-size:.85rem;">Load failed: ${esc(e.message)}</div>`;
+      }
+    }
+
+    document.getElementById('btnNew').onclick    = () => openModal(null);
+    document.getElementById('btnSavePO').onclick = savePO;
+    document.getElementById('poFilter').onchange = renderList;
+    document.getElementById('poList').addEventListener('click', async (e) => {
+      const tr = e.target.closest('tr[data-id]');
+      if (!tr) return;
+      const id = tr.dataset.id;
+      const po = pos.find(x => x.id === id);
+      if (!po) return;
+      if (e.target.classList.contains('act-edit'))    openModal(po);
+      else if (e.target.classList.contains('act-receive')) {
+        try { await api(`/fin-purchase-orders/${id}/receive`, { method:'POST', body:'{}' }); await load(); }
+        catch(err){ alert(err.message); }
+      } else if (e.target.classList.contains('act-del')) {
+        if (!confirm('Delete this PO?')) return;
+        try { await api(`/fin-purchase-orders/${id}`, { method:'DELETE' }); await load(); }
+        catch(err){ alert(err.message); }
+      }
+    });
+
+    load();
+  })();
+  </script>
 </body>
 </html>

@@ -7,23 +7,156 @@
   <title>Race Team OS – Finance Forecast</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="style.css?v=20260525" rel="stylesheet" />
+  <style>
+    body { background: linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%); }
+    .ff-card { background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:8px; padding:16px 18px; margin-bottom:16px; }
+    .kpi-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px; margin-bottom:18px; }
+    .kpi      { background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:8px; padding:14px 16px; }
+    .kpi-l    { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:#6c757d; }
+    .kpi-v    { font-size:1.4rem; font-weight:700; color:#1a1d24; }
+    .chart-wrap { position:relative; height:280px; }
+    .ff-table { width:100%; font-size:.85rem; }
+    .ff-table th { background:#f8f9fa; padding:6px 10px; font-size:.7rem; text-transform:uppercase; letter-spacing:.04em; color:#6c757d; border-bottom:2px solid #dee2e6; text-align:left; }
+    .ff-table td { padding:6px 10px; border-bottom:1px solid #f0f0f0; }
+    .section-title { font-size:.85rem; font-weight:700; color:#1a1d24; text-transform:uppercase; letter-spacing:.04em; margin-bottom:8px; padding-bottom:4px; border-bottom:2px solid #e9ecef; }
+  </style>
 </head>
 <body class="light-mode">
   <div id="rtsTopNav"></div>
   <div class="rts-main container-fluid">
-    <div class="pt-3 pb-2 mb-3 border-bottom">
-      <h1 class="h4 mb-1">Finance Forecast</h1>
-      <div class="text-secondary" style="font-size:.85rem;">Forward-looking spend projections and budget forecasting.</div>
+    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+      <div>
+        <h1 class="h4 mb-1">Finance Forecast</h1>
+        <div class="text-secondary" style="font-size:.85rem;">Forward projection: run-rate + recurring + planned events.</div>
+      </div>
+      <select id="ffMonths" class="form-select form-select-sm" style="width:auto;">
+        <option value="6">Next 6 months</option>
+        <option value="12" selected>Next 12 months</option>
+        <option value="18">Next 18 months</option>
+        <option value="24">Next 24 months</option>
+      </select>
     </div>
-    <div class="text-center py-5 text-secondary">
-      <div style="font-size:3rem;">📈</div>
-      <h5 class="mt-3">Coming Soon</h5>
-      <p class="mb-0" style="font-size:.9rem;">Spend projections, run-rate analysis, and forecast vs actuals.</p>
+
+    <div class="kpi-grid">
+      <div class="kpi"><div class="kpi-l">Monthly Run-Rate</div><div class="kpi-v" id="kpiRunRate">—</div></div>
+      <div class="kpi"><div class="kpi-l">Recurring / month</div><div class="kpi-v" id="kpiRecur">—</div></div>
+      <div class="kpi"><div class="kpi-l">Budget Remaining</div><div class="kpi-v" id="kpiBudgetRem">—</div></div>
+      <div class="kpi"><div class="kpi-l">Events Committed</div><div class="kpi-v" id="kpiEventsCmt">—</div></div>
+      <div class="kpi"><div class="kpi-l">Horizon Total</div><div class="kpi-v" id="kpiTotal">—</div></div>
+    </div>
+
+    <div class="ff-card">
+      <div class="section-title">Projected Monthly Spend</div>
+      <div class="chart-wrap"><canvas id="forecastChart"></canvas></div>
+    </div>
+
+    <div class="row g-3">
+      <div class="col-lg-6">
+        <div class="ff-card">
+          <div class="section-title">Upcoming Events</div>
+          <div id="upcoming"><div class="text-secondary" style="font-size:.85rem;">Loading…</div></div>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="ff-card">
+          <div class="section-title">Active Budget Remainders</div>
+          <div id="budgetsRem"><div class="text-secondary" style="font-size:.85rem;">Loading…</div></div>
+        </div>
+      </div>
     </div>
   </div>
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="topnav.js?v=20260520"></script>
   <script src="config.js"></script>
   <script src="core.js"></script>
+  <script>
+  (function(){
+    'use strict';
+    const sym  = (window.curr && window.curr()) || 'R';
+    const fmt0 = n => sym + (Number(n)||0).toLocaleString('en-ZA',{minimumFractionDigits:0,maximumFractionDigits:0});
+    const fmt2 = n => sym + (Number(n)||0).toLocaleString('en-ZA',{minimumFractionDigits:2,maximumFractionDigits:2});
+    const esc  = s => String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+    async function api(path) {
+      if (window.RTS_API && typeof RTS_API.request === 'function') return await RTS_API.request(path);
+      const base = (window.RTS_CONFIG?.api?.baseURL) || '/api';
+      const token = localStorage.getItem('auth_token');
+      const r = await fetch(`${base}${path}`, { headers: { 'Content-Type':'application/json', ...(token?{Authorization:`Bearer ${token}`}:{}) } });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return await r.json();
+    }
+
+    let chart;
+
+    async function load() {
+      const months = document.getElementById('ffMonths').value;
+      let d;
+      try { d = await api(`/fin-forecast?months=${months}`); }
+      catch(e){ alert('Load failed: ' + e.message); return; }
+      if (!d || !d.success) return;
+
+      document.getElementById('kpiRunRate').textContent  = fmt0(d.run_rate_monthly);
+      document.getElementById('kpiRecur').textContent    = fmt0(d.recurring_monthly);
+      document.getElementById('kpiBudgetRem').textContent = fmt0(d.budget_remaining);
+      document.getElementById('kpiEventsCmt').textContent = fmt0(d.events_committed);
+      document.getElementById('kpiTotal').textContent     = fmt0(d.projected_total_horizon);
+
+      const buckets = Array.isArray(d.buckets) ? d.buckets : [];
+      const labels = buckets.map(b => {
+        const [y,m] = String(b.month).split('-');
+        return new Date(Number(y), Number(m)-1, 1).toLocaleDateString('en-GB',{month:'short',year:'2-digit'});
+      });
+      const ctx = document.getElementById('forecastChart');
+      if (chart) chart.destroy();
+      chart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            { label:'Recurring', data: buckets.map(b => Number(b.projected_recurring)||0), backgroundColor:'#6366f1', stack:'fc' },
+            { label:'Run-rate',  data: buckets.map(b => Number(b.projected_run_rate)||0),  backgroundColor:'#f97316', stack:'fc' },
+            { label:'Events',    data: buckets.map(b => Number(b.events)||0),               backgroundColor:'#16a34a', stack:'fc' }
+          ]
+        },
+        options: {
+          responsive:true, maintainAspectRatio:false,
+          plugins: {
+            legend:{ position:'bottom', labels:{ font:{ size:11 } } },
+            tooltip:{ callbacks:{ label: c => `${c.dataset.label}: ${fmt2(c.parsed.y)}` } }
+          },
+          scales: {
+            x: { stacked:true, grid:{ display:false }, ticks:{ font:{ size:11 } } },
+            y: { stacked:true, beginAtZero:true, ticks:{ font:{ size:11 }, callback: v => fmt0(v) } }
+          }
+        }
+      });
+
+      // Upcoming events
+      const ev = Array.isArray(d.upcoming_events) ? d.upcoming_events : [];
+      document.getElementById('upcoming').innerHTML = ev.length ? `<table class="ff-table">
+        <thead><tr><th>Event</th><th style="width:90px;">Date</th><th style="width:120px;text-align:right;">Budget</th></tr></thead>
+        <tbody>${ev.map(e => `<tr>
+          <td>${esc(e.name||e.id)}</td>
+          <td>${e.start_date ? new Date(e.start_date).toLocaleDateString('en-GB',{day:'2-digit',month:'short'}) : '—'}</td>
+          <td style="text-align:right;">${fmt0(e.budget_total)}</td>
+        </tr>`).join('')}</tbody></table>` : '<div class="text-secondary" style="font-size:.85rem;">No upcoming events with budget set.</div>';
+
+      // Budget remainders
+      const bgs = Array.isArray(d.budgets) ? d.budgets : [];
+      document.getElementById('budgetsRem').innerHTML = bgs.length ? `<table class="ff-table">
+        <thead><tr><th>Budget</th><th style="width:120px;text-align:right;">Total</th><th style="width:120px;text-align:right;">Remaining</th></tr></thead>
+        <tbody>${bgs.map(b => `<tr>
+          <td>${esc(b.name)}</td>
+          <td style="text-align:right;">${fmt0(b.total_amount)}</td>
+          <td style="text-align:right;font-weight:700;">${fmt0(b.remaining)}</td>
+        </tr>`).join('')}</tbody></table>` : '<div class="text-secondary" style="font-size:.85rem;">No active budgets.</div>';
+    }
+
+    document.getElementById('ffMonths').onchange = load;
+    load();
+  })();
+  </script>
 </body>
 </html>

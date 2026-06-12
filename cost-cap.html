@@ -7,23 +7,182 @@
   <title>Race Team OS – Cost Cap</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="style.css?v=20260525" rel="stylesheet" />
+  <style>
+    body { background: linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%); }
+    .cc-card { background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:8px; padding:16px 18px; margin-bottom:16px; }
+    .kpi-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px; margin-bottom:18px; }
+    .kpi      { background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:8px; padding:14px 16px; }
+    .kpi-l    { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:#6c757d; }
+    .kpi-v    { font-size:1.5rem; font-weight:700; color:#1a1d24; }
+    .kpi.danger  .kpi-v { color:#dc2626; }
+    .kpi.success .kpi-v { color:#16a34a; }
+    .cap-bar-track { height:18px; background:#e9ecef; border-radius:6px; overflow:hidden; margin:8px 0; }
+    .cap-bar-fill  { height:100%; transition:width .4s; }
+    .cap-bar-fill.ok      { background:#16a34a; }
+    .cap-bar-fill.warn    { background:#f97316; }
+    .cap-bar-fill.danger  { background:#dc3545; }
+    .bd-row   { display:flex; align-items:center; gap:10px; padding:6px 0; border-bottom:1px solid #f0f0f0; }
+    .bd-label { flex:1; font-size:.85rem; }
+    .bd-track { flex:0 0 220px; height:8px; background:#eef0f3; border-radius:4px; overflow:hidden; }
+    .bd-fill  { height:100%; border-radius:4px; background:#6366f1; }
+    .bd-fill.excluded { background:#9ca3af; }
+    .bd-amt   { flex:0 0 110px; text-align:right; font-weight:600; font-size:.82rem; }
+    .badge-excluded { display:inline-block; padding:1px 6px; border-radius:3px; font-size:.65rem; font-weight:700; background:#e5e7eb; color:#6b7280; margin-left:6px; }
+    .section-title { font-size:.85rem; font-weight:700; color:#1a1d24; text-transform:uppercase; letter-spacing:.04em; margin-bottom:8px; padding-bottom:4px; border-bottom:2px solid #e9ecef; }
+  </style>
 </head>
 <body class="light-mode">
   <div id="rtsTopNav"></div>
   <div class="rts-main container-fluid">
-    <div class="pt-3 pb-2 mb-3 border-bottom">
-      <h1 class="h4 mb-1">Cost Cap Compliance</h1>
-      <div class="text-secondary" style="font-size:.85rem;">FIA Financial Regulations cost cap tracking.</div>
+    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+      <div>
+        <h1 class="h4 mb-1">Cost Cap Tracker</h1>
+        <div class="text-secondary" style="font-size:.85rem;">FIA-style cost cap tracking — capped vs excluded spend.</div>
+      </div>
+      <button class="btn btn-sm btn-outline-secondary" id="btnConfig">⚙ Configure</button>
     </div>
-    <div class="text-center py-5 text-secondary">
-      <div style="font-size:3rem;">🏎️</div>
-      <h5 class="mt-3">Coming Soon</h5>
-      <p class="mb-0" style="font-size:.9rem;">Cost cap tracking and FIA compliance reporting will be available here.</p>
+
+    <div class="kpi-grid">
+      <div class="kpi"><div class="kpi-l">Cap Amount</div><div class="kpi-v" id="kpiCap">—</div></div>
+      <div class="kpi success"><div class="kpi-l">Capped Spend</div><div class="kpi-v" id="kpiCapped">—</div></div>
+      <div class="kpi"><div class="kpi-l">Headroom</div><div class="kpi-v" id="kpiHeadroom">—</div></div>
+      <div class="kpi"><div class="kpi-l">Excluded Spend</div><div class="kpi-v" id="kpiExcluded">—</div></div>
+    </div>
+
+    <div class="cc-card">
+      <div class="section-title">Cap Utilisation</div>
+      <div class="cap-bar-track"><div id="capBar" class="cap-bar-fill ok" style="width:0%"></div></div>
+      <div class="d-flex justify-content-between" style="font-size:.82rem;color:#6b7280;">
+        <span id="capPctLabel">—</span>
+        <span id="capPeriodLabel">—</span>
+      </div>
+    </div>
+
+    <div class="cc-card">
+      <div class="section-title">Spend Breakdown by Category</div>
+      <div id="breakdown"><div class="text-secondary" style="font-size:.85rem;">Loading…</div></div>
     </div>
   </div>
+
+  <!-- Config modal -->
+  <div class="modal fade" id="configModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header py-2">
+          <h5 class="modal-title">Cost Cap Configuration</h5>
+          <button class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-2">
+            <div class="col-md-6"><label class="form-label small">Cap Amount (R)</label><input id="cfgCap" type="number" min="0" step="1000" class="form-control form-control-sm"></div>
+            <div class="col-md-6"><label class="form-label small">Period</label>
+              <select id="cfgPeriod" class="form-select form-select-sm">
+                <option value="season">Season (date-bound)</option>
+                <option value="ytd">Year to date</option>
+                <option value="rolling12">Rolling 12 months</option>
+              </select>
+            </div>
+            <div class="col-md-6"><label class="form-label small">Period start</label><input id="cfgStart" type="date" class="form-control form-control-sm"></div>
+            <div class="col-md-6"><label class="form-label small">Period end</label><input id="cfgEnd" type="date" class="form-control form-control-sm"></div>
+            <div class="col-12"><label class="form-label small">Excluded categories (comma-separated)</label>
+              <input id="cfgExcluded" class="form-control form-control-sm" placeholder="Marketing, Driver Salaries, Marketing Activities">
+              <div class="form-text">Spend in these categories does NOT count toward the cap.</div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer py-2">
+          <button class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-sm btn-primary" id="btnSaveCfg">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="topnav.js?v=20260520"></script>
   <script src="config.js"></script>
   <script src="core.js"></script>
+  <script>
+  (function(){
+    'use strict';
+    const sym  = (window.curr && window.curr()) || 'R';
+    const fmt0 = n => sym + (Number(n)||0).toLocaleString('en-ZA',{minimumFractionDigits:0,maximumFractionDigits:0});
+    const esc  = s => String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+    async function api(path, opts={}) {
+      if (window.RTS_API && typeof RTS_API.request === 'function') return await RTS_API.request(path, opts);
+      const base = (window.RTS_CONFIG?.api?.baseURL) || '/api';
+      const token = localStorage.getItem('auth_token');
+      const r = await fetch(`${base}${path}`, { ...opts, headers: { 'Content-Type':'application/json', ...(token?{Authorization:`Bearer ${token}`}:{}), ...(opts.headers||{}) } });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.status === 204 ? null : await r.json();
+    }
+
+    const cfgModal = new bootstrap.Modal(document.getElementById('configModal'));
+
+    async function load() {
+      let d;
+      try { d = await api('/fin-cost-cap'); }
+      catch (e) {
+        document.getElementById('breakdown').innerHTML = `<div class="text-danger" style="font-size:.85rem;">Load failed: ${esc(e.message)}</div>`;
+        return;
+      }
+      if (!d || !d.success) return;
+      const cfg = d.config || {};
+      const cap = Number(cfg.cap_amount) || 0;
+      document.getElementById('kpiCap').textContent      = cap > 0 ? fmt0(cap) : 'Not set';
+      document.getElementById('kpiCapped').textContent   = fmt0(d.capped_spend);
+      document.getElementById('kpiHeadroom').textContent = fmt0(d.headroom);
+      document.getElementById('kpiExcluded').textContent = fmt0(d.excluded_spend);
+
+      const pct = Math.max(0, Math.min(100, Math.round(d.pct_used || 0)));
+      const bar = document.getElementById('capBar');
+      bar.style.width = pct + '%';
+      bar.className = 'cap-bar-fill ' + (pct >= 100 ? 'danger' : pct >= 80 ? 'warn' : 'ok');
+      document.getElementById('capPctLabel').textContent    = cap > 0 ? `${pct}% of cap used` : 'No cap configured';
+      const period = cfg.cap_period_start && cfg.cap_period_end
+        ? `${cfg.cap_period_start} → ${cfg.cap_period_end}`
+        : (cfg.cap_period || '—');
+      document.getElementById('capPeriodLabel').textContent = period;
+
+      const bd = Array.isArray(d.breakdown) ? d.breakdown : [];
+      const max = bd.reduce((m,r) => Math.max(m, Number(r.amount)||0), 0) || 1;
+      const el = document.getElementById('breakdown');
+      el.innerHTML = bd.length ? bd.map(r => {
+        const w = Math.max(2, Math.round((Number(r.amount)||0) / max * 100));
+        return `<div class="bd-row">
+          <div class="bd-label">${esc(r.category)}${r.excluded ? '<span class="badge-excluded">EXCLUDED</span>' : ''}</div>
+          <div class="bd-track"><div class="bd-fill ${r.excluded?'excluded':''}" style="width:${w}%"></div></div>
+          <div class="bd-amt">${fmt0(r.amount)}</div>
+        </div>`;
+      }).join('') : '<div class="text-secondary" style="font-size:.85rem;">No paid spend recorded in the selected period.</div>';
+
+      // Pre-fill config modal
+      document.getElementById('cfgCap').value      = cap || '';
+      document.getElementById('cfgPeriod').value   = cfg.cap_period || 'season';
+      document.getElementById('cfgStart').value    = cfg.cap_period_start ? String(cfg.cap_period_start).slice(0,10) : '';
+      document.getElementById('cfgEnd').value      = cfg.cap_period_end   ? String(cfg.cap_period_end).slice(0,10)   : '';
+      document.getElementById('cfgExcluded').value = (cfg.excluded_categories||[]).join(', ');
+    }
+
+    document.getElementById('btnConfig').onclick = () => cfgModal.show();
+    document.getElementById('btnSaveCfg').onclick = async () => {
+      const body = {
+        cap_amount:        Number(document.getElementById('cfgCap').value) || 0,
+        cap_period:        document.getElementById('cfgPeriod').value,
+        cap_period_start:  document.getElementById('cfgStart').value || null,
+        cap_period_end:    document.getElementById('cfgEnd').value || null,
+        excluded_categories: document.getElementById('cfgExcluded').value.split(',').map(s=>s.trim()).filter(Boolean)
+      };
+      try {
+        await api('/fin-cost-cap/config', { method:'POST', body: JSON.stringify(body) });
+        cfgModal.hide();
+        await load();
+      } catch(e){ alert('Save failed: ' + e.message); }
+    };
+
+    load();
+  })();
+  </script>
 </body>
 </html>

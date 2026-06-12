@@ -7,23 +7,158 @@
   <title>Race Team OS – Audit Trail</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="style.css?v=20260525" rel="stylesheet" />
+  <style>
+    body { background: linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%); }
+    .at-card { background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:8px; padding:16px 18px; margin-bottom:16px; }
+    .at-table { width:100%; font-size:.82rem; }
+    .at-table th { background:#f8f9fa; padding:6px 10px; font-size:.7rem; text-transform:uppercase; letter-spacing:.04em; color:#6c757d; border-bottom:2px solid #dee2e6; text-align:left; }
+    .at-table td { padding:6px 10px; border-bottom:1px solid #f0f0f0; vertical-align:top; }
+    .pill { display:inline-block; padding:2px 8px; border-radius:3px; font-size:.7rem; font-weight:700; text-transform:uppercase; }
+    .a-create  { background:#d1fae5; color:#065f46; }
+    .a-update  { background:#dbeafe; color:#1e40af; }
+    .a-approve { background:#bbf7d0; color:#14532d; }
+    .a-reject  { background:#fee2e2; color:#991b1b; }
+    .a-delete  { background:#fecaca; color:#7f1d1d; }
+    .a-receive { background:#e0e7ff; color:#3730a3; }
+    .pre-changes { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:.72rem; color:#374151; background:#f8f9fa; padding:6px 8px; border-radius:4px; max-height:120px; overflow:auto; white-space:pre-wrap; word-break:break-word; }
+    .section-title { font-size:.85rem; font-weight:700; color:#1a1d24; text-transform:uppercase; letter-spacing:.04em; margin-bottom:8px; padding-bottom:4px; border-bottom:2px solid #e9ecef; }
+  </style>
 </head>
 <body class="light-mode">
   <div id="rtsTopNav"></div>
   <div class="rts-main container-fluid">
-    <div class="pt-3 pb-2 mb-3 border-bottom">
-      <h1 class="h4 mb-1">Audit Trail</h1>
-      <div class="text-secondary" style="font-size:.85rem;">Finance change log — who changed what and when.</div>
+    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+      <div>
+        <h1 class="h4 mb-1">Audit Trail</h1>
+        <div class="text-secondary" style="font-size:.85rem;">Finance change log — who did what, when, and to what.</div>
+      </div>
+      <div class="d-flex gap-2">
+        <select id="fEntity" class="form-select form-select-sm" style="width:auto;">
+          <option value="">All entities</option>
+          <option value="requisition">Requisitions</option>
+          <option value="purchase_order">Purchase Orders</option>
+          <option value="payment">Payments</option>
+          <option value="budget">Budgets</option>
+          <option value="invoice">Invoices</option>
+          <option value="expense">Expenses</option>
+        </select>
+        <select id="fAction" class="form-select form-select-sm" style="width:auto;">
+          <option value="">All actions</option>
+          <option value="create">Create</option>
+          <option value="update">Update</option>
+          <option value="approve">Approve</option>
+          <option value="reject">Reject</option>
+          <option value="receive">Receive</option>
+          <option value="delete">Delete</option>
+        </select>
+        <input id="fFrom" type="date" class="form-control form-control-sm" style="width:auto;">
+        <input id="fTo"   type="date" class="form-control form-control-sm" style="width:auto;">
+        <button class="btn btn-sm btn-primary" id="btnApply">Apply</button>
+      </div>
     </div>
-    <div class="text-center py-5 text-secondary">
-      <div style="font-size:3rem;">🔍</div>
-      <h5 class="mt-3">Coming Soon</h5>
-      <p class="mb-0" style="font-size:.9rem;">A full audit log of all finance record changes will be available here.</p>
+
+    <div class="at-card">
+      <div class="section-title">Activity (last 30 days)</div>
+      <div id="atSummary"><div class="text-secondary" style="font-size:.85rem;">Loading…</div></div>
+    </div>
+
+    <div class="at-card">
+      <div class="section-title">Log</div>
+      <div id="atList"><div class="text-secondary" style="font-size:.85rem;">Loading…</div></div>
     </div>
   </div>
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="topnav.js?v=20260520"></script>
   <script src="config.js"></script>
   <script src="core.js"></script>
+  <script>
+  (function(){
+    'use strict';
+    const sym  = (window.curr && window.curr()) || 'R';
+    const fmt2 = n => sym + (Number(n)||0).toLocaleString('en-ZA',{minimumFractionDigits:2,maximumFractionDigits:2});
+    const esc  = s => String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+    async function api(path) {
+      if (window.RTS_API && typeof RTS_API.request === 'function') return await RTS_API.request(path);
+      const base = (window.RTS_CONFIG?.api?.baseURL) || '/api';
+      const token = localStorage.getItem('auth_token');
+      const r = await fetch(`${base}${path}`, { headers: { 'Content-Type':'application/json', ...(token?{Authorization:`Bearer ${token}`}:{}) } });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return await r.json();
+    }
+
+    function fmtTs(ts) {
+      if (!ts) return '—';
+      const d = new Date(ts);
+      return d.toLocaleString('en-GB', { day:'2-digit', month:'short', year:'2-digit', hour:'2-digit', minute:'2-digit' });
+    }
+
+    function entityLabel(t) {
+      return ({ requisition:'Requisition', purchase_order:'Purchase Order', payment:'Payment', budget:'Budget', invoice:'Invoice', expense:'Expense' })[t] || t || '—';
+    }
+
+    async function loadSummary() {
+      try {
+        const r = await api('/fin-audit/summary');
+        const rows = (r && r.data) || [];
+        const el = document.getElementById('atSummary');
+        if (!rows.length) { el.innerHTML = '<div class="text-secondary" style="font-size:.85rem;">No recent activity.</div>'; return; }
+        const total = rows.reduce((s,x) => s + Number(x.count), 0);
+        el.innerHTML = `<div style="font-size:.9rem;margin-bottom:8px;"><strong>${total}</strong> events recorded in the last 30 days.</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;">
+            ${rows.map(r => `<div style="background:#f8f9fa;padding:8px 10px;border-radius:6px;font-size:.82rem;display:flex;justify-content:space-between;">
+              <span>${esc(entityLabel(r.entity_type))} · ${esc(r.action)}</span>
+              <strong>${r.count}</strong>
+            </div>`).join('')}
+          </div>`;
+      } catch(e) {
+        document.getElementById('atSummary').innerHTML = `<div class="text-danger" style="font-size:.85rem;">${esc(e.message)}</div>`;
+      }
+    }
+
+    async function loadList() {
+      const params = new URLSearchParams();
+      const ent = document.getElementById('fEntity').value;
+      const act = document.getElementById('fAction').value;
+      const from= document.getElementById('fFrom').value;
+      const to  = document.getElementById('fTo').value;
+      if (ent) params.set('entity_type', ent);
+      if (act) params.set('action', act);
+      if (from) params.set('from', from);
+      if (to)   params.set('to',   to + 'T23:59:59');
+      params.set('limit', '300');
+      try {
+        const r = await api('/fin-audit?' + params.toString());
+        const rows = (r && r.data) || [];
+        const el = document.getElementById('atList');
+        if (!rows.length) { el.innerHTML = '<div class="text-secondary" style="font-size:.85rem;">No events match.</div>'; return; }
+        el.innerHTML = `<table class="at-table">
+          <thead><tr>
+            <th style="width:140px;">When</th>
+            <th style="width:120px;">User</th>
+            <th style="width:130px;">Entity</th>
+            <th style="width:80px;">Action</th>
+            <th style="width:130px;text-align:right;">Amount</th>
+            <th>Details</th>
+          </tr></thead>
+          <tbody>${rows.map(r => `<tr>
+            <td>${esc(fmtTs(r.created_at))}</td>
+            <td>${esc(r.user_name || r.user_email || '—')}</td>
+            <td>${esc(entityLabel(r.entity_type))}<br><span class="text-secondary" style="font-size:.7rem;">${esc((r.entity_id||'').slice(0,16))}</span></td>
+            <td><span class="pill a-${esc(r.action||'').toLowerCase()}">${esc(r.action||'—')}</span></td>
+            <td style="text-align:right;">${r.amount != null ? fmt2(r.amount) : '—'}</td>
+            <td>${r.changes ? `<div class="pre-changes">${esc(typeof r.changes === 'string' ? r.changes : JSON.stringify(r.changes, null, 0))}</div>` : '—'}</td>
+          </tr>`).join('')}</tbody></table>`;
+      } catch(e) {
+        document.getElementById('atList').innerHTML = `<div class="text-danger" style="font-size:.85rem;">${esc(e.message)}</div>`;
+      }
+    }
+
+    document.getElementById('btnApply').onclick = loadList;
+    loadSummary();
+    loadList();
+  })();
+  </script>
 </body>
 </html>

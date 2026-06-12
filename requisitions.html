@@ -7,23 +7,320 @@
   <title>Race Team OS – Requisitions</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="style.css?v=20260525" rel="stylesheet" />
+  <style>
+    body { background: linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%); }
+    .req-table { width:100%; font-size:.85rem; background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:8px; overflow:hidden; }
+    .req-table th { background:#f8f9fa; padding:8px 12px; font-size:.7rem; text-transform:uppercase; letter-spacing:.04em; color:#6c757d; border-bottom:2px solid #dee2e6; text-align:left; }
+    .req-table td { padding:8px 12px; border-bottom:1px solid #f0f0f0; }
+    .req-table tr:last-child td { border-bottom:none; }
+    .pill { display:inline-block; padding:2px 8px; border-radius:3px; font-size:.7rem; font-weight:700; text-transform:uppercase; }
+    .p-draft    { background:#e5e7eb; color:#374151; }
+    .p-submitted{ background:#fef3c7; color:#92400e; }
+    .p-approved { background:#d1fae5; color:#065f46; }
+    .p-rejected { background:#fee2e2; color:#991b1b; }
+    .p-ordered  { background:#dbeafe; color:#1e40af; }
+    .item-row { display:grid; grid-template-columns:1fr 80px 110px 30px; gap:6px; align-items:center; margin-bottom:4px; }
+    .item-row input { font-size:.82rem; }
+    .kpi-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:12px; margin-bottom:18px; }
+    .kpi      { background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:8px; padding:14px 16px; }
+    .kpi-l    { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:#6c757d; }
+    .kpi-v    { font-size:1.4rem; font-weight:700; color:#1a1d24; }
+  </style>
 </head>
 <body class="light-mode">
   <div id="rtsTopNav"></div>
   <div class="rts-main container-fluid">
-    <div class="pt-3 pb-2 mb-3 border-bottom">
-      <h1 class="h4 mb-1">Requisitions</h1>
-      <div class="text-secondary" style="font-size:.85rem;">Internal purchase requests and approval workflow.</div>
+    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+      <div>
+        <h1 class="h4 mb-1">Requisitions</h1>
+        <div class="text-secondary" style="font-size:.85rem;">Internal purchase requests and approval workflow.</div>
+      </div>
+      <div class="d-flex gap-2">
+        <select id="reqFilter" class="form-select form-select-sm" style="width:auto;">
+          <option value="">All statuses</option>
+          <option value="draft">Draft</option>
+          <option value="submitted">Submitted</option>
+          <option value="approved">Approved</option>
+          <option value="rejected">Rejected</option>
+          <option value="ordered">Ordered</option>
+        </select>
+        <button class="btn btn-sm btn-primary" id="btnNew">+ New Requisition</button>
+      </div>
     </div>
-    <div class="text-center py-5 text-secondary">
-      <div style="font-size:3rem;">📋</div>
-      <h5 class="mt-3">Coming Soon</h5>
-      <p class="mb-0" style="font-size:.9rem;">Raise and approve internal purchase requests here.</p>
+
+    <div class="kpi-grid" id="kpiGrid">
+      <div class="kpi"><div class="kpi-l">Open Requests</div><div class="kpi-v" id="kpiOpen">—</div></div>
+      <div class="kpi"><div class="kpi-l">Awaiting Approval</div><div class="kpi-v" id="kpiPending">—</div></div>
+      <div class="kpi"><div class="kpi-l">Approved (30d)</div><div class="kpi-v" id="kpiApproved">—</div></div>
+      <div class="kpi"><div class="kpi-l">Pending Value</div><div class="kpi-v" id="kpiPendingValue">—</div></div>
+    </div>
+
+    <div id="reqList"><div class="text-secondary" style="font-size:.85rem;">Loading…</div></div>
+  </div>
+
+  <!-- New / Edit modal -->
+  <div class="modal fade" id="reqModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header py-2">
+          <h5 class="modal-title" id="reqModalTitle">New Requisition</h5>
+          <button class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-2">
+            <div class="col-md-6"><label class="form-label small">Requester name</label><input id="rfRequester" class="form-control form-control-sm"></div>
+            <div class="col-md-6"><label class="form-label small">Email</label><input id="rfEmail" type="email" class="form-control form-control-sm"></div>
+            <div class="col-md-4"><label class="form-label small">Department</label><input id="rfDept" class="form-control form-control-sm"></div>
+            <div class="col-md-4"><label class="form-label small">Category</label><input id="rfCategory" class="form-control form-control-sm" placeholder="Parts, Travel, Office…"></div>
+            <div class="col-md-4"><label class="form-label small">Needed by</label><input id="rfNeededBy" type="date" class="form-control form-control-sm"></div>
+            <div class="col-md-6"><label class="form-label small">Linked event</label><select id="rfEvent" class="form-select form-select-sm"><option value="">—</option></select></div>
+            <div class="col-md-6"><label class="form-label small">Linked budget</label><select id="rfBudget" class="form-select form-select-sm"><option value="">—</option></select></div>
+            <div class="col-12"><label class="form-label small">Description</label><textarea id="rfDesc" class="form-control form-control-sm" rows="2"></textarea></div>
+            <div class="col-12">
+              <label class="form-label small d-flex justify-content-between">Items
+                <button class="btn btn-sm btn-outline-secondary" id="btnAddItem" type="button" style="padding:0 8px;font-size:.75rem;">+ Add line</button>
+              </label>
+              <div id="itemsWrap"></div>
+              <div class="text-end mt-2" style="font-size:.85rem;">Total: <strong id="rfTotal">R0.00</strong></div>
+            </div>
+            <div class="col-12"><label class="form-label small">Notes</label><textarea id="rfNotes" class="form-control form-control-sm" rows="2"></textarea></div>
+          </div>
+        </div>
+        <div class="modal-footer py-2">
+          <button class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-sm btn-primary" id="btnSaveReq">Save</button>
+          <button class="btn btn-sm btn-success" id="btnSubmitReq">Save &amp; Submit</button>
+        </div>
+      </div>
     </div>
   </div>
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="topnav.js?v=20260520"></script>
   <script src="config.js"></script>
   <script src="core.js"></script>
+  <script>
+  (function(){
+    'use strict';
+    const sym  = (window.curr && window.curr()) || 'R';
+    const fmt0 = n => sym + (Number(n)||0).toLocaleString('en-ZA',{minimumFractionDigits:0,maximumFractionDigits:0});
+    const fmt2 = n => sym + (Number(n)||0).toLocaleString('en-ZA',{minimumFractionDigits:2,maximumFractionDigits:2});
+    const esc  = s => String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+    async function api(path, opts={}) {
+      if (window.RTS_API && typeof RTS_API.request === 'function') {
+        return await RTS_API.request(path, opts);
+      }
+      const base = (window.RTS_CONFIG?.api?.baseURL) || '/api';
+      const token = localStorage.getItem('auth_token');
+      const r = await fetch(`${base}${path}`, {
+        ...opts,
+        headers: { 'Content-Type':'application/json', ...(token?{Authorization:`Bearer ${token}`}:{}), ...(opts.headers||{}) }
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.status === 204 ? null : await r.json();
+    }
+
+    let reqs = [], events = [], budgets = [];
+    let editingId = null;
+    const modalEl = document.getElementById('reqModal');
+    const modal = new bootstrap.Modal(modalEl);
+
+    function pillCls(s){ return 'pill p-' + (s||'draft'); }
+
+    function renderList() {
+      const filter = document.getElementById('reqFilter').value;
+      const list = filter ? reqs.filter(r => r.status === filter) : reqs;
+
+      // KPIs
+      const open = reqs.filter(r => ['draft','submitted','approved'].includes(r.status));
+      const pending = reqs.filter(r => r.status === 'submitted');
+      const since = Date.now() - 30*86400000;
+      const approved30 = reqs.filter(r => r.status === 'approved' && r.approved_at && new Date(r.approved_at).getTime() > since);
+      const pendingValue = pending.reduce((s,r) => s + (Number(r.total_amount)||0), 0);
+      document.getElementById('kpiOpen').textContent = open.length;
+      document.getElementById('kpiPending').textContent = pending.length;
+      document.getElementById('kpiApproved').textContent = approved30.length;
+      document.getElementById('kpiPendingValue').textContent = fmt0(pendingValue);
+
+      const el = document.getElementById('reqList');
+      if (!list.length) { el.innerHTML = '<div class="text-secondary" style="font-size:.85rem;">No requisitions match.</div>'; return; }
+      el.innerHTML = `<table class="req-table">
+        <thead><tr>
+          <th style="width:120px;">Number</th><th>Description</th><th style="width:140px;">Requester</th>
+          <th style="width:120px;">Event</th><th style="width:90px;">Needed</th>
+          <th style="width:120px;text-align:right;">Total</th><th style="width:110px;">Status</th>
+          <th style="width:170px;text-align:right;">Actions</th>
+        </tr></thead>
+        <tbody>${list.map(r => `<tr data-id="${esc(r.id)}">
+          <td><strong>${esc(r.req_number||'—')}</strong></td>
+          <td>${esc(r.description || r.category || '—')}</td>
+          <td>${esc(r.requester_name||'—')}</td>
+          <td>${esc(r.event_name||'—')}</td>
+          <td>${r.needed_by ? new Date(r.needed_by).toLocaleDateString('en-GB',{day:'2-digit',month:'short'}) : '—'}</td>
+          <td style="text-align:right;">${fmt2(r.total_amount)}</td>
+          <td><span class="${pillCls(r.status)}">${esc(r.status||'draft')}</span></td>
+          <td style="text-align:right;white-space:nowrap;">
+            <button class="btn btn-sm btn-outline-secondary act-edit" style="padding:0 6px;font-size:.7rem;">Edit</button>
+            ${r.status==='submitted' ? `<button class="btn btn-sm btn-outline-success act-approve" style="padding:0 6px;font-size:.7rem;">Approve</button><button class="btn btn-sm btn-outline-danger act-reject" style="padding:0 6px;font-size:.7rem;">Reject</button>` : ''}
+            ${r.status==='approved' ? `<button class="btn btn-sm btn-outline-primary act-po" style="padding:0 6px;font-size:.7rem;">→ PO</button>` : ''}
+            <button class="btn btn-sm btn-outline-danger act-del" style="padding:0 6px;font-size:.7rem;">×</button>
+          </td>
+        </tr>`).join('')}</tbody></table>`;
+    }
+
+    function fillSelects() {
+      const evSel = document.getElementById('rfEvent');
+      evSel.innerHTML = '<option value="">—</option>' + events.map(e => `<option value="${esc(e.id)}">${esc(e.name||e.id)}</option>`).join('');
+      const bSel = document.getElementById('rfBudget');
+      bSel.innerHTML = '<option value="">—</option>' + budgets.map(b => `<option value="${esc(b.id)}">${esc(b.name||b.id)}</option>`).join('');
+    }
+
+    function blankItem(){ return { description:'', qty:1, unit_price:0 }; }
+    function readItems() {
+      const rows = document.querySelectorAll('#itemsWrap .item-row');
+      const items = [];
+      rows.forEach(row => {
+        const inputs = row.querySelectorAll('input');
+        items.push({ description: inputs[0].value, qty: Number(inputs[1].value)||0, unit_price: Number(inputs[2].value)||0 });
+      });
+      return items;
+    }
+    function renderItems(items) {
+      const wrap = document.getElementById('itemsWrap');
+      wrap.innerHTML = (items.length?items:[blankItem()]).map((it,idx) => `
+        <div class="item-row">
+          <input class="form-control form-control-sm" placeholder="Description" value="${esc(it.description||'')}">
+          <input class="form-control form-control-sm" type="number" min="0" step="0.01" placeholder="Qty" value="${Number(it.qty||0)}">
+          <input class="form-control form-control-sm" type="number" min="0" step="0.01" placeholder="Unit price" value="${Number(it.unit_price||0)}">
+          <button class="btn btn-sm btn-outline-danger item-del" type="button" data-idx="${idx}" style="padding:0 6px;">×</button>
+        </div>`).join('');
+      bindItemHandlers();
+      recalcTotal();
+    }
+    function bindItemHandlers() {
+      document.querySelectorAll('#itemsWrap input').forEach(i => i.oninput = recalcTotal);
+      document.querySelectorAll('.item-del').forEach(b => b.onclick = (e) => {
+        e.target.closest('.item-row').remove();
+        recalcTotal();
+      });
+    }
+    function recalcTotal() {
+      const t = readItems().reduce((s,it) => s + (Number(it.qty)||0)*(Number(it.unit_price)||0), 0);
+      document.getElementById('rfTotal').textContent = fmt2(t);
+    }
+
+    function openModal(req) {
+      editingId = req?.id || null;
+      document.getElementById('reqModalTitle').textContent = req ? `Edit ${req.req_number||'Requisition'}` : 'New Requisition';
+      document.getElementById('rfRequester').value = req?.requester_name || '';
+      document.getElementById('rfEmail').value     = req?.requester_email || '';
+      document.getElementById('rfDept').value      = req?.department || '';
+      document.getElementById('rfCategory').value  = req?.category || '';
+      document.getElementById('rfNeededBy').value  = req?.needed_by ? String(req.needed_by).slice(0,10) : '';
+      document.getElementById('rfEvent').value     = req?.event_id || '';
+      document.getElementById('rfBudget').value    = req?.budget_id || '';
+      document.getElementById('rfDesc').value      = req?.description || '';
+      document.getElementById('rfNotes').value     = req?.notes || '';
+      renderItems(Array.isArray(req?.items) ? req.items : []);
+      modal.show();
+    }
+
+    async function saveReq(submit) {
+      const body = {
+        requester_name:  document.getElementById('rfRequester').value.trim() || null,
+        requester_email: document.getElementById('rfEmail').value.trim()     || null,
+        department:      document.getElementById('rfDept').value.trim()      || null,
+        category:        document.getElementById('rfCategory').value.trim()  || null,
+        needed_by:       document.getElementById('rfNeededBy').value          || null,
+        event_id:        document.getElementById('rfEvent').value             || null,
+        budget_id:       document.getElementById('rfBudget').value            || null,
+        description:     document.getElementById('rfDesc').value.trim()      || null,
+        notes:           document.getElementById('rfNotes').value.trim()     || null,
+        items:           readItems(),
+        status:          submit ? 'submitted' : (editingId ? null : 'draft')
+      };
+      try {
+        if (editingId) {
+          await api(`/fin-requisitions/${editingId}`, { method:'PUT', body: JSON.stringify(body) });
+        } else {
+          await api(`/fin-requisitions`, { method:'POST', body: JSON.stringify(body) });
+        }
+        modal.hide();
+        await load();
+      } catch (e) { alert('Save failed: ' + e.message); }
+    }
+
+    async function load() {
+      try {
+        const [rRes, eRes, bRes] = await Promise.all([
+          api('/fin-requisitions'),
+          api('/collections/events').catch(()=>({ items:[] })),
+          api('/fin-budgets').catch(()=>[])
+        ]);
+        reqs    = (rRes && rRes.data) || [];
+        events  = (eRes && (eRes.items || eRes.data)) || [];
+        budgets = Array.isArray(bRes) ? bRes : (bRes?.data || []);
+        fillSelects();
+        renderList();
+      } catch (e) {
+        document.getElementById('reqList').innerHTML = `<div class="text-danger" style="font-size:.85rem;">Load failed: ${esc(e.message)}</div>`;
+      }
+    }
+
+    document.getElementById('btnNew').onclick = () => openModal(null);
+    document.getElementById('btnAddItem').onclick = () => {
+      const wrap = document.getElementById('itemsWrap');
+      wrap.insertAdjacentHTML('beforeend', `
+        <div class="item-row">
+          <input class="form-control form-control-sm" placeholder="Description">
+          <input class="form-control form-control-sm" type="number" min="0" step="0.01" placeholder="Qty" value="1">
+          <input class="form-control form-control-sm" type="number" min="0" step="0.01" placeholder="Unit price" value="0">
+          <button class="btn btn-sm btn-outline-danger item-del" type="button" style="padding:0 6px;">×</button>
+        </div>`);
+      bindItemHandlers();
+    };
+    document.getElementById('btnSaveReq').onclick   = () => saveReq(false);
+    document.getElementById('btnSubmitReq').onclick = () => saveReq(true);
+    document.getElementById('reqFilter').onchange   = renderList;
+
+    document.getElementById('reqList').addEventListener('click', async (e) => {
+      const tr = e.target.closest('tr[data-id]');
+      if (!tr) return;
+      const id = tr.dataset.id;
+      const r  = reqs.find(x => x.id === id);
+      if (!r) return;
+      if (e.target.classList.contains('act-edit'))    openModal(r);
+      else if (e.target.classList.contains('act-approve')) {
+        try { await api(`/fin-requisitions/${id}/approve`, { method:'POST', body:'{}' }); await load(); }
+        catch(err){ alert(err.message); }
+      } else if (e.target.classList.contains('act-reject')) {
+        const reason = prompt('Reject reason?') || '';
+        try { await api(`/fin-requisitions/${id}/reject`, { method:'POST', body: JSON.stringify({ reason }) }); await load(); }
+        catch(err){ alert(err.message); }
+      } else if (e.target.classList.contains('act-po')) {
+        try {
+          await api(`/fin-purchase-orders`, { method:'POST', body: JSON.stringify({
+            requisition_id: id,
+            supplier: r.notes || '',
+            total_amount: r.total_amount,
+            currency: r.currency || 'ZAR',
+            event_id: r.event_id, budget_id: r.budget_id,
+            order_date: new Date().toISOString().slice(0,10),
+            items: JSON.stringify(r.items || []),
+            notes: `From requisition ${r.req_number}`
+          }) });
+          window.location.href = 'purchase-orders.html';
+        } catch(err){ alert(err.message); }
+      } else if (e.target.classList.contains('act-del')) {
+        if (!confirm('Delete this requisition?')) return;
+        try { await api(`/fin-requisitions/${id}`, { method:'DELETE' }); await load(); }
+        catch(err){ alert(err.message); }
+      }
+    });
+
+    load();
+  })();
+  </script>
 </body>
 </html>
