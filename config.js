@@ -2,9 +2,9 @@
 // Include this before core.js on pages where you want to override defaults.
 window.RTS_CONFIG = {
   // Software build version — updated on every deployment
-  buildVersion: '4114bec',
+  buildVersion: 'db3f9a7',
   buildDate:    '2026-06-12',
-  buildNote:    'Asset/Inventory pickers now load from API (was reading empty localStorage)',
+  buildNote:    'Invoice: auto-fill customer from driver when none selected',
   // API Configuration
   api: {
     baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)
