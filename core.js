@@ -1160,6 +1160,11 @@
 
   // Items API
   window.RTS_API = {
+    // Generic request — used by feature pages (invoice.html, fin-* pages, etc.)
+    async request(endpoint, options = {}) {
+      return await apiRequest(endpoint, options);
+    },
+
     // Get all items
     async getItems() {
       return await apiRequest('/items');
