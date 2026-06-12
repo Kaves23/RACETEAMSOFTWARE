@@ -6,13 +6,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Race Team OS – Entries</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet" />
   <link href="style.css?v=20260525" rel="stylesheet" />
   <style>
     body { background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%); }
-    .ev-stats-bar{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
-    .ev-stat-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:10px 16px;box-shadow:0 2px 4px rgba(0,0,0,.06);min-width:100px;}
+    .ev-stats-bar{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;align-items:center;}
+    .ev-stat-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:10px 16px;box-shadow:0 2px 4px rgba(0,0,0,.06);min-width:110px;}
+    .ev-stat-card.warn{border-color:#f59e0b;background:#fffbeb;}
+    .ev-stat-card.danger{border-color:#ef4444;background:#fef2f2;}
     .ev-stat-label{font-size:.7rem;color:#6c757d;font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
     .ev-stat-value{font-size:1.5rem;font-weight:700;color:#1a1d24;line-height:1.2;}
+    .ev-stat-card.warn .ev-stat-value{color:#b45309;}
+    .ev-stat-card.danger .ev-stat-value{color:#b91c1c;}
+
+    .view-toggle{display:inline-flex;gap:2px;background:#f1f3f5;border:1px solid rgba(0,0,0,.1);border-radius:7px;padding:2px;margin-left:auto;}
+    .view-toggle .view-btn{font-size:.74rem;font-weight:600;padding:5px 11px;border-radius:5px;background:transparent;border:none;color:#495057;cursor:pointer;}
+    .view-toggle .view-btn.active{background:#a64dff;color:#fff;}
+
     #entShell.mlo-shell{background:transparent;border:none;gap:10px;}
     #entShell .mlo-pane-left,#entShell .mlo-pane-mid,#entShell .mlo-pane-right{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.06);}
     #entShell .mlo-pane-header{background:#f8f9fa;border-bottom:1px solid rgba(0,0,0,.1);}
@@ -21,6 +31,7 @@
     #entShell .mlo-pane-content{color:#1a1d24;}
     #entShell .mlo-resizer{background:transparent;}
     #entShell .mlo-resizer:hover{background:rgba(166,77,255,.3);}
+
     .ent-table{width:100%;font-size:.82rem;border-collapse:separate;border-spacing:0;}
     .ent-table thead{position:sticky;top:0;background:#f8f9fa;z-index:5;}
     .ent-table th{padding:8px 10px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#6c757d;border-bottom:2px solid #dee2e6;white-space:nowrap;}
@@ -28,23 +39,45 @@
     .ent-table tbody tr{cursor:pointer;transition:background .1s;}
     .ent-table tbody tr:hover{background:#f8f9fa;}
     .ent-table tbody tr.selected{background:rgba(166,77,255,.08)!important;outline:2px solid #a64dff;outline-offset:-2px;}
+    .ent-table tbody tr.blocked{background:#fef2f2;}
+
     .status-pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:.72rem;font-weight:600;}
     .status-submitted{background:#dbeafe;color:#1e40af;}
     .status-confirmed{background:#d1fae5;color:#065f46;}
     .status-pending{background:#fef3c7;color:#92400e;}
     .status-rejected{background:#fee2e2;color:#991b1b;}
+    .pay-pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:.7rem;font-weight:600;}
+    .pay-paid{background:#d1fae5;color:#065f46;}
+    .pay-part{background:#fef3c7;color:#92400e;}
+    .pay-unpaid{background:#fee2e2;color:#991b1b;}
+    .pay-na{background:#e5e7eb;color:#475569;}
+    .deadline-pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:.7rem;font-weight:600;}
+    .deadline-ok{background:#e0f2fe;color:#075985;}
+    .deadline-soon{background:#fef3c7;color:#92400e;}
+    .deadline-overdue{background:#fee2e2;color:#991b1b;}
+    .blocker-pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:.68rem;font-weight:700;background:#fee2e2;color:#991b1b;border:1px solid #fecaca;}
+    .docs-mini{display:inline-flex;gap:2px;}
+    .docs-mini .doc-dot{width:10px;height:10px;border-radius:50%;display:inline-block;border:1px solid rgba(0,0,0,.1);}
+    .doc-dot.ok{background:#10b981;}
+    .doc-dot.warn{background:#f59e0b;}
+    .doc-dot.bad{background:#ef4444;}
+    .doc-dot.na{background:#e5e7eb;}
+    .doc-dot.over{background:#10b981;outline:2px dashed #f59e0b;outline-offset:1px;}
+
     #entShell .form-label{color:#495057!important;font-size:.78rem;font-weight:600;margin-bottom:2px;}
     #entShell .form-control,#entShell .form-select{background:#fff!important;color:#1a1d24!important;border-color:#dee2e6!important;font-size:.82rem;}
     #entShell .mlo-pane-left .pastel-tree li{height:28px!important;display:flex!important;align-items:center!important;font-size:.83rem!important;font-weight:500!important;padding-left:10px!important;margin-bottom:2px!important;border-radius:5px!important;border:1px solid rgba(0,0,0,.08)!important;color:#1a1d24!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;cursor:pointer!important;}
     #entShell .mlo-pane-left .pastel-tree li.active{background:rgba(166,77,255,.1)!important;border-color:rgba(166,77,255,.35)!important;color:#7c3aed!important;font-weight:700!important;}
-    /* custom combo-dropdowns */
+    #entShell .pastel-tree li .count-badge{margin-left:auto;font-size:.7rem;color:#6c757d;font-weight:600;padding-right:6px;}
+
+    /* combo-dropdowns */
     .ent-cdrop{position:relative;}
     .ent-cdrop-btn{width:100%;display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:#fff;border:1px solid #dee2e6;border-radius:6px;font-size:.82rem;color:#1a1d24;cursor:pointer;text-align:left;transition:border-color .15s;}
     .ent-cdrop-btn:hover,.ent-cdrop-btn:focus{border-color:#a64dff;outline:none;box-shadow:0 0 0 3px rgba(166,77,255,.12);}
     .ent-cdrop-val{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
     .ent-cdrop-menu{position:absolute;z-index:300;width:100%;top:calc(100% + 3px);background:#fff;border:1px solid #dee2e6;border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.16);overflow:hidden;}
     .ent-cdrop-search{width:100%;padding:8px 12px;border:none;border-bottom:1px solid #eee;font-size:.82rem;outline:none;background:#fafafa;color:#1a1d24;}
-    .ent-cdrop-list{max-height:210px;overflow-y:auto;}
+    .ent-cdrop-list{max-height:240px;overflow-y:auto;}
     .ent-cdrop-item{display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:.82rem;cursor:pointer;transition:background .1s;border-bottom:1px solid rgba(0,0,0,.04);}
     .ent-cdrop-item:last-child{border-bottom:none;}
     .ent-cdrop-item:hover{background:#f5f0ff;}
@@ -52,25 +85,92 @@
     .ent-drv-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;background:#bbb;border:1px solid rgba(0,0,0,.1);}
     .ent-drv-num{font-size:.72rem;color:#6c757d;margin-left:auto;white-space:nowrap;padding-left:4px;}
     .ent-ev-date{font-size:.72rem;color:#6c757d;margin-left:auto;white-space:nowrap;padding-left:4px;}
+
+    .ent-section{border-top:1px solid #eef0f3;margin-top:14px;padding-top:12px;}
+    .ent-section-title{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6c757d;margin-bottom:6px;display:flex;align-items:center;gap:6px;}
+    .ent-doc-row{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:8px;padding:6px 10px;border:1px solid #eef0f3;border-radius:6px;margin-bottom:4px;background:#fafbfc;font-size:.8rem;}
+    .ent-doc-row.bad{border-color:#fecaca;background:#fef2f2;}
+    .ent-doc-row.warn{border-color:#fde68a;background:#fffbeb;}
+    .ent-doc-row .doc-name{font-weight:600;color:#1a1d24;}
+    .ent-doc-row .doc-sub{font-size:.7rem;color:#6c757d;}
+    .ent-doc-row .doc-status{font-size:.7rem;font-weight:700;padding:2px 7px;border-radius:10px;}
+    .ent-doc-row .doc-status.ok{background:#d1fae5;color:#065f46;}
+    .ent-doc-row .doc-status.warn{background:#fef3c7;color:#92400e;}
+    .ent-doc-row .doc-status.bad{background:#fee2e2;color:#991b1b;}
+    .ent-doc-row .doc-status.over{background:#dbeafe;color:#1e40af;}
+    .ent-doc-row .form-check-input{margin:0;}
+    .ent-doc-row .form-check{padding:0;display:flex;align-items:center;gap:4px;font-size:.7rem;color:#6c757d;}
+
+    .ent-event-group{border:1px solid rgba(0,0,0,.1);border-radius:8px;background:#fff;margin:10px 12px;padding:10px 14px;}
+    .ent-event-head{display:flex;align-items:center;gap:10px;cursor:pointer;}
+    .ent-event-title{font-weight:700;font-size:.95rem;color:#1a1d24;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .ent-event-meta{font-size:.72rem;color:#6c757d;white-space:nowrap;}
+    .ent-event-progress{height:6px;background:#e5e7eb;border-radius:4px;overflow:hidden;margin-top:6px;}
+    .ent-event-progress .bar{height:100%;background:linear-gradient(90deg,#10b981,#34d399);}
+    .ent-event-body{margin-top:8px;border-top:1px dashed #eef0f3;padding-top:6px;display:none;}
+    .ent-event-body.open{display:block;}
+    .ent-event-row{display:grid;grid-template-columns:1.4fr .5fr 1fr .9fr .9fr;gap:8px;font-size:.78rem;padding:5px 6px;border-bottom:1px solid #f4f5f7;align-items:center;cursor:pointer;}
+    .ent-event-row:hover{background:#fafafa;}
+    .ent-event-row.selected{background:rgba(166,77,255,.08);}
+
+    .ent-why-list{font-size:.78rem;margin:0;padding-left:18px;}
+    .ent-why-list li{color:#991b1b;margin-bottom:3px;}
+    .ent-why-empty{color:#065f46;font-weight:600;font-size:.8rem;}
+
+    .ent-flag-list{font-size:.78rem;}
+    .ent-flag-list .flag{display:flex;gap:8px;align-items:flex-start;padding:5px 0;border-bottom:1px dashed #eef0f3;}
+    .ent-flag-list .flag:last-child{border-bottom:none;}
+    .ent-flag-icon{font-size:.9rem;flex-shrink:0;margin-top:1px;}
+    .ent-flag-pen{color:#b91c1c;}
+    .ent-flag-inc{color:#b45309;}
+
+    .ent-modal-list{max-height:340px;overflow-y:auto;border:1px solid #e5e7eb;border-radius:6px;padding:4px;background:#fff;}
+    .ent-modal-driver{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:5px;font-size:.83rem;cursor:pointer;}
+    .ent-modal-driver:hover{background:#f5f0ff;}
+    .ent-champ-row{display:grid;grid-template-columns:1.4fr 1fr 1fr .9fr auto;gap:8px;align-items:center;font-size:.82rem;padding:6px 4px;border-bottom:1px solid #f1f3f5;}
+    .ent-champ-row:last-child{border-bottom:none;}
+
+    #entBlockerBanner{margin-bottom:10px;padding:8px 12px;border-radius:7px;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;font-size:.78rem;font-weight:600;}
+
+    @media print {
+      body{background:#fff;}
+      #rtsTopNav,.rts-version-badge,.pt-3,#entShell,.modal,.modal-backdrop,.ev-stats-bar{display:none!important;}
+      .print-form{display:block!important;}
+    }
+    .print-form{display:none;}
+    .print-form h2{font-size:1.4rem;margin-bottom:8px;border-bottom:2px solid #000;padding-bottom:4px;}
+    .print-form table{width:100%;border-collapse:collapse;margin-bottom:12px;font-size:.9rem;}
+    .print-form td{padding:6px 8px;border:1px solid #ccc;}
+    .print-form td.label{background:#f5f5f5;width:160px;font-weight:600;}
   </style>
 </head>
 <body class="light-mode">
   <div id="rtsTopNav"></div>
-  <div class="rts-version-badge">v1</div>
+  <div class="rts-version-badge">v2</div>
   <div class="rts-main container-fluid">
-    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end flex-wrap gap-2">
       <div>
         <h1 class="h4 mb-1">Entries</h1>
-        <div class="text-secondary" style="font-size:.85rem;">Competition entry submissions, documentation, and confirmation tracking.</div>
+        <div class="text-secondary" style="font-size:.85rem;">Competition entries with auto-prefill, doc readiness, deadlines, payment tracking and bulk submission.</div>
       </div>
-      <button class="btn btn-sm btn-primary" id="btnAddEntry">+ Add Entry</button>
+      <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-sm btn-outline-secondary" id="btnManageChamps"><i class="bi bi-trophy"></i> Championships</button>
+        <button class="btn btn-sm btn-outline-primary" id="btnBulkFromEvent"><i class="bi bi-people-fill"></i> Bulk from Event</button>
+        <button class="btn btn-sm btn-primary" id="btnAddEntry"><i class="bi bi-plus-lg"></i> Add Entry</button>
+      </div>
     </div>
 
     <div class="ev-stats-bar">
       <div class="ev-stat-card"><div class="ev-stat-label">Total Entries</div><div class="ev-stat-value" id="statEntTotal">0</div></div>
       <div class="ev-stat-card"><div class="ev-stat-label">Confirmed</div><div class="ev-stat-value" id="statEntConfirmed">0</div></div>
       <div class="ev-stat-card"><div class="ev-stat-label">Pending</div><div class="ev-stat-value" id="statEntPending">0</div></div>
-      <div class="ev-stat-card"><div class="ev-stat-label">Docs Required</div><div class="ev-stat-value" id="statEntDocs">0</div></div>
+      <div class="ev-stat-card danger"><div class="ev-stat-label">Blocked</div><div class="ev-stat-value" id="statEntBlocked">0</div></div>
+      <div class="ev-stat-card warn"><div class="ev-stat-label">Past Deadline</div><div class="ev-stat-value" id="statEntOverdue">0</div></div>
+      <div class="ev-stat-card warn"><div class="ev-stat-label">Fees Outstanding</div><div class="ev-stat-value" id="statEntFeesOut">R0</div></div>
+      <div class="view-toggle" id="viewToggle">
+        <button class="view-btn active" data-view="list">List</button>
+        <button class="view-btn" data-view="byevent">By Event</button>
+      </div>
     </div>
 
     <div class="mlo-shell" id="entShell">
@@ -80,11 +180,15 @@
         <div class="mlo-pane-content">
           <div class="mlo-section-label">By Status</div>
           <ul class="mlo-tree pastel-tree" id="entStatusFilter">
-            <li class="active" data-filter="all">All Entries</li>
-            <li data-filter="submitted">Submitted</li>
-            <li data-filter="confirmed">Confirmed</li>
-            <li data-filter="pending">Pending</li>
-            <li data-filter="rejected">Rejected</li>
+            <li class="active" data-filter="all">All Entries<span class="count-badge" id="cntAll">0</span></li>
+            <li data-filter="submitted">Submitted<span class="count-badge" id="cntSubmitted">0</span></li>
+            <li data-filter="confirmed">Confirmed<span class="count-badge" id="cntConfirmed">0</span></li>
+            <li data-filter="pending">Pending<span class="count-badge" id="cntPending">0</span></li>
+            <li data-filter="rejected">Rejected<span class="count-badge" id="cntRejected">0</span></li>
+          </ul>
+          <div class="mlo-section-label mt-3">By Championship</div>
+          <ul class="mlo-tree pastel-tree" id="entChampFilter">
+            <li class="active" data-champ="all">All<span class="count-badge" id="cntChAll">0</span></li>
           </ul>
         </div>
       </section>
@@ -101,15 +205,18 @@
           <input class="form-control form-control-sm mt-2" type="search" id="entSearch" placeholder="Search entries…" />
         </div>
         <div class="mlo-pane-content p-0">
-          <table class="ent-table" id="entTable">
-            <thead><tr>
-              <th>Driver</th><th>Car #</th><th>Event</th><th>Championship</th>
-              <th>Entry Date</th><th>Status</th><th>Docs</th>
-            </tr></thead>
-            <tbody id="entTableBody">
-              <tr><td colspan="7" class="text-center text-secondary py-4">No entries found.</td></tr>
-            </tbody>
-          </table>
+          <div id="viewList">
+            <table class="ent-table" id="entTable">
+              <thead><tr>
+                <th>Driver</th><th>Car #</th><th>Event</th><th>Championship</th>
+                <th>Deadline</th><th>Status</th><th>Docs</th><th>Payment</th>
+              </tr></thead>
+              <tbody id="entTableBody">
+                <tr><td colspan="8" class="text-center text-secondary py-4">No entries found.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div id="viewByEvent" style="display:none;"></div>
         </div>
       </section>
 
@@ -118,7 +225,9 @@
       <!-- RIGHT -->
       <section class="mlo-pane mlo-pane-right" aria-label="Entry detail">
         <div class="mlo-pane-header">
-          <div class="mlo-title" id="entDetailTitle">Entry Detail</div>
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="mlo-title" id="entDetailTitle">Entry Detail</div>
+          </div>
         </div>
         <div class="mlo-pane-content" id="entDetailPanel">
           <div class="text-center text-secondary py-5" id="entDetailEmpty">
@@ -126,6 +235,8 @@
             <div class="mt-2">Select an entry to view details</div>
           </div>
           <form id="entForm" style="display:none;">
+            <div id="entBlockerBanner" style="display:none;"></div>
+
             <div class="mb-2">
               <label class="form-label">Driver *</label>
               <div class="ent-cdrop" id="cdDriver">
@@ -142,17 +253,28 @@
             </div>
             <div class="row g-2 mb-2">
               <div class="col">
-                <label class="form-label">Car Number</label>
+                <label class="form-label">Car Number <span class="text-secondary" style="font-size:.68rem;">auto</span></label>
                 <input class="form-control" id="entFCarNum" placeholder="#" />
               </div>
               <div class="col">
-                <label class="form-label">Licence Number</label>
+                <label class="form-label">Licence Number <span class="text-secondary" style="font-size:.68rem;">auto</span></label>
                 <input class="form-control" id="entFLicence" />
               </div>
             </div>
             <div class="mb-2">
-              <label class="form-label">Championship / Series</label>
-              <input class="form-control" id="entFChampionship" />
+              <label class="form-label">Championship</label>
+              <div class="ent-cdrop" id="cdChamp">
+                <button type="button" class="ent-cdrop-btn" id="cdChampBtn">
+                  <span class="ent-cdrop-val" id="cdChampVal" style="color:#6c757d">— Select or type below —</span>
+                  <i class="bi bi-chevron-down" style="font-size:.7rem;opacity:.6;flex-shrink:0;"></i>
+                </button>
+                <div class="ent-cdrop-menu" id="cdChampMenu" style="display:none;">
+                  <input class="ent-cdrop-search" id="cdChampSearch" placeholder="Search championships…" autocomplete="off" />
+                  <div class="ent-cdrop-list" id="cdChampList"></div>
+                </div>
+                <input type="hidden" id="entFChampId" />
+              </div>
+              <input class="form-control mt-1" id="entFChampionship" placeholder="Free-text fallback / series name" />
             </div>
             <div class="mb-2">
               <label class="form-label">Event</label>
@@ -169,11 +291,11 @@
               </div>
             </div>
             <div class="row g-2 mb-2">
-              <div class="col">
+              <div class="col-6">
                 <label class="form-label">Entry Date</label>
                 <input class="form-control" id="entFDate" type="date" />
               </div>
-              <div class="col">
+              <div class="col-6">
                 <label class="form-label">Status</label>
                 <select class="form-select" id="entFStatus">
                   <option value="pending">Pending</option>
@@ -182,26 +304,82 @@
                   <option value="rejected">Rejected</option>
                 </select>
               </div>
+              <div class="col-6">
+                <label class="form-label">Entry Deadline</label>
+                <input class="form-control" id="entFDeadline" type="date" />
+              </div>
+              <div class="col-6">
+                <label class="form-label">Payment Deadline</label>
+                <input class="form-control" id="entFPayDeadline" type="date" />
+              </div>
             </div>
-            <div class="mb-2">
-              <label class="form-label">Required Documents</label>
-              <textarea class="form-control" id="entFDocs" rows="2" placeholder="e.g. Licence copy, Medical certificate"></textarea>
+
+            <div class="ent-section">
+              <div class="ent-section-title"><i class="bi bi-shield-check"></i> Document Readiness</div>
+              <div id="entDocPanel"><div class="text-secondary" style="font-size:.78rem;">Pick a driver to check documents.</div></div>
+              <div class="mt-2" id="entOverrideWrap" style="display:none;">
+                <label class="form-label">Override reason</label>
+                <input class="form-control" id="entFOverrideReason" placeholder="Why is an expired/missing doc being accepted?" />
+              </div>
             </div>
-            <div class="mb-2">
-              <label class="form-label">Approval Status</label>
-              <select class="form-select" id="entFApproval">
-                <option value="">Not reviewed</option>
-                <option value="approved">Approved</option>
-                <option value="under_review">Under Review</option>
-                <option value="rejected">Rejected</option>
-              </select>
+
+            <div class="ent-section">
+              <div class="ent-section-title"><i class="bi bi-cash-stack"></i> Payment</div>
+              <div class="row g-2">
+                <div class="col-6">
+                  <label class="form-label">Entry Fee</label>
+                  <input class="form-control" id="entFFee" type="number" min="0" step="0.01" placeholder="0.00" />
+                </div>
+                <div class="col-6">
+                  <label class="form-label">Amount Paid</label>
+                  <input class="form-control" id="entFPaid" type="number" min="0" step="0.01" placeholder="0.00" />
+                </div>
+                <div class="col-6">
+                  <label class="form-label">Paid Date</label>
+                  <input class="form-control" id="entFPaidDate" type="date" />
+                </div>
+                <div class="col-6">
+                  <label class="form-label">Reference</label>
+                  <input class="form-control" id="entFPayRef" placeholder="EFT ref / invoice #" />
+                </div>
+                <div class="col-12">
+                  <div class="d-flex align-items-center gap-2 mt-1">
+                    <span class="text-secondary" style="font-size:.75rem;">Status:</span>
+                    <span id="entPayStatus" class="pay-pill pay-na">n/a</span>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div class="mb-3">
-              <label class="form-label">Notes</label>
-              <textarea class="form-control" id="entFNotes" rows="2"></textarea>
+
+            <div class="ent-section">
+              <div class="ent-section-title"><i class="bi bi-question-octagon"></i> Why isn't this confirmed?</div>
+              <div id="entWhyNot"><div class="ent-why-empty">— select an entry —</div></div>
             </div>
-            <div class="d-flex gap-2">
+
+            <div class="ent-section">
+              <div class="ent-section-title"><i class="bi bi-flag"></i> Driver Flags</div>
+              <div id="entDriverFlags" class="ent-flag-list"><div class="text-secondary" style="font-size:.78rem;">No driver selected.</div></div>
+            </div>
+
+            <div class="ent-section">
+              <div class="mb-2">
+                <label class="form-label">Approval Status</label>
+                <select class="form-select" id="entFApproval">
+                  <option value="">Not reviewed</option>
+                  <option value="approved">Approved</option>
+                  <option value="under_review">Under Review</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Notes</label>
+                <textarea class="form-control" id="entFNotes" rows="2"></textarea>
+              </div>
+            </div>
+
+            <div class="d-flex gap-2 flex-wrap">
               <button type="button" class="btn btn-primary btn-sm" id="entBtnSave">Save</button>
+              <button type="button" class="btn btn-outline-secondary btn-sm" id="entBtnPrintForm" style="display:none;"><i class="bi bi-printer"></i> Print Form</button>
               <button type="button" class="btn btn-outline-danger btn-sm" id="entBtnDelete" style="display:none;">Delete</button>
               <button type="button" class="btn btn-outline-secondary btn-sm" id="entBtnCancel">Cancel</button>
             </div>
@@ -211,241 +389,83 @@
     </div>
   </div>
 
+  <!-- BULK MODAL -->
+  <div class="modal fade" id="bulkModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Bulk Entry from Event</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-2">
+            <div class="col-12">
+              <label class="form-label">Event</label>
+              <select class="form-select" id="bulkEvent"></select>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Championship</label>
+              <select class="form-select" id="bulkChamp"><option value="">—</option></select>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Default Status</label>
+              <select class="form-select" id="bulkStatus">
+                <option value="pending">Pending</option>
+                <option value="submitted">Submitted</option>
+              </select>
+            </div>
+            <div class="col-4">
+              <label class="form-label">Entry Deadline</label>
+              <input class="form-control" type="date" id="bulkEntryDeadline" />
+            </div>
+            <div class="col-4">
+              <label class="form-label">Payment Deadline</label>
+              <input class="form-control" type="date" id="bulkPayDeadline" />
+            </div>
+            <div class="col-4">
+              <label class="form-label">Entry Fee (each)</label>
+              <input class="form-control" type="number" min="0" step="0.01" id="bulkFee" placeholder="0.00" />
+            </div>
+            <div class="col-12">
+              <label class="form-label">Drivers <span class="text-secondary" style="font-size:.7rem;">(prefilled from event's "Drivers attending"; tick to include)</span></label>
+              <div class="ent-modal-list" id="bulkDriverList"></div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary btn-sm" id="bulkSubmit">Create Entries</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHAMPIONSHIPS MODAL -->
+  <div class="modal fade" id="champModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Championships</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="d-flex justify-content-end mb-2">
+            <button class="btn btn-sm btn-primary" id="champAddBtn"><i class="bi bi-plus-lg"></i> Add Championship</button>
+          </div>
+          <div class="ent-champ-row" style="font-weight:700;color:#6c757d;text-transform:uppercase;font-size:.7rem;letter-spacing:.04em;">
+            <div>Name</div><div>Sanctioning Body</div><div>Season</div><div>Default Fee</div><div></div>
+          </div>
+          <div id="champRows"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="print-form" id="printForm"></div>
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="core.js"></script>
   <script src="topnav.js?v=20260525"></script>
-  <script>
-    let allEntries = [], allDrivers = [], allEvents = [], selectedId = null, filterStatus = 'all';
-
-    // Authenticated fetch – adds Bearer token from localStorage
-    function authFetch(url, opts) {
-      const t = localStorage.getItem('auth_token') || '';
-      const headers = Object.assign({}, (opts||{}).headers, t ? {'Authorization': `Bearer ${t}`} : {});
-      return fetch(url, Object.assign({}, opts||{}, { headers }));
-    }
-
-    // ── Custom dropdowns ───────────────────────────────────────
-    function fmtDate(d) {
-      if (!d) return '';
-      return new Date(d).toLocaleDateString('en-ZA', {day:'numeric',month:'short',year:'numeric'});
-    }
-
-    function buildDriverDropdown(selId) {
-      const list  = document.getElementById('cdDriverList');
-      const span  = document.getElementById('cdDriverVal');
-      const input = document.getElementById('entFDriver');
-      list.innerHTML = '';
-      allDrivers.forEach(d => {
-        const el = document.createElement('div');
-        el.className = 'ent-cdrop-item' + (d.id == selId ? ' active' : '');
-        el.dataset.id = d.id;
-        const dot = `<span class="ent-drv-dot" style="background:${d.color||'#bbb'}"></span>`;
-        const num = d.race_number ? `<span class="ent-drv-num">#${esc(d.race_number)}</span>` : '';
-        el.innerHTML = `${dot}<span style="flex:1">${esc(d.name)}</span>${num}`;
-        el.addEventListener('click', () => {
-          input.value = d.id;
-          span.textContent = d.name; span.style.color = '';
-          closeCDrops();
-          list.querySelectorAll('.ent-cdrop-item').forEach(x=>x.classList.remove('active'));
-          el.classList.add('active');
-        });
-        list.appendChild(el);
-      });
-      const dr = allDrivers.find(d => d.id == selId);
-      if (dr) { span.textContent = dr.name; span.style.color = ''; input.value = dr.id; }
-      else    { span.textContent = '— Select Driver —'; span.style.color = '#6c757d'; input.value = ''; }
-    }
-
-    function buildEventDropdown(selId) {
-      const list  = document.getElementById('cdEventList');
-      const span  = document.getElementById('cdEventVal');
-      const input = document.getElementById('entFEvent');
-      list.innerHTML = '';
-      allEvents.forEach(e => {
-        const el = document.createElement('div');
-        el.className = 'ent-cdrop-item' + (e.id == selId ? ' active' : '');
-        el.dataset.id = e.id;
-        const d = fmtDate(e.start_date);
-        el.innerHTML = `<span style="flex:1">${esc(e.name)}</span>${d?`<span class="ent-ev-date">${d}</span>`:''}` ;
-        el.addEventListener('click', () => {
-          const d2 = fmtDate(e.start_date);
-          input.value = e.id;
-          span.textContent = d2 ? `${e.name}  ·  ${d2}` : e.name; span.style.color = '';
-          closeCDrops();
-          list.querySelectorAll('.ent-cdrop-item').forEach(x=>x.classList.remove('active'));
-          el.classList.add('active');
-        });
-        list.appendChild(el);
-      });
-      const ev = allEvents.find(e => e.id == selId);
-      if (ev) {
-        const d = fmtDate(ev.start_date);
-        span.textContent = d ? `${ev.name}  ·  ${d}` : ev.name; span.style.color = ''; input.value = ev.id;
-      } else {
-        span.textContent = '— Select Event —'; span.style.color = '#6c757d'; input.value = '';
-      }
-    }
-
-    function filterCDropList(listId, q) {
-      document.getElementById(listId).querySelectorAll('.ent-cdrop-item').forEach(el => {
-        el.style.display = el.textContent.toLowerCase().includes(q.toLowerCase()) ? '' : 'none';
-      });
-    }
-
-    function closeCDrops() {
-      document.getElementById('cdDriverMenu').style.display = 'none';
-      document.getElementById('cdEventMenu').style.display  = 'none';
-    }
-
-    function setDriverSelect(val) { buildDriverDropdown(val); document.getElementById('cdDriverSearch').value=''; filterCDropList('cdDriverList',''); }
-    function setEventSelect(val)  { buildEventDropdown(val);  document.getElementById('cdEventSearch').value='';  filterCDropList('cdEventList','');  }
-
-    document.getElementById('cdDriverBtn').addEventListener('click', () => {
-      const m = document.getElementById('cdDriverMenu');
-      const open = m.style.display !== 'none'; closeCDrops();
-      if (!open) { m.style.display=''; document.getElementById('cdDriverSearch').focus(); }
-    });
-    document.getElementById('cdEventBtn').addEventListener('click', () => {
-      const m = document.getElementById('cdEventMenu');
-      const open = m.style.display !== 'none'; closeCDrops();
-      if (!open) { m.style.display=''; document.getElementById('cdEventSearch').focus(); }
-    });
-    document.getElementById('cdDriverSearch').addEventListener('input', e => filterCDropList('cdDriverList', e.target.value));
-    document.getElementById('cdEventSearch').addEventListener('input',  e => filterCDropList('cdEventList',  e.target.value));
-    document.addEventListener('click', e => { if (!e.target.closest('#cdDriver') && !e.target.closest('#cdEvent')) closeCDrops(); });
-    // ───────────────────────────────────────────────────────────
-
-    async function loadEntries() {
-      try {
-        const [entriesR, drsR, evsR] = await Promise.all([
-          authFetch('/api/entries').then(r => r.ok ? r.json() : []).catch(() => []),
-          RTS_API.getCollectionItems('drivers').catch(() => ({ items: [] })),
-          RTS_API.getCollectionItems('events').catch(()  => ({ items: [] }))
-        ]);
-        allEntries = Array.isArray(entriesR) ? entriesR : (entriesR.data||[]);
-        allDrivers = (drsR && drsR.items) ? drsR.items : [];
-        allEvents  = (evsR && evsR.items)  ? evsR.items  : [];
-      } catch(_) { allEntries=[]; allDrivers=[]; allEvents=[]; }
-      renderList();
-    }
-
-    function renderList() {
-      const q = document.getElementById('entSearch').value.trim().toLowerCase();
-      const rows = allEntries.filter(e => {
-        const ms = filterStatus === 'all' || e.status === filterStatus;
-        const mq = !q || (e.driver_name||'').toLowerCase().includes(q) || (e.event||'').toLowerCase().includes(q);
-        return ms && mq;
-      });
-      document.getElementById('entCountBadge').textContent = rows.length;
-      document.getElementById('statEntTotal').textContent = allEntries.length;
-      document.getElementById('statEntConfirmed').textContent = allEntries.filter(e=>e.status==='confirmed').length;
-      document.getElementById('statEntPending').textContent = allEntries.filter(e=>e.status==='pending').length;
-      document.getElementById('statEntDocs').textContent = allEntries.filter(e=>e.docs_required).length;
-      const tb = document.getElementById('entTableBody');
-      if (!rows.length) { tb.innerHTML = '<tr><td colspan="7" class="text-center text-secondary py-4">No entries match.</td></tr>'; return; }
-      tb.innerHTML = rows.map(e => {
-        const drName = (allDrivers.find(d=>d.id==e.driver_id)||{}).name || e.driver_name || '—';
-        const evName = (allEvents.find(ev=>ev.id==e.event_id)||{}).name || e.event || '—';
-        return `<tr data-id="${e.id}" class="${e.id==selectedId?'selected':''}">
-        <td><strong>${esc(drName)}</strong></td>
-        <td>${esc(e.car_number||'—')}</td>
-        <td>${esc(evName)}</td>
-        <td>${esc(e.championship||'—')}</td>
-        <td>${e.entry_date||'—'}</td>
-        <td><span class="status-pill status-${e.status||'pending'}">${e.status||'pending'}</span></td>
-        <td>${e.docs_required?'<span class="badge bg-warning text-dark">Req</span>':'<span class="badge bg-success">OK</span>'}</td>
-      </tr>`;
-      }).join('');
-      tb.querySelectorAll('tr').forEach(r=>r.addEventListener('click',()=>selectEntry(r.dataset.id)));
-    }
-
-    function selectEntry(id) {
-      selectedId = id;
-      const e = allEntries.find(x=>x.id==id); if(!e) return;
-      document.getElementById('entDetailEmpty').style.display='none';
-      document.getElementById('entForm').style.display='';
-      const drName = (allDrivers.find(d=>d.id==e.driver_id)||{}).name || e.driver_name || 'Entry Detail';
-      document.getElementById('entDetailTitle').textContent = drName;
-      setDriverSelect(e.driver_id || '');
-      document.getElementById('entFCarNum').value = e.car_number||'';
-      document.getElementById('entFLicence').value = e.licence_number||'';
-      document.getElementById('entFChampionship').value = e.championship||'';
-      setEventSelect(e.event_id || '');
-      document.getElementById('entFDate').value = e.entry_date||'';
-      document.getElementById('entFStatus').value = e.status||'pending';
-      document.getElementById('entFDocs').value = e.required_documents||'';
-      document.getElementById('entFApproval').value = e.approval_status||'';
-      document.getElementById('entFNotes').value = e.notes||'';
-      document.getElementById('entBtnDelete').style.display='';
-      renderList();
-    }
-
-    function newEntryForm() {
-      selectedId=null;
-      document.getElementById('entDetailEmpty').style.display='none';
-      document.getElementById('entForm').style.display='';
-      document.getElementById('entDetailTitle').textContent='New Entry';
-      document.getElementById('entForm').reset();
-      setDriverSelect('');
-      setEventSelect('');
-      document.getElementById('entBtnDelete').style.display='none';
-    }
-
-    async function saveEntry() {
-      const driverId = document.getElementById('entFDriver').value;
-      const eventId  = document.getElementById('entFEvent').value;
-      const drName   = (allDrivers.find(d=>d.id==driverId)||{}).name||'';
-      const evName   = (allEvents.find(e=>e.id==eventId)||{}).name||'';
-      const body = {
-        driver_id: null,
-        driver_name: drName,
-        event_id: null,
-        event: evName,
-        event_name: evName,
-        series: document.getElementById('entFChampionship').value.trim(),
-        car_number:document.getElementById('entFCarNum').value.trim(),
-        licence_number:document.getElementById('entFLicence').value.trim(),
-        championship:document.getElementById('entFChampionship').value.trim(),
-        entry_date:document.getElementById('entFDate').value||null,
-        status:document.getElementById('entFStatus').value,
-        required_documents:document.getElementById('entFDocs').value.trim(),
-        approval_status:document.getElementById('entFApproval').value||null,
-        notes:document.getElementById('entFNotes').value.trim()
-      };
-      if(!body.driver_name){alert('Please select a driver.');return;}
-      if(!body.event_name){alert('Please select an event.');return;}
-      try {
-        const url=selectedId?`/api/entries/${selectedId}`:'/api/entries';
-        const method=selectedId?'PUT':'POST';
-        const r=await authFetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-        if(!r.ok) throw new Error(await r.text());
-        await loadEntries();
-      } catch(e){alert('Save failed: '+e.message);}
-    }
-
-    async function deleteEntry() {
-      if(!selectedId||!confirm('Delete this entry?')) return;
-      try {
-        await authFetch(`/api/entries/${selectedId}`,{method:'DELETE'});
-        selectedId=null;
-        document.getElementById('entDetailEmpty').style.display='';
-        document.getElementById('entForm').style.display='none';
-        await loadEntries();
-      } catch(e){alert('Delete failed: '+e.message);}
-    }
-
-    function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-
-    document.getElementById('btnAddEntry').addEventListener('click',newEntryForm);
-    document.getElementById('entBtnSave').addEventListener('click',saveEntry);
-    document.getElementById('entBtnDelete').addEventListener('click',deleteEntry);
-    document.getElementById('entBtnCancel').addEventListener('click',()=>{document.getElementById('entForm').style.display='none';document.getElementById('entDetailEmpty').style.display='';});
-    document.getElementById('entSearch').addEventListener('input',renderList);
-    document.querySelectorAll('#entStatusFilter li').forEach(li=>li.addEventListener('click',()=>{
-      document.querySelectorAll('#entStatusFilter li').forEach(x=>x.classList.remove('active'));
-      li.classList.add('active'); filterStatus=li.dataset.filter; renderList();
-    }));
-    loadEntries();
-  </script>
+  <script src="entries.js?v=20260612"></script>
 </body>
 </html>

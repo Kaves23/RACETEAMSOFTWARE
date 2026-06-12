@@ -226,6 +226,7 @@ const sportingCalRoutes = require('./routes/sporting-calendar');
 app.get('/api/sporting-calendar.ics', sportingCalRoutes.handleICS);
 app.use('/api/sporting-calendar', requireAuth, sportingCalRoutes);
 app.use('/api/entries',           requireAuth, require('./routes/entries'));
+app.use('/api/championships',     requireAuth, require('./routes/championships'));
 app.use('/api/regulations',       requireAuth, require('./routes/regulations'));
 app.use('/api/penalties',         requireAuth, require('./routes/penalties'));
 app.use('/api/competitor-intel',  requireAuth, require('./routes/competitor-intel'));

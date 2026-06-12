@@ -97,6 +97,10 @@
     .cal-ev-more:hover { color:#a64dff; }
     .wx-badge { display:inline-flex; align-items:center; gap:2px; font-size:.63rem; color:#64748b; margin-top:1px; opacity:.85; }
     .wx-badge .wx-icon { font-size:.75rem; }
+    .ovl-badge { display:inline-flex; align-items:center; gap:2px; font-size:.6rem; font-weight:700; padding:1px 5px; border-radius:8px; margin-top:1px; cursor:pointer; }
+    .ovl-ent { background:#fee2e2; color:#991b1b; border:1px solid #fecaca; }
+    .ovl-pay { background:#fef3c7; color:#92400e; border:1px solid #fde68a; }
+    .ovl-ent:hover, .ovl-pay:hover { filter:brightness(.95); }
 
     /* ── Week view ─────────────────────────────────────────── */
     .week-grid { background:#fff; border:1px solid rgba(0,0,0,.1); border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,.06); overflow:hidden; display:flex; flex-direction:column; flex:1; }
@@ -245,6 +249,23 @@
         <div class="cal-sidebar-card">
           <div class="cal-sidebar-title">Series / Types <span style="font-size:.65rem;font-weight:400;color:#adb5bd;">(click to hide)</span></div>
           <div id="legendList"></div>
+        </div>
+
+        <!-- Overlays -->
+        <div class="cal-sidebar-card">
+          <div class="cal-sidebar-title">Overlays</div>
+          <label class="type-legend-item" style="cursor:pointer;">
+            <input type="checkbox" id="ovlEntryDeadlines" checked style="margin-right:6px;">
+            <span class="type-dot" style="background:#dc2626;"></span>
+            <span>Entry deadlines</span>
+            <span class="type-count" id="ovlCountDeadlines">0</span>
+          </label>
+          <label class="type-legend-item" style="cursor:pointer;">
+            <input type="checkbox" id="ovlPaymentDeadlines" style="margin-right:6px;">
+            <span class="type-dot" style="background:#f59e0b;"></span>
+            <span>Payment deadlines</span>
+            <span class="type-count" id="ovlCountPayments">0</span>
+          </label>
         </div>
 
       </aside>
@@ -421,6 +442,10 @@
   let miniYear, miniMonth;
   let hiddenSeries = new Set();
   let weatherCache = {}; // iso → {icon,hi,lo}
+  let entryDeadlines = []; // [{date, event_id, event_name, count, blocked}]
+  let payDeadlines   = []; // same shape
+  let showEntryOvl   = true;
+  let showPayOvl     = false;
   const WX_CFG_KEY = 'rts.weather.cfg';
   const SC_SETS_KEY = 'rts.sporting.sets';
 
@@ -540,13 +565,65 @@
           allEvents.sort((a,b) => {
             const da = toISO(a.start_date||''), db = toISO(b.start_date||'');
             return da < db ? -1 : da > db ? 1 : 0;
-          });
-        }
-      } catch(_) { /* ignore academy fetch errors */ }
-    } catch(e) { allEvents = []; }
+    await loadDeadlineOverlays();
     updateStats();
     buildLegend();
     buildCalSets();
+    buildUpNext();
+    buildMiniCal();
+    renderView();
+    fetchWeatherForUpcoming();
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // Deadline overlays (entries page integration)
+  // ═══════════════════════════════════════════════════════════
+  async function loadDeadlineOverlays() {
+    entryDeadlines = []; payDeadlines = [];
+    try {
+      const r = await fetch('/api/entries', { headers: getAuthHeaders() });
+      if (!r.ok) return;
+      const entries = await r.json();
+      const list = Array.isArray(entries) ? entries : (entries.data||[]);
+      const entAgg = new Map(), payAgg = new Map();
+      list.forEach(e => {
+        const evName = e.event_name || '';
+        if (e.entry_deadline && e.status !== 'confirmed' && e.status !== 'rejected') {
+          const k = toISO(e.entry_deadline);
+          const cur = entAgg.get(k) || { date:k, count:0, events:new Set() };
+          cur.count++; if (evName) cur.events.add(evName);
+          entAgg.set(k, cur);
+        }
+        if (e.payment_deadline) {
+          const fee = Number(e.entry_fee||0), paid = Number(e.amount_paid||0);
+          if (fee > paid) {
+            const k = toISO(e.payment_deadline);
+            const cur = payAgg.get(k) || { date:k, count:0, events:new Set() };
+            cur.count++; if (evName) cur.events.add(evName);
+            payAgg.set(k, cur);
+          }
+        }
+      });
+      entryDeadlines = [...entAgg.values()].map(x => ({ ...x, events: [...x.events] }));
+      payDeadlines   = [...payAgg.values()].map(x => ({ ...x, events: [...x.events] }));
+      const el1 = document.getElementById('ovlCountDeadlines');
+      const el2 = document.getElementById('ovlCountPayments');
+      if (el1) el1.textContent = entryDeadlines.reduce((s,x)=>s+x.count,0);
+      if (el2) el2.textContent = payDeadlines.reduce((s,x)=>s+x.count,0);
+    } catch(_) { /* ignore */ }
+  }
+
+  function deadlinesForDay(iso) {
+    const out = [];
+    if (showEntryOvl) {
+      const m = entryDeadlines.find(x => x.date === iso);
+      if (m) out.push({ kind:'ent', ...m });
+    }
+    if (showPayOvl) {
+      const m = payDeadlines.find(x => x.date === iso);
+      if (m) out.push({ kind:'pay', ...m });
+    }
+    return out
     buildUpNext();
     buildMiniCal();
     renderView();
@@ -861,6 +938,18 @@
         badge.innerHTML = `<span class="wx-icon">${wx.icon}</span><span>${wx.hi}°/${wx.lo}°</span>`;
         cell.appendChild(badge);
       }
+      // Deadline overlay badges
+      if (!isOther) {
+        deadlinesForDay(iso).forEach(dl => {
+          const b = document.createElement('div');
+          b.className = 'ovl-badge ' + (dl.kind==='ent' ? 'ovl-ent' : 'ovl-pay');
+          const label = dl.kind==='ent' ? 'Entry' : 'Pay';
+          b.innerHTML = `📋 ${label} × ${dl.count}`;
+          b.title = `${label} deadline for: ${dl.events.join(', ')}`;
+          b.addEventListener('click', e => { e.stopPropagation(); window.location.href = 'entries.html'; });
+          cell.appendChild(b);
+        });
+      }
       body.appendChild(cell);
     }
   }
@@ -1112,6 +1201,12 @@
   document.querySelectorAll('.view-btn').forEach(b => {
     b.addEventListener('click', () => setView(b.dataset.view));
   });
+
+  // Overlay toggles
+  const ovlEnt = document.getElementById('ovlEntryDeadlines');
+  const ovlPay = document.getElementById('ovlPaymentDeadlines');
+  if (ovlEnt) ovlEnt.addEventListener('change', () => { showEntryOvl = ovlEnt.checked; renderView(); });
+  if (ovlPay) ovlPay.addEventListener('change', () => { showPayOvl   = ovlPay.checked; renderView(); });
 
   // ═══════════════════════════════════════════════════════════
   // iCal export
