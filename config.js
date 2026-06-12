@@ -2,9 +2,9 @@
 // Include this before core.js on pages where you want to override defaults.
 window.RTS_CONFIG = {
   // Software build version — updated on every deployment
-  buildVersion: 'db3f9a7',
+  buildVersion: '2313c13',
   buildDate:    '2026-06-12',
-  buildNote:    'Invoice: auto-fill customer from driver when none selected',
+  buildNote:    'Email send: 25s client timeout so the button doesn\'t hang when SMTP unreachable',
   // API Configuration
   api: {
     baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)

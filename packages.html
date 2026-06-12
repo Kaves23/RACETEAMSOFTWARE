@@ -6,52 +6,349 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Race Team OS – Driver Packages</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
   <link href="style.css?v=20260525" rel="stylesheet" />
   <style>
-    .pkg-shell { display:flex; gap:12px; }
-    .pkg-left { width:280px; min-width:240px; }
-    .pkg-right { flex:1; }
-    .pkg-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap:12px; }
-    .pkg-card { background:#0f1115; color:#e0e3e6; border:1px solid rgba(255,255,255,0.12); border-radius:10px; padding:12px; cursor:pointer; }
-    .pkg-card.small { min-height:110px; display:flex; flex-direction:column; align-items:flex-start; justify-content:space-between; }
-    .pkg-state { font-weight:700; }
-    .pkg-included { background:#0a1f12; border-color:#0ea75a; }
-    .pkg-included .pkg-state { color:#22c55e; }
-    .pkg-included .pkg-name { color:#cdebd8; }
-    .pkg-invoice { background:#1f0a0a; border-color:#c73a3a; }
-    .pkg-invoice .pkg-state { color:#ef4444; }
-    .pkg-invoice .pkg-name { color:#f2c3c3; }
+  /* ======================================================================
+     DRIVER PACKAGES — Light mode · Purple accent · matches invoice.html
+     ====================================================================== */
+
+  body.page-packages {
+    background: #f7f8fa;
+    font-family: 'Montserrat', 'Segoe UI', system-ui, sans-serif;
+  }
+
+  .pkg-page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 0 12px;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  .pkg-page-header h1 {
+    font-size: 1.45rem;
+    font-weight: 800;
+    color: #0f0f12;
+    letter-spacing: -0.02em;
+    margin: 0;
+  }
+  .pkg-page-header p {
+    font-size: 0.78rem;
+    color: #7c7f8a;
+    margin: 2px 0 0;
+  }
+  .pkg-header-stats {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .pkg-stat-pill {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 8px 16px;
+    min-width: 100px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+  .pkg-stat-pill .stat-val {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #0f0f12;
+    font-variant-numeric: tabular-nums;
+  }
+  .pkg-stat-pill .stat-val.purple { color: #7c3aed; }
+  .pkg-stat-pill .stat-val.green  { color: #16a34a; }
+  .pkg-stat-pill .stat-lbl {
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #9ca3af;
+    margin-top: 2px;
+  }
+
+  .pkg-shell {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+    overflow: hidden;
+    display: flex;
+    height: calc(100vh - var(--rts-topbar-h, 52px) - 130px);
+    min-height: 540px;
+  }
+
+  /* ── Driver list pane ────────────────────────────────────────────────── */
+  .pkg-driver-pane {
+    width: 280px;
+    min-width: 240px;
+    background: #fafafa;
+    border-right: 1px solid #e5e7eb;
+    display: flex;
+    flex-direction: column;
+  }
+  .pkg-driver-header {
+    padding: 12px 14px;
+    background: #fafafa;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  .pkg-driver-search-wrap { position: relative; }
+  .pkg-driver-search {
+    width: 100%;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 7px 10px 7px 30px;
+    font-size: 0.82rem;
+    color: #0f0f12;
+  }
+  .pkg-driver-search:focus { outline: none; border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124,58,237,0.12); }
+  .pkg-driver-search-icon {
+    position: absolute; left: 8px; top: 50%; transform: translateY(-50%);
+    color: #9ca3af; pointer-events: none;
+  }
+  .pkg-driver-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px 8px 8px;
+  }
+  .pkg-driver-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 10px;
+    margin-bottom: 4px;
+    border-radius: 6px;
+    cursor: pointer;
+    background: #fff;
+    border: 1px solid #f1f5f9;
+    transition: all 0.12s;
+  }
+  .pkg-driver-item:hover { background: #f5f3ff; border-color: #e5e7eb; }
+  .pkg-driver-item.active { background: #ede9fe; border-color: #7c3aed; }
+  .pkg-driver-item.active .pkg-driver-name { color: #5b21b6; }
+  .pkg-driver-num {
+    font-family: 'Montserrat', monospace;
+    font-weight: 800;
+    font-size: 0.78rem;
+    color: #fff;
+    background: #7c3aed;
+    border-radius: 5px;
+    padding: 3px 7px;
+    min-width: 32px;
+    text-align: center;
+  }
+  .pkg-driver-name {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #0f0f12;
+  }
+  .pkg-driver-empty {
+    text-align: center;
+    color: #9ca3af;
+    font-size: 0.82rem;
+    padding: 30px 14px;
+  }
+
+  /* ── Right pane (package grid) ───────────────────────────────────────── */
+  .pkg-right-pane {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+  }
+  .pkg-right-header {
+    padding: 16px 22px;
+    background: #fff;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+  }
+  .pkg-right-title {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #0f0f12;
+    margin: 0;
+  }
+  .pkg-right-subtitle {
+    font-size: 0.74rem;
+    color: #6b7280;
+    margin-top: 2px;
+  }
+  .pkg-summary {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .pkg-summary-pill {
+    background: #fafafa;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #374151;
+  }
+  .pkg-summary-pill.included { background: #dcfce7; border-color: #86efac; color: #166534; }
+  .pkg-summary-pill.invoice  { background: #fef3c7; border-color: #fcd34d; color: #92400e; }
+  .pkg-summary-pill.total    { background: #ede9fe; border-color: #c4b5fd; color: #5b21b6; }
+
+  .pkg-right-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 22px;
+  }
+  .pkg-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 14px;
+  }
+  .pkg-card {
+    background: #fff;
+    border: 2px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 14px;
+    cursor: pointer;
+    transition: all 0.12s;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    position: relative;
+  }
+  .pkg-card:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0,0,0,0.08); }
+  .pkg-card.pkg-included {
+    background: #f0fdf4;
+    border-color: #16a34a;
+  }
+  .pkg-card.pkg-invoice {
+    background: #fffbeb;
+    border-color: #f59e0b;
+  }
+  .pkg-card-name {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #0f0f12;
+    letter-spacing: -0.01em;
+  }
+  .pkg-card-state {
+    font-size: 0.66rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 3px 8px;
+    border-radius: 4px;
+    align-self: flex-start;
+  }
+  .pkg-included .pkg-card-state { background: #16a34a; color: #fff; }
+  .pkg-invoice  .pkg-card-state { background: #f59e0b; color: #fff; }
+  .pkg-card-price-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+  }
+  .pkg-card-currency { font-size: 0.78rem; color: #6b7280; font-weight: 600; }
+  .pkg-card-price {
+    flex: 1;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 5px;
+    padding: 5px 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #0f0f12;
+    font-variant-numeric: tabular-nums;
+  }
+  .pkg-card-price:focus { outline: none; border-color: #7c3aed; box-shadow: 0 0 0 2px rgba(124,58,237,0.15); }
+
+  .pkg-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #9ca3af;
+    text-align: center;
+    padding: 40px;
+  }
+  .pkg-empty-state svg { color: #cbd5e1; margin-bottom: 14px; }
+  .pkg-empty-state .title { font-size: 1.05rem; font-weight: 700; color: #6b7280; margin-bottom: 4px; }
+  .pkg-empty-state .desc  { font-size: 0.82rem; color: #9ca3af; }
+
+  .pkg-help {
+    margin-top: 18px;
+    padding: 12px 14px;
+    background: #f8fafc;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    color: #64748b;
+    line-height: 1.5;
+  }
+  .pkg-help b.green  { color: #16a34a; }
+  .pkg-help b.amber  { color: #d97706; }
+
   </style>
 </head>
-<body>
+<body class="page-packages">
   <div id="rtsTopNav"></div>
   <div class="rts-main container-fluid">
-    <h1 class="my-3">Driver Packages</h1>
+
+    <div class="pkg-page-header">
+      <div>
+        <h1>Driver Packages</h1>
+        <p>Define which services each driver gets bundled in their package vs. billed per use.</p>
+      </div>
+      <div class="pkg-header-stats">
+        <div class="pkg-stat-pill"><span class="stat-val purple" id="pkgStatDrivers">0</span><span class="stat-lbl">Drivers</span></div>
+        <div class="pkg-stat-pill"><span class="stat-val green"  id="pkgStatIncluded">0</span><span class="stat-lbl">Included</span></div>
+        <div class="pkg-stat-pill"><span class="stat-val" id="pkgStatInvoice">0</span><span class="stat-lbl">On Invoice</span></div>
+      </div>
+    </div>
 
     <div class="pkg-shell">
-      <!-- LEFT: Drivers -->
-      <section class="pkg-left" aria-label="Drivers">
-        <div class="card" style="background:#0f1115; color:#e0e3e6; border:1px solid rgba(255,255,255,0.12);">
-          <div class="card-header d-flex justify-content-between align-items-center" style="border-bottom:1px solid rgba(255,255,255,0.1);">
-            <div>Drivers</div>
-            <span id="pkgDriverCount" class="badge text-bg-secondary">0</span>
-          </div>
-          <div class="card-body">
-            <input id="pkgDriverSearch" class="form-control form-control-sm mb-2" type="search" placeholder="Search drivers…" />
-            <ul id="pkgDriverList" class="list-group list-group-flush"></ul>
+      <!-- LEFT — drivers -->
+      <aside class="pkg-driver-pane">
+        <div class="pkg-driver-header">
+          <div class="pkg-driver-search-wrap">
+            <svg class="pkg-driver-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input id="pkgDriverSearch" class="pkg-driver-search" type="search" placeholder="Search drivers…" />
           </div>
         </div>
-      </section>
+        <div class="pkg-driver-list" id="pkgDriverList"></div>
+      </aside>
 
-      <!-- RIGHT: Package grid -->
-      <section class="pkg-right" aria-label="Package Options">
-        <div class="d-flex justify-content-between align-items-center mb-2">
-          <div class="h5 mb-0" id="pkgDriverTitle">Select a driver</div>
-          <div class="text-secondary" id="pkgSummary" style="font-size:0.9rem;"></div>
+      <!-- RIGHT — packages for selected driver -->
+      <section class="pkg-right-pane">
+        <div class="pkg-right-header">
+          <div>
+            <div class="pkg-right-title" id="pkgDriverTitle">Select a driver</div>
+            <div class="pkg-right-subtitle" id="pkgDriverSubtitle">Pick a driver from the list to configure their package.</div>
+          </div>
+          <div class="pkg-summary" id="pkgSummary"></div>
         </div>
-        <div class="pkg-grid" id="pkgGrid"></div>
-        <div class="mt-3 text-secondary" style="font-size:0.9rem;">
-          Click a square to toggle between <span style="color:#22c55e; font-weight:600;">INCLUDED</span> and <span style="color:#ef4444; font-weight:600;">INVOICE</span>.
+        <div class="pkg-right-body" id="pkgRightBody">
+          <div class="pkg-empty-state" id="pkgEmpty">
+            <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+              <line x1="9" y1="3" x2="9" y2="21"/>
+              <line x1="3" y1="9" x2="21" y2="9"/>
+            </svg>
+            <div class="title">No driver selected</div>
+            <div class="desc">Pick a driver from the list to configure their package.</div>
+          </div>
+          <div id="pkgGrid" class="pkg-grid" style="display:none;"></div>
+          <div class="pkg-help" id="pkgHelp" style="display:none;">
+            Click a card to toggle between <b class="green">INCLUDED</b> (no charge — bundled into the driver's package) and <b class="amber">INVOICE</b> (billed per use). The price you set will be used as the default rate when the item appears on an invoice.
+          </div>
         </div>
       </section>
     </div>
@@ -68,38 +365,65 @@
     const LS = 'rts.driver.packages.v1';
     const money = (n) => RTS.moneyZAR(n);
     const pkgOptions = [
-      { key:'tyres', name:'Tyres' },
-      { key:'fuel', name:'Fuel' },
-      { key:'entry', name:'Race Entry' },
+      { key:'tyres',     name:'Tyres' },
+      { key:'fuel',      name:'Fuel' },
+      { key:'entry',     name:'Race Entry' },
       { key:'transport', name:'Transport' },
-      { key:'setup', name:'Setup' },
-      { key:'coaching', name:'Coaching' },
-      { key:'spares', name:'Spares' },
-      { key:'damage', name:'Damage Cover' },
+      { key:'setup',     name:'Setup' },
+      { key:'coaching',  name:'Coaching' },
+      { key:'spares',    name:'Spares' },
+      { key:'damage',    name:'Damage Cover' },
       { key:'telemetry', name:'Telemetry' },
-      { key:'seatfit', name:'Seat Fitting' },
-      { key:'pitcrew', name:'Pit Crew' },
-      { key:'lodging', name:'Accommodation' }
+      { key:'seatfit',   name:'Seat Fitting' },
+      { key:'pitcrew',   name:'Pit Crew' },
+      { key:'lodging',   name:'Accommodation' }
     ];
 
     const el = {
-      list: document.getElementById('pkgDriverList'),
-      count: document.getElementById('pkgDriverCount'),
-      search: document.getElementById('pkgDriverSearch'),
-      grid: document.getElementById('pkgGrid'),
-      title: document.getElementById('pkgDriverTitle'),
-      summary: document.getElementById('pkgSummary')
+      list:     document.getElementById('pkgDriverList'),
+      search:   document.getElementById('pkgDriverSearch'),
+      grid:     document.getElementById('pkgGrid'),
+      empty:    document.getElementById('pkgEmpty'),
+      help:     document.getElementById('pkgHelp'),
+      title:    document.getElementById('pkgDriverTitle'),
+      subtitle: document.getElementById('pkgDriverSubtitle'),
+      summary:  document.getElementById('pkgSummary'),
+      stDrv:    document.getElementById('pkgStatDrivers'),
+      stInc:    document.getElementById('pkgStatIncluded'),
+      stInv:    document.getElementById('pkgStatInvoice')
     };
 
-    function getDrivers(){
-      const s = RTS.getSettings();
-      const arr = Array.isArray(s.drivers) ? s.drivers : [];
-      return arr.filter(d => d && d.active !== false);
-    }
+    let drivers = [];
+    let store = {};       // driverId -> { key: { mode, unit_price, qty } }
+    let selectedId = null;
 
-    // ── API-backed package store ───────────────────────────────────────────
-    // Shape: store[driverId][packageKey] = { mode, unit_price, qty }
-    let store = {};
+    // ── Load drivers from API (same source as drivers.html / invoice.html) ─
+    async function loadDrivers(){
+      try {
+        if (RTS_API.getCollectionItems) {
+          const r = await RTS_API.getCollectionItems('drivers');
+          const items = (r && r.items) || (Array.isArray(r) ? r : []);
+          drivers = items
+            .filter(d => d && d.active !== false && d.status !== 'inactive')
+            .map(d => ({
+              id:         d.id,
+              name:       d.name || d.full_name || 'Driver',
+              raceNumber: d.race_number || d.raceNumber || '',
+              color:      d.color || '#7c3aed'
+            }));
+        }
+      } catch(e){
+        console.error('Failed to load drivers from API', e);
+      }
+      // Fallback to settings.drivers (legacy)
+      if (!drivers.length){
+        try {
+          const s = RTS.getSettings();
+          drivers = (Array.isArray(s.drivers) ? s.drivers : [])
+            .filter(d => d && d.active !== false);
+        } catch(_){}
+      }
+    }
 
     async function loadStore(){
       try {
@@ -108,15 +432,14 @@
         (rows || []).forEach(r => {
           map[r.driver_id] = map[r.driver_id] || {};
           map[r.driver_id][r.package_key] = {
-            mode: r.mode || 'invoice',
+            mode:       r.mode || 'invoice',
             unit_price: Number(r.unit_price) || 0,
-            qty: Number(r.qty) || 1
+            qty:        Number(r.qty) || 1
           };
         });
         store = map;
-        // One-time import of any legacy localStorage state
         await maybeImportLegacy();
-      } catch (e) {
+      } catch(e){
         console.error('Failed to load driver packages from API', e);
         if (window.RTS && RTS.showToast) RTS.showToast('Could not load packages from server', 'error');
       }
@@ -126,7 +449,7 @@
       try {
         if (localStorage.getItem('rts.driver.packages.migrated')) return;
         const legacy = RTS.safeLoadJSON(LS, null);
-        if (legacy && typeof legacy === 'object' && Object.keys(store).length === 0) {
+        if (legacy && typeof legacy === 'object' && Object.keys(store).length === 0){
           const puts = [];
           Object.keys(legacy).forEach(driverId => {
             const pkg = legacy[driverId] || {};
@@ -139,16 +462,16 @@
           await Promise.all(puts);
         }
         localStorage.setItem('rts.driver.packages.migrated', '1');
-      } catch (e) { console.error('Legacy package import failed', e); }
+      } catch(e){ console.error('Legacy package import failed', e); }
     }
 
     async function savePackage(driverId, key, name, mode, unitPrice){
       store[driverId] = store[driverId] || {};
-      const cur = store[driverId][key] || { mode:'invoice', unit_price:0, qty:1 };
+      const cur  = store[driverId][key] || { mode:'invoice', unit_price:0, qty:1 };
       const next = {
-        mode: mode != null ? mode : cur.mode,
+        mode:       mode != null ? mode : cur.mode,
         unit_price: unitPrice != null ? unitPrice : cur.unit_price,
-        qty: cur.qty || 1
+        qty:        cur.qty || 1
       };
       store[driverId][key] = next;
       try {
@@ -159,69 +482,99 @@
             mode: next.mode, unit_price: next.unit_price, qty: next.qty
           })
         });
-      } catch (e) {
+      } catch(e){
         console.error('Failed to save package', e);
         if (window.RTS && RTS.showToast) RTS.showToast('Save failed — change not stored', 'error');
       }
     }
 
-    let selectedId = null;
-    let drivers = getDrivers();
+    function esc(str){ return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
     function renderDrivers(){
-      const q = (el.search.value||'').toLowerCase();
+      const q = (el.search.value || '').toLowerCase();
       const list = drivers.filter(d => `${d.name||''} ${d.raceNumber||''}`.toLowerCase().includes(q));
-      el.count.textContent = String(list.length);
       el.list.innerHTML = '';
+      if (!list.length){
+        el.list.innerHTML = '<div class="pkg-driver-empty">No drivers found.</div>';
+        el.stDrv.textContent = '0';
+        return;
+      }
       list.forEach(d => {
-        const li = document.createElement('li');
-        li.className = 'list-group-item list-group-item-action';
-        li.style.background = '#11141a'; li.style.color = '#e0e3e6';
-        li.textContent = `${d.raceNumber ? '#' + d.raceNumber + ' ' : ''}${d.name || 'Driver'}`;
-        li.onclick = ()=>{ selectedId = d.id; renderGrid(); };
-        el.list.appendChild(li);
+        const item = document.createElement('div');
+        item.className = 'pkg-driver-item' + (String(d.id) === String(selectedId) ? ' active' : '');
+        const num = d.raceNumber ? `<div class="pkg-driver-num">#${esc(d.raceNumber)}</div>` : '';
+        item.innerHTML = `${num}<div class="pkg-driver-name">${esc(d.name||'Driver')}</div>`;
+        item.onclick = () => { selectedId = d.id; renderDrivers(); renderGrid(); };
+        el.list.appendChild(item);
       });
+      el.stDrv.textContent = String(drivers.length);
     }
 
     function renderGrid(){
-      if (!selectedId){ el.title.textContent = 'Select a driver'; el.grid.innerHTML = ''; el.summary.textContent=''; return; }
-      const driver = drivers.find(d => d.id === selectedId);
-      el.title.textContent = driver ? `${driver.name || 'Driver'} ${driver.raceNumber ? '(' + driver.raceNumber + ')' : ''}` : 'Driver';
+      // Aggregate counts across ALL drivers for header pills
+      let totalIncluded = 0, totalInvoice = 0;
+      Object.values(store).forEach(d => {
+        Object.values(d).forEach(rec => { if (rec.mode === 'included') totalIncluded++; else totalInvoice++; });
+      });
+      el.stInc.textContent = String(totalIncluded);
+      el.stInv.textContent = String(totalInvoice);
+
+      if (!selectedId){
+        el.empty.style.display = '';
+        el.grid.style.display  = 'none';
+        el.help.style.display  = 'none';
+        el.title.textContent = 'Select a driver';
+        el.subtitle.textContent = 'Pick a driver from the list to configure their package.';
+        el.summary.innerHTML = '';
+        return;
+      }
+      const driver = drivers.find(d => String(d.id) === String(selectedId));
+      el.title.textContent    = driver ? (driver.name || 'Driver') : 'Driver';
+      el.subtitle.textContent = driver && driver.raceNumber ? `Race number ${driver.raceNumber}` : 'Configure package below';
+
       const pkg = store[selectedId] || {};
       let inc = 0, inv = 0, invTotal = 0;
+      el.empty.style.display = 'none';
+      el.grid.style.display  = '';
+      el.help.style.display  = '';
       el.grid.innerHTML = '';
+
       pkgOptions.forEach(opt => {
         const rec   = pkg[opt.key] || { mode:'invoice', unit_price:0, qty:1 };
         const state = (rec.mode === 'included') ? 'included' : 'invoice';
         const price = Number(rec.unit_price) || 0;
-        if (state==='included') inc++; else { inv++; invTotal += price; }
+        if (state === 'included') inc++; else { inv++; invTotal += price; }
+
         const card = document.createElement('div');
-        card.className = 'pkg-card small ' + (state==='included' ? 'pkg-included' : 'pkg-invoice');
+        card.className = `pkg-card pkg-${state}`;
         card.innerHTML = `
-          <div class="pkg-name">${opt.name}</div>
-          <div class="d-flex align-items-center gap-1 w-100 mt-1" data-noflip>
-            <span style="font-size:0.8rem;opacity:0.8;">R</span>
-            <input type="number" min="0" step="0.01" value="${price}" class="form-control form-control-sm pkg-price"
-                   style="background:#0a0c10;color:#e0e3e6;border:1px solid rgba(255,255,255,0.15);font-size:0.8rem;padding:2px 6px;" />
-          </div>
-          <div class="pkg-state mt-1">${state==='included'?'INCLUDED':'INVOICE'}</div>`;
-        // Toggle mode when clicking the card (but not the price input)
-        card.onclick = (e)=>{
+          <div class="pkg-card-state">${state === 'included' ? 'INCLUDED' : 'INVOICE'}</div>
+          <div class="pkg-card-name">${esc(opt.name)}</div>
+          <div class="pkg-card-price-wrap" data-noflip>
+            <span class="pkg-card-currency">R</span>
+            <input type="number" min="0" step="0.01" value="${price}" class="pkg-card-price" />
+          </div>`;
+        card.onclick = (e) => {
           if (e.target.closest('[data-noflip]')) return;
-          savePackage(selectedId, opt.key, opt.name, state==='included' ? 'invoice' : 'included', null).then(renderGrid);
+          savePackage(selectedId, opt.key, opt.name, state === 'included' ? 'invoice' : 'included', null).then(renderGrid);
         };
-        const priceInput = card.querySelector('.pkg-price');
+        const priceInput = card.querySelector('.pkg-card-price');
         priceInput.addEventListener('click', e => e.stopPropagation());
         priceInput.addEventListener('change', () => {
-          savePackage(selectedId, opt.key, opt.name, null, parseFloat(priceInput.value)||0).then(renderGrid);
+          savePackage(selectedId, opt.key, opt.name, null, parseFloat(priceInput.value) || 0).then(renderGrid);
         });
         el.grid.appendChild(card);
       });
-      el.summary.textContent = `${inc} INCLUDED • ${inv} INVOICE • Invoice total: ${money(invTotal)}`;
+
+      el.summary.innerHTML = `
+        <span class="pkg-summary-pill included">${inc} Included</span>
+        <span class="pkg-summary-pill invoice">${inv} On Invoice</span>
+        <span class="pkg-summary-pill total">Per-event total: ${money(invTotal)}</span>`;
     }
 
     el.search.addEventListener('input', renderDrivers);
 
+    await loadDrivers();
     await loadStore();
     renderDrivers();
     renderGrid();
