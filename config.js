@@ -2,9 +2,9 @@
 // Include this before core.js on pages where you want to override defaults.
 window.RTS_CONFIG = {
   // Software build version — updated on every deployment
-  buildVersion: '1c97e07',
+  buildVersion: '7e36172',
   buildDate:    '2026-06-12',
-  buildNote:    'Redesign packages.html: light/purple theme, drivers from API (matches invoice.html)',
+  buildNote:    'Fix metadata-guard regex to handle escaped apostrophes in buildNote',
   // API Configuration
   api: {
     baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)

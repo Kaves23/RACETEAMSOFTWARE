@@ -1668,14 +1668,18 @@
         return;
       }
       ids.forEach((did, idx) => {
-        const d = (drivers||[]).find(x=>x.id===did) || { id: did, displayName: did };
+        const d = (drivers||[]).find(x=>String(x.id)===String(did)) || { id: did };
         const tr = document.createElement('tr');
         tr.setAttribute('data-id', d.id);
-        const label = d.displayName || d.name || `${d.firstName||''} ${d.lastName||''}`.trim() || d.id;
-        const race = d.raceNumber ? `#${d.raceNumber}` : '';
+        const label = d.displayName || d.name || d.full_name
+          || `${d.firstName||d.first_name||''} ${d.lastName||d.last_name||''}`.trim()
+          || d.id;
+        const cls  = d.racing_class || d.class || '';
+        const num  = d.race_number || d.raceNumber || '';
+        const race = num ? `#${num}` : '';
         tr.innerHTML = `
           <td>${escapeHtml(label)}</td>
-          <td>${escapeHtml(d.class||'')}</td>
+          <td>${escapeHtml(cls)}</td>
           <td>${escapeHtml(race)}</td>
           <td><button class="btn btn-sm btn-outline-danger mlo-btn ev-driver-rem" type="button">Remove</button></td>
         `;
@@ -2393,7 +2397,11 @@
       drivers.forEach(d=>{
         const opt = document.createElement('option');
         opt.value = d.id;
-        opt.textContent = d.displayName || d.name || (`${d.firstName||''} ${d.lastName||''}`).trim() || d.id;
+        const name = d.displayName || d.name || d.full_name
+          || (`${d.firstName||d.first_name||''} ${d.lastName||d.last_name||''}`).trim()
+          || d.id;
+        const num  = d.race_number || d.raceNumber || '';
+        opt.textContent = num ? `#${num} ${name}` : name;
         sel.appendChild(opt);
       });
       const btnAdd = document.createElement('button');
