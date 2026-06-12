@@ -2,9 +2,9 @@
 // Include this before core.js on pages where you want to override defaults.
 window.RTS_CONFIG = {
   // Software build version — updated on every deployment
-  buildVersion: '683e397',
+  buildVersion: '63ab202',
   buildDate:    '2026-06-12',
-  buildNote:    'Fix: add RTS_API.request to core.js, widen invoice inspector, surface real save errors',
+  buildNote:    'Invoice fixes: real events/drivers from API, fix line-item focus loss, Asset/Inventory/Shopify pickers, circle logo on printed invoice',
   // API Configuration
   api: {
     baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)

@@ -1943,20 +1943,21 @@
             status.textContent = products.length ? `${products.length} result${products.length===1?'':'s'}` : 'No products found.';
             if (!products.length){ list.innerHTML = '<div style="padding:14px;color:#6b7280;font-size:0.78rem;">No matches.</div>'; return; }
             list.innerHTML = '';
-            products.forEach(p => {
-              (p.variants || [{ title: p.title, price: p.price, sku: p.sku }]).forEach(v => {
-                const row = document.createElement('div');
-                row.style.cssText = 'padding:8px 12px;border-bottom:1px solid #f1f5f9;cursor:pointer;font-size:0.82rem;display:flex;justify-content:space-between;align-items:center;';
-                row.innerHTML = `<div><div style="font-weight:600;">${esc(p.title||'')}${v.title && v.title !== 'Default Title' ? ' — '+esc(v.title) : ''}</div><div style="font-size:0.72rem;color:#6b7280;">SKU: ${esc(v.sku||'-')}</div></div><div style="font-weight:700;color:#0f766e;">R ${Number(v.price||0).toFixed(2)}</div>`;
-                row.onclick = () => {
-                  list.querySelectorAll('div[data-selected]').forEach(d=>{ d.style.background=''; d.removeAttribute('data-selected'); });
-                  row.style.background = '#ecfeff'; row.setAttribute('data-selected','1');
-                  selected = { product: p, variant: v };
-                  descIn.value = `${p.title||''}${v.title && v.title !== 'Default Title' ? ' — '+v.title : ''} (Shopify)`;
-                  rateIn.value = Number(v.price||0).toFixed(2);
-                };
-                list.appendChild(row);
-              });
+            products.forEach(v => {
+              const row = document.createElement('div');
+              row.style.cssText = 'padding:8px 12px;border-bottom:1px solid #f1f5f9;cursor:pointer;font-size:0.82rem;display:flex;justify-content:space-between;align-items:center;';
+              const stockTag = v.shopify_quantity != null
+                ? `<span style="font-size:0.7rem;background:#f3f4f6;color:#374151;padding:2px 6px;border-radius:3px;margin-left:6px;">Stock: ${v.shopify_quantity}</span>`
+                : '';
+              row.innerHTML = `<div><div style="font-weight:600;">${esc(v.name||'')}${stockTag}</div><div style="font-size:0.72rem;color:#6b7280;">SKU: ${esc(v.sku||'-')}${v.vendor?(' · '+esc(v.vendor)):''}${v.category?(' · '+esc(v.category)):''}</div></div><div style="font-weight:700;color:#0f766e;">R ${Number(v.price||0).toFixed(2)}</div>`;
+              row.onclick = () => {
+                list.querySelectorAll('div[data-selected]').forEach(d=>{ d.style.background=''; d.removeAttribute('data-selected'); });
+                row.style.background = '#ecfeff'; row.setAttribute('data-selected','1');
+                selected = v;
+                descIn.value = `${v.name||''} (Shopify${v.sku?': '+v.sku:''})`;
+                rateIn.value = Number(v.price||0).toFixed(2);
+              };
+              list.appendChild(row);
             });
           } catch(e){
             status.textContent = 'Search failed: '+(e && e.message || 'unknown');
@@ -1973,9 +1974,10 @@
           const rate = Math.max(0, parseFloat(rateIn.value||'0'));
           inv.lines.push({
             desc, qty, rate,
-            shopifyProductId: selected && selected.product && selected.product.id,
-            shopifyVariantId: selected && selected.variant && selected.variant.id,
-            shopifySku:       selected && selected.variant && selected.variant.sku
+            shopifyProductId:       selected && selected.shopify_product_id,
+            shopifyVariantId:       selected && selected.shopify_variant_id,
+            shopifyInventoryItemId: selected && selected.shopify_inventory_item_id,
+            shopifySku:             selected && selected.sku
           });
           saveLines(inv);
           modal.hide();
