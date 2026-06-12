@@ -1876,12 +1876,19 @@
       inv.customerDetails = el.f.customerDetails.value;
       inv.vatRate         = Number(el.f.vatRate.value||0);
       inv.notes           = el.f.notes.value;
-      applyPackageDiscounts(inv);
-      recalc(inv);
-      if (inv.status==='Sent'||inv.status==='Paid') applyInventoryDeduction(inv);
-      saveInvoiceRecord(inv);
-      persist();
-      render();
+      const finish = () => {
+        applyPackageDiscounts(inv);
+        recalc(inv);
+        if (inv.status==='Sent'||inv.status==='Paid') applyInventoryDeduction(inv);
+        saveInvoiceRecord(inv);
+        persist();
+        render();
+      };
+      if (inv.driverId && (!window._driverPackagesCache || !window._driverPackagesCache[inv.driverId])) {
+        ensureDriverPackages(inv.driverId).then(finish).catch(finish);
+      } else {
+        finish();
+      }
     }
 
     function duplicateInvoice(){

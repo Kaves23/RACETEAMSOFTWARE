@@ -28,6 +28,9 @@ router.post('/', async (req, res, next) => {
     if (!b.to)   return res.status(400).json({ error: 'to is required' });
     if (!b.html && !b.text) return res.status(400).json({ error: 'html or text required' });
 
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+      return res.status(503).json({ error: 'SMTP not configured (set SMTP_USER and SMTP_PASS on the server).' });
+    }
     const transporter = createTransporter();
     const from = process.env.SMTP_FROM || process.env.SMTP_USER;
     const subject = b.subject || (b.invoice_number ? `Invoice ${b.invoice_number}` : 'Invoice');

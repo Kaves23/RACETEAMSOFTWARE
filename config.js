@@ -2,9 +2,9 @@
 // Include this before core.js on pages where you want to override defaults.
 window.RTS_CONFIG = {
   // Software build version — updated on every deployment
-  buildVersion: 'b4bc8e3',
+  buildVersion: 'e912944',
   buildDate:    '2026-06-12',
-  buildNote:    'Phase 5: requisitions/PO/cost-cap/forecast/audit-trail (migration 090 + 5 routes + 5 pages)',
+  buildNote:    'Phase 6: invoice delivery (DB-backed packages, Sage 50 CSV, email send via nodemailer)',
   // API Configuration
   api: {
     baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)
