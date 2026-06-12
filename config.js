@@ -2,9 +2,9 @@
 // Include this before core.js on pages where you want to override defaults.
 window.RTS_CONFIG = {
   // Software build version — updated on every deployment
-  buildVersion: 'aacecab',
+  buildVersion: '59a2460',
   buildDate:    '2026-06-11',
-  buildNote:    'Fix full task duplication and project detail task totals',
+  buildNote:    'Server-side project duplication, custom confirm/delete, fix detail not-found, SVG icons',
   // API Configuration
   api: {
     baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)

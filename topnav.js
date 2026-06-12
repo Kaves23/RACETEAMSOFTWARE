@@ -19,6 +19,45 @@
       { href: 'race-strategy.html',     label: 'Race Strategy',    key: 'S' },
       { href: 'run-plans.html',         label: 'Run Plans',        key: 'U' }
     ]},
+    { label: 'Projects', items: [
+      { href: 'project-management.html?tab=dashboard', label: 'Dashboard',     key: 'D' },
+      { href: 'project-management.html?tab=projects', label: 'Projects',     key: 'P' },
+      { href: 'project-management.html?tab=gantt',    label: 'Gantt Plans',  key: 'G' },
+      { href: 'tasks.html',                            label: 'Tasks',        key: 'T' },
+      { href: 'milestones.html',                       label: 'Milestones',   key: 'M' },
+      { href: 'project-management.html?tab=workload', label: 'Workload',     key: 'W' },
+      { href: 'project-management.html?tab=reports',  label: 'Reports',      key: 'E' },
+      { href: 'runbooks.html',                         label: 'Runbooks',     key: 'R' }
+    ]},
+    { label: 'Logistics', items: [
+      { href: 'load.html',              label: 'Load Plan',        key: 'L' },
+      { href: 'scan-load.html',         label: 'Scan to Load',     key: 'S' },
+      { href: 'box-packing.html',       label: 'Box Packing',      key: 'B' },
+      { href: 'vehicles.html',          label: 'Vehicles',         key: 'V' },
+      { href: 'race-fleet.html',        label: 'Race Fleet',       key: 'R' },
+      { href: 'event-notes.html',       label: 'Checklists',       key: 'C' },
+      { href: 'inventory.html',         label: 'Inventory',        key: 'I' },
+      { href: 'assets.html',            label: 'Assets',           key: 'A' },
+      { href: 'history.html',           label: 'Activity History', key: 'H' }
+    ]},
+    { label: 'Academy', items: [
+      { href: 'academy-pipeline.html',  label: 'Pipeline',   key: 'P' },
+      { href: 'academy-sessions.html', label: 'Sessions',   key: 'S' },
+      { href: 'academy-reports.html',  label: 'Reports',    key: 'R' },
+      { href: 'academy-data.html',     label: 'Data',       key: 'D' }
+    ]},
+    { label: 'Finance', items: [
+      { href: 'finance-dashboard.html', label: 'Overview',         key: 'O' },
+      { href: 'budgets.html',           label: 'Budgets',          key: 'B' },
+      { href: 'cost-cap.html',          label: 'Cost Cap',         key: 'C' },
+      { href: 'requisitions.html',      label: 'Requisitions',     key: 'R' },
+      { href: 'purchase-orders.html',   label: 'Purchase Orders',  key: 'P' },
+      { href: 'invoice.html',           label: 'Invoicing',        key: 'I' },
+      { href: 'expenses.html',          label: 'Expenses',         key: 'E' },
+      { href: 'packages.html',          label: 'Driver Packages',  key: 'K' },
+      { href: 'finance-forecast.html',  label: 'Forecasting',      key: 'F' },
+      { href: 'audit-trail.html',       label: 'Audit Trail',      key: 'A' }
+    ]},
     { label: 'Technical', items: [
       { href: 'cars.html',              label: 'Cars',             key: 'C' },
       { href: 'components.html',        label: 'Components',       key: 'O' },
@@ -69,39 +108,6 @@
       { href: 'reliability-trends.html',     label: 'Trends',            key: 'T' },
       { href: 'risk-map.html',               label: 'Risk Map',          key: 'K' },
       { href: 'review-board.html',           label: 'Review Board',      key: 'B' }
-    ]},
-    { label: 'Projects', items: [
-      { href: 'project-management.html?tab=dashboard', label: 'Dashboard',     key: 'D' },
-      { href: 'project-management.html?tab=projects', label: 'Projects',     key: 'P' },
-      { href: 'project-management.html?tab=gantt',    label: 'Gantt Plans',  key: 'G' },
-      { href: 'tasks.html',                            label: 'Tasks',        key: 'T' },
-      { href: 'milestones.html',                       label: 'Milestones',   key: 'M' },
-      { href: 'project-management.html?tab=workload', label: 'Workload',     key: 'W' },
-      { href: 'project-management.html?tab=reports',  label: 'Reports',      key: 'E' },
-      { href: 'runbooks.html',                         label: 'Runbooks',     key: 'R' }
-    ]},
-    { label: 'Logistics', items: [
-      { href: 'load.html',              label: 'Load Plan',        key: 'L' },
-      { href: 'scan-load.html',         label: 'Scan to Load',     key: 'S' },
-      { href: 'box-packing.html',       label: 'Box Packing',      key: 'B' },
-      { href: 'vehicles.html',          label: 'Vehicles',         key: 'V' },
-      { href: 'race-fleet.html',        label: 'Race Fleet',       key: 'R' },
-      { href: 'event-notes.html',       label: 'Checklists',       key: 'C' },
-      { href: 'inventory.html',         label: 'Inventory',        key: 'I' },
-      { href: 'assets.html',            label: 'Assets',           key: 'A' },
-      { href: 'history.html',           label: 'Activity History', key: 'H' }
-    ]},
-    { label: 'Finance', items: [
-      { href: 'finance-dashboard.html', label: 'Overview',         key: 'O' },
-      { href: 'budgets.html',           label: 'Budgets',          key: 'B' },
-      { href: 'cost-cap.html',          label: 'Cost Cap',         key: 'C' },
-      { href: 'requisitions.html',      label: 'Requisitions',     key: 'R' },
-      { href: 'purchase-orders.html',   label: 'Purchase Orders',  key: 'P' },
-      { href: 'invoice.html',           label: 'Invoicing',        key: 'I' },
-      { href: 'expenses.html',          label: 'Expenses',         key: 'E' },
-      { href: 'packages.html',          label: 'Driver Packages',  key: 'K' },
-      { href: 'finance-forecast.html',  label: 'Forecasting',      key: 'F' },
-      { href: 'audit-trail.html',       label: 'Audit Trail',      key: 'A' }
     ]},
     { label: 'Procurement', items: [
       { href: 'procurement-dashboard.html', label: 'Overview',        key: 'O' },
@@ -164,12 +170,6 @@
       { href: 'board-reports.html',         label: 'Board Reports',    key: 'B' },
       { href: 'doc-control.html',           label: 'Document Control', key: 'T' },
       { href: 'export-centre.html',         label: 'Export Centre',    key: 'X' }
-    ]},
-    { label: 'Academy', items: [
-      { href: 'academy-pipeline.html',  label: 'Pipeline',   key: 'P' },
-      { href: 'academy-sessions.html', label: 'Sessions',   key: 'S' },
-      { href: 'academy-reports.html',  label: 'Reports',    key: 'R' },
-      { href: 'academy-data.html',     label: 'Data',       key: 'D' }
     ]}
   ];
   const singles = [
@@ -181,7 +181,7 @@
 
   // Default top-level keybinds (letters) — only active when not typing
   // D: Dashboard, S: Sporting, T: Technical, B: Build, P: Performance, R: Reliability
-  // L: Logistics, F: Finance, O: Procurement, H: HR, V: Driver, A: Compliance, X: Executive, W: Academy
+  // L: Logistics, F: Finance, O: Procurement, H: HR, V: Driver, A: Academy, X: Executive (Compliance has no shortcut)
   const topKeybinds = {
     'D': { type: 'single',  href: 'index.html' },
     'S': { type: 'group',   label: 'Sporting' },
@@ -195,9 +195,8 @@
     'O': { type: 'group',   label: 'Procurement' },
     'H': { type: 'group',   label: 'HR' },
     'V': { type: 'group',   label: 'Driver' },
-    'A': { type: 'group',   label: 'Compliance' },
+    'A': { type: 'group',   label: 'Academy' },
     'X': { type: 'group',   label: 'Executive' },
-    'W': { type: 'group',   label: 'Academy' },
     'I': { type: 'single',  href: 'integrations.html' }
   };
 
@@ -229,7 +228,7 @@
   const groupKeyMap = {
     'Sporting': 'S', 'Technical': 'T', 'Build': 'B', 'Performance': 'P',
     'Reliability': 'R', 'Projects': 'J', 'Logistics': 'L', 'Finance': 'F',
-    'Procurement': 'O', 'HR': 'H', 'Driver': 'V', 'Compliance': 'A', 'Executive': 'X', 'Academy': 'W'
+    'Procurement': 'O', 'HR': 'H', 'Driver': 'V', 'Compliance': '', 'Executive': 'X', 'Academy': 'A'
   };
 
     const liSingles = singles.map(t => {
