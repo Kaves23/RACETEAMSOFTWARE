@@ -2066,6 +2066,37 @@
       inv.customerDetails = el.f.customerDetails.value;
       inv.vatRate         = Number(el.f.vatRate.value||0);
       inv.notes           = el.f.notes.value;
+
+      // Auto: if no customer is set but a driver is, create / reuse a customer for that driver.
+      if (!inv.customerId && inv.driverId) {
+        const drvList = (window._driversList && window._driversList.length)
+          ? window._driversList
+          : ((settings && Array.isArray(settings.drivers)) ? settings.drivers : []);
+        const drv = drvList.find(d => String(d.id) === String(inv.driverId));
+        if (drv) {
+          const drvCustId = `drv-${drv.id}`;
+          let drvCust = customers.find(c => c.id === drvCustId || (c.name && drv.name && c.name === drv.name));
+          if (!drvCust) {
+            drvCust = {
+              id: drvCustId,
+              name: drv.name + (drv.raceNumber ? ` (#${drv.raceNumber})` : ''),
+              email: drv.email || '',
+              phone: drv.phone || '',
+              address: drv.address || '',
+              sageRef: ''
+            };
+            customers.push(drvCust);
+            try { saveCustomerRecord(drvCust); } catch(_e){}
+            buildCustomerTree();
+          }
+          inv.customerId = drvCust.id;
+          if (!inv.customerDetails) {
+            inv.customerDetails = `${drvCust.name}\n${drvCust.email||''}\n${drvCust.phone||''}`.trim();
+          }
+          el.f.customer.value = drvCust.id;
+          el.f.customerDetails.value = inv.customerDetails;
+        }
+      }
       const finish = () => {
         applyPackageDiscounts(inv);
         recalc(inv);

@@ -2,9 +2,9 @@
 // Include this before core.js on pages where you want to override defaults.
 window.RTS_CONFIG = {
   // Software build version — updated on every deployment
-  buildVersion: '7dd487e',
+  buildVersion: '4114bec',
   buildDate:    '2026-06-12',
-  buildNote:    'Shopify picker: render flat search results, capture inventory_item_id (read-only data lookup)',
+  buildNote:    'Asset/Inventory pickers now load from API (was reading empty localStorage)',
   // API Configuration
   api: {
     baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)
