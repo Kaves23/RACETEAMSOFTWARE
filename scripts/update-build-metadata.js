@@ -34,12 +34,17 @@ function getGitEntries(extraCommits = 0) {
 function expectedConfig(configText, latest) {
   const buildVersion = latest.hash;
   const buildDate = latest.date.slice(0, 10);
-  const buildNote = latest.subject.replace(/'/g, "\\'");
+  // Escape backslashes first, then single quotes, so the value sits safely in a JS single-quoted string.
+  const buildNote = latest.subject.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
+  // Regex tolerates escaped chars inside the string (e.g. \') — required because
+  // commit subjects often contain apostrophes which become \' in config.js.
+  const STR = /'(?:[^'\\]|\\.)*'/.source;
 
   let next = configText;
-  next = next.replace(/buildVersion:\s*'[^']*'/, `buildVersion: '${buildVersion}'`);
-  next = next.replace(/buildDate:\s*'[^']*'/, `buildDate:    '${buildDate}'`);
-  next = next.replace(/buildNote:\s*'[^']*'/, `buildNote:    '${buildNote}'`);
+  next = next.replace(new RegExp(`buildVersion:\\s*${STR}`), `buildVersion: '${buildVersion}'`);
+  next = next.replace(new RegExp(`buildDate:\\s*${STR}`),    `buildDate:    '${buildDate}'`);
+  next = next.replace(new RegExp(`buildNote:\\s*${STR}`),    `buildNote:    '${buildNote}'`);
   return next;
 }
 
