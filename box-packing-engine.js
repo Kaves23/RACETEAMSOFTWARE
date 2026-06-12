@@ -3918,8 +3918,10 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
     const box = getBox(currentBoxId);
     const contents = boxContents.filter(c => c.boxId === currentBoxId);
 
-    const KOKORO_LOGO = 'https://www.fpzero.co.uk/images/partner_kokoro.png';
-    const FTW_LOGO    = 'https://ftwmotorsport.com/cdn/shop/files/FTW_Logo_4d20e63f-d033-40e3-9d0e-70d69a8b59ce.png?v=1664635126&width=225';
+    const _rtsSettings = (typeof RTS !== 'undefined' && RTS.getSettings) ? RTS.getSettings() : {};
+    const TEAM_LOGO   = (_rtsSettings.teamLogoUrl || '').trim();
+    const TEAM_NAME   = (_rtsSettings.teamName || _rtsSettings.organisationName || '').trim();
+    const RTS_MARK    = (window.location.origin || '') + '/favicon-64.png';
 
     function escHtml(str) {
       return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -4155,12 +4157,14 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
 
   <!-- Header -->
   <div class="page-header">
-    <img src="${KOKORO_LOGO}" class="logo-left" alt="Kokoro Racing">
+    ${TEAM_LOGO
+      ? `<img src="${escHtml(TEAM_LOGO)}" class="logo-left" alt="${escHtml(TEAM_NAME || 'Team')}">`
+      : `<div class="logo-left" style="font-weight:800;font-size:11pt;letter-spacing:.06em;text-transform:uppercase;color:#1a1f2e;">${escHtml(TEAM_NAME || '')}</div>`}
     <div class="doc-title">
       <h1>Packing Manifest</h1>
-      <p>Race Team Software — Logistics &amp; Equipment</p>
+      <p>Logistics &amp; Equipment</p>
     </div>
-    <img src="${FTW_LOGO}" class="logo-right" alt="FTW Motorsport">
+    <img src="${RTS_MARK}" class="logo-right" alt="Race Team OS" style="max-height:7mm;max-width:18mm;opacity:.6;">
   </div>
 
   <!-- Box identity -->
@@ -4959,8 +4963,10 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
-    const KOKORO_LOGO = 'https://www.fpzero.co.uk/images/partner_kokoro.png';
-    const FTW_LOGO    = 'https://ftwmotorsport.com/cdn/shop/files/FTW_Logo_4d20e63f-d033-40e3-9d0e-70d69a8b59ce.png?v=1664635126&width=225';
+    const _rtsSettings = (typeof RTS !== 'undefined' && RTS.getSettings) ? RTS.getSettings() : {};
+    const TEAM_LOGO  = (_rtsSettings.teamLogoUrl || '').trim();
+    const TEAM_NAME  = (_rtsSettings.teamName || _rtsSettings.organisationName || '').trim();
+    const RTS_MARK   = (window.location.origin || '') + '/favicon-64.png';
 
     function stickerHtml(boxBarcode, boxName) {
       const label = boxBarcode || boxName;
@@ -4968,10 +4974,13 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
       const nameLine = (boxName && boxName !== boxBarcode)
         ? `<div class="sticker-name">${escHtml(boxName)}</div>`
         : '';
+      const topLogo = TEAM_LOGO
+        ? `<img src="${escHtml(TEAM_LOGO)}" class="logo-img" alt="${escHtml(TEAM_NAME || 'Team')}">`
+        : `<div style="font-weight:800;font-size:13pt;letter-spacing:.06em;text-transform:uppercase;color:#000;">${escHtml(TEAM_NAME || '')}</div>`;
       return `
         <div class="sticker">
           <div class="sticker-logo-top">
-            <img src="${KOKORO_LOGO}" class="logo-img" alt="Kokoro">
+            ${topLogo}
           </div>
           <div class="sticker-qr">
             <img src="${qrUrl}" alt="QR: ${escHtml(label)}">
@@ -4979,7 +4988,7 @@ console.log('📦 box-packing-engine.js LOADING...', new Date().toISOString());
           <div class="sticker-barcode">${escHtml(label)}</div>
           ${nameLine}
           <div class="sticker-logo-bottom">
-            <img src="${FTW_LOGO}" class="logo-img logo-img-ftw" alt="FTW">
+            <img src="${RTS_MARK}" class="logo-img logo-img-ftw" alt="Race Team OS" style="opacity:.55;">
           </div>
         </div>`;
     }

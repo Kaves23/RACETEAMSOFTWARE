@@ -130,13 +130,13 @@ function evaluateDocs(driver, eventStartIso, overrides, champ) {
   }
   const ov = overrides || {};
   function classify(expiry, required) {
-    if (!required) return { status:'na', sub:'Not required' };
-    if (!expiry)   return { status:'bad', sub:'Missing — not recorded' };
+    if (!required) return { status:'na',  label:'N/A',         sub:'Not required' };
+    if (!expiry)   return { status:'bad', label:'Missing',     sub:'Not recorded' };
     const days = daysBetween(t, toISO(expiry));
     const daysFromEvent = daysBetween(ev, toISO(expiry));
-    if (daysFromEvent < 0) return { status:'bad', sub:`Expires ${fmtDate(expiry)} — BEFORE event` };
-    if (days < 30)         return { status:'warn', sub:`Expires ${fmtDate(expiry)} (${days}d)` };
-    return { status:'ok', sub:`Valid until ${fmtDate(expiry)}` };
+    if (daysFromEvent < 0) return { status:'bad',  label:'Expired',     sub:`Expires ${fmtDate(expiry)} — before event` };
+    if (days < 30)         return { status:'warn', label:'Expiring',    sub:`Expires ${fmtDate(expiry)} (${days}d)` };
+    return { status:'ok',  label:'Valid', sub:`Valid until ${fmtDate(expiry)}` };
   }
   const rows = [
     { key:'licence', name:'CIK / FIA Licence', required:!!req.licence, ...classify(driver.license_expiry, !!req.licence) },
@@ -304,7 +304,7 @@ function renderList() {
     const drName = d ? d.name : (e.driver_name || '—');
     const evName = ev ? (ev.name||ev.title) : (e.event_name || '—');
     const champName = ch ? ch.name : (e.championship || '—');
-    const blockerHtml = blocked ? '<span class="blocker-pill" title="Required docs missing/expired">BLOCKED</span> ' : '';
+    const blockerHtml = blocked ? '<span class="blocker-pill" title="Required documents missing or expired">Action Required</span> ' : '';
     return `<tr data-id="${e.id}" class="${e.id==selectedId?'selected':''} ${blocked?'blocked':''}">
       <td><strong>${blockerHtml}${esc(drName)}</strong></td>
       <td>${esc(e.car_number||'—')}</td>
@@ -366,7 +366,7 @@ function renderByEvent() {
         <div><strong>${esc(drName)}</strong></div>
         <div>${esc(e.car_number||'—')}</div>
         <div><span class="status-pill status-${e.status||'pending'}">${e.status||'pending'}</span></div>
-        <div>${docMiniHtml(docs)} ${docsBlocked(docs)?'<span class="blocker-pill" style="margin-left:4px;">BLOCKED</span>':''}</div>
+        <div>${docMiniHtml(docs)} ${docsBlocked(docs)?'<span class="blocker-pill" style="margin-left:4px;">Action Required</span>':''}</div>
         <div><span class="pay-pill pay-${pay.key}">${esc(pay.label)}</span></div>
       </div>`;
     }).join('');
@@ -544,7 +544,7 @@ function refreshDerived() {
   const banner = $('entBlockerBanner');
   if (blocked) {
     banner.style.display = '';
-    banner.innerHTML = '<i class="bi bi-shield-exclamation"></i> Driver is BLOCKED: required documents missing or expire before the event. Override individual docs below if accepted.';
+    banner.innerHTML = '<i class="bi bi-shield-exclamation"></i> Action required: one or more compliance documents are missing or expire before the event. Use the override option per document if the issue has been formally accepted.';
   } else { banner.style.display = 'none'; }
   // Payment status
   const pay = paymentStatus(entryDraft);
@@ -594,7 +594,7 @@ function renderDocPanel(docs) {
   host.innerHTML = docs.map(r => {
     const cls = !r.required ? '' : r.status==='bad' ? 'bad' : r.status==='warn' ? 'warn' : '';
     const statusCls = r.overridden ? 'over' : (r.status==='bad'?'bad':r.status==='warn'?'warn':'ok');
-    const statusLabel = !r.required ? 'N/A' : (r.overridden ? 'OVERRIDE' : r.status.toUpperCase());
+    const statusLabel = !r.required ? 'N/A' : (r.overridden ? 'Override' : (r.label || ''));
     return `<div class="ent-doc-row ${cls}">
       <div><div class="doc-name">${esc(r.name)}</div><div class="doc-sub">${esc(r.sub)}${r.required?'':' (not required)'}</div></div>
       <span class="doc-status ${statusCls}">${statusLabel}</span>
@@ -726,8 +726,18 @@ function printEntryForm() {
   const ch = allChamps.find(x => x.id == e.championship_id);
   const docs = evaluateDocs(d, ev && (ev.start_date||ev.start), e.doc_overrides, ch);
   const pay = paymentStatus(e);
+  const settings = (typeof RTS !== 'undefined' && RTS.getSettings) ? RTS.getSettings() : {};
+  const teamLogo = (settings.teamLogoUrl||'').trim();
+  const teamName = (settings.teamName || settings.organisationName || '').trim();
+  const rtsMark  = (window.location.origin || '') + '/favicon-64.png';
   const host = $('printForm');
   host.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #1a1d24;padding-bottom:8px;margin-bottom:14px;">
+      ${teamLogo
+        ? `<img src="${esc(teamLogo)}" alt="${esc(teamName||'Team')}" style="max-height:42px;max-width:160px;object-fit:contain;">`
+        : `<div style="font-weight:800;font-size:14pt;letter-spacing:.06em;text-transform:uppercase;">${esc(teamName||'')}</div>`}
+      <img src="${rtsMark}" alt="Race Team OS" style="height:22px;width:22px;opacity:.55;">
+    </div>
     <h2>Competition Entry Form</h2>
     <table>
       <tr><td class="label">Event</td><td>${esc(ev ? (ev.name||ev.title) : (e.event_name||''))}</td></tr>
@@ -746,7 +756,7 @@ function printEntryForm() {
       <tr><td class="label">Phone</td><td>${esc((d && d.contact_phone)||'')}</td></tr>
     </table>
     <h3 style="font-size:1rem;margin-top:14px;">Documents</h3>
-    <table>${docs.map(r => `<tr><td class="label">${esc(r.name)}</td><td>${esc(r.sub)}${r.overridden?' — OVERRIDE ACCEPTED':''}</td></tr>`).join('')}</table>
+    <table>${docs.map(r => `<tr><td class="label">${esc(r.name)}</td><td>${esc(r.sub)}${r.overridden?' — override accepted':''}</td></tr>`).join('')}</table>
     <h3 style="font-size:1rem;margin-top:14px;">Payment</h3>
     <table>
       <tr><td class="label">Entry Fee</td><td>${fmtMoney(e.entry_fee||0)}</td></tr>
