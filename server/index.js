@@ -206,6 +206,7 @@ app.use('/api/notes',            requireAuth, notesRouter);
 app.use('/api/fin-budgets',     requireAuth, require('./routes/fin-budgets'));
 app.use('/api/fin-payments',    requireAuth, require('./routes/fin-payments'));
 app.use('/api/fin-invoices',    requireAuth, require('./routes/fin-invoices'));
+app.use('/api/fin-invoice-email', requireAuth, require('./routes/fin-invoice-email'));
 app.use('/api/driver-packages', requireAuth, require('./routes/driver-packages'));
 app.use('/api/fin-rollup',      requireAuth, require('./routes/fin-rollup'));
 app.use('/api/fin-dashboard',   requireAuth, require('./routes/fin-dashboard'));

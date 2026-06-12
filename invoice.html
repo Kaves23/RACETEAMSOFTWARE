@@ -1101,6 +1101,7 @@
             <button class="btn-save" id="btnSaveInv" type="button">Save</button>
             <button class="btn-ghost" id="btnDupInv" type="button">Duplicate</button>
             <button class="btn-ghost" id="btnPDF" type="button">Print PDF</button>
+            <button class="btn-ghost" id="btnEmailInv" type="button" style="background:#0f766e;color:#fff;border:none;">Email</button>
             <button class="btn-ghost-danger" id="btnDelInv" type="button">Delete</button>
           </div>
         </div><!-- /inspectorForm -->
@@ -1126,7 +1127,48 @@
           <div class="sage-preview-box" id="sagePreviewBox"></div>
           <div style="display:flex;gap:8px;margin-top:14px;">
             <button id="btnCopySage" class="btn btn-sm" style="background:#16a34a;color:#fff;border:none;border-radius:6px;padding:6px 16px;font-size:0.78rem;font-weight:700;">Copy JSON</button>
+            <button id="btnDownloadSageCSV" class="btn btn-sm" style="background:#0f766e;color:#fff;border:none;border-radius:6px;padding:6px 16px;font-size:0.78rem;font-weight:700;">Download Sage CSV</button>
             <button class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal" style="font-size:0.78rem;">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Email modal -->
+  <div class="modal fade" id="emailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content">
+        <div class="modal-header" style="background:linear-gradient(135deg,#ecfeff,#cffafe);border-bottom:1px solid #a5f3fc;">
+          <h5 class="modal-title" style="font-weight:700;color:#0f766e;display:flex;align-items:center;gap:8px;">
+            <span style="background:#0f766e;color:#fff;font-size:0.62rem;font-weight:900;letter-spacing:0.1em;padding:2px 7px;border-radius:3px;">EMAIL</span>
+            Send Invoice
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body" style="background:#fff;">
+          <div class="row g-2">
+            <div class="col-md-6">
+              <label class="form-label" style="font-size:0.75rem;font-weight:700;color:#374151;">To</label>
+              <input id="emailTo" type="email" class="form-control form-control-sm" placeholder="customer@example.com">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" style="font-size:0.75rem;font-weight:700;color:#374151;">CC</label>
+              <input id="emailCc" type="text" class="form-control form-control-sm" placeholder="optional, comma-separated">
+            </div>
+            <div class="col-12">
+              <label class="form-label" style="font-size:0.75rem;font-weight:700;color:#374151;">Subject</label>
+              <input id="emailSubject" type="text" class="form-control form-control-sm">
+            </div>
+            <div class="col-12">
+              <label class="form-label" style="font-size:0.75rem;font-weight:700;color:#374151;">Message (above invoice)</label>
+              <textarea id="emailMessage" class="form-control form-control-sm" rows="4" placeholder="Optional cover note shown above the invoice."></textarea>
+            </div>
+          </div>
+          <div id="emailStatus" style="margin-top:10px;font-size:0.78rem;"></div>
+          <div style="display:flex;gap:8px;margin-top:14px;">
+            <button id="btnSendEmail" class="btn btn-sm" style="background:#0f766e;color:#fff;border:none;border-radius:6px;padding:6px 16px;font-size:0.78rem;font-weight:700;">Send</button>
+            <button class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal" style="font-size:0.78rem;">Cancel</button>
           </div>
         </div>
       </div>
@@ -1203,6 +1245,7 @@
       dup:        document.getElementById('btnDupInv'),
       del:        document.getElementById('btnDelInv'),
       pdf:        document.getElementById('btnPDF'),
+      email:      document.getElementById('btnEmailInv'),
       addLine:    document.getElementById('btnAddLine'),
       addInvLine: document.getElementById('btnAddInvLine'),
       lines:      document.getElementById('invLines'),
@@ -1691,6 +1734,7 @@
 
       // Driver
       try { el.f.driver.value = String(inv.driverId||''); } catch(_e){}
+      if (inv.driverId) ensureDriverPackages(inv.driverId);
 
       el.f.customerDetails.value = inv.customerDetails || '';
       el.f.vatRate.value         = inv.vatRate ?? 15;
@@ -1946,6 +1990,69 @@
       setTimeout(()=>{ try{ win.print(); } catch(_e){} }, 300);
     }
 
+    // ── Email send ───────────────────────────────────────────────────────
+    function openEmailModal(){
+      const inv = invoices.find(i=>String(i.id)===String(ui.selectedId));
+      if (!inv){ alert('Select an invoice first.'); return; }
+      const cust = customers.find(c=>String(c.id)===String(inv.customerId));
+      const to   = (cust && cust.email) || '';
+      document.getElementById('emailTo').value      = to;
+      document.getElementById('emailCc').value      = '';
+      document.getElementById('emailSubject').value = `Invoice ${inv.number} from RaceTeam OS`;
+      document.getElementById('emailMessage').value = `Hi${cust && cust.name ? ' '+cust.name.split(' ')[0] : ''},\n\nPlease find attached invoice ${inv.number} for ${money(inv.total)}.\n\nKind regards,\nRaceTeam OS`;
+      document.getElementById('emailStatus').textContent = '';
+      const modal = new bootstrap.Modal(document.getElementById('emailModal'));
+      modal.show();
+    }
+
+    document.addEventListener('click', async (e) => {
+      if (e.target && e.target.id === 'btnSendEmail') {
+        const inv = invoices.find(i=>String(i.id)===String(ui.selectedId));
+        if (!inv) return;
+        const to       = document.getElementById('emailTo').value.trim();
+        const cc       = document.getElementById('emailCc').value.trim();
+        const subject  = document.getElementById('emailSubject').value.trim();
+        const message  = document.getElementById('emailMessage').value;
+        const statusEl = document.getElementById('emailStatus');
+        if (!to){ statusEl.style.color='#b91c1c'; statusEl.textContent='Recipient required.'; return; }
+        const btn = e.target; btn.disabled = true; const orig = btn.textContent; btn.textContent = 'Sending…';
+        statusEl.style.color = '#374151'; statusEl.textContent = 'Sending email…';
+        const messageHtml = (message || '').replace(/\n/g, '<br>');
+        const fullHtml = `<div style="font-family:Arial,sans-serif;color:#111;font-size:14px;margin-bottom:16px;">${messageHtml}</div><hr style="border:none;border-top:1px solid #e5e7eb;margin:18px 0;">${printable(inv)}`;
+        try {
+          const r = await RTS_API.request('/fin-invoice-email', {
+            method: 'POST',
+            body: JSON.stringify({
+              invoice_id:     inv.id,
+              invoice_number: inv.number,
+              total:          inv.total,
+              to, cc, subject,
+              html: fullHtml,
+              text: message
+            })
+          });
+          if (r && r.success) {
+            statusEl.style.color = '#15803d';
+            statusEl.textContent = `Sent to ${to}.`;
+            inv.status = inv.status === 'paid' ? 'paid' : 'sent';
+            persist(); render();
+            setTimeout(() => {
+              try { bootstrap.Modal.getInstance(document.getElementById('emailModal')).hide(); } catch(_e){}
+            }, 900);
+          } else {
+            statusEl.style.color = '#b91c1c';
+            statusEl.textContent = (r && r.error) || 'Send failed.';
+          }
+        } catch (err) {
+          statusEl.style.color = '#b91c1c';
+          statusEl.textContent = (err && err.message) || 'Send failed.';
+        } finally {
+          btn.disabled = false; btn.textContent = orig;
+        }
+      }
+    });
+
+
     // ── Sage preview ─────────────────────────────────────────────────────
     function openSagePreview(){
       const inv  = invoices.find(i=>String(i.id)===String(ui.selectedId));
@@ -1994,6 +2101,45 @@
 
     document.getElementById('btnSendSage').addEventListener('click', openSagePreview);
 
+    // Sage 50 CSV download
+    function csvCell(v) {
+      const s = String(v == null ? '' : v).replace(/"/g, '""');
+      return /[",\n\r]/.test(s) ? `"${s}"` : s;
+    }
+    function buildSageCSV(inv) {
+      const cust = customers.find(c=>String(c.id)===String(inv.customerId));
+      const acct = (cust && cust.sageRef) || (el.f.sageRef ? el.f.sageRef.value : '') || '';
+      const nominal = el.f.sageNominal ? el.f.sageNominal.value : '4000';
+      const taxCode = el.f.sageTax     ? el.f.sageTax.value     : 'T1';
+      const dept    = el.f.sageDept    ? el.f.sageDept.value    : '';
+      const date = (inv.date || new Date().toISOString().slice(0,10)).slice(0,10);
+      // Sage 50 SDO/Invoice import header (one row per line item)
+      const headers = ['Type','Account Reference','Nominal A/C Ref','Department Code','Date','Reference','Details','Net Amount','Tax Code','Tax Amount'];
+      const rows = [headers];
+      const vatRate = Number(inv.vatRate||0);
+      inv.lines.forEach(l => {
+        const net = (Number(l.qty)||0) * (Number(l.rate)||0);
+        const tax = vatRate ? net * vatRate / 100 : 0;
+        rows.push([
+          'SI', acct, nominal, dept, date, inv.number, l.desc || '',
+          net.toFixed(2), taxCode, tax.toFixed(2)
+        ]);
+      });
+      return rows.map(r => r.map(csvCell).join(',')).join('\r\n');
+    }
+    document.getElementById('btnDownloadSageCSV').addEventListener('click', () => {
+      const inv = invoices.find(i=>String(i.id)===String(ui.selectedId));
+      if (!inv) { alert('Select an invoice first.'); return; }
+      const csv = buildSageCSV(inv);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${(inv.number||'invoice')}-sage50.csv`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    });
+
     // ── VAT rate live update ─────────────────────────────────────────────
     el.f.vatRate.addEventListener('input', ()=>{
       const inv = invoices.find(i=>String(i.id)===String(ui.selectedId)); if (!inv) return;
@@ -2040,6 +2186,7 @@
       el.dup.addEventListener('click', duplicateInvoice);
       el.del.addEventListener('click', deleteInvoice);
       el.pdf.addEventListener('click', openPDF);
+      if (el.email) el.email.addEventListener('click', openEmailModal);
       el.addLine.addEventListener('click', addLine);
       if (el.addInvLine) el.addInvLine.addEventListener('click', pickInventoryItem);
       if (el.btnCustSave)   el.btnCustSave.addEventListener('click', saveCustomer);
@@ -2085,8 +2232,9 @@
     function applyPackageDiscounts(inv){
       try {
         if (!inv||!inv.driverId) return;
-        const store = RTS.safeLoadJSON('rts.driver.packages.v1',{})||{};
-        const pkg   = store[inv.driverId]||{};
+        const pkgArr = (window._driverPackagesCache && _driverPackagesCache[inv.driverId]) || [];
+        const pkg = {};
+        pkgArr.forEach(p => { if (p && p.package_key) pkg[p.package_key] = p.mode || 'invoice'; });
         inv.lines.forEach(ln=>{
           const key  = categorizeLine(ln.desc);
           const incl = key && pkg[key]==='included';
@@ -2101,11 +2249,24 @@
         });
       } catch(_e){}
     }
+    async function ensureDriverPackages(driverId) {
+      if (!driverId) return;
+      window._driverPackagesCache = window._driverPackagesCache || {};
+      if (window._driverPackagesCache[driverId]) return;
+      try {
+        const arr = await RTS_API.request(`/driver-packages?driver_id=${encodeURIComponent(driverId)}`);
+        window._driverPackagesCache[driverId] = Array.isArray(arr) ? arr : [];
+      } catch(_e) {
+        window._driverPackagesCache[driverId] = [];
+      }
+    }
     try {
       const drvSel = el.f.driver;
-      if (drvSel){ drvSel.addEventListener('change', ()=>{
+      if (drvSel){ drvSel.addEventListener('change', async ()=>{
         const inv=invoices.find(i=>String(i.id)===String(ui.selectedId)); if (!inv) return;
-        inv.driverId=drvSel.value; applyPackageDiscounts(inv); recalc(inv); scheduleSave(inv); persist(); render();
+        inv.driverId=drvSel.value;
+        await ensureDriverPackages(inv.driverId);
+        applyPackageDiscounts(inv); recalc(inv); scheduleSave(inv); persist(); render();
       }); }
     } catch(_e){}
 
