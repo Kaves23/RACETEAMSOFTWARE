@@ -2,9 +2,9 @@
 // Include this before core.js on pages where you want to override defaults.
 window.RTS_CONFIG = {
   // Software build version — updated on every deployment
-  buildVersion: 'cfea285',
+  buildVersion: '266411e',
   buildDate:    '2026-06-12',
-  buildNote:    'Finance Phase 0+1: ZAR currency, DB-backed expenses/invoices/packages',
+  buildNote:    'Finance Phase 2: cross-module cost fields (projects/events/staff/components)',
   // API Configuration
   api: {
     baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)
