@@ -1178,10 +1178,8 @@
     }
 
     const defaultUI = { perspective:'all', search:'', event:'', customer:'', status:'', groupBy:'', selectedId:null };
-    let invoices = RTS.safeLoadJSON(LS_INV, null);
-    if (!Array.isArray(invoices) || invoices.length === 0) invoices = seedInvoices();
-    let customers = RTS.safeLoadJSON(LS_CUST, null);
-    if (!Array.isArray(customers) || customers.length === 0) customers = seedCustomers();
+    let invoices = [];
+    let customers = [];
     let ui = RTS.deepMerge(defaultUI, RTS.safeLoadJSON(LS_UI, {}));
     let poDrafts = RTS.safeLoadJSON(LS_PODRAFTS, []);
 
@@ -1375,10 +1373,137 @@
     }
 
     function persist(){
-      RTS.safeSaveJSON(LS_INV, invoices);
-      RTS.safeSaveJSON(LS_CUST, customers);
+      // Invoices & customers persist to the database; only UI state + PO drafts stay local.
       RTS.safeSaveJSON(LS_UI, ui);
       RTS.safeSaveJSON(LS_PODRAFTS, poDrafts);
+    }
+
+    // ── API persistence (fin_invoices / fin_invoice_customers) ───────────────
+    const INV_API  = '/fin-invoices';
+    const CUST_API = '/fin-invoices/customers';
+
+    function invToServer(inv){
+      const out = {
+        number: inv.number || '',
+        status: inv.status || 'Draft',
+        inv_type: inv.invType || '',
+        invoice_date: inv.date || null,
+        due_date: inv.due || null,
+        customer_id: inv.customerId || null,
+        customer_details: inv.customerDetails || '',
+        event_id: inv.eventId ? String(inv.eventId) : null,
+        driver_id: inv.driverId || null,
+        vat_rate: Number(inv.vatRate) || 0,
+        currency: 'ZAR',
+        lines: Array.isArray(inv.lines) ? inv.lines : [],
+        notes: inv.notes || '',
+        sage_nominal: inv.sageNominal || null,
+        tax_code: inv.taxCode || null,
+        department: inv.department || null
+      };
+      if (inv.serverId) out.id = inv.serverId;
+      return out;
+    }
+
+    function invFromServer(row, idx){
+      const inv = {
+        id: idx,
+        serverId: row.id,
+        number: row.number || `INV-${String(idx).padStart(4,'0')}`,
+        status: row.status || 'Draft',
+        invType: row.inv_type || 'support',
+        date: row.invoice_date ? String(row.invoice_date).slice(0,10) : '',
+        due:  row.due_date ? String(row.due_date).slice(0,10) : '',
+        customerId: row.customer_id || '',
+        eventId: row.event_id || '',
+        driverId: row.driver_id || '',
+        customerDetails: row.customer_details || '',
+        vatRate: Number(row.vat_rate) || 0,
+        lines: Array.isArray(row.lines) ? row.lines : [],
+        notes: row.notes || '',
+        sageNominal: row.sage_nominal || '',
+        taxCode: row.tax_code || '',
+        department: row.department || '',
+        subtotal:0, vat:0, total:0
+      };
+      recalc(inv);
+      return inv;
+    }
+
+    // Debounced per-invoice save to avoid hammering the API while typing line items.
+    const _saveTimers = {};
+    function scheduleSave(inv){
+      if (!inv) return;
+      const key = inv.serverId || ('local-'+inv.id);
+      clearTimeout(_saveTimers[key]);
+      _saveTimers[key] = setTimeout(()=>saveInvoiceRecord(inv), 600);
+    }
+
+    async function saveInvoiceRecord(inv){
+      if (!inv) return;
+      try {
+        if (inv.serverId){
+          await RTS_API.request(`${INV_API}/${inv.serverId}`, { method:'PUT', body: JSON.stringify(invToServer(inv)) });
+        } else {
+          const row = await RTS_API.request(INV_API, { method:'POST', body: JSON.stringify(invToServer(inv)) });
+          if (row && row.id) inv.serverId = row.id;
+        }
+      } catch(e){
+        console.error('Failed to save invoice', e);
+        if (window.RTS && RTS.showToast) RTS.showToast('Save failed — invoice not stored on server', 'error');
+      }
+    }
+
+    async function deleteInvoiceRecord(inv){
+      if (!inv || !inv.serverId) return;
+      try { await RTS_API.request(`${INV_API}/${inv.serverId}`, { method:'DELETE' }); }
+      catch(e){ console.error('Failed to delete invoice', e); if (window.RTS && RTS.showToast) RTS.showToast('Delete failed on server', 'error'); }
+    }
+
+    async function saveCustomerRecord(c){
+      if (!c) return;
+      try {
+        await RTS_API.request(CUST_API, { method:'POST', body: JSON.stringify({
+          id: c.id, name: c.name, email: c.email||'', phone: c.phone||'', address: c.address||'', sage_ref: c.sageRef||''
+        })});
+      } catch(e){ console.error('Failed to save customer', e); if (window.RTS && RTS.showToast) RTS.showToast('Customer save failed', 'error'); }
+    }
+
+    async function deleteCustomerRecord(id){
+      if (!id) return;
+      try { await RTS_API.request(`${CUST_API}/${id}`, { method:'DELETE' }); }
+      catch(e){ console.error('Failed to delete customer', e); }
+    }
+
+    async function loadFromAPI(){
+      // Customers first (so invoices can reference them)
+      try {
+        const crows = await RTS_API.request(CUST_API);
+        customers = (crows||[]).map(r=>({ id:r.id, name:r.name, email:r.email||'', phone:r.phone||'', address:r.address||'', sageRef:r.sage_ref||'' }));
+      } catch(e){ console.error('Failed to load customers', e); customers = []; }
+
+      try {
+        const irows = await RTS_API.request(INV_API);
+        invoices = (irows||[]).map((r,i)=>invFromServer(r, i+1));
+      } catch(e){ console.error('Failed to load invoices', e); invoices = []; }
+
+      // One-time import of legacy localStorage data
+      try {
+        if (!localStorage.getItem('rts.invoices.migrated')){
+          const legacyCust = RTS.safeLoadJSON(LS_CUST, null);
+          const legacyInv  = RTS.safeLoadJSON(LS_INV, null);
+          if (customers.length === 0 && Array.isArray(legacyCust) && legacyCust.length){
+            customers = legacyCust.slice();
+            await Promise.all(customers.map(saveCustomerRecord));
+          }
+          if (invoices.length === 0 && Array.isArray(legacyInv) && legacyInv.length){
+            invoices = legacyInv.map((r,i)=>({ ...r, id:i+1, serverId:null, lines:Array.isArray(r.lines)?r.lines:[] }));
+            invoices.forEach(recalc);
+            for (const inv of invoices) await saveInvoiceRecord(inv);
+          }
+          localStorage.setItem('rts.invoices.migrated', '1');
+        }
+      } catch(e){ console.error('Legacy invoice import failed', e); }
     }
 
     function recalc(inv){
@@ -1604,6 +1729,7 @@
       el.f.subtotal.textContent  = money(inv.subtotal);
       el.f.vatAmount.textContent = money(inv.vat);
       el.f.total.textContent     = money(inv.total);
+      scheduleSave(inv);
       persist();
       render();
     }
@@ -1690,6 +1816,7 @@
       invoices.unshift(inv);
       ui.selectedId = inv.id;
       render();
+      saveInvoiceRecord(inv);
     }
 
     function saveInvoice(){
@@ -1708,6 +1835,7 @@
       applyPackageDiscounts(inv);
       recalc(inv);
       if (inv.status==='Sent'||inv.status==='Paid') applyInventoryDeduction(inv);
+      saveInvoiceRecord(inv);
       persist();
       render();
     }
@@ -1719,16 +1847,19 @@
       copy.id   = id;
       copy.number = `INV-${String(id).padStart(4,'0')}`;
       copy.status = 'Draft';
+      copy.serverId = null;
       invoices.unshift(copy);
       ui.selectedId = id;
       recalc(copy);
       render();
+      saveInvoiceRecord(copy);
     }
 
     function deleteInvoice(){
       if (!confirm('Delete this invoice?')) return;
       const idx = invoices.findIndex(i=>String(i.id)===String(ui.selectedId));
       if (idx<0) return;
+      deleteInvoiceRecord(invoices[idx]);
       invoices.splice(idx,1);
       ui.selectedId = invoices[0]?.id || null;
       render();
@@ -1918,16 +2049,22 @@
     function saveCustomer(){
       const name = el.custForm.name.value.trim(); if (!name) return;
       let existing = customers.find(c=>c.name===name||c.email===el.custForm.email.value.trim());
+      let target;
       if (existing){
         existing.name=name; existing.email=el.custForm.email.value.trim();
         existing.phone=el.custForm.phone.value.trim(); existing.address=el.custForm.address.value.trim();
+        target = existing;
       } else {
-        customers.push({ id:RTS.uid('cust'), name, email:el.custForm.email.value.trim(), phone:el.custForm.phone.value.trim(), address:el.custForm.address.value.trim() });
+        target = { id:RTS.uid('cust'), name, email:el.custForm.email.value.trim(), phone:el.custForm.phone.value.trim(), address:el.custForm.address.value.trim() };
+        customers.push(target);
       }
+      saveCustomerRecord(target);
       buildCustomerTree(); render(); persist();
     }
     function deleteCustomer(){
       const name = el.custForm.name.value.trim(); if (!name) return;
+      const victim = customers.find(c=>c.name===name);
+      if (victim) deleteCustomerRecord(victim.id);
       customers = customers.filter(c=>c.name!==name);
       buildCustomerTree(); persist(); render();
     }
@@ -1968,12 +2105,13 @@
       const drvSel = el.f.driver;
       if (drvSel){ drvSel.addEventListener('change', ()=>{
         const inv=invoices.find(i=>String(i.id)===String(ui.selectedId)); if (!inv) return;
-        inv.driverId=drvSel.value; applyPackageDiscounts(inv); recalc(inv); persist(); render();
+        inv.driverId=drvSel.value; applyPackageDiscounts(inv); recalc(inv); scheduleSave(inv); persist(); render();
       }); }
     } catch(_e){}
 
     // ── Init ─────────────────────────────────────────────────────────────
-    function init(){
+    async function init(){
+      await loadFromAPI();
       buildFilters();
       buildCustomerTree();
       bind();

@@ -62,10 +62,11 @@
   <script src="core.js"></script>
   <script src="topnav.js?v=20260520"></script>
   <script>
-  (function(){
+  (async function(){
     RTS.setActiveNav();
 
     const LS = 'rts.driver.packages.v1';
+    const money = (n) => RTS.moneyZAR(n);
     const pkgOptions = [
       { key:'tyres', name:'Tyres' },
       { key:'fuel', name:'Fuel' },
@@ -96,8 +97,73 @@
       return arr.filter(d => d && d.active !== false);
     }
 
-    function getStore(){ return RTS.safeLoadJSON(LS, {}); }
-    function saveStore(obj){ RTS.safeSaveJSON(LS, obj || {}); }
+    // ── API-backed package store ───────────────────────────────────────────
+    // Shape: store[driverId][packageKey] = { mode, unit_price, qty }
+    let store = {};
+
+    async function loadStore(){
+      try {
+        const rows = await RTS_API.request('/driver-packages');
+        const map = {};
+        (rows || []).forEach(r => {
+          map[r.driver_id] = map[r.driver_id] || {};
+          map[r.driver_id][r.package_key] = {
+            mode: r.mode || 'invoice',
+            unit_price: Number(r.unit_price) || 0,
+            qty: Number(r.qty) || 1
+          };
+        });
+        store = map;
+        // One-time import of any legacy localStorage state
+        await maybeImportLegacy();
+      } catch (e) {
+        console.error('Failed to load driver packages from API', e);
+        if (window.RTS && RTS.showToast) RTS.showToast('Could not load packages from server', 'error');
+      }
+    }
+
+    async function maybeImportLegacy(){
+      try {
+        if (localStorage.getItem('rts.driver.packages.migrated')) return;
+        const legacy = RTS.safeLoadJSON(LS, null);
+        if (legacy && typeof legacy === 'object' && Object.keys(store).length === 0) {
+          const puts = [];
+          Object.keys(legacy).forEach(driverId => {
+            const pkg = legacy[driverId] || {};
+            Object.keys(pkg).forEach(key => {
+              const mode = pkg[key] === 'included' ? 'included' : 'invoice';
+              const opt = pkgOptions.find(o => o.key === key);
+              puts.push(savePackage(driverId, key, opt ? opt.name : key, mode, 0));
+            });
+          });
+          await Promise.all(puts);
+        }
+        localStorage.setItem('rts.driver.packages.migrated', '1');
+      } catch (e) { console.error('Legacy package import failed', e); }
+    }
+
+    async function savePackage(driverId, key, name, mode, unitPrice){
+      store[driverId] = store[driverId] || {};
+      const cur = store[driverId][key] || { mode:'invoice', unit_price:0, qty:1 };
+      const next = {
+        mode: mode != null ? mode : cur.mode,
+        unit_price: unitPrice != null ? unitPrice : cur.unit_price,
+        qty: cur.qty || 1
+      };
+      store[driverId][key] = next;
+      try {
+        await RTS_API.request('/driver-packages', {
+          method: 'PUT',
+          body: JSON.stringify({
+            driver_id: driverId, package_key: key, package_name: name,
+            mode: next.mode, unit_price: next.unit_price, qty: next.qty
+          })
+        });
+      } catch (e) {
+        console.error('Failed to save package', e);
+        if (window.RTS && RTS.showToast) RTS.showToast('Save failed — change not stored', 'error');
+      }
+    }
 
     let selectedId = null;
     let drivers = getDrivers();
@@ -118,32 +184,45 @@
     }
 
     function renderGrid(){
-      const store = getStore();
       if (!selectedId){ el.title.textContent = 'Select a driver'; el.grid.innerHTML = ''; el.summary.textContent=''; return; }
       const driver = drivers.find(d => d.id === selectedId);
       el.title.textContent = driver ? `${driver.name || 'Driver'} ${driver.raceNumber ? '(' + driver.raceNumber + ')' : ''}` : 'Driver';
       const pkg = store[selectedId] || {};
-      let inc = 0, inv = 0;
+      let inc = 0, inv = 0, invTotal = 0;
       el.grid.innerHTML = '';
       pkgOptions.forEach(opt => {
-        const state = (pkg[opt.key] === 'included') ? 'included' : 'invoice';
-        if (state==='included') inc++; else inv++;
+        const rec   = pkg[opt.key] || { mode:'invoice', unit_price:0, qty:1 };
+        const state = (rec.mode === 'included') ? 'included' : 'invoice';
+        const price = Number(rec.unit_price) || 0;
+        if (state==='included') inc++; else { inv++; invTotal += price; }
         const card = document.createElement('div');
         card.className = 'pkg-card small ' + (state==='included' ? 'pkg-included' : 'pkg-invoice');
-        card.innerHTML = `<div class="pkg-name">${opt.name}</div><div class="pkg-state">${state==='included'?'INCLUDED':'INVOICE'}</div>`;
-        card.onclick = ()=>{
-          const cur = getStore();
-          const curr = cur[selectedId] || {};
-          curr[opt.key] = (state==='included') ? 'invoice' : 'included';
-          cur[selectedId] = curr; saveStore(cur); renderGrid();
+        card.innerHTML = `
+          <div class="pkg-name">${opt.name}</div>
+          <div class="d-flex align-items-center gap-1 w-100 mt-1" data-noflip>
+            <span style="font-size:0.8rem;opacity:0.8;">R</span>
+            <input type="number" min="0" step="0.01" value="${price}" class="form-control form-control-sm pkg-price"
+                   style="background:#0a0c10;color:#e0e3e6;border:1px solid rgba(255,255,255,0.15);font-size:0.8rem;padding:2px 6px;" />
+          </div>
+          <div class="pkg-state mt-1">${state==='included'?'INCLUDED':'INVOICE'}</div>`;
+        // Toggle mode when clicking the card (but not the price input)
+        card.onclick = (e)=>{
+          if (e.target.closest('[data-noflip]')) return;
+          savePackage(selectedId, opt.key, opt.name, state==='included' ? 'invoice' : 'included', null).then(renderGrid);
         };
+        const priceInput = card.querySelector('.pkg-price');
+        priceInput.addEventListener('click', e => e.stopPropagation());
+        priceInput.addEventListener('change', () => {
+          savePackage(selectedId, opt.key, opt.name, null, parseFloat(priceInput.value)||0).then(renderGrid);
+        });
         el.grid.appendChild(card);
       });
-      el.summary.textContent = `${inc} INCLUDED • ${inv} INVOICE`;
+      el.summary.textContent = `${inc} INCLUDED • ${inv} INVOICE • Invoice total: ${money(invTotal)}`;
     }
 
     el.search.addEventListener('input', renderDrivers);
 
+    await loadStore();
     renderDrivers();
     renderGrid();
   })();

@@ -2,9 +2,9 @@
 // Include this before core.js on pages where you want to override defaults.
 window.RTS_CONFIG = {
   // Software build version — updated on every deployment
-  buildVersion: '59a2460',
-  buildDate:    '2026-06-11',
-  buildNote:    'Server-side project duplication, custom confirm/delete, fix detail not-found, SVG icons',
+  buildVersion: '1f964ed',
+  buildDate:    '2026-06-12',
+  buildNote:    'Reorder top nav: Sporting, Projects, Logistics, Academy, Finance first; Academy uses A shortcut, Compliance none',
   // API Configuration
   api: {
     baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)

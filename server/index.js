@@ -203,8 +203,10 @@ app.use('/api/race-results',     requireAuth, raceResultsRouter);
 app.use('/api/notes',            requireAuth, notesRouter);
 
 // Phase 2 — Finance
-app.use('/api/fin-budgets',  requireAuth, require('./routes/fin-budgets'));
-app.use('/api/fin-payments', requireAuth, require('./routes/fin-payments'));
+app.use('/api/fin-budgets',     requireAuth, require('./routes/fin-budgets'));
+app.use('/api/fin-payments',    requireAuth, require('./routes/fin-payments'));
+app.use('/api/fin-invoices',    requireAuth, require('./routes/fin-invoices'));
+app.use('/api/driver-packages', requireAuth, require('./routes/driver-packages'));
 
 // Event Notes extras — comments + links per task
 app.use('/api/task-comments', requireAuth, require('./routes/task-comments'));

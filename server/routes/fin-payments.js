@@ -28,11 +28,11 @@ router.get('/summary', async (req, res, next) => {
     const r = await pool.query(`
       SELECT
         COUNT(*)                          AS total_payments,
-        SUM(CASE WHEN currency='GBP' THEN amount ELSE 0 END) AS total_gbp,
+        SUM(amount)                       AS total_amount,
         COUNT(*) FILTER(WHERE status='pending')   AS pending_count,
         COUNT(*) FILTER(WHERE status='approved')  AS approved_count,
         COUNT(*) FILTER(WHERE status='paid')       AS paid_count,
-        SUM(CASE WHEN status='pending' AND currency='GBP' THEN amount ELSE 0 END) AS pending_gbp
+        SUM(CASE WHEN status='pending' THEN amount ELSE 0 END) AS pending_amount
       FROM fin_payments`);
     res.json(r.rows[0]);
   } catch (e) { next(e); }
@@ -58,7 +58,7 @@ router.post('/', async (req, res, next) => {
       `INSERT INTO fin_payments (payee,description,amount,currency,payment_date,reference,method,
        status,budget_id,category,event_id,notes,created_by)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
-      [payee, description||null, parseFloat(amount)||0, currency||'GBP', payment_date||null,
+      [payee, description||null, parseFloat(amount)||0, currency||'ZAR', payment_date||null,
        reference||null, method||'bank_transfer', status||'pending',
        budget_id||null, category||null, event_id||null, notes||null, createdBy]
     );
@@ -82,7 +82,7 @@ router.put('/:id', async (req, res, next) => {
       `UPDATE fin_payments SET payee=$1,description=$2,amount=$3,currency=$4,payment_date=$5,
        reference=$6,method=$7,status=$8,budget_id=$9,category=$10,event_id=$11,notes=$12,
        approved_by=$13,updated_at=NOW() WHERE id=$14 RETURNING *`,
-      [payee, description||null, parseFloat(amount)||0, currency||'GBP', payment_date||null,
+      [payee, description||null, parseFloat(amount)||0, currency||'ZAR', payment_date||null,
        reference||null, method||'bank_transfer', status||'pending',
        budget_id||null, category||null, event_id||null, notes||null,
        approved_by||null, req.params.id]

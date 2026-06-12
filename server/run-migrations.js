@@ -102,7 +102,11 @@ async function runMigrations() {
     '081_academy_test_venue.sql',
     '082_academy_booked_dates.sql',
     '083_academy_email_inbox.sql',
-    '084_shopify_inventory_guard.sql'
+    '084_shopify_inventory_guard.sql',
+    '085_finance_currency_zar.sql',
+    '086_expenses_extended_fields.sql',
+    '087_finance_invoices.sql',
+    '088_driver_packages.sql'
   ];
   
   let appliedCount = 0, skippedCount = 0;

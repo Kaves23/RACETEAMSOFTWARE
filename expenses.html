@@ -285,8 +285,7 @@
     }
 
   const defaultUI = { perspective:'all', catPick:'', search:'', event:'', category:'', driver:'', employee:'', status:'', groupBy:'', selectedId:null };
-    let items = RTS.safeLoadJSON(LS, null);
-    if (!Array.isArray(items) || items.length===0) items = seed();
+    let items = [];
     let ui = RTS.deepMerge(defaultUI, RTS.safeLoadJSON(LS_UI, {}));
 
     // Deep link support
@@ -377,8 +376,106 @@
     }
 
     function persist(){
-      RTS.safeSaveJSON(LS, items);
+      // Only UI/filter state is persisted locally; expense records live in the database.
       RTS.safeSaveJSON(LS_UI, ui);
+    }
+
+    // ── API persistence (expenses live in the `expenses` collection) ─────────
+    const EXP_API = '/collections/expenses';
+
+    function toServer(it){
+      const out = {
+        description: it.supplier || 'Expense',
+        supplier:    it.supplier || '',
+        category:    it.category || '',
+        amount:      Number(it.amount) || 0,
+        currency:    'ZAR',
+        vat_pct:     Number(it.vat) || 0,
+        invoice_ref: it.invoice || '',
+        event_id:    it.eventId ? String(it.eventId) : null,
+        date:        it.date || null,
+        driver_id:   it.driverId || '',
+        driver_name: it.driver || '',
+        employee_id: it.employeeId || '',
+        employee_name: it.employee || '',
+        approval:    it.approval || '',
+        attachments: Array.isArray(it.attachments) ? it.attachments : [],
+        notes:       it.notes || '',
+        status:      it.status || 'Pending'
+      };
+      if (it.serverId) out.id = it.serverId;
+      return out;
+    }
+
+    function fromServer(row, idx){
+      return {
+        id: idx,
+        serverId: row.id,
+        date: row.date ? String(row.date).slice(0,10) : '',
+        supplier: row.supplier || row.description || '',
+        eventId: row.event_id || '',
+        event: '',
+        category: row.category || '',
+        amount: Number(row.amount) || 0,
+        vat: Number(row.vat_pct) || 0,
+        invoice: row.invoice_ref || '',
+        driverId: row.driver_id || '',
+        driver: row.driver_name || '',
+        employeeId: row.employee_id || '',
+        employee: row.employee_name || '',
+        approval: row.approval || '',
+        attachments: Array.isArray(row.attachments) ? row.attachments : [],
+        notes: row.notes || '',
+        status: row.status || 'Pending'
+      };
+    }
+
+    // Save (create or update) a single record to the server, local-first.
+    async function saveRecord(it){
+      if (!it) return;
+      try {
+        if (it.serverId) {
+          await RTS_API.request(`${EXP_API}/${it.serverId}`, { method:'PUT', body: JSON.stringify(toServer(it)) });
+        } else {
+          const res = await RTS_API.request(EXP_API, { method:'POST', body: JSON.stringify(toServer(it)) });
+          const row = res && (res.item || res);
+          if (row && row.id) it.serverId = row.id;
+        }
+      } catch(e){
+        console.error('Failed to save expense', e);
+        if (window.RTS && RTS.showToast) RTS.showToast('Save failed — expense not stored on server', 'error');
+      }
+    }
+
+    async function deleteRecord(it){
+      if (!it || !it.serverId) return;
+      try { await RTS_API.request(`${EXP_API}/${it.serverId}`, { method:'DELETE' }); }
+      catch(e){ console.error('Failed to delete expense', e); if (window.RTS && RTS.showToast) RTS.showToast('Delete failed on server', 'error'); }
+    }
+
+    // Load all expenses from the API; one-time import of any legacy localStorage data.
+    async function loadFromAPI(){
+      try {
+        const res = await RTS_API.request(EXP_API);
+        const rows = (res && (res.items || res)) || [];
+        if (rows.length){
+          items = rows.map((r,i)=>fromServer(r, i+1));
+          return;
+        }
+        // API empty — import legacy localStorage records once, if present
+        if (!localStorage.getItem('rts.expenses.migrated')){
+          const legacy = RTS.safeLoadJSON(LS, null);
+          if (Array.isArray(legacy) && legacy.length){
+            items = legacy.map((r,i)=>({ ...r, id:i+1, serverId:null, attachments:Array.isArray(r.attachments)?r.attachments:[] }));
+            await Promise.all(items.map(saveRecord));
+          }
+          localStorage.setItem('rts.expenses.migrated', '1');
+        }
+      } catch(e){
+        console.error('Failed to load expenses from API', e);
+        if (window.RTS && RTS.showToast) RTS.showToast('Could not load expenses from server', 'error');
+        items = [];
+      }
     }
 
     function buildTrees(){
@@ -602,7 +699,7 @@
         right.innerHTML = `<button class="btn btn-sm btn-outline-danger mlo-btn" type="button">Remove</button>`;
         right.querySelector('button').addEventListener('click', ()=>{
           it.attachments.splice(idx,1);
-          persist();
+          saveRecord(it);
           render();
         });
         row.appendChild(left); row.appendChild(right);
@@ -620,7 +717,7 @@
       it.attachments.push({ provider:'link', name, url, addedAt:new Date().toISOString() });
       el.finAttName.value = '';
       el.finAttUrl.value = '';
-      persist();
+      saveRecord(it);
       render();
     }
 
@@ -631,7 +728,7 @@
       const files = await RTS.pickDriveFiles({ multiSelect:true, includeFolders:false });
       if (!files || !files.length) return;
       files.forEach(f=> it.attachments.push({ ...f, addedAt: new Date().toISOString() }));
-      persist();
+      saveRecord(it);
       render();
     }
 
@@ -666,6 +763,7 @@
       buildTrees();
       ui.selectedId = id;
       render();
+      saveRecord(it);
     }
 
     function save(){
@@ -696,6 +794,7 @@
       };
       buildTrees();
       render();
+      saveRecord(items[idx]);
     }
 
     function duplicate(){
@@ -708,11 +807,13 @@
       buildTrees();
       ui.selectedId = copy.id;
       render();
+      saveRecord(copy);
     }
 
     function del(){
       const sel = items.find(x=>x.id===ui.selectedId);
       if (!sel) return;
+      deleteRecord(sel);
       items = items.filter(x=>x.id!==sel.id);
       ui.selectedId = null;
       buildTrees();
@@ -777,7 +878,8 @@
       el.btnFinAttDrive.addEventListener('click', addAttachmentDrive);
     }
 
-    function init(){
+    async function init(){
+      await loadFromAPI();
       buildTrees();
       // restore perspective active
       el.perspectives.querySelectorAll('li').forEach(li=>{
