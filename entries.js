@@ -22,8 +22,64 @@ let filterStatus = 'all';
 let filterChamp  = 'all';
 let viewMode     = 'list';
 
+// ── Custom dialog system (replaces window.alert/confirm/prompt) ─────────────
+let _uiDialogModal = null;
+function _ensureDialog() {
+  if (!_uiDialogModal) _uiDialogModal = new bootstrap.Modal(document.getElementById('uiDialog'));
+  return _uiDialogModal;
+}
+function _showDialog({ title='Notice', message='', mode='alert', defaultValue='', okText='OK', cancelText='Cancel' }) {
+  return new Promise(resolve => {
+    const m = _ensureDialog();
+    document.getElementById('uiDialogTitle').textContent = title;
+    document.getElementById('uiDialogMsg').textContent   = message || '';
+    const inputWrap = document.getElementById('uiDialogInputWrap');
+    const input     = document.getElementById('uiDialogInput');
+    const cancelBtn = document.getElementById('uiDialogCancel');
+    const okBtn     = document.getElementById('uiDialogOk');
+    okBtn.textContent     = okText;
+    cancelBtn.textContent = cancelText;
+    if (mode === 'prompt') { inputWrap.style.display = ''; input.value = defaultValue || ''; }
+    else                   { inputWrap.style.display = 'none'; }
+    if (mode === 'alert')  { cancelBtn.style.display = 'none'; }
+    else                   { cancelBtn.style.display = ''; }
+    let settled = false;
+    const cleanup = (val) => {
+      if (settled) return; settled = true;
+      okBtn.removeEventListener('click', onOk);
+      cancelBtn.removeEventListener('click', onCancel);
+      document.getElementById('uiDialogClose').removeEventListener('click', onCancel);
+      input.removeEventListener('keydown', onKey);
+      m.hide();
+      resolve(val);
+    };
+    const onOk     = () => cleanup(mode === 'prompt' ? input.value : true);
+    const onCancel = () => cleanup(mode === 'prompt' ? null : false);
+    const onKey    = (e) => { if (e.key === 'Enter') { e.preventDefault(); onOk(); } };
+    okBtn.addEventListener('click', onOk);
+    cancelBtn.addEventListener('click', onCancel);
+    document.getElementById('uiDialogClose').addEventListener('click', onCancel);
+    input.addEventListener('keydown', onKey);
+    m.show();
+    if (mode === 'prompt') setTimeout(() => input.focus(), 200);
+  });
+}
+const uiAlert   = (message, title='Notice')              => _showDialog({ title, message, mode:'alert' });
+const uiConfirm = (message, title='Please confirm')      => _showDialog({ title, message, mode:'confirm' });
+const uiPrompt  = (message, defaultValue='', title='Input required') => _showDialog({ title, message, mode:'prompt', defaultValue });
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
+function setText(id, value) {
+  const el = document.getElementById(id);
+  if (!el) { console.warn('[entries] setText: missing element #' + id); return; }
+  el.textContent = value;
+}
+function setValue(id, value) {
+  const el = document.getElementById(id);
+  if (!el) { console.warn('[entries] setValue: missing element #' + id); return; }
+  el.value = value;
+}
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const toISO = d => d ? String(d).slice(0,10) : '';
 const todayISO = () => new Date().toISOString().slice(0,10);
@@ -179,9 +235,9 @@ function renderAll() {
 // ── Stats ────────────────────────────────────────────────────────────────────
 function renderStats() {
   const t = todayISO();
-  $('statEntTotal').textContent     = allEntries.length;
-  $('statEntConfirmed').textContent = allEntries.filter(e => e.status==='confirmed').length;
-  $('statEntPending').textContent   = allEntries.filter(e => e.status==='pending').length;
+  setText('statEntTotal',     allEntries.length);
+  setText('statEntConfirmed', allEntries.filter(e => e.status==='confirmed').length);
+  setText('statEntPending',   allEntries.filter(e => e.status==='pending').length);
   let blocked = 0, overdue = 0, owed = 0;
   allEntries.forEach(e => {
     const d = allDrivers.find(d => d.id == e.driver_id);
@@ -193,20 +249,20 @@ function renderStats() {
     const fee = Number(e.entry_fee||0), paid = Number(e.amount_paid||0);
     if (fee > paid) owed += (fee - paid);
   });
-  $('statEntBlocked').textContent = blocked;
-  $('statEntOverdue').textContent = overdue;
-  $('statEntFeesOut').textContent = fmtMoney(owed);
+  setText('statEntBlocked', blocked);
+  setText('statEntOverdue', overdue);
+  setText('statEntFeesOut', fmtMoney(owed));
 }
 
 function renderStatusCounts() {
   const c = { all: allEntries.length, submitted:0, confirmed:0, pending:0, rejected:0 };
   allEntries.forEach(e => { c[e.status] = (c[e.status]||0)+1; });
-  $('cntAll').textContent       = c.all;
-  $('cntSubmitted').textContent = c.submitted||0;
-  $('cntConfirmed').textContent = c.confirmed||0;
-  $('cntPending').textContent   = c.pending||0;
-  $('cntRejected').textContent  = c.rejected||0;
-  $('cntChAll').textContent     = c.all;
+  setText('cntAll',       c.all);
+  setText('cntSubmitted', c.submitted||0);
+  setText('cntConfirmed', c.confirmed||0);
+  setText('cntPending',   c.pending||0);
+  setText('cntRejected',  c.rejected||0);
+  setText('cntChAll',     c.all);
 }
 
 // ── Filters ──────────────────────────────────────────────────────────────────
@@ -232,7 +288,7 @@ function renderList() {
   $('viewList').style.display = '';
   $('viewByEvent').style.display = 'none';
   const rows = visibleEntries();
-  $('entCountBadge').textContent = rows.length;
+  setText('entCountBadge', rows.length);
   const tb = $('entTableBody');
   if (!rows.length) {
     tb.innerHTML = '<tr><td colspan="8" class="text-center text-secondary py-4">No entries match.</td></tr>';
@@ -268,7 +324,7 @@ function renderByEvent() {
   $('viewList').style.display = 'none';
   $('viewByEvent').style.display = '';
   const rows = visibleEntries();
-  $('entCountBadge').textContent = rows.length;
+  setText('entCountBadge', rows.length);
   // Group by event_id (fallback: event_name)
   const groups = new Map();
   rows.forEach(e => {
@@ -576,7 +632,7 @@ function selectEntry(id) {
   $('entDetailEmpty').style.display = 'none';
   $('entForm').style.display = '';
   const drName = ((allDrivers.find(d=>d.id==e.driver_id)||{}).name) || e.driver_name || 'Entry Detail';
-  $('entDetailTitle').textContent = drName;
+  setText('entDetailTitle', drName);
   buildDriverDropdown(e.driver_id || '');
   buildEventDropdown(e.event_id || '');
   buildChampDropdown(e.championship_id || '');
@@ -604,7 +660,7 @@ function newEntryForm() {
   selectedId = null;
   $('entDetailEmpty').style.display = 'none';
   $('entForm').style.display = '';
-  $('entDetailTitle').textContent = 'New Entry';
+  setText('entDetailTitle', 'New Entry');
   ['entFCarNum','entFLicence','entFChampionship','entFDate','entFDeadline','entFPayDeadline',
    'entFFee','entFPaid','entFPaidDate','entFPayRef','entFNotes','entFOverrideReason'].forEach(id => $(id).value = '');
   $('entFStatus').value = 'pending';
@@ -624,8 +680,8 @@ async function saveEntry() {
   const drName   = (allDrivers.find(d => d.id == driverId)||{}).name || '';
   const evObj    = allEvents.find(v => v.id == eventId);
   const evName   = evObj ? (evObj.name||evObj.title) : '';
-  if (!drName) { alert('Please select a driver.'); return; }
-  if (!evName) { alert('Please select an event.'); return; }
+  if (!drName) { uiAlert('Please select a driver.'); return; }
+  if (!evName) { uiAlert('Please select an event.'); return; }
   body.driver_name = drName;
   body.event_name  = evName;
   body.event       = evName;
@@ -640,19 +696,25 @@ async function saveEntry() {
     await loadAll();
     selectEntry(selectedId);
   } catch (e) {
-    alert('Save failed: ' + e.message);
+    console.error('[entries] saveEntry failed:', e);
+    uiAlert((e && e.message) || String(e), 'Save failed');
   }
 }
 
 async function deleteEntry() {
-  if (!selectedId || !confirm('Delete this entry?')) return;
+  if (!selectedId) return;
+  const ok = await uiConfirm('Delete this entry?');
+  if (!ok) return;
   try {
     await authFetch(`/api/entries/${selectedId}`, { method: 'DELETE' });
     selectedId = null;
     $('entDetailEmpty').style.display = '';
     $('entForm').style.display = 'none';
     await loadAll();
-  } catch (e) { alert('Delete failed: ' + e.message); }
+  } catch (e) {
+    console.error('[entries] deleteEntry failed:', e);
+    uiAlert((e && e.message) || String(e), 'Delete failed');
+  }
 }
 
 // ── Print entry form ─────────────────────────────────────────────────────────
@@ -737,9 +799,9 @@ function bulkPopulateFromEvent() {
 }
 async function bulkSubmit() {
   const ev = allEvents.find(e => e.id == $('bulkEvent').value);
-  if (!ev) { alert('Pick an event.'); return; }
+  if (!ev) { uiAlert('Pick an event.'); return; }
   const driverIds = [...document.querySelectorAll('.bulk-drv:checked')].map(cb => cb.dataset.id);
-  if (!driverIds.length) { alert('Pick at least one driver.'); return; }
+  if (!driverIds.length) { uiAlert('Pick at least one driver.'); return; }
   const champ = allChamps.find(c => c.id == $('bulkChamp').value);
   const body = {
     event_id: ev.id,
@@ -758,9 +820,10 @@ async function bulkSubmit() {
     const out = await r.json();
     bulkModalRef.hide();
     await loadAll();
-    alert(`Created ${out.inserted.length} entries. Skipped ${out.skipped.length} (already exist).`);
+    uiAlert(`Created ${out.inserted.length} entries. Skipped ${out.skipped.length} (already exist).`, 'Bulk create');
   } catch (e) {
-    alert('Bulk create failed: ' + e.message);
+    console.error('[entries] bulkSubmit failed:', e);
+    uiAlert((e && e.message) || String(e), 'Bulk create failed');
   }
 }
 
@@ -790,14 +853,17 @@ function renderChampRows() {
   });
 }
 async function addChamp() {
-  const name = prompt('Championship name?');
+  const name = await uiPrompt('Championship name?');
   if (!name) return;
   try {
     const r = await authFetch('/api/championships', { method:'POST', body: JSON.stringify({ name }) });
     if (!r.ok) throw new Error(await r.text());
     await reloadChampsOnly();
     renderChampRows();
-  } catch (e) { alert('Failed: ' + e.message); }
+  } catch (e) {
+    console.error('[entries] addChamp failed:', e);
+    uiAlert((e && e.message) || String(e), 'Add failed');
+  }
 }
 async function saveChamp(row) {
   const id = row.dataset.id;
@@ -812,16 +878,24 @@ async function saveChamp(row) {
     if (!r.ok) throw new Error(await r.text());
     await reloadChampsOnly();
     renderAll();
-  } catch (e) { alert('Save failed: ' + e.message); }
+  } catch (e) {
+    console.error('[entries] saveChamp failed:', e);
+    uiAlert((e && e.message) || String(e), 'Save failed');
+  }
 }
+
 async function deleteChamp(id) {
-  if (!confirm('Delete this championship? Existing entries that reference it will keep their text label.')) return;
+  const ok = await uiConfirm('Delete this championship? Existing entries that reference it will keep their text label.');
+  if (!ok) return;
   try {
     await authFetch('/api/championships/'+id, { method:'DELETE' });
     await reloadChampsOnly();
     renderChampRows();
     renderAll();
-  } catch (e) { alert('Delete failed: '+e.message); }
+  } catch (e) {
+    console.error('[entries] deleteChamp failed:', e);
+    uiAlert((e && e.message) || String(e), 'Delete failed');
+  }
 }
 async function reloadChampsOnly() {
   allChamps = (await jget('/api/championships')) || [];
@@ -884,5 +958,18 @@ function wire() {
     .forEach(id => $(id).addEventListener('input', refreshDerived));
 }
 
-document.addEventListener('DOMContentLoaded', () => { wire(); loadAll(); });
+document.addEventListener('DOMContentLoaded', () => {
+  wire();
+  loadAll();
+  // Surface any uncaught error in the custom dialog instead of native alert
+  window.addEventListener('error', ev => {
+    if (!ev || !ev.error) return;
+    console.error('[entries] uncaught:', ev.error);
+    try { uiAlert((ev.error && ev.error.message) || String(ev.message||ev), 'Unexpected error'); } catch(_){}
+  });
+  window.addEventListener('unhandledrejection', ev => {
+    console.error('[entries] unhandled rejection:', ev.reason);
+    try { uiAlert((ev.reason && ev.reason.message) || String(ev.reason||''), 'Unexpected error'); } catch(_){}
+  });
+});
 })();

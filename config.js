@@ -2,9 +2,9 @@
 // Include this before core.js on pages where you want to override defaults.
 window.RTS_CONFIG = {
   // Software build version — updated on every deployment
-  buildVersion: '31ca652',
+  buildVersion: '7dbe914',
   buildDate:    '2026-06-12',
-  buildNote:    'Settings: persist drivers/staff/roles/venues/eventTypes/templates/checklists to DB; events page re-renders after DB sync',
+  buildNote:    'Entries page overhaul + championships + calendar deadline overlay',
   // API Configuration
   api: {
     baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)
