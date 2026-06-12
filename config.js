@@ -2,9 +2,9 @@
 // Include this before core.js on pages where you want to override defaults.
 window.RTS_CONFIG = {
   // Software build version — updated on every deployment
-  buildVersion: '7e36172',
+  buildVersion: '23f31eb',
   buildDate:    '2026-06-12',
-  buildNote:    'Fix metadata-guard regex to handle escaped apostrophes in buildNote',
+  buildNote:    'Events: drivers attending row now reads race_number/racing_class from DB shape',
   // API Configuration
   api: {
     baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)

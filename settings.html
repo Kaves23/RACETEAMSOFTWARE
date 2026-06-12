@@ -1181,6 +1181,22 @@
       if(section==='liveTiming') { /* saved directly in saveInspector */ return; }
       RTS.saveSettings(settings);
       settings = RTS.getSettings();
+
+      // Mirror localStorage-backed sections to the DB so colours/options persist across devices
+      const DB_SYNC_KEYS = {
+        drivers:          'drivers',
+        staff:            'staff',
+        roles:            'roles',
+        venues:           'venues',
+        eventTypes:       'eventTypes',
+        setupTemplates:   'setupTemplates',
+        masterChecklists: 'masterChecklists'
+      };
+      const key = DB_SYNC_KEYS[section];
+      if (key && settings[key] !== undefined) {
+        saveBrandingToDB({ [key]: settings[key] })
+          .catch(e => console.warn(`${section} DB sync failed:`, e.message));
+      }
     }
 
     function setHeaders(section){

@@ -661,8 +661,12 @@
     const LS_PANES = 'rts.events.panes.v4';
 
     let settings = RTS.getSettings();
-    // Sync branding from DB in background so logo/team name is always up-to-date
-    RTS.syncSettingsFromDB().then(s => { settings = s; }).catch(()=>{});
+    // Pull canonical settings (event type colours, branding, venues, etc.) from the DB
+    // so multi-machine instances see the same configuration.
+    RTS.syncSettingsFromDB().then(s => {
+      settings = s;
+      try { render(); } catch(_e){}
+    }).catch(()=>{});
     function getEventTypes(){
       settings = RTS.getSettings();
       return (settings.eventTypes||[]).map(x=>x.code).filter(Boolean);
