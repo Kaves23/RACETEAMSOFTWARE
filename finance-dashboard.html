@@ -36,6 +36,25 @@
     .s-paid      { background:#dbeafe; color:#1e40af; }
     .s-cancelled { background:#fee2e2; color:#991b1b; }
     .card-fin    { background:#fff; border:1px solid rgba(0,0,0,.1); border-radius:8px; padding:16px 18px; box-shadow:0 2px 4px rgba(0,0,0,.06); margin-bottom:16px; }
+    /* Alerts */
+    .alert-row   { display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:6px; margin-bottom:6px; font-size:.82rem; }
+    .alert-row.danger  { background:#fee2e2; color:#991b1b; }
+    .alert-row.warning { background:#ffedd5; color:#9a3412; }
+    .alert-row.watch   { background:#fef9c3; color:#854d0e; }
+    .alert-dot   { width:8px; height:8px; border-radius:50%; flex:0 0 8px; }
+    .alert-dot.danger  { background:#dc2626; }
+    .alert-dot.warning { background:#f97316; }
+    .alert-dot.watch   { background:#eab308; }
+    .alert-name  { flex:1; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .alert-pct   { font-weight:700; }
+    /* Breakdown bars */
+    .bd-row      { display:flex; align-items:center; gap:10px; padding:6px 0; }
+    .bd-label    { flex:0 0 150px; font-size:.8rem; color:#1a1d24; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .bd-track    { flex:1; height:7px; background:#eef0f3; border-radius:4px; overflow:hidden; }
+    .bd-fill     { height:100%; border-radius:4px; background:#6366f1; }
+    .bd-amt      { flex:0 0 110px; text-align:right; font-size:.78rem; font-weight:600; color:#374151; }
+    .chart-wrap  { position:relative; height:240px; }
+    .muted-empty { color:#9ca3af; font-size:.82rem; padding:12px 0; }
   </style>
 </head>
 <body class="light-mode">
@@ -58,9 +77,28 @@
       <div class="fin-kpi"><div class="fin-kpi-label">Active Budgets</div><div class="fin-kpi-value" id="kpiBudgets">—</div></div>
       <div class="fin-kpi"><div class="fin-kpi-label">Total Allocated</div><div class="fin-kpi-value" id="kpiAllocated">—</div></div>
       <div class="fin-kpi success"><div class="fin-kpi-label">Total Spent</div><div class="fin-kpi-value" id="kpiSpent">—</div></div>
-      <div class="fin-kpi"><div class="fin-kpi-label">Remaining</div><div class="fin-kpi-value" id="kpiRemaining">—</div></div>
-      <div class="fin-kpi warning"><div class="fin-kpi-label">Payments Pending</div><div class="fin-kpi-value" id="kpiPending">—</div></div>
+      <div class="fin-kpi"><div class="fin-kpi-label">Remaining</div><div class="fin-kpi-value" id="kpiRemaining">—</div><div class="fin-kpi-sub" id="kpiRemainingSub"></div></div>
+      <div class="fin-kpi warning"><div class="fin-kpi-label">Payments Pending</div><div class="fin-kpi-value" id="kpiPending">—</div><div class="fin-kpi-sub" id="kpiPendingSub"></div></div>
       <div class="fin-kpi danger"><div class="fin-kpi-label">Over Budget</div><div class="fin-kpi-value" id="kpiOverBudget">—</div></div>
+      <div class="fin-kpi"><div class="fin-kpi-label">Monthly Run-Rate</div><div class="fin-kpi-value" id="kpiRunRate">—</div><div class="fin-kpi-sub">3-mo avg spend</div></div>
+      <div class="fin-kpi"><div class="fin-kpi-label">Projected (Annual)</div><div class="fin-kpi-value" id="kpiProjected">—</div><div class="fin-kpi-sub">run-rate × 12</div></div>
+    </div>
+
+    <div class="row g-3">
+      <!-- Spend trend -->
+      <div class="col-lg-7">
+        <div class="card-fin">
+          <div class="fin-section-title">Spend Trend (6 months)</div>
+          <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
+        </div>
+      </div>
+      <!-- Budget alerts -->
+      <div class="col-lg-5">
+        <div class="card-fin">
+          <div class="fin-section-title">Budget Alerts</div>
+          <div id="alertsList"><div class="muted-empty">Loading…</div></div>
+        </div>
+      </div>
     </div>
 
     <div class="row g-3">
@@ -68,7 +106,7 @@
       <div class="col-lg-7">
         <div class="card-fin">
           <div class="fin-section-title">Budget Utilisation</div>
-          <div id="budgetBars"><div class="text-secondary" style="font-size:.82rem;padding:12px 0;">Loading…</div></div>
+          <div id="budgetBars"><div class="muted-empty">Loading…</div></div>
         </div>
       </div>
       <!-- Recent Payments -->
@@ -82,73 +120,184 @@
         </div>
       </div>
     </div>
+
+    <div class="row g-3">
+      <!-- Spend by category -->
+      <div class="col-lg-6">
+        <div class="card-fin">
+          <div class="fin-section-title">Spend by Category</div>
+          <div id="byCategory"><div class="muted-empty">Loading…</div></div>
+        </div>
+      </div>
+      <!-- Spend by event -->
+      <div class="col-lg-6">
+        <div class="card-fin">
+          <div class="fin-section-title">Spend by Event</div>
+          <div id="byEvent"><div class="muted-empty">Loading…</div></div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="topnav.js?v=20260520"></script>
   <script src="config.js"></script>
   <script src="core.js"></script>
   <script>
   (async () => {
-    const API = (window.RTS_CONFIG?.api?.baseURL) || '/api';
     const sym = (window.curr && window.curr()) || 'R';
-    const fmt = (n) => sym + parseFloat(n||0).toLocaleString('en-ZA',{minimumFractionDigits:0,maximumFractionDigits:0});
+    const fmt0 = (n) => sym + parseFloat(n||0).toLocaleString('en-ZA',{minimumFractionDigits:0,maximumFractionDigits:0});
+    const fmt2 = (n) => sym + parseFloat(n||0).toLocaleString('en-ZA',{minimumFractionDigits:2,maximumFractionDigits:2});
+    const esc = (s) => String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-    // Load KPI summary
-    try {
-      const r = await fetch(`${API}/fin-budgets/summary`);
-      const d = await r.json();
-      document.getElementById('kpiBudgets').textContent    = d.active_budgets || 0;
-      document.getElementById('kpiAllocated').textContent  = fmt(d.total_allocated);
-      document.getElementById('kpiSpent').textContent      = fmt(d.total_spent);
-      document.getElementById('kpiRemaining').textContent  = fmt(d.total_remaining);
-      document.getElementById('kpiOverBudget').textContent = d.over_budget || 0;
-      if (+d.over_budget > 0) document.querySelector('#kpiGrid .fin-kpi:last-child').classList.add('danger');
-    } catch(e) { console.error(e); }
+    async function apiGet(endpoint) {
+      if (window.RTS_API && typeof RTS_API.request === 'function') {
+        return await RTS_API.request(endpoint);
+      }
+      const base = (window.RTS_CONFIG?.api?.baseURL) || '/api';
+      const token = localStorage.getItem('auth_token');
+      const r = await fetch(`${base}${endpoint}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        }
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return await r.json();
+    }
 
-    // Load payment pending count
+    let data;
     try {
-      const r = await fetch(`${API}/fin-payments/summary`);
-      const d = await r.json();
-      document.getElementById('kpiPending').textContent = d.pending_count || 0;
-    } catch(e) {}
+      data = await apiGet('/fin-dashboard?months=6');
+    } catch (e) {
+      console.error('fin-dashboard load failed', e);
+      document.querySelectorAll('.muted-empty').forEach(el => el.textContent = 'Failed to load.');
+      return;
+    }
+    if (!data || !data.success) {
+      document.querySelectorAll('.muted-empty').forEach(el => el.textContent = 'No data.');
+      return;
+    }
 
-    // Load budgets for bars
-    try {
-      const r  = await fetch(`${API}/fin-budgets?status=active`);
-      const bs = await r.json();
-      const el = document.getElementById('budgetBars');
-      if (!bs.length) { el.innerHTML = '<div class="text-secondary" style="font-size:.82rem;">No active budgets</div>'; return; }
-      el.innerHTML = bs.map(b => {
-        const pct  = Math.min(Math.round(b.pct_spent || 0), 100);
-        const cls  = pct >= 90 ? 'danger' : pct >= 70 ? 'warn' : 'ok';
+    // ── KPIs ──────────────────────────────────────────────────
+    const k = data.kpis || {};
+    document.getElementById('kpiBudgets').textContent    = k.active_budgets || 0;
+    document.getElementById('kpiAllocated').textContent  = fmt0(k.total_allocated);
+    document.getElementById('kpiSpent').textContent      = fmt0(k.total_spent);
+    document.getElementById('kpiRemaining').textContent  = fmt0(k.total_remaining);
+    const pctOfBudget = k.total_allocated > 0 ? Math.round((k.total_spent / k.total_allocated) * 100) : 0;
+    document.getElementById('kpiRemainingSub').textContent = `${pctOfBudget}% spent`;
+    document.getElementById('kpiPending').textContent    = k.pending_count || 0;
+    document.getElementById('kpiPendingSub').textContent  = fmt0(k.pending_amount);
+    document.getElementById('kpiOverBudget').textContent = k.over_budget || 0;
+    document.getElementById('kpiRunRate').textContent    = fmt0(k.run_rate_monthly);
+    document.getElementById('kpiProjected').textContent  = fmt0(k.projected_annual);
+    if (+k.over_budget > 0) document.querySelector('#kpiGrid .fin-kpi.danger')?.classList.add('danger');
+
+    // ── Spend trend chart ─────────────────────────────────────
+    const trend = Array.isArray(data.trend) ? data.trend : [];
+    const trendCanvas = document.getElementById('trendChart');
+    if (trendCanvas && window.Chart && trend.length) {
+      const labels = trend.map(t => {
+        const [y, m] = String(t.month).split('-');
+        return new Date(Number(y), Number(m)-1, 1).toLocaleDateString('en-GB', { month:'short', year:'2-digit' });
+      });
+      new Chart(trendCanvas, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            { label: 'Payments', data: trend.map(t => Number(t.payments)||0), backgroundColor:'#6366f1', stack:'spend' },
+            { label: 'Expenses', data: trend.map(t => Number(t.expenses)||0), backgroundColor:'#f97316', stack:'spend' }
+          ]
+        },
+        options: {
+          responsive:true, maintainAspectRatio:false,
+          plugins: {
+            legend: { position:'bottom', labels:{ font:{ size:11 } } },
+            tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${fmt2(ctx.parsed.y)}` } }
+          },
+          scales: {
+            x: { stacked:true, grid:{ display:false }, ticks:{ font:{ size:11 } } },
+            y: { stacked:true, beginAtZero:true, ticks:{ font:{ size:11 }, callback:v => fmt0(v) } }
+          }
+        }
+      });
+    } else if (trendCanvas) {
+      trendCanvas.parentElement.innerHTML = '<div class="muted-empty">No spend data yet.</div>';
+    }
+
+    // ── Alerts ────────────────────────────────────────────────
+    const alertsEl = document.getElementById('alertsList');
+    const alerts = Array.isArray(data.alerts) ? data.alerts : [];
+    if (!alerts.length) {
+      alertsEl.innerHTML = '<div class="muted-empty">All budgets within healthy thresholds.</div>';
+    } else {
+      alertsEl.innerHTML = alerts.map(a => `
+        <div class="alert-row ${esc(a.level)}">
+          <span class="alert-dot ${esc(a.level)}"></span>
+          <span class="alert-name" title="${esc(a.name)}">${esc(a.name)}</span>
+          <span class="alert-pct">${Math.round(a.pct)}%</span>
+        </div>`).join('');
+    }
+
+    // ── Budget bars ───────────────────────────────────────────
+    const bars = Array.isArray(data.budgets) ? data.budgets : [];
+    const barsEl = document.getElementById('budgetBars');
+    if (!bars.length) {
+      barsEl.innerHTML = '<div class="muted-empty">No active budgets.</div>';
+    } else {
+      barsEl.innerHTML = bars.map(b => {
+        const pct = Math.min(Math.round(Number(b.pct_spent)||0), 100);
+        const cls = pct >= 90 ? 'danger' : pct >= 70 ? 'warn' : 'ok';
         return `<div class="budget-bar-row">
-          <div class="budget-bar-label" title="${b.name}">${b.name}</div>
+          <div class="budget-bar-label" title="${esc(b.name)}">${esc(b.name)}</div>
           <div class="budget-bar-track"><div class="budget-bar-fill ${cls}" style="width:${pct}%"></div></div>
           <div class="budget-bar-pct">${pct}%</div>
-          <div class="budget-bar-amt">${fmt(b.spent_amount)} / ${fmt(b.total_amount)}</div>
+          <div class="budget-bar-amt">${fmt0(b.spent_amount)} / ${fmt0(b.total_amount)}</div>
         </div>`;
       }).join('');
-    } catch(e) { console.error(e); }
+    }
 
-    // Load recent payments
-    try {
-      const r  = await fetch(`${API}/fin-payments`);
-      const ps = await r.json();
-      const el  = document.getElementById('recentPayments');
-      const recent = ps.slice(0,12);
-      if (!recent.length) { el.innerHTML = '<tr><td colspan="4" class="text-secondary">No payments yet</td></tr>'; return; }
-      el.innerHTML = recent.map(p => {
+    // ── Recent payments ───────────────────────────────────────
+    const recent = Array.isArray(data.recent_payments) ? data.recent_payments : [];
+    const rpEl = document.getElementById('recentPayments');
+    if (!recent.length) {
+      rpEl.innerHTML = '<tr><td colspan="4" class="text-secondary" style="font-size:.82rem;">No payments yet.</td></tr>';
+    } else {
+      rpEl.innerHTML = recent.map(p => {
         const sCls = { pending:'s-pending', approved:'s-approved', paid:'s-paid', cancelled:'s-cancelled' }[p.status] || 's-pending';
         const date = p.payment_date ? new Date(p.payment_date).toLocaleDateString('en-GB',{day:'2-digit',month:'short'}) : '—';
         return `<tr>
-          <td>${p.payee}</td>
-          <td>${sym}${parseFloat(p.amount||0).toLocaleString('en-ZA',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
-          <td><span class="status-badge ${sCls}">${p.status}</span></td>
-          <td>${date}</td>
+          <td>${esc(p.payee||'—')}</td>
+          <td>${fmt2(p.amount)}</td>
+          <td><span class="status-badge ${sCls}">${esc(p.status||'')}</span></td>
+          <td>${esc(date)}</td>
         </tr>`;
       }).join('');
-    } catch(e) { console.error(e); }
+    }
+
+    // ── Spend by category ─────────────────────────────────────
+    function renderBreakdown(targetId, rows, labelKey) {
+      const el = document.getElementById(targetId);
+      const list = Array.isArray(rows) ? rows.filter(r => Number(r.amount) > 0) : [];
+      if (!list.length) { el.innerHTML = '<div class="muted-empty">No spend recorded.</div>'; return; }
+      const max = list.reduce((m, r) => Math.max(m, Number(r.amount)||0), 0) || 1;
+      el.innerHTML = list.map(r => {
+        const amt = Number(r.amount) || 0;
+        const pct = Math.max(2, Math.round((amt / max) * 100));
+        const label = r[labelKey] || (labelKey === 'event_name' ? (r.event_id ? `Event ${String(r.event_id).slice(0,8)}` : 'Unlinked') : 'Uncategorised');
+        return `<div class="bd-row">
+          <div class="bd-label" title="${esc(label)}">${esc(label)}</div>
+          <div class="bd-track"><div class="bd-fill" style="width:${pct}%"></div></div>
+          <div class="bd-amt">${fmt0(amt)}</div>
+        </div>`;
+      }).join('');
+    }
+    renderBreakdown('byCategory', data.by_category, 'category');
+    renderBreakdown('byEvent',    data.by_event,    'event_name');
+
   })();
   </script>
 </body>
