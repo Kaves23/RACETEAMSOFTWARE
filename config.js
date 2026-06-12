@@ -2,9 +2,9 @@
 // Include this before core.js on pages where you want to override defaults.
 window.RTS_CONFIG = {
   // Software build version — updated on every deployment
-  buildVersion: '63ab202',
+  buildVersion: '7dd487e',
   buildDate:    '2026-06-12',
-  buildNote:    'Invoice fixes: real events/drivers from API, fix line-item focus loss, Asset/Inventory/Shopify pickers, circle logo on printed invoice',
+  buildNote:    'Shopify picker: render flat search results, capture inventory_item_id (read-only data lookup)',
   // API Configuration
   api: {
     baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)

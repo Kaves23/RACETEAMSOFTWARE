@@ -1861,20 +1861,35 @@
           const tmp = document.createElement('div'); tmp.innerHTML = tpl.trim(); document.body.appendChild(tmp.firstChild);
           modalEl = document.getElementById(modalId);
         }
-        const invStore = RTS.safeLoadJSON('rts.inventory.v4', []) || [];
         const sel = modalEl.querySelector('#invPick_item');
-        sel.innerHTML = invStore.map(it=>`<option value="${it.id}">${esc(it.name)} · On hand: ${it.qty} ${esc(it.uom||'')}</option>`).join('');
+        sel.innerHTML = '<option>Loading…</option>';
         const modal = new bootstrap.Modal(modalEl);
-        modalEl.querySelector('#invPick_apply').onclick = () => {
-          const inv = invoices.find(i=>String(i.id)===String(ui.selectedId)); if (!inv) return;
-          const it = invStore.find(x=>String(x.id)===String(sel.value));
-          if (!it){ alert('Select a valid item.'); return; }
-          const qty = Math.max(1, parseInt(modalEl.querySelector('#invPick_qty').value||'1',10));
-          inv.lines.push({ desc:`INV OUT: ${it.name}`, qty, rate:Number(it.unitCost||0), invItemId:it.id });
-          saveLines(inv);
-          modal.hide();
-        };
         modal.show();
+        (async () => {
+          let invStore = [];
+          try {
+            const r = await RTS_API.getCollectionItems('inventory');
+            invStore = (r && r.items) || (Array.isArray(r) ? r : []);
+          } catch(e){ invStore = RTS.safeLoadJSON('rts.inventory.v4', []) || []; }
+          if (!invStore.length){ sel.innerHTML = '<option value="">No inventory items found</option>'; return; }
+          sel.innerHTML = invStore.map(it=>{
+            const name = it.name || it.itemName || it.description || 'Item';
+            const qty  = it.qty != null ? it.qty : (it.quantity || 0);
+            const uom  = it.uom || it.unit || '';
+            return `<option value="${it.id}" data-cost="${Number(it.unit_cost||it.unitCost||it.cost||0)}">${esc(name)} · ${qty} ${esc(uom)}</option>`;
+          }).join('');
+          modalEl.querySelector('#invPick_apply').onclick = () => {
+            const inv = invoices.find(i=>String(i.id)===String(ui.selectedId)); if (!inv) return;
+            const it = invStore.find(x=>String(x.id)===String(sel.value));
+            if (!it){ alert('Select a valid item.'); return; }
+            const qty = Math.max(1, parseInt(modalEl.querySelector('#invPick_qty').value||'1',10));
+            const opt = sel.options[sel.selectedIndex];
+            const rate = opt ? Number(opt.dataset.cost||0) : Number(it.unit_cost||it.unitCost||0);
+            inv.lines.push({ desc:`INV OUT: ${it.name||it.itemName||'Item'}`, qty, rate, invItemId:it.id });
+            saveLines(inv);
+            modal.hide();
+          };
+        })();
       } catch(e){ alert('Unable to open picker: '+(e&&e.message||e)); }
     }
 
@@ -1887,32 +1902,44 @@
           const tmp = document.createElement('div'); tmp.innerHTML = tpl.trim(); document.body.appendChild(tmp.firstChild);
           modalEl = document.getElementById(modalId);
         }
-        const assetStore = RTS.safeLoadJSON('rts.assets.v4', []) || [];
         const sel = modalEl.querySelector('#assetPick_item');
-        if (!assetStore.length){ alert('No assets found. Add some on the Assets page first.'); return; }
-        sel.innerHTML = assetStore.map(a=>{
-          const name = a.name || a.assetName || a.code || 'Asset';
-          const cat  = a.category || a.type || '';
-          return `<option value="${a.id}" data-rate="${Number(a.dailyRate||a.rentalRate||0)}">${esc(name)}${cat?(' — '+esc(cat)):''}</option>`;
-        }).join('');
         const rateInput = modalEl.querySelector('#assetPick_rate');
-        const syncRate = () => {
-          const opt = sel.options[sel.selectedIndex];
-          if (opt) rateInput.value = Number(opt.dataset.rate||0);
-        };
-        sel.onchange = syncRate; syncRate();
+        sel.innerHTML = '<option>Loading…</option>';
         const modal = new bootstrap.Modal(modalEl);
-        modalEl.querySelector('#assetPick_apply').onclick = () => {
-          const inv = invoices.find(i=>String(i.id)===String(ui.selectedId)); if (!inv) return;
-          const a = assetStore.find(x=>String(x.id)===String(sel.value));
-          if (!a){ alert('Select a valid asset.'); return; }
-          const qty  = Math.max(1, parseFloat(modalEl.querySelector('#assetPick_qty').value||'1'));
-          const rate = Math.max(0, parseFloat(rateInput.value||'0'));
-          inv.lines.push({ desc:`Asset Rental: ${a.name||a.assetName||'Asset'}`, qty, rate, assetId:a.id });
-          saveLines(inv);
-          modal.hide();
-        };
         modal.show();
+        (async () => {
+          // Try /api/items (assets are stored as items), fall back to localStorage
+          let assetStore = [];
+          try {
+            const r = await RTS_API.request('/items');
+            assetStore = (r && r.items) || (Array.isArray(r) ? r : []);
+          } catch(e){
+            try { assetStore = RTS.safeLoadJSON('rts.assets.v4', []) || []; }
+            catch(_){ assetStore = []; }
+          }
+          if (!assetStore.length){ sel.innerHTML = '<option value="">No assets found</option>'; return; }
+          sel.innerHTML = assetStore.map(a=>{
+            const name = a.name || a.assetName || a.code || 'Asset';
+            const cat  = a.category || a.type || a.asset_type || '';
+            const dailyRate = Number(a.dailyRate||a.rentalRate||a.daily_rate||0);
+            return `<option value="${a.id}" data-rate="${dailyRate}">${esc(name)}${cat?(' — '+esc(cat)):''}</option>`;
+          }).join('');
+          const syncRate = () => {
+            const opt = sel.options[sel.selectedIndex];
+            if (opt) rateInput.value = Number(opt.dataset.rate||0);
+          };
+          sel.onchange = syncRate; syncRate();
+          modalEl.querySelector('#assetPick_apply').onclick = () => {
+            const inv = invoices.find(i=>String(i.id)===String(ui.selectedId)); if (!inv) return;
+            const a = assetStore.find(x=>String(x.id)===String(sel.value));
+            if (!a){ alert('Select a valid asset.'); return; }
+            const qty  = Math.max(1, parseFloat(modalEl.querySelector('#assetPick_qty').value||'1'));
+            const rate = Math.max(0, parseFloat(rateInput.value||'0'));
+            inv.lines.push({ desc:`Asset Rental: ${a.name||a.assetName||'Asset'}`, qty, rate, assetId:a.id });
+            saveLines(inv);
+            modal.hide();
+          };
+        })();
       } catch(e){ alert('Unable to open asset picker: '+(e&&e.message||e)); }
     }
 
