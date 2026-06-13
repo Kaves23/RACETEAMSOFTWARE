@@ -11,10 +11,7 @@
       { href: 'sporting-calendar.html', label: 'Calendar',         key: 'C' },
       { href: 'entries.html',           label: 'Entries',          key: 'N' },
       { href: 'track-map.html',         label: 'Track Map',        key: 'K' },
-      { href: 'regulations.html',       label: 'Regulations',      key: 'R' },
-      { href: 'penalties.html',         label: 'Penalties',        key: 'P' },
-      { href: 'notes.html',             label: 'Briefings',        key: 'B' },
-      { href: 'incidents.html',         label: 'Incidents',        key: 'I' },
+      { href: 'incidents.html',         label: 'Race Control',     key: 'R' },
       { href: 'weather.html',           label: 'Weather Station',  key: 'T' },
       { href: 'race-strategy.html',     label: 'Race Strategy',    key: 'S' },
       { href: 'run-plans.html',         label: 'Run Plans',        key: 'U' }

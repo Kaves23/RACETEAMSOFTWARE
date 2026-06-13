@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <link rel="icon" type="image/png" href="favicon.png">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Race Team OS – Incidents</title>
+  <title>Race Team OS – Race Control</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="style.css?v=20260525" rel="stylesheet" />
   <style>
@@ -67,6 +67,55 @@
     #damageSvgWrap { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 12px; max-width: 560px; }
     #damageSvg [data-part] { cursor: pointer; transition: fill 0.15s; }
     #damageSvg [data-part]:hover { opacity: 0.8; }
+
+    /* ── Race Control top-level tabs ── */
+    #rcTabs { border-bottom: 1px solid #dee2e6; margin-bottom: 14px; }
+    #rcTabs .nav-link { color: #6c757d; background: transparent; border: none; border-bottom: 3px solid transparent; font-size: 0.95rem; padding: 9px 16px; font-weight: 600; }
+    #rcTabs .nav-link.active { color: #1a0d2e; border-bottom-color: #a64dff; background: transparent; }
+    #rcTabs .nav-link:hover:not(.active) { color: #1a1d24; border-bottom-color: #e0d4f5; }
+
+    /* ── Penalties tab ── */
+    #penShell.mlo-shell { background: transparent; border: none; gap: 10px; }
+    #penShell .mlo-pane-left, #penShell .mlo-pane-mid, #penShell .mlo-pane-right { background: #fff; border: 1px solid rgba(0,0,0,.1); border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,.06); }
+    #penShell .mlo-pane-header { background: #f8f9fa; border-bottom: 1px solid rgba(0,0,0,.1); }
+    #penShell .mlo-title { color: #1a1d24 !important; }
+    #penShell .mlo-section-label { color: #6c757d !important; opacity: 1 !important; }
+    #penShell .mlo-resizer { background: transparent; }
+    #penShell .mlo-resizer:hover { background: rgba(166,77,255,.3); }
+    .pen-table { width: 100%; font-size: .82rem; border-collapse: separate; border-spacing: 0; }
+    .pen-table thead { position: sticky; top: 0; background: #f8f9fa; z-index: 5; }
+    .pen-table th { padding: 8px 10px; font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: #6c757d; border-bottom: 2px solid #dee2e6; white-space: nowrap; }
+    .pen-table td { padding: 6px 10px; border-bottom: 1px solid rgba(0,0,0,.05); vertical-align: middle; color: #1a1d24; }
+    .pen-table tbody tr { cursor: pointer; transition: background .1s; }
+    .pen-table tbody tr:hover { background: #f8f9fa; }
+    .pen-table tbody tr.selected { background: rgba(166,77,255,.08) !important; outline: 2px solid #a64dff; outline-offset: -2px; }
+    .pen-status-pill { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: .68rem; font-weight: 700; }
+    .pen-status-issued { background: #fef3c7; color: #92400e; }
+    .pen-status-served { background: #d1fae5; color: #065f46; }
+    .pen-status-appealed { background: #dbeafe; color: #1e40af; }
+    .pen-status-overturned { background: #e5e7eb; color: #374151; }
+    #penShell .form-label { color: #495057 !important; font-size: .78rem; font-weight: 600; margin-bottom: 2px; }
+    #penShell .form-control, #penShell .form-select { background: #fff !important; color: #1a1d24 !important; border-color: #dee2e6 !important; font-size: .82rem; }
+    #penShell .mlo-pane-left .pastel-tree li { height: 28px !important; display: flex !important; align-items: center !important; font-size: .83rem !important; font-weight: 500 !important; padding-left: 10px !important; margin-bottom: 2px !important; border-radius: 5px !important; border: 1px solid rgba(0,0,0,.08) !important; color: #1a1d24 !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; cursor: pointer !important; }
+    #penShell .mlo-pane-left .pastel-tree li.active { background: rgba(166,77,255,.1) !important; border-color: rgba(166,77,255,.35) !important; color: #7c3aed !important; font-weight: 700 !important; }
+
+    /* ── Briefings tab ── */
+    .brief-grid { display: grid; grid-template-columns: 320px 1fr; gap: 12px; min-height: 600px; }
+    .brief-list { background: #fff; border: 1px solid rgba(0,0,0,.1); border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,.06); overflow: hidden; display: flex; flex-direction: column; }
+    .brief-list-header { background: #f8f9fa; border-bottom: 1px solid rgba(0,0,0,.1); padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; }
+    .brief-list-title { font-weight: 700; color: #1a1d24; font-size: .9rem; }
+    .brief-list-body { flex: 1; overflow-y: auto; }
+    .brief-list-empty { padding: 30px 16px; text-align: center; color: #6c757d; font-size: .85rem; }
+    .brief-item { padding: 10px 14px; border-bottom: 1px solid rgba(0,0,0,.05); cursor: pointer; transition: background .1s; }
+    .brief-item:hover { background: #f8f9fa; }
+    .brief-item.selected { background: rgba(166,77,255,.08); border-left: 3px solid #a64dff; padding-left: 11px; }
+    .brief-item-title { font-weight: 600; color: #1a1d24; font-size: .88rem; margin-bottom: 2px; }
+    .brief-item-meta { font-size: .72rem; color: #6c757d; display: flex; justify-content: space-between; }
+    .brief-detail { background: #fff; border: 1px solid rgba(0,0,0,.1); border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,.06); padding: 18px 22px; overflow-y: auto; }
+    .brief-empty { color: #6c757d; text-align: center; padding: 60px 20px; }
+    .brief-ack-row { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 20px; background: #e9ecef; font-size: .75rem; margin: 2px 4px 2px 0; }
+    .brief-ack-row .ack-name { font-weight: 600; color: #1a1d24; }
+    .brief-ack-row .ack-time { color: #6c757d; }
   </style>
 </head>
 <body class="light-mode">
@@ -74,13 +123,31 @@
   <div class="rts-version-badge">v3</div>
   <div class="rts-main container-fluid">
 
-    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end">
+    <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end flex-wrap gap-2">
       <div>
-        <h1 class="h4 mb-1">Incidents</h1>
-        <div class="text-secondary" style="font-size:0.85rem;">Log on-track and mechanical incidents. Link to drivers, karts, sessions and events.</div>
+        <h1 class="h4 mb-1">Race Control</h1>
+        <div class="text-secondary" style="font-size:0.85rem;">On-track incidents, penalty/protest register, and event briefings — one race-weekend workspace.</div>
       </div>
-      <button class="btn btn-sm btn-primary" id="btnAddInc" type="button">+ Add Incident</button>
+      <div class="d-flex gap-2 align-items-center flex-wrap">
+        <label class="form-label mb-0 me-1" style="font-size:.78rem;font-weight:600;color:#495057;">Event scope:</label>
+        <select id="rcEventScope" class="form-select form-select-sm" style="min-width:180px;">
+          <option value="">All events</option>
+        </select>
+        <button class="btn btn-sm btn-outline-secondary" id="rcCsvExport" type="button" title="Export visible records to CSV">⇩ CSV</button>
+        <button class="btn btn-sm btn-primary" id="btnAddInc" type="button">+ Add Incident</button>
+        <button class="btn btn-sm btn-primary d-none" id="btnAddPen" type="button">+ Log Penalty</button>
+        <button class="btn btn-sm btn-primary d-none" id="btnAddBrief" type="button">+ New Briefing</button>
+      </div>
     </div>
+
+    <ul class="nav" id="rcTabs" role="tablist">
+      <li class="nav-item"><button class="nav-link active" data-rc-tab="incidents" type="button">Incidents</button></li>
+      <li class="nav-item"><button class="nav-link" data-rc-tab="penalties" type="button">Penalties &amp; Protests</button></li>
+      <li class="nav-item"><button class="nav-link" data-rc-tab="briefings" type="button">Briefings</button></li>
+    </ul>
+
+    <!-- ============== INCIDENTS TAB ============== -->
+    <div class="rc-tab-pane" data-rc-pane="incidents">
 
     <!-- Stats Bar -->
     <div class="ev-stats-bar">
@@ -233,8 +300,10 @@
                 <div class="d-flex gap-1 mt-2">
                   <button class="btn btn-sm btn-primary" id="btnSaveInc" type="button">Save</button>
                   <button class="btn btn-sm btn-outline-secondary" id="btnDupInc" type="button">Duplicate</button>
+                  <button class="btn btn-sm btn-warning" id="btnPromoteInc" type="button" title="Create a penalty record from this incident">→ Penalty</button>
                   <button class="btn btn-sm btn-outline-danger ms-auto" id="btnDelInc" type="button">Delete</button>
                 </div>
+                <div id="incLinkedPenalties" class="mt-2" style="font-size:.78rem;"></div>
               </form>
             </div>
 
@@ -277,6 +346,161 @@
         </div><!-- pane-content -->
       </section>
     </div><!-- mlo-shell -->
+
+    </div><!-- /Incidents tab pane -->
+
+    <!-- ============== PENALTIES TAB ============== -->
+    <div class="rc-tab-pane d-none" data-rc-pane="penalties">
+
+      <div class="ev-stats-bar">
+        <div class="ev-stat-card"><div class="ev-stat-label">Total</div><div class="ev-stat-value" id="statPenTotal">0</div></div>
+        <div class="ev-stat-card"><div class="ev-stat-label">Issued</div><div class="ev-stat-value" id="statPenIssued">0</div></div>
+        <div class="ev-stat-card"><div class="ev-stat-label">Appealed</div><div class="ev-stat-value" id="statPenAppealed">0</div></div>
+        <div class="ev-stat-card"><div class="ev-stat-label">This Season</div><div class="ev-stat-value" id="statPenSeason">0</div></div>
+      </div>
+
+      <div class="mlo-shell" id="penShell">
+        <section class="mlo-pane mlo-pane-left" aria-label="Penalty filter">
+          <div class="mlo-pane-header"><div class="mlo-title">Filter</div></div>
+          <div class="mlo-pane-content">
+            <div class="mlo-section-label">By Type</div>
+            <ul class="mlo-tree pastel-tree" id="penTypeFilter">
+              <li class="active" data-filter="all">All</li>
+              <li data-filter="time">Time Penalty</li>
+              <li data-filter="grid">Grid Drop</li>
+              <li data-filter="points">License Points</li>
+              <li data-filter="reprimand">Reprimand</li>
+              <li data-filter="dsq">Disqualification</li>
+              <li data-filter="protest">Protest</li>
+            </ul>
+            <div class="mlo-section-label mt-3">By Status</div>
+            <ul class="mlo-tree pastel-tree" id="penStatusFilter">
+              <li class="active" data-filter="all">All</li>
+              <li data-filter="issued">Issued</li>
+              <li data-filter="served">Served</li>
+              <li data-filter="appealed">Appealed</li>
+              <li data-filter="overturned">Overturned</li>
+            </ul>
+          </div>
+        </section>
+        <div class="mlo-resizer" id="penResizer1"></div>
+        <section class="mlo-pane mlo-pane-mid" aria-label="Penalty list">
+          <div class="mlo-pane-header">
+            <div class="d-flex justify-content-between align-items-center">
+              <div class="mlo-title">Penalty Register</div>
+              <span class="badge text-bg-secondary" id="penCountBadge">0</span>
+            </div>
+            <input class="form-control form-control-sm mt-2" type="search" id="penSearch" placeholder="Search driver / event / reason…" />
+          </div>
+          <div class="mlo-pane-content p-0">
+            <table class="pen-table">
+              <thead><tr><th>Ref</th><th>Date</th><th>Driver</th><th>Car #</th><th>Event</th><th>Type</th><th>Penalty</th><th>Status</th><th>Linked</th></tr></thead>
+              <tbody id="penTableBody"><tr><td colspan="9" class="text-center text-secondary py-4">No penalties logged.</td></tr></tbody>
+            </table>
+          </div>
+        </section>
+        <div class="mlo-resizer" id="penResizer2"></div>
+        <section class="mlo-pane mlo-pane-right" aria-label="Penalty detail">
+          <div class="mlo-pane-header"><div class="mlo-title" id="penDetailTitle">Penalty Detail</div></div>
+          <div class="mlo-pane-content">
+            <div class="text-center text-secondary py-5" id="penDetailEmpty">
+              <div class="d-flex justify-content-center mb-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#a64dff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 3h5v5"/><path d="M8 21H3v-5"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>
+              </div>
+              <div class="mt-2">Select a record to view details</div>
+            </div>
+            <form id="penForm" style="display:none;">
+              <div class="mb-2"><label class="form-label">Ref</label>
+                <input class="form-control" id="penFRef" readonly placeholder="Auto-assigned on save" style="background:#f8f9fa !important;color:#6c757d !important;font-family:monospace;" />
+              </div>
+              <div class="row g-2 mb-2">
+                <div class="col"><label class="form-label">Driver *</label>
+                  <select class="form-select" id="penFDriverSel"><option value="">— Select driver —</option></select>
+                </div>
+                <div class="col-3"><label class="form-label">Car #</label><input class="form-control" id="penFCar" /></div>
+              </div>
+              <div class="row g-2 mb-2">
+                <div class="col"><label class="form-label">Event</label>
+                  <select class="form-select" id="penFEventSel"><option value="">— Select event —</option></select>
+                </div>
+                <div class="col"><label class="form-label">Date</label><input class="form-control" id="penFDate" type="date" /></div>
+              </div>
+              <div class="row g-2 mb-2">
+                <div class="col"><label class="form-label">Penalty Type</label>
+                  <select class="form-select" id="penFType">
+                    <option value="time">Time Penalty</option>
+                    <option value="grid">Grid Drop</option>
+                    <option value="points">License Points</option>
+                    <option value="reprimand">Reprimand</option>
+                    <option value="dsq">Disqualification</option>
+                    <option value="protest">Protest (lodged)</option>
+                  </select></div>
+                <div class="col"><label class="form-label">Status</label>
+                  <select class="form-select" id="penFStatus">
+                    <option value="issued">Issued</option>
+                    <option value="served">Served</option>
+                    <option value="appealed">Appealed</option>
+                    <option value="overturned">Overturned</option>
+                  </select></div>
+              </div>
+              <div class="row g-2 mb-2">
+                <div class="col"><label class="form-label">Time (seconds)</label><input class="form-control" id="penFTime" type="number" min="0" step="1" placeholder="e.g. 5" /></div>
+                <div class="col"><label class="form-label">License Points</label><input class="form-control" id="penFPoints" type="number" min="0" step="1" /></div>
+              </div>
+              <div class="mb-2"><label class="form-label">Issued By</label><input class="form-control" id="penFIssuer" placeholder="Stewards / Race Director" /></div>
+              <div class="mb-2"><label class="form-label">Reason / Cited Article</label><textarea class="form-control" id="penFReason" rows="2" placeholder="e.g. SR 8.4 — causing a collision (T3 lap 6)"></textarea></div>
+              <div class="mb-2"><label class="form-label">Linked Incident</label>
+                <div class="input-group">
+                  <select class="form-select" id="penFIncident"><option value="">— None —</option></select>
+                  <button class="btn btn-outline-secondary btn-sm" id="penBtnGoIncident" type="button" title="Open linked incident">↗</button>
+                </div>
+              </div>
+              <div class="mb-3"><label class="form-label">Notes</label><textarea class="form-control" id="penFNotes" rows="2"></textarea></div>
+              <div class="d-flex gap-2">
+                <button type="button" class="btn btn-primary btn-sm" id="penBtnSave">Save</button>
+                <button type="button" class="btn btn-outline-danger btn-sm" id="penBtnDelete" style="display:none;">Delete</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="penBtnCancel">Cancel</button>
+              </div>
+            </form>
+          </div>
+        </section>
+      </div>
+
+    </div><!-- /Penalties tab pane -->
+
+    <!-- ============== BRIEFINGS TAB ============== -->
+    <div class="rc-tab-pane d-none" data-rc-pane="briefings">
+
+      <div class="ev-stats-bar">
+        <div class="ev-stat-card"><div class="ev-stat-label">Briefings</div><div class="ev-stat-value" id="statBriefTotal">0</div></div>
+        <div class="ev-stat-card"><div class="ev-stat-label">This Event</div><div class="ev-stat-value" id="statBriefEvent">0</div></div>
+        <div class="ev-stat-card"><div class="ev-stat-label">My Pending</div><div class="ev-stat-value" id="statBriefPending">0</div></div>
+      </div>
+
+      <div class="brief-grid">
+        <div class="brief-list">
+          <div class="brief-list-header">
+            <div class="brief-list-title">Briefings</div>
+            <span class="badge text-bg-secondary" id="briefCountBadge">0</span>
+          </div>
+          <div style="padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.05);">
+            <input class="form-control form-control-sm" type="search" id="briefSearch" placeholder="Search…" />
+          </div>
+          <div class="brief-list-body" id="briefListBody">
+            <div class="brief-list-empty">No briefings yet.</div>
+          </div>
+        </div>
+        <div class="brief-detail" id="briefDetail">
+          <div class="brief-empty">
+            <div class="d-flex justify-content-center mb-2">
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#a64dff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            </div>
+            <div class="mt-2">Select a briefing, or start a new one.</div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /Briefings tab pane -->
   </div><!-- rts-main -->
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -368,6 +592,21 @@
       ef.innerHTML = '';
       ef.appendChild(first2.cloneNode(true));
       events.forEach(e=>{ const o=document.createElement('option'); o.value=e.id; o.textContent=e.title||e.name||e.id; ef.appendChild(o); });
+
+      // Top-of-page event scope selector (shared across all tabs)
+      const scope = document.getElementById('rcEventScope');
+      if (scope) {
+        const cur = scope.value;
+        scope.innerHTML = '<option value="">All events</option>' +
+          events.map(e => `<option value="${e.id}">${escHtml(e.title||e.name||e.id)}</option>`).join('');
+        if (cur) scope.value = cur;
+      }
+
+      // Publish shared bus for Penalties + Briefings tabs
+      window.RC = window.RC || {};
+      window.RC.events = events;
+      window.RC.drivers = drivers;
+      window.RC.incidents = incidents;
     }
 
     // ─── STATS ───────────────────────────────────────────────────
@@ -457,6 +696,41 @@
 
       renderAttachments(inc);
       renderDamageSvg(inc.damage||{});
+      renderLinkedPenalties(inc);
+    }
+
+    // ─── LINKED PENALTIES (cross-tab integration) ────────────────
+    async function fetchPenaltiesForIncident(incidentId){
+      try {
+        const r = await fetch(`/api/penalties?incident_id=${encodeURIComponent(incidentId)}`);
+        return r.ok ? await r.json() : [];
+      } catch(_){ return []; }
+    }
+
+    async function renderLinkedPenalties(inc){
+      const wrap = document.getElementById('incLinkedPenalties');
+      if (!wrap) return;
+      if (!inc || !inc.id) { wrap.innerHTML = ''; return; }
+      const pens = await fetchPenaltiesForIncident(inc.id);
+      if (!pens.length) { wrap.innerHTML = '<span class="text-secondary">No linked penalties.</span>'; return; }
+      wrap.innerHTML = '<span class="text-secondary">Linked: </span>' + pens.map(p =>
+        `<a href="#" class="rc-pen-link" data-id="${p.id}" style="margin-right:8px;text-decoration:none;">
+          <span class="pen-status-pill pen-status-${p.status||'issued'}">${escHtml(p.penalty_type||'')} · ${escHtml(p.driver_name||'')}</span>
+        </a>`
+      ).join('');
+      wrap.querySelectorAll('.rc-pen-link').forEach(a => a.addEventListener('click', e => {
+        e.preventDefault();
+        if (window.RC && window.RC.showPenalty) window.RC.showPenalty(a.dataset.id);
+      }));
+    }
+
+    // ─── PROMOTE INCIDENT → PENALTY ──────────────────────────────
+    function promoteToPenalty(){
+      const inc = incidents.find(x => x.id === ui.selectedId);
+      if (!inc) { if (RTS.showToast) RTS.showToast('Select an incident first','warning'); return; }
+      if (window.RC && window.RC.newPenaltyFromIncident) {
+        window.RC.newPenaltyFromIncident(inc);
+      }
     }
 
     // ─── ATTACHMENTS ─────────────────────────────────────────────
@@ -602,12 +876,34 @@
       document.getElementById('btnAddInc').addEventListener('click',addIncident);
       document.getElementById('btnSaveInc').addEventListener('click',saveIncident);
       document.getElementById('btnDupInc').addEventListener('click',duplicateIncident);
+      document.getElementById('btnPromoteInc').addEventListener('click',promoteToPenalty);
       document.getElementById('btnDelInc').addEventListener('click',()=>{ const inc=incidents.find(x=>x.id===ui.selectedId); if(inc) deleteIncident(inc.id); });
       document.getElementById('btnInAttachAdd').addEventListener('click',addAttachment);
+
+      // Top-of-page event scope (broadcasts to all tabs)
+      const scope = document.getElementById('rcEventScope');
+      if (scope) {
+        scope.addEventListener('change', () => {
+          ui.eventFilter = scope.value;
+          if (el.eventFilter) el.eventFilter.value = scope.value;
+          window.RC = window.RC || {};
+          window.RC.eventScope = scope.value;
+          window.dispatchEvent(new CustomEvent('rc:scope-change', { detail: { eventId: scope.value } }));
+          renderTable();
+        });
+      }
+
       bindDamageSvg();
       const params = new URLSearchParams(window.location.search);
       const p = params.get('incident');
       if (p) ui.selectedId = p;
+      const ev = params.get('event');
+      if (ev) {
+        ui.eventFilter = ev;
+        if (scope) scope.value = ev;
+        window.RC = window.RC || {};
+        window.RC.eventScope = ev;
+      }
     }
 
     async function init(){
@@ -615,9 +911,684 @@
       await loadAll();
       populateSelects();
       render();
+
+      // Expose cross-tab select for the Race Control bus
+      window.RC = window.RC || {};
+      window.RC.selectIncident = function(id){
+        // Clear any filters that might hide the target
+        ui.selectedId = id;
+        render();
+      };
+      window.dispatchEvent(new CustomEvent('rc:bus-ready'));
     }
 
     document.addEventListener('DOMContentLoaded', init);
+  })();
+
+  /* ============================================================
+   * Race Control — tab switcher + Penalties + Briefings mini-apps
+   * ============================================================ */
+  (function(){
+    'use strict';
+    const tabs = document.querySelectorAll('#rcTabs .nav-link');
+    const panes = document.querySelectorAll('.rc-tab-pane');
+    const btnAddInc = document.getElementById('btnAddInc');
+    const btnAddPen = document.getElementById('btnAddPen');
+    const btnAddBrief = document.getElementById('btnAddBrief');
+    const btnCsv = document.getElementById('rcCsvExport');
+
+    window.RC = window.RC || {};
+    let currentTab = 'incidents';
+
+    function showTab(name){
+      currentTab = name;
+      tabs.forEach(t => t.classList.toggle('active', t.dataset.rcTab === name));
+      panes.forEach(p => p.classList.toggle('d-none', p.dataset.rcPane !== name));
+      btnAddInc.classList.toggle('d-none', name !== 'incidents');
+      btnAddPen.classList.toggle('d-none', name !== 'penalties');
+      btnAddBrief.classList.toggle('d-none', name !== 'briefings');
+      if (name === 'penalties' && !Penalties._loaded) Penalties.init();
+      if (name === 'briefings' && !Briefings._loaded) Briefings.init();
+      try { history.replaceState(null, '', '?tab=' + name); } catch(_){}
+    }
+    tabs.forEach(t => t.addEventListener('click', () => showTab(t.dataset.rcTab)));
+
+    // Cross-tab API exposed via window.RC
+    window.RC.showPenalty = function(id){
+      showTab('penalties');
+      const tryShow = () => {
+        if (!Penalties._loaded) { setTimeout(tryShow, 80); return; }
+        Penalties.select(id);
+      };
+      tryShow();
+    };
+    window.RC.newPenaltyFromIncident = function(inc){
+      showTab('penalties');
+      const tryShow = () => {
+        if (!Penalties._loaded) { setTimeout(tryShow, 80); return; }
+        Penalties.newFromIncident(inc);
+      };
+      tryShow();
+    };
+    window.RC.showIncident = function(id){
+      showTab('incidents');
+      const tryShow = () => {
+        if (window.RC.selectIncident) window.RC.selectIncident(id);
+        else setTimeout(tryShow, 80);
+      };
+      tryShow();
+    };
+
+    /* ---------------- CSV EXPORT (current tab) ---------------- */
+    function downloadCsv(filename, rows){
+      if (!rows.length) { alert('Nothing to export.'); return; }
+      const headers = Object.keys(rows[0]);
+      const escapeCell = v => {
+        if (v == null) return '';
+        const s = String(v);
+        return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
+      };
+      const csv = [headers.join(','), ...rows.map(r => headers.map(h => escapeCell(r[h])).join(','))].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    if (btnCsv) btnCsv.addEventListener('click', () => {
+      const stamp = new Date().toISOString().slice(0,10);
+      if (currentTab === 'incidents') {
+        const rows = (window.RC.incidents || []).filter(i => !window.RC.eventScope || i.event_id === window.RC.eventScope).map(i => ({
+          id: i.id, title: i.title, driver: i.driver_name, severity: i.severity, status: i.status,
+          event: i.event_name, created_at: i.created_at, description: (i.description||'').replace(/\s+/g,' ').slice(0,500)
+        }));
+        downloadCsv(`incidents_${stamp}.csv`, rows);
+      } else if (currentTab === 'penalties') {
+        downloadCsv(`penalties_${stamp}.csv`, Penalties.exportRows());
+      } else if (currentTab === 'briefings') {
+        downloadCsv(`briefings_${stamp}.csv`, Briefings.exportRows());
+      }
+    });
+
+    /* ---------------- PENALTIES ---------------- */
+    const Penalties = {
+      _loaded: false,
+      list: [], incidents: [],
+      selectedId: null,
+      filterType: 'all', filterStatus: 'all',
+
+      esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); },
+
+      async init(){
+        this._loaded = true;
+        await this.load();
+        this.bind();
+        this.populateSelects();
+        this.render();
+      },
+
+      async load(){
+        try {
+          const [pr, ir] = await Promise.all([
+            fetch('/api/penalties').then(r => r.ok ? r.json() : []).catch(()=>[]),
+            (window.RC.incidents && window.RC.incidents.length) ? Promise.resolve(window.RC.incidents) :
+              fetch('/api/incidents').then(r => r.ok ? r.json() : null).then(j => (j && j.incidents) ? j.incidents : (Array.isArray(j) ? j : [])).catch(()=>[])
+          ]);
+          this.list = Array.isArray(pr) ? pr : [];
+          this.incidents = Array.isArray(ir) ? ir : [];
+          this.assignRefs();
+        } catch(_){ this.list = []; this.incidents = []; }
+      },
+
+      // Compute display refs PEN-{year}-{seq} sorted by date+id within year
+      assignRefs(){
+        const byYear = {};
+        // Sort oldest-first within each year for stable numbering
+        const sorted = this.list.slice().sort((a,b) => {
+          const da = a.penalty_date || a.created_at || '';
+          const db = b.penalty_date || b.created_at || '';
+          return da.localeCompare(db) || String(a.id).localeCompare(String(b.id));
+        });
+        sorted.forEach(p => {
+          const yr = (p.penalty_date || p.created_at || new Date().toISOString()).slice(0,4);
+          byYear[yr] = (byYear[yr] || 0) + 1;
+          p._ref = `PEN-${yr}-${String(byYear[yr]).padStart(3,'0')}`;
+        });
+      },
+
+      populateSelects(){
+        const drivers = (window.RC && window.RC.drivers) || [];
+        const events = (window.RC && window.RC.events) || [];
+        const drvSel = document.getElementById('penFDriverSel');
+        if (drvSel) {
+          drvSel.innerHTML = '<option value="">— Select driver —</option>' +
+            drivers.map(d => `<option value="${this.esc(d.id)}" data-name="${this.esc(d.name||d.id)}">${this.esc(d.name||d.id)}</option>`).join('');
+        }
+        const evSel = document.getElementById('penFEventSel');
+        if (evSel) {
+          evSel.innerHTML = '<option value="">— Select event —</option>' +
+            events.map(e => `<option value="${this.esc(e.id)}" data-name="${this.esc(e.title||e.name||e.id)}">${this.esc(e.title||e.name||e.id)}</option>`).join('');
+        }
+        const incSel = document.getElementById('penFIncident');
+        if (incSel) {
+          incSel.innerHTML = '<option value="">— None —</option>' +
+            this.incidents.map(i => `<option value="${this.esc(i.id)}">${this.esc(i.title || ('Incident '+i.id))}</option>`).join('');
+        }
+      },
+
+      bind(){
+        document.getElementById('btnAddPen').addEventListener('click', () => this.newForm());
+        document.getElementById('penBtnSave').addEventListener('click', () => this.save());
+        document.getElementById('penBtnDelete').addEventListener('click', () => this.del());
+        document.getElementById('penBtnCancel').addEventListener('click', () => this.cancel());
+        document.getElementById('penSearch').addEventListener('input', () => this.render());
+        document.getElementById('penBtnGoIncident').addEventListener('click', () => {
+          const incId = document.getElementById('penFIncident').value;
+          if (incId && window.RC.showIncident) window.RC.showIncident(incId);
+        });
+        // Auto-fill car# from selected driver if driver has one
+        document.getElementById('penFDriverSel').addEventListener('change', e => {
+          const drivers = (window.RC && window.RC.drivers) || [];
+          const d = drivers.find(x => String(x.id) === String(e.target.value));
+          if (d && d.car_number && !document.getElementById('penFCar').value) {
+            document.getElementById('penFCar').value = d.car_number;
+          }
+        });
+        document.querySelectorAll('#penTypeFilter li').forEach(li => li.addEventListener('click', () => {
+          document.querySelectorAll('#penTypeFilter li').forEach(x => x.classList.remove('active'));
+          li.classList.add('active'); this.filterType = li.dataset.filter; this.render();
+        }));
+        document.querySelectorAll('#penStatusFilter li').forEach(li => li.addEventListener('click', () => {
+          document.querySelectorAll('#penStatusFilter li').forEach(x => x.classList.remove('active'));
+          li.classList.add('active'); this.filterStatus = li.dataset.filter; this.render();
+        }));
+        // Listen to global event-scope changes
+        window.addEventListener('rc:scope-change', () => { if (this._loaded) this.render(); });
+        // Re-populate selects when incidents IIFE finishes loading the shared bus
+        window.addEventListener('rc:bus-ready', () => { if (this._loaded) { this.populateSelects(); this.render(); } });
+      },
+
+      fmtPenalty(p){
+        if (p.penalty_type === 'time' && p.time_penalty) return `+${p.time_penalty}s`;
+        if (p.penalty_type === 'points' && p.points_penalty) return `${p.points_penalty} pts`;
+        if (p.penalty_type === 'grid') return 'Grid drop';
+        if (p.penalty_type === 'dsq') return 'DSQ';
+        if (p.penalty_type === 'reprimand') return 'Reprimand';
+        if (p.penalty_type === 'protest') return 'Protest';
+        return p.penalty_type || '—';
+      },
+
+      fmtDate(s){ if(!s) return '—'; const d=new Date(s); return isNaN(d)?s:d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'}); },
+
+      filtered(){
+        const q = (document.getElementById('penSearch').value || '').trim().toLowerCase();
+        const scope = (window.RC && window.RC.eventScope) || '';
+        return this.list.filter(p => {
+          const mt = this.filterType === 'all' || p.penalty_type === this.filterType;
+          const ms = this.filterStatus === 'all' || p.status === this.filterStatus;
+          const me = !scope || p.event_id === scope;
+          const hay = `${p._ref||''} ${p.driver_name||''} ${p.event_name||''} ${p.reason||''}`.toLowerCase();
+          return mt && ms && me && (!q || hay.includes(q));
+        });
+      },
+
+      render(){
+        const rows = this.filtered();
+        document.getElementById('penCountBadge').textContent = rows.length;
+        document.getElementById('statPenTotal').textContent = this.list.length;
+        document.getElementById('statPenIssued').textContent = this.list.filter(p => p.status === 'issued').length;
+        document.getElementById('statPenAppealed').textContent = this.list.filter(p => p.status === 'appealed').length;
+        const yr = new Date().getFullYear().toString();
+        document.getElementById('statPenSeason').textContent = this.list.filter(p => (p.penalty_date||p.created_at||'').startsWith(yr)).length;
+        const tb = document.getElementById('penTableBody');
+        if (!rows.length) {
+          tb.innerHTML = '<tr><td colspan="9" class="text-center text-secondary py-4">No penalties match.</td></tr>';
+          return;
+        }
+        tb.innerHTML = rows.map(p => {
+          const linkedInc = p.incident_id ? this.incidents.find(i => String(i.id) === String(p.incident_id)) : null;
+          const linkCell = linkedInc
+            ? `<a href="#" class="rc-inc-link" data-id="${this.esc(p.incident_id)}" title="${this.esc(linkedInc.title||'')}" style="text-decoration:none;font-size:.78rem;">→ INC</a>`
+            : '<span class="text-secondary">—</span>';
+          return `<tr data-id="${p.id}" class="${p.id==this.selectedId?'selected':''}">
+            <td><code style="font-size:.72rem;">${this.esc(p._ref||'')}</code></td>
+            <td>${this.fmtDate(p.penalty_date)}</td>
+            <td><strong>${this.esc(p.driver_name||'—')}</strong></td>
+            <td>${this.esc(p.car_number||'—')}</td>
+            <td>${this.esc(p.event_name||'—')}</td>
+            <td>${this.esc(p.penalty_type||'—')}</td>
+            <td>${this.esc(this.fmtPenalty(p))}</td>
+            <td><span class="pen-status-pill pen-status-${p.status||'issued'}">${this.esc(p.status||'issued')}</span></td>
+            <td>${linkCell}</td>
+          </tr>`;
+        }).join('');
+        tb.querySelectorAll('tr').forEach(r => r.addEventListener('click', e => {
+          if (e.target.classList.contains('rc-inc-link')) {
+            e.preventDefault(); e.stopPropagation();
+            if (window.RC.showIncident) window.RC.showIncident(e.target.dataset.id);
+            return;
+          }
+          this.select(r.dataset.id);
+        }));
+      },
+
+      exportRows(){
+        return this.filtered().map(p => ({
+          ref: p._ref || '',
+          date: p.penalty_date || '',
+          driver: p.driver_name || '',
+          car_number: p.car_number || '',
+          event: p.event_name || '',
+          type: p.penalty_type || '',
+          time_penalty_s: p.time_penalty || '',
+          points: p.points_penalty || '',
+          status: p.status || '',
+          issued_by: p.issued_by || '',
+          reason: (p.reason||'').replace(/\s+/g,' '),
+          incident_id: p.incident_id || ''
+        }));
+      },
+
+      select(id){
+        this.selectedId = id;
+        const p = this.list.find(x => String(x.id) === String(id));
+        if (!p) return;
+        document.getElementById('penDetailEmpty').style.display = 'none';
+        document.getElementById('penForm').style.display = '';
+        document.getElementById('penDetailTitle').textContent = `${p._ref || 'Penalty'} · ${p.driver_name||''}`;
+        document.getElementById('penFRef').value = p._ref || '';
+        document.getElementById('penFDriverSel').value = p.driver_id || '';
+        document.getElementById('penFCar').value = p.car_number || '';
+        document.getElementById('penFEventSel').value = p.event_id || '';
+        document.getElementById('penFDate').value = (p.penalty_date||'').slice(0,10);
+        document.getElementById('penFType').value = p.penalty_type || 'time';
+        document.getElementById('penFStatus').value = p.status || 'issued';
+        document.getElementById('penFTime').value = p.time_penalty || '';
+        document.getElementById('penFPoints').value = p.points_penalty || '';
+        document.getElementById('penFIssuer').value = p.issued_by || '';
+        document.getElementById('penFReason').value = p.reason || '';
+        document.getElementById('penFIncident').value = p.incident_id || '';
+        document.getElementById('penFNotes').value = p.notes || '';
+        document.getElementById('penBtnDelete').style.display = '';
+        this.render();
+      },
+
+      newForm(){
+        this.selectedId = null;
+        document.getElementById('penDetailEmpty').style.display = 'none';
+        document.getElementById('penForm').style.display = '';
+        document.getElementById('penDetailTitle').textContent = 'New Penalty';
+        document.getElementById('penForm').reset();
+        document.getElementById('penFDate').value = new Date().toISOString().slice(0,10);
+        document.getElementById('penFRef').value = '(auto)';
+        // Pre-fill event from current scope if set
+        const scope = (window.RC && window.RC.eventScope) || '';
+        if (scope) document.getElementById('penFEventSel').value = scope;
+        document.getElementById('penBtnDelete').style.display = 'none';
+      },
+
+      newFromIncident(inc){
+        this.newForm();
+        // Map driver_id → driver_name via window.RC.drivers
+        const drivers = (window.RC && window.RC.drivers) || [];
+        const d = inc.driver_id ? drivers.find(x => String(x.id) === String(inc.driver_id)) : null;
+        if (d) {
+          document.getElementById('penFDriverSel').value = d.id;
+          if (d.car_number) document.getElementById('penFCar').value = d.car_number;
+        }
+        if (inc.event_id) document.getElementById('penFEventSel').value = inc.event_id;
+        document.getElementById('penFIncident').value = inc.id;
+        document.getElementById('penFReason').value = `Re: ${inc.title || 'incident'}`;
+        document.getElementById('penDetailTitle').textContent = `New Penalty (from ${inc.title || 'incident'})`;
+      },
+
+      cancel(){
+        document.getElementById('penForm').style.display = 'none';
+        document.getElementById('penDetailEmpty').style.display = '';
+        this.selectedId = null;
+        this.render();
+      },
+
+      async save(){
+        const drvSel = document.getElementById('penFDriverSel');
+        const evSel = document.getElementById('penFEventSel');
+        const driverName = drvSel.options[drvSel.selectedIndex] ? drvSel.options[drvSel.selectedIndex].text.replace(/^—.*/, '') : '';
+        const eventName  = evSel.options[evSel.selectedIndex]  ? evSel.options[evSel.selectedIndex].text.replace(/^—.*/, '')  : '';
+        const body = {
+          driver_id:   drvSel.value || null,
+          driver_name: driverName.trim(),
+          car_number:  document.getElementById('penFCar').value.trim(),
+          event_id:    evSel.value || null,
+          event_name:  eventName.trim(),
+          penalty_date: document.getElementById('penFDate').value || null,
+          penalty_type: document.getElementById('penFType').value,
+          status:      document.getElementById('penFStatus').value,
+          time_penalty: document.getElementById('penFTime').value ? Number(document.getElementById('penFTime').value) : null,
+          points_penalty: document.getElementById('penFPoints').value ? Number(document.getElementById('penFPoints').value) : null,
+          issued_by:   document.getElementById('penFIssuer').value.trim(),
+          reason:      document.getElementById('penFReason').value.trim(),
+          incident_id: document.getElementById('penFIncident').value || null,
+          notes:       document.getElementById('penFNotes').value.trim()
+        };
+        if (!body.driver_name) { alert('Select a driver.'); return; }
+        try {
+          const url = this.selectedId ? `/api/penalties/${this.selectedId}` : '/api/penalties';
+          const method = this.selectedId ? 'PUT' : 'POST';
+          const r = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+          if (!r.ok) throw new Error(await r.text());
+          await this.load();
+          this.render();
+          this.cancel();
+        } catch(e) { alert('Save failed: ' + e.message); }
+      },
+
+      async del(){
+        if (!this.selectedId || !confirm('Delete this penalty record?')) return;
+        try {
+          await fetch(`/api/penalties/${this.selectedId}`, { method: 'DELETE' });
+          this.selectedId = null;
+          await this.load();
+          this.cancel();
+        } catch(e) { alert('Delete failed: ' + e.message); }
+      }
+    };
+
+    /* ---------------- BRIEFINGS ---------------- */
+    const Briefings = {
+      _loaded: false,
+      list: [], selectedId: null, currentUser: null, q: '',
+
+      esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); },
+      fmtDate(s){ if(!s) return ''; const d=new Date(s); return isNaN(d)?s:d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'}); },
+
+      async init(){
+        this._loaded = true;
+        try {
+          const u = await fetch('/api/auth/me').then(r => r.ok ? r.json() : null).catch(()=>null);
+          this.currentUser = u && (u.user || u);
+        } catch(_){}
+        await this.load();
+        this.bind();
+        this.render();
+      },
+
+      async load(){
+        try {
+          const r = await fetch('/api/notes?folder=briefings').then(r => r.ok ? r.json() : null);
+          this.list = (r && r.data) ? r.data : (Array.isArray(r) ? r : []);
+        } catch(_){ this.list = []; }
+      },
+
+      bind(){
+        document.getElementById('btnAddBrief').addEventListener('click', () => this.newBriefing());
+        document.getElementById('briefSearch').addEventListener('input', e => { this.q = e.target.value.trim().toLowerCase(); this.renderList(); });
+        window.addEventListener('rc:scope-change', () => { if (this._loaded) this.render(); });
+        window.addEventListener('rc:bus-ready', () => { if (this._loaded) this.render(); });
+      },
+
+      // ─── tag helpers ──────────────────────────────────────────
+      ackList(b){
+        return (Array.isArray(b.tags) ? b.tags : []).filter(t => typeof t === 'string' && t.startsWith('ack:')).map(t => {
+          const [, rest=''] = t.split('ack:');
+          const [name, time] = rest.split('|');
+          return { name: name || 'Unknown', time: time || '' };
+        });
+      },
+      requiredList(b){
+        return (Array.isArray(b.tags) ? b.tags : []).filter(t => typeof t === 'string' && t.startsWith('req:')).map(t => {
+          const [, rest=''] = t.split('req:');
+          const [id, name] = rest.split('|');
+          return { id: id || '', name: name || id || '' };
+        });
+      },
+      myAck(b){
+        if (!this.currentUser) return null;
+        const me = (this.currentUser.email || this.currentUser.name || '').toLowerCase();
+        return this.ackList(b).find(a => a.name.toLowerCase() === me) || null;
+      },
+
+      filtered(){
+        const scope = (window.RC && window.RC.eventScope) || '';
+        return this.list.filter(b => {
+          if (scope && b.linked_entity_id !== scope) return false;
+          if (this.q && !((b.title||'') + ' ' + (b.content||'')).toLowerCase().includes(this.q)) return false;
+          return true;
+        });
+      },
+
+      render(){ this.renderList(); this.renderDetail(); this.renderStats(); },
+
+      renderStats(){
+        document.getElementById('statBriefTotal').textContent = this.list.length;
+        const scope = (window.RC && window.RC.eventScope) || '';
+        const inEvent = scope ? this.list.filter(b => b.linked_entity_id === scope).length :
+          this.list.filter(b => b.created_at && Date.now() - new Date(b.created_at).getTime() < 7*24*3600*1000).length;
+        document.getElementById('statBriefEvent').textContent = inEvent;
+        document.getElementById('statBriefPending').textContent = this.list.filter(b => !this.myAck(b)).length;
+      },
+
+      renderList(){
+        const filtered = this.filtered();
+        document.getElementById('briefCountBadge').textContent = filtered.length;
+        const body = document.getElementById('briefListBody');
+        if (!filtered.length) { body.innerHTML = '<div class="brief-list-empty">No briefings.</div>'; return; }
+        body.innerHTML = filtered.map(b => {
+          const acks = this.ackList(b).length;
+          const req = this.requiredList(b).length;
+          const mine = this.myAck(b);
+          const progress = req ? `${acks}/${req} ack` : `${acks} ack`;
+          return `<div class="brief-item ${b.id===this.selectedId?'selected':''}" data-id="${b.id}">
+            <div class="brief-item-title">${this.esc(b.title || '(untitled)')}</div>
+            <div class="brief-item-meta">
+              <span>${this.fmtDate(b.updated_at || b.created_at)}</span>
+              <span>${progress}${mine?' · ✓ you':''}</span>
+            </div>
+          </div>`;
+        }).join('');
+        body.querySelectorAll('.brief-item').forEach(it => it.addEventListener('click', () => { this.selectedId = it.dataset.id; this.render(); }));
+      },
+
+      renderDetail(){
+        const d = document.getElementById('briefDetail');
+        if (!this.selectedId) {
+          d.innerHTML = `<div class="brief-empty">
+            <div class="d-flex justify-content-center mb-2">
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#a64dff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            </div>
+            <div class="mt-2">Select a briefing, or start a new one.</div>
+          </div>`;
+          return;
+        }
+        const b = this.list.find(x => String(x.id) === String(this.selectedId));
+        if (!b) { this.selectedId = null; this.renderDetail(); return; }
+        const acks = this.ackList(b);
+        const required = this.requiredList(b);
+        const mine = this.myAck(b);
+        const events = (window.RC && window.RC.events) || [];
+        const drivers = (window.RC && window.RC.drivers) || [];
+
+        const ackedNames = new Set(acks.map(a => a.name.toLowerCase()));
+        const checklist = required.length
+          ? `<div style="margin-top:8px;">
+              ${required.map(r => {
+                const acked = ackedNames.has(r.name.toLowerCase());
+                return `<div style="font-size:.82rem;padding:3px 0;color:${acked?'#065f46':'#6c757d'};">
+                  ${acked?'✓':'○'} ${this.esc(r.name)}
+                </div>`;
+              }).join('')}
+            </div>`
+          : '';
+
+        d.innerHTML = `
+          <div class="d-flex justify-content-between align-items-start mb-2">
+            <div style="flex:1;">
+              <input id="briefEditTitle" class="form-control form-control-lg mb-1" value="${this.esc(b.title||'')}" placeholder="Briefing title" />
+              <div class="text-secondary" style="font-size:.78rem;">Updated ${this.fmtDate(b.updated_at || b.created_at)}</div>
+            </div>
+            <div class="d-flex gap-1 ms-2">
+              <button class="btn btn-sm btn-primary" id="briefBtnSave">Save</button>
+              <button class="btn btn-sm btn-outline-danger" id="briefBtnDelete">Delete</button>
+            </div>
+          </div>
+
+          <div class="row g-2 mb-2">
+            <div class="col-md-6">
+              <label class="form-label" style="font-size:.78rem;font-weight:600;color:#495057;">Linked Event</label>
+              <select id="briefEditEvent" class="form-select form-select-sm">
+                <option value="">— None —</option>
+                ${events.map(e => `<option value="${this.esc(e.id)}" ${b.linked_entity_id===e.id?'selected':''}>${this.esc(e.title||e.name||e.id)}</option>`).join('')}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" style="font-size:.78rem;font-weight:600;color:#495057;">Add required acknowledger</label>
+              <select id="briefAddRequired" class="form-select form-select-sm">
+                <option value="">— Select driver —</option>
+                ${drivers.filter(dr => !required.find(r => r.id === dr.id)).map(dr => `<option value="${this.esc(dr.id)}" data-name="${this.esc(dr.name||dr.id)}">${this.esc(dr.name||dr.id)}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+
+          <textarea id="briefEditBody" class="form-control" rows="12" placeholder="Briefing notes — track conditions, safety call-outs, regulation reminders, driver-specific instructions…">${this.esc(b.content||'')}</textarea>
+
+          ${required.length ? `<div class="mt-3">
+            <div class="text-secondary" style="font-size:.78rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">
+              Required acknowledgers (${acks.filter(a => required.find(r => r.name.toLowerCase()===a.name.toLowerCase())).length}/${required.length})
+            </div>
+            ${checklist}
+          </div>` : ''}
+
+          <div class="mt-3">
+            <div class="text-secondary" style="font-size:.78rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;">
+              All acknowledgements (${acks.length})
+            </div>
+            <div id="briefAckList">${acks.length ? acks.map(a => `<span class="brief-ack-row"><span class="ack-name">${this.esc(a.name)}</span><span class="ack-time">${this.fmtDate(a.time)}</span></span>`).join('') : '<span class="text-secondary" style="font-size:.82rem;">No acknowledgements yet.</span>'}</div>
+            <button class="btn btn-sm ${mine?'btn-success':'btn-outline-primary'} mt-2" id="briefBtnAck" ${mine?'disabled':''}>
+              ${mine ? '✓ Acknowledged' : 'Acknowledge briefing'}
+            </button>
+          </div>
+        `;
+        document.getElementById('briefBtnSave').addEventListener('click', () => this.save(b));
+        document.getElementById('briefBtnDelete').addEventListener('click', () => this.del(b));
+        document.getElementById('briefAddRequired').addEventListener('change', e => {
+          if (!e.target.value) return;
+          const opt = e.target.options[e.target.selectedIndex];
+          this.addRequired(b, e.target.value, opt.dataset.name || opt.text);
+        });
+        const ackBtn = document.getElementById('briefBtnAck');
+        if (ackBtn && !mine) ackBtn.addEventListener('click', () => this.ack(b));
+      },
+
+      exportRows(){
+        return this.filtered().map(b => {
+          const events = (window.RC && window.RC.events) || [];
+          const ev = b.linked_entity_id ? events.find(e => e.id === b.linked_entity_id) : null;
+          const acks = this.ackList(b);
+          const req = this.requiredList(b);
+          return {
+            title: b.title || '',
+            event: ev ? (ev.title || ev.name || ev.id) : '',
+            updated: b.updated_at || '',
+            required_count: req.length,
+            acked_count: acks.length,
+            content: (b.content||'').replace(/\s+/g,' ').slice(0,500)
+          };
+        });
+      },
+
+      newBriefing(){
+        const stub = { id: null, title: '', content: '', folder: 'briefings', tags: [] };
+        this.save(stub);
+      },
+
+      buildSaveBody(b){
+        const isNew = !b.id;
+        if (isNew) {
+          return {
+            title: 'New Briefing',
+            content: '',
+            folder: 'briefings',
+            tags: [],
+            linked_entity_type: (window.RC && window.RC.eventScope) ? 'event' : null,
+            linked_entity_id: (window.RC && window.RC.eventScope) || null
+          };
+        }
+        const evSel = document.getElementById('briefEditEvent');
+        const events = (window.RC && window.RC.events) || [];
+        const evId = evSel ? evSel.value : (b.linked_entity_id || '');
+        const ev = evId ? events.find(e => e.id === evId) : null;
+        return {
+          title: document.getElementById('briefEditTitle').value.trim() || 'Untitled briefing',
+          content: document.getElementById('briefEditBody').value,
+          folder: 'briefings',
+          tags: Array.isArray(b.tags) ? b.tags : [],
+          linked_entity_type: evId ? 'event' : null,
+          linked_entity_id: evId || null,
+          linked_entity_name: ev ? (ev.title || ev.name || '') : null
+        };
+      },
+
+      async save(b){
+        const isNew = !b.id;
+        const body = this.buildSaveBody(b);
+        try {
+          const url = isNew ? '/api/notes' : `/api/notes/${b.id}`;
+          const method = isNew ? 'POST' : 'PUT';
+          const r = await fetch(url, { method, headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+          if (!r.ok) throw new Error(await r.text());
+          const j = await r.json();
+          const saved = (j && j.data) ? j.data : j;
+          await this.load();
+          this.selectedId = saved.id;
+          this.render();
+        } catch(e) { alert('Save failed: ' + e.message); }
+      },
+
+      async del(b){
+        if (!confirm('Delete this briefing?')) return;
+        try {
+          await fetch(`/api/notes/${b.id}`, { method: 'DELETE' });
+          this.selectedId = null;
+          await this.load();
+          this.render();
+        } catch(e) { alert('Delete failed: ' + e.message); }
+      },
+
+      async ack(b){
+        const me = (this.currentUser && (this.currentUser.email || this.currentUser.name)) || prompt('Your name for the acknowledgement log:');
+        if (!me) return;
+        const tags = Array.isArray(b.tags) ? b.tags.slice() : [];
+        tags.push(`ack:${me}|${new Date().toISOString()}`);
+        const body = Object.assign(this.buildSaveBody(b), { tags });
+        try {
+          const r = await fetch(`/api/notes/${b.id}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+          if (!r.ok) throw new Error(await r.text());
+          await this.load();
+          this.render();
+        } catch(e) { alert('Acknowledgement failed: ' + e.message); }
+      },
+
+      async addRequired(b, driverId, driverName){
+        const tags = Array.isArray(b.tags) ? b.tags.slice() : [];
+        if (tags.find(t => t.startsWith(`req:${driverId}|`))) return;
+        tags.push(`req:${driverId}|${driverName}`);
+        const body = Object.assign(this.buildSaveBody(b), { tags });
+        try {
+          const r = await fetch(`/api/notes/${b.id}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+          if (!r.ok) throw new Error(await r.text());
+          await this.load();
+          this.render();
+        } catch(e) { alert('Failed to add required acknowledger: ' + e.message); }
+      }
+    };
+
+    // Listen for incident-select events from cross-tab navigation
+    // (Bus is exposed by the incidents IIFE via window.RC.selectIncident)
+
+    // Honour ?tab= on initial load
+    const urlTab = new URLSearchParams(location.search).get('tab');
+    if (urlTab && ['incidents','penalties','briefings'].includes(urlTab)) showTab(urlTab);
   })();
   </script>
 </body>

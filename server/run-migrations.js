@@ -109,7 +109,8 @@ async function runMigrations() {
     '088_driver_packages.sql',
     '089_crossmodule_cost_fields.sql',
     '090_finance_phase5.sql',
-    '091_entries_phase2.sql'
+    '091_entries_phase2.sql',
+    '092_penalties_incident_link.sql'
   ];
   
   let appliedCount = 0, skippedCount = 0;
