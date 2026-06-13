@@ -59,14 +59,23 @@
     get state() { return state; },
 
     start(cfg) {
-      stopped = false;
-      config = cfg;
-      // Resolve the active URL based on the chosen provider
-      const provider = ['race-monitor','speedhive'].includes(config && config.provider) ? config.provider : 'apex';
-      const activeUrl = provider === 'race-monitor' ? (config && config.urlRm) : provider === 'speedhive' ? (config && config.urlSh) : (config && config.url);
+      // Resolve active URL based on provider
+      const provider = ['race-monitor','speedhive'].includes(cfg && cfg.provider) ? cfg.provider : 'apex';
+      const activeUrl = provider === 'race-monitor' ? (cfg && cfg.urlRm) : provider === 'speedhive' ? (cfg && cfg.urlSh) : (cfg && cfg.url);
       if (!activeUrl) return;
-      // Normalise `url` so the rest of this module (which reads config.url) keeps working
-      config = Object.assign({}, config, { provider, url: activeUrl });
+      const nextConfig = Object.assign({}, cfg, { provider, url: activeUrl });
+
+      // Idempotency: if already polling the same provider+URL, do nothing.
+      // (topnav.js calls start() twice — once with cached settings, once after
+      // RTS.syncSettingsFromDB resolves — and we must not stack pollers.)
+      if (pollTimer && config && config.provider === provider && config.url === activeUrl) {
+        return;
+      }
+      // Different config (or restart) — clear any existing poller first
+      clearTimers();
+
+      stopped = false;
+      config = nextConfig;
       buildDriverMatchMap();
       // Use server-side proxy polling — neither provider exposes a browser-friendly WS
       startIframeFallback();

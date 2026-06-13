@@ -86,35 +86,57 @@ function extractPort(text) {
   return null;
 }
 
+// Apex per-event config.js may override `configHost` to point to a regional
+// data host (e.g. live-data.apex-timing.com). The client builds the WS URL
+// as wss://configHost:(configPort+3)/. We must follow the same indirection.
+function extractHost(text) {
+  const patterns = [
+    /configHost\s*=\s*['"]([a-z0-9.-]+\.apex-timing\.com)['"]/i,
+    /configHost\s*:\s*['"]([a-z0-9.-]+\.apex-timing\.com)['"]/i,
+  ];
+  for (const p of patterns) {
+    const m = text.match(p);
+    if (m) return m[1];
+  }
+  return null;
+}
+
 async function discoverPort(slug) {
   const pageUrl = `https://live.apex-timing.com/${slug}/`;
 
   let pageHtml = '';
+  let host = null;
+  let port = null;
   try {
     const page = await fetchUrl(pageUrl, { timeout: 8000 });
     if (page.status === 200) {
       pageHtml = page.body;
-      const port = extractPort(pageHtml);
-      if (port) return { port, source: 'page-html' };
+      port = extractPort(pageHtml);
+      host = extractHost(pageHtml);
     }
   } catch(e) { /* try scripts */ }
 
-  // Fetch linked JS files
+  // Fetch linked JS files (especially the per-event config.js which carries
+  // configHost / configPort overrides)
   const scriptSrcs = [];
   for (const m of pageHtml.matchAll(/<script[^>]+src=["']([^"']+)["']/gi)) {
     try { scriptSrcs.push(new URL(m[1], pageUrl).href); } catch(e) {}
   }
+  // Prioritise per-event config.js since it carries the host override
+  scriptSrcs.sort((a, b) => (/config\.js/i.test(b) ? 1 : 0) - (/config\.js/i.test(a) ? 1 : 0));
   for (const src of scriptSrcs.slice(0, 8)) {
+    if (port && host) break;
     try {
       const js = await fetchUrl(src, { timeout: 6000 });
       if (js.status === 200) {
-        const port = extractPort(js.body);
-        if (port) return { port, source: src };
+        if (!port) port = extractPort(js.body);
+        if (!host) host = extractHost(js.body);
       }
     } catch(e) { /* try next */ }
   }
 
-  return null;
+  if (!port) return null;
+  return { port, host: host || 'www.apex-timing.com', source: 'discovered' };
 }
 
 // ── Per-slug WS session state ─────────────────────────────────────────────────
@@ -472,16 +494,17 @@ async function startSession(slug) {
   }
 
   const displayPort = discovery.port;
+  const host = discovery.host || 'www.apex-timing.com';
   // Port formula: display port + 3 = WSS port, display port + 2 = WS port
   const wssPort = displayPort + 3;
   const wsPort  = displayPort + 2;
-  console.log(`[apex-proxy] Display port ${displayPort} → WSS ${wssPort} / WS ${wsPort} for ${slug}`);
+  console.log(`[apex-proxy] Display port ${displayPort} → WSS ${wssPort} / WS ${wsPort} on ${host} for ${slug}`);
 
   const wsUrls = [
-    `wss://www.apex-timing.com:${wssPort}/`,
-    `ws://www.apex-timing.com:${wsPort}/`,
+    `wss://${host}:${wssPort}/`,
+    `ws://${host}:${wsPort}/`,
   ];
-  const session = { slug, port: wssPort, displayPort, wsUrl: wsUrls[0], wsUrls, wsUrlIndex: 0, ws: null, connected: false, state: emptyState(), grid: new Map(), messageQueue: [], retryTimer: null, error: null, closeCode: null };
+  const session = { slug, host, port: wssPort, displayPort, wsUrl: wsUrls[0], wsUrls, wsUrlIndex: 0, ws: null, connected: false, state: emptyState(), grid: new Map(), messageQueue: [], retryTimer: null, error: null, closeCode: null };
   sessions.set(slug, session);
   connectWs(session);
 }
@@ -495,7 +518,7 @@ function connectWs(session) {
     const ws = new WebSocket(wsUrl, {
       headers: {
         'Origin': 'https://live.apex-timing.com',
-        'Host': `www.apex-timing.com:${session.port}`,
+        'Host': `${session.host}:${session.port}`,
         'User-Agent': 'Mozilla/5.0 (compatible; RaceTeamOS/5.0)',
       },
       rejectUnauthorized: false,

@@ -1318,7 +1318,7 @@
               } catch(e) {}
               return '';
             })();
-            script.src = base + 'live-timing.js?v=20260612d';
+            script.src = base + 'live-timing.js?v=20260613a';
             script.onload = () => {
               if (!window.RTSLiveTiming) return;
               RTSLiveTiming.onUpdate(renderLtTicker);
