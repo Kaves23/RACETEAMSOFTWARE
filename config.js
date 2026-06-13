@@ -2,9 +2,9 @@
 // Include this before core.js on pages where you want to override defaults.
 window.RTS_CONFIG = {
   // Software build version — updated on every deployment
-  buildVersion: '668f50b',
+  buildVersion: '5e646e7',
   buildDate:    '2026-06-13',
-  buildNote:    'Race Control: custom searchable combobox replaces native selects',
+  buildNote:    'Track Map: capture per-class fastest lap to event + Live Times tab in Events inspector',
   // API Configuration
   api: {
     baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)

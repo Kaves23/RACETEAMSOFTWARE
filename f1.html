@@ -1,0 +1,1466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/png" href="favicon.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <title>Race Team OS – F1</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+  <link href="style.css?v=20260525" rel="stylesheet" />
+  <style>
+    body { background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%); color:#1a1d24; min-height:100vh; }
+
+    /* ── Header bar ─────────────────────────────────────────────────────── */
+    .f1-bar {
+      display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+      padding:8px 16px; background:#fff;
+      border-bottom:1px solid rgba(0,0,0,.1); box-shadow:0 1px 4px rgba(0,0,0,.06);
+      font-size:.82rem;
+    }
+    .f1-title  { font-weight:800; font-size:1rem; color:#e10600; letter-spacing:.04em; }
+    .f1-title .bi { margin-right:4px; }
+    .f1-meet   { font-weight:700; color:#1a1d24; }
+    .f1-sess   { color:#6c757d; }
+    .f1-sep    { color:rgba(0,0,0,.18); }
+    .f1-flag {
+      display:inline-flex; align-items:center; gap:5px;
+      padding:2px 9px; border-radius:20px; font-size:.7rem; font-weight:700;
+      letter-spacing:.05em; text-transform:uppercase; border:1px solid transparent;
+    }
+    .f1-flag.live      { background:#d4edda; border-color:#28a745; color:#155724; }
+    .f1-flag.delayed   { background:#fff3cd; border-color:#ffc107; color:#856404; }
+    .f1-flag.historic  { background:#e9ecef; border-color:#6c757d; color:#495057; }
+    .f1-bar .btn-sm { font-size:.75rem; padding:2px 10px; }
+
+    /* ── Custom picker (replaces native <select>) ───────────────────────── */
+    .f1-pick { position:relative; display:inline-flex; }
+    .f1-pick > select { display:none !important; }
+    .f1-pick-btn {
+      display:inline-flex; align-items:center; gap:8px;
+      background:#fff; border:1.5px solid #e5e7eb; border-radius:6px;
+      padding:3px 10px 3px 12px; height:30px; min-width:120px;
+      font-size:.78rem; color:#1a1d24; cursor:pointer;
+      transition:border-color .12s, box-shadow .12s, background .12s;
+      font-family:inherit; line-height:1; white-space:nowrap;
+    }
+    .f1-pick-btn:hover { border-color:#cbd5e1; background:#fafbfc; }
+    .f1-pick.is-open > .f1-pick-btn,
+    .f1-pick-btn:focus-visible {
+      border-color:#e10600; outline:none;
+      box-shadow:0 0 0 3px rgba(225,6,0,.12);
+    }
+    .f1-pick-label {
+      font-size:.62rem; font-weight:800; text-transform:uppercase;
+      letter-spacing:.06em; color:#94a3b8;
+      padding-right:8px; border-right:1px solid #eef0f4;
+      line-height:1;
+    }
+    .f1-pick-value { font-weight:700; color:#1a1d24; flex:1; overflow:hidden; text-overflow:ellipsis; }
+    .f1-pick-caret { font-size:.7rem; color:#94a3b8; transition:transform .15s; }
+    .f1-pick.is-open .f1-pick-caret { transform:rotate(180deg); color:#e10600; }
+    .f1-pick-wide .f1-pick-btn { min-width:220px; }
+
+    .f1-pick-menu {
+      position:absolute; top:calc(100% + 6px); left:0; z-index:1050;
+      min-width:100%; max-width:340px;
+      background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:8px;
+      box-shadow:0 10px 32px rgba(15,23,42,.16), 0 2px 8px rgba(15,23,42,.06);
+      display:none; padding:6px;
+      animation:f1pickIn .12s ease-out;
+    }
+    .f1-pick.is-open .f1-pick-menu { display:block; }
+    @keyframes f1pickIn {
+      from { opacity:0; transform:translateY(-4px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+    .f1-pick-search {
+      width:100%; border:1px solid #e5e7eb; border-radius:5px;
+      padding:5px 8px; margin-bottom:6px; font-size:.78rem;
+      background:#f8f9fa; color:#1a1d24; outline:none;
+    }
+    .f1-pick-search:focus { border-color:#e10600; background:#fff; box-shadow:0 0 0 2px rgba(225,6,0,.1); }
+    .f1-pick-list { max-height:320px; overflow-y:auto; }
+    .f1-pick-list::-webkit-scrollbar { width:8px; }
+    .f1-pick-list::-webkit-scrollbar-thumb { background:#dde1ec; border-radius:4px; }
+    .f1-pick-opt {
+      display:flex; align-items:center; gap:8px;
+      padding:6px 10px; border-radius:5px; cursor:pointer;
+      font-size:.8rem; color:#1f2937; line-height:1.25;
+      transition:background .08s, color .08s;
+    }
+    .f1-pick-opt:hover { background:#f1f5f9; color:#1a1d24; }
+    .f1-pick-opt.is-selected { background:#fef2f2; color:#e10600; font-weight:700; }
+    .f1-pick-opt.is-selected .bi { color:#e10600; }
+    .f1-pick-opt > span { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .f1-pick-opt .bi { font-size:.85rem; opacity:.95; }
+    .f1-pick-empty { padding:10px; color:#94a3b8; font-size:.78rem; text-align:center; }
+    .f1-pick-sep { font-weight:800; font-size:.62rem; text-transform:uppercase; letter-spacing:.06em;
+                   color:#94a3b8; padding:8px 10px 4px; }
+    .f1-rate {
+      margin-left:auto; display:flex; align-items:center; gap:8px;
+      font-size:.7rem; color:#6c757d;
+    }
+    .f1-rate-dot { width:7px; height:7px; border-radius:50%; background:#28a745; box-shadow:0 0 4px #28a74566; }
+    .f1-rate-dot.warn { background:#f59e0b; box-shadow:0 0 4px #f59e0b66; }
+    .f1-rate-dot.bad  { background:#dc3545; box-shadow:0 0 4px #dc354566; }
+
+    /* ── Tab strip ─────────────────────────────────────────────────────── */
+    .f1-tabs { background:#fff; border-bottom:1px solid rgba(0,0,0,.08); padding:0 12px; }
+    .f1-tabs .nav-tabs { border:0; }
+    .f1-tabs .nav-link {
+      color:#495057; font-size:.82rem; font-weight:600;
+      padding:8px 14px; border:0; border-bottom:2px solid transparent; border-radius:0;
+    }
+    .f1-tabs .nav-link.active { color:#e10600; border-bottom-color:#e10600; background:transparent; }
+    .f1-tabs .nav-link:hover  { color:#1a1d24; }
+    .f1-tabs .nav-link .bi { margin-right:4px; opacity:.85; }
+
+    /* ── Body ───────────────────────────────────────────────────────────── */
+    .f1-body { padding:14px 16px 24px; }
+    .f1-card {
+      background:#fff; border:1px solid rgba(0,0,0,.08);
+      border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,.04);
+    }
+    .f1-card-h {
+      padding:8px 14px; border-bottom:1px solid rgba(0,0,0,.06);
+      font-size:.74rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em;
+      color:#6c757d; display:flex; align-items:center; gap:8px;
+    }
+    .f1-card-b { padding:12px 14px; }
+
+    /* ── Stat strip ─────────────────────────────────────────────────────── */
+    .f1-stats { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
+    .f1-stat  {
+      flex:1 1 140px; min-width:140px; background:#fff; border:1px solid rgba(0,0,0,.08);
+      border-radius:8px; padding:10px 14px; box-shadow:0 1px 3px rgba(0,0,0,.04);
+    }
+    .f1-stat-l { font-size:.66rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#6c757d; }
+    .f1-stat-v { font-size:1.4rem; font-weight:800; line-height:1.15; color:#1a1d24; font-variant-numeric:tabular-nums; }
+    .f1-stat-s { font-size:.7rem; color:#6c757d; margin-top:1px; }
+
+    /* ── Leaderboard ────────────────────────────────────────────────────── */
+    .f1-lb { width:100%; border-collapse:separate; border-spacing:0; font-size:.82rem; }
+    .f1-lb thead th {
+      position:sticky; top:0; z-index:1; background:#f8f9fa;
+      font-size:.66rem; text-transform:uppercase; letter-spacing:.05em; color:#6c757d;
+      font-weight:700; padding:6px 8px; border-bottom:1px solid rgba(0,0,0,.08); white-space:nowrap;
+    }
+    .f1-lb tbody td { padding:6px 8px; border-bottom:1px solid rgba(0,0,0,.04); white-space:nowrap; }
+    .f1-lb tbody tr:hover td { background:#f7f9fc; }
+    .f1-lb-pos  { font-weight:800; color:#1a1d24; width:34px; text-align:center; }
+    .f1-lb-num  {
+      display:inline-block; min-width:24px; padding:1px 6px; border-radius:4px;
+      font-family:ui-monospace,monospace; font-weight:800; color:#fff; text-align:center;
+      font-size:.72rem;
+    }
+    .f1-lb-team-bar { display:inline-block; width:3px; height:18px; vertical-align:middle; margin-right:6px; border-radius:2px; }
+    .f1-lb-name { font-weight:700; }
+    .f1-lb-team { color:#6c757d; font-size:.72rem; }
+    .f1-lb-time { font-variant-numeric:tabular-nums; }
+    .f1-lb-fl   { color:#9333ea; font-weight:700; }
+    .f1-lb-pit  { color:#dc3545; font-weight:700; }
+    .f1-lb-comp {
+      display:inline-block; width:18px; height:18px; border-radius:50%;
+      border:2px solid; vertical-align:middle; margin-right:4px;
+      font-size:.62rem; font-weight:800; text-align:center; line-height:14px;
+    }
+    .f1-comp-S    { border-color:#dc2626; color:#dc2626; }
+    .f1-comp-M    { border-color:#eab308; color:#a16207; }
+    .f1-comp-H    { border-color:#1a1d24; color:#1a1d24; }
+    .f1-comp-I    { border-color:#16a34a; color:#16a34a; }
+    .f1-comp-W    { border-color:#3b82f6; color:#3b82f6; }
+    .f1-comp-X    { border-color:#9ca3af; color:#9ca3af; }
+
+    /* ── Track map ──────────────────────────────────────────────────────── */
+    .f1-trackwrap { position:relative; }
+    #f1TrackSvg   { width:100%; height:calc(100vh - 280px); min-height:420px; }
+    .f1-track-line { fill:none; stroke:#dde1ec; stroke-width:18; stroke-linecap:round; stroke-linejoin:round; }
+    .f1-track-edge { fill:none; stroke:#c4c9d8; stroke-width:1; stroke-linecap:round; stroke-linejoin:round; }
+    .f1-car-dot   { stroke:#fff; stroke-width:2.5; }
+    .f1-car-label {
+      font-family:ui-monospace,monospace; font-size:10px; font-weight:800;
+      paint-order:stroke; stroke-linejoin:round; stroke:rgba(255,255,255,.95); stroke-width:3;
+      pointer-events:none;
+    }
+
+    /* ── Race control feed ──────────────────────────────────────────────── */
+    .f1-rc-list { max-height:calc(100vh - 240px); overflow-y:auto; }
+    .f1-rc-row  { display:flex; gap:10px; padding:8px 12px; border-bottom:1px solid rgba(0,0,0,.05); font-size:.82rem; }
+    .f1-rc-row:hover { background:#f7f9fc; }
+    .f1-rc-time { font-variant-numeric:tabular-nums; color:#6c757d; min-width:70px; font-size:.74rem; }
+    .f1-rc-cat  {
+      display:inline-block; min-width:78px; text-align:center; padding:1px 6px; border-radius:4px;
+      font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em;
+      color:#fff; background:#6c757d;
+    }
+    .f1-rc-cat.Flag       { background:#dc3545; }
+    .f1-rc-cat.SafetyCar  { background:#f59e0b; color:#1a1d24; }
+    .f1-rc-cat.Drs        { background:#0ea5e9; }
+    .f1-rc-cat.SessionStatus { background:#1f2937; }
+    .f1-rc-cat.CarEvent   { background:#7c3aed; }
+    .f1-rc-msg  { color:#1a1d24; flex:1; }
+    .f1-rc-flag-G  { background:#16a34a !important; }
+    .f1-rc-flag-Y  { background:#eab308 !important; color:#1a1d24 !important; }
+    .f1-rc-flag-DY { background:#ca8a04 !important; }
+    .f1-rc-flag-R  { background:#dc2626 !important; }
+    .f1-rc-flag-CHK{ background:#1f2937 !important; }
+    .f1-rc-flag-BLU{ background:#2563eb !important; }
+
+    /* ── Stints ─────────────────────────────────────────────────────────── */
+    .f1-stint-row { display:flex; align-items:center; gap:6px; padding:4px 0; font-size:.78rem; }
+    .f1-stint-name { width:160px; font-weight:700; }
+    .f1-stint-bars { flex:1; display:flex; gap:1px; height:18px; background:#f1f3f5; border-radius:3px; overflow:hidden; }
+    .f1-stint { display:flex; align-items:center; justify-content:center; font-size:.66rem; font-weight:700; color:#fff; }
+    .f1-stint.SOFT      { background:#dc2626; }
+    .f1-stint.MEDIUM    { background:#eab308; color:#1a1d24; }
+    .f1-stint.HARD      { background:#1a1d24; }
+    .f1-stint.INTERMEDIATE { background:#16a34a; }
+    .f1-stint.WET       { background:#3b82f6; }
+    .f1-stint.UNKNOWN   { background:#9ca3af; }
+
+    /* ── Standings ──────────────────────────────────────────────────────── */
+    .f1-stand-tbl { width:100%; font-size:.84rem; }
+    .f1-stand-tbl th { font-size:.66rem; text-transform:uppercase; letter-spacing:.05em; color:#6c757d; padding:6px 8px; border-bottom:1px solid rgba(0,0,0,.08); }
+    .f1-stand-tbl td { padding:6px 8px; border-bottom:1px solid rgba(0,0,0,.05); }
+    .f1-stand-pts { font-weight:800; font-variant-numeric:tabular-nums; }
+    .f1-stand-chg { font-size:.72rem; font-weight:700; }
+    .f1-stand-chg.up   { color:#16a34a; }
+    .f1-stand-chg.down { color:#dc2626; }
+    .f1-stand-chg.same { color:#adb5bd; }
+
+    /* ── Sessions browser ───────────────────────────────────────────────── */
+    .f1-meet-card {
+      display:flex; align-items:center; gap:10px; padding:8px 12px;
+      border:1px solid rgba(0,0,0,.08); border-radius:8px; background:#fff;
+      cursor:pointer; transition:border-color .12s, box-shadow .12s;
+    }
+    .f1-meet-card:hover { border-color:#0d6efd; box-shadow:0 2px 6px rgba(13,110,253,.1); }
+    .f1-meet-flag { width:34px; height:24px; object-fit:cover; border-radius:3px; flex-shrink:0; background:#e9ecef; }
+    .f1-meet-name { font-weight:700; flex:1; }
+    .f1-meet-loc  { color:#6c757d; font-size:.74rem; }
+    .f1-meet-date { font-size:.74rem; color:#6c757d; font-variant-numeric:tabular-nums; }
+
+    /* ── Drivers grid ───────────────────────────────────────────────────── */
+    .f1-driver-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:10px; }
+    .f1-driver-card {
+      background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:8px;
+      padding:10px; display:flex; align-items:center; gap:10px;
+      box-shadow:0 1px 3px rgba(0,0,0,.04);
+      border-left:4px solid #6c757d;
+    }
+    .f1-driver-photo {
+      width:48px; height:48px; border-radius:50%; background:#e9ecef;
+      object-fit:cover; flex-shrink:0;
+    }
+    .f1-driver-num {
+      font-family:ui-monospace,monospace; font-size:.92rem; font-weight:800; color:#fff;
+      width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+      flex-shrink:0;
+    }
+    .f1-driver-info { min-width:0; flex:1; }
+    .f1-driver-name { font-weight:700; font-size:.84rem; }
+    .f1-driver-team { color:#6c757d; font-size:.72rem; }
+
+    /* ── Telemetry ──────────────────────────────────────────────────────── */
+    .f1-tlm-controls { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px; }
+    .f1-tlm-controls select, .f1-tlm-controls input { font-size:.8rem; }
+    .f1-chart-wrap { background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:8px; padding:8px 10px; margin-bottom:10px; }
+    .f1-chart-wrap canvas { max-height:170px !important; }
+    .f1-chart-label { font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:#6c757d; margin-bottom:4px; }
+
+    /* ── Loader / empty ─────────────────────────────────────────────────── */
+    .f1-empty { text-align:center; padding:40px 20px; color:#6c757d; }
+    .f1-empty .bi { font-size:3rem; opacity:.3; display:block; margin-bottom:10px; }
+    .f1-spinner {
+      display:inline-block; width:14px; height:14px; border:2px solid #e5e7eb;
+      border-top-color:#0d6efd; border-radius:50%; animation:f1spin .7s linear infinite;
+      vertical-align:middle;
+    }
+    @keyframes f1spin { to { transform:rotate(360deg); } }
+
+    /* ── Weather mini ───────────────────────────────────────────────────── */
+    .f1-wx { display:flex; gap:14px; flex-wrap:wrap; }
+    .f1-wx-it { font-size:.78rem; }
+    .f1-wx-it .bi { margin-right:3px; color:#6c757d; }
+    .f1-wx-it b   { color:#1a1d24; }
+  </style>
+</head>
+<body class="light-mode">
+  <div id="rtsTopNav"></div>
+  <div class="rts-version-badge">v1</div>
+
+  <!-- Header bar -->
+  <div class="f1-bar">
+    <span class="f1-title"><i class="bi bi-flag-fill"></i>F1</span>
+    <span class="f1-sep">|</span>
+    <select id="f1Year" class="form-select form-select-sm" title="Season"></select>
+    <select id="f1Meeting" class="form-select form-select-sm" title="Grand Prix" style="min-width:200px;"></select>
+    <select id="f1Session" class="form-select form-select-sm" title="Session"></select>
+    <span class="f1-sep">|</span>
+    <span id="f1StatusFlag" class="f1-flag historic">Historic</span>
+    <span id="f1WeatherChip" class="f1-wx" style="display:none;"></span>
+    <div class="f1-rate">
+      <span id="f1RateDot" class="f1-rate-dot"></span>
+      <span id="f1RateText">OpenF1</span>
+      <button id="f1RefreshBtn" class="btn btn-sm btn-outline-secondary" type="button" title="Refresh data">
+        <i class="bi bi-arrow-clockwise"></i> Refresh
+      </button>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="f1-tabs">
+    <ul class="nav nav-tabs" role="tablist" id="f1TabBar">
+      <li class="nav-item"><button class="nav-link active" data-tab="leaderboard"><i class="bi bi-list-ol"></i>Leaderboard</button></li>
+      <li class="nav-item"><button class="nav-link" data-tab="trackmap"><i class="bi bi-map-fill"></i>Track Map</button></li>
+      <li class="nav-item"><button class="nav-link" data-tab="telemetry"><i class="bi bi-speedometer2"></i>Telemetry</button></li>
+      <li class="nav-item"><button class="nav-link" data-tab="stints"><i class="bi bi-circle-half"></i>Stints &amp; Pits</button></li>
+      <li class="nav-item"><button class="nav-link" data-tab="racecontrol"><i class="bi bi-flag"></i>Race Control</button></li>
+      <li class="nav-item"><button class="nav-link" data-tab="standings"><i class="bi bi-trophy-fill"></i>Standings</button></li>
+      <li class="nav-item"><button class="nav-link" data-tab="drivers"><i class="bi bi-people-fill"></i>Drivers</button></li>
+      <li class="nav-item"><button class="nav-link" data-tab="sessions"><i class="bi bi-calendar3"></i>Calendar</button></li>
+    </ul>
+  </div>
+
+  <div class="f1-body">
+    <!-- Leaderboard -->
+    <div class="f1-pane" data-pane="leaderboard">
+      <div class="f1-stats" id="f1Stats"></div>
+      <div class="f1-card">
+        <div class="f1-card-h">
+          <i class="bi bi-list-ol"></i> Session Leaderboard
+          <span id="f1LbInfo" style="margin-left:auto; font-weight:500; text-transform:none; letter-spacing:0; color:#6c757d;"></span>
+        </div>
+        <div class="f1-card-b" style="padding:0; max-height:calc(100vh - 320px); overflow:auto;">
+          <table class="f1-lb">
+            <thead>
+              <tr>
+                <th>P</th><th>Δ</th><th>#</th><th>Driver</th><th>Team</th>
+                <th>Best Lap</th><th>Last Lap</th><th>S1</th><th>S2</th><th>S3</th>
+                <th>Speed Trap</th><th>Tyre</th><th>Laps</th><th>Gap</th><th>Interval</th>
+              </tr>
+            </thead>
+            <tbody id="f1LbBody"><tr><td colspan="15" class="f1-empty"><span class="f1-spinner"></span> Loading session…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Track Map -->
+    <div class="f1-pane" data-pane="trackmap" style="display:none;">
+      <div class="f1-card">
+        <div class="f1-card-h">
+          <i class="bi bi-map-fill"></i> Track Map
+          <span id="f1TmInfo" style="margin-left:auto; font-weight:500; text-transform:none; letter-spacing:0; color:#6c757d;"></span>
+          <button id="f1TmPlay" class="btn btn-sm btn-outline-primary ms-2"><i class="bi bi-play-fill"></i> Play</button>
+          <input id="f1TmScrub" type="range" min="0" max="100" value="0" style="width:200px;">
+          <span id="f1TmTime" style="font-variant-numeric:tabular-nums; font-size:.74rem; color:#6c757d; min-width:90px;"></span>
+        </div>
+        <div class="f1-card-b f1-trackwrap">
+          <svg id="f1TrackSvg" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid meet">
+            <path id="f1TrackEdgeOuter" class="f1-track-edge" />
+            <path id="f1TrackPath" class="f1-track-line" />
+            <g id="f1TrackCars"></g>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- Telemetry -->
+    <div class="f1-pane" data-pane="telemetry" style="display:none;">
+      <div class="f1-tlm-controls">
+        <label style="font-size:.78rem; color:#6c757d;">Driver:</label>
+        <select id="f1TlmDriver" class="form-select form-select-sm" style="min-width:200px;"></select>
+        <label style="font-size:.78rem; color:#6c757d;">Lap:</label>
+        <select id="f1TlmLap" class="form-select form-select-sm" style="min-width:120px;"></select>
+        <button id="f1TlmLoad" class="btn btn-sm btn-primary"><i class="bi bi-graph-up"></i> Load Telemetry</button>
+        <span id="f1TlmInfo" style="font-size:.74rem; color:#6c757d;"></span>
+      </div>
+      <div class="f1-chart-wrap"><div class="f1-chart-label">Speed (km/h)</div><canvas id="f1ChartSpeed"></canvas></div>
+      <div class="f1-chart-wrap"><div class="f1-chart-label">Throttle &amp; Brake (%)</div><canvas id="f1ChartTb"></canvas></div>
+      <div class="f1-chart-wrap"><div class="f1-chart-label">RPM</div><canvas id="f1ChartRpm"></canvas></div>
+      <div class="f1-chart-wrap"><div class="f1-chart-label">Gear</div><canvas id="f1ChartGear"></canvas></div>
+    </div>
+
+    <!-- Stints & Pits -->
+    <div class="f1-pane" data-pane="stints" style="display:none;">
+      <div class="row g-3">
+        <div class="col-lg-7">
+          <div class="f1-card">
+            <div class="f1-card-h"><i class="bi bi-circle-half"></i> Tyre Stints</div>
+            <div class="f1-card-b" id="f1StintsBody"><div class="f1-empty"><span class="f1-spinner"></span> Loading stints…</div></div>
+          </div>
+        </div>
+        <div class="col-lg-5">
+          <div class="f1-card">
+            <div class="f1-card-h"><i class="bi bi-stopwatch-fill"></i> Pit Stops</div>
+            <div class="f1-card-b" style="padding:0; max-height:60vh; overflow:auto;">
+              <table class="f1-lb">
+                <thead><tr><th>Lap</th><th>#</th><th>Driver</th><th>Stationary</th><th>Lane</th></tr></thead>
+                <tbody id="f1PitsBody"><tr><td colspan="5" class="f1-empty">Loading…</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Race control -->
+    <div class="f1-pane" data-pane="racecontrol" style="display:none;">
+      <div class="f1-card">
+        <div class="f1-card-h"><i class="bi bi-flag"></i> Race Control Messages</div>
+        <div class="f1-card-b f1-rc-list" id="f1RcBody" style="padding:0;"><div class="f1-empty"><span class="f1-spinner"></span> Loading…</div></div>
+      </div>
+    </div>
+
+    <!-- Standings -->
+    <div class="f1-pane" data-pane="standings" style="display:none;">
+      <div class="row g-3">
+        <div class="col-lg-7">
+          <div class="f1-card">
+            <div class="f1-card-h"><i class="bi bi-person-fill"></i> Drivers Championship</div>
+            <div class="f1-card-b" style="padding:0;">
+              <table class="f1-stand-tbl">
+                <thead><tr><th>P</th><th>Δ</th><th>Driver</th><th>Team</th><th class="text-end">Pts</th><th class="text-end">Δ Pts</th></tr></thead>
+                <tbody id="f1DriStandBody"><tr><td colspan="6" class="f1-empty">Race sessions only.</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-5">
+          <div class="f1-card">
+            <div class="f1-card-h"><i class="bi bi-people-fill"></i> Constructors Championship</div>
+            <div class="f1-card-b" style="padding:0;">
+              <table class="f1-stand-tbl">
+                <thead><tr><th>P</th><th>Δ</th><th>Team</th><th class="text-end">Pts</th><th class="text-end">Δ Pts</th></tr></thead>
+                <tbody id="f1TeamStandBody"><tr><td colspan="5" class="f1-empty">Race sessions only.</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Drivers -->
+    <div class="f1-pane" data-pane="drivers" style="display:none;">
+      <div class="f1-driver-grid" id="f1DrvGrid"><div class="f1-empty"><span class="f1-spinner"></span> Loading drivers…</div></div>
+    </div>
+
+    <!-- Sessions / Calendar -->
+    <div class="f1-pane" data-pane="sessions" style="display:none;">
+      <div class="f1-card">
+        <div class="f1-card-h"><i class="bi bi-calendar3"></i> Season Calendar — click any meeting to load</div>
+        <div class="f1-card-b" id="f1CalBody"><div class="f1-empty"><span class="f1-spinner"></span> Loading calendar…</div></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="core.js"></script>
+  <script src="topnav.js?v=20260613a"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script>
+  /* ═══════════════════════════════════════════════════════════════════════════
+     Race Team OS — F1 Dashboard
+     Data: OpenF1 (https://openf1.org) — community-run, free historical tier.
+     Free tier limits: 3 req/s, 30 req/min. Live data requires a sponsor key
+     and is gated to a 30-min window around session start/end. Outside that
+     window OpenF1 serves historical data, which is what this page is built on.
+     ═══════════════════════════════════════════════════════════════════════════ */
+  'use strict';
+
+  const F1_API = 'https://api.openf1.org/v1';
+  const COMPOUND_LETTER = { SOFT:'S', MEDIUM:'M', HARD:'H', INTERMEDIATE:'I', WET:'W', UNKNOWN:'X' };
+
+  /* ── State ─────────────────────────────────────────────────────────────── */
+  const state = {
+    year:    new Date().getFullYear(),
+    meetings: [],
+    sessions: [],
+    meeting:  null,    // selected meeting object
+    session:  null,    // selected session object
+    drivers:  [],      // drivers in current session
+    drvByNum: new Map(),
+    laps:     [],      // last loaded /laps
+    stints:   [],
+    pits:     [],
+    intervals:[],
+    positions:[],
+    raceCtrl: [],
+    weather:  [],
+    sessionResult: [],
+    activeTab: 'leaderboard',
+    tabsLoaded: new Set(),    // which tabs have hydrated for current session
+    // track map playback
+    tm: { points: new Map(), tMin:0, tMax:0, t:0, playing:false, raf:null, viewBox:[0,0,1000,600] }
+  };
+
+  /* ── Tiny rate-limited fetch queue ─────────────────────────────────────── */
+  /* OpenF1 free tier = 3 req/s, 30 req/min. We run a strict serial queue with
+     a ~380 ms gap (≈ 2.6 req/s) and back off on 429 responses. */
+  const f1Queue = (() => {
+    const q = []; let active = 0; const max = 1; let lastTime = 0; let minGap = 380;
+    function tick(){
+      while(active < max && q.length){
+        const now = Date.now();
+        const wait = Math.max(0, lastTime + minGap - now);
+        const job = q.shift(); active++;
+        lastTime = now + wait;
+        setTimeout(() => runJob(job), wait);
+      }
+    }
+    function runJob(job){
+      fetch(job.url, { cache:'no-store' })
+        .then(r => {
+          // 404 = no data yet for this endpoint (eg session_result before publication,
+          // championship_* outside race sessions). Treat as empty result.
+          if (r.status === 404) { active--; tick(); job.resolve([]); return null; }
+          if (r.status === 429) {
+            // Rate limited — back off and re-queue at the front
+            const ra = Number(r.headers.get('Retry-After')) || 2;
+            minGap = Math.min(2000, minGap + 120);  // permanently slow us down a bit
+            setTimeout(() => {
+              if (job.retries < 3) {
+                job.retries = (job.retries || 0) + 1;
+                q.unshift(job); active--; tick();
+              } else {
+                active--; tick();
+                job.reject(new Error('HTTP 429 (rate limited) for ' + job.url));
+              }
+            }, ra * 1000);
+            return null;
+          }
+          if (!r.ok) { active--; tick(); job.reject(new Error('HTTP '+r.status+' for '+job.url)); return null; }
+          return r.json().then(j => { active--; tick(); job.resolve(j); });
+        })
+        .catch(e => { active--; tick(); job.reject(e); });
+    }
+    return (path, params) => new Promise((resolve, reject) => {
+      const usp = new URLSearchParams();
+      if (params) for (const k of Object.keys(params)) {
+        const v = params[k];
+        if (v !== undefined && v !== null && v !== '') usp.set(k, v);
+      }
+      const url = `${F1_API}/${path}${usp.toString() ? '?' + usp.toString() : ''}`;
+      q.push({ url, resolve, reject, retries: 0 });
+      tick();
+    });
+  })();
+
+  function setRate(state){
+    const dot = document.getElementById('f1RateDot');
+    const txt = document.getElementById('f1RateText');
+    if (!dot || !txt) return;
+    dot.classList.remove('warn','bad');
+    if (state === 'busy')  dot.classList.add('warn');
+    if (state === 'error') dot.classList.add('bad');
+    txt.textContent = state === 'error' ? 'OpenF1 — error' : (state === 'busy' ? 'OpenF1 — loading' : 'OpenF1');
+  }
+
+  async function api(path, params){
+    setRate('busy');
+    try {
+      const r = await f1Queue(path, params);
+      setRate('idle');
+      return Array.isArray(r) ? r : [];
+    } catch (e) {
+      console.error('OpenF1 error', path, params, e);
+      setRate('error');
+      return [];
+    }
+  }
+
+  /* ── Helpers ───────────────────────────────────────────────────────────── */
+  function fmtLap(s){
+    if (s == null || isNaN(s)) return '—';
+    const m = Math.floor(s/60);
+    const sec = (s - m*60);
+    return m > 0 ? `${m}:${sec.toFixed(3).padStart(6,'0')}` : sec.toFixed(3);
+  }
+  function fmtSec(s){
+    if (s == null || isNaN(s)) return '—';
+    return Number(s).toFixed(3);
+  }
+  function fmtGap(g){
+    if (g == null) return '—';
+    if (typeof g === 'string') return g;
+    if (g === 0) return '—';
+    return '+' + Number(g).toFixed(3);
+  }
+  function fmtDate(iso){
+    if (!iso) return '';
+    const d = new Date(iso);
+    return d.toLocaleString(undefined, { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+  }
+  function fmtClock(iso){
+    if (!iso) return '';
+    return new Date(iso).toLocaleTimeString(undefined, { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+  }
+  function teamColor(c){ return c ? '#'+c : '#6c757d'; }
+  function escHtml(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  /* ── Custom picker that wraps a hidden <select> ────────────────────────
+     Keeps the native element in DOM so existing `change` listeners and
+     `.value` reads/writes continue to work; just call .refresh() after
+     repopulating the underlying <select>. ─────────────────────────────── */
+  const f1Picks = new Map();
+  function f1Pick(selectId, opts = {}){
+    const sel = document.getElementById(selectId);
+    if (!sel || f1Picks.has(selectId)) return f1Picks.get(selectId);
+    const wrap = document.createElement('div');
+    wrap.className = 'f1-pick' + (opts.wide ? ' f1-pick-wide' : '');
+    wrap.innerHTML = `
+      <button class="f1-pick-btn" type="button" aria-haspopup="listbox" aria-expanded="false">
+        ${opts.label ? `<span class="f1-pick-label">${escHtml(opts.label)}</span>` : ''}
+        <span class="f1-pick-value">—</span>
+        <i class="bi bi-chevron-down f1-pick-caret"></i>
+      </button>
+      <div class="f1-pick-menu" role="listbox">
+        ${opts.searchable ? '<input class="f1-pick-search" type="text" placeholder="Search…" autocomplete="off">' : ''}
+        <div class="f1-pick-list"></div>
+      </div>
+    `;
+    sel.parentNode.insertBefore(wrap, sel);
+    wrap.appendChild(sel);
+    const btn = wrap.querySelector('.f1-pick-btn');
+    const list = wrap.querySelector('.f1-pick-list');
+    const valEl = wrap.querySelector('.f1-pick-value');
+    const search = wrap.querySelector('.f1-pick-search');
+    let isOpen = false;
+
+    function rebuild(){
+      list.innerHTML = '';
+      const q = search ? search.value.trim().toLowerCase() : '';
+      let count = 0;
+      Array.from(sel.options).forEach(o => {
+        const txt = o.textContent;
+        if (q && !txt.toLowerCase().includes(q)) return;
+        const item = document.createElement('div');
+        item.className = 'f1-pick-opt' + (o.selected ? ' is-selected' : '');
+        item.setAttribute('role','option');
+        item.dataset.value = o.value;
+        item.innerHTML = `<span>${escHtml(txt)}</span>${o.selected ? '<i class="bi bi-check2"></i>' : ''}`;
+        item.addEventListener('click', () => {
+          if (sel.value !== o.value) {
+            sel.value = o.value;
+            sel.dispatchEvent(new Event('change', { bubbles:true }));
+          }
+          close();
+          refresh();
+        });
+        list.appendChild(item);
+        count++;
+      });
+      if (!count) list.innerHTML = '<div class="f1-pick-empty">No matches</div>';
+    }
+    function refresh(){
+      const o = sel.options[sel.selectedIndex];
+      valEl.textContent = o ? o.textContent : '—';
+      valEl.title = o ? o.textContent : '';
+      if (isOpen) rebuild();
+    }
+    function open(){
+      if (isOpen) return; isOpen = true;
+      wrap.classList.add('is-open'); btn.setAttribute('aria-expanded','true');
+      rebuild();
+      // Scroll selected into view
+      const cur = list.querySelector('.is-selected');
+      if (cur) cur.scrollIntoView({ block:'nearest' });
+      if (search) { search.value = ''; setTimeout(() => search.focus(), 30); }
+    }
+    function close(){
+      if (!isOpen) return; isOpen = false;
+      wrap.classList.remove('is-open'); btn.setAttribute('aria-expanded','false');
+    }
+    btn.addEventListener('click', e => { e.stopPropagation(); isOpen ? close() : open(); });
+    if (search) {
+      search.addEventListener('input', rebuild);
+      search.addEventListener('click', e => e.stopPropagation());
+      search.addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
+          const first = list.querySelector('.f1-pick-opt');
+          if (first) first.click();
+        } else if (e.key === 'Escape') close();
+      });
+    }
+    document.addEventListener('click', e => { if (!wrap.contains(e.target)) close(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+
+    refresh();
+    const inst = { refresh, open, close, el: wrap };
+    f1Picks.set(selectId, inst);
+    return inst;
+  }
+
+  /* ── Bootstrap: years + meetings ───────────────────────────────────────── */
+  async function loadYears(){
+    const sel = document.getElementById('f1Year');
+    sel.innerHTML = '';
+    const cur = new Date().getFullYear();
+    for (let y = cur; y >= 2023; y--) {
+      const o = document.createElement('option');
+      o.value = y; o.textContent = y;
+      if (y === cur) o.selected = true;
+      sel.appendChild(o);
+    }
+    state.year = cur;
+    f1Picks.get('f1Year')?.refresh();
+  }
+
+  async function loadMeetings(year){
+    const sel = document.getElementById('f1Meeting');
+    sel.innerHTML = '<option>Loading…</option>';
+    const meetings = await api('meetings', { year });
+    meetings.sort((a,b) => new Date(a.date_start) - new Date(b.date_start));
+    state.meetings = meetings;
+    sel.innerHTML = '';
+    if (!meetings.length) {
+      sel.innerHTML = '<option value="">No meetings</option>';
+      return;
+    }
+    // Default to most recent meeting whose start <= now, otherwise the first
+    const now = new Date();
+    let defaultMk = meetings[0].meeting_key;
+    for (const m of meetings) {
+      if (new Date(m.date_start) <= now) defaultMk = m.meeting_key;
+    }
+    for (const m of meetings) {
+      const o = document.createElement('option');
+      o.value = m.meeting_key;
+      o.textContent = `${m.meeting_name} — ${m.location || ''}`.trim();
+      if (m.meeting_key === defaultMk) o.selected = true;
+      sel.appendChild(o);
+    }
+    state.meeting = meetings.find(m => m.meeting_key === defaultMk) || meetings[0];
+    f1Picks.get('f1Meeting')?.refresh();
+  }
+
+  async function loadSessionsForMeeting(meetingKey){
+    const sel = document.getElementById('f1Session');
+    sel.innerHTML = '<option>Loading…</option>';
+    const sessions = await api('sessions', { meeting_key: meetingKey });
+    sessions.sort((a,b) => new Date(a.date_start) - new Date(b.date_start));
+    state.sessions = sessions;
+    sel.innerHTML = '';
+    if (!sessions.length) {
+      sel.innerHTML = '<option value="">No sessions</option>';
+      state.session = null;
+      return;
+    }
+    // Default to latest started session
+    const now = new Date();
+    let def = sessions[sessions.length - 1].session_key;
+    for (const s of sessions) {
+      if (new Date(s.date_start) <= now) def = s.session_key;
+    }
+    for (const s of sessions) {
+      const o = document.createElement('option');
+      o.value = s.session_key;
+      o.textContent = s.session_name;
+      if (s.session_key === def) o.selected = true;
+      sel.appendChild(o);
+    }
+    state.session = sessions.find(s => s.session_key === def) || sessions[sessions.length-1];
+    f1Picks.get('f1Session')?.refresh();
+  }
+
+  function updateStatusFlag(){
+    const el = document.getElementById('f1StatusFlag');
+    if (!el || !state.session) { el.textContent = '—'; el.className = 'f1-flag historic'; return; }
+    const now = Date.now();
+    const start = new Date(state.session.date_start).getTime();
+    const end   = new Date(state.session.date_end).getTime();
+    const liveWin = 30*60*1000;
+    if (now >= start - liveWin && now <= end + liveWin) {
+      el.textContent = 'Live window'; el.className = 'f1-flag live';
+    } else if (now < start) {
+      el.textContent = 'Upcoming'; el.className = 'f1-flag delayed';
+    } else {
+      el.textContent = 'Historic'; el.className = 'f1-flag historic';
+    }
+  }
+
+  /* ── Driver hydration (used by every tab) ─────────────────────────────── */
+  async function loadDrivers(sessionKey){
+    state.drivers = await api('drivers', { session_key: sessionKey });
+    state.drvByNum = new Map(state.drivers.map(d => [d.driver_number, d]));
+    return state.drivers;
+  }
+
+  /* ── Weather chip ─────────────────────────────────────────────────────── */
+  async function loadWeather(){
+    if (!state.session) return;
+    const w = await api('weather', { session_key: state.session.session_key });
+    state.weather = w;
+    const last = w[w.length - 1];
+    const chip = document.getElementById('f1WeatherChip');
+    if (!last) { chip.style.display = 'none'; return; }
+    chip.style.display = '';
+    chip.innerHTML = `
+      <span class="f1-wx-it"><i class="bi bi-thermometer-half"></i>Air <b>${last.air_temperature?.toFixed?.(1) ?? '—'}°C</b></span>
+      <span class="f1-wx-it"><i class="bi bi-thermometer-sun"></i>Track <b>${last.track_temperature?.toFixed?.(1) ?? '—'}°C</b></span>
+      <span class="f1-wx-it"><i class="bi bi-droplet-half"></i><b>${last.humidity ?? '—'}%</b></span>
+      <span class="f1-wx-it"><i class="bi bi-wind"></i><b>${last.wind_speed?.toFixed?.(1) ?? '—'} m/s</b></span>
+      ${last.rainfall ? '<span class="f1-wx-it" style="color:#0ea5e9;"><i class="bi bi-cloud-rain-heavy-fill"></i><b>Rain</b></span>' : ''}
+    `;
+  }
+
+  /* ── Reset all tabs (on session change) ───────────────────────────────── */
+  function resetTabs(){
+    state.tabsLoaded.clear();
+    state.laps = []; state.stints = []; state.pits = []; state.intervals = [];
+    state.positions = []; state.raceCtrl = []; state.sessionResult = [];
+    state.tm = { points: new Map(), tMin:0, tMax:0, t:0, playing:false, raf:null, viewBox:[0,0,1000,600] };
+  }
+
+  /* ──────────────────────────────────────────────────────────────────────────
+     LEADERBOARD TAB
+     ────────────────────────────────────────────────────────────────────────── */
+  async function loadLeaderboard(){
+    if (!state.session) return;
+    const sk = state.session.session_key;
+    const isRace = /Race|Sprint(?!.*Qual)/i.test(state.session.session_name || state.session.session_type || '');
+
+    const [laps, stints, sresult, intervals] = await Promise.all([
+      api('laps',   { session_key: sk }),
+      api('stints', { session_key: sk }),
+      api('session_result', { session_key: sk }),
+      isRace ? api('intervals', { session_key: sk }) : Promise.resolve([])
+    ]);
+    state.laps = laps; state.stints = stints;
+    state.sessionResult = sresult;
+    state.intervals = intervals;
+
+    // Aggregate per-driver bests + last lap
+    const perDrv = new Map();
+    for (const lap of laps) {
+      const d = perDrv.get(lap.driver_number) || { best:null, lastLap:null, lapCount:0, bestS1:null, bestS2:null, bestS3:null, topSpeed:0 };
+      d.lapCount = Math.max(d.lapCount, lap.lap_number || 0);
+      if (lap.lap_duration && (!d.best || lap.lap_duration < d.best.lap_duration)) d.best = lap;
+      if (!d.lastLap || (lap.lap_number || 0) > (d.lastLap.lap_number || 0)) d.lastLap = lap;
+      if (lap.duration_sector_1 && (d.bestS1 == null || lap.duration_sector_1 < d.bestS1)) d.bestS1 = lap.duration_sector_1;
+      if (lap.duration_sector_2 && (d.bestS2 == null || lap.duration_sector_2 < d.bestS2)) d.bestS2 = lap.duration_sector_2;
+      if (lap.duration_sector_3 && (d.bestS3 == null || lap.duration_sector_3 < d.bestS3)) d.bestS3 = lap.duration_sector_3;
+      if (lap.st_speed && lap.st_speed > d.topSpeed) d.topSpeed = lap.st_speed;
+      perDrv.set(lap.driver_number, d);
+    }
+
+    // Latest stint per driver
+    const lastStint = new Map();
+    for (const s of stints) {
+      const cur = lastStint.get(s.driver_number);
+      if (!cur || s.stint_number > cur.stint_number) lastStint.set(s.driver_number, s);
+    }
+
+    // Latest interval per driver (race only)
+    const lastInt = new Map();
+    for (const i of intervals) {
+      const cur = lastInt.get(i.driver_number);
+      if (!cur || new Date(i.date) > new Date(cur.date)) lastInt.set(i.driver_number, i);
+    }
+
+    // Build rows. If sresult has data (post-session) prefer it for ordering;
+    // otherwise sort by best lap (practice/qual) or by last interval (race).
+    let rows = state.drivers.map(d => {
+      const a = perDrv.get(d.driver_number) || {};
+      const sr = sresult.find(x => x.driver_number === d.driver_number);
+      const stint = lastStint.get(d.driver_number);
+      const ival = lastInt.get(d.driver_number);
+      return { d, a, sr, stint, ival };
+    });
+
+    if (sresult.length) {
+      rows.sort((x,y) => (x.sr?.position ?? 99) - (y.sr?.position ?? 99));
+    } else if (isRace) {
+      // by last gap_to_leader
+      rows.sort((x,y) => {
+        const a = (typeof x.ival?.gap_to_leader === 'number') ? x.ival.gap_to_leader : 9999;
+        const b = (typeof y.ival?.gap_to_leader === 'number') ? y.ival.gap_to_leader : 9999;
+        return a - b;
+      });
+    } else {
+      rows.sort((x,y) => (x.a.best?.lap_duration ?? 9999) - (y.a.best?.lap_duration ?? 9999));
+    }
+
+    // Determine purple sectors / overall fastest
+    let pS1=Infinity, pS2=Infinity, pS3=Infinity, pBest=Infinity, pBestNum=null;
+    for (const r of rows) {
+      if (r.a.bestS1 != null && r.a.bestS1 < pS1) pS1 = r.a.bestS1;
+      if (r.a.bestS2 != null && r.a.bestS2 < pS2) pS2 = r.a.bestS2;
+      if (r.a.bestS3 != null && r.a.bestS3 < pS3) pS3 = r.a.bestS3;
+      if (r.a.best?.lap_duration && r.a.best.lap_duration < pBest) { pBest = r.a.best.lap_duration; pBestNum = r.d.driver_number; }
+    }
+
+    const tbody = document.getElementById('f1LbBody');
+    tbody.innerHTML = rows.map((r,idx) => {
+      const pos = r.sr?.position ?? (idx+1);
+      const numBg = teamColor(r.d.team_colour);
+      const bestL = r.a.best?.lap_duration;
+      const lastL = r.a.lastLap?.lap_duration;
+      const compL = COMPOUND_LETTER[(r.stint?.compound || 'UNKNOWN').toUpperCase()] || 'X';
+      const compClass = `f1-comp-${compL}`;
+      const tyreAge = r.stint ? `${(r.stint.tyre_age_at_start || 0) + ((r.stint.lap_end || r.a.lapCount || 0) - (r.stint.lap_start || 0))}L` : '—';
+      const isFL = pBestNum === r.d.driver_number ? '<span class="f1-lb-fl" title="Fastest lap">FL</span>' : '';
+      const onPit = r.a.lastLap?.is_pit_out_lap ? '<span class="f1-lb-pit">OUT</span>' : '';
+
+      const s1c = (r.a.bestS1 != null && r.a.bestS1 === pS1) ? 'style="color:#9333ea;font-weight:700"' : '';
+      const s2c = (r.a.bestS2 != null && r.a.bestS2 === pS2) ? 'style="color:#9333ea;font-weight:700"' : '';
+      const s3c = (r.a.bestS3 != null && r.a.bestS3 === pS3) ? 'style="color:#9333ea;font-weight:700"' : '';
+      const bestC = (bestL != null && bestL === pBest) ? 'style="color:#9333ea;font-weight:800"' : '';
+
+      let gap = '—', interval = '—';
+      if (sresult.length && r.sr) {
+        gap = (r.sr.gap_to_leader === 0) ? 'LEADER' : (typeof r.sr.gap_to_leader === 'number' ? '+' + r.sr.gap_to_leader.toFixed(3) : (r.sr.gap_to_leader ?? '—'));
+        interval = '—';
+      } else if (r.ival) {
+        gap = (r.ival.gap_to_leader == null) ? 'LEADER' : (typeof r.ival.gap_to_leader === 'number' ? '+' + r.ival.gap_to_leader.toFixed(3) : r.ival.gap_to_leader);
+        interval = (r.ival.interval == null) ? '—' : (typeof r.ival.interval === 'number' ? '+' + r.ival.interval.toFixed(3) : r.ival.interval);
+      }
+
+      const startPos = r.sr?.position; // change indicator placeholder
+      return `<tr>
+        <td class="f1-lb-pos">${pos}</td>
+        <td>${isFL}</td>
+        <td><span class="f1-lb-num" style="background:${numBg}">${r.d.driver_number}</span></td>
+        <td><span class="f1-lb-team-bar" style="background:${numBg}"></span><span class="f1-lb-name">${escHtml(r.d.name_acronym || r.d.last_name || '?')}</span> <span class="text-muted" style="font-size:.74rem">${escHtml(r.d.last_name||'')}</span></td>
+        <td class="f1-lb-team">${escHtml(r.d.team_name || '—')}</td>
+        <td class="f1-lb-time" ${bestC}>${fmtLap(bestL)}</td>
+        <td class="f1-lb-time">${fmtLap(lastL)} ${onPit}</td>
+        <td class="f1-lb-time" ${s1c}>${fmtSec(r.a.bestS1)}</td>
+        <td class="f1-lb-time" ${s2c}>${fmtSec(r.a.bestS2)}</td>
+        <td class="f1-lb-time" ${s3c}>${fmtSec(r.a.bestS3)}</td>
+        <td class="f1-lb-time">${r.a.topSpeed || '—'} ${r.a.topSpeed ? '<span class="text-muted">km/h</span>' : ''}</td>
+        <td><span class="f1-lb-comp ${compClass}">${compL}</span><span class="text-muted">${tyreAge}</span></td>
+        <td class="f1-lb-time">${r.a.lapCount || (r.sr?.number_of_laps ?? '—')}</td>
+        <td class="f1-lb-time">${gap}</td>
+        <td class="f1-lb-time">${interval}</td>
+      </tr>`;
+    }).join('') || `<tr><td colspan="15" class="f1-empty">No data for this session.</td></tr>`;
+
+    // Stats strip
+    const totalLaps = laps.length;
+    const fastest = pBest === Infinity ? null : pBest;
+    const fastestDrv = pBestNum ? state.drvByNum.get(pBestNum) : null;
+    const lastWeather = state.weather[state.weather.length - 1];
+    const stats = [
+      { l: 'Drivers', v: state.drivers.length, s: state.session.session_name },
+      { l: 'Laps logged', v: totalLaps, s: state.session.location || '' },
+      { l: 'Fastest lap', v: fastest != null ? fmtLap(fastest) : '—', s: fastestDrv ? `${fastestDrv.name_acronym} — ${fastestDrv.team_name}` : '' },
+      { l: 'Pit stops', v: '…', s: 'see Stints tab' },
+      { l: 'Track temp', v: lastWeather?.track_temperature != null ? lastWeather.track_temperature.toFixed(1) + '°' : '—', s: lastWeather?.air_temperature != null ? `Air ${lastWeather.air_temperature.toFixed(1)}°` : '' }
+    ];
+    document.getElementById('f1Stats').innerHTML = stats.map(s => `
+      <div class="f1-stat">
+        <div class="f1-stat-l">${s.l}</div>
+        <div class="f1-stat-v">${s.v}</div>
+        <div class="f1-stat-s">${s.s}</div>
+      </div>
+    `).join('');
+
+    document.getElementById('f1LbInfo').textContent =
+      sresult.length ? 'Final classification' : (isRace ? 'Live order from intervals' : 'Sorted by best lap');
+  }
+
+  /* ──────────────────────────────────────────────────────────────────────────
+     TRACK MAP TAB — uses /location data, builds path from a sample of points
+     ────────────────────────────────────────────────────────────────────────── */
+  async function loadTrackMap(){
+    if (!state.session) return;
+    const sk = state.session.session_key;
+
+    // Pick a fast driver to seed the path (use leader of last session result, or first driver)
+    const seedDrv = state.sessionResult[0]?.driver_number || state.drivers[0]?.driver_number;
+    if (!seedDrv) return;
+
+    // Get a chunk of location data near the start of the session for the seed driver.
+    // 4-minute window is enough for ≥1 full lap on every F1 circuit.
+    const start = state.session.date_start;
+    const startTs = new Date(start).getTime();
+    const after  = new Date(startTs + 8*60_000).toISOString();   // skip first 8min (out lap noise)
+    const before = new Date(startTs + 12*60_000).toISOString();  // 4-min window
+
+    const seedPoints = await api('location', {
+      session_key: sk,
+      driver_number: seedDrv,
+      'date>': after,
+      'date<': before
+    });
+
+    // Build path from seed: project x/y to viewbox
+    if (!seedPoints.length) {
+      document.getElementById('f1TmInfo').textContent = 'No location data for this session';
+      return;
+    }
+    let xs = [], ys = [];
+    for (const p of seedPoints) {
+      if (typeof p.x === 'number' && typeof p.y === 'number') { xs.push(p.x); ys.push(p.y); }
+    }
+    if (!xs.length) {
+      document.getElementById('f1TmInfo').textContent = 'No coordinates in seed';
+      return;
+    }
+    const minX = Math.min(...xs), maxX = Math.max(...xs);
+    const minY = Math.min(...ys), maxY = Math.max(...ys);
+    const pad = 40;
+    const w = 1000, h = 600;
+    const sx = (w - 2*pad) / Math.max(1, (maxX - minX));
+    const sy = (h - 2*pad) / Math.max(1, (maxY - minY));
+    const sc = Math.min(sx, sy);
+    const ox = pad + ((w - 2*pad) - (maxX - minX)*sc)/2;
+    const oy = pad + ((h - 2*pad) - (maxY - minY)*sc)/2;
+    function project(x, y){ return [ox + (x - minX)*sc, h - (oy + (y - minY)*sc)]; } // flip y
+
+    // Build a smoothed path. Don't auto-close (no Z) — start and end of the
+    // sample window may be on opposite sides of the circuit and a closing
+    // chord would draw a straight line right across the track.
+    const ptsXY = seedPoints.filter(p => typeof p.x === 'number').map(p => project(p.x, p.y));
+    // Down-sample for path (every 3rd point)
+    const pathPts = ptsXY.filter((_, i) => i % 3 === 0);
+    const pathD = pathPts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+    document.getElementById('f1TrackPath').setAttribute('d', pathD);
+    document.getElementById('f1TrackEdgeOuter').setAttribute('d', pathD);
+
+    // Now load location for top drivers in the same window for playback.
+    // Cap at 10 drivers to stay inside the 30 req/min OpenF1 free-tier budget.
+    const orderedNums = state.sessionResult.length
+      ? state.sessionResult.map(r => r.driver_number)
+      : state.drivers.map(d => d.driver_number);
+    const driverNums = orderedNums.slice(0, 10);
+    document.getElementById('f1TmInfo').innerHTML = `Loading positions for ${driverNums.length} drivers… <span class="f1-spinner"></span>`;
+
+    // Batch concurrently but rate-limited by queue
+    const allLoc = await Promise.all(driverNums.map(num =>
+      api('location', { session_key: sk, driver_number: num, 'date>': after, 'date<': before })
+    ));
+
+    state.tm.points = new Map();
+    let tMin = Infinity, tMax = -Infinity;
+    driverNums.forEach((num, i) => {
+      const pts = allLoc[i].filter(p => typeof p.x === 'number' && typeof p.y === 'number').map(p => {
+        const t = new Date(p.date).getTime();
+        if (t < tMin) tMin = t; if (t > tMax) tMax = t;
+        const xy = project(p.x, p.y);
+        return { t, x: xy[0], y: xy[1] };
+      });
+      pts.sort((a,b) => a.t - b.t);
+      if (pts.length) state.tm.points.set(num, pts);
+    });
+    state.tm.tMin = tMin; state.tm.tMax = tMax; state.tm.t = tMin;
+
+    // Place dots
+    const g = document.getElementById('f1TrackCars');
+    g.innerHTML = '';
+    for (const [num, pts] of state.tm.points) {
+      const d = state.drvByNum.get(num); if (!d) continue;
+      const c = teamColor(d.team_colour);
+      const grp = document.createElementNS('http://www.w3.org/2000/svg','g');
+      grp.setAttribute('id', 'f1car-' + num);
+      grp.innerHTML = `
+        <circle class="f1-car-dot" r="9" fill="${c}" cx="${pts[0].x}" cy="${pts[0].y}"></circle>
+        <text class="f1-car-label" x="${pts[0].x}" y="${pts[0].y + 4}" text-anchor="middle" fill="#fff">${num}</text>
+      `;
+      g.appendChild(grp);
+    }
+    drawTrackMapAt(tMin);
+
+    document.getElementById('f1TmInfo').textContent = `${state.tm.points.size} cars · 4-min window from ${fmtClock(after)} to ${fmtClock(before)}`;
+  }
+
+  function drawTrackMapAt(t){
+    state.tm.t = t;
+    for (const [num, pts] of state.tm.points) {
+      // Find latest point at or before t
+      let lo = 0, hi = pts.length - 1, idx = 0;
+      while (lo <= hi) {
+        const mid = (lo + hi) >> 1;
+        if (pts[mid].t <= t) { idx = mid; lo = mid + 1; } else { hi = mid - 1; }
+      }
+      const p = pts[idx];
+      const grp = document.getElementById('f1car-' + num);
+      if (!grp || !p) continue;
+      const dot = grp.querySelector('circle');
+      const lbl = grp.querySelector('text');
+      dot.setAttribute('cx', p.x); dot.setAttribute('cy', p.y);
+      lbl.setAttribute('x', p.x);  lbl.setAttribute('y', p.y + 4);
+    }
+    const scrub = document.getElementById('f1TmScrub');
+    if (state.tm.tMax > state.tm.tMin) {
+      scrub.value = String(Math.round(((t - state.tm.tMin) / (state.tm.tMax - state.tm.tMin)) * 100));
+    }
+    document.getElementById('f1TmTime').textContent = new Date(t).toLocaleTimeString();
+  }
+
+  function tmPlay(){
+    if (state.tm.playing) {
+      state.tm.playing = false;
+      document.getElementById('f1TmPlay').innerHTML = '<i class="bi bi-play-fill"></i> Play';
+      cancelAnimationFrame(state.tm.raf);
+      return;
+    }
+    state.tm.playing = true;
+    document.getElementById('f1TmPlay').innerHTML = '<i class="bi bi-pause-fill"></i> Pause';
+    let last = performance.now();
+    function step(now){
+      if (!state.tm.playing) return;
+      const dt = now - last; last = now;
+      let t = state.tm.t + dt * 4;     // 4× real-time
+      if (t > state.tm.tMax) t = state.tm.tMin;
+      drawTrackMapAt(t);
+      state.tm.raf = requestAnimationFrame(step);
+    }
+    state.tm.raf = requestAnimationFrame(step);
+  }
+
+  /* ──────────────────────────────────────────────────────────────────────────
+     TELEMETRY TAB
+     ────────────────────────────────────────────────────────────────────────── */
+  let f1Charts = { speed:null, tb:null, rpm:null, gear:null };
+
+  function populateTlmDriver(){
+    const sel = document.getElementById('f1TlmDriver');
+    sel.innerHTML = state.drivers.map(d =>
+      `<option value="${d.driver_number}">#${d.driver_number} ${escHtml(d.full_name || d.last_name)} (${escHtml(d.team_name||'')})</option>`
+    ).join('') || '<option>No drivers</option>';
+    f1Picks.get('f1TlmDriver')?.refresh();
+  }
+  function populateTlmLap(){
+    const sel = document.getElementById('f1TlmLap');
+    const dn = parseInt(document.getElementById('f1TlmDriver').value);
+    if (!dn) { sel.innerHTML = ''; f1Picks.get('f1TlmLap')?.refresh(); return; }
+    const laps = state.laps.filter(l => l.driver_number === dn && l.lap_duration).sort((a,b) => a.lap_duration - b.lap_duration);
+    sel.innerHTML = laps.slice(0, 50).map(l => `<option value="${l.lap_number}">L${l.lap_number} — ${fmtLap(l.lap_duration)}${l === laps[0] ? ' (best)' : ''}</option>`).join('');
+    f1Picks.get('f1TlmLap')?.refresh();
+  }
+
+  async function loadTelemetryLap(){
+    if (!state.session) return;
+    const sk = state.session.session_key;
+    const dn = parseInt(document.getElementById('f1TlmDriver').value);
+    const ln = parseInt(document.getElementById('f1TlmLap').value);
+    if (!dn || !ln) return;
+    const lap = state.laps.find(l => l.driver_number === dn && l.lap_number === ln);
+    if (!lap || !lap.date_start) {
+      document.getElementById('f1TlmInfo').textContent = 'Lap start time unavailable';
+      return;
+    }
+    document.getElementById('f1TlmInfo').innerHTML = '<span class="f1-spinner"></span> Loading telemetry…';
+    const t0 = new Date(lap.date_start).getTime();
+    const t1 = t0 + Math.max(60_000, (lap.lap_duration + 4) * 1000);
+    const after = new Date(t0 - 500).toISOString();
+    const before = new Date(t1).toISOString();
+    const tlm = await api('car_data', { session_key: sk, driver_number: dn, 'date>': after, 'date<': before });
+    if (!tlm.length) { document.getElementById('f1TlmInfo').textContent = 'No telemetry returned'; return; }
+    tlm.sort((a,b) => new Date(a.date) - new Date(b.date));
+    const xs = tlm.map(p => ((new Date(p.date).getTime() - t0) / 1000).toFixed(2));
+    const speed = tlm.map(p => p.speed);
+    const thr   = tlm.map(p => p.throttle);
+    const brk   = tlm.map(p => p.brake);
+    const rpm   = tlm.map(p => p.rpm);
+    const gear  = tlm.map(p => p.n_gear);
+
+    function mkChart(ref, canvasId, datasets, opts){
+      if (f1Charts[ref]) f1Charts[ref].destroy();
+      f1Charts[ref] = new Chart(document.getElementById(canvasId), {
+        type:'line',
+        data: { labels: xs, datasets },
+        options: Object.assign({
+          responsive:true, animation:false,
+          interaction:{ intersect:false, mode:'index' },
+          plugins:{ legend:{ display:datasets.length>1, labels:{ font:{ size:10 } } }, tooltip:{ enabled:true } },
+          scales:{
+            x:{ title:{ display:true, text:'Time in lap (s)', font:{size:10} }, ticks:{ maxTicksLimit:10, font:{size:10} } },
+            y:{ ticks:{ font:{size:10} } }
+          },
+          elements:{ point:{ radius:0 }, line:{ borderWidth:1.6, tension:0.15 } }
+        }, opts || {})
+      });
+    }
+    const drv = state.drvByNum.get(dn);
+    const c = teamColor(drv?.team_colour);
+    mkChart('speed', 'f1ChartSpeed', [{ label:'Speed', data:speed, borderColor:c, backgroundColor:c+'33', fill:false }]);
+    mkChart('tb', 'f1ChartTb', [
+      { label:'Throttle', data:thr, borderColor:'#16a34a', backgroundColor:'#16a34a33', fill:true },
+      { label:'Brake',    data:brk, borderColor:'#dc2626', backgroundColor:'#dc262633', fill:true }
+    ]);
+    mkChart('rpm', 'f1ChartRpm', [{ label:'RPM', data:rpm, borderColor:'#7c3aed', fill:false }]);
+    mkChart('gear', 'f1ChartGear', [{ label:'Gear', data:gear, borderColor:'#1f2937', stepped:true, fill:false }],
+      { scales:{ y:{ min:0, max:8, ticks:{ stepSize:1, font:{size:10} } }, x:{ ticks:{ maxTicksLimit:10, font:{size:10} } } } });
+    document.getElementById('f1TlmInfo').textContent = `${tlm.length} samples · ~${(tlm.length / Math.max(1, lap.lap_duration)).toFixed(1)} Hz`;
+  }
+
+  /* ──────────────────────────────────────────────────────────────────────────
+     STINTS & PITS TAB
+     ────────────────────────────────────────────────────────────────────────── */
+  async function loadStints(){
+    if (!state.session) return;
+    const sk = state.session.session_key;
+    const [stints, pits] = await Promise.all([
+      state.stints.length ? Promise.resolve(state.stints) : api('stints', { session_key: sk }),
+      api('pit', { session_key: sk })
+    ]);
+    state.stints = stints; state.pits = pits;
+    const maxLap = Math.max(1, ...stints.map(s => s.lap_end || s.lap_start || 0));
+
+    // Group by driver
+    const byDrv = new Map();
+    for (const s of stints) {
+      if (!byDrv.has(s.driver_number)) byDrv.set(s.driver_number, []);
+      byDrv.get(s.driver_number).push(s);
+    }
+    // Driver order: by best lap or by driver number
+    const order = Array.from(byDrv.keys()).sort((a,b) => a - b);
+    const body = document.getElementById('f1StintsBody');
+    body.innerHTML = order.map(num => {
+      const d = state.drvByNum.get(num); if (!d) return '';
+      const arr = byDrv.get(num).sort((a,b) => a.stint_number - b.stint_number);
+      const bars = arr.map(s => {
+        const c = (s.compound || 'UNKNOWN').toUpperCase();
+        const len = Math.max(1, (s.lap_end || s.lap_start) - (s.lap_start - 1));
+        const pct = (len / maxLap) * 100;
+        return `<div class="f1-stint ${c}" style="flex:0 0 ${pct.toFixed(2)}%" title="Stint ${s.stint_number}: ${c} L${s.lap_start}–${s.lap_end || '?'} (age ${s.tyre_age_at_start ?? '?'})">${COMPOUND_LETTER[c] || '?'}${len}</div>`;
+      }).join('');
+      return `<div class="f1-stint-row">
+        <div class="f1-stint-name"><span class="f1-lb-team-bar" style="background:${teamColor(d.team_colour)}"></span>${escHtml(d.name_acronym || '')} <span class="text-muted">${escHtml(d.last_name||'')}</span></div>
+        <div class="f1-stint-bars">${bars}</div>
+      </div>`;
+    }).join('') || '<div class="f1-empty">No stint data.</div>';
+
+    const pBody = document.getElementById('f1PitsBody');
+    if (!pits.length) { pBody.innerHTML = '<tr><td colspan="5" class="f1-empty">No pit stops recorded.</td></tr>'; return; }
+    pits.sort((a,b) => (a.lap_number||0) - (b.lap_number||0));
+    pBody.innerHTML = pits.map(p => {
+      const d = state.drvByNum.get(p.driver_number);
+      return `<tr>
+        <td class="f1-lb-time">${p.lap_number ?? '—'}</td>
+        <td><span class="f1-lb-num" style="background:${teamColor(d?.team_colour)}">${p.driver_number}</span></td>
+        <td class="f1-lb-name">${escHtml(d?.name_acronym || d?.last_name || '?')}</td>
+        <td class="f1-lb-time">${p.stop_duration != null ? p.stop_duration.toFixed(2) + 's' : '—'}</td>
+        <td class="f1-lb-time">${p.lane_duration != null ? p.lane_duration.toFixed(2) + 's' : '—'}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  /* ──────────────────────────────────────────────────────────────────────────
+     RACE CONTROL TAB
+     ────────────────────────────────────────────────────────────────────────── */
+  async function loadRaceControl(){
+    if (!state.session) return;
+    const rc = await api('race_control', { session_key: state.session.session_key });
+    state.raceCtrl = rc;
+    rc.sort((a,b) => new Date(b.date) - new Date(a.date));
+    const body = document.getElementById('f1RcBody');
+    if (!rc.length) { body.innerHTML = '<div class="f1-empty">No race control messages.</div>'; return; }
+    body.innerHTML = rc.map(m => {
+      const cat = (m.category || '').replace(/\s+/g,'');
+      let flagCls = '';
+      if (m.flag === 'GREEN') flagCls = 'f1-rc-flag-G';
+      else if (m.flag === 'YELLOW') flagCls = 'f1-rc-flag-Y';
+      else if (m.flag === 'DOUBLE YELLOW') flagCls = 'f1-rc-flag-DY';
+      else if (m.flag === 'RED') flagCls = 'f1-rc-flag-R';
+      else if (m.flag === 'CHEQUERED') flagCls = 'f1-rc-flag-CHK';
+      else if (m.flag === 'BLUE') flagCls = 'f1-rc-flag-BLU';
+      return `<div class="f1-rc-row">
+        <div class="f1-rc-time">${fmtClock(m.date)}${m.lap_number != null ? ` · L${m.lap_number}` : ''}</div>
+        <div><span class="f1-rc-cat ${cat} ${flagCls}">${escHtml(m.flag || m.category || '—')}</span></div>
+        <div class="f1-rc-msg">${escHtml(m.message || '')}</div>
+      </div>`;
+    }).join('');
+  }
+
+  /* ──────────────────────────────────────────────────────────────────────────
+     STANDINGS TAB
+     ────────────────────────────────────────────────────────────────────────── */
+  async function loadStandings(){
+    if (!state.session) return;
+    const sk = state.session.session_key;
+    const [drvs, teams] = await Promise.all([
+      api('championship_drivers', { session_key: sk }),
+      api('championship_teams',   { session_key: sk })
+    ]);
+    const dBody = document.getElementById('f1DriStandBody');
+    const tBody = document.getElementById('f1TeamStandBody');
+    if (!drvs.length) {
+      dBody.innerHTML = '<tr><td colspan="6" class="f1-empty">Standings only available for race sessions in 2025+.</td></tr>';
+    } else {
+      drvs.sort((a,b) => (a.position_current ?? 99) - (b.position_current ?? 99));
+      dBody.innerHTML = drvs.map(s => {
+        const d = state.drvByNum.get(s.driver_number);
+        const dPts = (s.points_current ?? 0) - (s.points_start ?? 0);
+        const dPos = (s.position_start ?? 0) - (s.position_current ?? 0);
+        const chgCls = dPos > 0 ? 'up' : (dPos < 0 ? 'down' : 'same');
+        const chgArr = dPos > 0 ? `▲${dPos}` : (dPos < 0 ? `▼${-dPos}` : '–');
+        return `<tr>
+          <td><b>${s.position_current ?? '—'}</b></td>
+          <td><span class="f1-stand-chg ${chgCls}">${chgArr}</span></td>
+          <td><span class="f1-lb-num" style="background:${teamColor(d?.team_colour)}">${s.driver_number}</span> ${escHtml(d?.full_name || d?.last_name || '?')}</td>
+          <td class="text-muted">${escHtml(d?.team_name || '')}</td>
+          <td class="text-end f1-stand-pts">${s.points_current ?? 0}</td>
+          <td class="text-end ${dPts > 0 ? 'text-success' : 'text-muted'}">${dPts > 0 ? '+' + dPts.toFixed(0) : '0'}</td>
+        </tr>`;
+      }).join('');
+    }
+    if (!teams.length) {
+      tBody.innerHTML = '<tr><td colspan="5" class="f1-empty">Standings only available for race sessions in 2025+.</td></tr>';
+    } else {
+      teams.sort((a,b) => (a.position_current ?? 99) - (b.position_current ?? 99));
+      tBody.innerHTML = teams.map(s => {
+        const dPts = (s.points_current ?? 0) - (s.points_start ?? 0);
+        const dPos = (s.position_start ?? 0) - (s.position_current ?? 0);
+        const chgCls = dPos > 0 ? 'up' : (dPos < 0 ? 'down' : 'same');
+        const chgArr = dPos > 0 ? `▲${dPos}` : (dPos < 0 ? `▼${-dPos}` : '–');
+        return `<tr>
+          <td><b>${s.position_current ?? '—'}</b></td>
+          <td><span class="f1-stand-chg ${chgCls}">${chgArr}</span></td>
+          <td>${escHtml(s.team_name || '')}</td>
+          <td class="text-end f1-stand-pts">${s.points_current ?? 0}</td>
+          <td class="text-end ${dPts > 0 ? 'text-success' : 'text-muted'}">${dPts > 0 ? '+' + dPts.toFixed(0) : '0'}</td>
+        </tr>`;
+      }).join('');
+    }
+  }
+
+  /* ──────────────────────────────────────────────────────────────────────────
+     DRIVERS TAB
+     ────────────────────────────────────────────────────────────────────────── */
+  function renderDriversTab(){
+    const grid = document.getElementById('f1DrvGrid');
+    if (!state.drivers.length) { grid.innerHTML = '<div class="f1-empty">No drivers loaded.</div>'; return; }
+    const sorted = state.drivers.slice().sort((a,b) => (a.team_name || '').localeCompare(b.team_name || '') || a.driver_number - b.driver_number);
+    grid.innerHTML = sorted.map(d => {
+      const c = teamColor(d.team_colour);
+      const photo = d.headshot_url
+        ? `<img class="f1-driver-photo" src="${escHtml(d.headshot_url)}" alt="${escHtml(d.last_name||'')}" onerror="this.style.display='none'">`
+        : '';
+      return `<div class="f1-driver-card" style="border-left-color:${c}">
+        ${photo}
+        <div class="f1-driver-num" style="background:${c}">${d.driver_number}</div>
+        <div class="f1-driver-info">
+          <div class="f1-driver-name">${escHtml(d.full_name || d.last_name || '?')}</div>
+          <div class="f1-driver-team">${escHtml(d.team_name || '')}</div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  /* ──────────────────────────────────────────────────────────────────────────
+     CALENDAR TAB
+     ────────────────────────────────────────────────────────────────────────── */
+  function renderCalendar(){
+    const body = document.getElementById('f1CalBody');
+    if (!state.meetings.length) { body.innerHTML = '<div class="f1-empty">No meetings.</div>'; return; }
+    body.innerHTML = `<div class="row g-2">${state.meetings.map(m => `
+      <div class="col-md-6 col-lg-4">
+        <div class="f1-meet-card" data-mk="${m.meeting_key}">
+          ${m.country_flag ? `<img class="f1-meet-flag" src="${escHtml(m.country_flag)}" alt="">` : '<div class="f1-meet-flag"></div>'}
+          <div style="flex:1; min-width:0;">
+            <div class="f1-meet-name text-truncate">${escHtml(m.meeting_name)}</div>
+            <div class="f1-meet-loc">${escHtml(m.location || '')}, ${escHtml(m.country_code || '')}</div>
+          </div>
+          <div class="f1-meet-date">${fmtDate(m.date_start)}</div>
+        </div>
+      </div>
+    `).join('')}</div>`;
+    body.querySelectorAll('[data-mk]').forEach(el => el.addEventListener('click', () => {
+      const mk = parseInt(el.dataset.mk);
+      document.getElementById('f1Meeting').value = mk;
+      f1Picks.get('f1Meeting')?.refresh();
+      onMeetingChange();
+    }));
+  }
+
+  /* ──────────────────────────────────────────────────────────────────────────
+     Tab routing
+     ────────────────────────────────────────────────────────────────────────── */
+  function showTab(name){
+    state.activeTab = name;
+    document.querySelectorAll('#f1TabBar .nav-link').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+    document.querySelectorAll('.f1-pane').forEach(p => p.style.display = (p.dataset.pane === name ? '' : 'none'));
+    if (state.tabsLoaded.has(name)) return;
+    state.tabsLoaded.add(name);
+    if (name === 'leaderboard')  loadLeaderboard();
+    else if (name === 'trackmap') loadTrackMap();
+    else if (name === 'telemetry') {
+      if (!state.laps.length) loadLeaderboard().then(() => { populateTlmDriver(); populateTlmLap(); });
+      else { populateTlmDriver(); populateTlmLap(); }
+    }
+    else if (name === 'stints')    loadStints();
+    else if (name === 'racecontrol') loadRaceControl();
+    else if (name === 'standings') loadStandings();
+    else if (name === 'drivers')   renderDriversTab();
+    else if (name === 'sessions')  renderCalendar();
+  }
+
+  /* ──────────────────────────────────────────────────────────────────────────
+     Selector handlers
+     ────────────────────────────────────────────────────────────────────────── */
+  async function onYearChange(){
+    state.year = parseInt(document.getElementById('f1Year').value) || new Date().getFullYear();
+    await loadMeetings(state.year);
+    renderCalendar();
+    await onMeetingChange();
+  }
+  async function onMeetingChange(){
+    const mk = parseInt(document.getElementById('f1Meeting').value);
+    state.meeting = state.meetings.find(m => m.meeting_key === mk);
+    await loadSessionsForMeeting(mk);
+    await onSessionChange();
+  }
+  async function onSessionChange(){
+    const sk = parseInt(document.getElementById('f1Session').value);
+    state.session = state.sessions.find(s => s.session_key === sk);
+    updateStatusFlag();
+    resetTabs();
+    if (!state.session) return;
+    await loadDrivers(sk);
+    await loadWeather();
+    state.tabsLoaded.delete(state.activeTab);
+    showTab(state.activeTab);
+  }
+
+  /* ──────────────────────────────────────────────────────────────────────────
+     Wire it up
+     ────────────────────────────────────────────────────────────────────────── */
+  document.addEventListener('DOMContentLoaded', async () => {
+    // Wrap selects with custom F1 picker UI
+    f1Pick('f1Year',     { label:'Season' });
+    f1Pick('f1Meeting',  { label:'Grand Prix', searchable:true, wide:true });
+    f1Pick('f1Session',  { label:'Session' });
+    f1Pick('f1TlmDriver',{ label:'Driver',     searchable:true, wide:true });
+    f1Pick('f1TlmLap',   { label:'Lap' });
+
+    document.getElementById('f1Year').addEventListener('change', onYearChange);
+    document.getElementById('f1Meeting').addEventListener('change', onMeetingChange);
+    document.getElementById('f1Session').addEventListener('change', onSessionChange);
+    document.getElementById('f1RefreshBtn').addEventListener('click', () => {
+      resetTabs();
+      state.tabsLoaded.delete(state.activeTab);
+      showTab(state.activeTab);
+    });
+    document.querySelectorAll('#f1TabBar .nav-link').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
+
+    // Track map controls
+    document.getElementById('f1TmPlay').addEventListener('click', tmPlay);
+    document.getElementById('f1TmScrub').addEventListener('input', e => {
+      const pct = Number(e.target.value)/100;
+      const t = state.tm.tMin + (state.tm.tMax - state.tm.tMin) * pct;
+      drawTrackMapAt(t);
+    });
+
+    // Telemetry controls
+    document.getElementById('f1TlmDriver').addEventListener('change', populateTlmLap);
+    document.getElementById('f1TlmLoad').addEventListener('click', loadTelemetryLap);
+
+    await loadYears();
+    await loadMeetings(state.year);
+    if (!state.meeting) return;
+    document.getElementById('f1Meeting').value = state.meeting.meeting_key;
+    f1Picks.get('f1Meeting')?.refresh();
+    await loadSessionsForMeeting(state.meeting.meeting_key);
+    await onSessionChange();
+  });
+  </script>
+</body>
+</html>
