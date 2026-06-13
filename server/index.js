@@ -229,6 +229,7 @@ app.use('/api/entries',           requireAuth, require('./routes/entries'));
 app.use('/api/championships',     requireAuth, require('./routes/championships'));
 app.use('/api/regulations',       requireAuth, require('./routes/regulations'));
 app.use('/api/penalties',         requireAuth, require('./routes/penalties'));
+app.use('/api/event-fastest-times', requireAuth, require('./routes/event-fastest-times'));
 app.use('/api/competitor-intel',  requireAuth, require('./routes/competitor-intel'));
 // Phase 1 — Technical
 app.use('/api/cars',              requireAuth, require('./routes/cars'));

@@ -2,9 +2,9 @@
 // Include this before core.js on pages where you want to override defaults.
 window.RTS_CONFIG = {
   // Software build version — updated on every deployment
-  buildVersion: 'c7a07c9',
+  buildVersion: '668f50b',
   buildDate:    '2026-06-13',
-  buildNote:    'Race Control: consolidate Sporting nav (delete regulations/penalties/notes pages)',
+  buildNote:    'Race Control: custom searchable combobox replaces native selects',
   // API Configuration
   api: {
     baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)

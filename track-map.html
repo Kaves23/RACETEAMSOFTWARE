@@ -224,12 +224,47 @@
       max-height:0; opacity:0;
     }
     .tm-snake-drawer.open { max-height:220px; opacity:1; }
+
+    /* ── Event capture picker (left of header) ─────────────────────────── */
+    .tm-evcap {
+      display:flex; align-items:center; gap:6px; padding:3px 9px 3px 8px;
+      background:linear-gradient(135deg,#fef9c3 0%,#fde68a 100%);
+      border:1px solid #f59e0b; border-radius:18px;
+      font-size:.72rem; font-weight:600; color:#7a3e00;
+      cursor:default; white-space:nowrap;
+    }
+    .tm-evcap.is-armed { background:linear-gradient(135deg,#dcfce7 0%,#bbf7d0 100%); border-color:#16a34a; color:#14532d; }
+    .tm-evcap-lbl { font-weight:700; text-transform:uppercase; letter-spacing:.06em; font-size:.66rem; opacity:.85; }
+    .tm-evcap-sel {
+      background:#fff; border:1px solid rgba(0,0,0,.12); border-radius:12px;
+      font-size:.74rem; padding:2px 22px 2px 8px; min-width:160px; max-width:240px;
+      color:#1a1d24; appearance:none; -webkit-appearance:none;
+      background-image:linear-gradient(45deg,transparent 50%,#6c757d 50%),linear-gradient(135deg,#6c757d 50%,transparent 50%);
+      background-position:calc(100% - 11px) 50%, calc(100% - 7px) 50%;
+      background-size:4px 4px,4px 4px; background-repeat:no-repeat;
+    }
+    .tm-evcap-sel:focus { outline:none; border-color:#a64dff; box-shadow:0 0 0 3px rgba(166,77,255,.15); }
+    .tm-evcap-count { font-variant-numeric:tabular-nums; }
+    .tm-evcap-btn {
+      background:transparent; border:none; padding:0 4px; color:inherit; font-size:.95rem;
+      cursor:pointer; line-height:1; opacity:.65;
+    }
+    .tm-evcap-btn:hover { opacity:1; }
   </style>
 </head>
 <body>
   <div id="rtsTopNav"></div>
 
   <div class="tm-header">
+    <span class="tm-evcap" id="tmEvCap" title="Capture fastest time per class to an event for later review">
+      <span class="tm-evcap-lbl">Capture for</span>
+      <select class="tm-evcap-sel" id="tmEvCapSel" aria-label="Capture event">
+        <option value="">— None —</option>
+      </select>
+      <span class="tm-evcap-count" id="tmEvCapCount" style="display:none;">0</span>
+      <button class="tm-evcap-btn" id="tmEvCapClear" type="button" title="Clear captured times for this event" style="display:none;">↺</button>
+    </span>
+    <span class="tm-sep">·</span>
     <span class="tm-session" id="tmSession">—</span>
     <span class="tm-sep">·</span>
     <span class="tm-class"  id="tmClass">Waiting for data</span>
@@ -1062,6 +1097,202 @@
 
     let lastSessionKey='';
 
+    // ── Event capture: per-class fastest-time recorder ─────────────────
+    // When the user picks an event from the header dropdown, every live
+    // timing tick scans all drivers and remembers the fastest lap per
+    // (class, driver). Updates are pushed to the server in throttled
+    // batches so a brief connection blip never loses progress.
+    const LS_EV_CAPTURE = 'rts.trackmap.captureEventId';
+    const captureState = {
+      eventId: '',
+      eventTitle: '',
+      bests: new Map(),   // key = class||name  →  { class, driver, kart, ms, lap, laps, dirty }
+      saveTimer: null,
+      sessionLast: ''
+    };
+
+    function evCapKey(cls, name){ return (cls||'_').toLowerCase()+'||'+(name||'').toLowerCase(); }
+
+    function evCapPersistDirty(){
+      if(!captureState.eventId) return;
+      const dirty = [];
+      captureState.bests.forEach(v => { if (v.dirty) dirty.push(v); });
+      if (!dirty.length) return;
+      const rows = dirty.map(v => ({
+        event_id:    captureState.eventId,
+        class_name:  v.class || 'Unknown',
+        driver_name: v.driver,
+        our_driver_id: v.ourId || null,
+        kart:        v.kart || null,
+        best_lap:    v.lap || null,
+        best_lap_ms: v.ms,
+        laps:        v.laps || null,
+        session_name: v.session || captureState.sessionLast || null,
+        source: 'apex-live'
+      }));
+      fetch('/api/event-fastest-times/bulk', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        credentials:'include',
+        body: JSON.stringify({ rows })
+      }).then(r => {
+        if (r.ok) dirty.forEach(v => v.dirty = false);
+      }).catch(()=>{});
+    }
+
+    function evCapScheduleSave(){
+      if (captureState.saveTimer) return;
+      captureState.saveTimer = setTimeout(() => {
+        captureState.saveTimer = null;
+        evCapPersistDirty();
+      }, 4000);
+    }
+
+    function evCapIngest(state){
+      if (!captureState.eventId) return;
+      captureState.sessionLast = state.sessionName || captureState.sessionLast;
+      const drivers = state.drivers || [];
+      let changed = false;
+      drivers.forEach(d => {
+        const ms = Math.round(parseLapSec(d.bestLap) * 1000);
+        if (!ms) return;
+        const cls  = d.class || 'Unknown';
+        const name = (d.ourName || d.name || '').trim();
+        if (!name) return;
+        const key  = evCapKey(cls, name);
+        const cur  = captureState.bests.get(key);
+        if (!cur || ms < cur.ms) {
+          captureState.bests.set(key, {
+            class: cls,
+            driver: name,
+            kart: String(d.kart||'') || (cur && cur.kart) || null,
+            ourId: d.ourDriverId || (cur && cur.ourId) || null,
+            ms,
+            lap: d.bestLap || (cur && cur.lap) || null,
+            laps: parseInt(d.laps,10) || (cur && cur.laps) || null,
+            session: state.sessionName || (cur && cur.session) || null,
+            dirty: true
+          });
+          changed = true;
+        }
+      });
+      if (changed) {
+        evCapUpdateChip();
+        evCapScheduleSave();
+      }
+    }
+
+    function evCapUpdateChip(){
+      const wrap = document.getElementById('tmEvCap');
+      const countEl = document.getElementById('tmEvCapCount');
+      const clearBtn = document.getElementById('tmEvCapClear');
+      if (!wrap) return;
+      const armed = !!captureState.eventId;
+      wrap.classList.toggle('is-armed', armed);
+      const n = captureState.bests.size;
+      if (armed && n > 0) {
+        countEl.textContent = '● '+n;
+        countEl.style.display = '';
+        clearBtn.style.display = '';
+      } else {
+        countEl.style.display = 'none';
+        clearBtn.style.display = 'none';
+      }
+      wrap.title = armed
+        ? 'Capturing fastest time per class/driver to "'+captureState.eventTitle+'". Click ↺ to clear.'
+        : 'Pick an event to capture per-class fastest times';
+    }
+
+    async function evCapSetEvent(eventId, eventTitle){
+      // Flush any pending writes to the previous event before switching
+      if (captureState.eventId && captureState.eventId !== eventId) evCapPersistDirty();
+      captureState.eventId = eventId || '';
+      captureState.eventTitle = eventTitle || '';
+      captureState.bests.clear();
+      try { localStorage.setItem(LS_EV_CAPTURE, captureState.eventId); } catch(_e){}
+      if (!eventId) { evCapUpdateChip(); return; }
+      // Hydrate from server so the chip count + Inspector tab match what's stored
+      try {
+        const r = await fetch('/api/event-fastest-times?event_id='+encodeURIComponent(eventId), { credentials:'include' });
+        if (r.ok) {
+          const rows = await r.json();
+          rows.forEach(row => {
+            const k = evCapKey(row.class_name, row.driver_name);
+            captureState.bests.set(k, {
+              class: row.class_name,
+              driver: row.driver_name,
+              kart: row.kart,
+              ourId: row.our_driver_id,
+              ms: parseInt(row.best_lap_ms,10)||0,
+              lap: row.best_lap,
+              laps: row.laps,
+              session: row.session_name,
+              dirty: false
+            });
+          });
+        }
+      } catch(_e){}
+      evCapUpdateChip();
+    }
+
+    async function evCapPopulateSelect(){
+      const sel = document.getElementById('tmEvCapSel');
+      if (!sel) return;
+      let events = [];
+      try {
+        if (window.RTS_API && window.RTS_API.getCollectionItems) {
+          const r = await window.RTS_API.getCollectionItems('events');
+          events = (r && (r.items || r.rows || r)) || [];
+        }
+      } catch(_e){}
+      // Sort by start date desc (most recent first)
+      const today = new Date().toISOString().slice(0,10);
+      events.sort((a,b) => String(b.startDate||b.start||b.date||'').localeCompare(String(a.startDate||a.start||a.date||'')));
+      const opts = ['<option value="">— None —</option>'].concat(
+        events.map(ev => {
+          const id = ev.id || ev._id;
+          const title = ev.title || ev.name || ('Event '+id);
+          const date = (ev.startDate || ev.start || ev.date || '').slice(0,10);
+          const past = date && date < today ? ' (past)' : '';
+          return `<option value="${esc(id)}" data-title="${esc(title)}">${esc(title)}${date?' · '+esc(date):''}${past}</option>`;
+        })
+      );
+      sel.innerHTML = opts.join('');
+      // Restore previous selection
+      const saved = (function(){ try { return localStorage.getItem(LS_EV_CAPTURE) || ''; } catch(_e){ return ''; } })();
+      if (saved) {
+        sel.value = saved;
+        const opt = sel.options[sel.selectedIndex];
+        const title = (opt && opt.dataset && opt.dataset.title) || '';
+        evCapSetEvent(saved, title);
+      } else {
+        evCapUpdateChip();
+      }
+    }
+
+    document.addEventListener('change', e => {
+      if (e.target && e.target.id === 'tmEvCapSel') {
+        const opt = e.target.options[e.target.selectedIndex];
+        const title = (opt && opt.dataset && opt.dataset.title) || '';
+        evCapSetEvent(e.target.value, title);
+      }
+    });
+    document.addEventListener('click', e => {
+      if (e.target && e.target.id === 'tmEvCapClear') {
+        if (!captureState.eventId) return;
+        if (!confirm('Clear all captured fastest times for "'+captureState.eventTitle+'"?')) return;
+        const eid = captureState.eventId;
+        fetch('/api/event-fastest-times?event_id='+encodeURIComponent(eid), {
+          method:'DELETE', credentials:'include'
+        }).then(()=>{
+          captureState.bests.clear();
+          evCapUpdateChip();
+        });
+      }
+    });
+    // Flush on page hide so we don't lose the last few seconds of captures
+    window.addEventListener('pagehide', evCapPersistDirty);
+
     function onTimingUpdate(state){
       updateHeader(state);
       updateOverlay(state);
@@ -1093,6 +1324,7 @@
         updateConsistency();
         updateBoard(state);
         if(snakeOpen)buildSnakeChart();
+        evCapIngest(state);
       }
     }
 
@@ -1101,6 +1333,10 @@
       const ltCfg=(settings&&settings.liveTiming)||{};
       const provider=['race-monitor','speedhive'].includes(ltCfg.provider)?ltCfg.provider:'apex';
       const activeUrl=provider==='race-monitor'?ltCfg.urlRm:provider==='speedhive'?ltCfg.urlSh:ltCfg.url;
+      // Always populate the event-capture picker — it works even if the
+      // page is later opened without live timing (so the operator can review
+      // previously-captured times for an event).
+      evCapPopulateSelect();
       if(!ltCfg.enabled||!activeUrl){
         document.getElementById('tmNoTiming').style.display='flex';
         document.getElementById('tmLeft').style.display='none';
@@ -1118,6 +1354,7 @@
     init();
     window.addEventListener('beforeunload',()=>{
       if(rafId)cancelAnimationFrame(rafId);
+      evCapPersistDirty();
       if(window.RTSLiveTiming)RTSLiveTiming.stop();
     });
   })();
