@@ -292,8 +292,14 @@
     const proxyUrl = `${proxyBase}?slug=${encodeURIComponent(slug)}`;
     dbg('Polling via server proxy:', proxyUrl);
 
+    let authHeaders = {};
     try {
-      const resp = await fetch(proxyUrl, { cache: 'no-store', signal: AbortSignal.timeout(8000) });
+      const tok = localStorage.getItem('auth_token');
+      if (tok) authHeaders.Authorization = `Bearer ${tok}`;
+    } catch(_) {}
+
+    try {
+      const resp = await fetch(proxyUrl, { cache: 'no-store', headers: authHeaders, signal: AbortSignal.timeout(8000) });
       if (!resp.ok) throw new Error(`Proxy HTTP ${resp.status}`);
       const result = await resp.json();
       dbg('Proxy response:', result);
@@ -501,8 +507,13 @@
 
   function buildDriverMatchMap() {
     driverMatchMap = {};
+    let headers = {};
+    try {
+      const tok = localStorage.getItem('auth_token');
+      if (tok) headers.Authorization = `Bearer ${tok}`;
+    } catch(_) {}
     // Fetch from DB API (authoritative), fall back to localStorage
-    fetch('/api/collections/drivers', { cache: 'no-store' })
+    fetch('/api/collections/drivers', { cache: 'no-store', headers })
       .then(r => r.ok ? r.json() : null)
       .then(data => {
         const ourDrivers = (data && (data.items || data.data || data)) || [];

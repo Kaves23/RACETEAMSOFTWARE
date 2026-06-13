@@ -2,9 +2,9 @@
 // Include this before core.js on pages where you want to override defaults.
 window.RTS_CONFIG = {
   // Software build version — updated on every deployment
-  buildVersion: 'ea5b782',
+  buildVersion: '671a604',
   buildDate:    '2026-06-12',
-  buildNote:    'Entries: custom dialog (alert/confirm/prompt), defensive setText, error surfacing',
+  buildNote:    'Branding: packing labels use team logo + small RTS mark; replace BAD/BLOCKED with professional labels',
   // API Configuration
   api: {
     baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)
