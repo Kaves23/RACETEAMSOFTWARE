@@ -7,6 +7,7 @@
   <title>Race Team OS – Weather Station</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet" />
   <link href="style.css?v=20260525" rel="stylesheet" />
   <style>
     body { background: linear-gradient(135deg, #f0f7ff 0%, #e4eef8 100%); }
@@ -113,6 +114,123 @@
     .wx-tab.active { color:#0ea5e9; border-bottom-color:#0ea5e9; }
     .wx-tab-panel  { display:none; height:100%; flex-direction:column; }
     .wx-tab-panel.active { display:flex; }
+
+    /* ── Radar tab ─────────────────────────────────────────────────────── */
+    .wx-radar-wrap { display:flex; flex-direction:column; flex:1; min-height:0; padding:8px 12px 10px; }
+    .wx-radar-toolbar {
+      display:flex; flex-wrap:wrap; gap:6px; align-items:center;
+      padding:6px 8px; margin-bottom:8px;
+      background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; font-size:.74rem;
+    }
+    .wx-radar-toolbar label { font-size:.7rem; color:#475569; font-weight:600; margin-right:2px; }
+    .wx-radar-toolbar select, .wx-radar-toolbar input { font-size:.74rem; padding:2px 6px; height:26px; }
+    .wx-radar-toolbar .form-check { margin:0; }
+    .wx-radar-toolbar .form-check-input { margin-top:.15rem; }
+    .wx-radar-toolbar .form-check-label { font-size:.74rem; color:#475569; font-weight:600; }
+    .wx-radar-map {
+      flex:1; min-height:380px; border-radius:8px; border:1px solid #e2e8f0;
+      overflow:hidden; background:#eef2f7; position:relative;
+    }
+    .wx-radar-map .leaflet-container { background:#eef2f7; }
+    .wx-radar-overlay-time {
+      position:absolute; top:10px; right:10px; z-index:500;
+      background:rgba(15,23,42,.82); color:#fff;
+      padding:6px 12px; border-radius:6px;
+      font-size:.78rem; font-weight:700; letter-spacing:.02em;
+      font-variant-numeric:tabular-nums;
+      pointer-events:none;
+      box-shadow:0 2px 6px rgba(0,0,0,.18);
+    }
+    .wx-radar-overlay-time .ro-tag {
+      display:inline-block; padding:1px 6px; margin-right:6px; border-radius:3px;
+      font-size:.62rem; text-transform:uppercase; letter-spacing:.06em; font-weight:800;
+    }
+    .wx-radar-overlay-time .ro-tag.past     { background:#475569; color:#fff; }
+    .wx-radar-overlay-time .ro-tag.now      { background:#16a34a; color:#fff; }
+    .wx-radar-overlay-time .ro-tag.forecast { background:#0ea5e9; color:#fff; }
+    .wx-radar-overlay-time .ro-rel { font-size:.68rem; opacity:.85; font-weight:500; margin-left:6px; }
+
+    .wx-radar-overlay-attr {
+      position:absolute; bottom:6px; right:6px; z-index:500;
+      font-size:.62rem; color:#475569;
+      background:rgba(255,255,255,.82);
+      padding:1px 6px; border-radius:3px;
+      pointer-events:auto;
+    }
+    .wx-radar-overlay-attr a { color:#0369a1; text-decoration:none; }
+    .wx-radar-overlay-attr a:hover { text-decoration:underline; }
+
+    .wx-radar-controls {
+      display:flex; align-items:center; gap:10px; padding:8px 4px 0;
+    }
+    .wx-radar-btn {
+      width:34px; height:34px; border-radius:50%;
+      border:none; background:#0ea5e9; color:#fff;
+      display:inline-flex; align-items:center; justify-content:center;
+      cursor:pointer; flex-shrink:0;
+      transition:background .15s;
+    }
+    .wx-radar-btn:hover { background:#0284c7; }
+    .wx-radar-btn:disabled { background:#cbd5e1; cursor:not-allowed; }
+    .wx-radar-btn-sm {
+      height:26px; padding:0 10px; border-radius:13px;
+      border:1px solid #cbd5e1; background:#fff; color:#475569;
+      font-size:.7rem; font-weight:600; cursor:pointer;
+    }
+    .wx-radar-btn-sm:hover { background:#f1f5f9; }
+    .wx-radar-btn-sm.active { background:#0ea5e9; color:#fff; border-color:#0ea5e9; }
+
+    .wx-radar-scrubber {
+      flex:1; height:6px; -webkit-appearance:none; appearance:none;
+      background:linear-gradient(to right, #cbd5e1 0%, #cbd5e1 var(--past-pct,70%), #93c5fd var(--past-pct,70%), #93c5fd 100%);
+      border-radius:3px; outline:none; cursor:pointer;
+    }
+    .wx-radar-scrubber::-webkit-slider-thumb {
+      -webkit-appearance:none; appearance:none; width:18px; height:18px; border-radius:50%;
+      background:#0ea5e9; border:2px solid #fff; box-shadow:0 1px 3px rgba(0,0,0,.25); cursor:pointer;
+    }
+    .wx-radar-scrubber::-moz-range-thumb {
+      width:18px; height:18px; border-radius:50%;
+      background:#0ea5e9; border:2px solid #fff; box-shadow:0 1px 3px rgba(0,0,0,.25); cursor:pointer;
+    }
+
+    .wx-radar-legend {
+      display:flex; align-items:center; gap:10px; margin-top:8px;
+      font-size:.68rem; color:#64748b;
+    }
+    .wx-radar-legend-bar {
+      flex:1; height:10px; border-radius:5px;
+      background:linear-gradient(to right, #c8eaff, #5cb6ff, #1d6fe2, #0d3a99, #00ff66, #ffd000, #ff6600, #d10000, #800080);
+      border:1px solid #cbd5e1;
+    }
+    .wx-radar-legend-lbl { white-space:nowrap; font-weight:600; }
+    .wx-radar-legend-end { font-weight:600; }
+
+    .wx-radar-loading {
+      position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+      z-index:500; background:rgba(255,255,255,.92);
+      padding:14px 20px; border-radius:8px; font-size:.78rem; color:#475569;
+      display:flex; align-items:center; gap:10px;
+      box-shadow:0 2px 8px rgba(0,0,0,.12);
+    }
+    .wx-radar-pin {
+      background:transparent; border:0;
+    }
+    .wx-radar-pin .pin-dot {
+      width:14px; height:14px; border-radius:50%;
+      background:#dc2626; border:3px solid #fff;
+      box-shadow:0 0 0 1px rgba(0,0,0,.3), 0 2px 6px rgba(0,0,0,.4);
+    }
+    .wx-radar-pin .pin-pulse {
+      position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+      width:36px; height:36px; border-radius:50%;
+      border:3px solid rgba(220,38,38,.4);
+      animation:wx-radar-pulse 2s ease-out infinite;
+    }
+    @keyframes wx-radar-pulse {
+      0%   { transform:translate(-50%,-50%) scale(.4); opacity:.9; }
+      100% { transform:translate(-50%,-50%) scale(1.4); opacity:0; }
+    }
 
     .wx-chart-wrap { position:relative; padding:12px; flex:1; min-height:0; }
     .wx-chart-wrap canvas { width:100% !important; }
@@ -394,6 +512,7 @@
           <div class="wx-tabs" id="wxTabs">
             <div class="wx-tab active" data-tab="pressure">Pressure</div>
             <div class="wx-tab" data-tab="rain">Rain</div>
+            <div class="wx-tab" data-tab="radar">Radar</div>
             <div class="wx-tab" data-tab="forecast">Forecast</div>
             <div class="wx-tab" data-tab="wind">Wind</div>
           </div>
@@ -446,6 +565,77 @@
               </div>
               <div class="wx-chart-wrap" id="wxMinutelyChartWrap" style="min-height:120px; display:none;">
                 <canvas id="chartMinutely"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- RADAR TAB -->
+          <div class="wx-tab-panel" id="tabRadar" style="flex-direction:column; overflow:hidden;">
+            <div class="wx-radar-wrap">
+              <div class="wx-radar-toolbar">
+                <label>Layer</label>
+                <button type="button" class="wx-radar-btn-sm active" data-layer="radar">Radar</button>
+                <button type="button" class="wx-radar-btn-sm" data-layer="satellite">Satellite IR</button>
+                <button type="button" class="wx-radar-btn-sm" data-layer="both">Both</button>
+                <span style="width:1px; height:20px; background:#cbd5e1; margin:0 6px;"></span>
+                <label for="wxRadarColors">Palette</label>
+                <select id="wxRadarColors" class="form-select form-select-sm" style="width:auto;">
+                  <option value="2" selected>TITAN</option>
+                  <option value="1">Universal Blue</option>
+                  <option value="3">Weather Channel</option>
+                  <option value="4">Meteored</option>
+                  <option value="7">Dark Sky</option>
+                  <option value="8">Black &amp; White</option>
+                </select>
+                <span style="width:1px; height:20px; background:#cbd5e1; margin:0 6px;"></span>
+                <label for="wxRadarOpacity">Opacity</label>
+                <input type="range" id="wxRadarOpacity" min="20" max="100" value="75" style="width:90px;">
+                <span style="width:1px; height:20px; background:#cbd5e1; margin:0 6px;"></span>
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" id="wxRadarSnow" checked>
+                  <label class="form-check-label" for="wxRadarSnow">Smooth + snow</label>
+                </div>
+                <span style="flex:1;"></span>
+                <span id="wxRadarStatus" style="font-size:.7rem; color:#94a3b8;"></span>
+              </div>
+              <div class="wx-radar-map" id="wxRadarMap">
+                <div class="wx-radar-overlay-time" id="wxRadarTime" style="display:none;">
+                  <span class="ro-tag now">NOW</span>
+                  <span id="wxRadarTimeStr">—</span>
+                  <span class="ro-rel" id="wxRadarTimeRel"></span>
+                </div>
+                <div class="wx-radar-overlay-attr">
+                  Radar &copy; <a href="https://www.rainviewer.com" target="_blank" rel="noopener">RainViewer</a>
+                  &middot; Map &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>
+                  &middot; Tiles &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>
+                </div>
+                <div class="wx-radar-loading" id="wxRadarLoading">
+                  <div class="wx-loading-spinner" style="width:20px; height:20px; border-width:2px;"></div>
+                  <div>Loading radar frames…</div>
+                </div>
+              </div>
+              <div class="wx-radar-controls">
+                <button type="button" class="wx-radar-btn" id="wxRadarPlay" title="Play / Pause">
+                  <i class="bi bi-play-fill" id="wxRadarPlayIcon"></i>
+                </button>
+                <button type="button" class="wx-radar-btn-sm" id="wxRadarNow" title="Jump to now">Now</button>
+                <input type="range" class="wx-radar-scrubber" id="wxRadarScrub" min="0" max="0" value="0" step="1">
+                <select id="wxRadarSpeed" class="form-select form-select-sm" style="width:auto; font-size:.7rem;">
+                  <option value="800">0.5×</option>
+                  <option value="500" selected>1×</option>
+                  <option value="250">2×</option>
+                  <option value="120">4×</option>
+                </select>
+              </div>
+              <div class="wx-radar-legend">
+                <span class="wx-radar-legend-lbl">Light</span>
+                <div class="wx-radar-legend-bar"></div>
+                <span class="wx-radar-legend-end">Heavy</span>
+              </div>
+              <div style="font-size:.7rem; color:#6c757d; margin-top:6px; line-height:1.5;">
+                Live precipitation radar &mdash; past 2 h plus 30-min nowcast (forecast frames are tagged
+                <span style="display:inline-block; padding:0 5px; border-radius:3px; background:#0ea5e9; color:#fff; font-size:.6rem; font-weight:800;">FORECAST</span>).
+                Refreshes every 5 minutes. Drag map to inspect any region; double-click to recenter on cursor.
               </div>
             </div>
           </div>
@@ -654,6 +844,7 @@
   <script src="topnav.js?v=20260613a"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
   /* ═══════════════════════════════════════════════════════════════════════════
      Race Team OS — Weather Station
@@ -949,6 +1140,9 @@
       if (!wxState.data) throw new Error('Open-Meteo fetch failed');
 
       renderAll();
+
+      // Sync radar pin/centre to the active location (no-op if map not yet built)
+      if (typeof Radar !== 'undefined') Radar.setLocation(wxState.lat, wxState.lon);
 
     } catch(err) {
       showError(err.message);
@@ -1391,8 +1585,336 @@
   }
 
   /* ══════════════════════════════════════════════════════════════════════════
-     TAB SWITCHING
+     RADAR — RainViewer + Leaflet (free, no API key)
+     Public API: https://api.rainviewer.com/public/weather-maps.json
+     - Updates every ~10 min, 13 past frames + 3 nowcast frames
+     - Tile URL: {host}{path}/{size}/{z}/{x}/{y}/{color}/{options}.png
   ══════════════════════════════════════════════════════════════════════════ */
+  const Radar = (function(){
+    let map = null, marker = null, baseLayer = null;
+    let radarFrames = [];           // [{time, path, kind:'past'|'nowcast'}]
+    let satFrames = [];             // [{time, path}]
+    let radarLayers = [];           // L.tileLayer per radar frame
+    let satLayers = [];             // L.tileLayer per sat frame
+    let host = 'https://tilecache.rainviewer.com';
+    let curIdx = 0;
+    let playing = false, playTimer = null;
+    let frameDelayMs = 500;
+    let layerMode = 'radar';        // 'radar' | 'satellite' | 'both'
+    let colorScheme = 2;
+    let opacity = 0.75;
+    let smoothSnow = true;
+    let initialised = false;
+    let refreshTimer = null;
+    let lastFetched = 0;
+
+    const COLOR_FALLBACK = '#94a3b8';
+
+    function $id(id) { return document.getElementById(id); }
+
+    /* Tile URL builder (RainViewer v2). 'options' = "{smooth}_{snow}". */
+    function tileUrl(framePath) {
+      const opts = `${smoothSnow ? 1 : 0}_${smoothSnow ? 1 : 0}`;
+      return `${host}${framePath}/256/{z}/{x}/{y}/${colorScheme}/${opts}.png`;
+    }
+    function satTileUrl(framePath) {
+      // Satellite uses color 0 and options 0_0
+      return `${host}${framePath}/256/{z}/{x}/{y}/0/0_0.png`;
+    }
+
+    function ensureMap() {
+      if (map) return;
+      map = L.map('wxRadarMap', {
+        center: [wxState.lat || 0, wxState.lon || 0],
+        zoom: 7,
+        worldCopyJump: true,
+        zoomControl: true,
+        attributionControl: false  // we render our own attribution overlay
+      });
+      // Light, neutral base map (CARTO Positron) — free, allowed for dev/light commercial
+      baseLayer = L.tileLayer(
+        'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+        { subdomains: 'abcd', maxZoom: 19, attribution: '' }
+      ).addTo(map);
+
+      // Custom pulsing pin for the active location
+      const pinIcon = L.divIcon({
+        className: 'wx-radar-pin',
+        html: '<div class="pin-pulse"></div><div class="pin-dot"></div>',
+        iconSize: [14, 14],
+        iconAnchor: [7, 7]
+      });
+      if (wxState.lat != null && wxState.lon != null) {
+        marker = L.marker([wxState.lat, wxState.lon], { icon: pinIcon }).addTo(map);
+      }
+
+      // Double-click recenters
+      map.on('dblclick', e => {
+        L.DomEvent.preventDefault(e.originalEvent);
+        if (!marker) {
+          marker = L.marker(e.latlng, { icon: pinIcon }).addTo(map);
+        } else {
+          marker.setLatLng(e.latlng);
+        }
+        map.panTo(e.latlng);
+      });
+      map.doubleClickZoom.disable();
+    }
+
+    async function fetchFrames() {
+      try {
+        const r = await fetch('https://api.rainviewer.com/public/weather-maps.json', { cache: 'no-cache' });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const j = await r.json();
+        host = j.host || host;
+        const past    = (j.radar && j.radar.past)    || [];
+        const nowcast = (j.radar && j.radar.nowcast) || [];
+        const sat     = (j.satellite && j.satellite.infrared) || [];
+        radarFrames = past.map(f => ({ time:f.time, path:f.path, kind:'past' }))
+          .concat(nowcast.map(f => ({ time:f.time, path:f.path, kind:'nowcast' })));
+        satFrames = sat.map(f => ({ time:f.time, path:f.path }));
+        lastFetched = Date.now();
+        return true;
+      } catch (err) {
+        console.warn('[radar] frame fetch failed', err);
+        return false;
+      }
+    }
+
+    function destroyLayers() {
+      radarLayers.forEach(l => { try { map.removeLayer(l); } catch(_){} });
+      satLayers.forEach(l => { try { map.removeLayer(l); } catch(_){} });
+      radarLayers = []; satLayers = [];
+    }
+
+    function buildLayers() {
+      destroyLayers();
+      // Build all radar frames (opacity 0 so tiles preload) — toggle visible per current idx
+      radarFrames.forEach(f => {
+        const layer = L.tileLayer(tileUrl(f.path), {
+          tileSize: 256,
+          opacity: 0,
+          zIndex: 10,
+          crossOrigin: true
+        });
+        layer.addTo(map);
+        radarLayers.push(layer);
+      });
+      satFrames.forEach(f => {
+        const layer = L.tileLayer(satTileUrl(f.path), {
+          tileSize: 256,
+          opacity: 0,
+          zIndex: 5,
+          crossOrigin: true
+        });
+        layer.addTo(map);
+        satLayers.push(layer);
+      });
+    }
+
+    function pastCount() { return radarFrames.filter(f => f.kind === 'past').length; }
+
+    function showFrame(idx) {
+      if (!radarFrames.length) return;
+      idx = Math.max(0, Math.min(radarFrames.length - 1, idx));
+      curIdx = idx;
+      // Radar
+      const showRadar = (layerMode === 'radar' || layerMode === 'both');
+      radarLayers.forEach((l, i) => l.setOpacity(showRadar && i === idx ? opacity : 0));
+      // Satellite — pick the closest sat frame by time to keep them in sync
+      const showSat = (layerMode === 'satellite' || layerMode === 'both');
+      if (showSat && satLayers.length) {
+        const targetT = radarFrames[idx].time;
+        let bestI = 0, bestDiff = Infinity;
+        satFrames.forEach((f, i) => {
+          const d = Math.abs(f.time - targetT);
+          if (d < bestDiff) { bestDiff = d; bestI = i; }
+        });
+        satLayers.forEach((l, i) => l.setOpacity(i === bestI ? Math.min(opacity + 0.15, 1) : 0));
+      } else {
+        satLayers.forEach(l => l.setOpacity(0));
+      }
+      updateTimeOverlay();
+      const scrub = $id('wxRadarScrub');
+      if (scrub && parseInt(scrub.value, 10) !== idx) scrub.value = String(idx);
+    }
+
+    function updateTimeOverlay() {
+      const overlay = $id('wxRadarTime');
+      if (!overlay || !radarFrames.length) return;
+      overlay.style.display = '';
+      const f = radarFrames[curIdx];
+      const dt = new Date(f.time * 1000);
+      const tag = overlay.querySelector('.ro-tag');
+      const nowEpoch = Date.now() / 1000;
+      const deltaMin = Math.round((f.time - nowEpoch) / 60);
+      const isNow = Math.abs(deltaMin) <= 5 && f.kind === 'past';
+      tag.classList.remove('past','now','forecast');
+      if (f.kind === 'nowcast') {
+        tag.classList.add('forecast');
+        tag.textContent = 'FORECAST';
+      } else if (isNow) {
+        tag.classList.add('now');
+        tag.textContent = 'NOW';
+      } else {
+        tag.classList.add('past');
+        tag.textContent = 'PAST';
+      }
+      $id('wxRadarTimeStr').textContent =
+        dt.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+      const rel = deltaMin === 0 ? 'now' :
+        (deltaMin > 0 ? `+${deltaMin} min` : `${deltaMin} min`);
+      $id('wxRadarTimeRel').textContent = rel;
+    }
+
+    function setScrubberRange() {
+      const scrub = $id('wxRadarScrub');
+      if (!scrub) return;
+      scrub.max = String(Math.max(0, radarFrames.length - 1));
+      // Color-code the scrubber: past portion grey, future portion blue
+      const total = radarFrames.length || 1;
+      const pastPct = (pastCount() / total) * 100;
+      scrub.style.setProperty('--past-pct', pastPct.toFixed(1) + '%');
+    }
+
+    function setPlayIcon(isPlaying) {
+      const ic = $id('wxRadarPlayIcon');
+      if (!ic) return;
+      ic.className = isPlaying ? 'bi bi-pause-fill' : 'bi bi-play-fill';
+    }
+
+    function play() {
+      if (!radarFrames.length) return;
+      stop();
+      playing = true; setPlayIcon(true);
+      playTimer = setInterval(() => {
+        let next = curIdx + 1;
+        if (next >= radarFrames.length) {
+          // brief pause at the end of the loop
+          stop();
+          setTimeout(() => { showFrame(0); play(); }, 600);
+          return;
+        }
+        showFrame(next);
+      }, frameDelayMs);
+    }
+    function stop() {
+      playing = false; setPlayIcon(false);
+      if (playTimer) clearInterval(playTimer);
+      playTimer = null;
+    }
+    function togglePlay() { playing ? stop() : play(); }
+
+    function jumpToNow() {
+      // jump to the most recent 'past' frame (closest to real-time)
+      const idx = Math.max(0, pastCount() - 1);
+      showFrame(idx);
+    }
+
+    async function refresh(force) {
+      $id('wxRadarLoading').style.display = '';
+      $id('wxRadarStatus').textContent = 'Fetching frames…';
+      const wasPlaying = playing;
+      stop();
+      const ok = await fetchFrames();
+      if (!ok) {
+        $id('wxRadarLoading').style.display = 'none';
+        $id('wxRadarStatus').textContent = 'Could not load RainViewer frames';
+        return;
+      }
+      buildLayers();
+      setScrubberRange();
+      jumpToNow();
+      $id('wxRadarLoading').style.display = 'none';
+      $id('wxRadarStatus').textContent =
+        `${radarFrames.length} frames · updated ${new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}`;
+      if (wasPlaying) play();
+    }
+
+    function setLocation(lat, lon) {
+      if (!map) return;
+      const ll = [lat, lon];
+      const pinIcon = L.divIcon({
+        className: 'wx-radar-pin',
+        html: '<div class="pin-pulse"></div><div class="pin-dot"></div>',
+        iconSize: [14, 14],
+        iconAnchor: [7, 7]
+      });
+      if (!marker) {
+        marker = L.marker(ll, { icon: pinIcon }).addTo(map);
+      } else {
+        marker.setLatLng(ll);
+      }
+      map.setView(ll, Math.max(map.getZoom(), 7), { animate: true });
+    }
+
+    function rebuildAll() {
+      // Recolour / smooth toggles require fresh tile layers
+      const wasPlaying = playing;
+      stop();
+      buildLayers();
+      showFrame(curIdx);
+      if (wasPlaying) play();
+    }
+
+    function show() {
+      if (typeof L === 'undefined') {
+        $id('wxRadarLoading').innerHTML =
+          '<div style="color:#991b1b;">Map library failed to load. Check connection.</div>';
+        return;
+      }
+      ensureMap();
+      // Leaflet needs a size invalidation when made visible inside a hidden tab
+      setTimeout(() => map && map.invalidateSize(), 60);
+      if (!initialised) {
+        initialised = true;
+        wireControls();
+        refresh();
+        // 5 min auto-refresh while page is open
+        refreshTimer = setInterval(() => {
+          if (Date.now() - lastFetched > 4 * 60 * 1000) refresh();
+        }, 60 * 1000);
+      }
+    }
+
+    function wireControls() {
+      $id('wxRadarPlay').addEventListener('click', togglePlay);
+      $id('wxRadarNow').addEventListener('click', () => { stop(); jumpToNow(); });
+      $id('wxRadarScrub').addEventListener('input', e => {
+        stop();
+        showFrame(parseInt(e.target.value, 10));
+      });
+      $id('wxRadarSpeed').addEventListener('change', e => {
+        frameDelayMs = parseInt(e.target.value, 10) || 500;
+        if (playing) { stop(); play(); }
+      });
+      $id('wxRadarColors').addEventListener('change', e => {
+        colorScheme = parseInt(e.target.value, 10);
+        rebuildAll();
+      });
+      $id('wxRadarOpacity').addEventListener('input', e => {
+        opacity = (parseInt(e.target.value, 10) || 75) / 100;
+        showFrame(curIdx);
+      });
+      $id('wxRadarSnow').addEventListener('change', e => {
+        smoothSnow = e.target.checked;
+        rebuildAll();
+      });
+      // Layer mode chips
+      document.querySelectorAll('.wx-radar-toolbar [data-layer]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.wx-radar-toolbar [data-layer]').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          layerMode = btn.dataset.layer;
+          showFrame(curIdx);
+        });
+      });
+    }
+
+    return { show, setLocation, refresh };
+  })();
+
+  
   document.getElementById('wxTabs').addEventListener('click', e => {
     const tab = e.target.closest('.wx-tab');
     if (!tab) return;
@@ -1404,6 +1926,10 @@
     // Resize charts after tab becomes visible
     setTimeout(() => {
       Object.values(wxState.charts).forEach(c => c && c.resize && c.resize());
+      if (tab.dataset.tab === 'radar') {
+        // Lazy-init the radar the first time it is opened, then resize on subsequent shows
+        Radar.show();
+      }
     }, 50);
   });
 

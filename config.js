@@ -2,9 +2,9 @@
 // Include this before core.js on pages where you want to override defaults.
 window.RTS_CONFIG = {
   // Software build version — updated on every deployment
-  buildVersion: '8081b03',
+  buildVersion: 'a7a4b0d',
   buildDate:    '2026-06-13',
-  buildNote:    'CSP: allow connect-src to api.openf1.org for F1 Live tab',
+  buildNote:    'F1 Telemetry: multi-driver lap overlay with chip list',
   // API Configuration
   api: {
     baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)
