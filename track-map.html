@@ -1040,11 +1040,28 @@
       else tx.textContent='Waiting for race session…';
     }
 
+    let lastSessionKey='';
+
     function onTimingUpdate(state){
       updateHeader(state);
       updateOverlay(state);
       updateProgressArc(state);
       updateWeather(state);
+      // Detect session change (new heat / qualifying / final) and wipe stale
+      // karts + SVG dots so we don't render the previous session alongside
+      // the new one.
+      const sessionKey=(state.sessionName||'')+'|'+(state.classOnTrack||'');
+      if(sessionKey!==lastSessionKey){
+        lastSessionKey=sessionKey;
+        karts=[];
+        for(const[,els]of svgGroups){els.g.remove();}
+        svgGroups.clear();
+        for(const[,segs]of trailEls){segs.forEach(l=>l.remove());}
+        trailEls.clear(); trailBufs.clear();
+        gapHistory.clear(); intervalHistory.clear(); lapsByKart.clear();
+        pollHistory.length=0;
+        leaderAngle=-90; lapTimeSec=0;
+      }
       if((state.drivers||[]).length>0){
         ingestState(state);
         syncSvgGroups();
@@ -1072,7 +1089,7 @@
       }
       rafId=requestAnimationFrame(rafLoop);
       const script=document.createElement('script');
-      script.src='live-timing.js?v=20260525-1';
+      script.src='live-timing.js?v=20260613a';
       script.onload=()=>{
         if(window.RTSLiveTiming){RTSLiveTiming.onUpdate(onTimingUpdate);RTSLiveTiming.start(ltCfg);}
       };

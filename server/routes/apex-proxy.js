@@ -242,6 +242,11 @@ function tokeniseFrame(raw) {
 // Apex Timing renders the timing board as an HTML table with data-id="r{N}c{N}" on each <td>.
 // This is how static data (kart#, driver name, class) is delivered — they're only in the HTML.
 function parseHtmlGrid(html, grid) {
+  // Apex sends a fresh full-state HTML table on connect AND whenever a new
+  // session starts, so this is authoritative — wipe any leftover rows from
+  // the previous session before merging in the new ones (otherwise old
+  // drivers stay visible alongside the new ones).
+  grid.clear();
   // Parse each data row. For cells without data-id, determine column number by
   // anchoring from the first cell in the same row that HAS a data-id.
   // e.g. if r1c5 is at index 4, then index 0=c1, 1=c2, 2=c3, 3=c4, 4=c5 ...
