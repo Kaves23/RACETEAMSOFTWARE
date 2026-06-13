@@ -2,9 +2,9 @@
 // Include this before core.js on pages where you want to override defaults.
 window.RTS_CONFIG = {
   // Software build version — updated on every deployment
-  buildVersion: 'd2c67cf',
+  buildVersion: '329de24',
   buildDate:    '2026-06-13',
-  buildNote:    'Track map: spread field around the loop (leader~11:55, back~12:15)',
+  buildNote:    'Track map: clear stale session on transition; preserve clockwise rotation',
   // API Configuration
   api: {
     baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)
