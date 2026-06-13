@@ -2,9 +2,9 @@
 // Include this before core.js on pages where you want to override defaults.
 window.RTS_CONFIG = {
   // Software build version — updated on every deployment
-  buildVersion: '5e646e7',
+  buildVersion: '59bdd96',
   buildDate:    '2026-06-13',
-  buildNote:    'Track Map: capture per-class fastest lap to event + Live Times tab in Events inspector',
+  buildNote:    'Add F1 Live tab powered by OpenF1 API',
   // API Configuration
   api: {
     baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)
