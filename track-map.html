@@ -392,23 +392,38 @@
         const nm=g.match(/[+]?\s*(\d+(?:\.\d+)?)/);
         fracs[i]=nm?Math.min(parseFloat(nm[1])/lapT,0.85):0;
       });
-      // Visual stretch: ensure the field spans at least 20% of the circle (72°).
-      // Close qualifying gaps (e.g. 1.3s on a 41s lap = 3%) would be invisible
-      // without this. We scale positions proportionally — relative order/spacing
-      // is preserved, only the visual spread is amplified.
-      const MIN_VISUAL_SPREAD=0.20;
+      // Visual stretch so the field fills the track instead of bunching
+      // near the top. Target layout: leader near "11:55" and the back of
+      // the field near "12:15" going the long way around — i.e. the named
+      // field spans ~234° (0.65 of a lap). Relative spacing between karts
+      // is preserved (still proportional to time gaps), but the whole
+      // field is scaled up so close gaps remain visibly separated.
+      const MIN_VISUAL_SPREAD=0.65;
+      const MIN_PAIR_SEP=0.045; // ≥16° between any adjacent ranked pair
+      const MAX_FRAC=0.85;
       const knownFracs=fracs.map((f,i)=>i>0&&f!==null?f:null).filter(f=>f!==null);
       if(knownFracs.length>0){
         const maxFrac=Math.max(...knownFracs);
         if(maxFrac>0&&maxFrac<MIN_VISUAL_SPREAD){
           const scale=MIN_VISUAL_SPREAD/maxFrac;
-          fracs.forEach((f,i)=>{if(i>0&&f!==null)fracs[i]=Math.min(f*scale,0.85);});
+          fracs.forEach((f,i)=>{if(i>0&&f!==null)fracs[i]=Math.min(f*scale,MAX_FRAC);});
+        }
+      }
+      // Enforce minimum spacing between consecutive ranked karts so that
+      // bunched-up groups (e.g. P3/P4/P5 nose-to-tail) are still visually
+      // distinguishable on the map.
+      for(let i=1;i<fracs.length;i++){
+        if(fracs[i]===null)continue;
+        let prev=null;
+        for(let j=i-1;j>=0;j--){if(fracs[j]!==null){prev=fracs[j];break;}}
+        if(prev!==null&&fracs[i]<prev+MIN_PAIR_SEP){
+          fracs[i]=Math.min(prev+MIN_PAIR_SEP,MAX_FRAC);
         }
       }
       if(lapped.length){
         const named=fracs.filter(f=>f!==null);
         const last=named.length?Math.max(...named):0;
-        const s0=Math.max(last+0.10,0.28),s1=0.97,n=lapped.length;
+        const s0=Math.max(last+0.06,0.78),s1=0.97,n=lapped.length;
         lapped.forEach((idx,k)=>{fracs[idx]=n===1?(s0+s1)/2:s0+(k/(n-1))*(s1-s0);});
       }
       return fracs;

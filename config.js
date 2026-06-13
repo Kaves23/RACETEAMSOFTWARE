@@ -2,9 +2,9 @@
 // Include this before core.js on pages where you want to override defaults.
 window.RTS_CONFIG = {
   // Software build version — updated on every deployment
-  buildVersion: '2026f14',
+  buildVersion: '51ceee4',
   buildDate:    '2026-06-13',
-  buildNote:    'Fix sporting calendar JS parse error + live timing 401 auth',
+  buildNote:    'Apex live timing: follow per-event configHost (live-data.apex-timing.com) + dedupe pollers',
   // API Configuration
   api: {
     baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)
