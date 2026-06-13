@@ -32,7 +32,7 @@ router.post('/', async (req, res, next) => {
           parent_name, parent_phone, parent_email,
           source, assigned_to, status, notes,
           sessions, attachments, activities, tasks, booked_dates)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
        RETURNING *`,
       [
         driver_name, driver_dob || null, category || null, test_venue || null, nationality || null,
