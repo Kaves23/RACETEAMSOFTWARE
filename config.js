@@ -2,9 +2,9 @@
 // Include this before core.js on pages where you want to override defaults.
 window.RTS_CONFIG = {
   // Software build version — updated on every deployment
-  buildVersion: '3f9a860',
+  buildVersion: 'c7a07c9',
   buildDate:    '2026-06-13',
-  buildNote:    'Fix academy prospect INSERT: missing $17 placeholder for booked_dates',
+  buildNote:    'Race Control: consolidate Sporting nav (delete regulations/penalties/notes pages)',
   // API Configuration
   api: {
     baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)

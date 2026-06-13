@@ -116,6 +116,53 @@
     .brief-ack-row { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 20px; background: #e9ecef; font-size: .75rem; margin: 2px 4px 2px 0; }
     .brief-ack-row .ack-name { font-weight: 600; color: #1a1d24; }
     .brief-ack-row .ack-time { color: #6c757d; }
+
+    /* ── Custom searchable combobox ── */
+    .rc-combo-host { display: none !important; }
+    .rc-combo { position: relative; display: inline-block; width: 100%; }
+    .rc-combo-trigger {
+      width: 100%; display: flex; align-items: center; justify-content: space-between;
+      gap: 6px; padding: 5px 10px; min-height: 32px;
+      background: #fff; border: 1px solid #dee2e6; border-radius: 6px;
+      font-size: .85rem; color: #1a1d24; cursor: pointer; text-align: left;
+      transition: border-color .12s, box-shadow .12s;
+    }
+    .rc-combo-trigger:hover { border-color: #a64dff; }
+    .rc-combo.is-open .rc-combo-trigger,
+    .rc-combo-trigger:focus {
+      outline: none; border-color: #a64dff; box-shadow: 0 0 0 3px rgba(166,77,255,.15);
+    }
+    .rc-combo-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .rc-combo-label.rc-combo-placeholder { color: #9aa5b4; }
+    .rc-combo-caret { color: #6c757d; font-size: .75rem; transition: transform .15s; line-height: 1; }
+    .rc-combo.is-open .rc-combo-caret { transform: rotate(180deg); }
+    .rc-combo-clear {
+      background: none; border: none; color: #adb5bd; font-size: 1rem; padding: 0 2px; line-height: 1;
+      cursor: pointer; border-radius: 3px;
+    }
+    .rc-combo-clear:hover { color: #dc3545; background: #f8f9fa; }
+    .rc-combo-popup {
+      position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+      background: #fff; border: 1px solid #dee2e6; border-radius: 8px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.12); z-index: 1080; padding: 6px;
+      max-height: 320px; display: flex; flex-direction: column; min-width: 200px;
+    }
+    .rc-combo-popup.d-none { display: none !important; }
+    .rc-combo-search {
+      width: 100%; padding: 6px 8px; border: 1px solid #e9ecef; border-radius: 5px;
+      font-size: .82rem; margin-bottom: 4px; outline: none; background: #f8f9fa; color: #1a1d24;
+    }
+    .rc-combo-search:focus { background: #fff; border-color: #a64dff; }
+    .rc-combo-list { overflow-y: auto; max-height: 260px; }
+    .rc-combo-item {
+      padding: 6px 10px; font-size: .85rem; color: #1a1d24; cursor: pointer;
+      border-radius: 5px; display: flex; align-items: center; gap: 8px;
+    }
+    .rc-combo-item:hover, .rc-combo-item.is-active { background: rgba(166,77,255,.1); color: #1a0d2e; }
+    .rc-combo-item.selected { background: rgba(166,77,255,.18); color: #5b21b6; font-weight: 600; }
+    .rc-combo-item .rc-combo-check { width: 14px; color: #a64dff; font-size: .85rem; }
+    .rc-combo-empty { padding: 14px 10px; text-align: center; color: #9aa5b4; font-size: .82rem; }
+    .rc-combo-section { padding: 6px 10px 2px; font-size: .68rem; color: #6c757d; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
   </style>
 </head>
 <body class="light-mode">
@@ -130,9 +177,9 @@
       </div>
       <div class="d-flex gap-2 align-items-center flex-wrap">
         <label class="form-label mb-0 me-1" style="font-size:.78rem;font-weight:600;color:#495057;">Event scope:</label>
-        <select id="rcEventScope" class="form-select form-select-sm" style="min-width:180px;">
+        <div style="min-width:200px;"><select id="rcEventScope" class="form-select form-select-sm rc-combo-target">
           <option value="">All events</option>
-        </select>
+        </select></div>
         <button class="btn btn-sm btn-outline-secondary" id="rcCsvExport" type="button" title="Export visible records to CSV">⇩ CSV</button>
         <button class="btn btn-sm btn-primary" id="btnAddInc" type="button">+ Add Incident</button>
         <button class="btn btn-sm btn-primary d-none" id="btnAddPen" type="button">+ Log Penalty</button>
@@ -187,15 +234,15 @@
         <div class="mlo-pane-header">
           <div class="d-flex flex-wrap align-items-center gap-1">
             <input id="inSearch" type="text" class="form-control form-control-sm" placeholder="Search…" style="flex:1 1 160px; min-width:140px;">
-            <select id="inStatus" class="form-select form-select-sm" style="flex:0 1 150px; min-width:120px;">
+            <div style="flex:0 1 150px; min-width:120px;"><select id="inStatus" class="form-select form-select-sm rc-combo-target">
               <option value="">Status: All</option>
               <option>Open</option>
               <option>Monitoring</option>
               <option>Resolved</option>
-            </select>
-            <select id="inEventFilter" class="form-select form-select-sm" style="flex:0 1 180px; min-width:140px;">
+            </select></div>
+            <div style="flex:0 1 200px; min-width:160px;"><select id="inEventFilter" class="form-select form-select-sm rc-combo-target">
               <option value="">All events</option>
-            </select>
+            </select></div>
           </div>
         </div>
         <div class="mlo-pane-content" style="padding:0;">
@@ -249,19 +296,19 @@
                   </div>
                   <div class="col-6">
                     <label class="form-label">Driver</label>
-                    <select id="f_in_driver" class="form-select form-select-sm"><option value="">— None —</option></select>
+                    <select id="f_in_driver" class="form-select form-select-sm rc-combo-target"><option value="">— None —</option></select>
                   </div>
                   <div class="col-6">
                     <label class="form-label">Kart</label>
-                    <select id="f_in_kart" class="form-select form-select-sm"><option value="">— None —</option></select>
+                    <select id="f_in_kart" class="form-select form-select-sm rc-combo-target"><option value="">— None —</option></select>
                   </div>
                   <div class="col-7">
                     <label class="form-label">Event</label>
-                    <select id="f_in_event" class="form-select form-select-sm"><option value="">— None —</option></select>
+                    <select id="f_in_event" class="form-select form-select-sm rc-combo-target"><option value="">— None —</option></select>
                   </div>
                   <div class="col-5">
                     <label class="form-label">Severity</label>
-                    <select id="f_in_sev" class="form-select form-select-sm">
+                    <select id="f_in_sev" class="form-select form-select-sm rc-combo-target">
                       <option>Low</option>
                       <option>Medium</option>
                       <option>High</option>
@@ -270,11 +317,11 @@
                   </div>
                   <div class="col-7">
                     <label class="form-label">Owner / Staff</label>
-                    <select id="f_in_owner" class="form-select form-select-sm"><option value="">— None —</option></select>
+                    <select id="f_in_owner" class="form-select form-select-sm rc-combo-target"><option value="">— None —</option></select>
                   </div>
                   <div class="col-5">
                     <label class="form-label">Status</label>
-                    <select id="f_in_status" class="form-select form-select-sm">
+                    <select id="f_in_status" class="form-select form-select-sm rc-combo-target">
                       <option>Open</option>
                       <option>Monitoring</option>
                       <option>Resolved</option>
@@ -415,19 +462,19 @@
               </div>
               <div class="row g-2 mb-2">
                 <div class="col"><label class="form-label">Driver *</label>
-                  <select class="form-select" id="penFDriverSel"><option value="">— Select driver —</option></select>
+                  <select class="form-select rc-combo-target" id="penFDriverSel"><option value="">— Select driver —</option></select>
                 </div>
                 <div class="col-3"><label class="form-label">Car #</label><input class="form-control" id="penFCar" /></div>
               </div>
               <div class="row g-2 mb-2">
                 <div class="col"><label class="form-label">Event</label>
-                  <select class="form-select" id="penFEventSel"><option value="">— Select event —</option></select>
+                  <select class="form-select rc-combo-target" id="penFEventSel"><option value="">— Select event —</option></select>
                 </div>
                 <div class="col"><label class="form-label">Date</label><input class="form-control" id="penFDate" type="date" /></div>
               </div>
               <div class="row g-2 mb-2">
                 <div class="col"><label class="form-label">Penalty Type</label>
-                  <select class="form-select" id="penFType">
+                  <select class="form-select rc-combo-target" id="penFType">
                     <option value="time">Time Penalty</option>
                     <option value="grid">Grid Drop</option>
                     <option value="points">License Points</option>
@@ -436,7 +483,7 @@
                     <option value="protest">Protest (lodged)</option>
                   </select></div>
                 <div class="col"><label class="form-label">Status</label>
-                  <select class="form-select" id="penFStatus">
+                  <select class="form-select rc-combo-target" id="penFStatus">
                     <option value="issued">Issued</option>
                     <option value="served">Served</option>
                     <option value="appealed">Appealed</option>
@@ -450,9 +497,9 @@
               <div class="mb-2"><label class="form-label">Issued By</label><input class="form-control" id="penFIssuer" placeholder="Stewards / Race Director" /></div>
               <div class="mb-2"><label class="form-label">Reason / Cited Article</label><textarea class="form-control" id="penFReason" rows="2" placeholder="e.g. SR 8.4 — causing a collision (T3 lap 6)"></textarea></div>
               <div class="mb-2"><label class="form-label">Linked Incident</label>
-                <div class="input-group">
-                  <select class="form-select" id="penFIncident"><option value="">— None —</option></select>
-                  <button class="btn btn-outline-secondary btn-sm" id="penBtnGoIncident" type="button" title="Open linked incident">↗</button>
+                <div class="d-flex gap-2 align-items-center">
+                  <div style="flex:1;"><select class="form-select rc-combo-target" id="penFIncident"><option value="">— None —</option></select></div>
+                  <button class="btn btn-outline-secondary btn-sm" id="penBtnGoIncident" type="button" title="Open linked incident" style="flex:0 0 auto;">↗</button>
                 </div>
               </div>
               <div class="mb-3"><label class="form-label">Notes</label><textarea class="form-control" id="penFNotes" rows="2"></textarea></div>
@@ -506,6 +553,175 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="core.js?v=20260407-1700"></script>
   <script src="topnav.js?v=20260613a"></script>
+  <script>
+  /* ============================================================
+   * RC.combo — custom searchable dropdown
+   *   Wraps a native <select>: hides it, renders a styled popup,
+   *   keeps the native element as source of truth so existing
+   *   .value reads/writes and `change` events keep working.
+   * ============================================================ */
+  (function(){
+    'use strict';
+    function escapeHtml(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+    const STATE = { openCombo: null };
+    document.addEventListener('click', e => {
+      if (STATE.openCombo && !STATE.openCombo._wrap.contains(e.target)) STATE.openCombo._close();
+    });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && STATE.openCombo) STATE.openCombo._close();
+    });
+
+    function attach(selectEl, opts){
+      opts = opts || {};
+      if (!selectEl || selectEl._combo) return selectEl && selectEl._combo;
+      const placeholder = opts.placeholder || (selectEl.options[0] && selectEl.options[0].value === '' ? selectEl.options[0].textContent : 'Select…');
+      const clearable = opts.clearable !== false;
+
+      const wrap = document.createElement('div');
+      wrap.className = 'rc-combo';
+      const trigger = document.createElement('button');
+      trigger.type = 'button';
+      trigger.className = 'rc-combo-trigger';
+      trigger.innerHTML = `
+        <span class="rc-combo-label rc-combo-placeholder"></span>
+        ${clearable ? '<button type="button" class="rc-combo-clear" title="Clear" tabindex="-1">×</button>' : ''}
+        <span class="rc-combo-caret">▾</span>
+      `;
+      const popup = document.createElement('div');
+      popup.className = 'rc-combo-popup d-none';
+      popup.innerHTML = `
+        <input type="text" class="rc-combo-search" placeholder="${escapeHtml(opts.searchPlaceholder || 'Search…')}" />
+        <div class="rc-combo-list"></div>
+      `;
+
+      // Insert wrap right before the select; move the select inside wrap and hide it
+      selectEl.parentNode.insertBefore(wrap, selectEl);
+      selectEl.classList.add('rc-combo-host');
+      wrap.appendChild(selectEl);
+      wrap.appendChild(trigger);
+      wrap.appendChild(popup);
+
+      const labelEl = trigger.querySelector('.rc-combo-label');
+      const clearBtn = trigger.querySelector('.rc-combo-clear');
+      const searchEl = popup.querySelector('.rc-combo-search');
+      const listEl = popup.querySelector('.rc-combo-list');
+
+      let activeIdx = -1;
+
+      function getOptions(){
+        return Array.from(selectEl.options).map((o, i) => ({
+          value: o.value,
+          text: o.textContent || '',
+          disabled: o.disabled,
+          dataset: o.dataset,
+          isPlaceholder: o.value === '' && i === 0
+        }));
+      }
+
+      function refreshLabel(){
+        const cur = selectEl.options[selectEl.selectedIndex];
+        const isEmpty = !cur || cur.value === '';
+        labelEl.textContent = isEmpty ? placeholder : (cur.textContent || cur.value);
+        labelEl.classList.toggle('rc-combo-placeholder', isEmpty);
+        if (clearBtn) clearBtn.style.display = isEmpty ? 'none' : '';
+      }
+
+      function renderList(q){
+        const ql = (q || '').toLowerCase();
+        const opts = getOptions().filter(o => !o.isPlaceholder).filter(o => !ql || o.text.toLowerCase().includes(ql));
+        if (!opts.length) {
+          listEl.innerHTML = `<div class="rc-combo-empty">${ql ? 'No matches' : 'No options available'}</div>`;
+          activeIdx = -1;
+          return;
+        }
+        listEl.innerHTML = opts.map((o, i) => {
+          const sel = o.value === selectEl.value;
+          return `<div class="rc-combo-item ${sel?'selected':''}" data-value="${escapeHtml(o.value)}" data-idx="${i}">
+            <span class="rc-combo-check">${sel?'✓':''}</span>
+            <span>${escapeHtml(o.text)}</span>
+          </div>`;
+        }).join('');
+        activeIdx = opts.findIndex(o => o.value === selectEl.value);
+        if (activeIdx < 0) activeIdx = 0;
+        markActive();
+        listEl.querySelectorAll('.rc-combo-item').forEach(it => {
+          it.addEventListener('click', () => commit(it.dataset.value));
+          it.addEventListener('mouseenter', () => { activeIdx = parseInt(it.dataset.idx, 10); markActive(); });
+        });
+      }
+
+      function markActive(){
+        listEl.querySelectorAll('.rc-combo-item').forEach((el, i) => el.classList.toggle('is-active', i === activeIdx));
+        const active = listEl.querySelector('.rc-combo-item.is-active');
+        if (active) active.scrollIntoView({ block: 'nearest' });
+      }
+
+      function commit(value){
+        if (selectEl.value !== value) {
+          selectEl.value = value;
+          selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        refreshLabel();
+        close();
+      }
+
+      function open(){
+        if (STATE.openCombo && STATE.openCombo !== api) STATE.openCombo._close();
+        wrap.classList.add('is-open');
+        popup.classList.remove('d-none');
+        searchEl.value = '';
+        renderList('');
+        STATE.openCombo = api;
+        setTimeout(() => searchEl.focus(), 30);
+      }
+
+      function close(){
+        wrap.classList.remove('is-open');
+        popup.classList.add('d-none');
+        if (STATE.openCombo === api) STATE.openCombo = null;
+      }
+
+      trigger.addEventListener('click', e => {
+        if (e.target === clearBtn) return;
+        wrap.classList.contains('is-open') ? close() : open();
+      });
+      if (clearBtn) clearBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        // Reset to first/empty option
+        const empty = Array.from(selectEl.options).find(o => o.value === '');
+        commit(empty ? '' : '');
+      });
+      searchEl.addEventListener('input', () => renderList(searchEl.value));
+      searchEl.addEventListener('keydown', e => {
+        const items = listEl.querySelectorAll('.rc-combo-item');
+        if (e.key === 'ArrowDown') { e.preventDefault(); if (items.length) { activeIdx = Math.min(activeIdx + 1, items.length - 1); markActive(); } }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); if (items.length) { activeIdx = Math.max(activeIdx - 1, 0); markActive(); } }
+        else if (e.key === 'Enter') { e.preventDefault(); const cur = items[activeIdx]; if (cur) commit(cur.dataset.value); }
+      });
+
+      const api = {
+        _wrap: wrap,
+        _close: close,
+        refresh: refreshLabel,
+        rebuild(){ refreshLabel(); if (!popup.classList.contains('d-none')) renderList(searchEl.value); }
+      };
+      selectEl._combo = api;
+      refreshLabel();
+      return api;
+    }
+
+    function refresh(selectEl){ if (selectEl && selectEl._combo) selectEl._combo.rebuild(); }
+    function refreshAll(root){ (root || document).querySelectorAll('select.rc-combo-target').forEach(s => { attach(s); refresh(s); }); }
+
+    window.RC = window.RC || {};
+    window.RC.combo = { attach, refresh, refreshAll };
+
+    // Auto-attach pass once the DOM is ready (re-runnable for dynamically rendered selects)
+    document.addEventListener('DOMContentLoaded', () => refreshAll());
+  })();
+  </script>
+
   <script>
   (function(){
     'use strict';
@@ -607,6 +823,9 @@
       window.RC.events = events;
       window.RC.drivers = drivers;
       window.RC.incidents = incidents;
+
+      // Re-attach / refresh all custom comboboxes after options change
+      if (window.RC.combo) window.RC.combo.refreshAll();
     }
 
     // ─── STATS ───────────────────────────────────────────────────
@@ -693,6 +912,13 @@
       // Quick links
       document.getElementById('btnViewEvent').href = inc.event_id ? `events.html?id=${inc.event_id}` : 'events.html';
       document.getElementById('btnLogService').href = inc.kart_id ? `service.html?kart=${inc.kart_id}` : 'service.html';
+
+      // Refresh combobox labels for fields whose .value we just set
+      if (window.RC && window.RC.combo) {
+        ['f_in_driver','f_in_kart','f_in_event','f_in_sev','f_in_owner','f_in_status'].forEach(id => {
+          const s = document.getElementById(id); if (s) window.RC.combo.refresh(s);
+        });
+      }
 
       renderAttachments(inc);
       renderDamageSvg(inc.damage||{});
@@ -1076,6 +1302,7 @@
           incSel.innerHTML = '<option value="">— None —</option>' +
             this.incidents.map(i => `<option value="${this.esc(i.id)}">${this.esc(i.title || ('Incident '+i.id))}</option>`).join('');
         }
+        if (window.RC && window.RC.combo) window.RC.combo.refreshAll();
       },
 
       bind(){
@@ -1212,7 +1439,15 @@
         document.getElementById('penFIncident').value = p.incident_id || '';
         document.getElementById('penFNotes').value = p.notes || '';
         document.getElementById('penBtnDelete').style.display = '';
+        this.refreshFormCombos();
         this.render();
+      },
+
+      refreshFormCombos(){
+        if (!window.RC || !window.RC.combo) return;
+        ['penFDriverSel','penFEventSel','penFIncident','penFType','penFStatus'].forEach(id => {
+          const s = document.getElementById(id); if (s) window.RC.combo.refresh(s);
+        });
       },
 
       newForm(){
@@ -1227,6 +1462,7 @@
         const scope = (window.RC && window.RC.eventScope) || '';
         if (scope) document.getElementById('penFEventSel').value = scope;
         document.getElementById('penBtnDelete').style.display = 'none';
+        this.refreshFormCombos();
       },
 
       newFromIncident(inc){
@@ -1242,6 +1478,7 @@
         document.getElementById('penFIncident').value = inc.id;
         document.getElementById('penFReason').value = `Re: ${inc.title || 'incident'}`;
         document.getElementById('penDetailTitle').textContent = `New Penalty (from ${inc.title || 'incident'})`;
+        this.refreshFormCombos();
       },
 
       cancel(){
@@ -1436,14 +1673,14 @@
           <div class="row g-2 mb-2">
             <div class="col-md-6">
               <label class="form-label" style="font-size:.78rem;font-weight:600;color:#495057;">Linked Event</label>
-              <select id="briefEditEvent" class="form-select form-select-sm">
+              <select id="briefEditEvent" class="form-select form-select-sm rc-combo-target">
                 <option value="">— None —</option>
                 ${events.map(e => `<option value="${this.esc(e.id)}" ${b.linked_entity_id===e.id?'selected':''}>${this.esc(e.title||e.name||e.id)}</option>`).join('')}
               </select>
             </div>
             <div class="col-md-6">
               <label class="form-label" style="font-size:.78rem;font-weight:600;color:#495057;">Add required acknowledger</label>
-              <select id="briefAddRequired" class="form-select form-select-sm">
+              <select id="briefAddRequired" class="form-select form-select-sm rc-combo-target">
                 <option value="">— Select driver —</option>
                 ${drivers.filter(dr => !required.find(r => r.id === dr.id)).map(dr => `<option value="${this.esc(dr.id)}" data-name="${this.esc(dr.name||dr.id)}">${this.esc(dr.name||dr.id)}</option>`).join('')}
               </select>
@@ -1478,6 +1715,9 @@
         });
         const ackBtn = document.getElementById('briefBtnAck');
         if (ackBtn && !mine) ackBtn.addEventListener('click', () => this.ack(b));
+
+        // Re-attach custom comboboxes for the freshly-rendered selects
+        if (window.RC && window.RC.combo) window.RC.combo.refreshAll(d);
       },
 
       exportRows(){
