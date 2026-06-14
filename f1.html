@@ -491,7 +491,7 @@
      ═══════════════════════════════════════════════════════════════════════════ */
   'use strict';
 
-  const F1_API = 'https://api.openf1.org/v1';
+  const F1_API = '/api/openf1';
   const COMPOUND_LETTER = { SOFT:'S', MEDIUM:'M', HARD:'H', INTERMEDIATE:'I', WET:'W', UNKNOWN:'X' };
 
   /* ── State ─────────────────────────────────────────────────────────────── */
@@ -738,6 +738,8 @@
     sel.innerHTML = '';
     if (!meetings.length) {
       sel.innerHTML = '<option value="">No meetings</option>';
+      state.meeting = null;
+      f1Picks.get('f1Meeting')?.refresh();
       return;
     }
     // Default to most recent meeting whose start <= now, otherwise the first
@@ -1604,10 +1606,27 @@
     state.year = parseInt(document.getElementById('f1Year').value) || new Date().getFullYear();
     await loadMeetings(state.year);
     renderCalendar();
+    if (!state.meeting || !state.meeting.meeting_key) {
+      state.sessions = [];
+      state.session = null;
+      const sSel = document.getElementById('f1Session');
+      sSel.innerHTML = '<option value="">No sessions</option>';
+      f1Picks.get('f1Session')?.refresh();
+      return;
+    }
     await onMeetingChange();
   }
   async function onMeetingChange(){
     const mk = parseInt(document.getElementById('f1Meeting').value);
+    if (!Number.isFinite(mk)) {
+      state.meeting = null;
+      state.sessions = [];
+      state.session = null;
+      const sSel = document.getElementById('f1Session');
+      sSel.innerHTML = '<option value="">No sessions</option>';
+      f1Picks.get('f1Session')?.refresh();
+      return;
+    }
     state.meeting = state.meetings.find(m => m.meeting_key === mk);
     await loadSessionsForMeeting(mk);
     await onSessionChange();

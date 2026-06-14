@@ -2,9 +2,9 @@
 // Include this before core.js on pages where you want to override defaults.
 window.RTS_CONFIG = {
   // Software build version — updated on every deployment
-  buildVersion: '8ea98d9',
+  buildVersion: '3273d3b',
   buildDate:    '2026-06-14',
-  buildNote:    'F1 Track Map: seed circuit from one full known lap (Catmull-Rom + closed)',
+  buildNote:    'Sporting Track Map: timing-aware circle markers (pace ring + close-gap tags)',
   // API Configuration
   api: {
     baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)
