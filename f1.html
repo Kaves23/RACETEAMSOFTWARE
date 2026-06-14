@@ -511,6 +511,7 @@
     raceCtrl: [],
     weather:  [],
     sessionResult: [],
+    openf1Locked: false,
     activeTab: 'leaderboard',
     tabsLoaded: new Set(),    // which tabs have hydrated for current session
     // track map playback
@@ -576,18 +577,30 @@
     dot.classList.remove('warn','bad');
     if (state === 'busy')  dot.classList.add('warn');
     if (state === 'error') dot.classList.add('bad');
+    if (state === 'locked') {
+      dot.classList.add('bad');
+      txt.textContent = 'OpenF1 — temporarily locked (live session)';
+      return;
+    }
     txt.textContent = state === 'error' ? 'OpenF1 — error' : (state === 'busy' ? 'OpenF1 — loading' : 'OpenF1');
   }
 
   async function api(path, params){
+    if (state.openf1Locked) return [];
     setRate('busy');
     try {
       const r = await f1Queue(path, params);
+      state.openf1Locked = false;
       setRate('idle');
       return Array.isArray(r) ? r : [];
     } catch (e) {
       console.error('OpenF1 error', path, params, e);
-      setRate('error');
+      if (String(e && e.message || '').includes('HTTP 401')) {
+        state.openf1Locked = true;
+        setRate('locked');
+      } else {
+        setRate('error');
+      }
       return [];
     }
   }
@@ -732,12 +745,20 @@
   async function loadMeetings(year){
     const sel = document.getElementById('f1Meeting');
     sel.innerHTML = '<option>Loading…</option>';
-    const meetings = await api('meetings', { year });
+    let meetings = await api('meetings', { year });
+    if (meetings.length) {
+      try { localStorage.setItem(`f1.meetings.${year}`, JSON.stringify(meetings)); } catch(_e){}
+    } else if (state.openf1Locked) {
+      try {
+        const cached = JSON.parse(localStorage.getItem(`f1.meetings.${year}`) || '[]');
+        if (Array.isArray(cached) && cached.length) meetings = cached;
+      } catch(_e){}
+    }
     meetings.sort((a,b) => new Date(a.date_start) - new Date(b.date_start));
     state.meetings = meetings;
     sel.innerHTML = '';
     if (!meetings.length) {
-      sel.innerHTML = '<option value="">No meetings</option>';
+      sel.innerHTML = `<option value="">${state.openf1Locked ? 'OpenF1 temporarily unavailable' : 'No meetings'}</option>`;
       state.meeting = null;
       f1Picks.get('f1Meeting')?.refresh();
       return;
@@ -762,12 +783,20 @@
   async function loadSessionsForMeeting(meetingKey){
     const sel = document.getElementById('f1Session');
     sel.innerHTML = '<option>Loading…</option>';
-    const sessions = await api('sessions', { meeting_key: meetingKey });
+    let sessions = await api('sessions', { meeting_key: meetingKey });
+    if (sessions.length) {
+      try { localStorage.setItem(`f1.sessions.${meetingKey}`, JSON.stringify(sessions)); } catch(_e){}
+    } else if (state.openf1Locked) {
+      try {
+        const cached = JSON.parse(localStorage.getItem(`f1.sessions.${meetingKey}`) || '[]');
+        if (Array.isArray(cached) && cached.length) sessions = cached;
+      } catch(_e){}
+    }
     sessions.sort((a,b) => new Date(a.date_start) - new Date(b.date_start));
     state.sessions = sessions;
     sel.innerHTML = '';
     if (!sessions.length) {
-      sel.innerHTML = '<option value="">No sessions</option>';
+      sel.innerHTML = `<option value="">${state.openf1Locked ? 'OpenF1 temporarily unavailable' : 'No sessions'}</option>`;
       state.session = null;
       return;
     }

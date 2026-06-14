@@ -2,9 +2,9 @@
 // Include this before core.js on pages where you want to override defaults.
 window.RTS_CONFIG = {
   // Software build version — updated on every deployment
-  buildVersion: '930a1da',
+  buildVersion: 'c9697b0',
   buildDate:    '2026-06-14',
-  buildNote:    'F1: fix OpenF1 CORS in production via server proxy',
+  buildNote:    'F1: make /api/openf1 proxy public to avoid 401 on frontend widgets',
   // API Configuration
   api: {
     baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)
