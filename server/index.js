@@ -230,7 +230,9 @@ app.use('/api/championships',     requireAuth, require('./routes/championships')
 app.use('/api/regulations',       requireAuth, require('./routes/regulations'));
 app.use('/api/penalties',         requireAuth, require('./routes/penalties'));
 app.use('/api/event-fastest-times', requireAuth, require('./routes/event-fastest-times'));
-app.use('/api/openf1',            requireAuth, require('./routes/openf1-proxy'));
+// OpenF1 proxy is intentionally public/read-only so frontend F1 widgets can
+// load even when auth is temporarily unavailable; it only proxies GET data.
+app.use('/api/openf1',            require('./routes/openf1-proxy'));
 app.use('/api/competitor-intel',  requireAuth, require('./routes/competitor-intel'));
 // Phase 1 — Technical
 app.use('/api/cars',              requireAuth, require('./routes/cars'));
