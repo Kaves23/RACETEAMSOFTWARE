@@ -68,6 +68,19 @@
       letter-spacing:.02em; text-transform:uppercase; pointer-events:none;
       paint-order:stroke; stroke-linejoin:round; stroke:rgba(255,255,255,.92); stroke-width:3;
     }
+    .tm-kart-pace-bg { fill:none; stroke:#cbd5e1; stroke-width:2.2; opacity:.55; }
+    .tm-kart-pace {
+      fill:none; stroke-width:2.2; stroke-linecap:round;
+      transform-box:fill-box; transform-origin:center;
+    }
+    .tm-kart-gap {
+      font-family:ui-monospace,'Courier New',monospace;
+      font-size:8px; font-weight:700;
+      fill:#1f2937;
+      paint-order:stroke; stroke:rgba(255,255,255,.95); stroke-width:2.6;
+      font-variant-numeric:tabular-nums;
+      pointer-events:none;
+    }
     .tm-trail  { fill:none; stroke-linecap:round; }
     .tm-battle { stroke-width:2; stroke-dasharray:4 3; opacity:.65; }
     .tm-pit-badge {
@@ -419,6 +432,12 @@
       if(/^\d+\.\d+$/.test(s))return parseFloat(s);
       if(/^\d+$/.test(s))return parseInt(s,10);
       return 0;
+    }
+    function parseGapSec(str){
+      if(!str)return 0;
+      if(/Lap/i.test(String(str)))return 0;
+      const m=String(str).match(/[+]?\s*(\d+(?:\.\d+)?)/);
+      return m?parseFloat(m[1]):0;
     }
 
     function computeGapFractions(drivers,lapT){
@@ -796,16 +815,20 @@
           const shadow=svgEl('circle',{r:DOT_R+2,fill:'rgba(0,0,0,0.12)'});
           const leaderRing=svgEl('circle',{r:LEADER_RING,class:'tm-kart-leader-ring'});
           const flRing=svgEl('circle',{r:LEADER_RING+5,class:'tm-kart-fl'});
+          const paceBg=svgEl('circle',{r:DOT_R+7,class:'tm-kart-pace-bg'});
+          const paceRing=svgEl('circle',{r:DOT_R+7,class:'tm-kart-pace'});
           const dot=svgEl('circle',{r:DOT_R,class:'tm-kart-dot'});
           const label=svgEl('text',{'text-anchor':'middle','dominant-baseline':'middle',class:'tm-kart-label'});
           label.textContent='#'+k.kart;
           const nameLbl=svgEl('text',{'text-anchor':'middle','dominant-baseline':'middle',class:'tm-kart-name'});
+          const gapLbl=svgEl('text',{'text-anchor':'middle','dominant-baseline':'middle',class:'tm-kart-gap'});
           const pitLbl=svgEl('text',{class:'tm-pit-badge','text-anchor':'middle','dominant-baseline':'middle',style:'display:none'});
           pitLbl.textContent='PIT';
           g.appendChild(shadow);g.appendChild(leaderRing);g.appendChild(flRing);
-          g.appendChild(dot);g.appendChild(label);g.appendChild(nameLbl);g.appendChild(pitLbl);
+          g.appendChild(paceBg);g.appendChild(paceRing);
+          g.appendChild(dot);g.appendChild(label);g.appendChild(nameLbl);g.appendChild(gapLbl);g.appendChild(pitLbl);
           container.appendChild(g);
-          svgGroups.set(k.kart,{g,shadow,leaderRing,flRing,dot,label,nameLbl,pitLbl});
+          svgGroups.set(k.kart,{g,shadow,leaderRing,flRing,paceBg,paceRing,dot,label,nameLbl,gapLbl,pitLbl});
         }
         const els=svgGroups.get(k.kart);
         const isFL=fastestLap.kart===k.kart;
@@ -820,6 +843,36 @@
         els.nameLbl.textContent=surname.length>12?surname.slice(0,12):surname;
         els.nameLbl.setAttribute('fill',isFL?'#9333ea':(k.isOurs?(k.ourColor||'#1f2937'):(k.isLeader?'#92400e':'#1f2937')));
         els.nameLbl.style.display=(k.inPit||!surname)?'none':'';
+
+        // Timing ring: visual pace score from last lap vs own best lap.
+        // Full bright ring = on/near personal best, short red arc = off pace.
+        const c=2*Math.PI*(DOT_R+7);
+        const delta=(k.lapSec>0&&k.bestSec>0)?Math.max(0,k.lapSec-k.bestSec):null;
+        if(delta==null||k.inPit){
+          els.paceBg.style.display='none';
+          els.paceRing.style.display='none';
+        }else{
+          const score=Math.max(0.06,Math.min(1,1-(delta/1.2))); // 0..1 pace score
+          const paceCol=isFL?'#9333ea':(delta<=0.15?'#16a34a':(delta<=0.5?'#f59e0b':'#dc2626'));
+          els.paceBg.style.display='';
+          els.paceRing.style.display='';
+          els.paceRing.setAttribute('stroke',paceCol);
+          els.paceRing.setAttribute('stroke-dasharray',`${(c*score).toFixed(1)} ${(c*(1-score)).toFixed(1)}`);
+          els.paceRing.setAttribute('stroke-dashoffset',(c*0.25).toFixed(1));
+        }
+
+        // Micro-gap tag for close fights only (keeps the map readable).
+        const intSec=parseGapSec(k.interval);
+        const showGap=!k.isLeader&&!k.inPit&&intSec>0&&intSec<=1.2;
+        if(showGap){
+          const txt='+'+intSec.toFixed(2);
+          els.gapLbl.textContent=txt;
+          els.gapLbl.setAttribute('fill',intSec<=0.35?'#16a34a':'#1f2937');
+          els.gapLbl.style.display='';
+        }else{
+          els.gapLbl.style.display='none';
+        }
+
         els.leaderRing.style.display=k.isLeader?'':'none';
         els.flRing.style.display=isFL?'':'none';
         els.pitLbl.style.display=k.inPit?'':'none';
@@ -887,9 +940,16 @@
           els.shadow.setAttribute('cx',pt.x);els.shadow.setAttribute('cy',String(pt.y+2));
           els.leaderRing.setAttribute('cx',pt.x);els.leaderRing.setAttribute('cy',pt.y);
           els.flRing.setAttribute('cx',pt.x);els.flRing.setAttribute('cy',pt.y);
+          els.paceBg.setAttribute('cx',pt.x);els.paceBg.setAttribute('cy',pt.y);
+          els.paceRing.setAttribute('cx',pt.x);els.paceRing.setAttribute('cy',pt.y);
           els.dot.setAttribute('cx',pt.x);els.dot.setAttribute('cy',pt.y);
           els.label.setAttribute('x',lpt.x);els.label.setAttribute('y',lpt.y);
           if(els.nameLbl){els.nameLbl.setAttribute('x',npt.x);els.nameLbl.setAttribute('y',npt.y);}
+          if(els.gapLbl){
+            const gpt=angleToPt(angle,rEff+17);
+            els.gapLbl.setAttribute('x',gpt.x);
+            els.gapLbl.setAttribute('y',gpt.y);
+          }
           if(k.inPit){els.pitLbl.setAttribute('x',pt.x);els.pitLbl.setAttribute('y',String(pt.y-DOT_R-9));}
         }
         if(doTrail){
