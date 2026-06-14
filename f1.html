@@ -985,47 +985,76 @@
   }
 
   /* ──────────────────────────────────────────────────────────────────────────
-     TRACK MAP TAB — uses /location data, builds path from a sample of points
+     TRACK MAP TAB — uses /location data, builds path from one full known lap
      ────────────────────────────────────────────────────────────────────────── */
   async function loadTrackMap(){
     if (!state.session) return;
     const sk = state.session.session_key;
 
-    // Pick a fast driver to seed the path (use leader of last session result, or first driver)
-    const seedDrv = state.sessionResult[0]?.driver_number || state.drivers[0]?.driver_number;
-    if (!seedDrv) return;
+    // We need lap timing data to seed the path from a complete lap.
+    if (!state.laps.length) {
+      try { await loadLeaderboard(); } catch(_) {}
+    }
 
-    // Get a chunk of location data near the start of the session for the seed driver.
-    // 4-minute window is enough for ≥1 full lap on every F1 circuit.
-    const start = state.session.date_start;
-    const startTs = new Date(start).getTime();
-    const after  = new Date(startTs + 8*60_000).toISOString();   // skip first 8min (out lap noise)
-    const before = new Date(startTs + 12*60_000).toISOString();  // 4-min window
+    // Build a list of candidate (driver, lap) pairs ordered by best lap time.
+    // Prefer fast laps because they're guaranteed to be one continuous flying
+    // lap (no pit, no in/out lap). Fall back to whichever lap has timing data.
+    const byNum = new Map();
+    for (const l of state.laps) {
+      if (!l.lap_duration || !l.date_start) continue;
+      const cur = byNum.get(l.driver_number);
+      if (!cur || l.lap_duration < cur.lap_duration) byNum.set(l.driver_number, l);
+    }
+    const candidates = Array.from(byNum.values()).sort((a,b) => a.lap_duration - b.lap_duration);
 
-    const seedPoints = await api('location', {
-      session_key: sk,
-      driver_number: seedDrv,
-      'date>': after,
-      'date<': before
-    });
+    document.getElementById('f1TmInfo').innerHTML = 'Building circuit map… <span class="f1-spinner"></span>';
 
-    // Build path from seed: project x/y to viewbox
-    if (!seedPoints.length) {
+    // Try candidates in order until one returns ≥ 60 location points (a full lap).
+    let seedPoints = null, seedLap = null, seedDrv = null;
+    for (const lap of candidates.slice(0, 6)) {  // max 6 attempts → bounded API spend
+      const t0 = new Date(lap.date_start).getTime();
+      const t1 = t0 + (lap.lap_duration + 1) * 1000;
+      const after  = new Date(t0 - 200).toISOString();
+      const before = new Date(t1).toISOString();
+      const pts = await api('location', {
+        session_key: sk, driver_number: lap.driver_number,
+        'date>': after, 'date<': before
+      });
+      const valid = pts.filter(p => typeof p.x === 'number' && typeof p.y === 'number' && (p.x !== 0 || p.y !== 0));
+      if (valid.length >= 60) {
+        seedPoints = valid; seedLap = lap; seedDrv = lap.driver_number;
+        break;
+      }
+    }
+
+    // Fallback: if no flying-lap data was returned, use a wider 10-min window
+    // from the seed driver. This still draws a partial loop but at least shows
+    // something useful.
+    if (!seedPoints) {
+      const fallbackDrv = state.sessionResult[0]?.driver_number || state.drivers[0]?.driver_number;
+      if (fallbackDrv) {
+        const startTs = new Date(state.session.date_start).getTime();
+        const after  = new Date(startTs +  5*60_000).toISOString();
+        const before = new Date(startTs + 15*60_000).toISOString();
+        const pts = await api('location', {
+          session_key: sk, driver_number: fallbackDrv,
+          'date>': after, 'date<': before
+        });
+        const valid = pts.filter(p => typeof p.x === 'number' && typeof p.y === 'number' && (p.x !== 0 || p.y !== 0));
+        if (valid.length) { seedPoints = valid; seedDrv = fallbackDrv; }
+      }
+    }
+
+    if (!seedPoints || !seedPoints.length) {
       document.getElementById('f1TmInfo').textContent = 'No location data for this session';
       return;
     }
-    let xs = [], ys = [];
-    for (const p of seedPoints) {
-      if (typeof p.x === 'number' && typeof p.y === 'number') { xs.push(p.x); ys.push(p.y); }
-    }
-    if (!xs.length) {
-      document.getElementById('f1TmInfo').textContent = 'No coordinates in seed';
-      return;
-    }
+
+    // Project x/y to viewbox
+    const xs = seedPoints.map(p => p.x), ys = seedPoints.map(p => p.y);
     const minX = Math.min(...xs), maxX = Math.max(...xs);
     const minY = Math.min(...ys), maxY = Math.max(...ys);
-    const pad = 40;
-    const w = 1000, h = 600;
+    const pad = 40, w = 1000, h = 600;
     const sx = (w - 2*pad) / Math.max(1, (maxX - minX));
     const sy = (h - 2*pad) / Math.max(1, (maxY - minY));
     const sc = Math.min(sx, sy);
@@ -1033,25 +1062,51 @@
     const oy = pad + ((h - 2*pad) - (maxY - minY)*sc)/2;
     function project(x, y){ return [ox + (x - minX)*sc, h - (oy + (y - minY)*sc)]; } // flip y
 
-    // Build a smoothed path. Don't auto-close (no Z) — start and end of the
-    // sample window may be on opposite sides of the circuit and a closing
-    // chord would draw a straight line right across the track.
-    const ptsXY = seedPoints.filter(p => typeof p.x === 'number').map(p => project(p.x, p.y));
-    // Down-sample for path (every 3rd point)
-    const pathPts = ptsXY.filter((_, i) => i % 3 === 0);
-    const pathD = pathPts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
-    document.getElementById('f1TrackPath').setAttribute('d', pathD);
-    document.getElementById('f1TrackEdgeOuter').setAttribute('d', pathD);
+    // Smooth the seed path with a Catmull-Rom → Bezier spline so the rendered
+    // circuit is curvy rather than chopped. We close the path with Z ONLY when
+    // the seed came from a single flying lap (start and end are the same point
+    // on track). For the fallback time-window seed, leave it open.
+    const projected = seedPoints
+      .filter(p => typeof p.x === 'number')
+      .map(p => project(p.x, p.y));
+    // De-spike: drop any point that's a huge jump from its neighbour (GPS glitch)
+    const cleaned = [projected[0]];
+    for (let i = 1; i < projected.length; i++) {
+      const dx = projected[i][0] - cleaned[cleaned.length-1][0];
+      const dy = projected[i][1] - cleaned[cleaned.length-1][1];
+      if (Math.hypot(dx, dy) < 220) cleaned.push(projected[i]);
+    }
+    // Down-sample for path (every ~3rd point) — Catmull-Rom needs less density
+    const step = cleaned.length > 400 ? 4 : 3;
+    const ctrl = cleaned.filter((_, i) => i % step === 0);
+    if (ctrl.length < 4) {
+      // Not enough points for a spline — fall back to straight segments
+      const pathD = ctrl.map((p,i) => (i?'L':'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+      document.getElementById('f1TrackPath').setAttribute('d', pathD);
+      document.getElementById('f1TrackEdgeOuter').setAttribute('d', pathD);
+    } else {
+      const closed = !!seedLap;  // close only when we used a single flying lap
+      const pathD = catmullRomToBezier(ctrl, closed);
+      document.getElementById('f1TrackPath').setAttribute('d', pathD);
+      document.getElementById('f1TrackEdgeOuter').setAttribute('d', pathD);
+    }
 
-    // Now load location for top drivers in the same window for playback.
-    // Cap at 10 drivers to stay inside the 30 req/min OpenF1 free-tier budget.
+    // Pick a 4-minute playback window centred near the seed lap (or session
+    // start + 8min for the fallback seed). Cap at 10 drivers.
+    const playStart = seedLap
+      ? new Date(seedLap.date_start).getTime() - 30_000   // start 30s before seed lap
+      : new Date(state.session.date_start).getTime() + 8*60_000;
+    const playEnd = playStart + 4*60_000;
+    const after  = new Date(playStart).toISOString();
+    const before = new Date(playEnd).toISOString();
+
     const orderedNums = state.sessionResult.length
       ? state.sessionResult.map(r => r.driver_number)
       : state.drivers.map(d => d.driver_number);
     const driverNums = orderedNums.slice(0, 10);
-    document.getElementById('f1TmInfo').innerHTML = `Loading positions for ${driverNums.length} drivers… <span class="f1-spinner"></span>`;
+    document.getElementById('f1TmInfo').innerHTML =
+      `Loading positions for ${driverNums.length} drivers… <span class="f1-spinner"></span>`;
 
-    // Batch concurrently but rate-limited by queue
     const allLoc = await Promise.all(driverNums.map(num =>
       api('location', { session_key: sk, driver_number: num, 'date>': after, 'date<': before })
     ));
@@ -1059,7 +1114,7 @@
     state.tm.points = new Map();
     let tMin = Infinity, tMax = -Infinity;
     driverNums.forEach((num, i) => {
-      const pts = allLoc[i].filter(p => typeof p.x === 'number' && typeof p.y === 'number').map(p => {
+      const pts = allLoc[i].filter(p => typeof p.x === 'number' && typeof p.y === 'number' && (p.x !== 0 || p.y !== 0)).map(p => {
         const t = new Date(p.date).getTime();
         if (t < tMin) tMin = t; if (t > tMax) tMax = t;
         const xy = project(p.x, p.y);
@@ -1086,7 +1141,35 @@
     }
     drawTrackMapAt(tMin);
 
-    document.getElementById('f1TmInfo').textContent = `${state.tm.points.size} cars · 4-min window from ${fmtClock(after)} to ${fmtClock(before)}`;
+    const seededFrom = seedLap
+      ? `${state.drvByNum.get(seedDrv)?.name_acronym || ('#'+seedDrv)} L${seedLap.lap_number} (${fmtLap(seedLap.lap_duration)})`
+      : `#${seedDrv} (10-min sample)`;
+    document.getElementById('f1TmInfo').textContent =
+      `${state.tm.points.size} cars · circuit seeded from ${seededFrom}`;
+  }
+
+  /* Catmull-Rom spline → cubic Bezier path string. `closed` joins last→first.
+     Tension τ=0.5 (standard). */
+  function catmullRomToBezier(pts, closed) {
+    if (pts.length < 2) return '';
+    const get = (i) => {
+      if (closed) return pts[((i % pts.length) + pts.length) % pts.length];
+      return pts[Math.max(0, Math.min(pts.length - 1, i))];
+    };
+    const f = (n) => n.toFixed(1);
+    const segs = [];
+    segs.push(`M ${f(pts[0][0])} ${f(pts[0][1])}`);
+    const last = closed ? pts.length : pts.length - 1;
+    for (let i = 0; i < last; i++) {
+      const p0 = get(i - 1), p1 = get(i), p2 = get(i + 1), p3 = get(i + 2);
+      const c1x = p1[0] + (p2[0] - p0[0]) / 6;
+      const c1y = p1[1] + (p2[1] - p0[1]) / 6;
+      const c2x = p2[0] - (p3[0] - p1[0]) / 6;
+      const c2y = p2[1] - (p3[1] - p1[1]) / 6;
+      segs.push(`C ${f(c1x)} ${f(c1y)}, ${f(c2x)} ${f(c2y)}, ${f(p2[0])} ${f(p2[1])}`);
+    }
+    if (closed) segs.push('Z');
+    return segs.join(' ');
   }
 
   function drawTrackMapAt(t){

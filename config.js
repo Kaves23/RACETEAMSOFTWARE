@@ -2,9 +2,9 @@
 // Include this before core.js on pages where you want to override defaults.
 window.RTS_CONFIG = {
   // Software build version — updated on every deployment
-  buildVersion: 'a7a4b0d',
+  buildVersion: 'b2889a8',
   buildDate:    '2026-06-13',
-  buildNote:    'F1 Telemetry: multi-driver lap overlay with chip list',
+  buildNote:    'Weather: live rain radar map (RainViewer + Leaflet, free, no API key)',
   // API Configuration
   api: {
     baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)
