@@ -24,6 +24,7 @@ const { simpleParser } = require('mailparser');
 
 const DEFAULT_HOST     = 'mail.ftwmotorsport.com';
 const DEFAULT_INTERVAL = 5 * 60 * 1000; // 5 minutes
+const DEFAULT_LOOKBACK_HOURS = 24;
 
 /* ── Tiny HTML stripper (fallback for html-only emails) ──────────────────── */
 function stripHtml(str) {
@@ -63,11 +64,18 @@ function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 }
 
+function toPositiveInt(value, fallback) {
+  const n = parseInt(value, 10);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
 /* ── Main poll tick ───────────────────────────────────────────────────────── */
 async function pollOnce(pool) {
   const user = process.env.PIPELINE_IMAP_USER;
   const pass = process.env.PIPELINE_IMAP_PASS;
   const host = process.env.PIPELINE_IMAP_HOST || DEFAULT_HOST;
+  const lookbackHours = toPositiveInt(process.env.PIPELINE_IMAP_LOOKBACK_HOURS, DEFAULT_LOOKBACK_HOURS);
+  const sinceDate = new Date(Date.now() - (lookbackHours * 60 * 60 * 1000));
 
   const client = new ImapFlow({
     host,
@@ -82,13 +90,31 @@ async function pollOnce(pool) {
   try {
     const lock = await client.getMailboxLock('INBOX');
     try {
-      // Fetch all UNSEEN messages with full source for proper MIME parsing
-      const messages = [];
+      // Fetch UNSEEN plus recent mail to avoid dropping messages that were
+      // auto-marked as seen by another client before this poll tick ran.
+      const unseen = [];
       for await (const msg of client.fetch({ seen: false }, {
         envelope: true,
         source: true
       })) {
-        messages.push(msg);
+        unseen.push(msg);
+      }
+
+      const recent = [];
+      for await (const msg of client.fetch({ since: sinceDate }, {
+        envelope: true,
+        source: true
+      })) {
+        recent.push(msg);
+      }
+
+      const mergedByUid = new Map();
+      unseen.forEach(m => mergedByUid.set(String(m.uid), m));
+      recent.forEach(m => mergedByUid.set(String(m.uid), m));
+      const messages = Array.from(mergedByUid.values());
+
+      if (recent.length > unseen.length) {
+        console.log(`[emailPoller] Fallback scan enabled — ${recent.length} recent message(s) in lookback window (${lookbackHours}h)`);
       }
 
       if (messages.length === 0) return;
@@ -155,7 +181,7 @@ async function processMessage(pool, client, msg) {
   const matchResult = await pool.query(
     `SELECT id, driver_name, activities
      FROM academy_prospects
-     WHERE LOWER(parent_email) = ANY($1::text[])
+     WHERE LOWER(BTRIM(parent_email)) = ANY($1::text[])
      LIMIT 1`,
     [emailList]
   );
@@ -215,13 +241,14 @@ function startEmailPoller(pool) {
   const user     = process.env.PIPELINE_IMAP_USER;
   const pass     = process.env.PIPELINE_IMAP_PASS;
   const interval = parseInt(process.env.PIPELINE_IMAP_INTERVAL_MS, 10) || DEFAULT_INTERVAL;
+  const lookbackHours = toPositiveInt(process.env.PIPELINE_IMAP_LOOKBACK_HOURS, DEFAULT_LOOKBACK_HOURS);
 
   if (!user || !pass) {
     console.warn('[emailPoller] PIPELINE_IMAP_USER / PIPELINE_IMAP_PASS not set — pipeline email poller disabled');
     return;
   }
 
-  console.log(`[emailPoller] Started — polling ${user} every ${interval / 1000}s`);
+  console.log(`[emailPoller] Started — polling ${user} every ${interval / 1000}s (lookback ${lookbackHours}h)`);
 
   async function tick() {
     try {

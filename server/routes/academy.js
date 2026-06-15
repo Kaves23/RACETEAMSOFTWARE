@@ -3,6 +3,11 @@ const express = require('express');
 const router  = express.Router();
 const { pool } = require('../db');
 
+function normalizeEmail(value) {
+  const v = String(value || '').trim().toLowerCase();
+  return v || null;
+}
+
 /* GET all prospects */
 router.get('/', async (req, res, next) => {
   try {
@@ -36,7 +41,7 @@ router.post('/', async (req, res, next) => {
        RETURNING *`,
       [
         driver_name, driver_dob || null, category || null, test_venue || null, nationality || null,
-        parent_name || null, parent_phone || null, parent_email || null,
+        parent_name || null, parent_phone || null, normalizeEmail(parent_email),
         source || null, assigned_to || null, status || 'lead', notes || null,
         JSON.stringify(sessions || []), JSON.stringify(attachments || []),
         JSON.stringify(activities || []), JSON.stringify(tasks || []), JSON.stringify(booked_dates || [])
@@ -64,7 +69,7 @@ router.put('/:id', async (req, res, next) => {
        WHERE id=$18 RETURNING *`,
       [
         driver_name, driver_dob || null, category || null, test_venue || null, nationality || null,
-        parent_name || null, parent_phone || null, parent_email || null,
+        parent_name || null, parent_phone || null, normalizeEmail(parent_email),
         source || null, assigned_to || null, status || 'lead', notes || null,
         JSON.stringify(sessions || []), JSON.stringify(attachments || []), JSON.stringify(activities || []), JSON.stringify(tasks || []), JSON.stringify(booked_dates || []),
         req.params.id
