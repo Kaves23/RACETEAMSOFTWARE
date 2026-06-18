@@ -563,6 +563,23 @@ async function cleanExpiredSessions() {
 cleanExpiredSessions(); // Run once on startup
 setInterval(cleanExpiredSessions, constants.SESSION_CLEANUP_INTERVAL_MS);
 
+// Log-and-exit handlers for background task failures so Render logs include root cause.
+process.on('unhandledRejection', async (reason) => {
+  console.error('❌ UNHANDLED PROMISE REJECTION:', reason);
+  try {
+    if (db.pool && db.pool.end) await db.pool.end();
+  } catch (_) {}
+  process.exit(1);
+});
+
+process.on('uncaughtException', async (err) => {
+  console.error('❌ UNCAUGHT EXCEPTION:', err);
+  try {
+    if (db.pool && db.pool.end) await db.pool.end();
+  } catch (_) {}
+  process.exit(1);
+});
+
 // Helper to get network IP addresses
 function getNetworkAddresses() {
   const interfaces = os.networkInterfaces();

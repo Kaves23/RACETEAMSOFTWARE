@@ -547,16 +547,21 @@ function connectWs(session) {
     });
 
     ws.on('message', (data) => {
-      const msg = data.toString();
-      session.messageQueue.push(msg);
-      if (session.messageQueue.length > 200) session.messageQueue.shift();
-      // Log first 5 frames verbatim so we can verify column structure in Render logs
-      if (!session._frameCount) session._frameCount = 0;
-      if (session._frameCount < 5) {
-        console.log(`[apex-proxy] frame[${session._frameCount}] (${msg.length}b):`, msg.slice(0, 500));
-        session._frameCount++;
+      try {
+        const msg = data.toString();
+        session.messageQueue.push(msg);
+        if (session.messageQueue.length > 200) session.messageQueue.shift();
+        // Log first 5 frames verbatim so we can verify column structure in Render logs
+        if (!session._frameCount) session._frameCount = 0;
+        if (session._frameCount < 5) {
+          console.log(`[apex-proxy] frame[${session._frameCount}] (${msg.length}b):`, msg.slice(0, 500));
+          session._frameCount++;
+        }
+        parseMessages([msg], session.grid, session.state, session);
+      } catch (err) {
+        session.error = err.message;
+        console.warn(`[apex-proxy] Message parse error (${session.slug}):`, err.message);
       }
-      parseMessages([msg], session.grid, session.state, session);
     });
 
     ws.on('close', (code) => {
