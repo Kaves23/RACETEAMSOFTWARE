@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" type="image/png" href="../favicon.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>Race Strategy · Race Team OS</title>
+  <link rel="stylesheet" href="mobile.css">
+  <script src="mobile-auth.js"></script>
+</head>
+<body>
+<div class="app">
+  <header class="app-header">
+    <div class="offline-banner" id="offlineBanner">Offline — showing cached data</div>
+    <div class="page-bar">
+      <div class="page-bar-brand" onclick="window.location.href='browse.html?tab=sporting'" style="cursor:pointer;">
+        <div class="page-bar-mark">RT</div>
+        <span class="page-bar-title">Race Strategy</span>
+      </div>
+    </div>
+    <div class="stat-grid">
+      <div class="stat-card"><div class="stat-label">Total</div><div class="stat-value" id="statTotal">0</div></div>
+      <div class="stat-card"><div class="stat-label">Planned</div><div class="stat-value" id="statPlanned">0</div></div>
+      <div class="stat-card"><div class="stat-label">Live</div><div class="stat-value" id="statLive">0</div></div>
+      <div class="stat-card"><div class="stat-label">Complete</div><div class="stat-value" id="statComplete">0</div></div>
+    </div>
+    <div style="padding:0 16px 10px;">
+      <input id="searchInput" type="search" placeholder="Search session or driver..." autocomplete="off" style="width:100%;height:36px;border:1px solid var(--border);border-radius:var(--r);padding:0 12px;font-size:14px;background:var(--surface);outline:none;">
+    </div>
+    <div class="pill-strip" id="filterStrip" style="padding-top:0;padding-bottom:12px;">
+      <button class="pill pill-active" data-filter="all">All</button>
+      <button class="pill" data-filter="planned">Planned</button>
+      <button class="pill" data-filter="in progress">In Progress</button>
+      <button class="pill" data-filter="complete">Complete</button>
+    </div>
+  </header>
+  <main class="app-body"><div id="list"></div></main>
+  <nav class="app-nav">
+    <div class="nav-bar">
+      <a href="dashboard.html" class="nav-item"><span class="nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"/><polyline points="9 21 9 12 15 12 15 21"/></svg></span><span class="nav-label">Dashboard</span><div class="nav-dot"></div></a>
+      <a href="browse.html" class="nav-item"><span class="nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></span><span class="nav-label">Logistics</span><div class="nav-dot"></div></a>
+      <a href="browse.html?tab=sporting" class="nav-item active"><span class="nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span><span class="nav-label">Sporting</span><div class="nav-dot"></div></a>
+      <a href="browse.html?tab=projects" class="nav-item"><span class="nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="3" y1="5" x2="21" y2="5"/><rect x="4" y="8" width="9" height="3" rx="1"/><rect x="8" y="14" width="8" height="3" rx="1"/><line x1="3" y1="20" x2="21" y2="20"/></svg></span><span class="nav-label">Projects</span><div class="nav-dot"></div></a>
+      <a href="browse.html?tab=academy" class="nav-item"><span class="nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 9l10-5 10 5-10 5-10-5z"/><path d="M6 11.5v4.5c0 1.6 2.7 3 6 3s6-1.4 6-3v-4.5"/></svg></span><span class="nav-label">Academy</span><div class="nav-dot"></div></a>
+      <a href="vehicles.html?log=1" class="nav-item"><span class="nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 10l1-3a2 2 0 0 1 1.9-1.4h12.2A2 2 0 0 1 20 7l1 3v7H3v-7z"/><circle cx="7" cy="17" r="1.5"/><circle cx="17" cy="17" r="1.5"/><line x1="9" y1="17" x2="15" y2="17"/></svg></span><span class="nav-label">Log Trip</span><div class="nav-dot"></div></a>
+      <a href="scan.html" class="nav-item"><span class="nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><line x1="7" y1="12" x2="17" y2="12"/></svg></span><span class="nav-label">Scan</span><div class="nav-dot"></div></a>
+    </div>
+  </nav>
+</div>
+
+<style>
+  .stat-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; padding:12px 16px; }
+  .stat-card { background:#fff; border:1px solid var(--border); border-radius:var(--r); padding:10px; }
+  .stat-label { font-size:10px; text-transform:uppercase; color:var(--text-3); font-weight:700; letter-spacing:.06em; }
+  .stat-value { font-size:18px; font-weight:800; color:var(--text); margin-top:4px; }
+  .session-card { padding:14px 16px; border-bottom:1px solid var(--border); background:#fff; }
+  .session-title { font-size:14px; font-weight:700; color:var(--text); }
+  .session-sub { font-size:12px; color:var(--text-3); margin-top:3px; }
+  .chip-row { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .tag { display:inline-flex; align-items:center; padding:2px 8px; border-radius:999px; font-size:10px; font-weight:700; background:var(--surface); color:var(--text-2); }
+  .tag.live { background:#fee2e2; color:#b91c1c; }
+  .tag.complete { background:#dcfce7; color:#166534; }
+  .tag.planned { background:#dbeafe; color:#1d4ed8; }
+  .empty { padding:28px 18px; text-align:center; color:var(--text-3); font-size:13px; }
+  @media (max-width: 420px) { .stat-grid { grid-template-columns:repeat(2, 1fr); } }
+</style>
+
+<script>
+(() => {
+  'use strict';
+  if (!localStorage.getItem('auth_token')) window.location.replace('index.html');
+
+  let sessions = [];
+  let events = [];
+  let filter = 'all';
+  let query = '';
+
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function itemsFrom(payload){ return Array.isArray(payload) ? payload : (payload && Array.isArray(payload.items) ? payload.items : (payload && Array.isArray(payload.sessions) ? payload.sessions : [])); }
+  function setOffline(){ document.getElementById('offlineBanner').classList.toggle('visible', !navigator.onLine); }
+  function eventName(id){ const event = events.find(row => String(row.id) === String(id)); return event ? (event.name || event.title || 'Untitled event') : 'No event'; }
+  function statusKey(value){ return String(value || 'Planned').toLowerCase(); }
+  function visible(){
+    return sessions.filter(session => {
+      const hay = [session.name, session.session_type, session.driver_name, session.tyre_set].join(' ').toLowerCase();
+      if (query && !hay.includes(query)) return false;
+      if (filter !== 'all' && !statusKey(session.status).includes(filter)) return false;
+      return true;
+    }).sort((a, b) => String(b.start_time || b.created_at || '').localeCompare(String(a.start_time || a.created_at || '')));
+  }
+  function renderStats(){
+    document.getElementById('statTotal').textContent = sessions.length;
+    document.getElementById('statPlanned').textContent = sessions.filter(session => /planned/i.test(session.status || '')).length;
+    document.getElementById('statLive').textContent = sessions.filter(session => /progress/i.test(session.status || '')).length;
+    document.getElementById('statComplete').textContent = sessions.filter(session => /complete/i.test(session.status || '')).length;
+  }
+  function render(){
+    renderStats();
+    const rows = visible();
+    document.getElementById('list').innerHTML = rows.length ? rows.map(session => {
+      const status = statusKey(session.status);
+      return '<div class="session-card">' +
+        '<div class="session-title">' + esc(session.name || 'Unnamed session') + '</div>' +
+        '<div class="session-sub">' + esc(eventName(session.event_id)) + '</div>' +
+        '<div class="session-sub">' + esc(session.session_type || 'Session') + (session.start_time ? ' · ' + esc(String(session.start_time).slice(0, 16).replace('T', ' ')) : '') + '</div>' +
+        '<div class="chip-row">' +
+          '<span class="tag ' + (status.includes('progress') ? 'live' : status.includes('complete') ? 'complete' : 'planned') + '">' + esc(session.status || 'Planned') + '</span>' +
+          (session.driver_name ? '<span class="tag">' + esc(session.driver_name) + '</span>' : '') +
+          (session.tyre_set ? '<span class="tag">Tyre ' + esc(session.tyre_set) + '</span>' : '') +
+        '</div>' +
+      '</div>';
+    }).join('') : '<div class="empty">No race strategy sessions match the current filter.</div>';
+  }
+  async function load(){
+    const [sessionRows, eventRows] = await Promise.all([
+      mobileFetch('/api/race-sessions?limit=200').catch(() => ({ sessions: [] })),
+      mobileFetch('/api/collections/events').catch(() => ({ items: [] }))
+    ]);
+    sessions = itemsFrom(sessionRows);
+    events = itemsFrom(eventRows);
+    render();
+  }
+  document.getElementById('searchInput').addEventListener('input', e => { query = e.target.value.trim().toLowerCase(); render(); });
+  document.getElementById('filterStrip').addEventListener('click', e => {
+    const btn = e.target.closest('[data-filter]');
+    if (!btn) return;
+    filter = btn.dataset.filter;
+    document.querySelectorAll('#filterStrip .pill').forEach(node => node.classList.remove('pill-active'));
+    btn.classList.add('pill-active');
+    render();
+  });
+  window.addEventListener('online', setOffline);
+  window.addEventListener('offline', setOffline);
+  setOffline();
+  load();
+})();
+</script>
+<script src="mobile-side-menu.js"></script>
+</body>
+</html>
