@@ -238,6 +238,17 @@
           <div id="upNextList"></div>
         </div>
 
+        <!-- Finance Due -->
+        <div class="cal-sidebar-card">
+          <div class="cal-sidebar-title" style="display:flex;align-items:center;justify-content:space-between;">
+            <span>Finance Due</span>
+            <label style="font-size:.62rem;font-weight:500;color:#6c757d;cursor:pointer;display:flex;align-items:center;gap:4px;">
+              <input type="checkbox" id="finDueToggle" checked style="margin:0;"> Show
+            </label>
+          </div>
+          <div id="finDueList"><div class="text-secondary" style="font-size:.75rem;">Loading…</div></div>
+        </div>
+
         <!-- Calendar Sets -->
         <div class="cal-sidebar-card">
           <div class="cal-sidebar-title">Calendar Sets</div>
@@ -1461,6 +1472,56 @@
   viewYear = miniYear = _now.getFullYear();
   viewMonth = miniMonth = _now.getMonth();
   loadEvents();
+  </script>
+
+  <script>
+  /* ── Finance Due feed (standalone overlay) ─────────────────────── */
+  (function () {
+    function authHdr() {
+      const t = localStorage.getItem('auth_token');
+      return t ? { 'Authorization': 'Bearer ' + t } : {};
+    }
+    function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+    function fmtMoney(n, cur){ if (n==null) return ''; const sym = cur==='GBP'?'£':cur==='EUR'?'€':'R'; return sym + (Number(n)||0).toLocaleString('en-ZA',{maximumFractionDigits:0}); }
+    const TYPE_LABEL = { invoice_due:'Invoice', bill_due:'Bill', budget_line_due:'Budget', event_payment:'Event pay', event_entry:'Entry', contract_end:'Contract' };
+    const TYPE_COLOR = { invoice_due:'#16a34a', bill_due:'#dc2626', budget_line_due:'#a855f7', event_payment:'#f59e0b', event_entry:'#dc2626', contract_end:'#0ea5e9' };
+
+    async function loadFinanceDue() {
+      const box = document.getElementById('finDueList');
+      if (!box) return;
+      try {
+        const today = new Date(); today.setHours(0,0,0,0);
+        const from = today.toISOString().slice(0,10);
+        const res = await fetch('/api/fin-calendar?from=' + from, { headers: authHdr() });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const json = await res.json();
+        const rows = (json && json.data) || [];
+        if (!rows.length) { box.innerHTML = '<div class="text-secondary" style="font-size:.75rem;">Nothing due.</div>'; return; }
+        box.innerHTML = rows.slice(0, 12).map(r => {
+          const color = TYPE_COLOR[r.type] || '#6c757d';
+          const overdue = r.date < from;
+          return `<a href="${esc(r.link)}" style="display:block;text-decoration:none;color:inherit;padding:5px 4px;border-bottom:1px solid #f1f3f5;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
+              <span style="font-size:.72rem;font-weight:700;color:${overdue?'#dc2626':'#374151'};">${esc(r.date.slice(5))}</span>
+              <span class="type-count" style="background:${color};color:#fff;font-size:.6rem;padding:1px 5px;border-radius:8px;">${esc(TYPE_LABEL[r.type]||r.type)}</span>
+            </div>
+            <div style="font-size:.76rem;color:#1a1d24;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(r.title)}</div>
+            ${r.amount ? `<div style="font-size:.68rem;color:#6c757d;">${esc(fmtMoney(r.amount, r.currency))}${overdue?' · <span style=\"color:#dc2626;font-weight:700;\">Overdue</span>':''}</div>` : (overdue?'<div style="font-size:.68rem;color:#dc2626;font-weight:700;">Overdue</div>':'')}
+          </a>`;
+        }).join('');
+      } catch (e) {
+        box.innerHTML = '<div class="text-secondary" style="font-size:.72rem;">Could not load finance dates.</div>';
+      }
+    }
+
+    const toggle = document.getElementById('finDueToggle');
+    if (toggle) {
+      toggle.addEventListener('change', () => {
+        document.getElementById('finDueList').style.display = toggle.checked ? '' : 'none';
+      });
+    }
+    loadFinanceDue();
+  })();
   </script>
 </body>
 </html>

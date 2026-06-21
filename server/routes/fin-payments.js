@@ -3,6 +3,13 @@
 const express = require('express');
 const router  = express.Router();
 const { pool } = require('../db');
+const budgetLines = require('./fin-budget-lines');
+
+// Recompute a linked budget line's actual/committed totals (best-effort).
+async function recomputeLine(lineId) {
+  if (!lineId || !budgetLines || typeof budgetLines.recompute !== 'function') return;
+  try { await budgetLines.recompute(lineId); } catch (_e) { /* non-fatal */ }
+}
 
 // GET /api/fin-payments
 router.get('/', async (req, res, next) => {
@@ -51,16 +58,16 @@ router.get('/:id', async (req, res, next) => {
 router.post('/', async (req, res, next) => {
   try {
     const { payee, description, amount, currency, payment_date, reference, method,
-            status, budget_id, category, event_id, notes } = req.body;
+            status, budget_id, category, event_id, notes, budget_line_id } = req.body;
     if (!payee) return res.status(400).json({ error: 'payee required' });
     const createdBy = req.user?.name || req.user?.email || null;
     const r = await pool.query(
       `INSERT INTO fin_payments (payee,description,amount,currency,payment_date,reference,method,
-       status,budget_id,category,event_id,notes,created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+       status,budget_id,category,event_id,notes,budget_line_id,created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
       [payee, description||null, parseFloat(amount)||0, currency||'ZAR', payment_date||null,
        reference||null, method||'bank_transfer', status||'pending',
-       budget_id||null, category||null, event_id||null, notes||null, createdBy]
+       budget_id||null, category||null, event_id||null, notes||null, budget_line_id||null, createdBy]
     );
     // Update budget spent_amount if budget_id provided and status=paid
     if (budget_id && (status === 'paid')) {
@@ -69,6 +76,7 @@ router.post('/', async (req, res, next) => {
         [parseFloat(amount)||0, budget_id]
       );
     }
+    await recomputeLine(budget_line_id);
     res.status(201).json(r.rows[0]);
   } catch (e) { next(e); }
 });
@@ -77,24 +85,30 @@ router.post('/', async (req, res, next) => {
 router.put('/:id', async (req, res, next) => {
   try {
     const { payee, description, amount, currency, payment_date, reference, method,
-            status, budget_id, category, event_id, notes, approved_by } = req.body;
+            status, budget_id, category, event_id, notes, approved_by, budget_line_id } = req.body;
     const r = await pool.query(
       `UPDATE fin_payments SET payee=$1,description=$2,amount=$3,currency=$4,payment_date=$5,
        reference=$6,method=$7,status=$8,budget_id=$9,category=$10,event_id=$11,notes=$12,
-       approved_by=$13,updated_at=NOW() WHERE id=$14 RETURNING *`,
+       approved_by=$13,budget_line_id=$14,updated_at=NOW() WHERE id=$15 RETURNING *`,
       [payee, description||null, parseFloat(amount)||0, currency||'ZAR', payment_date||null,
        reference||null, method||'bank_transfer', status||'pending',
        budget_id||null, category||null, event_id||null, notes||null,
-       approved_by||null, req.params.id]
+       approved_by||null, budget_line_id||null, req.params.id]
     );
     if (!r.rows.length) return res.status(404).json({ error: 'Not found' });
+    await recomputeLine(r.rows[0].budget_line_id);
     res.json(r.rows[0]);
   } catch (e) { next(e); }
 });
 
 // DELETE /api/fin-payments/:id
 router.delete('/:id', async (req, res, next) => {
-  try { await pool.query('DELETE FROM fin_payments WHERE id=$1', [req.params.id]); res.status(204).end(); }
+  try {
+    const prev = await pool.query('SELECT budget_line_id FROM fin_payments WHERE id=$1', [req.params.id]);
+    await pool.query('DELETE FROM fin_payments WHERE id=$1', [req.params.id]);
+    if (prev.rows.length) await recomputeLine(prev.rows[0].budget_line_id);
+    res.status(204).end();
+  }
   catch (e) { next(e); }
 });
 

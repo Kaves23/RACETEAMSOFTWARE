@@ -1839,6 +1839,59 @@
           </div>
         </div>
 
+        <!-- Costs & Labour -->
+        <div class="pm-insp-divider"></div>
+        <div>
+          <div class="pm-insp-section-title">Costs</div>
+          <div class="pm-insp-two-col">
+            <div class="pm-insp-field">
+              <label>Estimated Cost (R)</label>
+              <input id="pi-est-cost" type="number" min="0" step="0.01" placeholder="0.00">
+            </div>
+            <div class="pm-insp-field">
+              <label>Other Actual Cost (R)</label>
+              <input id="pi-actual-cost" type="number" min="0" step="0.01" placeholder="0.00">
+            </div>
+          </div>
+          <div style="font-size:9px;color:#aaa;margin-top:3px;">Labour cost (below) is tracked separately and added to the task total.</div>
+        </div>
+
+        <div>
+          <div class="pm-insp-section-title" style="display:flex;align-items:center;justify-content:space-between;">
+            <span>Labour</span>
+            <button type="button" id="pi-labour-add-btn" class="pm-insp-etab" style="cursor:pointer;" onclick="openLabourForm(null)">+ Add hours</button>
+          </div>
+          <div id="pi-labour-list"><div style="color:#ccc;font-size:11px;padding:4px 0;">No labour recorded</div></div>
+          <div id="pi-labour-totals" style="font-size:11px;color:#444;margin-top:6px;font-weight:600;"></div>
+          <!-- inline add/edit form -->
+          <div id="pi-labour-form" style="display:none;border:1px solid #e3e6ec;border-radius:6px;padding:8px;margin-top:6px;background:#fafbfc;">
+            <div class="pm-insp-field" style="margin-bottom:6px;">
+              <label>Staff member</label>
+              <select id="pi-lab-staff" onchange="piLabStaffChange()"><option value="">— Select / ad-hoc —</option></select>
+            </div>
+            <div class="pm-insp-two-col">
+              <div class="pm-insp-field"><label>Date</label><input id="pi-lab-date" type="date"></div>
+              <div class="pm-insp-field"><label>Hours</label><input id="pi-lab-hours" type="number" min="0" step="0.25" placeholder="0"></div>
+            </div>
+            <div class="pm-insp-two-col" style="margin-top:6px;">
+              <div class="pm-insp-field"><label>Cost rate (R/hr)</label><input id="pi-lab-cost" type="number" min="0" step="0.01" placeholder="0.00"></div>
+              <div class="pm-insp-field"><label>Bill rate (R/hr)</label><input id="pi-lab-bill" type="number" min="0" step="0.01" placeholder="0.00"></div>
+            </div>
+            <label class="pm-insp-milestone-row" style="margin:6px 0 0;">
+              <input type="checkbox" id="pi-lab-billable" checked>
+              <span>Billable to client</span>
+            </label>
+            <div class="pm-insp-field" style="margin-top:6px;">
+              <label>Note</label>
+              <input id="pi-lab-note" type="text" placeholder="Optional">
+            </div>
+            <div style="display:flex;gap:6px;margin-top:8px;justify-content:flex-end;">
+              <button type="button" id="pi-lab-cancel" class="pm-insp-etab" style="cursor:pointer;" onclick="closeLabourForm()">Cancel</button>
+              <button type="button" id="pi-lab-save" class="pm-insp-etab active" style="cursor:pointer;" onclick="saveLabourEntry()">Save entry</button>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
     </div>
@@ -1878,6 +1931,8 @@
     tasks: [],          // flat array for active plan
     links: [],          // dependency links for active plan
     users: [],
+    staff: [],          // staff with cost/bill rates for labour
+    labour: [],         // labour entries for the currently-open inspector task
     zoom: 'week',       // 'day' | 'week' | 'month' | 'quarter'
     collapsed: new Set(), // task IDs that are collapsed
     selectedTaskId: null,
@@ -2132,6 +2187,13 @@
       const data = await api(`${API}/auth/users`);
       state.users = data.users || data.data || [];
     } catch { state.users = []; }
+  }
+
+  async function loadStaff() {
+    try {
+      const data = await api(`${API}/staff`);
+      state.staff = Array.isArray(data) ? data : (data.data || data.staff || []);
+    } catch { state.staff = []; }
   }
 
   // ════════════════════════════════════════════════════════════════
@@ -3001,6 +3063,14 @@
     document.getElementById('pi-desc').value = task.description || '';
     piToggleBlocker();
 
+    // Costs
+    document.getElementById('pi-est-cost').value = (task.estimated_cost ?? '') === '' ? '' : task.estimated_cost;
+    document.getElementById('pi-actual-cost').value = (task.actual_cost ?? '') === '' ? '' : task.actual_cost;
+
+    // Labour
+    document.getElementById('pi-labour-form').style.display = 'none';
+    loadInspectorLabour(task.id);
+
     // Color swatches
     const swEl = document.getElementById('pi-color-swatches');
     swEl.innerHTML = COLOR_SWATCHES.map(c =>
@@ -3090,6 +3160,121 @@
       }).join('') : '<div style="color:#ccc;font-size:11px;padding:4px 0;">None</div>');
   }
 
+  // ─── TASK LABOUR ──────────────────────────────────────────────
+  let labourEditingId = null;
+
+  function moneyR(n) {
+    const v = Number(n || 0);
+    return 'R' + v.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  async function loadInspectorLabour(taskId) {
+    state.labour = [];
+    renderInspectorLabour();
+    try {
+      const data = await api(`${API}/project-plans/tasks/${taskId}/labour`);
+      state.labour = data.data || [];
+    } catch { state.labour = []; }
+    renderInspectorLabour();
+  }
+
+  function renderInspectorLabour() {
+    const list = document.getElementById('pi-labour-list');
+    const totalsEl = document.getElementById('pi-labour-totals');
+    if (!list) return;
+    if (!state.labour.length) {
+      list.innerHTML = '<div style="color:#ccc;font-size:11px;padding:4px 0;">No labour recorded</div>';
+      totalsEl.textContent = '';
+      return;
+    }
+    list.innerHTML = state.labour.map(l => {
+      const who = esc(l.staff_full_name || l.staff_name || 'Ad-hoc');
+      const date = l.work_date ? fmtDate(l.work_date) : '';
+      const billTag = l.billable ? `bill ${moneyR(l.bill_amount)}` : 'non-billable';
+      return `<div class="pm-insp-dep-row" style="align-items:flex-start;">
+        <span style="flex:1;">
+          <strong>${who}</strong> · ${Number(l.hours)}h ${date ? '· ' + esc(date) : ''}<br>
+          <span style="font-size:10px;color:#888;">cost ${moneyR(l.cost_amount)} · ${billTag}</span>
+        </span>
+        <button class="pm-insp-dep-remove" title="Edit" onclick="openLabourForm('${l.id}')" style="color:#5a35a0;">edit</button>
+        <button class="pm-insp-dep-remove" title="Delete" onclick="deleteLabourEntry('${l.id}')">x</button>
+      </div>`;
+    }).join('');
+    const hours = state.labour.reduce((s, l) => s + Number(l.hours || 0), 0);
+    const cost  = state.labour.reduce((s, l) => s + Number(l.cost_amount || 0), 0);
+    const bill  = state.labour.reduce((s, l) => s + Number(l.bill_amount || 0), 0);
+    totalsEl.innerHTML = `${hours}h · cost ${moneyR(cost)} · billable ${moneyR(bill)}`;
+  }
+
+  function populateLabourStaffSelect(selectedId) {
+    const sel = document.getElementById('pi-lab-staff');
+    sel.innerHTML = '<option value="">— Select / ad-hoc —</option>' +
+      state.staff.map(s => `<option value="${s.id}"${s.id===selectedId?' selected':''}>${esc(s.name)}${s.role ? ' — ' + esc(s.role) : ''}</option>`).join('');
+  }
+
+  function piLabStaffChange() {
+    const sel = document.getElementById('pi-lab-staff');
+    const s = state.staff.find(x => x.id === sel.value);
+    if (!s) return;
+    if (s.hourly_rate != null && document.getElementById('pi-lab-cost').value === '')
+      document.getElementById('pi-lab-cost').value = s.hourly_rate;
+    if (s.bill_rate_hourly != null && document.getElementById('pi-lab-bill').value === '')
+      document.getElementById('pi-lab-bill').value = s.bill_rate_hourly;
+  }
+
+  function openLabourForm(entryId) {
+    labourEditingId = entryId || null;
+    const form = document.getElementById('pi-labour-form');
+    const entry = entryId ? state.labour.find(l => l.id === entryId) : null;
+    populateLabourStaffSelect(entry ? entry.staff_id : '');
+    document.getElementById('pi-lab-date').value = entry && entry.work_date ? fmtDate(entry.work_date) : fmtDate(new Date());
+    document.getElementById('pi-lab-hours').value = entry ? entry.hours : '';
+    document.getElementById('pi-lab-cost').value = entry ? entry.cost_rate : '';
+    document.getElementById('pi-lab-bill').value = entry ? entry.bill_rate : '';
+    document.getElementById('pi-lab-billable').checked = entry ? !!entry.billable : true;
+    document.getElementById('pi-lab-note').value = entry ? (entry.notes || '') : '';
+    form.style.display = '';
+  }
+
+  function closeLabourForm() {
+    document.getElementById('pi-labour-form').style.display = 'none';
+    labourEditingId = null;
+  }
+
+  async function saveLabourEntry() {
+    const taskId = state.inspectorTaskId;
+    if (!taskId) return;
+    const staffSel = document.getElementById('pi-lab-staff');
+    const staff = state.staff.find(x => x.id === staffSel.value);
+    const body = {
+      task_id: taskId,
+      staff_id: staffSel.value || null,
+      staff_name: staff ? staff.name : null,
+      work_date: document.getElementById('pi-lab-date').value || null,
+      hours: parseFloat(document.getElementById('pi-lab-hours').value) || 0,
+      cost_rate: parseFloat(document.getElementById('pi-lab-cost').value) || 0,
+      bill_rate: parseFloat(document.getElementById('pi-lab-bill').value) || 0,
+      billable: document.getElementById('pi-lab-billable').checked,
+      notes: document.getElementById('pi-lab-note').value.trim() || null
+    };
+    try {
+      if (labourEditingId) {
+        await api(`${API}/project-plans/task-labour/${labourEditingId}`, { method:'PUT', body: JSON.stringify(body) });
+      } else {
+        await api(`${API}/project-plans/task-labour`, { method:'POST', body: JSON.stringify(body) });
+      }
+    } catch (e) { alert('Could not save labour: ' + e.message); return; }
+    closeLabourForm();
+    await loadInspectorLabour(taskId);
+  }
+
+  async function deleteLabourEntry(id) {
+    if (!confirm('Delete this labour entry?')) return;
+    try { await api(`${API}/project-plans/task-labour/${id}`, { method:'DELETE' }); }
+    catch (e) { alert('Could not delete: ' + e.message); return; }
+    await loadInspectorLabour(state.inspectorTaskId);
+  }
+
   async function saveInspector() {
     const taskId = state.inspectorTaskId;
     if (!taskId) return;
@@ -3110,7 +3295,9 @@
       assignee_user_id: document.getElementById('pi-assignee').value || null,
       parent_task_id: document.getElementById('pm-insp-parent-select').value || null,
       description: document.getElementById('pi-desc').value || null,
-      is_milestone: document.getElementById('pi-milestone').checked
+      is_milestone: document.getElementById('pi-milestone').checked,
+      estimated_cost: document.getElementById('pi-est-cost').value === '' ? null : parseFloat(document.getElementById('pi-est-cost').value),
+      actual_cost: document.getElementById('pi-actual-cost').value === '' ? null : parseFloat(document.getElementById('pi-actual-cost').value)
     };
     pushUndo({ ...state.tasks.find(t => t.id === taskId) });
     // Optimistic update: apply changes to local state, save in background
@@ -4308,7 +4495,7 @@
       state.calendarEvents = evData.items || evData.data || [];
       renderChartHeader(); // re-render header now that events are loaded
     } catch (e) { state.calendarEvents = []; }
-    await Promise.all([loadPlans(), loadUsers()]);
+    await Promise.all([loadPlans(), loadUsers(), loadStaff()]);
     // Refresh projects table after plans are loaded
     pmRenderProjectsTable();
     // Auto-select first active plan if any

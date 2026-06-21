@@ -157,6 +157,21 @@
                     <input id="f_fin_invoice" class="form-control form-control-sm" type="text" placeholder="Invoice number">
                   </div>
 
+                  <div class="col-4">
+                    <label class="form-label">Due date</label>
+                    <input id="f_fin_due" class="form-control form-control-sm" type="date">
+                  </div>
+                  <div class="col-4">
+                    <label class="form-label">Paid date</label>
+                    <input id="f_fin_paid" class="form-control form-control-sm" type="date">
+                  </div>
+                  <div class="col-4">
+                    <label class="form-label">Budget line</label>
+                    <select id="f_fin_budget_line" class="form-select form-select-sm">
+                      <option value="">— None —</option>
+                    </select>
+                  </div>
+
                   <div class="col-6">
                     <label class="form-label">Driver</label>
                     <select id="f_fin_driver" class="form-select form-select-sm"></select>
@@ -358,6 +373,9 @@
         amount: document.getElementById('f_fin_amount'),
         vat: document.getElementById('f_fin_vat'),
         invoice: document.getElementById('f_fin_invoice'),
+        due: document.getElementById('f_fin_due'),
+        paid: document.getElementById('f_fin_paid'),
+        budgetLine: document.getElementById('f_fin_budget_line'),
         driver: document.getElementById('f_fin_driver'),
         employee: document.getElementById('f_fin_employee'),
         approval: document.getElementById('f_fin_approval'),
@@ -399,6 +417,9 @@
         employee_id: it.employeeId || '',
         employee_name: it.employee || '',
         approval:    it.approval || '',
+        due_date:    it.dueDate || null,
+        paid_date:   it.paidDate || null,
+        budget_line_id: it.budgetLineId || null,
         attachments: Array.isArray(it.attachments) ? it.attachments : [],
         notes:       it.notes || '',
         status:      it.status || 'Pending'
@@ -424,6 +445,9 @@
         employeeId: row.employee_id || '',
         employee: row.employee_name || '',
         approval: row.approval || '',
+        dueDate: row.due_date ? String(row.due_date).slice(0,10) : '',
+        paidDate: row.paid_date ? String(row.paid_date).slice(0,10) : '',
+        budgetLineId: row.budget_line_id || '',
         attachments: Array.isArray(row.attachments) ? row.attachments : [],
         notes: row.notes || '',
         status: row.status || 'Pending'
@@ -603,7 +627,7 @@
           <td><span class="fin-employee-label">${escapeHtml(empLabel)}</span></td>
           <td>${escapeHtml(it.category||'')}</td>
           <td>${RTS.moneyZAR(it.amount)}</td>
-          <td>${it.status}</td>
+          <td>${it.status}${isOverdue(it) ? ' <span class="badge bg-danger">Overdue</span>' : ''}</td>
         `;
         tr.addEventListener('click', ()=>select(it.id));
         el.tbody.appendChild(tr);
@@ -611,6 +635,38 @@
 
       hydrate(items.find(x=>x.id===ui.selectedId) || null);
       persist();
+    }
+
+    // A bill is overdue when it has a due date in the past and is not yet paid.
+    function isOverdue(it){
+      if (!it || !it.dueDate || it.status === 'Paid') return false;
+      const today = new Date(); today.setHours(0,0,0,0);
+      const due = new Date(it.dueDate);
+      return !isNaN(due) && due < today;
+    }
+
+    // Populate the budget-line dropdown for the selected event (Bills/AP tie-in).
+    let _blCache = {};
+    async function populateBudgetLines(eventId, selectedId){
+      const sel = el.f.budgetLine;
+      if (!sel) return;
+      const keep = selectedId || sel.value || '';
+      sel.innerHTML = '<option value="">— None —</option>';
+      if (!eventId){ if (keep){ const o=document.createElement('option'); o.value=keep; o.textContent='(line)'; o.selected=true; sel.appendChild(o);} return; }
+      try {
+        let rows = _blCache[eventId];
+        if (!rows){
+          const res = await RTS_API.request('/fin-budget-lines?event_id=' + encodeURIComponent(eventId));
+          rows = (res && (res.data || res.items || res)) || [];
+          _blCache[eventId] = rows;
+        }
+        rows.forEach(r=>{
+          const o = document.createElement('option');
+          o.value = r.id; o.textContent = r.name + (r.category ? ' ('+r.category+')' : '');
+          sel.appendChild(o);
+        });
+        sel.value = keep || '';
+      } catch(e){ /* non-fatal */ }
     }
 
     function hydrate(it){
@@ -662,6 +718,9 @@
       el.f.amount.value = Number(it.amount || 0);
       el.f.vat.value = Number(it.vat || 0);
   el.f.invoice.value = it.invoice || '';
+      el.f.due.value = it.dueDate || '';
+      el.f.paid.value = it.paidDate || '';
+      populateBudgetLines(it.eventId, it.budgetLineId);
       el.f.approval.value = it.approval || '';
       el.f.notes.value = it.notes || '';
 
@@ -785,6 +844,9 @@
         amount: parseFloat(el.f.amount.value || 0),
         vat: parseFloat(el.f.vat.value || 0),
         invoice: el.f.invoice.value.trim(),
+        dueDate: el.f.due.value || '',
+        paidDate: el.f.paid.value || (el.f.status.value === 'Paid' && !cur.paidDate ? new Date().toISOString().slice(0,10) : (el.f.paid.value || '')),
+        budgetLineId: el.f.budgetLine.value || '',
         driverId: drvId,
         driver: drvLabel,
         employeeId: empId,
@@ -860,6 +922,8 @@
       el.add.addEventListener('click', add);
       el.save.addEventListener('click', save);
       el.dup.addEventListener('click', duplicate);
+      // Refresh budget-line options when the event in the inspector changes
+      el.f.event.addEventListener('change', ()=>{ populateBudgetLines(el.f.event.value, ''); });
       // Use modal-backed async confirmation for delete (falls back to window.confirm)
       el.del.addEventListener('click', async (e)=>{
         const msg = 'Delete selected expense? This cannot be undone.';

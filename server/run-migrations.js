@@ -111,7 +111,11 @@ async function runMigrations() {
     '090_finance_phase5.sql',
     '091_entries_phase2.sql',
     '092_penalties_incident_link.sql',
-    '093_event_fastest_times.sql'
+    '093_event_fastest_times.sql',
+    '094_project_task_labour.sql',
+    '095_finance_budget_lines.sql',
+    '096_expenses_bills_ap.sql',
+    '097_academy_invoicing.sql'
   ];
   
   let appliedCount = 0, skippedCount = 0;

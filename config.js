@@ -2,9 +2,9 @@
 // Include this before core.js on pages where you want to override defaults.
 window.RTS_CONFIG = {
   // Software build version — updated on every deployment
-  buildVersion: 'e1bd6bd',
-  buildDate:    '2026-06-18',
-  buildNote:    'fix: harden runtime crash handling for Render',
+  buildVersion: '3d62684',
+  buildDate:    '2026-06-19',
+  buildNote:    'Add dedicated mobile Sporting and Projects pages',
   // API Configuration
   api: {
     baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)

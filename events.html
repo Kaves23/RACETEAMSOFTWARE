@@ -422,6 +422,15 @@
 
                   <div class="col-12" id="ev_cost_rollup" style="margin-top:6px;"></div>
 
+                  <div class="col-12 ev-form-section-head" style="display:flex;align-items:center;justify-content:space-between;">
+                    <span><i class="bi bi-list-columns-reverse"></i> Budget Lines</span>
+                    <button type="button" class="btn btn-sm btn-outline-primary" style="padding:1px 8px;font-size:11px;" onclick="openBudgetLineForm(null)">+ Add line</button>
+                  </div>
+                  <div class="col-12">
+                    <div id="ev_budget_lines"><div class="text-secondary small">No budget lines yet.</div></div>
+                    <div id="ev_budget_lines_totals" class="small fw-semibold mt-1"></div>
+                  </div>
+
                   <div class="col-12 ev-form-section-head"><svg width="10" height="10" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="7" r="4"/><path d="M2 18c0-4 3.6-6 8-6s8 2 8 6"/></svg> Team</div>
 
                   <div class="col-12">
@@ -2125,6 +2134,7 @@
       if (els.f_paymentDeadline) els.f_paymentDeadline.value = (ev.paymentDeadline||'').slice(0,10);
       updateBudgetTotal();
       if (window.RTSRollup) RTSRollup.renderEvent('ev_cost_rollup', ev.id);
+      loadEventBudgetLines(ev.id);
 
       // drivers
       const driverIds = Array.isArray(ev.drivers) ? ev.drivers : [];
@@ -2609,6 +2619,180 @@
     // Init
     wireUI();
     loadEventsFromDB(); // Load from database instead of localStorage
+  })();
+  </script>
+
+  <!-- ── Budget Line modal ─────────────────────────────────────────── -->
+  <div class="modal fade" id="budgetLineModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header py-2">
+          <h6 class="modal-title" id="blModalTitle">Budget Line</h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="bl_id">
+          <div class="row g-2">
+            <div class="col-12">
+              <label class="form-label small">Name</label>
+              <input id="bl_name" class="form-control form-control-sm" placeholder="e.g. Track Hire — Killarney">
+            </div>
+            <div class="col-6">
+              <label class="form-label small">Category</label>
+              <select id="bl_category" class="form-select form-select-sm">
+                <option value="track_hire">Track Hire</option>
+                <option value="medical_hire">Medical Hire</option>
+                <option value="officials_hire">Officials Hire</option>
+                <option value="advertising">Advertising</option>
+                <option value="freight">Freight</option>
+                <option value="accommodation">Accommodation</option>
+                <option value="catering">Catering</option>
+                <option value="entry_fee">Entry Fee</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div class="col-6">
+              <label class="form-label small">Budgeted (R)</label>
+              <input id="bl_budgeted" type="number" min="0" step="0.01" class="form-control form-control-sm" placeholder="0.00">
+            </div>
+            <div class="col-6">
+              <label class="form-label small">Vendor</label>
+              <input id="bl_vendor" class="form-control form-control-sm" placeholder="Supplier">
+            </div>
+            <div class="col-6">
+              <label class="form-label small">Due date</label>
+              <input id="bl_due" type="date" class="form-control form-control-sm">
+            </div>
+            <div class="col-6">
+              <label class="form-label small">Status</label>
+              <select id="bl_status" class="form-select form-select-sm">
+                <option value="open">Open</option>
+                <option value="committed">Committed</option>
+                <option value="partial">Partial</option>
+                <option value="settled">Settled</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label small">Notes</label>
+              <input id="bl_notes" class="form-control form-control-sm" placeholder="Optional">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer py-2">
+          <button type="button" class="btn btn-sm btn-light" id="bl_delete" style="display:none;">Delete</button>
+          <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-sm btn-primary" id="bl_save">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  /* ── Event Budget Lines manager (standalone, window-scoped) ─────── */
+  (function () {
+    let currentEventId = null;
+    let lines = [];
+    const CATS = { track_hire:'Track Hire', medical_hire:'Medical Hire', officials_hire:'Officials Hire',
+      advertising:'Advertising', freight:'Freight', accommodation:'Accommodation', catering:'Catering',
+      entry_fee:'Entry Fee', other:'Other' };
+
+    function token() { return localStorage.getItem('auth_token'); }
+    function money(n) { return 'R' + (Number(n)||0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+    function esc(s) { return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+    async function apiJSON(url, opts) {
+      const res = await fetch(url, { ...(opts||{}), headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+token(), ...((opts&&opts.headers)||{}) } });
+      const data = await res.json().catch(()=>({}));
+      if (!res.ok || data.success === false) throw new Error(data.error || ('HTTP '+res.status));
+      return data;
+    }
+
+    window.loadEventBudgetLines = async function (eventId) {
+      currentEventId = eventId;
+      const list = document.getElementById('ev_budget_lines');
+      const totalsEl = document.getElementById('ev_budget_lines_totals');
+      if (!list) return;
+      if (!eventId) { list.innerHTML = '<div class="text-secondary small">Save the event first to add budget lines.</div>'; totalsEl.textContent=''; return; }
+      list.innerHTML = '<div class="text-secondary small">Loading…</div>';
+      try {
+        const data = await apiJSON('/api/fin-budget-lines?event_id=' + encodeURIComponent(eventId));
+        lines = data.data || [];
+      } catch (e) { list.innerHTML = '<div class="text-danger small">Could not load budget lines.</div>'; return; }
+      renderLines();
+    };
+
+    function renderLines() {
+      const list = document.getElementById('ev_budget_lines');
+      const totalsEl = document.getElementById('ev_budget_lines_totals');
+      if (!lines.length) { list.innerHTML = '<div class="text-secondary small">No budget lines yet.</div>'; totalsEl.textContent=''; return; }
+      list.innerHTML = lines.map(l => {
+        const remaining = Number(l.budgeted_amount||0) - Number(l.actual_amount||0) - Number(l.committed_amount||0);
+        const over = remaining < 0;
+        const pct = Math.min(100, Number(l.pct_actual||0));
+        return `<div style="border:1px solid #e5e7eb;border-radius:8px;padding:8px 10px;margin-bottom:6px;cursor:pointer;" onclick="openBudgetLineForm('${l.id}')">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div><strong>${esc(l.name)}</strong> <span class="badge text-bg-light">${esc(CATS[l.category]||l.category||'—')}</span></div>
+            <div class="small ${over?'text-danger':'text-secondary'}">${money(remaining)} left</div>
+          </div>
+          <div style="height:5px;background:#f0f1f3;border-radius:3px;margin:5px 0;overflow:hidden;">
+            <div style="height:100%;width:${pct}%;background:${over?'#dc3545':'#28a745'};"></div>
+          </div>
+          <div class="small text-secondary">Budget ${money(l.budgeted_amount)} · Actual ${money(l.actual_amount)} · Committed ${money(l.committed_amount)}${l.due_date ? ' · Due '+esc(String(l.due_date).slice(0,10)) : ''}</div>
+        </div>`;
+      }).join('');
+      const sum = (k) => lines.reduce((s,l)=>s+Number(l[k]||0),0);
+      totalsEl.innerHTML = `Lines: ${lines.length} · Budgeted ${money(sum('budgeted_amount'))} · Actual ${money(sum('actual_amount'))} · Committed ${money(sum('committed_amount'))}`;
+    }
+
+    window.openBudgetLineForm = function (lineId) {
+      if (!currentEventId) { alert('Select and save an event first.'); return; }
+      const l = lineId ? lines.find(x => x.id === lineId) : null;
+      document.getElementById('blModalTitle').textContent = l ? 'Edit Budget Line' : 'New Budget Line';
+      document.getElementById('bl_id').value = l ? l.id : '';
+      document.getElementById('bl_name').value = l ? (l.name||'') : '';
+      document.getElementById('bl_category').value = l ? (l.category||'other') : 'track_hire';
+      document.getElementById('bl_budgeted').value = l ? (l.budgeted_amount||'') : '';
+      document.getElementById('bl_vendor').value = l ? (l.vendor||'') : '';
+      document.getElementById('bl_due').value = l && l.due_date ? String(l.due_date).slice(0,10) : '';
+      document.getElementById('bl_status').value = l ? (l.status||'open') : 'open';
+      document.getElementById('bl_notes').value = l ? (l.notes||'') : '';
+      document.getElementById('bl_delete').style.display = l ? '' : 'none';
+      new bootstrap.Modal(document.getElementById('budgetLineModal')).show();
+    };
+
+    async function saveLine() {
+      const id = document.getElementById('bl_id').value;
+      const body = {
+        name: document.getElementById('bl_name').value.trim(),
+        category: document.getElementById('bl_category').value,
+        budgeted_amount: parseFloat(document.getElementById('bl_budgeted').value) || 0,
+        vendor: document.getElementById('bl_vendor').value.trim() || null,
+        due_date: document.getElementById('bl_due').value || null,
+        status: document.getElementById('bl_status').value,
+        notes: document.getElementById('bl_notes').value.trim() || null,
+        scope_type: 'event',
+        event_id: currentEventId
+      };
+      if (!body.name) { alert('Name is required'); return; }
+      try {
+        if (id) await apiJSON('/api/fin-budget-lines/' + id, { method:'PUT', body: JSON.stringify(body) });
+        else    await apiJSON('/api/fin-budget-lines', { method:'POST', body: JSON.stringify(body) });
+      } catch (e) { alert('Could not save: ' + e.message); return; }
+      bootstrap.Modal.getInstance(document.getElementById('budgetLineModal')).hide();
+      window.loadEventBudgetLines(currentEventId);
+    }
+
+    async function deleteLine() {
+      const id = document.getElementById('bl_id').value;
+      if (!id || !confirm('Delete this budget line?')) return;
+      try { await apiJSON('/api/fin-budget-lines/' + id, { method:'DELETE' }); }
+      catch (e) { alert('Could not delete: ' + e.message); return; }
+      bootstrap.Modal.getInstance(document.getElementById('budgetLineModal')).hide();
+      window.loadEventBudgetLines(currentEventId);
+    }
+
+    document.getElementById('bl_save').addEventListener('click', saveLine);
+    document.getElementById('bl_delete').addEventListener('click', deleteLine);
   })();
   </script>
 </body>

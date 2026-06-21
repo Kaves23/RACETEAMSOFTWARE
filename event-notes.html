@@ -1113,6 +1113,15 @@
           <div id="savedViewsList"></div>
         </div>
 
+        <!-- FINANCE DUE card (auto-populated, read-only) -->
+        <div class="sidebar-section-card">
+          <div class="sidebar-header" style="display:flex;justify-content:space-between;align-items:center;">
+            <span>Finance Due</span>
+            <button id="finDueRefresh" style="background:none;border:none;cursor:pointer;font-size:13px;padding:0 2px;color:#1a0d2e;line-height:1;" title="Refresh finance due dates"><i class="bi bi-arrow-clockwise"></i></button>
+          </div>
+          <div id="finDueChecklist" style="display:flex;flex-direction:column;gap:2px;"><div class="text-secondary" style="font-size:0.75rem;padding:2px 4px;">Loading…</div></div>
+        </div>
+
       </div>
     </div>
 
@@ -1459,5 +1468,46 @@
   <script src="config.js"></script>
   <script src="core.js"></script>
   <script src="event-notes.js"></script>
+  <script>
+  /* ── Finance Due checklist (auto-populated from finance due dates) ── */
+  (function () {
+    function authHdr() {
+      const t = localStorage.getItem('auth_token');
+      return t ? { 'Authorization': 'Bearer ' + t } : {};
+    }
+    function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+    const LABEL = { invoice_due:'Invoice', bill_due:'Bill', budget_line_due:'Budget', event_payment:'Event pay', event_entry:'Entry', contract_end:'Contract' };
+
+    async function load() {
+      const box = document.getElementById('finDueChecklist');
+      if (!box) return;
+      box.innerHTML = '<div class="text-secondary" style="font-size:0.75rem;padding:2px 4px;">Loading…</div>';
+      try {
+        const today = new Date(); today.setHours(0,0,0,0);
+        const from = today.toISOString().slice(0,10);
+        const res = await fetch('/api/fin-calendar?from=' + from, { headers: authHdr() });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const json = await res.json();
+        const rows = (json && json.data) || [];
+        if (!rows.length) { box.innerHTML = '<div class="text-secondary" style="font-size:0.75rem;padding:2px 4px;">Nothing due.</div>'; return; }
+        box.innerHTML = rows.slice(0, 15).map(r => {
+          const overdue = r.date < from;
+          return `<a class="sidebar-item" href="${esc(r.link)}" style="text-decoration:none;display:flex;justify-content:space-between;align-items:center;gap:6px;">
+            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:0.78rem;">
+              <i class="bi bi-${overdue ? 'exclamation-circle-fill' : 'calendar-event'}" style="color:${overdue ? '#dc3545' : '#6c757d'};margin-right:4px;"></i>${esc(r.title)}
+            </span>
+            <span class="sidebar-count" style="background:${overdue ? '#dc3545' : '#e9ecef'};color:${overdue ? '#fff' : '#495057'};white-space:nowrap;">${esc(r.date.slice(5))}</span>
+          </a>`;
+        }).join('');
+      } catch (e) {
+        box.innerHTML = '<div class="text-secondary" style="font-size:0.72rem;padding:2px 4px;">Could not load.</div>';
+      }
+    }
+
+    const btn = document.getElementById('finDueRefresh');
+    if (btn) btn.addEventListener('click', load);
+    load();
+  })();
+  </script>
 </body>
 </html>

@@ -477,6 +477,35 @@
                     </div>
                   </div>
                   <div class="col-12">
+                    <div class="mlo-section-label mb-1" style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#9aa5b4;"><i class="bi bi-cash-coin me-1"></i>Test Drive Billing</div>
+                  </div>
+                  <div class="col-5">
+                    <label class="form-label">Test fee</label>
+                    <input class="form-control form-control-sm" id="fTestFee" type="number" min="0" step="0.01" placeholder="0.00" />
+                  </div>
+                  <div class="col-3">
+                    <label class="form-label">Currency</label>
+                    <select class="form-select form-select-sm" id="fFeeCurrency">
+                      <option value="ZAR">ZAR</option>
+                      <option value="GBP">GBP</option>
+                      <option value="EUR">EUR</option>
+                      <option value="USD">USD</option>
+                    </select>
+                  </div>
+                  <div class="col-4">
+                    <label class="form-label">Payment</label>
+                    <select class="form-select form-select-sm" id="fPaymentStatus">
+                      <option value="unpaid">Unpaid</option>
+                      <option value="invoiced">Invoiced</option>
+                      <option value="paid">Paid</option>
+                    </select>
+                  </div>
+                  <div class="col-12 d-flex align-items-center gap-2">
+                    <button class="btn btn-sm btn-outline-primary" id="btnCreateAcademyInvoice" type="button"><i class="bi bi-receipt me-1"></i>Create Invoice</button>
+                    <a id="acdInvoiceLink" href="#" target="_blank" style="display:none;font-size:0.78rem;"><i class="bi bi-box-arrow-up-right me-1"></i>View invoice</a>
+                    <span id="acdInvoiceMsg" style="font-size:0.75rem;color:#6c757d;"></span>
+                  </div>
+                  <div class="col-12">
                     <label class="form-label">Notes</label>
                     <textarea class="form-control form-control-sm" id="fNotes" rows="5" placeholder="Any additional notes about this prospect…"></textarea>
                   </div>
@@ -899,7 +928,7 @@
           <td>${esc(p.parent_name || '—')}</td>
           <td style="font-size:0.75rem;">${esc(p.category || '—')}</td>
           <td style="font-size:0.75rem;">${esc(p.test_venue || '—')}</td>
-          <td><span class="acd-badge ${s.badge}">${esc(s.label)}</span></td>
+          <td><span class="acd-badge ${s.badge}">${esc(s.label)}</span>${payBadgeHtml(p)}</td>
           <td style="font-size:0.75rem;color:#6c757d;">${ls ? formatDate(ls.date) : '—'}</td>
           <td><button class="acd-row-del" data-del="${esc(p.id)}" title="Delete prospect">×</button></td>
         </tr>`;
@@ -946,6 +975,11 @@
       // Status tab
       document.getElementById('fStatus').value = p.status || 'lead';
       document.getElementById('fNotes').value = p.notes || '';
+      // Billing
+      document.getElementById('fTestFee').value = (p.test_fee != null && p.test_fee !== '') ? Number(p.test_fee) : '';
+      document.getElementById('fFeeCurrency').value = p.fee_currency || 'ZAR';
+      document.getElementById('fPaymentStatus').value = p.payment_status || 'unpaid';
+      updateInvoiceUI(p);
       // Booked dates
       const bd = Array.isArray(p.booked_dates) ? p.booked_dates : [];
       [1,2,3,4].forEach(n => {
@@ -977,6 +1011,35 @@
       document.getElementById('acdInspectorBadge').textContent = '—';
       closeMobileInspector();
       renderList();
+    }
+
+    // Small payment badge for the prospect list (only when there is a fee/invoice).
+    function payBadgeHtml(p) {
+      const ps = p && p.payment_status;
+      const hasFee = p && p.test_fee != null && p.test_fee !== '' && Number(p.test_fee) > 0;
+      if (!ps && !hasFee) return '';
+      if (ps === 'paid')     return ' <span class="badge bg-success" style="font-size:0.6rem;">Paid</span>';
+      if (ps === 'invoiced') return ' <span class="badge bg-info text-dark" style="font-size:0.6rem;">Invoiced</span>';
+      if (hasFee)            return ' <span class="badge bg-warning text-dark" style="font-size:0.6rem;">Unpaid</span>';
+      return '';
+    }
+
+    // Reflect the invoice/payment state in the billing controls.
+    function updateInvoiceUI(p) {
+      const link = document.getElementById('acdInvoiceLink');
+      const btn  = document.getElementById('btnCreateAcademyInvoice');
+      const msg  = document.getElementById('acdInvoiceMsg');
+      if (!link || !btn) return;
+      if (p && p.invoice_id) {
+        link.href = 'invoice.html?select=' + encodeURIComponent(p.invoice_id);
+        link.style.display = '';
+        btn.disabled = true;
+        msg.textContent = 'Invoiced';
+      } else {
+        link.style.display = 'none';
+        btn.disabled = false;
+        msg.textContent = '';
+      }
     }
 
     function isMobileInspectorMode() {
@@ -1143,6 +1206,9 @@
       return Object.assign({}, p, {
         status: document.getElementById('fStatus').value,
         notes: document.getElementById('fNotes').value.trim(),
+        test_fee: document.getElementById('fTestFee').value === '' ? null : parseFloat(document.getElementById('fTestFee').value),
+        fee_currency: document.getElementById('fFeeCurrency').value,
+        payment_status: document.getElementById('fPaymentStatus').value,
         booked_dates: [1,2,3,4].map(n => {
           const date = document.getElementById(`fBookedDate${n}`).value;
           if (!date) return null;
@@ -1207,6 +1273,10 @@
       document.getElementById('fAssignedTo').value = '';
       document.getElementById('fStatus').value = 'lead';
       document.getElementById('fNotes').value = '';
+      document.getElementById('fTestFee').value = '';
+      document.getElementById('fFeeCurrency').value = 'ZAR';
+      document.getElementById('fPaymentStatus').value = 'unpaid';
+      updateInvoiceUI(null);
       document.getElementById('fBookedDate1').value = '';
       document.getElementById('fBookedDate2').value = '';
       document.getElementById('fBookedDate3').value = '';
@@ -1238,6 +1308,37 @@
       const payload = buildStatusPayload(p);
       await saveProspect(payload);
       renderStagePipeline(payload.status);
+    });
+
+    document.getElementById('btnCreateAcademyInvoice').addEventListener('click', async () => {
+      const p = currentProspect();
+      if (!p || !p.id) { alert('Please save this prospect before invoicing.'); return; }
+      if (p.invoice_id) { alert('An invoice already exists for this prospect.'); return; }
+      const feeVal = document.getElementById('fTestFee').value;
+      const fee = feeVal === '' ? (p.test_fee != null ? Number(p.test_fee) : 0) : parseFloat(feeVal);
+      if (!(fee > 0)) { alert('Enter a positive test fee before creating an invoice.'); return; }
+      const btn = document.getElementById('btnCreateAcademyInvoice');
+      const msg = document.getElementById('acdInvoiceMsg');
+      btn.disabled = true; msg.textContent = 'Creating…';
+      try {
+        const r = await fetch(`/api/academy/prospects/${p.id}/invoice`, {
+          method: 'POST', headers: authHeaders(),
+          body: JSON.stringify({ test_fee: fee, fee_currency: document.getElementById('fFeeCurrency').value })
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || ('HTTP ' + r.status));
+        const idx = prospects.findIndex(x => String(x.id) === String(p.id));
+        if (idx >= 0) { prospects[idx].invoice_id = data.invoice.id; prospects[idx].payment_status = 'invoiced'; prospects[idx].test_fee = fee; }
+        msg.textContent = 'Invoice ' + (data.invoice.number || '') + ' created.';
+        document.getElementById('fPaymentStatus').value = 'invoiced';
+        updateInvoiceUI(prospects[idx] || p);
+        renderList();
+      } catch (e) {
+        msg.textContent = '';
+        alert('Could not create invoice: ' + e.message);
+      } finally {
+        btn.disabled = false;
+      }
     });
 
     document.getElementById('fStatus').addEventListener('change', () => {

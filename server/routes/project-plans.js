@@ -692,6 +692,142 @@ router.delete('/task-assignments/:id', async (req, res, next) => {
 });
 
 // ──────────────────────────────────────────────────────────────────
+// TASK LABOUR (hours × cost rate and × bill rate)
+// ──────────────────────────────────────────────────────────────────
+
+// GET /api/project-plans/tasks/:taskId/labour — labour entries for a task
+router.get('/tasks/:taskId/labour', async (req, res, next) => {
+  try {
+    const result = await pool.query(`
+      SELECT l.*, s.name AS staff_full_name, s.role AS staff_role
+      FROM project_task_labour l
+      LEFT JOIN staff s ON s.id = l.staff_id
+      WHERE l.task_id = $1
+      ORDER BY l.work_date ASC NULLS LAST, l.created_at ASC
+    `, [req.params.taskId]);
+    res.json({ success: true, data: result.rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/project-plans/:id/labour-summary — labour totals per task for a plan
+router.get('/:id/labour-summary', async (req, res, next) => {
+  try {
+    const result = await pool.query(`
+      SELECT l.task_id,
+             SUM(l.hours)        AS total_hours,
+             SUM(l.cost_amount)  AS total_cost,
+             SUM(l.bill_amount)  AS total_bill
+      FROM project_task_labour l
+      JOIN project_tasks t ON t.id = l.task_id
+      WHERE t.plan_id = $1
+      GROUP BY l.task_id
+    `, [req.params.id]);
+    const totals = await pool.query(`
+      SELECT COALESCE(SUM(l.hours),0)       AS hours,
+             COALESCE(SUM(l.cost_amount),0) AS cost,
+             COALESCE(SUM(l.bill_amount),0) AS bill
+      FROM project_task_labour l
+      JOIN project_tasks t ON t.id = l.task_id
+      WHERE t.plan_id = $1
+    `, [req.params.id]);
+    res.json({ success: true, data: result.rows, totals: totals.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/project-plans/task-labour — add a labour entry
+router.post('/task-labour', async (req, res, next) => {
+  const {
+    task_id, staff_id, staff_name, work_date,
+    hours, cost_rate, bill_rate, billable, currency, notes, created_by
+  } = req.body;
+  if (!task_id) return res.status(400).json({ success: false, error: 'task_id is required' });
+  try {
+    const taskCheck = await pool.query('SELECT id FROM project_tasks WHERE id = $1', [task_id]);
+    if (taskCheck.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Task not found' });
+    }
+    const id = crypto.randomUUID();
+    const result = await pool.query(`
+      INSERT INTO project_task_labour (
+        id, task_id, staff_id, staff_name, work_date,
+        hours, cost_rate, bill_rate, billable, currency, notes, created_by
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+      RETURNING *
+    `, [
+      id, task_id, staff_id || null, staff_name || null, work_date || null,
+      hours || 0, cost_rate || 0, bill_rate || 0,
+      billable !== undefined ? billable : true,
+      currency || 'ZAR', notes || null, created_by || null
+    ]);
+    res.status(201).json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PUT /api/project-plans/task-labour/:id — update a labour entry
+router.put('/task-labour/:id', async (req, res, next) => {
+  const {
+    staff_id, staff_name, work_date,
+    hours, cost_rate, bill_rate, billable, currency, notes
+  } = req.body;
+  try {
+    const result = await pool.query(`
+      UPDATE project_task_labour SET
+        staff_id   = COALESCE($1, staff_id),
+        staff_name = COALESCE($2, staff_name),
+        work_date  = $3,
+        hours      = COALESCE($4, hours),
+        cost_rate  = COALESCE($5, cost_rate),
+        bill_rate  = COALESCE($6, bill_rate),
+        billable   = COALESCE($7, billable),
+        currency   = COALESCE($8, currency),
+        notes      = $9,
+        updated_at = NOW()
+      WHERE id = $10
+      RETURNING *
+    `, [
+      staff_id !== undefined ? (staff_id || null) : undefined,
+      staff_name !== undefined ? (staff_name || null) : undefined,
+      work_date !== undefined ? (work_date || null) : undefined,
+      hours ?? null,
+      cost_rate ?? null,
+      bill_rate ?? null,
+      billable ?? null,
+      currency || null,
+      notes !== undefined ? (notes || null) : undefined,
+      req.params.id
+    ]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Labour entry not found' });
+    }
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// DELETE /api/project-plans/task-labour/:id — remove a labour entry
+router.delete('/task-labour/:id', async (req, res, next) => {
+  try {
+    const result = await pool.query(
+      'DELETE FROM project_task_labour WHERE id = $1 RETURNING id',
+      [req.params.id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Labour entry not found' });
+    }
+    res.json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ──────────────────────────────────────────────────────────────────
 // PROJECT DETAIL (for project-detail.html)
 // GET /api/project-plans/:id/detail — plan + task stats + linked event
 // ──────────────────────────────────────────────────────────────────

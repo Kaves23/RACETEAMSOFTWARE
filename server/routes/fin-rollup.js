@@ -38,7 +38,7 @@ router.get('/event/:id', async (req, res, next) => {
     const id = req.params.id;
     const fuelPrice = await fuelPricePerLitre();
 
-    const [evRes, payRes, expRes, invRes, fuelRes] = await Promise.all([
+    const [evRes, payRes, expRes, invRes, fuelRes, lineRes] = await Promise.all([
       pool.query('SELECT * FROM events WHERE id = $1', [id]),
       pool.query(`SELECT COALESCE(SUM(amount),0) AS total,
                          COALESCE(SUM(amount) FILTER (WHERE status='paid'),0) AS paid
@@ -49,10 +49,17 @@ router.get('/event/:id', async (req, res, next) => {
       pool.query('SELECT lines, vat_rate, status FROM fin_invoices WHERE event_id = $1', [id]),
       pool.query(`SELECT COALESCE(SUM(fuel_litres),0) AS litres
                   FROM mileage_log WHERE event_id = $1`, [id]),
+      pool.query(`SELECT COALESCE(SUM(budgeted_amount),0)  AS budgeted,
+                         COALESCE(SUM(committed_amount),0) AS committed,
+                         COALESCE(SUM(actual_amount),0)    AS actual,
+                         COUNT(*) AS line_count
+                  FROM fin_budget_lines WHERE event_id = $1`, [id]),
     ]);
 
     const ev = evRes.rows[0] || null;
-    const budget = ev ? (num(ev.entry_fee)+num(ev.travel_budget)+num(ev.accommodation_budget)+num(ev.catering_budget)+num(ev.other_budget)) : 0;
+    const lines = lineRes.rows[0];
+    const headerBudget = ev ? (num(ev.entry_fee)+num(ev.travel_budget)+num(ev.accommodation_budget)+num(ev.catering_budget)+num(ev.other_budget)) : 0;
+    const budget = headerBudget + num(lines.budgeted);
     const payments = num(payRes.rows[0].total);
     const paymentsPaid = num(payRes.rows[0].paid);
     const expenses = num(expRes.rows[0].total);
@@ -73,6 +80,8 @@ router.get('/event/:id', async (req, res, next) => {
                   accommodation: num(ev.accommodation_budget), catering: num(ev.catering_budget),
                   other: num(ev.other_budget)
                 } : null },
+      budget_lines: { count: Number(lines.line_count) || 0, budgeted: num(lines.budgeted),
+                      committed: num(lines.committed), actual: num(lines.actual) },
       payments: { total: payments, paid: paymentsPaid },
       expenses: { total: expenses, paid: expensesPaid },
       fuel: { litres, price_per_litre: fuelPrice, cost: fuelCost },
@@ -89,12 +98,23 @@ router.get('/event/:id', async (req, res, next) => {
 router.get('/project/:id', async (req, res, next) => {
   try {
     const id = req.params.id;
-    const [planRes, taskRes] = await Promise.all([
+    const [planRes, taskRes, labourRes, lineRes] = await Promise.all([
       pool.query('SELECT * FROM project_plans WHERE id = $1', [id]),
       pool.query(`SELECT COALESCE(SUM(estimated_cost),0) AS est,
                          COALESCE(SUM(actual_cost),0)    AS actual,
                          COUNT(*) AS task_count
                   FROM project_tasks WHERE plan_id = $1`, [id]),
+      pool.query(`SELECT COALESCE(SUM(l.hours),0)       AS hours,
+                         COALESCE(SUM(l.cost_amount),0) AS cost,
+                         COALESCE(SUM(l.bill_amount),0) AS bill
+                  FROM project_task_labour l
+                  JOIN project_tasks t ON t.id = l.task_id
+                  WHERE t.plan_id = $1`, [id]),
+      pool.query(`SELECT COALESCE(SUM(budgeted_amount),0)  AS budgeted,
+                         COALESCE(SUM(committed_amount),0) AS committed,
+                         COALESCE(SUM(actual_amount),0)    AS actual,
+                         COUNT(*) AS line_count
+                  FROM fin_budget_lines WHERE project_id = $1`, [id]),
     ]);
 
     const plan = planRes.rows[0] || null;
@@ -104,6 +124,10 @@ router.get('/project/:id', async (req, res, next) => {
     const estimated = num(tasks.est);
     const actual = num(tasks.actual);
     const budget = num(plan.budget);
+    const labourCost = num(labourRes.rows[0].cost);
+    const labourBill = num(labourRes.rows[0].bill);
+    const labourHours = num(labourRes.rows[0].hours);
+    const lines = lineRes.rows[0];
 
     // If the plan is linked to an event, pull that event's actual spend too.
     let eventSpend = 0;
@@ -115,6 +139,8 @@ router.get('/project/:id', async (req, res, next) => {
       eventSpend = num(payRes.rows[0].total) + num(expRes.rows[0].total);
     }
 
+    const totalCost = actual + labourCost + num(lines.actual) + eventSpend;
+
     res.json({
       success: true,
       project_id: id,
@@ -122,10 +148,14 @@ router.get('/project/:id', async (req, res, next) => {
       budget,
       spent: num(plan.spent),
       tasks: { count: Number(tasks.task_count) || 0, estimated_cost: estimated, actual_cost: actual },
+      labour: { hours: labourHours, cost: labourCost, billable: labourBill },
+      budget_lines: { count: Number(lines.line_count) || 0, budgeted: num(lines.budgeted),
+                      committed: num(lines.committed), actual: num(lines.actual) },
       event_id: plan.event_id || null,
       event_spend: eventSpend,
-      total_cost: actual + eventSpend,
-      budget_remaining: budget - (actual + eventSpend)
+      total_cost: totalCost,
+      total_billable: labourBill,
+      budget_remaining: budget - totalCost
     });
   } catch (e) { next(e); }
 });

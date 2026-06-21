@@ -60,6 +60,10 @@ router.delete('/customers/:id', async (req, res, next) => {
 // GET /api/fin-invoices
 router.get('/', async (req, res, next) => {
   try {
+    // Auto-transition sent invoices whose due date has passed to Overdue.
+    await pool.query(
+      `UPDATE fin_invoices SET status='Overdue', updated_at=NOW()
+       WHERE status='Sent' AND due_date IS NOT NULL AND due_date < CURRENT_DATE`);
     const { status, customer_id, event_id } = req.query;
     const c=[], p=[];
     if (status)      { p.push(status);      c.push(`status=$${p.length}`); }
