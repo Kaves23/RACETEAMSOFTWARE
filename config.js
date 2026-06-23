@@ -2,9 +2,9 @@
 // Include this before core.js on pages where you want to override defaults.
 window.RTS_CONFIG = {
   // Software build version — updated on every deployment
-  buildVersion: '3d62684',
-  buildDate:    '2026-06-19',
-  buildNote:    'Add dedicated mobile Sporting and Projects pages',
+  buildVersion: '42c3693',
+  buildDate:    '2026-06-21',
+  buildNote:    'Finance & Budgeting suite: labour costing, budget lines, Bills/AP, payments reconciliation, finance calendar feed, academy invoicing (migrations 094-097)',
   // API Configuration
   api: {
     baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)

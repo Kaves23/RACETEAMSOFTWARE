@@ -143,6 +143,11 @@
     .acd-test-dates { display: flex; gap: 3px; flex-wrap: wrap; margin-top: 3px; }
     .acd-test-date     { font-size: 0.64rem; font-weight: 700; background: #fef9c3; color: #854d0e; padding: 1px 5px; border-radius: 3px; white-space: nowrap; border: 1px solid #fde68a; }
     .acd-test-date.am  { background: #ecfccb; color: #365314; border-color: #a3e635; }
+    .acd-test-date.past { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+    /* Venue pills */
+    .acd-venue-pill { font-size: 0.7rem; font-weight: 600; padding: 2px 8px; border-radius: 10px; white-space: nowrap; display: inline-block; background: #e9ecef; color: #495057; border: 1px solid #dee2e6; }
+    .acd-venue-pill.killarney { background: #dbeafe; color: #1e40af; border-color: #93c5fd; }
+    .acd-venue-pill.redstar   { background: #fce7f3; color: #9d174d; border-color: #f9a8d4; }
     /* AM/PM toggle on date rows */
     .acd-period-toggle { display: flex; border: 1px solid #dee2e6; border-radius: 4px; overflow: hidden; flex-shrink: 0; }
     .acd-period-toggle button { font-size: 0.68rem; font-weight: 700; padding: 0 7px; border: none; background: #f8f9fa; color: #6c757d; cursor: pointer; line-height: 26px; transition: background 0.12s, color 0.12s; }
@@ -790,14 +795,25 @@
     function bookedDatesMiniHtml(p) {
       const dates = (p.booked_dates || []).filter(Boolean);
       if (!dates.length) return '';
+      const todayStr = new Date().toISOString().slice(0, 10);
       return '<div class="acd-test-dates">' + dates.map(d => {
         const date   = typeof d === 'string' ? d : (d.date || '');
         const period = typeof d === 'string' ? '' : (d.period || '');
         if (!date) return '';
-        const cls = period === 'am' ? 'acd-test-date am' : 'acd-test-date';
+        const isPast = date < todayStr;
+        const cls = isPast ? 'acd-test-date past' : (period === 'am' ? 'acd-test-date am' : 'acd-test-date');
         const label = formatDateShort(date) + (period ? ' ' + period.toUpperCase() : '');
         return `<span class="${cls}">${label}</span>`;
       }).filter(Boolean).join('') + '</div>';
+    }
+    function venuePillHtml(venue) {
+      const v = (venue || '').trim();
+      if (!v) return '—';
+      const key = v.toLowerCase().replace(/[^a-z]/g, '');
+      let cls = 'acd-venue-pill';
+      if (key === 'killarney') cls += ' killarney';
+      else if (key === 'redstar') cls += ' redstar';
+      return `<span class="${cls}">${esc(v)}</span>`;
     }
     function lastSession(p) {
       const sessions = Array.isArray(p.sessions) ? p.sessions : [];
@@ -927,7 +943,7 @@
           <td>${esc(calcAge(p.driver_dob))}</td>
           <td>${esc(p.parent_name || '—')}</td>
           <td style="font-size:0.75rem;">${esc(p.category || '—')}</td>
-          <td style="font-size:0.75rem;">${esc(p.test_venue || '—')}</td>
+          <td style="font-size:0.75rem;">${venuePillHtml(p.test_venue)}</td>
           <td><span class="acd-badge ${s.badge}">${esc(s.label)}</span>${payBadgeHtml(p)}</td>
           <td style="font-size:0.75rem;color:#6c757d;">${ls ? formatDate(ls.date) : '—'}</td>
           <td><button class="acd-row-del" data-del="${esc(p.id)}" title="Delete prospect">×</button></td>
