@@ -2,9 +2,9 @@
 // Include this before core.js on pages where you want to override defaults.
 window.RTS_CONFIG = {
   // Software build version — updated on every deployment
-  buildVersion: 'bfefa40',
+  buildVersion: '2f882a0',
   buildDate:    '2026-06-24',
-  buildNote:    'Project inspector: 4-tab redesign (Details/Links/Costs/Activity) + fin-rollup widget budget_lines & labour rows',
+  buildNote:    'feat: improve Costs tab (variance/budget bar/EAC) + fix auto-schedule on link config modal',
   // API Configuration
   api: {
     baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)

@@ -224,8 +224,16 @@
     }
 
     /* OUTLINE TABLE */
+    :root {
+      --pm-col-dur:   44px;
+      --pm-col-start: 72px;
+      --pm-col-end:   72px;
+      --pm-col-pct:   36px;
+      --pm-col-pred:  54px;
+      --pm-col-res:   90px;
+    }
     #pm-outline-wrap {
-      width: 540px;
+      width: 620px;
       min-width: 260px;
       border-right: 2px solid #cdd3db;
       display: flex;
@@ -236,7 +244,7 @@
     }
     #pm-outline-header {
       display: grid;
-      grid-template-columns: 16px 18px 26px 1fr 44px 72px 72px 38px 28px;
+      grid-template-columns: 16px 18px 26px 1fr var(--pm-col-dur) var(--pm-col-start) var(--pm-col-end) var(--pm-col-pct) var(--pm-col-pred) var(--pm-col-res);
       align-items: center;
       padding: 0 4px;
       height: 28px;
@@ -250,7 +258,7 @@
       flex-shrink: 0;
       gap: 2px;
     }
-    #pm-outline-header span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #pm-outline-header span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; position: relative; }
     #pm-outline-body {
       overflow-y: auto;
       overflow-x: hidden;
@@ -258,7 +266,7 @@
     }
     .pm-task-row {
       display: grid;
-      grid-template-columns: 16px 18px 18px 1fr 44px 72px 72px 38px 28px;
+      grid-template-columns: 16px 18px 26px 1fr var(--pm-col-dur) var(--pm-col-start) var(--pm-col-end) var(--pm-col-pct) var(--pm-col-pred) var(--pm-col-res);
       align-items: center;
       height: 16px;
       padding: 0 4px;
@@ -276,6 +284,8 @@
     .pm-task-row.milestone-row { font-style: italic; }
     .pm-task-row.completed-row { opacity: 0.75; }
     .pm-task-row.completed-row .pm-task-title-text { color: #27ae60; text-decoration: line-through; text-decoration-color: #27ae6080; }
+    .pm-task-row.pm-inactive-row { opacity: 0.45; }
+    .pm-task-row.pm-inactive-row .pm-task-title-text { text-decoration: line-through; text-decoration-style: dashed; color: #888; }
     .pm-empty-row { cursor: cell; opacity: 0.6; }
     .pm-empty-row:hover { background: rgba(166,77,255,0.08); opacity: 1; }
     .pm-empty-row-hint { font-size: 10px; color: #a64dff; font-style: italic; opacity: 0.7; }
@@ -505,6 +515,31 @@
       background: rgba(0,0,0,0.12);
       border-radius: 0;
     }
+    /* Resource name to right of bar */
+    .pm-bar-res-ext {
+      position: absolute; top: 50%; transform: translateY(-50%);
+      white-space: nowrap; font-size: 9px; color: #444; font-weight: 500;
+      pointer-events: none; padding-left: 4px;
+    }
+    /* Predecessor column cell */
+    .pm-pred-cell {
+      font-size: 9px; color: #6b7280; text-align: center;
+      overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+      cursor: pointer;
+    }
+    /* Resource column cell */
+    .pm-resource-cell {
+      font-size: 9px; color: #374151;
+      overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+      padding-left: 3px;
+    }
+    /* Column resize handle */
+    .pm-col-rh {
+      position: absolute; right: 0; top: 0; bottom: 0; width: 5px;
+      cursor: col-resize; background: transparent; z-index: 2;
+    }
+    .pm-col-rh:hover, .pm-col-rh:active { background: rgba(166,77,255,0.5); }
+    #pm-outline-header span { position: relative; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     /* Milestone diamond */
     .pm-milestone-diamond {
       position: absolute; top: 50%; transform: translateY(-50%) rotate(45deg);
@@ -1335,12 +1370,13 @@
             <span></span><!-- open detail -->
             <span></span><!-- expand -->
             <span style="text-align:right">#</span>
-            <span>Task</span>
-            <span style="text-align:right">Dur</span>
-            <span style="text-align:center">Start</span>
-            <span style="text-align:center">End</span>
-            <span>%</span>
-            <span>Owner</span>
+            <span>Task<div class="pm-col-rh" data-col="task" title="Drag to resize"></div></span>
+            <span style="text-align:right">Dur<div class="pm-col-rh" data-col="dur" title="Drag to resize"></div></span>
+            <span style="text-align:center">Start<div class="pm-col-rh" data-col="start" title="Drag to resize"></div></span>
+            <span style="text-align:center">End<div class="pm-col-rh" data-col="end" title="Drag to resize"></div></span>
+            <span>%<div class="pm-col-rh" data-col="pct" title="Drag to resize"></div></span>
+            <span style="text-align:center">Pred<div class="pm-col-rh" data-col="pred" title="Drag to resize"></div></span>
+            <span>Resource<div class="pm-col-rh" data-col="res" title="Drag to resize"></div></span>
           </div>
           <div id="pm-outline-body"></div>
         </div>
@@ -1594,6 +1630,8 @@
     <div class="pm-ctx-sep"></div>
     <div class="pm-ctx-item" data-action="link-entity">Link Entity...</div>
     <div class="pm-ctx-item" data-action="milestone">Toggle Milestone</div>
+    <div class="pm-ctx-item" data-action="mark-on-track"><i class="bi bi-check2-circle"></i> Mark on Track</div>
+    <div class="pm-ctx-item" id="pm-ctx-inactivate" data-action="inactivate">Inactivate Task</div>
     <div class="pm-ctx-sep"></div>
     <div class="pm-ctx-item danger" data-action="delete">Delete Task</div>
   </div>
@@ -2362,6 +2400,18 @@
     return `${d}d`;
   }
 
+  // Roll up progress from leaf descendants for summary tasks
+  function rollupProgress(taskId) {
+    const getLeaves = id => {
+      const kids = state.tasks.filter(c => c.parent_task_id === id);
+      if (!kids.length) { const t = state.tasks.find(t => t.id === id); return t ? [t] : []; }
+      return kids.flatMap(k => getLeaves(k.id));
+    };
+    const leaves = getLeaves(taskId);
+    if (!leaves.length) return null;
+    return Math.round(leaves.reduce((s, t) => s + (t.progress || 0), 0) / leaves.length);
+  }
+
   // Calculate gantt viewport
   function computeGanttRange() {
     const allDates = state.tasks
@@ -2607,14 +2657,29 @@
         ? `<span class="pm-entity-chip entity-chip-${task.linked_entity_type}" data-entity-task="${task.id}" title="${task.linked_entity_type}">${esc(task.linked_entity_label||task.linked_entity_id||'linked')}</span>`
         : '';
 
-      const progressFill = `<div class="pm-progress-bar-mini"><div class="pm-progress-fill" style="width:${task.progress||0}%;background:${color};"></div></div>`;
+      const displayProgress = hasChildren ? (rollupProgress(task.id) ?? task.progress ?? 0) : (task.progress || 0);
+      const progressFill = `<div class="pm-progress-bar-mini"><div class="pm-progress-fill" style="width:${displayProgress}%;background:${color};"></div></div>`;
 
       const assigneeChip = initials
         ? `<div class="pm-assignee-chip" style="background:${color}" title="${assigneeTitle}">${initials}</div>`
         : `<div style="width:22px;height:22px;"></div>`;
 
       const isCritical = state.criticalPath.has(task.id);
+      const isInactive = !!task.is_inactive;
       const indentBorderColor = depth > 0 ? taskColor(task) : 'transparent';
+
+      // Predecessor notation (e.g. "3", "4FS", "9FF+2d")
+      const predLinks = state.links.filter(l => l.to_task_id === task.id);
+      const predStr = predLinks.map(l => {
+        const predWbs = wbs[l.from_task_id] || '?';
+        const lt = l.link_type || 'finish_to_start';
+        const ltShort = { finish_to_start: '', start_to_start: 'SS', finish_to_finish: 'FF', start_to_finish: 'SF' }[lt] || '';
+        const lag = l.lag_days ? (l.lag_days > 0 ? `+${l.lag_days}d` : `${l.lag_days}d`) : '';
+        return predWbs + ltShort + lag;
+      }).join(', ');
+
+      // Resource name (full name, not just initials)
+      const resourceStr = user ? (user.full_name || user.username || '').trim() : '';
 
       // Dependency constraint warning: predecessor overdue relative to this task's start
       const hasDepWarn = task.start_date && state.links
@@ -2632,7 +2697,7 @@
         });
       const depWarn = hasDepWarn ? `<span title="Predecessor constraint conflict" style="color:#ff6b35;font-size:10px;flex-shrink:0;font-weight:700;">!</span>` : '';
 
-      return `<div class="pm-task-row${selected}${isMilestone?' milestone-row':''}${isCompleted?' completed-row':''}${isCritical?' critical-row':''}"
+      return `<div class="pm-task-row${selected}${isMilestone?' milestone-row':''}${isCompleted?' completed-row':''}${isCritical?' critical-row':''}${isInactive?' pm-inactive-row':''}"
                    data-task-id="${task.id}" tabindex="0"
                    style="border-left:3px solid ${indentBorderColor};">
         <button class="pm-open-detail-btn" data-open-detail="${task.id}" title="Open task details">☰</button>
@@ -2645,11 +2710,12 @@
           ${depWarn}
           ${entityChip}
         </div>
-        <div class="pm-dur">${durStr(task)}</div>
+        <div class="pm-dur" data-edit-dur="${task.id}" title="Click to edit duration">${durStr(task)}</div>
         <div class="pm-date-cell" data-edit-start="${task.id}">${fmtDateShort(task.start_date)||'—'}</div>
         <div class="pm-date-cell" data-edit-end="${task.id}">${fmtDateShort(task.end_date)||'—'}</div>
         <div class="pm-progress-cell">${progressFill}</div>
-        <div>${assigneeChip}</div>
+        <div class="pm-pred-cell" title="${esc(predStr)}">${esc(predStr)}</div>
+        <div class="pm-resource-cell" title="${esc(user ? (user.full_name||user.username||'') : '')}">${esc(resourceStr)}</div>
       </div>`;
     }).join('') + renderEmptyRows(15);
   }
@@ -2667,6 +2733,7 @@
         <div class="pm-date-cell"></div>
         <div class="pm-date-cell"></div>
         <div class="pm-progress-cell"></div>
+        <div></div>
         <div></div>
       </div>`;
     }
@@ -2882,10 +2949,14 @@
     // Task rows
     const rowsHtml = visibleTasks.map(task => {
       const color = taskColor(task);
+      const barUser = state.users.find(u => u.id === task.assignee_user_id);
+      const barResource = barUser ? (barUser.full_name || barUser.username || '').trim() : '';
+      const inactiveStyle = task.is_inactive ? 'opacity:0.35;filter:grayscale(0.7);' : '';
       let barHtml = '';
+      let resExtHtml = '';
       if (task.is_milestone && task.start_date) {
         const x = dayToX(parseDateLocal(task.start_date));
-        barHtml = `<div class="pm-milestone-diamond" style="left:${x - 4}px;background:${color};" data-task-id="${task.id}"></div>`;
+        barHtml = `<div class="pm-milestone-diamond" style="left:${x - 4}px;background:${color};${inactiveStyle}" data-task-id="${task.id}"></div>`;
       } else if (task.start_date && task.end_date) {
         const x = dayToX(parseDateLocal(task.start_date));
         const x2 = dayToX(parseDateLocal(task.end_date));
@@ -2894,7 +2965,7 @@
         const critClass = state.criticalPath.has(task.id) ? ' pm-bar-critical' : '';
         const doneClass = task.status === 'completed' ? ' completed-bar' : '';
         barHtml = `<div class="pm-bar-wrap ${state.linkMode ? 'link-mode' : ''}${critClass}${doneClass}"
-            style="left:${x}px;width:${w}px;background:${color};"
+            style="left:${x}px;width:${w}px;background:${color};${inactiveStyle}"
             data-task-id="${task.id}"
             data-x="${x}" data-w="${w}"
             title="Click to select · Double-click to rename · Double-click outside label to open details">
@@ -2902,6 +2973,9 @@
           <div class="pm-bar-label">${esc(task.title)}</div>
           <div class="pm-bar-resize-handle" data-resize-task="${task.id}"></div>
         </div>`;
+        if (barResource) {
+          resExtHtml = `<div class="pm-bar-res-ext" style="left:${x2 + 5}px;">${esc(barResource)}</div>`;
+        }
       } else if (!task.is_milestone) {
         // No dates set — placeholder bar: today → today+3 days
         const todayPlaceholder = new Date(); todayPlaceholder.setHours(0,0,0,0);
@@ -2941,6 +3015,7 @@
       return `<div class="pm-chart-row${selected}" style="width:${W}px;" data-task-id="${task.id}">
         ${baselineBarHtml}
         ${barHtml}
+        ${resExtHtml}
         ${actualBarHtml}
       </div>`;
     }).join('');
@@ -4366,6 +4441,36 @@
   }
 
   // ════════════════════════════════════════════════════════════════
+  //  COLUMN RESIZE (drag handles in header cells)
+  // ════════════════════════════════════════════════════════════════
+  function setupColumnResize() {
+    const header = document.getElementById('pm-outline-header');
+    if (!header) return;
+    header.addEventListener('pointerdown', e => {
+      const rh = e.target.closest('.pm-col-rh');
+      if (!rh) return;
+      e.preventDefault(); e.stopPropagation();
+      const col = rh.dataset.col;
+      if (col === 'task') return; // 1fr — not resizable via variable
+      const varName = `--pm-col-${col}`;
+      const root = document.documentElement;
+      const startX = e.clientX;
+      const startW = parseInt(getComputedStyle(root).getPropertyValue(varName)) || 60;
+      rh.setPointerCapture(e.pointerId);
+      const onMove = ev => {
+        const newW = Math.max(24, startW + (ev.clientX - startX));
+        root.style.setProperty(varName, newW + 'px');
+      };
+      const onUp = () => {
+        rh.removeEventListener('pointermove', onMove);
+        rh.removeEventListener('pointerup', onUp);
+      };
+      rh.addEventListener('pointermove', onMove);
+      rh.addEventListener('pointerup', onUp);
+    });
+  }
+
+  // ════════════════════════════════════════════════════════════════
   //  EVENT DELEGATION (clicks)
   // ════════════════════════════════════════════════════════════════
   function setupEvents() {
@@ -4578,6 +4683,7 @@
       const titleEl = e.target.closest('[data-edit-title]');
       const startEl = e.target.closest('[data-edit-start]');
       const endEl = e.target.closest('[data-edit-end]');
+      const durEl = e.target.closest('[data-edit-dur]');
       const row = e.target.closest('[data-task-id]');
 
       if (openDetailBtn) {
@@ -4652,6 +4758,36 @@
         });
         return;
       }
+      // Inline duration edit
+      if (durEl) {
+        e.stopPropagation();
+        const cell = durEl;
+        if (cell.querySelector('input')) return;
+        const taskId = cell.dataset.editDur;
+        const task = state.tasks.find(t => t.id === taskId);
+        if (!task || !task.start_date || task.is_milestone) return;
+        const curDays = task.end_date
+          ? Math.round((parseDateLocal(task.end_date) - parseDateLocal(task.start_date)) / 86400000)
+          : 1;
+        const input = document.createElement('input');
+        input.type = 'number'; input.value = Math.max(1, curDays); input.min = 1; input.max = 3650;
+        input.style.cssText = 'font-size:10px;border:1px solid #a64dff;border-radius:3px;padding:1px;width:42px;text-align:right;';
+        cell.innerHTML = ''; cell.appendChild(input);
+        input.focus(); input.select();
+        let saved = false;
+        const done = () => {
+          if (saved) return; saved = true;
+          const days = Math.max(1, parseInt(input.value) || 1);
+          const newEnd = fmtDate(addDays(parseDateLocal(task.start_date), days));
+          saveTaskDates(taskId, 'end_date', newEnd);
+        };
+        input.addEventListener('blur', done, { once: true });
+        input.addEventListener('keydown', ev => {
+          if (ev.key === 'Enter') done();
+          if (ev.key === 'Escape') { saved = true; renderAll(); }
+        });
+        return;
+      }
       // Plain row click — just select (no inspector). Use the icon button to open detail.
       if (row) {
         state.selectedTaskId = row.dataset.taskId;
@@ -4700,7 +4836,7 @@
     // Double-click on task row in outline also opens inspector
     document.getElementById('pm-outline-body').addEventListener('dblclick', e => {
       const row = e.target.closest('[data-task-id]');
-      if (!row || e.target.closest('[data-edit-title],[data-edit-start],[data-edit-end],[data-color-task],[data-entity-task]')) return;
+      if (!row || e.target.closest('[data-edit-title],[data-edit-start],[data-edit-end],[data-edit-dur],[data-color-task],[data-entity-task]')) return;
       const task = state.tasks.find(t => t.id === row.dataset.taskId);
       if (task) openInspector(task);
     });
@@ -4813,6 +4949,18 @@
         await api(`${API}/project-plans/tasks/${taskId}`, { method:'PUT', body: JSON.stringify({ is_milestone: !task.is_milestone }) });
         await loadPlan(state.activePlanId);
       } else if (action === 'delete') { await deleteTask(taskId); }
+      else if (action === 'inactivate') {
+        const nowInactive = !task.is_inactive;
+        await api(`${API}/project-plans/tasks/${taskId}`, { method:'PUT', body: JSON.stringify({ is_inactive: nowInactive }) });
+        task.is_inactive = nowInactive;
+        renderAll();
+      } else if (action === 'mark-on-track') {
+        const body = { actual_start_date: task.start_date || null };
+        if (task.status === 'completed') body.actual_end_date = task.end_date || null;
+        await api(`${API}/project-plans/tasks/${taskId}`, { method:'PUT', body: JSON.stringify(body) });
+        Object.assign(task, body);
+        renderAll();
+      }
     });
     document.addEventListener('click', e => {
       if (!document.getElementById('pm-ctx-menu').contains(e.target)) hideCtxMenu();
@@ -4897,7 +5045,11 @@
   function showCtxMenu(x, y) {
     const menu = document.getElementById('pm-ctx-menu');
     menu.style.left = `${Math.min(x, window.innerWidth - 180)}px`;
-    menu.style.top = `${Math.min(y, window.innerHeight - 260)}px`;
+    menu.style.top = `${Math.min(y, window.innerHeight - 280)}px`;
+    // Update inactivate label dynamically
+    const task = state.tasks.find(t => t.id === state.ctxTaskId);
+    const inactivateItem = document.getElementById('pm-ctx-inactivate');
+    if (inactivateItem && task) inactivateItem.textContent = task.is_inactive ? '✓ Reactivate Task' : 'Inactivate Task';
     menu.classList.add('visible');
   }
   function hideCtxMenu() { document.getElementById('pm-ctx-menu').classList.remove('visible'); }
@@ -4916,6 +5068,7 @@
     if (!TOKEN()) { window.location.href = '/login.html'; return; }
     initColorPopover();
     setupOutlineResizer();
+    setupColumnResize();
     setupEvents();
     setupInspectorEvents();
     renderAll(); // show empty state first

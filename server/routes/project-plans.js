@@ -445,7 +445,7 @@ router.put('/tasks/:taskId', async (req, res, next) => {
     assignee_user_id, priority, status, is_milestone,
     linked_entity_type, linked_entity_id, sort_order,
     department, task_type, actual_start_date, actual_end_date, blocker_reason,
-    estimated_cost, actual_cost
+    estimated_cost, actual_cost, is_inactive
   } = req.body;
   let client;
   try {
@@ -479,6 +479,7 @@ router.put('/tasks/:taskId', async (req, res, next) => {
         blocker_reason      = $19,
         estimated_cost      = COALESCE($21, estimated_cost),
         actual_cost         = COALESCE($22, actual_cost),
+        is_inactive         = COALESCE($23, is_inactive),
         updated_at          = NOW()
       WHERE id = $20
       RETURNING *
@@ -504,7 +505,8 @@ router.put('/tasks/:taskId', async (req, res, next) => {
       blocker_reason !== undefined ? (blocker_reason || null) : undefined,
       req.params.taskId,
       estimated_cost !== undefined ? (estimated_cost || null) : undefined,
-      actual_cost !== undefined ? (actual_cost || null) : undefined
+      actual_cost !== undefined ? (actual_cost || null) : undefined,
+      is_inactive !== undefined ? Boolean(is_inactive) : undefined
     ]);
     await client.query('COMMIT');
     res.json({ success: true, data: result.rows[0] });
