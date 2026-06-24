@@ -29,14 +29,15 @@ async function recompute(lineId, client = pool) {
   return { actual, committed };
 }
 
-// GET /api/fin-budget-lines  — list, filterable by scope/event/project/category/status
+// GET /api/fin-budget-lines  — list, filterable by scope/event/project/task/category/status
 router.get('/', async (req, res, next) => {
   try {
-    const { scope_type, event_id, project_id, category, status } = req.query;
+    const { scope_type, event_id, project_id, task_id, category, status } = req.query;
     const c = [], p = [];
     if (scope_type) { p.push(scope_type); c.push(`scope_type=$${p.length}`); }
     if (event_id)   { p.push(event_id);   c.push(`event_id=$${p.length}`); }
     if (project_id) { p.push(project_id); c.push(`project_id=$${p.length}`); }
+    if (task_id)    { p.push(task_id);    c.push(`task_id=$${p.length}`); }
     if (category)   { p.push(category);   c.push(`category=$${p.length}`); }
     if (status)     { p.push(status);     c.push(`status=$${p.length}`); }
     const where = c.length ? 'WHERE ' + c.join(' AND ') : '';
@@ -50,13 +51,14 @@ router.get('/', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-// GET /api/fin-budget-lines/summary?scope_type=&event_id=&project_id=  — totals
+// GET /api/fin-budget-lines/summary?scope_type=&event_id=&project_id=&task_id=  — totals
 router.get('/summary', async (req, res, next) => {
   try {
-    const { event_id, project_id } = req.query;
+    const { event_id, project_id, task_id } = req.query;
     const c = [], p = [];
     if (event_id)   { p.push(event_id);   c.push(`event_id=$${p.length}`); }
     if (project_id) { p.push(project_id); c.push(`project_id=$${p.length}`); }
+    if (task_id)    { p.push(task_id);    c.push(`task_id=$${p.length}`); }
     const where = c.length ? 'WHERE ' + c.join(' AND ') : '';
     const r = await pool.query(`
       SELECT
@@ -83,22 +85,36 @@ router.get('/:id', async (req, res, next) => {
 router.post('/', async (req, res, next) => {
   try {
     const {
-      name, category, description, scope_type, event_id, project_id,
-      budgeted_amount, currency, due_date, status, vendor, notes
+      name, category, description, scope_type, event_id, project_id, task_id,
+      budgeted_amount, actual_amount, currency, due_date, status, vendor, notes
     } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ success: false, error: 'name required' });
     const createdBy = req.user?.name || req.user?.email || null;
     const id = crypto.randomUUID();
+
+    // Auto-populate project_id and event_id from the task's plan if task_id is provided
+    let resolvedProjectId = project_id || null;
+    let resolvedEventId   = event_id   || null;
+    if (task_id && (!resolvedProjectId || !resolvedEventId)) {
+      const taskRes = await pool.query(
+        `SELECT pt.plan_id, pp.event_id FROM project_tasks pt
+         JOIN project_plans pp ON pp.id = pt.plan_id WHERE pt.id = $1`, [task_id]);
+      if (taskRes.rows.length) {
+        if (!resolvedProjectId) resolvedProjectId = taskRes.rows[0].plan_id;
+        if (!resolvedEventId)   resolvedEventId   = taskRes.rows[0].event_id;
+      }
+    }
+
     const r = await pool.query(`
       INSERT INTO fin_budget_lines
-        (id, name, category, description, scope_type, event_id, project_id,
-         budgeted_amount, currency, due_date, status, vendor, notes, created_by)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+        (id, name, category, description, scope_type, event_id, project_id, task_id,
+         budgeted_amount, actual_amount, currency, due_date, status, vendor, notes, created_by)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
       RETURNING *`,
       [id, name.trim(), category||null, description||null,
-       scope_type || (event_id ? 'event' : project_id ? 'project' : 'standalone'),
-       event_id||null, project_id||null,
-       num(budgeted_amount), currency||'ZAR', due_date||null,
+       scope_type || (resolvedEventId ? 'event' : resolvedProjectId ? 'project' : 'standalone'),
+       resolvedEventId, resolvedProjectId, task_id||null,
+       num(budgeted_amount), num(actual_amount||0), currency||'ZAR', due_date||null,
        status||'open', vendor||null, notes||null, createdBy]
     );
     res.status(201).json({ success: true, data: r.rows[0] });
@@ -109,8 +125,8 @@ router.post('/', async (req, res, next) => {
 router.put('/:id', async (req, res, next) => {
   try {
     const {
-      name, category, description, scope_type, event_id, project_id,
-      budgeted_amount, currency, due_date, status, vendor, notes
+      name, category, description, scope_type, event_id, project_id, task_id,
+      budgeted_amount, actual_amount, currency, due_date, status, vendor, notes
     } = req.body;
     const r = await pool.query(`
       UPDATE fin_budget_lines SET
@@ -120,19 +136,22 @@ router.put('/:id', async (req, res, next) => {
         scope_type      = COALESCE($5, scope_type),
         event_id        = $6,
         project_id      = $7,
-        budgeted_amount = COALESCE($8, budgeted_amount),
-        currency        = COALESCE($9, currency),
-        due_date        = $10,
-        status          = COALESCE($11, status),
-        vendor          = $12,
-        notes           = $13,
+        task_id         = $8,
+        budgeted_amount = COALESCE($9, budgeted_amount),
+        actual_amount   = COALESCE($10, actual_amount),
+        currency        = COALESCE($11, currency),
+        due_date        = $12,
+        status          = COALESCE($13, status),
+        vendor          = $14,
+        notes           = $15,
         updated_at      = NOW()
       WHERE id = $1
       RETURNING *`,
       [req.params.id,
        name?.trim() || null, category||null, description||null,
-       scope_type||null, event_id||null, project_id||null,
+       scope_type||null, event_id||null, project_id||null, task_id||null,
        budgeted_amount != null ? num(budgeted_amount) : null,
+       actual_amount   != null ? num(actual_amount)   : null,
        currency||null, due_date||null, status||null, vendor||null, notes||null]
     );
     if (!r.rows.length) return res.status(404).json({ success: false, error: 'Not found' });

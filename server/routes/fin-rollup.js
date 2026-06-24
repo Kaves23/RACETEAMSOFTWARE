@@ -38,7 +38,7 @@ router.get('/event/:id', async (req, res, next) => {
     const id = req.params.id;
     const fuelPrice = await fuelPricePerLitre();
 
-    const [evRes, payRes, expRes, invRes, fuelRes, lineRes] = await Promise.all([
+    const [evRes, payRes, expRes, invRes, fuelRes, lineRes, taskCostRes, taskLabourRes] = await Promise.all([
       pool.query('SELECT * FROM events WHERE id = $1', [id]),
       pool.query(`SELECT COALESCE(SUM(amount),0) AS total,
                          COALESCE(SUM(amount) FILTER (WHERE status='paid'),0) AS paid
@@ -54,6 +54,24 @@ router.get('/event/:id', async (req, res, next) => {
                          COALESCE(SUM(actual_amount),0)    AS actual,
                          COUNT(*) AS line_count
                   FROM fin_budget_lines WHERE event_id = $1`, [id]),
+      // Task estimated/actual costs from projects linked to this event
+      pool.query(`SELECT
+                    COALESCE(SUM(pt.estimated_cost),0) AS estimated,
+                    COALESCE(SUM(pt.actual_cost),0)    AS actual,
+                    COUNT(DISTINCT pp.id)               AS project_count,
+                    COUNT(pt.id)                        AS task_count
+                  FROM project_tasks pt
+                  JOIN project_plans pp ON pp.id = pt.plan_id
+                  WHERE pp.event_id = $1 AND (pt.is_inactive IS NULL OR pt.is_inactive = FALSE)`, [id]),
+      // Labour costs from tasks in projects linked to this event
+      pool.query(`SELECT
+                    COALESCE(SUM(l.hours),0)        AS hours,
+                    COALESCE(SUM(l.cost_amount),0)  AS cost,
+                    COALESCE(SUM(l.bill_amount),0)  AS billable
+                  FROM project_task_labour l
+                  JOIN project_tasks pt ON pt.id = l.task_id
+                  JOIN project_plans pp ON pp.id = pt.plan_id
+                  WHERE pp.event_id = $1`, [id]),
     ]);
 
     const ev = evRes.rows[0] || null;
@@ -67,6 +85,8 @@ router.get('/event/:id', async (req, res, next) => {
     const invoices = invoiceTotals(invRes.rows);
     const litres = num(fuelRes.rows[0].litres);
     const fuelCost = litres * fuelPrice;
+    const taskCosts = taskCostRes.rows[0];
+    const taskLabour = taskLabourRes.rows[0];
 
     const totalCost = payments + expenses + fuelCost;
 
@@ -86,6 +106,17 @@ router.get('/event/:id', async (req, res, next) => {
       expenses: { total: expenses, paid: expensesPaid },
       fuel: { litres, price_per_litre: fuelPrice, cost: fuelCost },
       invoices: { count: invRes.rows.length, net: invoices.net, gross: invoices.gross },
+      task_costs: {
+        project_count: Number(taskCosts.project_count) || 0,
+        task_count:    Number(taskCosts.task_count)    || 0,
+        estimated:     num(taskCosts.estimated),
+        actual:        num(taskCosts.actual)
+      },
+      task_labour: {
+        hours:    num(taskLabour.hours),
+        cost:     num(taskLabour.cost),
+        billable: num(taskLabour.billable)
+      },
       total_cost: totalCost,
       revenue: invoices.gross,
       net_position: invoices.gross - totalCost,

@@ -2148,6 +2148,32 @@
           <div id="pi-labour-totals" style="font-size:11px;color:#374151;margin-top:8px;font-weight:600;padding-top:8px;border-top:1px solid #f0f1f3;"></div>
         </div>
 
+        <!-- ── Budget Line Items ──────────────────────────────────────── -->
+        <div class="pm-insp-section">
+          <div class="pm-insp-section-title" style="display:flex;align-items:center;justify-content:space-between;">
+            <span>Budget Line Items</span>
+            <button type="button" id="pi-add-item-btn" onclick="openTaskItemModal()" style="font-size:10px;padding:2px 10px;border:1px solid #a64dff;background:#fff;color:#a64dff;border-radius:4px;cursor:pointer;font-weight:600;">+ Add Item</button>
+          </div>
+          <div id="pi-items-wrap" style="margin-top:6px;overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:11px;">
+              <thead>
+                <tr style="border-bottom:2px solid #e5e7eb;color:#9ca3af;font-weight:700;text-transform:uppercase;font-size:9px;letter-spacing:0.05em;">
+                  <th style="padding:4px 6px;text-align:left;">Name</th>
+                  <th style="padding:4px 6px;text-align:left;">Category</th>
+                  <th style="padding:4px 6px;text-align:right;">Budgeted</th>
+                  <th style="padding:4px 6px;text-align:right;">Actual</th>
+                  <th style="padding:4px 6px;text-align:left;">Vendor</th>
+                  <th style="padding:4px 6px;text-align:center;">Status</th>
+                  <th style="padding:4px 6px;text-align:center;">Del</th>
+                </tr>
+              </thead>
+              <tbody id="pi-items-tbody"></tbody>
+            </table>
+            <div id="pi-items-empty" style="color:#ccc;font-size:11px;padding:8px 0;">No cost items yet — click "+ Add Item" to log materials, equipment, or services.</div>
+            <div id="pi-items-totals" style="font-size:11px;color:#374151;margin-top:8px;font-weight:600;padding-top:6px;border-top:1px solid #f0f1f3;"></div>
+          </div>
+        </div>
+
       </div><!-- /costs -->
 
       <!-- ══ TAB: Activity ════════════════════════════════════════ -->
@@ -2173,6 +2199,75 @@
   </div><!-- /pm-inspector -->
 
   <script src="topnav.js?v=20260525"></script>
+
+  <!-- ── Task Budget Line Item Modal ────────────────────────────────────────── -->
+  <div id="pm-item-modal-overlay" style="display:none;position:fixed;inset:0;z-index:6000;background:rgba(0,0,0,0.4);align-items:center;justify-content:center;">
+    <div style="background:#fff;border-radius:10px;width:480px;max-width:95vw;box-shadow:0 8px 32px rgba(0,0,0,0.18);padding:0;overflow:hidden;">
+      <div style="background:#1a1d24;color:#fff;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-weight:700;font-size:14px;" id="pm-item-modal-title">Add Cost Item</span>
+        <button onclick="closeTaskItemModal()" style="background:none;border:none;color:#fff;font-size:18px;cursor:pointer;line-height:1;">&times;</button>
+      </div>
+      <div style="padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <input type="hidden" id="pi-item-id">
+        <div style="grid-column:1/-1;">
+          <label style="font-size:11px;font-weight:600;color:#374151;display:block;margin-bottom:3px;">Item Name <span style="color:#e74c3c;">*</span></label>
+          <input id="pi-item-name" type="text" placeholder="e.g. Rear tyres x2, Generator hire" style="width:100%;border:1px solid #d1d5db;border-radius:5px;padding:6px 8px;font-size:12px;box-sizing:border-box;">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:600;color:#374151;display:block;margin-bottom:3px;">Category</label>
+          <select id="pi-item-category" style="width:100%;border:1px solid #d1d5db;border-radius:5px;padding:6px 8px;font-size:12px;">
+            <option value="material">Material</option>
+            <option value="equipment">Equipment</option>
+            <option value="consumables">Consumables</option>
+            <option value="labour_external">External Labour</option>
+            <option value="service">Service</option>
+            <option value="freight">Freight</option>
+            <option value="accommodation">Accommodation</option>
+            <option value="catering">Catering</option>
+            <option value="entry_fee">Entry Fee</option>
+            <option value="track_hire">Track Hire</option>
+            <option value="medical_hire">Medical Hire</option>
+            <option value="officials_hire">Officials Hire</option>
+            <option value="advertising">Advertising</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:600;color:#374151;display:block;margin-bottom:3px;">Status</label>
+          <select id="pi-item-status" style="width:100%;border:1px solid #d1d5db;border-radius:5px;padding:6px 8px;font-size:12px;">
+            <option value="open">Open / Planned</option>
+            <option value="committed">Committed</option>
+            <option value="partial">Partial</option>
+            <option value="settled">Settled / Paid</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:600;color:#374151;display:block;margin-bottom:3px;">Budgeted (R)</label>
+          <input id="pi-item-budgeted" type="number" min="0" step="0.01" placeholder="0.00" style="width:100%;border:1px solid #d1d5db;border-radius:5px;padding:6px 8px;font-size:12px;box-sizing:border-box;">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:600;color:#374151;display:block;margin-bottom:3px;">Actual / Invoiced (R)</label>
+          <input id="pi-item-actual" type="number" min="0" step="0.01" placeholder="0.00" style="width:100%;border:1px solid #d1d5db;border-radius:5px;padding:6px 8px;font-size:12px;box-sizing:border-box;">
+        </div>
+        <div style="grid-column:1/-1;">
+          <label style="font-size:11px;font-weight:600;color:#374151;display:block;margin-bottom:3px;">Vendor / Supplier</label>
+          <input id="pi-item-vendor" type="text" placeholder="Optional" style="width:100%;border:1px solid #d1d5db;border-radius:5px;padding:6px 8px;font-size:12px;box-sizing:border-box;">
+        </div>
+        <div style="grid-column:1/-1;">
+          <label style="font-size:11px;font-weight:600;color:#374151;display:block;margin-bottom:3px;">Notes</label>
+          <input id="pi-item-notes" type="text" placeholder="Optional" style="width:100%;border:1px solid #d1d5db;border-radius:5px;padding:6px 8px;font-size:12px;box-sizing:border-box;">
+        </div>
+      </div>
+      <div style="padding:12px 16px;border-top:1px solid #f0f1f3;display:flex;justify-content:space-between;align-items:center;">
+        <button id="pi-item-delete" type="button" onclick="deleteTaskItem()" style="display:none;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:5px;padding:5px 14px;font-size:11px;cursor:pointer;font-weight:600;">Delete</button>
+        <div style="display:flex;gap:8px;margin-left:auto;">
+          <button onclick="closeTaskItemModal()" style="background:#f3f4f6;border:1px solid #d1d5db;border-radius:5px;padding:6px 16px;font-size:12px;cursor:pointer;">Cancel</button>
+          <button onclick="saveTaskItem()" style="background:#a64dff;color:#fff;border:none;border-radius:5px;padding:6px 16px;font-size:12px;cursor:pointer;font-weight:600;">Save Item</button>
+        </div>
+      </div>
+    </div>
+  </div>
   <script>
   'use strict';
   // ════════════════════════════════════════════════════════════════
@@ -2208,6 +2303,7 @@
     users: [],
     staff: [],          // staff with cost/bill rates for labour
     labour: [],         // labour entries for the currently-open inspector task
+    taskItems: [],      // fin_budget_lines for the currently-open inspector task
     zoom: 'week',       // 'day' | 'week' | 'month' | 'quarter'
     collapsed: new Set(), // task IDs that are collapsed
     selectedTaskId: null,
@@ -2224,6 +2320,7 @@
     editingPlanId: null,   // for plan modal
     editingTaskId: null,   // for task modal
     inspectorTaskId: null, // for full-page inspector
+    inspectorTask: null,   // full task object for inspector
     undoStack: [],
     chipFilter: 'all',
     searchQuery: '',
@@ -3352,6 +3449,7 @@
   function openInspector(task) {
     if (!task) return;
     state.inspectorTaskId = task.id;
+    state.inspectorTask = task;
     state.selectedTaskId = task.id;
 
     // Header
@@ -3393,6 +3491,11 @@
     // Labour
     document.getElementById('pi-labour-form').style.display = 'none';
     loadInspectorLabour(task.id);
+
+    // Budget line items
+    state.taskItems = [];
+    renderTaskBudgetLines();
+    loadTaskBudgetLines(task.id);
 
     // Color swatches
     const swEl = document.getElementById('pi-color-swatches');
@@ -3558,6 +3661,166 @@
     if (eacEl) eacEl.textContent = eac ? moneyR(eac) : (progress > 0 ? '—' : 'n/a');
 
     document.getElementById('pi-kpi-billable').textContent = moneyR(lb);
+  }
+
+  // ─── TASK BUDGET LINE ITEMS ───────────────────────────────────
+  let taskItemEditingId = null;
+  const ITEM_CAT_LABELS = {
+    material:'Material', equipment:'Equipment', consumables:'Consumables',
+    labour_external:'Ext. Labour', service:'Service', freight:'Freight',
+    accommodation:'Accommodation', catering:'Catering', entry_fee:'Entry Fee',
+    track_hire:'Track Hire', medical_hire:'Medical', officials_hire:'Officials',
+    advertising:'Advertising', other:'Other'
+  };
+  const ITEM_STATUS_COLORS = {
+    open:'#6b7280', committed:'#f59e0b', partial:'#3b82f6',
+    settled:'#16a34a', cancelled:'#9ca3af'
+  };
+
+  async function loadTaskBudgetLines(taskId) {
+    document.getElementById('pi-items-tbody').innerHTML = '';
+    document.getElementById('pi-items-empty').style.display = 'block';
+    document.getElementById('pi-items-totals').textContent = '';
+    try {
+      const data = await api(`${API}/fin-budget-lines?task_id=${taskId}`);
+      state.taskItems = data.data || [];
+    } catch { state.taskItems = []; }
+    renderTaskBudgetLines();
+    updateItemsKPI();
+  }
+
+  function renderTaskBudgetLines() {
+    const tbody  = document.getElementById('pi-items-tbody');
+    const empty  = document.getElementById('pi-items-empty');
+    const totals = document.getElementById('pi-items-totals');
+    const items  = state.taskItems || [];
+    if (!items.length) {
+      tbody.innerHTML = '';
+      empty.style.display = 'block';
+      totals.textContent = '';
+      return;
+    }
+    empty.style.display = 'none';
+    let totBudgeted = 0, totActual = 0;
+    tbody.innerHTML = items.map(it => {
+      totBudgeted += Number(it.budgeted_amount) || 0;
+      totActual   += Number(it.actual_amount)   || 0;
+      const catLabel = ITEM_CAT_LABELS[it.category] || it.category || '—';
+      const statusColor = ITEM_STATUS_COLORS[it.status] || '#6b7280';
+      const overBudget = it.actual_amount > 0 && it.actual_amount > it.budgeted_amount;
+      return `<tr style="border-bottom:1px solid #f3f4f6;">
+        <td style="padding:5px 6px;font-weight:600;color:#111;">${esc(it.name)}</td>
+        <td style="padding:5px 6px;"><span style="background:#f3f4f6;padding:2px 6px;border-radius:10px;font-size:9px;font-weight:700;text-transform:uppercase;">${catLabel}</span></td>
+        <td style="padding:5px 6px;text-align:right;color:#6b21a8;">${moneyR(it.budgeted_amount)}</td>
+        <td style="padding:5px 6px;text-align:right;color:${overBudget?'#dc2626':'#15803d'};">${it.actual_amount > 0 ? moneyR(it.actual_amount) : '<span style="color:#ccc;">—</span>'}</td>
+        <td style="padding:5px 6px;color:#6b7280;font-size:10px;">${esc(it.vendor||'')}</td>
+        <td style="padding:5px 6px;text-align:center;"><span style="color:${statusColor};font-size:9px;font-weight:700;text-transform:uppercase;">${it.status||'open'}</span></td>
+        <td style="padding:5px 6px;text-align:center;">
+          <button onclick="openTaskItemModal('${it.id}')" style="background:none;border:none;color:#a64dff;font-size:11px;cursor:pointer;padding:0 4px;" title="Edit">✎</button>
+          <button onclick="deleteTaskItem('${it.id}')" style="background:none;border:none;color:#e74c3c;font-size:12px;cursor:pointer;padding:0 4px;" title="Delete">&times;</button>
+        </td>
+      </tr>`;
+    }).join('');
+    totals.innerHTML = `Total Items: <span style="color:#6b21a8;">${moneyR(totBudgeted)}</span> budgeted · <span style="color:${totActual>totBudgeted&&totBudgeted>0?'#dc2626':'#15803d'};">${moneyR(totActual)}</span> actual`;
+  }
+
+  function updateItemsKPI() {
+    const items = state.taskItems || [];
+    const totBudgeted = items.reduce((s,i) => s + (Number(i.budgeted_amount)||0), 0);
+    const totActual   = items.reduce((s,i) => s + (Number(i.actual_amount)||0),   0);
+    const el = document.getElementById('pi-kpi-items');
+    if (el) {
+      el.querySelector('.pi-kpi-items-bud').textContent = moneyR(totBudgeted);
+      el.querySelector('.pi-kpi-items-act').textContent = moneyR(totActual);
+    }
+  }
+
+  function openTaskItemModal(itemId) {
+    taskItemEditingId = itemId || null;
+    const overlay = document.getElementById('pm-item-modal-overlay');
+    const title   = document.getElementById('pm-item-modal-title');
+    const delBtn  = document.getElementById('pi-item-delete');
+    if (itemId) {
+      const it = (state.taskItems || []).find(i => i.id === itemId);
+      if (!it) return;
+      title.textContent = 'Edit Cost Item';
+      delBtn.style.display = 'block';
+      document.getElementById('pi-item-id').value       = it.id;
+      document.getElementById('pi-item-name').value     = it.name || '';
+      document.getElementById('pi-item-category').value = it.category || 'other';
+      document.getElementById('pi-item-status').value   = it.status || 'open';
+      document.getElementById('pi-item-budgeted').value = it.budgeted_amount || '';
+      document.getElementById('pi-item-actual').value   = it.actual_amount   || '';
+      document.getElementById('pi-item-vendor').value   = it.vendor || '';
+      document.getElementById('pi-item-notes').value    = it.notes  || '';
+    } else {
+      title.textContent = 'Add Cost Item';
+      delBtn.style.display = 'none';
+      document.getElementById('pi-item-id').value       = '';
+      document.getElementById('pi-item-name').value     = '';
+      document.getElementById('pi-item-category').value = 'material';
+      document.getElementById('pi-item-status').value   = 'open';
+      document.getElementById('pi-item-budgeted').value = '';
+      document.getElementById('pi-item-actual').value   = '';
+      document.getElementById('pi-item-vendor').value   = '';
+      document.getElementById('pi-item-notes').value    = '';
+    }
+    overlay.style.display = 'flex';
+    setTimeout(() => document.getElementById('pi-item-name').focus(), 60);
+  }
+
+  function closeTaskItemModal() {
+    document.getElementById('pm-item-modal-overlay').style.display = 'none';
+    taskItemEditingId = null;
+  }
+
+  async function saveTaskItem() {
+    const name = document.getElementById('pi-item-name').value.trim();
+    if (!name) { document.getElementById('pi-item-name').focus(); return; }
+    const body = {
+      name,
+      category:         document.getElementById('pi-item-category').value,
+      status:           document.getElementById('pi-item-status').value,
+      budgeted_amount:  parseFloat(document.getElementById('pi-item-budgeted').value) || 0,
+      actual_amount:    parseFloat(document.getElementById('pi-item-actual').value)   || 0,
+      vendor:           document.getElementById('pi-item-vendor').value.trim() || null,
+      notes:            document.getElementById('pi-item-notes').value.trim()  || null,
+    };
+    try {
+      if (taskItemEditingId) {
+        const res = await api(`${API}/fin-budget-lines/${taskItemEditingId}`, { method:'PUT', body: JSON.stringify(body) });
+        const idx = (state.taskItems||[]).findIndex(i => i.id === taskItemEditingId);
+        if (idx >= 0) state.taskItems[idx] = res.data;
+      } else {
+        const taskId = state.inspectorTask?.id;
+        if (!taskId) return;
+        body.task_id = taskId;
+        const res = await api(`${API}/fin-budget-lines`, { method:'POST', body: JSON.stringify(body) });
+        if (!state.taskItems) state.taskItems = [];
+        state.taskItems.push(res.data);
+      }
+      closeTaskItemModal();
+      renderTaskBudgetLines();
+      updateItemsKPI();
+      const est = parseFloat(document.getElementById('pi-est-cost').value) || 0;
+      const act = parseFloat(document.getElementById('pi-actual-cost').value) || 0;
+      const totLc = (state.labour||[]).reduce((s,l)=>s+(Number(l.cost_amount)||0),0);
+      const totLh = (state.labour||[]).reduce((s,l)=>s+(Number(l.hours)||0),0);
+      const totLb = (state.labour||[]).reduce((s,l)=>s+(Number(l.bill_amount)||0),0);
+      updateCostKPIs(est, act, totLc, totLh, totLb);
+    } catch(e) { console.error('Save item error', e); }
+  }
+
+  async function deleteTaskItem(itemId) {
+    const id = itemId || taskItemEditingId;
+    if (!id || !confirm('Delete this cost item?')) return;
+    try {
+      await api(`${API}/fin-budget-lines/${id}`, { method:'DELETE' });
+      state.taskItems = (state.taskItems||[]).filter(i => i.id !== id);
+      closeTaskItemModal();
+      renderTaskBudgetLines();
+      updateItemsKPI();
+    } catch(e) { console.error('Delete item error', e); }
   }
 
   // ─── TASK LABOUR ──────────────────────────────────────────────

@@ -72,6 +72,8 @@
     const remainColor = d.budget_remaining < 0 ? '#dc2626' : '#16a34a';
     const netColor = d.net_position < 0 ? '#dc2626' : '#16a34a';
     const bl = d.budget_lines;
+    const tc = d.task_costs || {};
+    const tl = d.task_labour || {};
     el.innerHTML = card('Event Cost Summary',
       stat('Budget', money(d.budget.total)) +
       (bl && bl.count ? stat(`Budget Lines (${bl.count}) — budgeted`, money(bl.budgeted), { color: '#6366f1' }) : '') +
@@ -80,6 +82,10 @@
       stat('Payments', money(d.payments.total)) +
       stat('Expenses', money(d.expenses.total)) +
       stat(`Fuel (${(d.fuel.litres || 0).toLocaleString('en-ZA')} L @ ${money(d.fuel.price_per_litre)})`, money(d.fuel.cost)) +
+      (tc.task_count ? stat(`Project Tasks (${tc.task_count}) — estimated`, money(tc.estimated), { color: '#6366f1' }) : '') +
+      (tc.task_count ? stat('Project Tasks — actual', money(tc.actual), { color: '#a855f7' }) : '') +
+      (tl.hours ? stat(`Labour (${Number(tl.hours||0).toLocaleString('en-ZA',{minimumFractionDigits:1,maximumFractionDigits:1})}h)`, money(tl.cost), { color: '#0ea5e9' }) : '') +
+      (tl.billable ? stat('Labour — billable', money(tl.billable), { color: '#16a34a' }) : '') +
       stat('Total Cost', money(d.total_cost), { strong: true }) +
       (d.invoices.count ? stat(`Revenue (${d.invoices.count} invoice${d.invoices.count !== 1 ? 's' : ''})`, money(d.revenue), { color: '#16a34a' }) : '') +
       (d.invoices.count ? stat('Net Position', money(d.net_position), { strong: true, color: netColor }) : '') +
