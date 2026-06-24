@@ -71,8 +71,12 @@
     if (!d || !d.success) { setEmpty(el); return; }
     const remainColor = d.budget_remaining < 0 ? '#dc2626' : '#16a34a';
     const netColor = d.net_position < 0 ? '#dc2626' : '#16a34a';
+    const bl = d.budget_lines;
     el.innerHTML = card('Event Cost Summary',
       stat('Budget', money(d.budget.total)) +
+      (bl && bl.count ? stat(`Budget Lines (${bl.count}) — budgeted`, money(bl.budgeted), { color: '#6366f1' }) : '') +
+      (bl && bl.count && bl.committed ? stat('Budget Lines — committed', money(bl.committed), { color: '#f59e0b' }) : '') +
+      (bl && bl.count && bl.actual   ? stat('Budget Lines — actual',    money(bl.actual),    { color: '#dc2626' }) : '') +
       stat('Payments', money(d.payments.total)) +
       stat('Expenses', money(d.expenses.total)) +
       stat(`Fuel (${(d.fuel.litres || 0).toLocaleString('en-ZA')} L @ ${money(d.fuel.price_per_litre)})`, money(d.fuel.cost)) +
@@ -90,11 +94,16 @@
     const d = await fetchRollup('project', projectId);
     if (!d || !d.success) { setEmpty(el); return; }
     const remainColor = d.budget_remaining < 0 ? '#dc2626' : '#16a34a';
+    const lab = d.labour;
+    const bl  = d.budget_lines;
     el.innerHTML = card('Project Cost Summary',
       stat('Budget', money(d.budget)) +
       stat(`Tasks (${d.tasks.count})`, '') +
       stat('Estimated Cost', money(d.tasks.estimated_cost)) +
-      stat('Actual Cost', money(d.tasks.actual_cost), { strong: true }) +
+      stat('Actual Cost (tasks)', money(d.tasks.actual_cost), { strong: true }) +
+      (lab && lab.hours ? stat(`Labour (${lab.hours}h)`, money(lab.cost), { color: '#0ea5e9' }) : '') +
+      (lab && lab.billable ? stat('Labour — billable', money(lab.billable), { color: '#16a34a' }) : '') +
+      (bl && bl.count ? stat(`Budget Lines (${bl.count}) — actual`, money(bl.actual), { color: '#6366f1' }) : '') +
       (d.event_id ? stat('Linked Event Spend', money(d.event_spend)) : '') +
       stat('Total Cost', money(d.total_cost), { strong: true }) +
       stat('Budget Remaining', money(d.budget_remaining), { strong: true, color: remainColor })

@@ -115,7 +115,8 @@ async function runMigrations() {
     '094_project_task_labour.sql',
     '095_finance_budget_lines.sql',
     '096_expenses_bills_ap.sql',
-    '097_academy_invoicing.sql'
+    '097_academy_invoicing.sql',
+    '098_project_task_extra_fields.sql'
   ];
   
   let appliedCount = 0, skippedCount = 0;

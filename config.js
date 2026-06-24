@@ -2,9 +2,9 @@
 // Include this before core.js on pages where you want to override defaults.
 window.RTS_CONFIG = {
   // Software build version — updated on every deployment
-  buildVersion: '42c3693',
-  buildDate:    '2026-06-21',
-  buildNote:    'Finance & Budgeting suite: labour costing, budget lines, Bills/AP, payments reconciliation, finance calendar feed, academy invoicing (migrations 094-097)',
+  buildVersion: '7951368',
+  buildDate:    '2026-06-23',
+  buildNote:    'Academy pipeline: red pill for past session dates, colour-coded venue pills (Killarney blue, Red Star pink)',
   // API Configuration
   api: {
     baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)
