@@ -838,13 +838,18 @@
     .pm-comment-input:focus { outline: none; border-color: #a64dff; box-shadow: 0 0 0 3px rgba(166,77,255,0.1); }
     /* Cost summary bar */
     .pm-cost-summary {
-      display: flex; gap: 16px; padding: 10px 14px;
+      display: flex; flex-direction: column; gap: 10px; padding: 12px 14px;
       background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;
-      flex-wrap: wrap;
     }
+    .pm-cost-kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
     .pm-cost-kpi { display: flex; flex-direction: column; gap: 2px; }
     .pm-cost-kpi-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #9ca3af; }
     .pm-cost-kpi-value { font-size: 16px; font-weight: 700; color: #1a1d24; }
+    .pm-cost-kpi-value-sm { font-size: 13px; font-weight: 700; color: #374151; }
+    .pm-cost-kpi-sub { font-size: 10px; color: #9ca3af; margin-top: 1px; }
+    .pm-budget-bar-wrap { padding: 0 2px; }
+    .pm-budget-bar-track { height: 7px; background: #e5e7eb; border-radius: 4px; overflow: hidden; margin-top: 4px; }
+    .pm-budget-bar-fill { height: 100%; width: 0%; border-radius: 4px; transition: width 0.4s, background 0.4s; background: #a64dff; }
 
     /* ─── CONTEXT MENU ─────────────────────────────────────────────  */
     #pm-ctx-menu {
@@ -1977,12 +1982,54 @@
 
         <!-- Cost summary KPIs -->
         <div id="pm-insp-cost-summary" class="pm-cost-summary">
-          <div class="pm-cost-kpi"><div class="pm-cost-kpi-label">Estimated</div><div class="pm-cost-kpi-value" id="pi-kpi-est">R 0.00</div></div>
-          <div class="pm-cost-kpi"><div class="pm-cost-kpi-label">Task Actual</div><div class="pm-cost-kpi-value" id="pi-kpi-actual">R 0.00</div></div>
-          <div class="pm-cost-kpi"><div class="pm-cost-kpi-label">Labour Cost</div><div class="pm-cost-kpi-value" id="pi-kpi-labour-cost">R 0.00</div></div>
-          <div class="pm-cost-kpi"><div class="pm-cost-kpi-label">Labour Hours</div><div class="pm-cost-kpi-value" id="pi-kpi-labour-hrs">0h</div></div>
-          <div class="pm-cost-kpi"><div class="pm-cost-kpi-label">Total Cost</div><div class="pm-cost-kpi-value" id="pi-kpi-total" style="color:#a64dff;">R 0.00</div></div>
-          <div class="pm-cost-kpi"><div class="pm-cost-kpi-label">Billable</div><div class="pm-cost-kpi-value" id="pi-kpi-billable" style="color:#16a34a;">R 0.00</div></div>
+          <!-- Row 1: primary figures -->
+          <div class="pm-cost-kpi-grid">
+            <div class="pm-cost-kpi">
+              <div class="pm-cost-kpi-label">Total Cost</div>
+              <div class="pm-cost-kpi-value" id="pi-kpi-total">R 0.00</div>
+              <div class="pm-cost-kpi-sub" id="pi-kpi-total-sub"></div>
+            </div>
+            <div class="pm-cost-kpi">
+              <div class="pm-cost-kpi-label">Estimated</div>
+              <div class="pm-cost-kpi-value" id="pi-kpi-est">R 0.00</div>
+            </div>
+            <div class="pm-cost-kpi">
+              <div class="pm-cost-kpi-label">Variance</div>
+              <div class="pm-cost-kpi-value" id="pi-kpi-variance">—</div>
+              <div class="pm-cost-kpi-sub" id="pi-kpi-variance-sub"></div>
+            </div>
+            <div class="pm-cost-kpi">
+              <div class="pm-cost-kpi-label">Billable</div>
+              <div class="pm-cost-kpi-value" id="pi-kpi-billable" style="color:#16a34a;">R 0.00</div>
+            </div>
+          </div>
+          <!-- Budget consumption bar -->
+          <div class="pm-budget-bar-wrap">
+            <div style="display:flex;justify-content:space-between;font-size:10px;color:#6b7280;">
+              <span id="pi-budget-bar-label">Budget usage</span>
+              <span id="pi-budget-bar-pct"></span>
+            </div>
+            <div class="pm-budget-bar-track"><div class="pm-budget-bar-fill" id="pi-budget-bar"></div></div>
+          </div>
+          <!-- Row 2: breakdowns -->
+          <div class="pm-cost-kpi-grid">
+            <div class="pm-cost-kpi">
+              <div class="pm-cost-kpi-label">Task Actual</div>
+              <div class="pm-cost-kpi-value-sm" id="pi-kpi-actual">R 0.00</div>
+            </div>
+            <div class="pm-cost-kpi">
+              <div class="pm-cost-kpi-label">Labour Cost</div>
+              <div class="pm-cost-kpi-value-sm" id="pi-kpi-labour-cost">R 0.00</div>
+            </div>
+            <div class="pm-cost-kpi">
+              <div class="pm-cost-kpi-label">Labour Hours</div>
+              <div class="pm-cost-kpi-value-sm" id="pi-kpi-labour-hrs">0h</div>
+            </div>
+            <div class="pm-cost-kpi">
+              <div class="pm-cost-kpi-label">Forecast (EAC)</div>
+              <div class="pm-cost-kpi-value-sm" id="pi-kpi-eac">n/a</div>
+            </div>
+          </div>
         </div>
 
         <!-- Estimated / Actual cost inputs -->
@@ -3380,17 +3427,62 @@
   }
 
   function updateCostKPIs(estCost, actualCost, labourCost, labourHours, labourBill) {
-    const est  = estCost   || parseFloat(document.getElementById('pi-est-cost').value)    || 0;
-    const act  = actualCost|| parseFloat(document.getElementById('pi-actual-cost').value) || 0;
+    const est  = parseFloat(document.getElementById('pi-est-cost').value)    || 0;
+    const act  = parseFloat(document.getElementById('pi-actual-cost').value) || 0;
     const lc   = labourCost   || 0;
     const lh   = labourHours  || 0;
     const lb   = labourBill   || 0;
-    document.getElementById('pi-kpi-est').textContent        = moneyR(est);
-    document.getElementById('pi-kpi-actual').textContent     = moneyR(act);
-    document.getElementById('pi-kpi-labour-cost').textContent= moneyR(lc);
-    document.getElementById('pi-kpi-labour-hrs').textContent = lh + 'h';
-    document.getElementById('pi-kpi-total').textContent      = moneyR(act + lc);
-    document.getElementById('pi-kpi-billable').textContent   = moneyR(lb);
+    const total = act + lc;
+    const variance = est - total; // positive = under budget
+    const pct = est > 0 ? Math.round((total / est) * 100) : null;
+    const progress = parseInt(document.getElementById('pi-progress')?.value || 0);
+    const eac = progress > 0 && total > 0 ? (total / (progress / 100)) : null;
+
+    document.getElementById('pi-kpi-est').textContent         = moneyR(est);
+    document.getElementById('pi-kpi-actual').textContent      = moneyR(act);
+    document.getElementById('pi-kpi-labour-cost').textContent = moneyR(lc);
+    document.getElementById('pi-kpi-labour-hrs').textContent  = lh + 'h';
+
+    // Total cost with dynamic colour
+    const totalEl = document.getElementById('pi-kpi-total');
+    if (totalEl) {
+      totalEl.textContent = moneyR(total);
+      totalEl.style.color = est > 0 && total > est ? '#dc2626' : '#a64dff';
+    }
+    const totalSubEl = document.getElementById('pi-kpi-total-sub');
+    if (totalSubEl) totalSubEl.textContent = est > 0 ? `of ${moneyR(est)} est.` : '';
+
+    // Variance
+    const varEl  = document.getElementById('pi-kpi-variance');
+    const varSub = document.getElementById('pi-kpi-variance-sub');
+    if (varEl) {
+      if (est === 0) {
+        varEl.textContent = '—'; varEl.style.color = '#9ca3af';
+        if (varSub) varSub.textContent = 'no estimate';
+      } else {
+        varEl.textContent = moneyR(Math.abs(variance));
+        varEl.style.color = variance >= 0 ? '#16a34a' : '#dc2626';
+        if (varSub) { varSub.textContent = variance >= 0 ? '▼ under budget' : '▲ OVER BUDGET'; varSub.style.color = variance >= 0 ? '#16a34a' : '#dc2626'; }
+      }
+    }
+
+    // Budget bar
+    const barFill = document.getElementById('pi-budget-bar');
+    const barPct  = document.getElementById('pi-budget-bar-pct');
+    const barLbl  = document.getElementById('pi-budget-bar-label');
+    if (barFill) {
+      const displayPct = pct !== null ? Math.min(pct, 150) : 0;
+      barFill.style.width = displayPct + '%';
+      barFill.style.background = pct === null ? '#d1d5db' : pct <= 75 ? '#16a34a' : pct <= 100 ? '#f59e0b' : '#dc2626';
+    }
+    if (barPct) barPct.textContent = pct !== null ? pct + '% used' : '';
+    if (barLbl) barLbl.textContent = est > 0 ? `Budget (${moneyR(total)} spent of ${moneyR(est)})` : 'Budget usage — set an estimate to track';
+
+    // Forecast at completion
+    const eacEl = document.getElementById('pi-kpi-eac');
+    if (eacEl) eacEl.textContent = eac ? moneyR(eac) : (progress > 0 ? '—' : 'n/a');
+
+    document.getElementById('pi-kpi-billable').textContent = moneyR(lb);
   }
 
   // ─── TASK LABOUR ──────────────────────────────────────────────
@@ -4073,6 +4165,7 @@
     const linkType = document.getElementById('pm-lc-type').value;
     const lagDays  = parseInt(document.getElementById('pm-lc-lag').value, 10) || 0;
     await createDependencyLink(fromId, toId, linkType, lagDays);
+    await enforceFS(fromId);
   }
 
   async function saveBaseline() {
