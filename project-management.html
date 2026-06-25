@@ -2349,9 +2349,15 @@
 
   function fmtDate(d) {
     if (!d) return '';
-    const dt = new Date(d);
-    if (isNaN(dt)) return '';
-    return dt.toISOString().slice(0, 10);
+    // Date object → format using LOCAL components (avoids UTC shift from toISOString,
+    // which would roll the date back a day in timezones ahead of UTC e.g. UK BST)
+    if (d instanceof Date) {
+      if (isNaN(d)) return '';
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+    // String → take the date portion as stored (no timezone conversion)
+    const s = String(d).slice(0, 10);
+    return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : '';
   }
   function fmtDateShort(d) {
     if (!d) return '';
