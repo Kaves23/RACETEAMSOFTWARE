@@ -2,9 +2,9 @@
 // Include this before core.js on pages where you want to override defaults.
 window.RTS_CONFIG = {
   // Software build version — updated on every deployment
-  buildVersion: '4283537',
+  buildVersion: '55fded2',
   buildDate:    '2026-06-25',
-  buildNote:    'Fix Gantt duration edit reverting due to UTC date shift in fmtDate',
+  buildNote:    'chore: refresh build metadata after rebase',
   // API Configuration
   api: {
     baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)
