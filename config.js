@@ -2,9 +2,9 @@
 // Include this before core.js on pages where you want to override defaults.
 window.RTS_CONFIG = {
   // Software build version — updated on every deployment
-  buildVersion: '05dfaa1',
+  buildVersion: '9a8118b',
   buildDate:    '2026-06-25',
-  buildNote:    'chore: add .gitattributes for line-ending normalization, ignore desktop.ini',
+  buildNote:    'Audit fixes for task linking: cycle prevention, dedupe, all link-type enforcement, error feedback, clickable arrow delete, same-plan guard',
   // API Configuration
   api: {
     baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)

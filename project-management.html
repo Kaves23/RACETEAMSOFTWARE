@@ -289,6 +289,11 @@
     .pm-empty-row { cursor: cell; opacity: 0.6; }
     .pm-empty-row:hover { background: rgba(166,77,255,0.08); opacity: 1; }
     .pm-empty-row-hint { font-size: 10px; color: #a64dff; font-style: italic; opacity: 0.7; }
+    /* Drag-and-drop reordering / re-parenting */
+    .pm-task-row.pm-dragging { opacity: 0.4; cursor: grabbing; }
+    .pm-task-row.pm-drop-before { box-shadow: inset 0 2px 0 0 #a64dff; }
+    .pm-task-row.pm-drop-after  { box-shadow: inset 0 -2px 0 0 #a64dff; }
+    .pm-task-row.pm-drop-child  { background: rgba(166,77,255,0.14); box-shadow: inset 16px 0 0 0 rgba(166,77,255,0.5); }
 
     .pm-expand-btn {
       background: none; border: none; padding: 0;
@@ -2804,7 +2809,7 @@
       const depWarn = hasDepWarn ? `<span title="Predecessor constraint conflict" style="color:#ff6b35;font-size:10px;flex-shrink:0;font-weight:700;">!</span>` : '';
 
       return `<div class="pm-task-row${selected}${isMilestone?' milestone-row':''}${isCompleted?' completed-row':''}${isCritical?' critical-row':''}${isInactive?' pm-inactive-row':''}"
-                   data-task-id="${task.id}" tabindex="0"
+                   data-task-id="${task.id}" tabindex="0" draggable="true"
                    style="border-left:3px solid ${indentBorderColor};">
         <button class="pm-open-detail-btn" data-open-detail="${task.id}" title="Open task details">☰</button>
         <div>${expandBtn}</div>
@@ -4275,6 +4280,75 @@
     await api(`${API}/project-plans/tasks/${taskId}`, { method:'PUT', body: JSON.stringify({ parent_task_id: parent?.parent_task_id || null }) });
   }
 
+  // True if `maybeChildId` is inside the subtree of `ancestorId`
+  function isDescendant(maybeChildId, ancestorId) {
+    let t = state.tasks.find(t => t.id === maybeChildId);
+    while (t && t.parent_task_id) {
+      if (t.parent_task_id === ancestorId) return true;
+      t = state.tasks.find(x => x.id === t.parent_task_id);
+    }
+    return false;
+  }
+
+  // Drag-and-drop move: reposition `draggedId` relative to `targetId`.
+  // position = 'before' | 'after' (sibling of target) | 'child' (indent under target)
+  async function moveTask(draggedId, targetId, position) {
+    if (draggedId === targetId) return;
+    const dragged = state.tasks.find(t => t.id === draggedId);
+    const target  = state.tasks.find(t => t.id === targetId);
+    if (!dragged || !target) return;
+    // Cannot drop a task into its own subtree
+    if (isDescendant(targetId, draggedId)) {
+      (window.RTS?.showToast || ((m) => alert(m)))("Can't move a task inside itself", 'error');
+      return;
+    }
+    const newParentId = position === 'child' ? targetId : (target.parent_task_id || null);
+    const undoSnap = { ...dragged }; // capture pre-move state for undo
+
+    // Current siblings under the new parent, excluding the dragged task
+    const siblings = state.tasks
+      .filter(t => (t.parent_task_id || null) === (newParentId || null) && t.id !== draggedId)
+      .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0) || (a.created_at < b.created_at ? -1 : 1));
+
+    let insertIndex;
+    if (position === 'child') {
+      insertIndex = siblings.length; // append as last child
+    } else {
+      const ti = siblings.findIndex(t => t.id === targetId);
+      insertIndex = ti < 0 ? siblings.length : (position === 'before' ? ti : ti + 1);
+    }
+    siblings.splice(insertIndex, 0, dragged);
+
+    // Renumber sort_order with gaps; collect rows whose order/parent actually changed
+    const parentChanged = (dragged.parent_task_id || null) !== (newParentId || null);
+    const changes = [];
+    siblings.forEach((t, i) => {
+      const newOrder = (i + 1) * 10;
+      const isDragged = t.id === draggedId;
+      if (t.sort_order !== newOrder || (isDragged && parentChanged)) {
+        changes.push({ id: t.id, sort_order: newOrder, reparent: isDragged && parentChanged });
+      }
+      t.sort_order = newOrder;
+    });
+    dragged.parent_task_id = newParentId || null;
+
+    // Reveal the move by expanding the new parent
+    if (newParentId) state.collapsed.delete(newParentId);
+
+    pushUndo(undoSnap);
+    computeGanttRange();
+    renderAll();
+
+    for (const c of changes) {
+      const body = c.reparent
+        ? { sort_order: c.sort_order, parent_task_id: newParentId || null }
+        : { sort_order: c.sort_order };
+      try {
+        await api(`${API}/project-plans/tasks/${c.id}`, { method:'PUT', body: JSON.stringify(body) });
+      } catch(err) { console.warn('moveTask save failed', err); }
+    }
+  }
+
   // Color change
   async function setTaskColor(taskId, color) {
     await api(`${API}/project-plans/tasks/${taskId}`, { method:'PUT', body: JSON.stringify({ color }) });
@@ -5236,6 +5310,66 @@
       }
     });
 
+    // ── Drag-and-drop reordering / re-parenting in the outline ──
+    {
+      const outlineBody = document.getElementById('pm-outline-body');
+      let dragId = null;
+      const clearDropMarkers = () => outlineBody
+        .querySelectorAll('.pm-drop-before,.pm-drop-after,.pm-drop-child')
+        .forEach(el => el.classList.remove('pm-drop-before', 'pm-drop-after', 'pm-drop-child'));
+
+      outlineBody.addEventListener('dragstart', e => {
+        const row = e.target.closest('.pm-task-row[data-task-id]');
+        // Don't start a drag from an active inline editor (title/date/duration)
+        if (!row || e.target.closest('input, [contenteditable="true"]')) { e.preventDefault(); return; }
+        dragId = row.dataset.taskId;
+        row.classList.add('pm-dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        try { e.dataTransfer.setData('text/plain', dragId); } catch {}
+      });
+
+      outlineBody.addEventListener('dragover', e => {
+        if (!dragId) return;
+        const row = e.target.closest('.pm-task-row[data-task-id]');
+        if (!row || row.dataset.taskId === dragId) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        const rect = row.getBoundingClientRect();
+        const rel = (e.clientY - rect.top) / rect.height;
+        clearDropMarkers();
+        if (rel < 0.30)      row.classList.add('pm-drop-before');
+        else if (rel > 0.70) row.classList.add('pm-drop-after');
+        else                 row.classList.add('pm-drop-child');
+      });
+
+      outlineBody.addEventListener('dragleave', e => {
+        const row = e.target.closest('.pm-task-row');
+        if (row && !row.contains(e.relatedTarget)) {
+          row.classList.remove('pm-drop-before', 'pm-drop-after', 'pm-drop-child');
+        }
+      });
+
+      outlineBody.addEventListener('drop', async e => {
+        if (!dragId) return;
+        const row = e.target.closest('.pm-task-row[data-task-id]');
+        if (!row || row.dataset.taskId === dragId) { clearDropMarkers(); dragId = null; return; }
+        e.preventDefault();
+        const targetId = row.dataset.taskId;
+        const position = row.classList.contains('pm-drop-child') ? 'child'
+                       : row.classList.contains('pm-drop-after') ? 'after' : 'before';
+        const movedId = dragId;
+        dragId = null;
+        clearDropMarkers();
+        await moveTask(movedId, targetId, position);
+      });
+
+      outlineBody.addEventListener('dragend', () => {
+        dragId = null;
+        outlineBody.querySelectorAll('.pm-dragging').forEach(el => el.classList.remove('pm-dragging'));
+        clearDropMarkers();
+      });
+    }
+
     // Chart: single-click selects row; double-click opens inspector
     document.getElementById('pm-chart-body-scroll').addEventListener('click', e => {
       if (e.detail > 1) return; // ignore as part of dblclick
@@ -5245,8 +5379,9 @@
         const taskId = (bar || row).dataset.taskId;
         state.selectedTaskId = taskId;
         if (state.linkMode) {
-          const task = state.tasks.find(t => t.id === taskId);
-          if (task) openInspector(task);
+          // Linking is handled on pointerdown (set predecessor → successor).
+          // Do NOT open the inspector here, or the popup hides the link flow.
+          return;
         } else {
           renderAll();
         }
