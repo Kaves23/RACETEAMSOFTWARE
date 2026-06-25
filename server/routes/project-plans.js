@@ -591,6 +591,50 @@ router.post('/task-links', async (req, res, next) => {
   try {
     client = await pool.connect();
     await client.query('BEGIN');
+
+    // Both tasks must exist and belong to the same plan
+    const taskRows = await client.query(
+      'SELECT id, plan_id FROM project_tasks WHERE id = ANY($1::text[])',
+      [[from_task_id, to_task_id]]
+    );
+    const fromTask = taskRows.rows.find(r => r.id === from_task_id);
+    const toTask   = taskRows.rows.find(r => r.id === to_task_id);
+    if (!fromTask || !toTask) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ success: false, error: 'One or both tasks not found' });
+    }
+    if (fromTask.plan_id !== toTask.plan_id) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ success: false, error: 'Tasks must belong to the same plan' });
+    }
+
+    // Reject links that would form a dependency cycle (to already reaches from)
+    const linkRows = await client.query(`
+      SELECT l.from_task_id, l.to_task_id
+      FROM project_task_links l
+      JOIN project_tasks ft ON ft.id = l.from_task_id
+      WHERE ft.plan_id = $1
+    `, [fromTask.plan_id]);
+    const adj = new Map();
+    for (const r of linkRows.rows) {
+      if (!adj.has(r.from_task_id)) adj.set(r.from_task_id, []);
+      adj.get(r.from_task_id).push(r.to_task_id);
+    }
+    const stack = [to_task_id];
+    const seen = new Set();
+    let cyclic = false;
+    while (stack.length) {
+      const cur = stack.pop();
+      if (cur === from_task_id) { cyclic = true; break; }
+      if (seen.has(cur)) continue;
+      seen.add(cur);
+      for (const nxt of (adj.get(cur) || [])) stack.push(nxt);
+    }
+    if (cyclic) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ success: false, error: 'That link would create a circular dependency' });
+    }
+
     const id = crypto.randomUUID();
     const result = await client.query(`
       INSERT INTO project_task_links (id, from_task_id, to_task_id, link_type, lag_days)

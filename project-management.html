@@ -561,6 +561,9 @@
     .pm-dep-arrow { fill: none; stroke: rgba(0,0,0,0.28); stroke-width: 1.5; marker-end: url(#arrowhead); }
     .pm-dep-arrow-violated { stroke: #e74c3c !important; stroke-width: 2 !important; stroke-dasharray: 5 3; }
     .pm-dep-arrow-preview { fill: none; stroke: #a64dff; stroke-width: 1.5; stroke-dasharray: 4 3; }
+    /* Wide transparent hit-path overlaid on each arrow so the thin line is clickable to delete.
+       Re-enables pointer events even though the parent SVG sets pointer-events:none. */
+    .pm-dep-hit { pointer-events: stroke; cursor: pointer; }
 
     /* ─── MODALS ──────────────────────────────────────────────────── */
     .pm-modal-overlay {
@@ -3167,16 +3170,19 @@
       const y1 = midRow(fromIdx);
       const y2 = midRow(toIdx);
       const COLORS = { finish_to_start: 'rgba(0,0,0,0.3)', start_to_start: '#3498db', finish_to_finish: '#e67e22', start_to_finish: '#8e44ad' };
-      const stroke = COLORS[lt] || COLORS.finish_to_start;
+      let stroke = COLORS[lt] || COLORS.finish_to_start;
+      let strokeWidth = 1.5;
+      let violated = false;
+      let markerId = `arrowhead-${lt.replace(/_/g,'-')}`;
 
       if (lt === 'finish_to_start') {
         if (!fromTask.end_date || !toTask.start_date) return '';
         x1 = dayToX(parseDateLocal(fromTask.end_date));
         x2 = dayToX(parseDateLocal(toTask.start_date));
         // Violated constraint: successor starts before predecessor ends
-        const violated = parseDateLocal(toTask.start_date) <= parseDateLocal(fromTask.end_date);
-        const cxFS = (x1 + x2) / 2;
-        return `<path class="pm-dep-arrow${violated ? ' pm-dep-arrow-violated' : ''}" d="M${x1},${y1} C${cxFS},${y1} ${cxFS},${y2} ${x2},${y2}" marker-end="url(#arrowhead-${violated?'violated':'finish-to-start'})" stroke="${violated ? '#e74c3c' : stroke}" stroke-width="${violated ? 2 : 1.5}" fill="none" title="${violated ? '⚠ Constraint violated' : ''}"/>`;
+        violated = parseDateLocal(toTask.start_date) <= parseDateLocal(fromTask.end_date);
+        if (violated) { stroke = '#e74c3c'; strokeWidth = 2; markerId = 'arrowhead-violated'; }
+        else markerId = 'arrowhead-finish-to-start';
       } else if (lt === 'start_to_start') {
         if (!fromTask.start_date || !toTask.start_date) return '';
         x1 = dayToX(parseDateLocal(fromTask.start_date));
@@ -3196,8 +3202,12 @@
       }
 
       const cx = (x1 + x2) / 2;
-      const markerId = `arrowhead-${lt.replace(/_/g,'-')}`;
-      return `<path class="pm-dep-arrow" d="M${x1},${y1} C${cx},${y1} ${cx},${y2} ${x2},${y2}" marker-end="url(#${markerId})" stroke="${stroke}" stroke-width="1.5" fill="none"/>`;
+      const d = `M${x1},${y1} C${cx},${y1} ${cx},${y2} ${x2},${y2}`;
+      const arrowCls = `pm-dep-arrow${violated ? ' pm-dep-arrow-violated' : ''}`;
+      // Wide transparent hit-path carries the link id so the arrow can be clicked to delete.
+      const hit = `<path class="pm-dep-hit" d="${d}" data-link-id="${link.id}" stroke="transparent" stroke-width="10" fill="none"><title>Click to delete this dependency</title></path>`;
+      const vis = `<path class="${arrowCls}" d="${d}" marker-end="url(#${markerId})" stroke="${stroke}" stroke-width="${strokeWidth}" fill="none"/>`;
+      return hit + vis;
     }).filter(Boolean).join('');
 
     // Ensure markers exist for each type
@@ -3211,7 +3221,7 @@
     }
 
     // Re-append arrows to existing SVG content
-    const existing = svg.querySelectorAll('.pm-dep-arrow,.pm-dep-arrow-preview:not(.preview-live)');
+    const existing = svg.querySelectorAll('.pm-dep-arrow,.pm-dep-hit,.pm-dep-arrow-preview:not(.preview-live)');
     existing.forEach(e => e.remove());
     svg.insertAdjacentHTML('beforeend', arrows);
   }
@@ -4304,9 +4314,13 @@
               clearLinkHighlight();
               state.linkFromId = null;
               setLinkStatus('Linking…');
-              await createDependencyLink(fId, taskId, 'finish_to_start', 0);
-              await enforceFS(fId);
-              setLinkStatus('Link created! Click another task to keep linking, or click Link to exit.');
+              const ok = await createDependencyLink(fId, taskId, 'finish_to_start', 0);
+              if (ok) {
+                await enforceFS(fId);
+                setLinkStatus('Link created! Click another task to keep linking, or click Link to exit.');
+              } else {
+                setLinkStatus('Click a task to set predecessor');
+              }
               setTimeout(() => { if (state.linkMode) setLinkStatus('Click a task to set predecessor'); }, 2500);
             }
           } else {
@@ -4434,50 +4448,151 @@
         await enforceFS(taskId); // cascade FS constraints after drag
       } catch { await loadPlan(state.activePlanId); }
     });
+
+    // Click an arrow (its wide transparent hit-path) to delete that dependency
+    const arrowsSvg = document.getElementById('pm-arrows-svg');
+    if (arrowsSvg) {
+      arrowsSvg.addEventListener('click', async e => {
+        const hit = e.target.closest('[data-link-id]');
+        if (!hit) return;
+        e.stopPropagation();
+        const linkId = hit.dataset.linkId;
+        const link = state.links.find(l => l.id === linkId);
+        if (!link) return;
+        const fromT = state.tasks.find(t => t.id === link.from_task_id);
+        const toT   = state.tasks.find(t => t.id === link.to_task_id);
+        if (!confirm(`Delete dependency: "${fromT?.title||'?'}" → "${toT?.title||'?'}"?`)) return;
+        await deleteDepLinkFromChart(linkId);
+      });
+    }
+  }
+
+  async function deleteDepLinkFromChart(linkId) {
+    try {
+      await api(`${API}/project-plans/task-links/${linkId}`, { method:'DELETE' });
+      state.links = state.links.filter(l => l.id !== linkId);
+      renderArrows(buildVisibleTasks());
+    } catch(e) {
+      (window.RTS?.showToast || ((m) => alert(m)))('Failed to delete link', 'error');
+    }
+  }
+
+  // Returns true if adding from→to would form a dependency cycle (to already reaches from).
+  function wouldCreateCycle(fromId, toId) {
+    const adj = new Map();
+    for (const l of state.links) {
+      if (!adj.has(l.from_task_id)) adj.set(l.from_task_id, []);
+      adj.get(l.from_task_id).push(l.to_task_id);
+    }
+    const stack = [toId];
+    const seen = new Set();
+    while (stack.length) {
+      const cur = stack.pop();
+      if (cur === fromId) return true;
+      if (seen.has(cur)) continue;
+      seen.add(cur);
+      for (const nxt of (adj.get(cur) || [])) stack.push(nxt);
+    }
+    return false;
   }
 
   async function createDependencyLink(fromId, toId, linkType = 'finish_to_start', lagDays = 0) {
+    const toast = window.RTS?.showToast || ((m) => alert(m));
+    if (fromId === toId) { toast('A task cannot link to itself', 'error'); return false; }
+    if (wouldCreateCycle(fromId, toId)) { toast('That link would create a circular dependency', 'error'); return false; }
     try {
       const res = await api(`${API}/project-plans/task-links`, {
         method: 'POST',
         body: JSON.stringify({ from_task_id: fromId, to_task_id: toId, link_type: linkType, lag_days: lagDays })
       });
-      state.links.push(res.data);
+      const link = res?.data;
+      if (!link || !link.id) throw new Error('Malformed link response');
+      // Server upserts on (from,to); drop any stale copy (same id or same pair) before adding
+      // so re-linking the same pair never produces duplicate arrows.
+      state.links = state.links.filter(l =>
+        l.id !== link.id &&
+        !(l.from_task_id === link.from_task_id && l.to_task_id === link.to_task_id)
+      );
+      state.links.push(link);
       renderArrows(buildVisibleTasks());
-    } catch(e) { console.error('Link error', e); }
+      return true;
+    } catch(e) {
+      console.error('Link error', e);
+      toast(e?.message || 'Failed to create link', 'error');
+      return false;
+    }
   }
 
-  // ── Finish-to-Start constraint enforcement ──────────────────────
-  // After task `changedId` has its dates updated, push any FS successors forward
-  // Cascades through the chain (successor → its successors, etc.)
-  async function enforceFS(changedId, _visited = new Set()) {
-    if (_visited.has(changedId)) return; // cycle guard
-    _visited.add(changedId);
-    const fsLinks = state.links.filter(l => l.from_task_id === changedId && (l.link_type || 'finish_to_start') === 'finish_to_start');
-    for (const link of fsLinks) {
-      const pred = state.tasks.find(t => t.id === link.from_task_id);
-      const succ = state.tasks.find(t => t.id === link.to_task_id);
-      if (!pred?.end_date || !succ) continue;
-      const lag = link.lag_days || 0;
-      const minStart = addDays(parseDateLocal(pred.end_date), lag + 1);
-      const curStart = succ.start_date ? parseDateLocal(succ.start_date) : null;
-      if (!curStart || curStart < minStart) {
-        const duration = (succ.start_date && succ.end_date)
-          ? Math.round((parseDateLocal(succ.end_date) - parseDateLocal(succ.start_date)) / 86400000)
-          : null;
-        const newStart = fmtDate(minStart);
-        const newEnd   = duration !== null ? fmtDate(addDays(minStart, duration)) : null;
-        succ.start_date = newStart;
-        if (newEnd) succ.end_date = newEnd;
-        const body = { start_date: newStart, ...(newEnd ? { end_date: newEnd } : {}) };
-        try {
-          await api(`${API}/project-plans/tasks/${succ.id}`, { method:'PUT', body: JSON.stringify(body) });
-        } catch(err) { console.warn('enforceFS save failed', err); }
-        await enforceFS(succ.id, _visited); // cascade
-      }
-    }
+  // ── Dependency constraint enforcement (FS / SS / FF / SF) ────────
+  // After task `changedId`'s dates change, shift dependent successors so their
+  // links are satisfied, preserving each successor's duration. Cascades through
+  // the chain. Renders once at the end (public wrapper) to avoid reflow churn.
+  async function enforceFS(changedId) {
+    await _enforceConstraints(changedId, new Set());
     computeGanttRange();
     renderAll();
+  }
+
+  async function _enforceConstraints(changedId, visited) {
+    if (visited.has(changedId)) return; // cycle guard — stop, don't loop forever
+    visited.add(changedId);
+    const links = state.links.filter(l => l.from_task_id === changedId);
+    for (const link of links) {
+      const pred = state.tasks.find(t => t.id === link.from_task_id);
+      const succ = state.tasks.find(t => t.id === link.to_task_id);
+      if (!pred || !succ) continue;
+      const lt  = link.link_type || 'finish_to_start';
+      const lag = link.lag_days || 0;
+      const predStart = pred.start_date ? parseDateLocal(pred.start_date) : null;
+      const predEnd   = pred.end_date   ? parseDateLocal(pred.end_date)   : null;
+      const succStart = succ.start_date ? parseDateLocal(succ.start_date) : null;
+      const succEnd   = succ.end_date   ? parseDateLocal(succ.end_date)   : null;
+      const dur = (succStart && succEnd)
+        ? Math.round((succEnd - succStart) / 86400000) : null;
+
+      let newStart = null, newEnd = null;
+      if (lt === 'finish_to_start') {
+        if (!predEnd) continue;
+        const minStart = addDays(predEnd, lag + 1);
+        if (!succStart || succStart < minStart) {
+          newStart = minStart;
+          newEnd = dur !== null ? addDays(minStart, dur) : null;
+        }
+      } else if (lt === 'start_to_start') {
+        if (!predStart) continue;
+        const minStart = addDays(predStart, lag);
+        if (!succStart || succStart < minStart) {
+          newStart = minStart;
+          newEnd = dur !== null ? addDays(minStart, dur) : null;
+        }
+      } else if (lt === 'finish_to_finish') {
+        if (!predEnd) continue;
+        const minEnd = addDays(predEnd, lag);
+        if (!succEnd || succEnd < minEnd) {
+          newEnd = minEnd;
+          newStart = dur !== null ? addDays(minEnd, -dur) : null;
+        }
+      } else if (lt === 'start_to_finish') {
+        if (!predStart) continue;
+        const minEnd = addDays(predStart, lag);
+        if (!succEnd || succEnd < minEnd) {
+          newEnd = minEnd;
+          newStart = dur !== null ? addDays(minEnd, -dur) : null;
+        }
+      } else {
+        continue;
+      }
+
+      if (!newStart && !newEnd) continue;
+      const body = {};
+      if (newStart) { succ.start_date = fmtDate(newStart); body.start_date = succ.start_date; }
+      if (newEnd)   { succ.end_date   = fmtDate(newEnd);   body.end_date   = succ.end_date; }
+      if (!Object.keys(body).length) continue;
+      try {
+        await api(`${API}/project-plans/tasks/${succ.id}`, { method:'PUT', body: JSON.stringify(body) });
+      } catch(err) { console.warn('enforceFS save failed', err); }
+      await _enforceConstraints(succ.id, visited); // cascade
+    }
   }
 
   function setLinkStatus(msg) {
@@ -4508,8 +4623,8 @@
     if (!fromId || !toId) return;
     const linkType = document.getElementById('pm-lc-type').value;
     const lagDays  = parseInt(document.getElementById('pm-lc-lag').value, 10) || 0;
-    await createDependencyLink(fromId, toId, linkType, lagDays);
-    await enforceFS(fromId);
+    const ok = await createDependencyLink(fromId, toId, linkType, lagDays);
+    if (ok) await enforceFS(fromId);
   }
 
   async function saveBaseline() {
