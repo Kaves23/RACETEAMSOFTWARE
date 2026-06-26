@@ -2,9 +2,9 @@
 // Include this before core.js on pages where you want to override defaults.
 window.RTS_CONFIG = {
   // Software build version — updated on every deployment
-  buildVersion: '71db4c7',
+  buildVersion: '64b0e20',
   buildDate:    '2026-06-26',
-  buildNote:    'Improve lap times panel formatting in Academy Sessions',
+  buildNote:    'Add branded per-driver performance report generator to Academy Reports',
   // API Configuration
   api: {
     baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)
