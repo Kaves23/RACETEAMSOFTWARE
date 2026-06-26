@@ -2,9 +2,9 @@
 // Include this before core.js on pages where you want to override defaults.
 window.RTS_CONFIG = {
   // Software build version — updated on every deployment
-  buildVersion: '917679e',
-  buildDate:    '2026-06-25',
-  buildNote:    'Add drag-and-drop task reordering/re-parenting in PM outline',
+  buildVersion: '073b17f',
+  buildDate:    '2026-06-26',
+  buildNote:    'Add multi-location stock take checklist to Assets page',
   // API Configuration
   api: {
     baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)

@@ -327,35 +327,48 @@
     function lapTimeMini(entries) {
       var html = '';
       entries.forEach(function (entry) {
-        entry.files.forEach(function (fi) {
+        entry.files.forEach(function (fi, fileIdx) {
           if (!fi.laps || !fi.laps.length) return;
           var best = fi.laps.find(function (l) { return l.is_best; });
-          html += '<div style="font-size:0.72rem;color:#9aa5b4;margin-bottom:4px;">'
-            + '<i class="bi bi-clock-history me-1"></i>' + esc(fi.name)
-            + (fi.summary ? ' &nbsp;·&nbsp; ' + fi.laps.length + ' laps'
-               + (best ? ' &nbsp;·&nbsp; Best ' + esc(best.time_str) : '') : '')
+          // Clean up the filename: drop date/time prefix (e.g. 20260623_114255_) and .xrk extension
+          var cleanName = (fi.name || '')
+            .replace(/\.xrk$/i, '')
+            .replace(/^\d{8}_\d{6}_/, '')
+            .replace(/_/g, ' ')
+            .trim() || fi.name;
+
+          html += '<div style="' + (fileIdx > 0 ? 'border-top:1px solid #e9ecef;' : '') + 'padding:10px 10px 12px;">';
+
+          // File header card
+          html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">'
+            + '<i class="bi bi-clock-history" style="color:#5b21b6;font-size:0.85rem;"></i>'
+            + '<span style="flex:1;min-width:0;font-size:0.74rem;font-weight:600;color:#1a1d24;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + esc(fi.name) + '">' + esc(cleanName) + '</span>'
+            + '<span style="font-size:0.66rem;color:#6c757d;background:#f1f5f9;border-radius:20px;padding:1px 8px;white-space:nowrap;flex-shrink:0;">' + fi.laps.length + ' laps</span>'
+            + (best ? '<span style="font-size:0.66rem;font-weight:700;color:#78350f;background:#fde68a;border-radius:20px;padding:1px 8px;white-space:nowrap;flex-shrink:0;">Best ' + esc(best.time_str) + '</span>' : '')
             + '</div>';
+
           html += '<table style="width:100%;border-collapse:collapse;font-size:0.75rem;">';
-          html += '<thead style="position:sticky;top:0;background:#f8f9fa;z-index:1;"><tr style="color:#6c757d;text-transform:uppercase;font-size:0.66rem;letter-spacing:0.05em;">'
-            + '<th style="padding:4px 6px;font-weight:600;border-bottom:1px solid #dee2e6;">Lap</th>'
-            + '<th style="padding:4px 6px;font-weight:600;border-bottom:1px solid #dee2e6;">Time</th>'
-            + '<th style="padding:4px 6px;font-weight:600;border-bottom:1px solid #dee2e6;">Gap</th>'
+          html += '<thead><tr style="color:#6c757d;text-transform:uppercase;font-size:0.66rem;letter-spacing:0.05em;">'
+            + '<th style="padding:4px 6px;font-weight:600;border-bottom:1px solid #dee2e6;text-align:left;width:38px;">Lap</th>'
+            + '<th style="padding:4px 6px;font-weight:600;border-bottom:1px solid #dee2e6;text-align:left;">Time</th>'
+            + '<th style="padding:4px 6px;font-weight:600;border-bottom:1px solid #dee2e6;text-align:right;">Gap</th>'
             + '</tr></thead><tbody>';
           fi.laps.forEach(function (l) {
-            var bg = l.is_best ? '#ede9fe' : l.partial || l.outlap ? '#f1f5f9' : '';
+            var bg = l.is_best ? '#ede9fe' : l.partial || l.outlap ? '#f8fafc' : '';
             var fw = l.is_best ? '700' : '400';
             var clr = l.is_best ? '#5b21b6' : '#1a1d24';
             html += '<tr style="background:' + bg + ';font-weight:' + fw + ';color:' + clr + ';">'
-              + '<td style="padding:2px 6px;">' + esc(String(l.lap)) + '</td>'
-              + '<td style="padding:2px 6px;font-variant-numeric:tabular-nums;">' + esc(l.time_str || '—') + '</td>'
-              + '<td style="padding:2px 6px;font-variant-numeric:tabular-nums;">'
+              + '<td style="padding:3px 6px;border-bottom:1px solid #f1f3f5;">' + esc(String(l.lap)) + '</td>'
+              + '<td style="padding:3px 6px;border-bottom:1px solid #f1f3f5;font-variant-numeric:tabular-nums;">' + esc(l.time_str || '—') + '</td>'
+              + '<td style="padding:3px 6px;border-bottom:1px solid #f1f3f5;font-variant-numeric:tabular-nums;text-align:right;">'
               + (l.is_best ? '<span style="color:#5b21b6;font-size:0.7rem;font-weight:700;">BEST</span>'
-                : l.outlap ? '<span style="color:#6c757d;font-size:0.7rem;">OUT</span>'
-                : l.partial ? '<span style="color:#6c757d;font-size:0.7rem;">PART</span>'
-                : '<span style="color:#1a1d24;">' + esc(l.gap_str || '—') + '</span>')
+                : l.outlap ? '<span style="color:#9aa5b4;font-size:0.7rem;">OUT</span>'
+                : l.partial ? '<span style="color:#9aa5b4;font-size:0.7rem;">PART</span>'
+                : '<span style="color:#495057;">' + esc(l.gap_str || '—') + '</span>')
               + '</td></tr>';
           });
           html += '</tbody></table>';
+          html += '</div>';
         });
       });
       return html;
