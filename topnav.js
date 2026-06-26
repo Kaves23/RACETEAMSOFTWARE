@@ -229,11 +229,15 @@
     'Procurement': 'O', 'HR': 'H', 'Driver': 'V', 'Compliance': '', 'Executive': 'X', 'Academy': 'A'
   };
 
-    const liSingles = singles.map(t => {
+    const dashboardSingles = singles.filter(t => t.href === 'index.html');
+    const utilitySingles = singles.filter(t => t.href !== 'index.html');
+    const renderSingle = t => {
       const k = singleKeyMap[t.href] || '';
       const labelHtml = highlightShortcut(t.label, k);
       return `<li class="nav-item"><a class="nav-link" href="${esc(t.href)}">${labelHtml}</a></li>`;
-    }).join('');
+    };
+    const liDashboard = dashboardSingles.map(renderSingle).join('');
+    const liSingles = utilitySingles.map(renderSingle).join('');
     const liGroups = groups.map(g => {
       const k = groupKeyMap[g.label] || '';
       const items = g.items.map(it => {
@@ -247,8 +251,8 @@
         <ul class="dropdown-menu rts-dd-menu">${items}</ul>
       </li>`;
     }).join('');
-  // Put the high-usage groups on the left; push singles (Integrations/Settings) to the right
-  const li = liGroups + liSingles;
+  // Keep Dashboard first, followed by module groups; utility singles stay on the right.
+  const li = liDashboard + liGroups + liSingles;
 
     host.innerHTML = `
       <div class="rts-topbar">
