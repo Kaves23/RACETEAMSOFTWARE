@@ -91,6 +91,24 @@
       </div>
     </div>
 
+    <!-- Driver Report Generator -->
+    <div class="rpt-card mb-3" style="border-left:4px solid #5b21b6;">
+      <div class="d-flex flex-wrap align-items-end gap-2">
+        <div style="flex:1;min-width:220px;">
+          <div class="rpt-card-title" style="margin-bottom:6px;">Generate Driver Report</div>
+          <div class="text-secondary" style="font-size:0.78rem;margin-bottom:8px;">Select a driver to produce a branded, printable performance report — profile, classes, session history, lap times and an auto-written summary.</div>
+          <select class="form-select form-select-sm" id="reportDriverSelect" style="max-width:340px;">
+            <option value="">Select a driver…</option>
+          </select>
+        </div>
+        <div class="d-flex gap-2">
+          <button class="btn btn-sm btn-primary" id="btnGenerateDriverReport" style="background:#5b21b6;border-color:#5b21b6;">
+            <i class="bi bi-file-earmark-text me-1"></i>Generate Report
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Top KPIs -->
     <div class="kpi-row" id="kpiRow">
       <div class="kpi-chip"><div class="kpi-label">Total Prospects</div><div class="kpi-value" id="kpiTotal">—</div></div>
@@ -178,6 +196,8 @@
       return token ? { 'Authorization': 'Bearer ' + token } : {};
     }
 
+    let allProspects = [];
+
     async function load() {
       let prospects = [];
       try {
@@ -189,7 +209,22 @@
         console.warn('Reports load error:', e);
         document.getElementById('activityFeed').innerHTML = '<div class="text-secondary" style="font-size:0.85rem;">Could not load data. Check API connection.</div>';
       }
+      allProspects = prospects;
+      populateDriverSelect(prospects);
       renderReport(prospects);
+    }
+
+    function populateDriverSelect(prospects) {
+      const sel = document.getElementById('reportDriverSelect');
+      if (!sel) return;
+      const sorted = [...prospects].sort((a, b) =>
+        (a.driver_name || '').localeCompare(b.driver_name || ''));
+      sel.innerHTML = '<option value="">Select a driver…</option>' +
+        sorted.map(p => {
+          const sesCount = Array.isArray(p.sessions) ? p.sessions.length : 0;
+          const cat = p.category ? ' · ' + esc(p.category) : '';
+          return `<option value="${esc(p.id)}">${esc(p.driver_name || 'Unknown')}${cat} (${sesCount} session${sesCount !== 1 ? 's' : ''})</option>`;
+        }).join('');
     }
 
     function renderReport(prospects) {
@@ -286,6 +321,286 @@
           }).join('')
         : '<div class="text-secondary" style="font-size:0.82rem;">No activity yet.</div>';
     }
+
+    /* ═══════════════════════════════════════════════════════════════
+       DRIVER REPORT GENERATOR
+       ═══════════════════════════════════════════════════════════════ */
+
+    const STAGE_LABEL = {
+      lead: 'Lead', qualified: 'Qualified', booked: 'Test Day Booked',
+      testing: 'Currently Testing', post_review: 'Post-Test Review',
+      offer_made: 'Offer Made', signed: 'Signed', cancelled: 'Cancelled'
+    };
+
+    // Parse a lap time string like "0:52.719" or "1:08.168" into seconds (number)
+    function parseLapTime(str) {
+      if (!str) return null;
+      const m = String(str).trim().match(/^(?:(\d+):)?(\d+(?:\.\d+)?)$/);
+      if (!m) return null;
+      const mins = m[1] ? parseInt(m[1], 10) : 0;
+      const secs = parseFloat(m[2]);
+      if (isNaN(secs)) return null;
+      return mins * 60 + secs;
+    }
+
+    function fmtLapTime(sec) {
+      if (sec == null || isNaN(sec)) return '—';
+      const m = Math.floor(sec / 60);
+      const s = (sec - m * 60).toFixed(3).padStart(6, '0');
+      return m + ':' + s;
+    }
+
+    // Pull best/avg/lap-count stats out of a session's lap_data array
+    function sessionLapStats(session) {
+      const files = Array.isArray(session.lap_data) ? session.lap_data : [];
+      let best = null, totalLaps = 0, avgSum = 0, avgCount = 0;
+      files.forEach(fi => {
+        const sum = fi.summary || {};
+        const laps = Array.isArray(fi.laps) ? fi.laps : [];
+        totalLaps += sum.total_laps || laps.length;
+        // best from summary or from laps
+        let fileBest = parseLapTime(sum.best_str);
+        if (fileBest == null) {
+          laps.forEach(l => {
+            if (l.outlap || l.partial) return;
+            const t = parseLapTime(l.time_str);
+            if (t != null && (fileBest == null || t < fileBest)) fileBest = t;
+          });
+        }
+        if (fileBest != null && (best == null || fileBest < best)) best = fileBest;
+        const a = parseLapTime(sum.avg_str);
+        if (a != null) { avgSum += a; avgCount++; }
+      });
+      return { best, totalLaps, avg: avgCount ? avgSum / avgCount : null, hasData: files.length > 0 };
+    }
+
+    // Build an auto-written narrative summary from the driver's data (no LLM needed)
+    function buildNarrative(p, sessions) {
+      const name = (p.driver_name || 'The driver').split(' ')[0];
+      const parts = [];
+      const n = sessions.length;
+      if (n === 0) return `${esc(p.driver_name || 'This driver')} has no logged sessions yet.`;
+
+      const venues = [...new Set(sessions.map(s => s.venue).filter(Boolean))];
+      const dated = sessions.filter(s => s.date).map(s => s.date).sort();
+      const dateRange = dated.length
+        ? (dated.length === 1 ? formatDate(dated[0]) : `${formatDate(dated[0])} – ${formatDate(dated[dated.length - 1])}`)
+        : '';
+
+      parts.push(`${esc(p.driver_name || name)} has completed <strong>${n}</strong> test session${n !== 1 ? 's' : ''}${venues.length ? ` across <strong>${venues.length}</strong> venue${venues.length !== 1 ? 's' : ''} (${esc(venues.join(', '))})` : ''}${dateRange ? `, between ${dateRange}` : ''}.`);
+
+      // Lap progression
+      const withBest = sessions
+        .filter(s => s.date)
+        .map(s => ({ date: s.date, venue: s.venue, best: sessionLapStats(s).best }))
+        .filter(s => s.best != null)
+        .sort((a, b) => (a.date > b.date ? 1 : -1));
+
+      if (withBest.length >= 1) {
+        const overallBest = withBest.reduce((m, s) => s.best < m.best ? s : m, withBest[0]);
+        parts.push(`Their best recorded lap is <strong>${fmtLapTime(overallBest.best)}</strong>${overallBest.venue ? ` at ${esc(overallBest.venue)}` : ''}${overallBest.date ? ` (${formatDate(overallBest.date)})` : ''}.`);
+      }
+      if (withBest.length >= 2) {
+        const first = withBest[0], last = withBest[withBest.length - 1];
+        const delta = first.best - last.best;
+        if (Math.abs(delta) >= 0.001) {
+          const improved = delta > 0;
+          parts.push(`From the first to the most recent timed session, the best lap ${improved ? 'improved' : 'increased'} by <strong>${Math.abs(delta).toFixed(3)}s</strong> (${fmtLapTime(first.best)} → ${fmtLapTime(last.best)}).`);
+        }
+      }
+
+      // Ratings
+      const rated = sessions.filter(s => s.rating).map(s => parseInt(s.rating));
+      if (rated.length) {
+        const avg = (rated.reduce((a, b) => a + b, 0) / rated.length).toFixed(1);
+        parts.push(`Average coach rating is <strong>${avg}/5</strong> over ${rated.length} rated session${rated.length !== 1 ? 's' : ''}.`);
+      }
+
+      parts.push(`Current pipeline stage: <strong>${esc(STAGE_LABEL[p.status] || p.status || '—')}</strong>.`);
+      return parts.join(' ');
+    }
+
+    function generateDriverReport() {
+      const id = document.getElementById('reportDriverSelect').value;
+      if (!id) { alert('Please select a driver first.'); return; }
+      const p = allProspects.find(x => String(x.id) === String(id));
+      if (!p) { alert('Driver not found.'); return; }
+
+      const sessions = (Array.isArray(p.sessions) ? p.sessions : [])
+        .slice()
+        .sort((a, b) => ((b.date || '') > (a.date || '') ? 1 : -1));
+
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+      const docRef = `DR-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(p.driver_name || 'driver').replace(/[^a-z]/gi, '').slice(0, 6).toUpperCase()}`;
+
+      // Overall stats
+      const venues = [...new Set(sessions.map(s => s.venue).filter(Boolean))];
+      const coaches = [...new Set(sessions.map(s => s.coach).filter(Boolean))];
+      let overallBest = null;
+      sessions.forEach(s => { const st = sessionLapStats(s); if (st.best != null && (overallBest == null || st.best < overallBest)) overallBest = st.best; });
+      const rated = sessions.filter(s => s.rating).map(s => parseInt(s.rating));
+      const avgRating = rated.length ? (rated.reduce((a, b) => a + b, 0) / rated.length).toFixed(1) : '—';
+      const totalLaps = sessions.reduce((sum, s) => sum + sessionLapStats(s).totalLaps, 0);
+
+      const narrative = buildNarrative(p, sessions);
+
+      // Session rows
+      let sessionBlocks = '';
+      sessions.forEach((s, idx) => {
+        const st = sessionLapStats(s);
+        const stars = s.rating ? '★'.repeat(s.rating) + '☆'.repeat(5 - s.rating) : '—';
+        // Lap detail tables
+        let lapHtml = '';
+        const files = Array.isArray(s.lap_data) ? s.lap_data : [];
+        files.forEach(fi => {
+          const laps = Array.isArray(fi.laps) ? fi.laps : [];
+          if (!laps.length) return;
+          const cleanName = (fi.name || '').replace(/\.xrk$/i, '').replace(/^\d{8}_\d{6}_/, '').replace(/_/g, ' ').trim() || fi.name;
+          let rows = '';
+          laps.forEach(l => {
+            const isBest = l.is_best;
+            const tag = isBest ? 'BEST' : l.outlap ? 'OUT' : l.partial ? 'PART' : (l.gap_str || '');
+            rows += `<tr${isBest ? ' class="lap-best"' : ''}><td>${esc(String(l.lap))}</td><td class="mono">${esc(l.time_str || '—')}</td><td class="mono">${esc(tag)}</td></tr>`;
+          });
+          lapHtml += `<div class="lap-file"><div class="lap-file-name">${esc(cleanName)} · ${laps.length} laps</div>
+            <table class="lap-table"><thead><tr><th>Lap</th><th>Time</th><th>Gap</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+        });
+
+        sessionBlocks += `
+        <div class="session-block">
+          <div class="session-head">
+            <div class="session-title">Session ${sessions.length - idx} — ${esc(formatDate(s.date))}</div>
+            <div class="session-rating">${esc(stars)}</div>
+          </div>
+          <div class="session-meta">
+            <span><b>Venue:</b> ${esc(s.venue || '—')}</span>
+            <span><b>Coach/Engineer:</b> ${esc(s.coach || '—')}</span>
+            <span><b>Best Lap:</b> ${st.best != null ? fmtLapTime(st.best) : '—'}</span>
+            <span><b>Laps:</b> ${st.totalLaps || '—'}</span>
+          </div>
+          ${s.notes ? `<div class="session-notes"><b>Notes:</b> ${esc(s.notes)}</div>` : ''}
+          ${lapHtml ? `<div class="lap-wrap">${lapHtml}</div>` : '<div class="no-lap">No telemetry / lap data linked to this session.</div>'}
+        </div>`;
+      });
+
+      if (!sessions.length) sessionBlocks = '<div class="no-lap">No sessions have been logged for this driver yet.</div>';
+
+      const html = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>Driver Report — ${esc(p.driver_name || '')}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 9.5pt; color: #1a1d24; background: #fff; }
+  .page { padding: 14mm 16mm 12mm; max-width: 210mm; margin: 0 auto; }
+
+  .rpt-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #1a0d2e; padding-bottom: 12px; margin-bottom: 16px; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand img { height: 46px; width: auto; object-fit: contain; }
+  .brand-text .brand-name { font-size: 13pt; font-weight: 800; color: #1a0d2e; line-height: 1; }
+  .brand-text .brand-sub { font-size: 7.5pt; text-transform: uppercase; letter-spacing: 2px; color: #5b21b6; margin-top: 3px; }
+  .rpt-ref { text-align: right; font-size: 8pt; color: #555; line-height: 1.6; }
+  .rpt-ref .ref-num { font-family: 'Courier New', monospace; font-weight: 700; font-size: 9pt; color: #1a0d2e; }
+
+  .rpt-title { font-size: 20pt; font-weight: 800; color: #1a0d2e; letter-spacing: -0.5px; }
+  .rpt-title-sub { font-size: 9pt; color: #6c757d; margin-bottom: 16px; }
+
+  .profile-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; border: 1px solid #d8d8d8; border-radius: 6px; overflow: hidden; margin-bottom: 16px; }
+  .profile-cell { padding: 8px 12px; border-right: 1px solid #eee; }
+  .profile-cell:last-child { border-right: none; }
+  .profile-cell .lbl { font-size: 6.5pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #9aa5b4; display: block; margin-bottom: 3px; }
+  .profile-cell .val { font-size: 10pt; font-weight: 600; color: #1a1d24; }
+
+  .stat-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 18px; }
+  .stat-box { background: #f7f5fb; border: 1px solid #ece7f5; border-radius: 6px; padding: 10px 12px; text-align: center; }
+  .stat-box .v { font-size: 15pt; font-weight: 800; color: #5b21b6; line-height: 1; }
+  .stat-box .l { font-size: 6.8pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: #9aa5b4; margin-top: 5px; }
+
+  .section-title { font-size: 8pt; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #5b21b6; border-bottom: 1.5px solid #ece7f5; padding-bottom: 4px; margin: 0 0 10px; }
+  .narrative { background: #faf9fc; border-left: 3px solid #5b21b6; padding: 10px 14px; font-size: 9.5pt; line-height: 1.6; color: #333; margin-bottom: 18px; border-radius: 0 4px 4px 0; }
+
+  .session-block { border: 1px solid #e5e5e5; border-radius: 6px; margin-bottom: 12px; padding: 10px 12px; page-break-inside: avoid; }
+  .session-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+  .session-title { font-size: 10.5pt; font-weight: 700; color: #1a0d2e; }
+  .session-rating { font-size: 11pt; color: #f59e0b; letter-spacing: 1px; }
+  .session-meta { display: flex; flex-wrap: wrap; gap: 14px; font-size: 8.5pt; color: #444; margin-bottom: 6px; }
+  .session-meta b { color: #1a1d24; }
+  .session-notes { font-size: 8.5pt; color: #555; background: #fafafa; border-radius: 4px; padding: 6px 9px; margin-bottom: 8px; line-height: 1.5; }
+
+  .lap-wrap { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 6px; }
+  .lap-file { flex: 1; min-width: 200px; }
+  .lap-file-name { font-size: 7.5pt; font-weight: 700; color: #5b21b6; margin-bottom: 4px; }
+  .lap-table { width: 100%; border-collapse: collapse; font-size: 7.8pt; }
+  .lap-table th { background: #1a0d2e; color: #fff; font-size: 6.5pt; text-transform: uppercase; letter-spacing: 0.5px; padding: 3px 6px; text-align: left; }
+  .lap-table td { padding: 2px 6px; border-bottom: 1px solid #eee; }
+  .lap-table tr.lap-best td { background: #ede9fe; font-weight: 700; color: #5b21b6; }
+  .mono { font-family: 'Courier New', monospace; }
+  .no-lap { font-size: 8.5pt; color: #9aa5b4; font-style: italic; padding: 4px 0; }
+
+  .rpt-footer { margin-top: 18px; border-top: 1px solid #ddd; padding-top: 6px; display: flex; justify-content: space-between; font-size: 7pt; color: #9aa5b4; }
+
+  @media print {
+    .page { padding: 0; }
+    @page { margin: 12mm 14mm; size: A4 portrait; }
+  }
+</style></head>
+<body>
+<div class="page">
+  <div class="rpt-header">
+    <div class="brand">
+      <img src="${location.origin}/logo.png" alt="" onerror="this.style.display='none'">
+      <div class="brand-text">
+        <div class="brand-name">Race Team OS</div>
+        <div class="brand-sub">Driver Academy</div>
+      </div>
+    </div>
+    <div class="rpt-ref">
+      <div class="ref-num">${docRef}</div>
+      <div>Generated: ${dateStr}</div>
+      <div>Confidential</div>
+    </div>
+  </div>
+
+  <div class="rpt-title">${esc(p.driver_name || 'Driver Report')}</div>
+  <div class="rpt-title-sub">Driver Performance Report</div>
+
+  <div class="profile-grid">
+    <div class="profile-cell"><span class="lbl">Driver</span><span class="val">${esc(p.driver_name || '—')}</span></div>
+    <div class="profile-cell"><span class="lbl">Class / Category</span><span class="val">${esc(p.category || '—')}</span></div>
+    <div class="profile-cell"><span class="lbl">Parent / Guardian</span><span class="val">${esc(p.parent_name || '—')}</span></div>
+    <div class="profile-cell"><span class="lbl">Pipeline Stage</span><span class="val">${esc(STAGE_LABEL[p.status] || p.status || '—')}</span></div>
+  </div>
+
+  <div class="stat-row">
+    <div class="stat-box"><div class="v">${sessions.length}</div><div class="l">Sessions</div></div>
+    <div class="stat-box"><div class="v">${venues.length}</div><div class="l">Venues</div></div>
+    <div class="stat-box"><div class="v">${overallBest != null ? fmtLapTime(overallBest) : '—'}</div><div class="l">Best Lap</div></div>
+    <div class="stat-box"><div class="v">${totalLaps || '—'}</div><div class="l">Total Laps</div></div>
+    <div class="stat-box"><div class="v">${avgRating}</div><div class="l">Avg Rating</div></div>
+  </div>
+
+  <div class="section-title">Summary</div>
+  <div class="narrative">${narrative}</div>
+
+  <div class="section-title">Session History &amp; Lap Times</div>
+  ${sessionBlocks}
+
+  <div class="rpt-footer">
+    <span>Ref: ${docRef}</span>
+    <span>Race Team OS · Driver Academy — Confidential performance report</span>
+    <span>${dateStr}</span>
+  </div>
+</div>
+</body></html>`;
+
+      const win = window.open('', '_blank');
+      win.document.write(html);
+      win.document.close();
+      win.focus();
+      setTimeout(() => win.print(), 600);
+    }
+
+    document.getElementById('btnGenerateDriverReport').addEventListener('click', generateDriverReport);
+    document.getElementById('reportDriverSelect').addEventListener('keydown', e => { if (e.key === 'Enter') generateDriverReport(); });
 
     load();
   })();
