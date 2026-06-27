@@ -173,7 +173,7 @@
     .rp-add-field.f-end    { flex:0 0 90px; }
     .rp-add-field.f-dur    { flex:0 0 88px; }
     .rp-add-field.f-name   { flex:1 1 180px; }
-    .rp-add-field.f-driver { flex:0 0 190px; }
+    .rp-add-field.f-driver { flex:0 0 220px; }
 
     /* Custom driver picker */
     .rp-drv-wrap { position:relative; }
@@ -211,6 +211,14 @@
     .rp-drv-item.active { background:#1a0d2e; color:#fff; }
     .rp-drv-item .rp-drv-num { font-size:.68rem; font-weight:700; background:#e9e5ff; color:#4c1d95; border-radius:4px; padding:1px 6px; flex-shrink:0; }
     .rp-drv-item.active .rp-drv-num { background:rgba(255,255,255,.2); color:#fff; }
+    .rp-drv-item.staff .rp-drv-name { color:#b45309; }
+    .rp-drv-item.driver .rp-drv-name { color:#1f2937; }
+    .rp-drv-item.special .rp-drv-name { color:#5b21b6; font-weight:800; }
+    .rp-drv-item.active .rp-drv-name { color:#fff; }
+    .rp-drv-kind { margin-left:auto; font-size:.62rem; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:#9ca3af; }
+    .rp-drv-item.staff .rp-drv-kind { color:#d97706; }
+    .rp-drv-item.driver .rp-drv-kind { color:#7c3aed; }
+    .rp-drv-item.active .rp-drv-kind { color:rgba(255,255,255,.72); }
     .rp-drv-empty { padding:1rem; text-align:center; color:#9ca3af; font-size:.8rem; }
     .rp-add-field.f-status { flex:0 0 120px; }
     .rp-add-field.f-notes  { flex:1 1 200px; }
@@ -302,7 +310,7 @@
                 <th style="width:76px;">Start</th>
                 <th style="width:64px;">End</th>
                 <th>Activity</th>
-                <th style="width:160px;">Driver</th>
+                <th style="width:160px;">Driver / Crew</th>
                 <th style="width:100px;text-align:center;">Visibility</th>
                 <th style="width:120px;text-align:center;">Status</th>
                 <th style="width:100px;"></th>
@@ -340,7 +348,7 @@
             <input id="rpInName" type="text" placeholder="e.g. Qualifying, Free Practice, Race 1…" class="form-control form-control-sm">
           </div>
           <div class="rp-add-field f-driver">
-            <span class="rp-field-label">Driver</span>
+            <span class="rp-field-label">Driver / Crew</span>
             <div class="rp-drv-wrap" id="rpDrvWrap">
               <div class="rp-drv-btn" id="rpDrvBtn" onclick="drvToggle()">
                 <i class="bi bi-person" style="color:#1a0d2e;font-size:.8rem;flex-shrink:0;"></i>
@@ -348,7 +356,7 @@
                 <i class="bi bi-chevron-down rp-drv-caret"></i>
               </div>
               <div class="rp-drv-dropdown" id="rpDrvDropdown">
-                <div class="rp-drv-search"><input id="rpDrvSearch" type="search" placeholder="Search drivers…" autocomplete="off" oninput="drvFilter()"></div>
+                <div class="rp-drv-search"><input id="rpDrvSearch" type="search" placeholder="Search drivers or crew…" autocomplete="off" oninput="drvFilter()"></div>
                 <div class="rp-drv-list" id="rpDrvList"><div class="rp-drv-empty">Loading…</div></div>
               </div>
             </div>
@@ -445,6 +453,7 @@
   let allDrivers     = [];
   let drvFiltered    = [];
   let selectedDriver = '';
+  let pageSettings   = null;
 
   /* ── Helpers ── */
   function esc(v) {
@@ -452,7 +461,60 @@
   }
   function nowISO() { return new Date().toISOString(); }
   function uid()    { return 'rp_' + Date.now() + '_' + Math.random().toString(36).slice(2,7); }
-  function cfg()    { return (typeof RTS !== 'undefined' && RTS.getSettings ? RTS.getSettings() : {}); }
+  function cfg()    { return pageSettings || (typeof RTS !== 'undefined' && RTS.getSettings ? RTS.getSettings() : {}); }
+  async function refreshSettings() {
+    if (typeof RTS !== 'undefined' && RTS.syncSettingsFromDB) {
+      pageSettings = await RTS.syncSettingsFromDB();
+    } else {
+      pageSettings = cfg();
+    }
+    return pageSettings;
+  }
+  function personName(p) {
+    return (p && (p.name || p.displayName || p.full_name || p.username || p.email || p.id)) || '';
+  }
+  function personNumber(p) {
+    return (p && (p.raceNumber || p.race_number || p.number || '')) || '';
+  }
+  function isActivePerson(p) {
+    const status = String((p && p.status) || '').toLowerCase();
+    return p && p.active !== false && status !== 'inactive' && status !== 'released';
+  }
+  function eventStartDate(ev) {
+    const raw = ev && (ev.startDate || ev.start_date || ev.start || ev.date || '');
+    return raw ? String(raw).slice(0, 10) : '';
+  }
+  function setDefaultRunPlanDate(force) {
+    const input = document.getElementById('rpInDate');
+    const start = eventStartDate(selectedEv);
+    if (input && start && (force || !input.value)) input.value = start;
+  }
+  function dedupePeople(list) {
+    const seen = new Set();
+    return list.filter(p => {
+      const key = (p.type + ':' + p.value).toLowerCase();
+      if (!p.value || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+  function buildPeopleOptions(drivers, staff) {
+    const driverOptions = (drivers || []).filter(isActivePerson).map(d => ({
+      type: 'driver',
+      value: personName(d),
+      name: personName(d),
+      raceNumber: personNumber(d),
+      role: d.class || d.category || ''
+    }));
+    const staffOptions = (staff || []).filter(isActivePerson).map(s => ({
+      type: 'staff',
+      value: personName(s),
+      name: personName(s),
+      raceNumber: '',
+      role: s.role || s.position || s.department || ''
+    }));
+    return dedupePeople(driverOptions.concat(staffOptions));
+  }
 
   /* ── Driver custom dropdown ── */
   window.drvToggle = function () {
@@ -473,28 +535,33 @@
   window.drvFilter = function () {
     const q = (document.getElementById('rpDrvSearch').value || '').toLowerCase();
     drvFiltered = allDrivers.filter(d => {
-      const n = (d.name||d.displayName||'').toLowerCase();
-      const r = (d.raceNumber||'').toLowerCase();
-      return !q || n.includes(q) || r.includes(q);
+      const n = (d.name || '').toLowerCase();
+      const r = (d.raceNumber || '').toLowerCase();
+      const role = (d.role || '').toLowerCase();
+      return !q || n.includes(q) || r.includes(q) || role.includes(q) || d.type.includes(q);
     });
     renderDrvList();
   };
   function renderDrvList() {
     const el = document.getElementById('rpDrvList');
-    // "clear" option first
-    const clearItem = '<div class="rp-drv-item' + (!selectedDriver ? ' active' : '') + '" onclick="drvSelect(\'\')">' +
-      '<span style="color:#9ca3af;font-style:italic;">— All drivers —</span></div>';
+    const clearItem = '<div class="rp-drv-item special' + (!selectedDriver ? ' active' : '') + '" onclick="drvSelect(\'\')">' +
+      '<span class="rp-drv-name">— All drivers —</span><span class="rp-drv-kind">Default</span></div>';
+    const allCrewItem = '<div class="rp-drv-item special' + (selectedDriver === 'All Crew' ? ' active' : '') + '" onclick="drvSelect(\'All Crew\')">' +
+      '<span class="rp-drv-name">All Crew</span><span class="rp-drv-kind">Crew</span></div>';
     if (!drvFiltered.length && !document.getElementById('rpDrvSearch').value) {
-      el.innerHTML = clearItem + '<div class="rp-drv-empty">No drivers found</div>';
+      el.innerHTML = clearItem + allCrewItem + '<div class="rp-drv-empty">No drivers or crew found</div>';
       return;
     }
-    el.innerHTML = clearItem + drvFiltered.map(d => {
-      const name = d.name || d.displayName || d.id;
+    const special = clearItem + allCrewItem;
+    el.innerHTML = special + drvFiltered.map(d => {
+      const name = d.name || d.value;
       const num  = d.raceNumber || '';
-      const act  = selectedDriver === name ? ' active' : '';
-      return '<div class="rp-drv-item' + act + '" onclick="drvSelect(\'' + esc(name).replace(/'/g,"\\'") + '\')"> ' +
+      const role = d.role || '';
+      const act  = selectedDriver === d.value ? ' active' : '';
+      return '<div class="rp-drv-item ' + esc(d.type) + act + '" onclick="drvSelect(' + esc(JSON.stringify(d.value)) + ')"> ' +
         (num ? '<span class="rp-drv-num">#' + esc(num) + '</span>' : '') +
-        '<span>' + esc(name) + '</span>' +
+        '<span class="rp-drv-name">' + esc(name) + '</span>' +
+        '<span class="rp-drv-kind">' + esc(d.type === 'staff' ? (role || 'Staff') : 'Driver') + '</span>' +
       '</div>';
     }).join('');
   }
@@ -665,6 +732,7 @@
     const restored = loadLocalBackup(selectedEv);
     if (restored) saveEvent();
     populateDriverSelect();
+    setDefaultRunPlanDate(true);
     renderTable();
     updateCountdown();
   }
@@ -813,6 +881,7 @@
     document.getElementById('rpInStatus').value  = 'Pending';
     document.getElementById('rpInInternal').checked = false;
     populateDriverSelect();
+    setDefaultRunPlanDate(true);
   };
 
   /* ── Add / Update item ── */
@@ -1009,8 +1078,9 @@
   document.getElementById('btnPrintClient').addEventListener('click', printClient);
   document.getElementById('btnPrintInternal').addEventListener('click', printInternal);
 
-  function printClient() {
+  async function printClient() {
     if (!selectedEv) return;
+    await refreshSettings();
     const s      = cfg();
     const plan   = ((selectedEv.runPlan)||[]).filter(i => !i.internalOnly).sort((a,b) => (a.start||'').localeCompare(b.start||''));
     const team   = (s.teamName||s.organisationName||'').trim();
@@ -1050,8 +1120,9 @@
     setTimeout(() => { window.print(); ov.style.display = 'none'; }, 150);
   }
 
-  function printInternal() {
+  async function printInternal() {
     if (!selectedEv) return;
+    await refreshSettings();
     const s      = cfg();
     const plan   = ((selectedEv.runPlan)||[]).sort((a,b) => (a.start||'').localeCompare(b.start||''));
     const team   = (s.teamName||s.organisationName||'').trim();
@@ -1064,7 +1135,7 @@
       const end  = item.endTime || (item.durationMin ? calcEnd(item.start,item.durationMin) : '');
       const last = i === plan.length-1;
       const isInt = !!item.internalOnly;
-      const detail = [item.driver?'Driver: '+esc(item.driver):'', item.status&&item.status!=='Pending'?'Status: '+esc(item.status):'', item.description?esc(item.description):''].filter(Boolean).join(' · ');
+      const detail = [item.driver?'Driver/Crew: '+esc(item.driver):'', item.status&&item.status!=='Pending'?'Status: '+esc(item.status):'', item.description?esc(item.description):''].filter(Boolean).join(' · ');
       return '<div style="display:flex;align-items:flex-start;padding:9px 10px 9px ' + (isInt?'8px':'10px') + ';border-bottom:' + (last?'none':'1px solid rgba(255,255,255,0.07)') + ';' + (isInt?'background:rgba(255,200,0,0.05);border-left:3px solid rgba(255,193,7,0.5);':'') + '">' +
         '<div style="min-width:56px;flex-shrink:0;margin-right:14px;"><div style="font-size:0.95rem;font-weight:800;color:#e0e3e6;">' + esc(st) + '</div>' + (end?'<div style="font-size:0.7rem;color:#555;margin-top:2px;">'+esc(end)+'</div>':'') + '</div>' +
         '<div style="flex:1;"><div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;"><span style="font-size:0.95rem;font-style:italic;color:#dde1e5;">' + esc(item.name||'') + '</span>' + (isInt?'<span style="font-size:.6rem;background:rgba(255,193,7,.2);color:#ffc107;padding:1px 6px;border-radius:3px;font-weight:700;">INTERNAL</span>':'') + '</div>' + (detail?'<div style="font-size:0.75rem;color:#666;margin-top:3px;">'+detail+'</div>':'') + '</div>' +
@@ -1089,22 +1160,41 @@
 
   /* ── Boot ── */
   async function init() {
-    // Load real drivers from the DB collection
+    await refreshSettings();
+    let drivers = [];
+    let staff = [];
+
+    // Load real drivers and staff from DB collections.
     try {
       if (typeof RTS_API !== 'undefined' && RTS_API.getCollectionItems) {
-        const resp = await RTS_API.getCollectionItems('drivers');
-        allDrivers = (resp && resp.items) ? resp.items : [];
+        const [driverResp, staffResp] = await Promise.all([
+          RTS_API.getCollectionItems('drivers').catch(() => ({ items: [] })),
+          RTS_API.getCollectionItems('staff').catch(() => ({ items: [] }))
+        ]);
+        drivers = (driverResp && driverResp.items) ? driverResp.items : [];
+        staff = (staffResp && staffResp.items) ? staffResp.items : [];
       } else if (typeof RTS !== 'undefined' && RTS.apiGetCollectionItems) {
-        const resp = await RTS.apiGetCollectionItems('drivers');
-        allDrivers = (resp && resp.items) ? resp.items : [];
+        const [driverResp, staffResp] = await Promise.all([
+          RTS.apiGetCollectionItems('drivers').catch(() => ({ items: [] })),
+          RTS.apiGetCollectionItems('staff').catch(() => ({ items: [] }))
+        ]);
+        drivers = (driverResp && driverResp.items) ? driverResp.items : [];
+        staff = (staffResp && staffResp.items) ? staffResp.items : [];
       }
     } catch(e) {
-      console.warn('Driver load failed, falling back to settings:', e);
+      console.warn('Driver/staff load failed, falling back to settings:', e);
     }
-    // Fallback to settings drivers if API returned nothing
-    if (!allDrivers.length && typeof RTS !== 'undefined' && RTS.getSettings) {
-      allDrivers = (RTS.getSettings().drivers || []).filter(d => d.name !== 'Driver #42' && d.name !== 'Driver #77' && d.name !== 'Driver #11');
-    }
+
+    const settings = cfg();
+    const settingsDrivers = (settings.drivers || [])
+      .filter(d => d.name !== 'Driver #42' && d.name !== 'Driver #77' && d.name !== 'Driver #11');
+    const defaultStaffNames = new Set(['Team Manager', 'Race Engineer', 'Mechanic #1', 'Mechanic #2', 'Inventory Controller']);
+    const settingsStaff = (settings.staff || [])
+      .filter(s => !defaultStaffNames.has(personName(s)));
+    drivers = drivers.concat(settingsDrivers);
+    staff = staff.concat(settingsStaff);
+
+    allDrivers = buildPeopleOptions(drivers, staff);
     drvFiltered = allDrivers.slice();
     await loadEvents();
   }
