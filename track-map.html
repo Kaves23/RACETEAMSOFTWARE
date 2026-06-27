@@ -1173,7 +1173,7 @@
 
     function evCapKey(cls, name){ return (cls||'_').toLowerCase()+'||'+(name||'').toLowerCase(); }
 
-    function evCapPersistDirty(){
+    function evCapDirtyBatch(){
       if(!captureState.eventId) return;
       const dirty = [];
       captureState.bests.forEach(v => { if (v.dirty) dirty.push(v); });
@@ -1190,13 +1190,40 @@
         session_name: v.session || captureState.sessionLast || null,
         source: 'apex-live'
       }));
+      return { dirty, rows };
+    }
+
+    function evCapAuthHeaders(){
+      const h = {'Content-Type':'application/json'};
+      try {
+        const token = localStorage.getItem('auth_token');
+        if (token) h.Authorization = 'Bearer ' + token;
+      } catch(_e){}
+      return h;
+    }
+
+    function evCapPersistDirty(finalFlush){
+      const batch = evCapDirtyBatch();
+      if (!batch || !batch.rows.length) return;
+      const body = JSON.stringify({ rows: batch.rows });
+
+      if (finalFlush && navigator.sendBeacon) {
+        try {
+          const blob = new Blob([body], { type:'application/json' });
+          if (navigator.sendBeacon('/api/event-fastest-times/bulk', blob)) return;
+        } catch(_e){}
+      }
+
       fetch('/api/event-fastest-times/bulk', {
         method:'POST',
-        headers:{'Content-Type':'application/json'},
+        headers: evCapAuthHeaders(),
         credentials:'include',
-        body: JSON.stringify({ rows })
+        keepalive: !!finalFlush,
+        body
       }).then(r => {
-        if (r.ok) dirty.forEach(v => v.dirty = false);
+        if (r.ok && !finalFlush) {
+          batch.dirty.forEach(v => { v.dirty = false; });
+        }
       }).catch(()=>{});
     }
 
@@ -1204,7 +1231,7 @@
       if (captureState.saveTimer) return;
       captureState.saveTimer = setTimeout(() => {
         captureState.saveTimer = null;
-        evCapPersistDirty();
+        evCapPersistDirty(false);
       }, 4000);
     }
 
@@ -1265,7 +1292,7 @@
 
     async function evCapSetEvent(eventId, eventTitle){
       // Flush any pending writes to the previous event before switching
-      if (captureState.eventId && captureState.eventId !== eventId) evCapPersistDirty();
+      if (captureState.eventId && captureState.eventId !== eventId) evCapPersistDirty(false);
       captureState.eventId = eventId || '';
       captureState.eventTitle = eventTitle || '';
       captureState.bests.clear();
@@ -1312,7 +1339,7 @@
         events.map(ev => {
           const id = ev.id || ev._id;
           const title = ev.title || ev.name || ('Event '+id);
-          const date = (ev.startDate || ev.start || ev.date || '').slice(0,10);
+          const date = (ev.start_date || ev.startDate || ev.start || ev.date || '').slice(0,10);
           const past = date && date < today ? ' (past)' : '';
           return `<option value="${esc(id)}" data-title="${esc(title)}">${esc(title)}${date?' · '+esc(date):''}${past}</option>`;
         })
@@ -1350,8 +1377,11 @@
         });
       }
     });
-    // Flush on page hide so we don't lose the last few seconds of captures
-    window.addEventListener('pagehide', evCapPersistDirty);
+    // Flush when hidden/unloading so we don't lose the last few seconds of captures.
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') evCapPersistDirty(true);
+    });
+    window.addEventListener('pagehide', () => evCapPersistDirty(true));
 
     function onTimingUpdate(state){
       updateHeader(state);
@@ -1414,7 +1444,7 @@
     init();
     window.addEventListener('beforeunload',()=>{
       if(rafId)cancelAnimationFrame(rafId);
-      evCapPersistDirty();
+      evCapPersistDirty(true);
       if(window.RTSLiveTiming)RTSLiveTiming.stop();
     });
   })();
