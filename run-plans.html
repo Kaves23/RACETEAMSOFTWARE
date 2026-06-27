@@ -168,6 +168,10 @@
     .rp-add-row { display:flex; flex-wrap:wrap; gap:.55rem; align-items:flex-end; }
     .rp-add-field { display:flex; flex-direction:column; gap:3px; }
     .rp-field-label { font-size:.65rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:#6b7280; }
+    .rp-info-block { border:1px solid #ede9fe; background:#faf8ff; border-radius:9px; padding:.8rem .9rem .9rem; margin-bottom:1rem; }
+    .rp-info-block .rp-add-head { margin-bottom:.6rem; }
+    .rp-add-field.f-weather { flex:1 1 260px; }
+    .rp-add-field.f-address { flex:1.4 1 340px; }
     .rp-add-field.f-date   { flex:0 0 140px; }
     .rp-add-field.f-stime  { flex:0 0 100px; }
     .rp-add-field.f-end    { flex:0 0 90px; }
@@ -325,6 +329,22 @@
 
       <!-- Add-item form -->
       <div class="rp-add-section">
+        <div class="rp-info-block">
+          <div class="rp-add-head"><i class="bi bi-info-circle-fill"></i> Run Plan Information</div>
+          <div class="rp-add-row">
+            <div class="rp-add-field f-weather">
+              <span class="rp-field-label">Weather / Track Conditions</span>
+              <input id="rpInfoWeather" type="text" placeholder="e.g. 22°C / Dry track / Windy" class="form-control form-control-sm">
+            </div>
+            <div class="rp-add-field f-address">
+              <span class="rp-field-label">Track Address / Location</span>
+              <input id="rpInfoAddress" type="text" placeholder="Auto-filled from venue when available" class="form-control form-control-sm">
+            </div>
+            <div class="pb-1">
+              <button id="btnSaveInfo" class="btn btn-sm btn-outline-secondary fw-semibold" type="button" style="padding:.38rem .95rem;white-space:nowrap;">Save Info</button>
+            </div>
+          </div>
+        </div>
         <div class="rp-add-head"><i class="bi bi-plus-circle-fill"></i> Add Programme Item</div>
         <div class="rp-add-row">
           <div class="rp-add-field f-date">
@@ -454,6 +474,7 @@
   let drvFiltered    = [];
   let selectedDriver = '';
   let pageSettings   = null;
+  const RP_INFO_KEY = '__runPlanInfo';
 
   /* ── Helpers ── */
   function esc(v) {
@@ -514,6 +535,61 @@
       role: s.role || s.position || s.department || ''
     }));
     return dedupePeople(driverOptions.concat(staffOptions));
+  }
+  function venueLabel(ev) {
+    return (ev && (ev.venue || ev.circuit || ev.circuitName || ev.circuit_name || ev.location || '')) || '';
+  }
+  function matchingVenue(ev) {
+    const name = venueLabel(ev).toLowerCase();
+    if (!name) return null;
+    return (cfg().venues || []).find(v => String(v.name || '').toLowerCase() === name) || null;
+  }
+  function inferredTrackAddress(ev) {
+    const venue = matchingVenue(ev) || {};
+    const direct = [
+      ev && (ev.trackAddress || ev.address),
+      venue.address,
+      venue.location,
+      ev && (ev.city || ev.country) ? [ev.city, ev.country].filter(Boolean).join(', ') : '',
+      venue.city || venue.country ? [venue.city, venue.country].filter(Boolean).join(', ') : ''
+    ].map(v => String(v || '').trim()).find(Boolean);
+    const venueName = venueLabel(ev);
+    return [venueName, direct].filter((v, idx, arr) => v && arr.indexOf(v) === idx).join(' · ');
+  }
+  function ensureSessionLogs() {
+    if (!selectedEv.sessionLogs || typeof selectedEv.sessionLogs !== 'object') selectedEv.sessionLogs = {};
+    return selectedEv.sessionLogs;
+  }
+  function getRunPlanInfo(create) {
+    const logs = create ? ensureSessionLogs() : (selectedEv && selectedEv.sessionLogs) || {};
+    if (create && (!logs[RP_INFO_KEY] || typeof logs[RP_INFO_KEY] !== 'object')) logs[RP_INFO_KEY] = {};
+    return logs[RP_INFO_KEY] || {};
+  }
+  function printableRunPlanInfo() {
+    const info = getRunPlanInfo(false);
+    return {
+      weather: String(info.weather || '').trim(),
+      trackAddress: String(info.trackAddress || inferredTrackAddress(selectedEv) || '').trim()
+    };
+  }
+  function hydrateRunPlanInfoFields() {
+    if (!selectedEv) return;
+    const info = getRunPlanInfo(false);
+    const weatherEl = document.getElementById('rpInfoWeather');
+    const addressEl = document.getElementById('rpInfoAddress');
+    if (weatherEl) weatherEl.value = info.weather || '';
+    if (addressEl) addressEl.value = info.trackAddress || inferredTrackAddress(selectedEv) || '';
+  }
+  async function saveRunPlanInfo() {
+    if (!selectedEv) return;
+    const info = getRunPlanInfo(true);
+    info.weather = document.getElementById('rpInfoWeather').value.trim();
+    info.trackAddress = document.getElementById('rpInfoAddress').value.trim();
+    info.updatedAt = nowISO();
+    selectedEv.updatedAt = nowISO();
+    await saveEvent();
+    renderTable();
+    if (typeof RTS !== 'undefined' && RTS.showToast) RTS.showToast('Run plan information saved', 'success');
   }
 
   /* ── Driver custom dropdown ── */
@@ -733,6 +809,7 @@
     if (restored) saveEvent();
     populateDriverSelect();
     setDefaultRunPlanDate(true);
+    hydrateRunPlanInfoFields();
     renderTable();
     updateCountdown();
   }
@@ -886,6 +963,10 @@
 
   /* ── Add / Update item ── */
   document.getElementById('btnAddItem').addEventListener('click', addItem);
+  document.getElementById('btnSaveInfo').addEventListener('click', saveRunPlanInfo);
+  ['rpInfoWeather', 'rpInfoAddress'].forEach(id => {
+    document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') saveRunPlanInfo(); });
+  });
   document.getElementById('rpInName').addEventListener('keydown', e => { if (e.key === 'Enter') addItem(); });
 
   async function addItem() {
@@ -1087,7 +1168,15 @@
     const logo   = (s.teamLogoUrl||'').trim();
     const accent = s.brandColor || '#7c3aed';
     const title  = fmtDate(selectedEv) || selectedEv.title || selectedEv.name || 'Event';
-    const venue  = selectedEv.venue || '';
+    const venue  = venueLabel(selectedEv);
+    const info   = printableRunPlanInfo();
+    const infoItems = [
+      info.weather ? '<div><div style="font-size:0.58rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,0.32);margin-bottom:3px;">Weather / Track</div><div style="font-size:0.78rem;color:rgba(255,255,255,0.74);line-height:1.35;">' + esc(info.weather) + '</div></div>' : '',
+      info.trackAddress ? '<div><div style="font-size:0.58rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,0.32);margin-bottom:3px;">Track Location</div><div style="font-size:0.78rem;color:rgba(255,255,255,0.74);line-height:1.35;">' + esc(info.trackAddress) + '</div></div>' : ''
+    ].filter(Boolean);
+    const infoBlock = infoItems.length
+      ? '<div style="display:grid;grid-template-columns:1fr;gap:10px;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:12px 13px;margin-bottom:18px;background:rgba(255,255,255,0.025);">' + infoItems.join('') + '</div>'
+      : '';
     const rows = plan.map((item,i) => {
       const st  = item.start ? (item.start.includes('T') ? item.start.slice(11,16) : item.start) : '';
       const end = item.endTime || (item.durationMin ? calcEnd(item.start,item.durationMin) : '');
@@ -1112,6 +1201,7 @@
         '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:10px;">' + logoHtml +
           '<div style="text-align:right;"><div style="font-size:1rem;font-weight:700;">' + esc(title) + '</div>' + (venue ? '<div style="font-size:0.72rem;color:rgba(255,255,255,0.45);margin-top:3px;">' + esc(venue) + '</div>' : '') + '</div></div>' +
         '<div style="height:1px;background:linear-gradient(90deg,' + esc(accent) + ',rgba(255,255,255,0.08));margin-bottom:18px;"></div>' +
+        infoBlock +
         '<div style="font-size:0.62rem;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:rgba(255,255,255,0.35);margin-bottom:12px;">Programme</div>' +
         (rows||'<div style="text-align:center;opacity:.35;font-style:italic;padding:20px 0;">No public items.</div>') +
         '<div style="margin-top:40px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.08);text-align:center;font-size:0.62rem;color:rgba(255,255,255,0.25);">OFFICIAL PROGRAMME</div>' +
@@ -1129,7 +1219,15 @@
     const logo   = (s.teamLogoUrl||'').trim();
     const accent = s.brandColor || '#7c3aed';
     const title  = fmtDate(selectedEv) || selectedEv.title || selectedEv.name || 'Event';
-    const venue  = selectedEv.venue || '';
+    const venue  = venueLabel(selectedEv);
+    const info   = printableRunPlanInfo();
+    const infoItems = [
+      info.weather ? '<div><span style="display:block;font-size:0.6rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#555;margin-bottom:3px;">Weather / Track</span><span style="font-size:0.78rem;color:#c7cbd0;line-height:1.35;">' + esc(info.weather) + '</span></div>' : '',
+      info.trackAddress ? '<div><span style="display:block;font-size:0.6rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#555;margin-bottom:3px;">Track Location</span><span style="font-size:0.78rem;color:#c7cbd0;line-height:1.35;">' + esc(info.trackAddress) + '</span></div>' : ''
+    ].filter(Boolean);
+    const infoBlock = infoItems.length
+      ? '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:11px 12px;margin-bottom:16px;background:rgba(255,255,255,0.025);">' + infoItems.join('') + '</div>'
+      : '';
     const rows = plan.map((item,i) => {
       const st   = item.start ? (item.start.includes('T') ? item.start.slice(11,16) : item.start) : '';
       const end  = item.endTime || (item.durationMin ? calcEnd(item.start,item.durationMin) : '');
@@ -1151,6 +1249,7 @@
         '<div style="text-align:right;">' + logoHtml + '</div>' +
       '</div>' +
       '<div style="height:1px;background:rgba(255,255,255,0.08);margin-bottom:16px;"></div>' +
+      infoBlock +
       '<div style="font-size:0.6rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:rgba(255,255,255,0.25);margin-bottom:10px;">Full Programme</div>' +
       '<div style="border:1px solid rgba(255,255,255,0.08);border-radius:8px;overflow:hidden;">' + (rows||'<div style="text-align:center;opacity:.3;font-style:italic;padding:20px;">No programme items yet.</div>') + '</div>' +
       '<div style="margin-top:22px;display:flex;align-items:center;justify-content:space-between;font-size:0.72rem;color:rgba(255,255,255,0.2);"><span>Generated ' + new Date().toLocaleString() + '</span><span style="font-weight:600;text-transform:uppercase;">' + (team?esc(team)+' · ':'') + 'Motorsport</span></div>';
