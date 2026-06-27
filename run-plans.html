@@ -556,6 +556,133 @@
     const venueName = venueLabel(ev);
     return [venueName, direct].filter((v, idx, arr) => v && arr.indexOf(v) === idx).join(' · ');
   }
+  function weatherCfg() {
+    let local = {};
+    try { local = JSON.parse(localStorage.getItem('rts.weather.cfg') || '{}'); } catch (_) {}
+    const fromSettings = (cfg().weather || {});
+    return Object.assign({}, local, fromSettings);
+  }
+  function trackSearchQuery(ev) {
+    const venue = matchingVenue(ev) || {};
+    return [
+      venueLabel(ev),
+      ev && ev.city,
+      ev && ev.country,
+      venue.location,
+      venue.city,
+      venue.country
+    ].filter(Boolean).join(', ');
+  }
+  function avg(nums) {
+    const vals = nums.map(Number).filter(Number.isFinite);
+    return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+  }
+  function formatForecast(parts) {
+    const bits = [];
+    if (Number.isFinite(parts.minTemp) && Number.isFinite(parts.maxTemp)) {
+      bits.push(Math.round(parts.minTemp) + '-' + Math.round(parts.maxTemp) + '°C');
+    } else if (Number.isFinite(parts.temp)) {
+      bits.push(Math.round(parts.temp) + '°C');
+    }
+    if (Number.isFinite(parts.rainChance)) bits.push('Rain ' + Math.round(parts.rainChance) + '%');
+    if (Number.isFinite(parts.humidity)) bits.push('Humidity ' + Math.round(parts.humidity) + '%');
+    if (Number.isFinite(parts.pressure)) bits.push('Pressure ' + Math.round(parts.pressure) + ' hPa');
+    if (parts.condition) bits.push(parts.condition);
+    return bits.join(' · ');
+  }
+  async function resolveTrackLocation(ev) {
+    const query = trackSearchQuery(ev);
+    if (!query) return null;
+    try {
+      const url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=' + encodeURIComponent(query);
+      const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      if (res.ok) {
+        const rows = await res.json();
+        if (Array.isArray(rows) && rows[0]) {
+          return {
+            lat: Number(rows[0].lat),
+            lon: Number(rows[0].lon),
+            address: rows[0].display_name || inferredTrackAddress(ev)
+          };
+        }
+      }
+    } catch (_) {}
+
+    const cfgWx = weatherCfg();
+    const key = cfgWx.owmKey || cfgWx.owm_key || '';
+    if (!key) return { address: inferredTrackAddress(ev) };
+    try {
+      const res = await fetch('https://api.openweathermap.org/geo/1.0/direct?q=' + encodeURIComponent(query) + '&limit=1&appid=' + encodeURIComponent(key));
+      if (!res.ok) return { address: inferredTrackAddress(ev) };
+      const rows = await res.json();
+      if (!Array.isArray(rows) || !rows[0]) return { address: inferredTrackAddress(ev) };
+      const row = rows[0];
+      return {
+        lat: Number(row.lat),
+        lon: Number(row.lon),
+        address: [venueLabel(ev), row.name, row.state, row.country].filter(Boolean).filter((v, i, arr) => arr.indexOf(v) === i).join(' · ') || inferredTrackAddress(ev)
+      };
+    } catch (_) {
+      return { address: inferredTrackAddress(ev) };
+    }
+  }
+  async function fetchWeatherApiForecast(loc, dateISO) {
+    const key = weatherCfg().wapiKey || weatherCfg().wapi_key || '';
+    if (!key || !loc || !Number.isFinite(loc.lat) || !Number.isFinite(loc.lon)) return '';
+    try {
+      const url = 'https://api.weatherapi.com/v1/forecast.json?key=' + encodeURIComponent(key) +
+        '&q=' + encodeURIComponent(loc.lat + ',' + loc.lon) +
+        '&days=10&aqi=no&alerts=no';
+      const res = await fetch(url);
+      if (!res.ok) return '';
+      const data = await res.json();
+      const days = data && data.forecast && Array.isArray(data.forecast.forecastday) ? data.forecast.forecastday : [];
+      const day = days.find(d => d.date === dateISO);
+      if (!day || !day.day) return '';
+      const hours = Array.isArray(day.hour) ? day.hour : [];
+      return formatForecast({
+        minTemp: day.day.mintemp_c,
+        maxTemp: day.day.maxtemp_c,
+        rainChance: day.day.daily_chance_of_rain,
+        humidity: day.day.avghumidity,
+        pressure: avg(hours.map(h => h.pressure_mb)),
+        condition: day.day.condition && day.day.condition.text
+      });
+    } catch (_) {
+      return '';
+    }
+  }
+  async function fetchOpenWeatherForecast(loc, dateISO) {
+    const key = weatherCfg().owmKey || weatherCfg().owm_key || '';
+    if (!key || !loc || !Number.isFinite(loc.lat) || !Number.isFinite(loc.lon)) return '';
+    try {
+      const url = 'https://api.openweathermap.org/data/2.5/forecast?lat=' + encodeURIComponent(loc.lat) +
+        '&lon=' + encodeURIComponent(loc.lon) +
+        '&units=metric&cnt=40&appid=' + encodeURIComponent(key);
+      const res = await fetch(url);
+      if (!res.ok) return '';
+      const data = await res.json();
+      const entries = (data.list || []).filter(x => String(x.dt_txt || '').slice(0, 10) === dateISO);
+      if (!entries.length) return '';
+      const rainChance = Math.max(...entries.map(x => Number(x.pop || 0))) * 100;
+      const descriptions = entries.map(x => x.weather && x.weather[0] && x.weather[0].description).filter(Boolean);
+      return formatForecast({
+        minTemp: Math.min(...entries.map(x => Number(x.main && x.main.temp_min)).filter(Number.isFinite)),
+        maxTemp: Math.max(...entries.map(x => Number(x.main && x.main.temp_max)).filter(Number.isFinite)),
+        rainChance,
+        humidity: avg(entries.map(x => x.main && x.main.humidity)),
+        pressure: avg(entries.map(x => x.main && x.main.pressure)),
+        condition: descriptions[0] || ''
+      });
+    } catch (_) {
+      return '';
+    }
+  }
+  async function fetchAutoWeather(loc) {
+    const dateISO = eventStartDate(selectedEv);
+    if (!dateISO) return '';
+    return await fetchWeatherApiForecast(loc, dateISO) || await fetchOpenWeatherForecast(loc, dateISO);
+  }
   function ensureSessionLogs() {
     if (!selectedEv.sessionLogs || typeof selectedEv.sessionLogs !== 'object') selectedEv.sessionLogs = {};
     return selectedEv.sessionLogs;
@@ -580,11 +707,46 @@
     if (weatherEl) weatherEl.value = info.weather || '';
     if (addressEl) addressEl.value = info.trackAddress || inferredTrackAddress(selectedEv) || '';
   }
+  async function autoPopulateRunPlanInfo() {
+    if (!selectedEv) return;
+    const info = getRunPlanInfo(true);
+    const weatherEl = document.getElementById('rpInfoWeather');
+    const addressEl = document.getElementById('rpInfoAddress');
+    const existingAddress = String(info.trackAddress || '').trim();
+    const existingWeather = String(info.weather || '').trim();
+    const loc = await resolveTrackLocation(selectedEv);
+    let changed = false;
+
+    if (loc && loc.address && (!existingAddress || info.trackAddressAuto)) {
+      changed = info.trackAddress !== loc.address;
+      info.trackAddress = loc.address;
+      info.trackAddressAuto = true;
+      if (addressEl) addressEl.value = loc.address;
+    }
+
+    if (!existingWeather || info.weatherAuto) {
+      const forecast = await fetchAutoWeather(loc);
+      if (forecast) {
+        changed = changed || info.weather !== forecast;
+        info.weather = forecast;
+        info.weatherAuto = true;
+        if (weatherEl) weatherEl.value = forecast;
+      }
+    }
+
+    if (changed) {
+      info.updatedAt = nowISO();
+      selectedEv.updatedAt = nowISO();
+      await saveEvent();
+    }
+  }
   async function saveRunPlanInfo() {
     if (!selectedEv) return;
     const info = getRunPlanInfo(true);
     info.weather = document.getElementById('rpInfoWeather').value.trim();
     info.trackAddress = document.getElementById('rpInfoAddress').value.trim();
+    info.weatherAuto = false;
+    info.trackAddressAuto = false;
     info.updatedAt = nowISO();
     selectedEv.updatedAt = nowISO();
     await saveEvent();
@@ -725,7 +887,7 @@
   window.pickerFilter = function () {
     const q = (document.getElementById('pickerSearch').value || '').toLowerCase().trim();
     filtered = sortedEvents(allEvents.filter(ev => {
-      const t = ((ev.title||ev.name||'') + ' ' + (ev.venue||'')).toLowerCase();
+      const t = ((ev.title||ev.name||'') + ' ' + venueLabel(ev)).toLowerCase();
       return !q || t.includes(q);
     }));
     renderPickerList();
@@ -739,7 +901,7 @@
     }
     el.innerHTML = filtered.map(ev => {
       const name  = ev.title || ev.name || 'Untitled';
-      const meta  = [fmtDate(ev), ev.venue].filter(Boolean).join(' · ');
+      const meta  = [fmtDate(ev), venueLabel(ev)].filter(Boolean).join(' · ');
       const count = (ev.runPlan || []).length;
       const act   = selectedEv && String(selectedEv.id) === String(ev.id) ? 'active' : '';
       return '<div class="rp-picker-item ' + act + '" onclick="pickerSelect(\'' + String(ev.id) + '\')">' +
@@ -770,7 +932,7 @@
       return;
     }
     const name = selectedEv.title || selectedEv.name || 'Untitled';
-    const meta = [fmtDate(selectedEv), selectedEv.venue].filter(Boolean).join(' · ');
+    const meta = [fmtDate(selectedEv), venueLabel(selectedEv)].filter(Boolean).join(' · ');
     lbl.innerHTML =
       '<div class="rp-picker-name">' + esc(name) + '</div>' +
       (meta ? '<div class="rp-picker-sub">' + esc(meta) + '</div>' : '');
@@ -810,6 +972,7 @@
     populateDriverSelect();
     setDefaultRunPlanDate(true);
     hydrateRunPlanInfoFields();
+    autoPopulateRunPlanInfo().catch(e => console.warn('Run plan auto info failed:', e));
     renderTable();
     updateCountdown();
   }
@@ -1175,7 +1338,7 @@
       info.trackAddress ? '<div><div style="font-size:0.58rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,0.32);margin-bottom:3px;">Track Location</div><div style="font-size:0.78rem;color:rgba(255,255,255,0.74);line-height:1.35;">' + esc(info.trackAddress) + '</div></div>' : ''
     ].filter(Boolean);
     const infoBlock = infoItems.length
-      ? '<div style="display:grid;grid-template-columns:1fr;gap:10px;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:12px 13px;margin-bottom:18px;background:rgba(255,255,255,0.025);">' + infoItems.join('') + '</div>'
+      ? '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:12px 13px;margin-bottom:18px;background:rgba(255,255,255,0.025);">' + infoItems.join('') + '</div>'
       : '';
     const rows = plan.map((item,i) => {
       const st  = item.start ? (item.start.includes('T') ? item.start.slice(11,16) : item.start) : '';
@@ -1195,8 +1358,8 @@
       ? '<img src="' + esc(logo) + '" alt="" style="height:88px;max-width:280px;object-fit:contain;">'
       : team ? '<div style="display:flex;align-items:center;gap:10px;"><div style="width:80px;height:80px;border-radius:50%;background:' + esc(accent) + ';display:flex;align-items:center;justify-content:center;font-size:2.4rem;font-weight:900;color:#fff;">' + esc(team.charAt(0).toUpperCase()) + '</div><div style="font-size:.9rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase;">' + esc(team) + '</div></div>' : '<div></div>';
     const ov = document.getElementById('rpPrintOverlay');
-    ov.innerHTML = '<style>#rpPrintOverlay{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;background:#0a0a0a;color:#fff;min-height:100vh;display:flex;justify-content:center;padding:0 16px 60px;box-sizing:border-box;}@media print{#rpPrintOverlay{background:#0a0a0a!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}}</style>' +
-      '<div style="width:100%;max-width:440px;padding-top:32px;">' +
+    ov.innerHTML = '<style>#rpPrintOverlay{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;background:#0a0a0a;color:#fff;min-height:100vh;padding:0 20px 60px;max-width:700px;margin:0 auto;box-sizing:border-box;}@media print{#rpPrintOverlay{background:#0a0a0a!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}}</style>' +
+      '<div style="width:100%;padding-top:32px;">' +
         '<div style="height:5px;background:' + esc(accent) + ';margin-bottom:28px;border-radius:0 0 3px 3px;"></div>' +
         '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:10px;">' + logoHtml +
           '<div style="text-align:right;"><div style="font-size:1rem;font-weight:700;">' + esc(title) + '</div>' + (venue ? '<div style="font-size:0.72rem;color:rgba(255,255,255,0.45);margin-top:3px;">' + esc(venue) + '</div>' : '') + '</div></div>' +
