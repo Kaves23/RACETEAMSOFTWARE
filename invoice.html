@@ -1204,6 +1204,41 @@
     function iso(d){ const dt=new Date(d); const y=dt.getFullYear(); const m=String(dt.getMonth()+1).padStart(2,'0'); const da=String(dt.getDate()).padStart(2,'0'); return `${y}-${m}-${da}`; }
     function monthKey(isoDate){ return isoDate ? isoDate.slice(0,7) : '—'; }
     function money(n){ return RTS.moneyZAR(Number(n||0)); }
+    function formatCustomerDetails(value){
+      if (!value) return '';
+      if (typeof value === 'object') {
+        return [value.name, value.email, value.phone, value.address].filter(Boolean).join('\n');
+      }
+      const text = String(value || '').trim();
+      if (!text) return '';
+      if (text[0] === '{') {
+        try {
+          const obj = JSON.parse(text);
+          return [obj.name, obj.email, obj.phone, obj.address].filter(Boolean).join('\n');
+        } catch(_e) {}
+      }
+      return text;
+    }
+    function customerDetailsName(value){
+      const details = formatCustomerDetails(value);
+      return details.split('\n').map(s=>s.trim()).filter(Boolean)[0] || '';
+    }
+    function normalizeInvoiceLine(line){
+      const l = line || {};
+      const qty = l.qty != null ? l.qty : (l.quantity != null ? l.quantity : 0);
+      const rate = l.rate != null ? l.rate : (l.unit_price != null ? l.unit_price : (l.unitPrice != null ? l.unitPrice : 0));
+      return {
+        desc: l.desc || l.description || l.name || '',
+        qty: Number(qty || 0),
+        rate: Number(rate || 0),
+        invItemId: l.invItemId || l.inv_item_id || null,
+        pkgIncluded: !!l.pkgIncluded,
+        baseRate: l.baseRate != null ? l.baseRate : null
+      };
+    }
+    function normalizeInvoiceType(type){
+      return type === 'academy_test' ? 'coaching' : (type || 'support');
+    }
 
     const INV_TYPES = {
       rental:      { label:'Asset Rental',        cls:'type-rental' },
@@ -1414,7 +1449,9 @@
     function normalizeInvoices(){
       invoices.forEach(inv => {
         if (!Array.isArray(inv.lines)) inv.lines = [];
-        inv.lines = inv.lines.map(l => ({ desc:l.desc||'', qty:Number(l.qty||0), rate:Number(l.rate||0), invItemId:l.invItemId||null, pkgIncluded:l.pkgIncluded||false, baseRate:l.baseRate||null }));
+        inv.lines = inv.lines.map(normalizeInvoiceLine);
+        inv.customerDetails = formatCustomerDetails(inv.customerDetails);
+        inv.invType = normalizeInvoiceType(inv.invType);
         if (!inv.id) inv.id = RTS.uid('inv');
         if (!inv.number) inv.number = `INV-${String(inv.id).padStart(4,'0')}`;
         if (!inv.customerId && customers[0]) inv.customerId = customers[0].id;
@@ -1436,16 +1473,16 @@
       const out = {
         number: inv.number || '',
         status: inv.status || 'Draft',
-        inv_type: inv.invType || '',
+        inv_type: normalizeInvoiceType(inv.invType),
         invoice_date: inv.date || null,
         due_date: inv.due || null,
         customer_id: inv.customerId || null,
-        customer_details: inv.customerDetails || '',
+        customer_details: formatCustomerDetails(inv.customerDetails),
         event_id: inv.eventId ? String(inv.eventId) : null,
         driver_id: inv.driverId || null,
         vat_rate: Number(inv.vatRate) || 0,
         currency: 'ZAR',
-        lines: Array.isArray(inv.lines) ? inv.lines : [],
+        lines: Array.isArray(inv.lines) ? inv.lines.map(normalizeInvoiceLine) : [],
         notes: inv.notes || '',
         sage_nominal: inv.sageNominal || null,
         tax_code: inv.taxCode || null,
@@ -1461,15 +1498,15 @@
         serverId: row.id,
         number: row.number || `INV-${String(idx).padStart(4,'0')}`,
         status: row.status || 'Draft',
-        invType: row.inv_type || 'support',
+        invType: normalizeInvoiceType(row.inv_type),
         date: row.invoice_date ? String(row.invoice_date).slice(0,10) : '',
         due:  row.due_date ? String(row.due_date).slice(0,10) : '',
         customerId: row.customer_id || '',
         eventId: row.event_id || '',
         driverId: row.driver_id || '',
-        customerDetails: row.customer_details || '',
+        customerDetails: formatCustomerDetails(row.customer_details),
         vatRate: Number(row.vat_rate) || 0,
-        lines: Array.isArray(row.lines) ? row.lines : [],
+        lines: Array.isArray(row.lines) ? row.lines.map(normalizeInvoiceLine) : [],
         notes: row.notes || '',
         sageNominal: row.sage_nominal || '',
         taxCode: row.tax_code || '',
@@ -1652,7 +1689,7 @@
       if (ui.status)   out = out.filter(i=>i.status===ui.status);
       if (ui.search){
         const q = ui.search.toLowerCase();
-        out = out.filter(i=>(`${i.number} ${eventTitle(i.eventId)} ${customerName(i.customerId)} ${i.notes||''}`).toLowerCase().includes(q));
+        out = out.filter(i=>(`${i.number} ${eventTitle(i.eventId)} ${invoiceCustomerName(i)} ${i.notes||''}`).toLowerCase().includes(q));
       }
       return out;
     }
@@ -1660,7 +1697,7 @@
     function groupKey(inv){
       switch(ui.groupBy){
         case 'event':    return eventTitle(inv.eventId) || '—';
-        case 'customer': return customerName(inv.customerId) || '—';
+        case 'customer': return invoiceCustomerName(inv) || '—';
         case 'status':   return inv.status || '—';
         case 'month':    return monthKey(inv.date);
         default:         return '';
@@ -1670,6 +1707,9 @@
     function customerName(id){
       const c = customers.find(c=>String(c.id)===String(id));
       return c ? c.name : '';
+    }
+    function invoiceCustomerName(inv){
+      return customerName(inv && inv.customerId) || customerDetailsName(inv && inv.customerDetails) || '';
     }
 
     function render(){
@@ -1708,7 +1748,7 @@
           <td style="color:#9ca3af;font-size:0.72rem;">${idx}</td>
           <td class="inv-num-col">${esc(inv.number)}</td>
           <td class="inv-date-col">${esc(inv.date||'')}</td>
-          <td class="inv-customer-col">${esc(customerName(inv.customerId))}</td>
+          <td class="inv-customer-col">${esc(invoiceCustomerName(inv))}</td>
           <td>${typeChip(inv.invType||'')}</td>
           <td class="inv-amount-col">${money(inv.total)}</td>
           <td>${statusBadge(inv.status)}</td>
@@ -1741,7 +1781,7 @@
       showInspector(true);
 
       el.inspectorBadge.textContent = inv.number || inv.id;
-      el.inspTitle.textContent      = customerName(inv.customerId) || 'Invoice';
+      el.inspTitle.textContent      = invoiceCustomerName(inv) || 'Invoice';
       el.inspStatus.innerHTML       = statusBadge(inv.status);
 
       el.f.number.value          = inv.number || '';

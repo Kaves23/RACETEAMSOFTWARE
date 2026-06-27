@@ -1234,6 +1234,24 @@
       });
     }
 
+    let bookedDatesSaveTimer = null;
+    async function saveBookedDatesFromForm() {
+      const p = currentProspect();
+      if (!p || !p.id) return;
+      const payload = buildStatusPayload(p);
+      const saved = await apiSave(payload);
+      const idx = prospects.findIndex(x => String(x.id) === String(saved.id));
+      if (idx >= 0) prospects[idx] = saved;
+      renderList();
+      renderStagePipeline(saved.status || payload.status);
+    }
+    function scheduleBookedDatesSave() {
+      clearTimeout(bookedDatesSaveTimer);
+      bookedDatesSaveTimer = setTimeout(() => {
+        saveBookedDatesFromForm().catch(e => alert('Could not save booked dates: ' + e.message));
+      }, 350);
+    }
+
     async function saveProspect(payload) {
       try {
         const saved = await apiSave(payload);
@@ -1359,6 +1377,9 @@
 
     document.getElementById('fStatus').addEventListener('change', () => {
       renderStagePipeline(document.getElementById('fStatus').value);
+    });
+    [1,2,3,4].forEach(n => {
+      document.getElementById(`fBookedDate${n}`).addEventListener('change', scheduleBookedDatesSave);
     });
 
     document.getElementById('btnDeleteProspect').addEventListener('click', () => {
@@ -1704,6 +1725,7 @@
         const cur = document.getElementById(target).value;
         // clicking the already-active one deselects
         setPeriodToggle(n, cur === btn.dataset.period ? '' : btn.dataset.period);
+        scheduleBookedDatesSave();
       });
     });
 

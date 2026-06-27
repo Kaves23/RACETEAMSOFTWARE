@@ -9,6 +9,10 @@ function normalizeEmail(value) {
   return v || null;
 }
 
+function jsonbParam(value) {
+  return value === undefined ? null : JSON.stringify(value || []);
+}
+
 /* GET all prospects */
 router.get('/', async (req, res, next) => {
   try {
@@ -70,14 +74,18 @@ router.put('/:id', async (req, res, next) => {
          driver_name=$1, driver_dob=$2, category=$3, test_venue=$4, nationality=$5,
          parent_name=$6, parent_phone=$7, parent_email=$8,
          source=$9, assigned_to=$10, status=$11, notes=$12,
-         sessions=$13, attachments=$14, activities=$15, tasks=$16, booked_dates=$17,
+         sessions=COALESCE($13::jsonb, sessions),
+         attachments=COALESCE($14::jsonb, attachments),
+         activities=COALESCE($15::jsonb, activities),
+         tasks=COALESCE($16::jsonb, tasks),
+         booked_dates=COALESCE($17::jsonb, booked_dates),
          test_fee=$18, fee_currency=$19, payment_status=COALESCE($20, payment_status), updated_at=NOW()
        WHERE id=$21 RETURNING *`,
       [
         driver_name, driver_dob || null, category || null, test_venue || null, nationality || null,
         parent_name || null, parent_phone || null, normalizeEmail(parent_email),
         source || null, assigned_to || null, status || 'lead', notes || null,
-        JSON.stringify(sessions || []), JSON.stringify(attachments || []), JSON.stringify(activities || []), JSON.stringify(tasks || []), JSON.stringify(booked_dates || []),
+        jsonbParam(sessions), jsonbParam(attachments), jsonbParam(activities), jsonbParam(tasks), jsonbParam(booked_dates),
         (test_fee === '' || test_fee == null) ? null : parseFloat(test_fee), fee_currency || 'ZAR', payment_status || null,
         req.params.id
       ]
@@ -136,15 +144,24 @@ router.post('/:id/invoice', async (req, res, next) => {
     const today  = new Date();
     const due    = new Date(today.getTime() + 14 * 86400000);
     const number = 'ACAD-' + today.toISOString().slice(0, 10).replace(/-/g, '') + '-' + invId.slice(-4).toUpperCase();
-    const line   = { description: 'Academy test drive — ' + (prospect.driver_name || 'Driver'), quantity: 1, unit_price: fee, amount: fee, total: fee };
+    const customerDetails = [
+      prospect.parent_name || prospect.driver_name,
+      prospect.parent_email || null,
+      prospect.parent_phone || null
+    ].filter(Boolean).join('\n');
+    const line = {
+      desc: 'Academy test drive - ' + (prospect.driver_name || 'Driver'),
+      qty: 1,
+      rate: fee
+    };
 
     await client.query('BEGIN');
     const inv = await client.query(
       `INSERT INTO fin_invoices
         (id,number,status,inv_type,invoice_date,due_date,customer_details,vat_rate,currency,lines,notes,department,created_by)
-       VALUES ($1,$2,'Draft','academy_test',$3,$4,$5,0,$6,$7,$8,'Academy',$9) RETURNING *`,
+       VALUES ($1,$2,'Draft','coaching',$3,$4,$5,0,$6,$7,$8,'Academy',$9) RETURNING *`,
       [invId, number, today.toISOString().slice(0, 10), due.toISOString().slice(0, 10),
-       JSON.stringify({ name: prospect.parent_name || prospect.driver_name, email: prospect.parent_email || null, phone: prospect.parent_phone || null }),
+       customerDetails,
        currency, JSON.stringify([line]), 'Auto-generated from Academy pipeline', createdBy]
     );
     await client.query(
