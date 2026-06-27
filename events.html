@@ -195,6 +195,9 @@
     .rp-table .rp-name { font-weight: 500; color: #1a1d24; }
     .rp-table .rp-desc { font-size: 0.74rem; color: #6c757d; margin-top: 1px; }
     .rp-table .rp-driver { font-size: 0.78rem; color: #495057; }
+    .rp-day-row td { background:#eef2f7 !important; border-top:1px solid #dce3ec; border-bottom:1px solid #dce3ec; padding:6px 10px !important; }
+    .rp-day-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:0.68rem; font-weight:800; color:#4b5563; text-transform:uppercase; letter-spacing:0.07em; }
+    .rp-day-count { color:#8b95a1; font-weight:700; letter-spacing:0.03em; white-space:nowrap; }
     .rp-badge-public { font-size: 0.62rem; background: #e8f5e9; color: #2e7d32; border-radius: 10px; padding: 1px 7px; font-weight: 600; border: 1px solid #c8e6c9; white-space: nowrap; }
     .rp-badge-internal { font-size: 0.62rem; background: #fff3e0; color: #e65100; border-radius: 10px; padding: 1px 7px; font-weight: 600; border: 1px solid #ffe0b2; white-space: nowrap; }
     .rp-table tr.rp-internal-row td { background: rgba(253,126,20,0.03); }
@@ -1175,6 +1178,58 @@
       const parts = raw.split('T');
       return { date: parts[0] || '', time: parts[1] ? parts[1].slice(0, 5) : raw.slice(0, 5) };
     }
+    function runPlanDateKey(item) {
+      const raw = String((item && item.start) || '').trim();
+      const match = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+      return match ? match[1] : '';
+    }
+    function runPlanTimeKey(item) {
+      const parts = splitRunPlanStart(item && item.start);
+      return parts.time || '99:99';
+    }
+    function sortedRunPlanItems(ev, filterFn) {
+      return ensureRunPlan(ev)
+        .filter(item => !filterFn || filterFn(item))
+        .slice()
+        .sort((a, b) => {
+          const ad = runPlanDateKey(a) || '9999-12-31';
+          const bd = runPlanDateKey(b) || '9999-12-31';
+          if (ad !== bd) return ad.localeCompare(bd);
+          const at = runPlanTimeKey(a);
+          const bt = runPlanTimeKey(b);
+          if (at !== bt) return at.localeCompare(bt);
+          return String(a.name || '').localeCompare(String(b.name || ''));
+        });
+    }
+    function localDateFromYMD(key) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(key || ''))) return null;
+      const [y, m, d] = key.split('-').map(Number);
+      return new Date(y, m - 1, d);
+    }
+    function formatRunPlanDayLabel(key, ev) {
+      const date = localDateFromYMD(key);
+      if (!date) return 'Unscheduled';
+      const weekdays = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const dateText = `${weekdays[date.getDay()]} ${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
+      const startDate = localDateFromYMD(eventStartDate(ev));
+      if (!startDate) return dateText;
+      const dayNo = Math.round((date - startDate) / 86400000) + 1;
+      return dayNo > 0 ? `Day ${dayNo} · ${dateText}` : dateText;
+    }
+    function groupedRunPlanItems(plan, ev) {
+      const groups = [];
+      plan.forEach(item => {
+        const key = runPlanDateKey(item);
+        let group = groups[groups.length - 1];
+        if (!group || group.key !== key) {
+          group = { key, label: formatRunPlanDayLabel(key, ev), items: [] };
+          groups.push(group);
+        }
+        group.items.push(item);
+      });
+      return groups;
+    }
     function calcEndTime(startISO, durationMin){
       if (!startISO || !durationMin) return '';
       try {
@@ -1400,7 +1455,7 @@
       });
       const publicCount = plan.filter(s => !s.internalOnly).length;
       const internalCount = plan.length - publicCount;
-      const nextText = upcoming ? `${runPlanTimeLabel(upcoming)} ${upcoming.name || 'Session'}` : 'No upcoming item';
+      const nextText = upcoming ? `${formatRunPlanDayLabel(runPlanDateKey(upcoming), ev)} · ${runPlanTimeLabel(upcoming)} ${upcoming.name || 'Session'}` : 'No upcoming item';
       const cards = [
         ['Items', String(plan.length), `${publicCount} public · ${internalCount} internal`],
         ['Next', nextText, upcoming && upcoming.driver ? upcoming.driver : ''],
@@ -1422,7 +1477,7 @@
         if (els.runplanTbody) els.runplanTbody.innerHTML = '<tr><td colspan="7"><div class="rp-view-empty">Select an event to view its run plan.</div></td></tr>';
         return;
       }
-      const plan = ensureRunPlan(ev).slice().sort((a,b)=> (a.start||'').localeCompare(b.start||''));
+      const plan = sortedRunPlanItems(ev);
       renderRunPlanSummary(ev, plan);
       autoPopulateRunPlanInfo(ev);
       els.runplanTbody.innerHTML = '';
@@ -1433,7 +1488,20 @@
         updateCountdown();
         return;
       }
-      plan.forEach((s)=>{
+      groupedRunPlanItems(plan, ev).forEach(group => {
+        const dayRow = document.createElement('tr');
+        dayRow.className = 'rp-day-row';
+        dayRow.innerHTML = `
+          <td colspan="7">
+            <div class="rp-day-heading">
+              <span>${escapeHtml(group.label)}</span>
+              <span class="rp-day-count">${group.items.length} item${group.items.length === 1 ? '' : 's'}</span>
+            </div>
+          </td>
+        `;
+        els.runplanTbody.appendChild(dayRow);
+
+        group.items.forEach((s)=>{
         const tr = document.createElement('tr');
         if (s.internalOnly) tr.className = 'rp-internal-row';
         const startDisp = s.start ? (s.start.includes('T') ? s.start.slice(11,16) : s.start) : '—';
@@ -1473,6 +1541,7 @@
           renderRunPlan();
         });
         els.runplanTbody.appendChild(tr);
+      });
       });
       updateCountdown();
     }
@@ -1644,9 +1713,7 @@
     function printClientProgramme(){
       const ev = getSelected(); if(!ev) return;
       const settings = RTS.getSettings();
-      const plan = ensureRunPlan(ev).slice()
-        .filter(s => !s.internalOnly)
-        .sort((a,b)=> (a.start||'').localeCompare(b.start||''));
+      const plan = sortedRunPlanItems(ev, s => !s.internalOnly);
       const teamName = (settings.teamName || settings.organisationName || '').trim();
       const logoUrl  = (settings.teamLogoUrl || '').trim();
       const accent   = (settings.brandColor || '#e32636');
@@ -1661,20 +1728,28 @@
         ? `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:12px 13px;margin-bottom:18px;background:rgba(255,255,255,0.025);">${infoItems.join('')}</div>`
         : '';
 
-      const rows = plan.map((s, i) => {
-        const startDisp = s.start ? (s.start.includes('T') ? s.start.slice(11,16) : s.start) : '';
-        const endDisp   = s.endTime || (s.durationMin ? calcEndTime(s.start, s.durationMin) : '');
-        const timeRange = endDisp ? `${startDisp}–${endDisp}` : startDisp;
-        const isLast    = i === plan.length - 1;
-        return `<div style="display:flex; align-items:flex-start; gap:0; padding:10px 0; border-bottom:${isLast ? 'none' : '1px solid rgba(255,255,255,0.08)'};">
-          <div style="min-width:56px; flex-shrink:0; padding-right:10px; border-right:2px solid ${escapeHtml(accent)}; margin-right:16px;">
-            <div style="font-size:1.0rem; font-weight:800; color:#fff; line-height:1.1;">${escapeHtml(startDisp)}</div>
-            ${endDisp ? `<div style="font-size:0.72rem; color:rgba(255,255,255,0.38); margin-top:2px;">${escapeHtml(endDisp)}</div>` : ''}
+      const rows = groupedRunPlanItems(plan, ev).map((group, groupIndex) => {
+        const groupRows = group.items.map((s, i) => {
+          const startDisp = s.start ? (s.start.includes('T') ? s.start.slice(11,16) : s.start) : '';
+          const endDisp   = s.endTime || (s.durationMin ? calcEndTime(s.start, s.durationMin) : '');
+          const isLast    = i === group.items.length - 1;
+          return `<div style="display:flex; align-items:flex-start; gap:0; padding:10px 0; border-bottom:${isLast ? 'none' : '1px solid rgba(255,255,255,0.08)'};">
+            <div style="min-width:56px; flex-shrink:0; padding-right:10px; border-right:2px solid ${escapeHtml(accent)}; margin-right:16px;">
+              <div style="font-size:1.0rem; font-weight:800; color:#fff; line-height:1.1;">${escapeHtml(startDisp)}</div>
+              ${endDisp ? `<div style="font-size:0.72rem; color:rgba(255,255,255,0.38); margin-top:2px;">${escapeHtml(endDisp)}</div>` : ''}
+            </div>
+            <div style="flex:1; padding-top:1px;">
+              <div style="font-size:1.0rem; font-style:italic; color:#f0f0f0; line-height:1.35;">${escapeHtml(s.name||'')}</div>
+              ${s.durationMin ? `<div style="font-size:0.72rem; color:rgba(255,255,255,0.38); margin-top:2px;">${s.durationMin} mins</div>` : ''}
+            </div>
+          </div>`;
+        }).join('');
+        return `<div style="margin-top:${groupIndex ? '18px' : '0'};">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:0.62rem;font-weight:800;letter-spacing:0.16em;text-transform:uppercase;color:rgba(255,255,255,0.42);border-bottom:1px solid rgba(255,255,255,0.12);padding-bottom:7px;margin-bottom:3px;">
+            <span>${escapeHtml(group.label)}</span>
+            <span style="letter-spacing:0.06em;color:rgba(255,255,255,0.28);">${group.items.length} item${group.items.length === 1 ? '' : 's'}</span>
           </div>
-          <div style="flex:1; padding-top:1px;">
-            <div style="font-size:1.0rem; font-style:italic; color:#f0f0f0; line-height:1.35;">${escapeHtml(s.name||'')}</div>
-            ${s.durationMin ? `<div style="font-size:0.72rem; color:rgba(255,255,255,0.38); margin-top:2px;">${s.durationMin} mins</div>` : ''}
-          </div>
+          ${groupRows}
         </div>`;
       }).join('');
 
@@ -1730,7 +1805,7 @@
     function printInternalProgramme(){
       const ev = getSelected(); if(!ev) return;
       const settings = RTS.getSettings();
-      const plan = ensureRunPlan(ev).slice().sort((a,b)=> (a.start||'').localeCompare(b.start||''));
+      const plan = sortedRunPlanItems(ev);
       const teamName = (settings.teamName || settings.organisationName || '').trim();
       const logoUrl  = (settings.teamLogoUrl || '').trim();
       const accent   = (settings.brandColor || '#e32636');
@@ -1745,24 +1820,33 @@
         ? `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px 13px;margin-bottom:14px;background:rgba(255,255,255,0.025);">${infoItems.join('')}</div>`
         : '';
 
-      const rows = plan.map((s, i) => {
-        const startDisp = s.start ? (s.start.includes('T') ? s.start.slice(11,16) : s.start) : '';
-        const endDisp   = s.endTime || (s.durationMin ? calcEndTime(s.start, s.durationMin) : '');
-        const isLast    = i === plan.length - 1;
-        const isInt     = !!s.internalOnly;
-        const detail    = [s.driver ? `Driver: ${escapeHtml(s.driver)}` : '', s.status && s.status !== 'Pending' ? `Status: ${escapeHtml(s.status)}` : '', s.description ? escapeHtml(s.description) : ''].filter(Boolean).join(' &nbsp;·&nbsp; ');
-        return `<div style="display:flex; align-items:flex-start; padding:9px 10px 9px ${isInt?'8px':'10px'}; border-bottom:${isLast?'none':'1px solid rgba(255,255,255,0.07)'}; ${isInt?`background:rgba(255,200,0,0.05); border-left:3px solid rgba(255,193,7,0.5);`:''}">
-          <div style="min-width:56px; flex-shrink:0; margin-right:14px;">
-            <div style="font-size:0.95rem; font-weight:800; color:#e0e3e6; line-height:1.1;">${escapeHtml(startDisp)}</div>
-            ${endDisp ? `<div style="font-size:0.7rem; color:#555; margin-top:2px;">${escapeHtml(endDisp)}</div>` : ''}
-          </div>
-          <div style="flex:1;">
-            <div style="display:flex; align-items:baseline; gap:8px; flex-wrap:wrap;">
-              <span style="font-size:0.95rem; font-style:italic; color:#dde1e5;">${escapeHtml(s.name||'')}</span>
-              ${isInt ? '<span style="font-size:0.6rem; background:rgba(255,193,7,0.2); color:#ffc107; padding:1px 6px; border-radius:3px; font-style:normal; font-weight:700; letter-spacing:0.05em; white-space:nowrap;">INTERNAL</span>' : ''}
+      const rows = groupedRunPlanItems(plan, ev).map((group, groupIndex) => {
+        const groupRows = group.items.map((s, i) => {
+          const startDisp = s.start ? (s.start.includes('T') ? s.start.slice(11,16) : s.start) : '';
+          const endDisp   = s.endTime || (s.durationMin ? calcEndTime(s.start, s.durationMin) : '');
+          const isLast    = i === group.items.length - 1;
+          const isInt     = !!s.internalOnly;
+          const detail    = [s.driver ? `Driver: ${escapeHtml(s.driver)}` : '', s.status && s.status !== 'Pending' ? `Status: ${escapeHtml(s.status)}` : '', s.description ? escapeHtml(s.description) : ''].filter(Boolean).join(' &nbsp;·&nbsp; ');
+          return `<div style="display:flex; align-items:flex-start; padding:9px 10px 9px ${isInt?'8px':'10px'}; border-bottom:${isLast?'none':'1px solid rgba(255,255,255,0.07)'}; ${isInt?`background:rgba(255,200,0,0.05); border-left:3px solid rgba(255,193,7,0.5);`:''}">
+            <div style="min-width:56px; flex-shrink:0; margin-right:14px;">
+              <div style="font-size:0.95rem; font-weight:800; color:#e0e3e6; line-height:1.1;">${escapeHtml(startDisp)}</div>
+              ${endDisp ? `<div style="font-size:0.7rem; color:#555; margin-top:2px;">${escapeHtml(endDisp)}</div>` : ''}
             </div>
-            ${detail ? `<div style="font-size:0.75rem; color:#666; margin-top:3px;">${detail}</div>` : ''}
+            <div style="flex:1;">
+              <div style="display:flex; align-items:baseline; gap:8px; flex-wrap:wrap;">
+                <span style="font-size:0.95rem; font-style:italic; color:#dde1e5;">${escapeHtml(s.name||'')}</span>
+                ${isInt ? '<span style="font-size:0.6rem; background:rgba(255,193,7,0.2); color:#ffc107; padding:1px 6px; border-radius:3px; font-style:normal; font-weight:700; letter-spacing:0.05em; white-space:nowrap;">INTERNAL</span>' : ''}
+              </div>
+              ${detail ? `<div style="font-size:0.75rem; color:#666; margin-top:3px;">${detail}</div>` : ''}
+            </div>
+          </div>`;
+        }).join('');
+        return `<div style="margin-top:${groupIndex ? '16px' : '0'};">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:rgba(255,255,255,0.035);border:1px solid rgba(255,255,255,0.08);border-bottom:none;border-radius:8px 8px 0 0;padding:8px 10px;font-size:0.62rem;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:rgba(255,255,255,0.34);">
+            <span>${escapeHtml(group.label)}</span>
+            <span style="letter-spacing:0.06em;color:rgba(255,255,255,0.24);">${group.items.length} item${group.items.length === 1 ? '' : 's'}</span>
           </div>
+          <div style="border:1px solid rgba(255,255,255,0.08);border-radius:0 0 8px 8px;overflow:hidden;">${groupRows}</div>
         </div>`;
       }).join('');
 
@@ -1803,9 +1887,7 @@
         <div style="font-size:0.6rem; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:rgba(255,255,255,0.25); margin-bottom:10px;">Full Programme</div>
         ${infoBlock}
         <!-- Rows -->
-        <div style="border:1px solid rgba(255,255,255,0.08); border-radius:8px; overflow:hidden;">
-          ${rows || '<div style="text-align:center; opacity:0.3; font-style:italic; padding:20px;">No programme items yet.</div>'}
-        </div>
+        ${rows || '<div style="border:1px solid rgba(255,255,255,0.08); border-radius:8px; text-align:center; opacity:0.3; font-style:italic; padding:20px;">No programme items yet.</div>'}
         <!-- Footer -->
         <div style="margin-top:22px; display:flex; align-items:center; justify-content:space-between; font-size:0.72rem; color:rgba(255,255,255,0.2);">
           <span>Generated ${new Date().toLocaleString()}</span>
@@ -1818,7 +1900,7 @@
     let baseTitle = document.title;
     function updateCountdown(){
       const ev = getSelected(); if(!ev || !els.runplanCountdown) return;
-      const plan = ensureRunPlan(ev).slice().sort((a,b)=> (a.start||'').localeCompare(b.start||''));
+      const plan = sortedRunPlanItems(ev);
       const now = new Date();
       // find active or next
       const active = plan.find(s=>{ const st = new Date(s.start||''); const dur = Number(s.durationMin||0); const end = new Date(st.getTime() + dur*60000); return s.status==='On Track' && dur>0 && now>=st && now<end; });
