@@ -2,9 +2,9 @@
 // Include this before core.js on pages where you want to override defaults.
 window.RTS_CONFIG = {
   // Software build version — updated on every deployment
-  buildVersion: '9440b88',
+  buildVersion: '8745142',
   buildDate:    '2026-06-26',
-  buildNote:    'Move dashboard nav tab first',
+  buildNote:    'Refresh dashboard UI',
   // API Configuration
   api: {
     baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)
