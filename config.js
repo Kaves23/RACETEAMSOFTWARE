@@ -2,9 +2,9 @@
 // Include this before core.js on pages where you want to override defaults.
 window.RTS_CONFIG = {
   // Software build version — updated on every deployment
-  buildVersion: '5ae943e',
+  buildVersion: '276e216',
   buildDate:    '2026-06-27',
-  buildNote:    'Add run plan weather and track info',
+  buildNote:    'Auto-fill run plan weather and track info',
   // API Configuration
   api: {
     baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)

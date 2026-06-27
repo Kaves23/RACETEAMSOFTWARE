@@ -206,9 +206,33 @@
     .rp-row-actions { display: flex; gap: 4px; justify-content: flex-end; }
     .rp-row-actions .btn { font-size: 0.7rem; padding: 2px 7px; border-radius: 4px; }
 
-    /* Add-item form */
-    .rp-add-form { background: #f8fafc; border: 1px solid #e0e7ef; border-radius: 8px; padding: 10px 12px; margin-top: 10px; }
-    .rp-add-form .form-label-xs { font-size: 0.68rem; color: #6c757d; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 2px; display: block; }
+    /* Read-first run plan tab */
+    .rp-summary-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin-bottom:10px; }
+    .rp-summary-card { background:#f8fafc; border:1px solid #e0e7ef; border-radius:8px; padding:9px 10px; min-width:0; }
+    .rp-summary-label { font-size:0.63rem; color:#8b95a1; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:3px; white-space:nowrap; }
+    .rp-summary-value { font-size:0.9rem; color:#1a1d24; font-weight:700; line-height:1.25; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .rp-summary-note { font-size:0.72rem; color:#6c757d; line-height:1.35; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .rp-view-empty { padding:22px 18px; text-align:center; color:#8b95a1; font-size:0.82rem; background:#fbfcfe; border:1px dashed #d7dde6; border-radius:8px; }
+    .rp-modal-grid { display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); gap:10px; }
+    .rp-modal-field { min-width:0; }
+    .rp-modal-field.span-3 { grid-column:span 3; }
+    .rp-modal-field.span-4 { grid-column:span 4; }
+    .rp-modal-field.span-5 { grid-column:span 5; }
+    .rp-modal-field.span-6 { grid-column:span 6; }
+    .rp-modal-field.span-7 { grid-column:span 7; }
+    .rp-modal-field.span-12 { grid-column:span 12; }
+    #runPlanItemModal .form-label { font-size:0.72rem; color:#6c757d; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:3px; }
+    #runPlanItemModal .modal-content { border-radius:10px; border:1px solid rgba(0,0,0,0.1); }
+    #runPlanItemModal .modal-header { background:#f8fafc; border-bottom:1px solid #e0e7ef; }
+    #runPlanItemModal .modal-footer { background:#fbfcfe; border-top:1px solid #e0e7ef; }
+    @media (max-width: 900px) {
+      .rp-summary-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .rp-modal-field.span-3,
+      .rp-modal-field.span-4,
+      .rp-modal-field.span-5,
+      .rp-modal-field.span-6,
+      .rp-modal-field.span-7 { grid-column:span 12; }
+    }
     .rp-form-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
     .rp-form-row:last-child { margin-bottom: 0; }
   </style>
@@ -524,10 +548,13 @@
                       <div id="runplan_countdown" class="rp-countdown">Next: —</div>
                     </div>
                     <div class="rp-print-btns">
+                      <button class="rp-print-btn client" id="btn_rp_new" type="button"><svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.1em;margin-right:4px"><path d="M10 4v12M4 10h12"/></svg>Add Item</button>
                       <button class="rp-print-btn client" id="btn_rp_print_client" type="button"><svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.1em;margin-right:4px"><path d="M5 7V3h10v4"/><path d="M5 13H3a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-2"/><rect x="5" y="12" width="10" height="5" rx="1"/><path d="M5 9h1"/></svg>Print Client</button>
                       <button class="rp-print-btn internal" id="btn_rp_print_internal" type="button"><svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.1em;margin-right:4px"><path d="M5 7V3h10v4"/><path d="M5 13H3a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-2"/><rect x="5" y="12" width="10" height="5" rx="1"/><path d="M5 9h1"/></svg>Print Internal</button>
                     </div>
                   </div>
+
+                  <div id="runplan_summary" class="rp-summary-grid"></div>
 
                   <!-- Programme table -->
                   <div class="ev-table-wrap">
@@ -545,53 +572,6 @@
                       </thead>
                       <tbody id="runplan_tbody"></tbody>
                     </table>
-                  </div>
-
-                  <!-- Add-item form -->
-                  <div class="rp-add-form">
-                    <div class="rp-form-row">
-                      <div style="flex:0 1 170px; min-width:150px;">
-                        <label class="form-label-xs" for="rp_start">Start date &amp; time</label>
-                        <input id="rp_start" class="form-control form-control-sm" type="datetime-local">
-                      </div>
-                      <div style="flex:0 1 100px; min-width:88px;">
-                        <label class="form-label-xs" for="rp_end_time">End time</label>
-                        <input id="rp_end_time" class="form-control form-control-sm" type="time" placeholder="--:--">
-                      </div>
-                      <div style="flex:0 1 90px; min-width:80px;">
-                        <label class="form-label-xs" for="rp_dur">Duration (min)</label>
-                        <input id="rp_dur" class="form-control form-control-sm" type="number" min="1" step="1" placeholder="e.g. 25">
-                      </div>
-                      <div style="flex:1 1 160px; min-width:140px;">
-                        <label class="form-label-xs" for="rp_name">Activity name</label>
-                        <input id="rp_name" class="form-control form-control-sm" type="text" placeholder="e.g. Qualifying (25 mins)">
-                      </div>
-                    </div>
-                    <div class="rp-form-row align-items-end">
-                      <div style="flex:0 1 140px; min-width:120px;">
-                        <label class="form-label-xs" for="rp_driver">Driver</label>
-                        <select id="rp_driver" class="form-select form-select-sm"></select>
-                      </div>
-                      <div style="flex:0 1 120px; min-width:100px;">
-                        <label class="form-label-xs" for="rp_status">Status</label>
-                        <select id="rp_status" class="form-select form-select-sm">
-                          <option>Pending</option>
-                          <option>On Track</option>
-                          <option>Complete</option>
-                        </select>
-                      </div>
-                      <div style="flex:1 1 180px; min-width:150px;">
-                        <label class="form-label-xs" for="rp_description">Internal notes</label>
-                        <input id="rp_description" class="form-control form-control-sm" type="text" placeholder="Internal detail (hidden from client print)">
-                      </div>
-                      <div class="d-flex align-items-center gap-2 pb-1" style="white-space:nowrap;">
-                        <input class="form-check-input mt-0" type="checkbox" id="rp_internal">
-                        <label class="form-check-label" for="rp_internal" style="font-size:0.78rem; color:#6c757d; cursor:pointer;">Internal only</label>
-                      </div>
-                      <div class="pb-1">
-                        <button class="btn btn-sm btn-primary" id="btn_rp_add" type="button" style="white-space:nowrap;">+ Add Item</button>
-                      </div>
-                    </div>
                   </div>
 
                 </div>
@@ -708,6 +688,79 @@
         </div>
       </div>
 
+  <!-- Run plan item editor -->
+  <div class="modal fade" id="runPlanItemModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content">
+        <div class="modal-header py-2">
+          <div>
+            <h6 class="modal-title mb-0" id="rpModalTitle">Run Plan Item</h6>
+            <div class="text-secondary" style="font-size:0.76rem;">Saved to the selected event run plan.</div>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="rp-modal-grid">
+            <div class="rp-modal-field span-3">
+              <label class="form-label" for="rp_item_date">Date</label>
+              <input id="rp_item_date" class="form-control form-control-sm" type="date">
+            </div>
+            <div class="rp-modal-field span-3">
+              <label class="form-label" for="rp_item_time">Start</label>
+              <input id="rp_item_time" class="form-control form-control-sm" type="time">
+            </div>
+            <div class="rp-modal-field span-3">
+              <label class="form-label" for="rp_item_end">End</label>
+              <input id="rp_item_end" class="form-control form-control-sm" type="time">
+            </div>
+            <div class="rp-modal-field span-3">
+              <label class="form-label" for="rp_item_dur">Duration</label>
+              <input id="rp_item_dur" class="form-control form-control-sm" type="number" min="1" step="1" placeholder="mins">
+            </div>
+            <div class="rp-modal-field span-7">
+              <label class="form-label" for="rp_item_name">Activity</label>
+              <input id="rp_item_name" class="form-control form-control-sm" type="text" placeholder="Qualifying, Heat 1, Drivers briefing">
+            </div>
+            <div class="rp-modal-field span-5">
+              <label class="form-label" for="rp_item_driver">Driver / Crew</label>
+              <select id="rp_item_driver" class="form-select form-select-sm"></select>
+            </div>
+            <div class="rp-modal-field span-4">
+              <label class="form-label" for="rp_item_status">Status</label>
+              <select id="rp_item_status" class="form-select form-select-sm">
+                <option>Pending</option>
+                <option>On Track</option>
+                <option>Complete</option>
+              </select>
+            </div>
+            <div class="rp-modal-field span-4 d-flex align-items-end">
+              <div class="form-check mb-1">
+                <input class="form-check-input" type="checkbox" id="rp_item_internal">
+                <label class="form-check-label" for="rp_item_internal" style="font-size:0.82rem;color:#495057;">Internal only</label>
+              </div>
+            </div>
+            <div class="rp-modal-field span-12">
+              <label class="form-label" for="rp_item_desc">Internal Notes</label>
+              <textarea id="rp_item_desc" class="form-control form-control-sm" rows="3" placeholder="Notes hidden from the client print"></textarea>
+            </div>
+            <div class="rp-modal-field span-6">
+              <label class="form-label" for="rp_info_weather">Weather / Track</label>
+              <input id="rp_info_weather" class="form-control form-control-sm" type="text" placeholder="Auto-filled when forecast keys are configured">
+            </div>
+            <div class="rp-modal-field span-6">
+              <label class="form-label" for="rp_info_address">Track Address</label>
+              <input id="rp_info_address" class="form-control form-control-sm" type="text" placeholder="Auto-filled from the event venue">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer py-2">
+          <button class="btn btn-sm btn-outline-secondary" id="btn_rp_save_info" type="button">Save Info Only</button>
+          <button class="btn btn-sm btn-primary" id="btn_rp_save_item" type="button">Save Item</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="config.js"></script>
   <script src="core.js"></script>
@@ -718,8 +771,11 @@
     RTS.setActiveNav();
     const LS_UI = 'rts.events.ui.v4';
     const LS_PANES = 'rts.events.panes.v4';
+    const RP_INFO_KEY = '__runPlanInfo';
 
     let settings = RTS.getSettings();
+    let runPlanModal = null;
+    let editingRunPlanId = null;
     // Pull canonical settings (event type colours, branding, venues, etc.) from the DB
     // so multi-machine instances see the same configuration.
     RTS.syncSettingsFromDB().then(s => {
@@ -976,16 +1032,23 @@
   btnSetupCompare: document.getElementById('btn_setup_compare'),
   setupCmpResult: document.getElementById('setup_cmp_result'),
   // run plan
+  runplanSummary: document.getElementById('runplan_summary'),
   runplanTbody: document.getElementById('runplan_tbody'),
-  rpStart: document.getElementById('rp_start'),
-  rpEndTime: document.getElementById('rp_end_time'),
-  rpName: document.getElementById('rp_name'),
-  rpDescription: document.getElementById('rp_description'),
-  rpInternal: document.getElementById('rp_internal'),
-  rpDriver: document.getElementById('rp_driver'),
-  rpStatus: document.getElementById('rp_status'),
-  rpDur: document.getElementById('rp_dur'),
-  btnRpAdd: document.getElementById('btn_rp_add'),
+  btnRpNew: document.getElementById('btn_rp_new'),
+  rpModalTitle: document.getElementById('rpModalTitle'),
+  rpItemDate: document.getElementById('rp_item_date'),
+  rpItemTime: document.getElementById('rp_item_time'),
+  rpItemEnd: document.getElementById('rp_item_end'),
+  rpItemDur: document.getElementById('rp_item_dur'),
+  rpItemName: document.getElementById('rp_item_name'),
+  rpItemDescription: document.getElementById('rp_item_desc'),
+  rpItemInternal: document.getElementById('rp_item_internal'),
+  rpItemDriver: document.getElementById('rp_item_driver'),
+  rpItemStatus: document.getElementById('rp_item_status'),
+  rpInfoWeather: document.getElementById('rp_info_weather'),
+  rpInfoAddress: document.getElementById('rp_info_address'),
+  btnRpSaveItem: document.getElementById('btn_rp_save_item'),
+  btnRpSaveInfo: document.getElementById('btn_rp_save_info'),
   btnRpPrintClient: document.getElementById('btn_rp_print_client'),
   btnRpPrintInternal: document.getElementById('btn_rp_print_internal'),
   runplanCountdown: document.getElementById('runplan_countdown'),
@@ -1102,6 +1165,16 @@
 
     // ---------- Run Plan ----------
     function ensureRunPlan(ev){ if (!ev.runPlan) ev.runPlan = []; return ev.runPlan; }
+    function eventStartDate(ev) {
+      const raw = ev && (ev.startDate || ev.start_date || ev.start || ev.date || '');
+      return raw ? String(raw).slice(0, 10) : '';
+    }
+    function splitRunPlanStart(start) {
+      const raw = String(start || '');
+      if (!raw) return { date: '', time: '' };
+      const parts = raw.split('T');
+      return { date: parts[0] || '', time: parts[1] ? parts[1].slice(0, 5) : raw.slice(0, 5) };
+    }
     function calcEndTime(startISO, durationMin){
       if (!startISO || !durationMin) return '';
       try {
@@ -1110,15 +1183,255 @@
         return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
       } catch(e){ return ''; }
     }
+    function runPlanTimeLabel(s) {
+      const startDisp = s.start ? (s.start.includes('T') ? s.start.slice(11,16) : s.start) : '—';
+      const endDisp = s.endTime || (s.durationMin ? calcEndTime(s.start, s.durationMin) : '');
+      return endDisp ? `${startDisp}-${endDisp}` : startDisp;
+    }
+    function ensureRunPlanInfo(ev, create) {
+      if (!ev) return {};
+      if (!ev.sessionLogs || typeof ev.sessionLogs !== 'object') {
+        if (!create) return {};
+        ev.sessionLogs = {};
+      }
+      if (!ev.sessionLogs[RP_INFO_KEY]) {
+        if (!create) return {};
+        ev.sessionLogs[RP_INFO_KEY] = {};
+      }
+      return ev.sessionLogs[RP_INFO_KEY];
+    }
+    function venueLabel(ev) {
+      return (ev && (ev.venue || ev.circuit || ev.circuitName || ev.circuit_name || ev.location || '')) || '';
+    }
+    function matchingVenue(ev) {
+      const name = venueLabel(ev).toLowerCase();
+      if (!name) return null;
+      return (settings.venues || []).find(v => String(v.name || '').toLowerCase() === name) || null;
+    }
+    function inferredTrackAddress(ev) {
+      const venue = matchingVenue(ev) || {};
+      const direct = [
+        ev && (ev.trackAddress || ev.address),
+        venue.address,
+        venue.location,
+        ev && (ev.city || ev.country) ? [ev.city, ev.country].filter(Boolean).join(', ') : '',
+        venue.city || venue.country ? [venue.city, venue.country].filter(Boolean).join(', ') : ''
+      ].map(v => String(v || '').trim()).find(Boolean);
+      const venueName = venueLabel(ev);
+      return [venueName, direct].filter((v, idx, arr) => v && arr.indexOf(v) === idx).join(' · ');
+    }
+    function weatherCfg() {
+      let local = {};
+      try { local = JSON.parse(localStorage.getItem('rts.weather.cfg') || '{}'); } catch (_) {}
+      settings = RTS.getSettings();
+      return Object.assign({}, local, settings.weather || {});
+    }
+    function trackSearchQuery(ev) {
+      const venue = matchingVenue(ev) || {};
+      return [
+        venueLabel(ev),
+        ev && ev.city,
+        ev && ev.country,
+        venue.location,
+        venue.city,
+        venue.country
+      ].filter(Boolean).join(', ');
+    }
+    function avg(nums) {
+      const vals = nums.map(Number).filter(Number.isFinite);
+      return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+    }
+    function formatForecast(parts) {
+      const bits = [];
+      if (Number.isFinite(parts.minTemp) && Number.isFinite(parts.maxTemp)) {
+        bits.push(Math.round(parts.minTemp) + '-' + Math.round(parts.maxTemp) + '°C');
+      } else if (Number.isFinite(parts.temp)) {
+        bits.push(Math.round(parts.temp) + '°C');
+      }
+      if (Number.isFinite(parts.rainChance)) bits.push('Rain ' + Math.round(parts.rainChance) + '%');
+      if (Number.isFinite(parts.humidity)) bits.push('Humidity ' + Math.round(parts.humidity) + '%');
+      if (Number.isFinite(parts.pressure)) bits.push('Pressure ' + Math.round(parts.pressure) + ' hPa');
+      if (parts.condition) bits.push(parts.condition);
+      return bits.join(' · ');
+    }
+    async function resolveTrackLocation(ev) {
+      const query = trackSearchQuery(ev);
+      if (!query) return null;
+      try {
+        const url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=' + encodeURIComponent(query);
+        const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+        if (res.ok) {
+          const rows = await res.json();
+          if (Array.isArray(rows) && rows[0]) {
+            return {
+              lat: Number(rows[0].lat),
+              lon: Number(rows[0].lon),
+              address: rows[0].display_name || inferredTrackAddress(ev)
+            };
+          }
+        }
+      } catch (_) {}
+
+      const cfgWx = weatherCfg();
+      const key = cfgWx.owmKey || cfgWx.owm_key || '';
+      if (!key) return { address: inferredTrackAddress(ev) };
+      try {
+        const res = await fetch('https://api.openweathermap.org/geo/1.0/direct?q=' + encodeURIComponent(query) + '&limit=1&appid=' + encodeURIComponent(key));
+        if (!res.ok) return { address: inferredTrackAddress(ev) };
+        const rows = await res.json();
+        if (!Array.isArray(rows) || !rows[0]) return { address: inferredTrackAddress(ev) };
+        const row = rows[0];
+        return {
+          lat: Number(row.lat),
+          lon: Number(row.lon),
+          address: [venueLabel(ev), row.name, row.state, row.country].filter(Boolean).filter((v, i, arr) => arr.indexOf(v) === i).join(' · ') || inferredTrackAddress(ev)
+        };
+      } catch (_) {
+        return { address: inferredTrackAddress(ev) };
+      }
+    }
+    async function fetchWeatherApiForecast(loc, dateISO) {
+      const key = weatherCfg().wapiKey || weatherCfg().wapi_key || '';
+      if (!key || !loc || !Number.isFinite(loc.lat) || !Number.isFinite(loc.lon)) return '';
+      try {
+        const url = 'https://api.weatherapi.com/v1/forecast.json?key=' + encodeURIComponent(key) +
+          '&q=' + encodeURIComponent(loc.lat + ',' + loc.lon) +
+          '&days=10&aqi=no&alerts=no';
+        const res = await fetch(url);
+        if (!res.ok) return '';
+        const data = await res.json();
+        const days = data && data.forecast && Array.isArray(data.forecast.forecastday) ? data.forecast.forecastday : [];
+        const day = days.find(d => d.date === dateISO);
+        if (!day || !day.day) return '';
+        const hours = Array.isArray(day.hour) ? day.hour : [];
+        return formatForecast({
+          minTemp: day.day.mintemp_c,
+          maxTemp: day.day.maxtemp_c,
+          rainChance: day.day.daily_chance_of_rain,
+          humidity: day.day.avghumidity,
+          pressure: avg(hours.map(h => h.pressure_mb)),
+          condition: day.day.condition && day.day.condition.text
+        });
+      } catch (_) {
+        return '';
+      }
+    }
+    async function fetchOpenWeatherForecast(loc, dateISO) {
+      const key = weatherCfg().owmKey || weatherCfg().owm_key || '';
+      if (!key || !loc || !Number.isFinite(loc.lat) || !Number.isFinite(loc.lon)) return '';
+      try {
+        const url = 'https://api.openweathermap.org/data/2.5/forecast?lat=' + encodeURIComponent(loc.lat) +
+          '&lon=' + encodeURIComponent(loc.lon) +
+          '&units=metric&cnt=40&appid=' + encodeURIComponent(key);
+        const res = await fetch(url);
+        if (!res.ok) return '';
+        const data = await res.json();
+        const entries = (data.list || []).filter(x => String(x.dt_txt || '').slice(0, 10) === dateISO);
+        if (!entries.length) return '';
+        const rainChance = Math.max(...entries.map(x => Number(x.pop || 0))) * 100;
+        const descriptions = entries.map(x => x.weather && x.weather[0] && x.weather[0].description).filter(Boolean);
+        return formatForecast({
+          minTemp: Math.min(...entries.map(x => Number(x.main && x.main.temp_min)).filter(Number.isFinite)),
+          maxTemp: Math.max(...entries.map(x => Number(x.main && x.main.temp_max)).filter(Number.isFinite)),
+          rainChance,
+          humidity: avg(entries.map(x => x.main && x.main.humidity)),
+          pressure: avg(entries.map(x => x.main && x.main.pressure)),
+          condition: descriptions[0] || ''
+        });
+      } catch (_) {
+        return '';
+      }
+    }
+    async function fetchAutoWeather(loc, ev) {
+      const dateISO = eventStartDate(ev);
+      if (!dateISO) return '';
+      return await fetchWeatherApiForecast(loc, dateISO) || await fetchOpenWeatherForecast(loc, dateISO);
+    }
+    async function autoPopulateRunPlanInfo(ev) {
+      if (!ev || ev._rpAutoInfoLoading) return;
+      const info = ensureRunPlanInfo(ev, true);
+      const needsAddress = !String(info.trackAddress || '').trim() || info.trackAddressAuto;
+      const needsWeather = !String(info.weather || '').trim() || info.weatherAuto;
+      if (!needsAddress && !needsWeather) return;
+      const cfgWx = weatherCfg();
+      const hasWeatherKey = !!(cfgWx.wapiKey || cfgWx.wapi_key || cfgWx.owmKey || cfgWx.owm_key);
+      if (!needsAddress && needsWeather && !hasWeatherKey) return;
+      ev._rpAutoInfoLoading = true;
+      try {
+        const loc = await resolveTrackLocation(ev);
+        let changed = false;
+        if (needsAddress && loc && loc.address) {
+          changed = info.trackAddress !== loc.address;
+          info.trackAddress = loc.address;
+          info.trackAddressAuto = true;
+        }
+        if (needsWeather) {
+          const forecast = await fetchAutoWeather(loc, ev);
+          if (forecast) {
+            changed = changed || info.weather !== forecast;
+            info.weather = forecast;
+            info.weatherAuto = true;
+          }
+        }
+        if (changed) {
+          info.updatedAt = nowISO();
+          ev.updatedAt = nowISO();
+          await saveEvent(ev);
+          await saveAll();
+          renderRunPlan();
+        }
+      } catch (e) {
+        console.warn('Run plan auto info failed:', e);
+      } finally {
+        delete ev._rpAutoInfoLoading;
+      }
+    }
+    function renderRunPlanSummary(ev, plan) {
+      if (!els.runplanSummary) return;
+      if (!ev) {
+        els.runplanSummary.innerHTML = '';
+        return;
+      }
+      const info = ensureRunPlanInfo(ev, false);
+      const now = new Date();
+      const upcoming = plan.find(s => {
+        const d = new Date(s.start || '');
+        return d.getTime() > now.getTime() && s.status !== 'Complete';
+      });
+      const publicCount = plan.filter(s => !s.internalOnly).length;
+      const internalCount = plan.length - publicCount;
+      const nextText = upcoming ? `${runPlanTimeLabel(upcoming)} ${upcoming.name || 'Session'}` : 'No upcoming item';
+      const cards = [
+        ['Items', String(plan.length), `${publicCount} public · ${internalCount} internal`],
+        ['Next', nextText, upcoming && upcoming.driver ? upcoming.driver : ''],
+        ['Weather', info.weather || 'Not set yet', info.weather ? 'Shown on programme reports' : 'Opens in the editor'],
+        ['Track', info.trackAddress || inferredTrackAddress(ev) || 'Not set yet', venueLabel(ev)]
+      ];
+      els.runplanSummary.innerHTML = cards.map(([label, value, note]) => `
+        <div class="rp-summary-card">
+          <div class="rp-summary-label">${escapeHtml(label)}</div>
+          <div class="rp-summary-value" title="${escapeHtml(value)}">${escapeHtml(value)}</div>
+          ${note ? `<div class="rp-summary-note" title="${escapeHtml(note)}">${escapeHtml(note)}</div>` : ''}
+        </div>
+      `).join('');
+    }
     function renderRunPlan(){
-      const ev = getSelected(); if(!ev) return;
+      const ev = getSelected();
+      if(!ev) {
+        renderRunPlanSummary(null, []);
+        if (els.runplanTbody) els.runplanTbody.innerHTML = '<tr><td colspan="7"><div class="rp-view-empty">Select an event to view its run plan.</div></td></tr>';
+        return;
+      }
       const plan = ensureRunPlan(ev).slice().sort((a,b)=> (a.start||'').localeCompare(b.start||''));
+      renderRunPlanSummary(ev, plan);
+      autoPopulateRunPlanInfo(ev);
       els.runplanTbody.innerHTML = '';
       if (!plan.length){
         const tr = document.createElement('tr');
-        tr.innerHTML = '<td colspan="7" style="text-align:center; padding:18px; color:#9aa0a6; font-size:0.82rem; font-style:italic;">No items yet — add one below.</td>';
+        tr.innerHTML = '<td colspan="7"><div class="rp-view-empty">No run-plan items yet. Use Add Item to create the first session for this event.</div></td>';
         els.runplanTbody.appendChild(tr);
-        updateCountdown(); return;
+        updateCountdown();
+        return;
       }
       plan.forEach((s)=>{
         const tr = document.createElement('tr');
@@ -1135,14 +1448,17 @@
           </td>
           <td><span class="rp-driver">${escapeHtml(s.driver||'')}</span></td>
           <td style="text-align:center;">${s.internalOnly ? '<span class="rp-badge-internal">Internal</span>' : '<span class="rp-badge-public">Public</span>'}</td>
-          <td style="text-align:center;"><span class="rp-status ${statusClass}">${escapeHtml(s.status||'Pending')}</span></td>
+          <td style="text-align:center;"><button class="rp-status ${statusClass} rp-status-cycle" type="button" title="Click to cycle status">${escapeHtml(s.status||'Pending')}</button></td>
           <td>
             <div class="rp-row-actions">
+              <button class="btn btn-sm btn-outline-secondary rp-edit" type="button">Edit</button>
               <button class="btn btn-sm btn-outline-secondary rp-log" type="button">Log</button>
               <button class="btn btn-sm btn-outline-danger rp-del" type="button">&times;</button>
             </div>
           </td>
         `;
+        tr.querySelector('.rp-status-cycle').addEventListener('click', ()=> cycleRunPlanStatus(s.id));
+        tr.querySelector('.rp-edit').addEventListener('click', ()=> openRunPlanModal(s.id));
         tr.querySelector('.rp-log').addEventListener('click', ()=> openSessionLogModal(s));
         tr.querySelector('.rp-del').addEventListener('click', async ()=>{
           const ok = window.RTS && typeof window.RTS.confirmPrompt === 'function'
@@ -1160,32 +1476,131 @@
       });
       updateCountdown();
     }
-    async function addRunPlan(){
-      const ev = getSelected(); if(!ev) return;
-      const start = els.rpStart.value; if (!start) return;
-      ensureRunPlan(ev).push({
-        id: RTS.uid('sess'),
-        start,
-        endTime: els.rpEndTime.value || '',
-        name: els.rpName.value.trim()||'Session',
-        description: els.rpDescription.value.trim()||'',
-        driver: els.rpDriver.value||'',
-        status: els.rpStatus.value||'Pending',
-        durationMin: Number(els.rpDur.value||0) || 0,
-        internalOnly: els.rpInternal.checked
-      });
+    async function cycleRunPlanStatus(itemId) {
+      const ev = getSelected(); if (!ev) return;
+      const item = ensureRunPlan(ev).find(s => s.id === itemId);
+      if (!item) return;
+      const cycle = { 'Pending':'On Track', 'On Track':'Complete', 'Complete':'Pending' };
+      item.status = cycle[item.status] || 'Pending';
       ev.updatedAt = nowISO();
-      els.rpStart.value=''; els.rpEndTime.value=''; els.rpName.value='';
-      els.rpDescription.value=''; els.rpStatus.value='Pending'; els.rpDur.value='';
-      els.rpInternal.checked=false;
       await saveEvent(ev);
       await saveAll();
       renderRunPlan();
     }
-    function driverNames(){ return (RTS.getSettings().drivers||[]).map(d=> d.name || d.displayName || d.id); }
-    function renderRunPlanDriverSelect(){
-      const names = driverNames();
-      els.rpDriver.innerHTML = ['<option value="">—</option>'].concat(names.map(n=>`<option>${escapeHtml(n)}</option>`)).join('');
+    function personName(p) {
+      return (p && (p.name || p.displayName || p.full_name || p.username || p.email || p.id)) || '';
+    }
+    function runPlanPeopleOptions() {
+      const drivers = driverOptions().map(d => ({
+        kind: 'driver',
+        label: personName(d),
+        detail: d.racing_class || d.class || d.category || '',
+        race: d.race_number || d.raceNumber || d.number || ''
+      })).filter(p => p.label);
+      const staff = staffOptions().map(s => ({
+        kind: 'staff',
+        label: personName(s),
+        detail: s.role || s.position || s.department || ''
+      })).filter(p => p.label);
+      const out = [];
+      if (drivers.length) out.push({ kind:'group', label:'All Drivers', value:'All Drivers' });
+      if (staff.length) out.push({ kind:'group', label:'All Crew', value:'All Crew' });
+      drivers.forEach(d => out.push({ kind:'driver', label:d.race ? `#${d.race} ${d.label}` : d.label, value:d.label, detail:d.detail }));
+      staff.forEach(s => out.push({ kind:'staff', label:s.label, value:s.label, detail:s.detail }));
+      return out;
+    }
+    function renderRunPlanDriverSelect(selected){
+      if (!els.rpItemDriver) return;
+      const opts = runPlanPeopleOptions();
+      let html = '<option value="">—</option>';
+      let insertedStaffBreak = false;
+      opts.forEach(opt => {
+        if (opt.kind === 'staff' && !insertedStaffBreak) {
+          html += '<option disabled>── Staff / Crew ──</option>';
+          insertedStaffBreak = true;
+        }
+        const style = opt.kind === 'staff' ? ' style="color:#b45309;"' : (opt.kind === 'group' ? ' style="font-weight:700;color:#1a0d2e;"' : '');
+        const label = opt.detail ? `${opt.label} · ${opt.detail}` : opt.label;
+        html += `<option value="${escapeHtml(opt.value)}"${style}>${escapeHtml(label)}</option>`;
+      });
+      els.rpItemDriver.innerHTML = html;
+      els.rpItemDriver.value = selected || '';
+    }
+    function hydrateRunPlanInfoFields(ev) {
+      const info = ensureRunPlanInfo(ev, false);
+      if (els.rpInfoWeather) els.rpInfoWeather.value = info.weather || '';
+      if (els.rpInfoAddress) els.rpInfoAddress.value = info.trackAddress || inferredTrackAddress(ev) || '';
+    }
+    function readRunPlanInfoFields(ev) {
+      const info = ensureRunPlanInfo(ev, true);
+      info.weather = (els.rpInfoWeather?.value || '').trim();
+      info.trackAddress = (els.rpInfoAddress?.value || '').trim();
+      info.weatherAuto = false;
+      info.trackAddressAuto = false;
+      info.updatedAt = nowISO();
+      return info;
+    }
+    function openRunPlanModal(itemId) {
+      const ev = getSelected(); if (!ev) return;
+      const item = itemId ? ensureRunPlan(ev).find(s => s.id === itemId) : null;
+      editingRunPlanId = item ? item.id : null;
+      const startParts = splitRunPlanStart(item && item.start);
+      const date = startParts.date || eventStartDate(ev) || isoLocal(new Date());
+      els.rpModalTitle.textContent = item ? 'Edit Run Plan Item' : 'Add Run Plan Item';
+      els.rpItemDate.value = date;
+      els.rpItemTime.value = startParts.time || '08:00';
+      els.rpItemEnd.value = item ? (item.endTime || '') : '';
+      els.rpItemDur.value = item ? (item.durationMin || '') : '';
+      els.rpItemName.value = item ? (item.name || '') : '';
+      els.rpItemDescription.value = item ? (item.description || '') : '';
+      els.rpItemInternal.checked = !!(item && item.internalOnly);
+      els.rpItemStatus.value = item ? (item.status || 'Pending') : 'Pending';
+      renderRunPlanDriverSelect(item ? (item.driver || '') : '');
+      hydrateRunPlanInfoFields(ev);
+      if (!runPlanModal) runPlanModal = new bootstrap.Modal(document.getElementById('runPlanItemModal'));
+      runPlanModal.show();
+      setTimeout(() => els.rpItemName?.focus(), 180);
+    }
+    async function saveRunPlanInfoOnly() {
+      const ev = getSelected(); if (!ev) return;
+      readRunPlanInfoFields(ev);
+      ev.updatedAt = nowISO();
+      await saveEvent(ev);
+      await saveAll();
+      renderRunPlan();
+      if (window.RTS && RTS.showToast) RTS.showToast('Run plan info saved', 'success');
+    }
+    async function saveRunPlanItem() {
+      const ev = getSelected(); if (!ev) return;
+      const date = els.rpItemDate.value;
+      const time = els.rpItemTime.value;
+      if (!date) { alert('Date is required.'); return; }
+      if (!time) { alert('Start time is required.'); return; }
+      const plan = ensureRunPlan(ev);
+      const start = `${date}T${time}`;
+      const payload = {
+        start,
+        endTime: els.rpItemEnd.value || '',
+        durationMin: Number(els.rpItemDur.value || 0) || 0,
+        name: els.rpItemName.value.trim() || 'Session',
+        description: els.rpItemDescription.value.trim() || '',
+        driver: els.rpItemDriver.value || '',
+        status: els.rpItemStatus.value || 'Pending',
+        internalOnly: els.rpItemInternal.checked
+      };
+      if (editingRunPlanId) {
+        const item = plan.find(s => s.id === editingRunPlanId);
+        if (item) Object.assign(item, payload);
+      } else {
+        plan.push(Object.assign({ id: RTS.uid('sess') }, payload));
+      }
+      readRunPlanInfoFields(ev);
+      ev.updatedAt = nowISO();
+      await saveEvent(ev);
+      await saveAll();
+      runPlanModal?.hide();
+      editingRunPlanId = null;
+      renderRunPlan();
     }
 
     // ---------- Programme Print Functions ----------
@@ -1236,7 +1651,15 @@
       const logoUrl  = (settings.teamLogoUrl || '').trim();
       const accent   = (settings.brandColor || '#e32636');
       const dateStr  = formatDateRange(ev) || ev.title || ev.name || 'Event';
-      const venue    = ev.venue || '';
+      const venue    = venueLabel(ev);
+      const info     = ensureRunPlanInfo(ev, false);
+      const infoItems = [
+        info.weather ? `<div><div style="font-size:0.58rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,0.32);margin-bottom:3px;">Weather / Track</div><div style="font-size:0.78rem;color:rgba(255,255,255,0.74);line-height:1.35;">${escapeHtml(info.weather)}</div></div>` : '',
+        info.trackAddress ? `<div><div style="font-size:0.58rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,0.32);margin-bottom:3px;">Track Location</div><div style="font-size:0.78rem;color:rgba(255,255,255,0.74);line-height:1.35;">${escapeHtml(info.trackAddress)}</div></div>` : ''
+      ].filter(Boolean);
+      const infoBlock = infoItems.length
+        ? `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:12px 13px;margin-bottom:18px;background:rgba(255,255,255,0.025);">${infoItems.join('')}</div>`
+        : '';
 
       const rows = plan.map((s, i) => {
         const startDisp = s.start ? (s.start.includes('T') ? s.start.slice(11,16) : s.start) : '';
@@ -1258,11 +1681,11 @@
       const overlay = getPrintOverlay();
       overlay.innerHTML = `
         <style>
-          #rp-print-overlay { font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif; background:#0a0a0a; color:#fff; min-height:100vh; display:flex; justify-content:center; align-items:flex-start; padding:0 16px 60px; box-sizing:border-box; }
+          #rp-print-overlay { font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif; background:#0a0a0a; color:#fff; min-height:100vh; padding:0 20px 60px; max-width:700px; margin:0 auto; box-sizing:border-box; }
           @media print { #rp-print-overlay { background:#0a0a0a !important; color:#fff !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; } }
           #rp-print-overlay > div { margin: 0 auto; }
         </style>
-        <div style="width:100%; max-width:440px; margin:0 auto; padding-top:32px;">
+        <div style="width:100%; margin:0 auto; padding-top:32px;">
           <!-- Top accent bar -->
           <div style="height:5px; background:${escapeHtml(accent)}; margin-bottom:28px; border-radius:0 0 3px 3px;"></div>
           <!-- Header -->
@@ -1287,6 +1710,7 @@
           <div style="height:1px; background:linear-gradient(90deg,${escapeHtml(accent)},rgba(255,255,255,0.08)); margin-bottom:18px;"></div>
           <!-- Schedule label -->
           <div style="font-size:0.62rem; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:rgba(255,255,255,0.35); margin-bottom:12px;">Programme</div>
+          ${infoBlock}
           <!-- Rows -->
           ${rows || '<div style="text-align:center; opacity:0.35; font-style:italic; padding:20px 0;">No public items.</div>'}
           <!-- Footer brand stamp -->
@@ -1311,7 +1735,15 @@
       const logoUrl  = (settings.teamLogoUrl || '').trim();
       const accent   = (settings.brandColor || '#e32636');
       const dateStr  = formatDateRange(ev) || ev.title || ev.name || 'Event';
-      const venue    = ev.venue || '';
+      const venue    = venueLabel(ev);
+      const info     = ensureRunPlanInfo(ev, false);
+      const infoItems = [
+        info.weather ? `<div><div style="font-size:0.58rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,0.32);margin-bottom:3px;">Weather / Track</div><div style="font-size:0.78rem;color:rgba(255,255,255,0.66);line-height:1.35;">${escapeHtml(info.weather)}</div></div>` : '',
+        info.trackAddress ? `<div><div style="font-size:0.58rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,0.32);margin-bottom:3px;">Track Location</div><div style="font-size:0.78rem;color:rgba(255,255,255,0.66);line-height:1.35;">${escapeHtml(info.trackAddress)}</div></div>` : ''
+      ].filter(Boolean);
+      const infoBlock = infoItems.length
+        ? `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px 13px;margin-bottom:14px;background:rgba(255,255,255,0.025);">${infoItems.join('')}</div>`
+        : '';
 
       const rows = plan.map((s, i) => {
         const startDisp = s.start ? (s.start.includes('T') ? s.start.slice(11,16) : s.start) : '';
@@ -1369,6 +1801,7 @@
         <div style="height:1px; background:rgba(255,255,255,0.08); margin-bottom:16px;"></div>
         <!-- Section label -->
         <div style="font-size:0.6rem; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:rgba(255,255,255,0.25); margin-bottom:10px;">Full Programme</div>
+        ${infoBlock}
         <!-- Rows -->
         <div style="border:1px solid rgba(255,255,255,0.08); border-radius:8px; overflow:hidden;">
           ${rows || '<div style="text-align:center; opacity:0.3; font-style:italic; padding:20px;">No programme items yet.</div>'}
@@ -2427,18 +2860,14 @@
       els.btnSetupAdd?.addEventListener('click', addSetup);
       els.btnSetupCompare?.addEventListener('click', compareSetups);
       // run plan
-      els.btnRpAdd?.addEventListener('click', addRunPlan);
+      els.btnRpNew?.addEventListener('click', () => openRunPlanModal());
+      els.btnRpSaveItem?.addEventListener('click', saveRunPlanItem);
+      els.btnRpSaveInfo?.addEventListener('click', saveRunPlanInfoOnly);
+      els.rpItemName?.addEventListener('keydown', e => { if (e.key === 'Enter') saveRunPlanItem(); });
       els.btnRpPrintClient?.addEventListener('click', printClientProgramme);
       els.btnRpPrintInternal?.addEventListener('click', printInternalProgramme);
-      // Auto-fill run plan start field when the tab is shown
       document.getElementById('tab-runplan')?.addEventListener('show.bs.tab', () => {
-        if (els.rpStart && !els.rpStart.value) {
-          const ev = getSelected();
-          const dateStr = ev && (ev.startDate || ev.start || ev.date || '');
-          // Extract date part (YYYY-MM-DD) from whatever format is stored
-          const datePart = dateStr ? dateStr.slice(0, 10) : new Date().toISOString().slice(0, 10);
-          els.rpStart.value = `${datePart}T08:00`;
-        }
+        renderRunPlan();
       });
       // checklists
       document.getElementById('tab-checklists')?.addEventListener('show.bs.tab', () => {
@@ -2450,6 +2879,15 @@
       document.getElementById('btn_lt_refresh')?.addEventListener('click', renderLiveTimes);
       document.getElementById('btn_lt_export')?.addEventListener('click', exportLiveTimesCsv);
       document.getElementById('btn_lt_clear')?.addEventListener('click', clearLiveTimes);
+    }
+
+    function applyInitialTabParam() {
+      const tab = String(RTS.getQueryParam('tab') || '').toLowerCase();
+      if (tab !== 'runplan') return;
+      const tabEl = document.getElementById('tab-runplan');
+      if (!tabEl || typeof bootstrap === 'undefined') return;
+      bootstrap.Tab.getOrCreateInstance(tabEl).show();
+      renderRunPlan();
     }
 
     // ── Live Times (per-class fastest captured by Track Map) ───────────
@@ -2642,6 +3080,7 @@
 
     // Init
     wireUI();
+    applyInitialTabParam();
     loadEventsFromDB(); // Load from database instead of localStorage
   })();
   </script>

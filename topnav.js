@@ -14,7 +14,6 @@
       { href: 'incidents.html',         label: 'Race Control',     key: 'R' },
       { href: 'weather.html',           label: 'Weather Station',  key: 'T' },
       { href: 'race-strategy.html',     label: 'Race Strategy',    key: 'S' },
-      { href: 'run-plans.html',         label: 'Run Plans',        key: 'U' },
       { href: 'f1.html',                label: 'F1 Live',          key: 'F' }
     ]},
     { label: 'Projects', items: [
