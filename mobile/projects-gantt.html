@@ -24,13 +24,84 @@
 </div>
 
 <style>
-  .task-card { padding:14px 16px; border-bottom:1px solid var(--border); background:#fff; }
-  .task-title { font-size:14px; font-weight:700; color:var(--text); }
-  .task-meta { font-size:12px; color:var(--text-3); margin-top:4px; line-height:1.45; }
-  .task-row { display:flex; gap:8px; align-items:center; margin-top:8px; }
-  .task-tag { display:inline-block; font-size:10px; font-weight:700; padding:2px 8px; border-radius:999px; background:#eef2ff; color:#4338ca; }
-  .task-tag.done { background:#dcfce7; color:#166534; }
-  .task-tag.blocked { background:#fee2e2; color:#991b1b; }
+  .gantt-state { padding:28px 18px; text-align:center; color:var(--text-3); font-size:13px; }
+  .gantt-state-title { color:var(--text); font-weight:800; font-size:15px; margin-bottom:5px; }
+  .gantt-shell { background:#fff; border-top:1px solid var(--border); border-bottom:1px solid var(--border); }
+  .gantt-scroll { overflow:auto; -webkit-overflow-scrolling:touch; }
+  .gantt-canvas { min-width:100%; }
+  .gantt-axis,
+  .gantt-row { display:flex; min-width:max-content; }
+  .gantt-axis { position:sticky; top:0; z-index:4; background:#f8fafc; border-bottom:1px solid var(--border); }
+  .gantt-label,
+  .gantt-axis-label {
+    width:154px;
+    min-width:154px;
+    position:sticky;
+    left:0;
+    z-index:3;
+    background:#fff;
+    border-right:1px solid var(--border);
+  }
+  .gantt-axis-label {
+    height:38px;
+    display:flex;
+    align-items:center;
+    padding:0 12px;
+    background:#f8fafc;
+    color:var(--text-3);
+    font-size:10px;
+    font-weight:800;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+  }
+  .gantt-lane,
+  .gantt-axis-lane {
+    position:relative;
+    flex:0 0 var(--timeline-w);
+    width:var(--timeline-w);
+    background:
+      repeating-linear-gradient(90deg, transparent 0, transparent calc(var(--day-w) - 1px), rgba(148,163,184,.22) calc(var(--day-w) - 1px), rgba(148,163,184,.22) var(--day-w));
+  }
+  .gantt-axis-lane { height:38px; background-color:#f8fafc; }
+  .gantt-tick { position:absolute; top:8px; transform:translateX(4px); font-size:10px; font-weight:800; color:#64748b; white-space:nowrap; }
+  .gantt-today { position:absolute; top:0; bottom:0; width:2px; background:#ef4444; opacity:.75; z-index:2; }
+  .gantt-row { min-height:62px; border-bottom:1px solid #eef2f7; }
+  .gantt-row:last-child { border-bottom:0; }
+  .gantt-label { padding:10px 11px; }
+  .gantt-title { color:var(--text); font-size:12px; font-weight:800; line-height:1.25; max-height:32px; overflow:hidden; }
+  .gantt-meta { color:var(--text-3); font-size:10px; margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .gantt-lane { min-height:62px; }
+  .gantt-bar {
+    position:absolute;
+    top:19px;
+    height:18px;
+    min-width:12px;
+    border-radius:5px;
+    background:#7c3aed;
+    box-shadow:0 1px 3px rgba(15,23,42,.18);
+    overflow:hidden;
+  }
+  .gantt-bar-fill { height:100%; background:rgba(255,255,255,.35); }
+  .gantt-bar.completed { background:#16a34a; }
+  .gantt-bar.blocked { background:#dc2626; }
+  .gantt-bar.in_progress { background:#2563eb; }
+  .gantt-bar.overdue { box-shadow:0 0 0 2px rgba(220,38,38,.2), 0 1px 3px rgba(15,23,42,.18); }
+  .gantt-milestone {
+    position:absolute;
+    top:18px;
+    width:18px;
+    height:18px;
+    transform:rotate(45deg);
+    border-radius:3px;
+    background:#f59e0b;
+    box-shadow:0 1px 3px rgba(15,23,42,.2);
+  }
+  .gantt-tags { position:absolute; left:0; right:0; bottom:7px; display:flex; gap:5px; overflow:hidden; padding-left:2px; }
+  .gantt-tag { display:inline-block; font-size:9px; font-weight:800; padding:1px 6px; border-radius:999px; background:#eef2ff; color:#4338ca; white-space:nowrap; }
+  .gantt-tag.done { background:#dcfce7; color:#166534; }
+  .gantt-tag.blocked { background:#fee2e2; color:#991b1b; }
+  .gantt-tag.warn { background:#fef3c7; color:#92400e; }
+  .gantt-unscheduled .gantt-lane { background:#f8fafc; }
 </style>
 
 <script>
@@ -39,32 +110,161 @@
   if (!localStorage.getItem('auth_token')) window.location.replace('index.html');
   let plans = [];
   let tasks = [];
+  let links = [];
   let selected = '';
+  const DAY_W = 18;
+  const LABEL_W = 154;
   function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
   function setOffline(){ document.getElementById('offlineBanner').classList.toggle('visible', !navigator.onLine); }
   function fmtDate(v){ if (!v) return '—'; return new Date(String(v).slice(0,10) + 'T12:00:00').toLocaleDateString('en-GB', { day:'numeric', month:'short' }); }
+  function parseDate(v){
+    if (!v) return null;
+    const bits = String(v).slice(0,10).split('-').map(Number);
+    if (bits.length !== 3 || bits.some(n => !n)) return null;
+    return new Date(bits[0], bits[1] - 1, bits[2]);
+  }
+  function isoDate(d){ return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+  function addDays(d, n){ const x = new Date(d); x.setDate(x.getDate() + n); return x; }
+  function daysBetween(a, b){ return Math.round((b - a) / 86400000); }
+  function pct(task){ return Math.max(0, Math.min(100, Number(task.progress || 0))); }
+  function statusClass(task){
+    if (task.status === 'completed') return 'completed';
+    if (task.status === 'blocked' || task.status === 'waiting_on') return 'blocked';
+    if (task.status === 'in_progress') return 'in_progress';
+    return '';
+  }
+  function taskSort(a, b){
+    return String(a.start_date || a.end_date || '9999').localeCompare(String(b.start_date || b.end_date || '9999')) ||
+      ((a.sort_order || 0) - (b.sort_order || 0)) ||
+      String(a.created_at || '').localeCompare(String(b.created_at || ''));
+  }
+  function setState(title, sub){
+    document.getElementById('taskList').innerHTML =
+      '<div class="gantt-state"><div class="gantt-state-title">' + esc(title) + '</div><div>' + esc(sub || '') + '</div></div>';
+  }
+  function buildRange(plan, rows){
+    const dates = [];
+    [plan && plan.start_date, plan && plan.end_date].forEach(v => { const d = parseDate(v); if (d) dates.push(d); });
+    rows.forEach(t => {
+      const s = parseDate(t.start_date);
+      const e = parseDate(t.end_date);
+      if (s) dates.push(s);
+      if (e) dates.push(e);
+    });
+    const today = new Date(); today.setHours(0,0,0,0);
+    dates.push(today, addDays(today, 14));
+    const min = new Date(Math.min.apply(null, dates));
+    const max = new Date(Math.max.apply(null, dates));
+    return { start:addDays(min, -2), end:addDays(max, 7) };
+  }
+  function linkCounts(){
+    const counts = {};
+    links.forEach(l => {
+      counts[l.to_task_id] = counts[l.to_task_id] || { in:0, out:0 };
+      counts[l.from_task_id] = counts[l.from_task_id] || { in:0, out:0 };
+      counts[l.to_task_id].in += 1;
+      counts[l.from_task_id].out += 1;
+    });
+    return counts;
+  }
   function renderTasks(){
     const plan = plans.find(p => String(p.id) === String(selected));
-    document.getElementById('planSummary').textContent = plan ? ((plan.name || 'Project') + ' · ' + tasks.length + ' tasks') : 'Choose a project plan';
-    document.getElementById('taskList').innerHTML = tasks.length ? tasks.map(task => {
-      const cls = task.status === 'completed' ? 'done' : task.status === 'blocked' || task.status === 'waiting_on' ? 'blocked' : '';
-      return '<div class="task-card">' +
-        '<div class="task-title">' + esc(task.title || 'Untitled task') + '</div>' +
-        '<div class="task-meta">' + esc(task.assignee_name || 'Unassigned') + ' · ' + esc(fmtDate(task.start_date)) + ' to ' + esc(fmtDate(task.end_date)) + '</div>' +
-        '<div class="task-row"><span class="task-tag ' + cls + '">' + esc(task.status || 'planned') + '</span>' + (task.is_milestone ? '<span class="task-tag">Milestone</span>' : '') + (task.department ? '<span class="task-tag">' + esc(task.department) + '</span>' : '') + '</div>' +
+    if (!plan) {
+      document.getElementById('planSummary').textContent = 'Choose a project plan';
+      setState('No plan selected', 'Select a plan to view its schedule.');
+      return;
+    }
+    document.getElementById('planSummary').textContent = (plan.name || 'Project') + ' · ' + tasks.length + ' tasks';
+    if (!tasks.length) {
+      setState('No tasks loaded', 'This plan has no task breakdown yet.');
+      return;
+    }
+
+    const sorted = tasks.slice().sort(taskSort);
+    const range = buildRange(plan, sorted);
+    const totalDays = Math.max(21, daysBetween(range.start, range.end) + 1);
+    const timelineW = totalDays * DAY_W;
+    const todayOffset = daysBetween(range.start, parseDate(isoDate(new Date())));
+    const counts = linkCounts();
+    const axisEvery = totalDays > 90 ? 14 : totalDays > 45 ? 7 : 3;
+    const ticks = [];
+    for (let i = 0; i < totalDays; i += axisEvery) {
+      ticks.push('<span class="gantt-tick" style="left:' + (i * DAY_W) + 'px;">' + esc(fmtDate(isoDate(addDays(range.start, i)))) + '</span>');
+    }
+    const todayLine = todayOffset >= 0 && todayOffset <= totalDays
+      ? '<span class="gantt-today" style="left:' + (todayOffset * DAY_W) + 'px;"></span>'
+      : '';
+
+    const rows = sorted.map(task => {
+      const start = parseDate(task.start_date || task.end_date);
+      const end = parseDate(task.end_date || task.start_date);
+      const hasDates = !!(start || end);
+      const isOverdue = task.end_date && String(task.end_date).slice(0,10) < isoDate(new Date()) && !['completed','cancelled'].includes(task.status);
+      const dep = counts[task.id] || { in:0, out:0 };
+      const tags = [
+        '<span class="gantt-tag ' + (task.status === 'completed' ? 'done' : (task.status === 'blocked' || task.status === 'waiting_on') ? 'blocked' : '') + '">' + esc(task.status || 'planned') + '</span>',
+        task.is_milestone ? '<span class="gantt-tag warn">Milestone</span>' : '',
+        task.department ? '<span class="gantt-tag">' + esc(task.department) + '</span>' : '',
+        dep.in || dep.out ? '<span class="gantt-tag">Deps ' + esc(String(dep.in + dep.out)) + '</span>' : ''
+      ].filter(Boolean).join('');
+      let bar = '';
+      if (hasDates) {
+        const x = Math.max(0, daysBetween(range.start, start || end) * DAY_W);
+        if (task.is_milestone) {
+          bar = '<span class="gantt-milestone" style="left:' + x + 'px;"></span>';
+        } else {
+          const width = Math.max(18, (daysBetween(start || end, end || start) + 1) * DAY_W);
+          const cls = [statusClass(task), isOverdue ? 'overdue' : ''].filter(Boolean).join(' ');
+          bar = '<span class="gantt-bar ' + cls + '" style="left:' + x + 'px;width:' + width + 'px;"><span class="gantt-bar-fill" style="width:' + pct(task) + '%"></span></span>';
+        }
+      }
+      return '<div class="gantt-row' + (hasDates ? '' : ' gantt-unscheduled') + '">' +
+        '<div class="gantt-label"><div class="gantt-title">' + esc(task.title || 'Untitled task') + '</div><div class="gantt-meta">' + esc(task.assignee_name || 'Unassigned') + ' · ' + esc(hasDates ? (fmtDate(task.start_date || task.end_date) + ' to ' + fmtDate(task.end_date || task.start_date)) : 'No dates') + '</div></div>' +
+        '<div class="gantt-lane">' + todayLine + bar + '<div class="gantt-tags">' + tags + '</div></div>' +
       '</div>';
-    }).join('') : '<div class="empty-state"><div class="empty-state-title">No tasks loaded</div><div class="empty-state-sub">Select a plan to view its task breakdown.</div></div>';
+    }).join('');
+
+    document.getElementById('taskList').innerHTML =
+      '<div class="gantt-shell" style="--timeline-w:' + timelineW + 'px;--day-w:' + DAY_W + 'px;">' +
+        '<div class="gantt-scroll">' +
+          '<div class="gantt-canvas" style="width:' + (LABEL_W + timelineW) + 'px;">' +
+            '<div class="gantt-axis"><div class="gantt-axis-label">Task</div><div class="gantt-axis-lane">' + todayLine + ticks.join('') + '</div></div>' +
+            rows +
+          '</div>' +
+        '</div>' +
+      '</div>';
   }
   function loadTasks(){
     if (!selected) { tasks = []; renderTasks(); return; }
-    mobileFetch('/api/project-plans/' + encodeURIComponent(selected) + '/tasks').then(data => { tasks = Array.isArray(data) ? data : (data.data || []); renderTasks(); }).catch(() => { tasks = []; renderTasks(); });
+    setState('Loading schedule', 'Fetching task dates and dependency links...');
+    Promise.all([
+      mobileFetch('/api/project-plans/' + encodeURIComponent(selected) + '/tasks'),
+      mobileFetch('/api/project-plans/' + encodeURIComponent(selected) + '/links')
+    ]).then(([taskData, linkData]) => {
+      tasks = Array.isArray(taskData) ? taskData : (taskData.data || []);
+      links = Array.isArray(linkData) ? linkData : (linkData.data || []);
+      renderTasks();
+    }).catch(err => {
+      tasks = [];
+      links = [];
+      document.getElementById('planSummary').textContent = 'Could not load selected plan';
+      setState('Could not load Gantt', err && err.message ? err.message : 'Check your connection and try again.');
+    });
   }
+  setState('Loading plans', 'Fetching project plans...');
   mobileFetch('/api/project-plans').then(data => {
     plans = Array.isArray(data) ? data : (data.data || []);
     const select = document.getElementById('planSelect');
     select.innerHTML = '<option value="">Select a plan…</option>' + plans.map(plan => '<option value="' + esc(plan.id) + '">' + esc(plan.name || 'Untitled project') + '</option>').join('');
     if (plans[0]) { selected = String(plans[0].id); select.value = selected; loadTasks(); } else { renderTasks(); }
     select.addEventListener('change', e => { selected = e.target.value; loadTasks(); });
+  }).catch(err => {
+    plans = [];
+    tasks = [];
+    links = [];
+    document.getElementById('planSelect').innerHTML = '<option value="">Plans unavailable</option>';
+    document.getElementById('planSummary').textContent = 'Could not load project plans';
+    setState('Could not load plans', err && err.message ? err.message : 'Check your connection and try again.');
   });
   window.addEventListener('online', setOffline); window.addEventListener('offline', setOffline); setOffline();
 })();

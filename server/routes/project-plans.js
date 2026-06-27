@@ -3,6 +3,18 @@ const router = express.Router();
 const { pool } = require('../db');
 const crypto = require('crypto');
 
+function parseBoolean(value, fallback = false) {
+  if (value === undefined || value === null || value === '') return fallback;
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value !== 0;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (['true', '1', 'yes', 'on'].includes(normalized)) return true;
+    if (['false', '0', 'no', 'off'].includes(normalized)) return false;
+  }
+  return Boolean(value);
+}
+
 // ──────────────────────────────────────────────────────────────────
 // PLANS
 // ──────────────────────────────────────────────────────────────────
@@ -395,7 +407,9 @@ router.post('/tasks', async (req, res, next) => {
     start_date, end_date, progress, color,
     assignee_user_id, priority, status, is_milestone,
     linked_entity_type, linked_entity_id, sort_order,
-    estimated_cost, actual_cost
+    department, task_type, actual_start_date, actual_end_date, blocker_reason,
+    estimated_cost, actual_cost, risk_level, tags, acceptance_criteria,
+    external_ref, is_inactive
   } = req.body;
   if (!plan_id) return res.status(400).json({ success: false, error: 'plan_id is required' });
   if (!title || !title.trim()) return res.status(400).json({ success: false, error: 'title is required' });
@@ -415,17 +429,24 @@ router.post('/tasks', async (req, res, next) => {
         start_date, end_date, progress, color,
         assignee_user_id, priority, status, is_milestone,
         linked_entity_type, linked_entity_id, sort_order,
-        estimated_cost, actual_cost
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+        department, task_type, actual_start_date, actual_end_date, blocker_reason,
+        estimated_cost, actual_cost, risk_level, tags, acceptance_criteria,
+        external_ref, is_inactive
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29)
       RETURNING *
     `, [
       id, plan_id, parent_task_id || null, title.trim(), description || null,
       start_date || null, end_date || null, progress || 0, color || null,
       assignee_user_id || null, priority || 'medium', status || 'not_started',
-      is_milestone || false,
+      parseBoolean(is_milestone),
       linked_entity_type || null, linked_entity_id || null,
       sort_order ?? 0,
-      estimated_cost || null, actual_cost || null
+      department || null, task_type || null, actual_start_date || null,
+      actual_end_date || null, blocker_reason || null,
+      (estimated_cost === '' || estimated_cost == null) ? null : Number(estimated_cost),
+      (actual_cost === '' || actual_cost == null) ? null : Number(actual_cost),
+      risk_level || null, tags || null, acceptance_criteria || null,
+      external_ref || null, parseBoolean(is_inactive)
     ]);
     await client.query('COMMIT');
     res.status(201).json({ success: true, data: result.rows[0] });
@@ -439,75 +460,76 @@ router.post('/tasks', async (req, res, next) => {
 
 // PUT /api/project-tasks/:taskId — update task
 router.put('/tasks/:taskId', async (req, res, next) => {
-  const {
-    parent_task_id, title, description,
-    start_date, end_date, progress, color,
-    assignee_user_id, priority, status, is_milestone,
-    linked_entity_type, linked_entity_id, sort_order,
-    department, task_type, actual_start_date, actual_end_date, blocker_reason,
-    estimated_cost, actual_cost, is_inactive
-  } = req.body;
+  const body = req.body || {};
+  const has = key => Object.prototype.hasOwnProperty.call(body, key);
+  const nullableText = value => value === undefined ? undefined : (value === '' || value === null ? null : String(value));
+  const nullableDate = value => value === undefined ? undefined : (value || null);
+  const nullableNumber = value => value === undefined ? undefined : (value === '' || value === null ? null : Number(value));
   let client;
   try {
     client = await pool.connect();
     await client.query('BEGIN');
-    const existing = await client.query('SELECT id FROM project_tasks WHERE id = $1', [req.params.taskId]);
+    const existing = await client.query('SELECT * FROM project_tasks WHERE id = $1', [req.params.taskId]);
     if (existing.rows.length === 0) {
       await client.query('ROLLBACK');
       return res.status(404).json({ success: false, error: 'Task not found' });
     }
+
+    if (has('title') && !String(body.title || '').trim()) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ success: false, error: 'title cannot be empty' });
+    }
+
+    const fields = [
+      ['parent_task_id', 'parent_task_id', nullableText],
+      ['title', 'title', value => String(value || '').trim()],
+      ['description', 'description', nullableText],
+      ['start_date', 'start_date', nullableDate],
+      ['end_date', 'end_date', nullableDate],
+      ['progress', 'progress', value => Number(value) || 0],
+      ['color', 'color', nullableText],
+      ['assignee_user_id', 'assignee_user_id', nullableText],
+      ['priority', 'priority', value => value || 'medium'],
+      ['status', 'status', value => value || 'not_started'],
+      ['is_milestone', 'is_milestone', value => parseBoolean(value)],
+      ['linked_entity_type', 'linked_entity_type', nullableText],
+      ['linked_entity_id', 'linked_entity_id', nullableText],
+      ['sort_order', 'sort_order', value => Number(value) || 0],
+      ['department', 'department', nullableText],
+      ['task_type', 'task_type', nullableText],
+      ['actual_start_date', 'actual_start_date', nullableDate],
+      ['actual_end_date', 'actual_end_date', nullableDate],
+      ['blocker_reason', 'blocker_reason', nullableText],
+      ['estimated_cost', 'estimated_cost', nullableNumber],
+      ['actual_cost', 'actual_cost', nullableNumber],
+      ['is_inactive', 'is_inactive', value => parseBoolean(value)],
+      ['risk_level', 'risk_level', nullableText],
+      ['tags', 'tags', nullableText],
+      ['acceptance_criteria', 'acceptance_criteria', nullableText],
+      ['external_ref', 'external_ref', nullableText]
+    ];
+
+    const sets = [];
+    const params = [];
+    for (const [key, column, normalize] of fields) {
+      if (!has(key)) continue;
+      params.push(normalize(body[key]));
+      sets.push(`${column} = $${params.length}`);
+    }
+
+    if (!sets.length) {
+      await client.query('COMMIT');
+      return res.json({ success: true, data: existing.rows[0] });
+    }
+
+    params.push(req.params.taskId);
     const result = await client.query(`
       UPDATE project_tasks SET
-        parent_task_id      = $1,
-        title               = COALESCE($2, title),
-        description         = $3,
-        start_date          = $4,
-        end_date            = $5,
-        progress            = COALESCE($6, progress),
-        color               = $7,
-        assignee_user_id    = $8,
-        priority            = COALESCE($9, priority),
-        status              = COALESCE($10, status),
-        is_milestone        = COALESCE($11, is_milestone),
-        linked_entity_type  = $12,
-        linked_entity_id    = $13,
-        sort_order          = COALESCE($14, sort_order),
-        department          = COALESCE($15, department),
-        task_type           = COALESCE($16, task_type),
-        actual_start_date   = $17,
-        actual_end_date     = $18,
-        blocker_reason      = $19,
-        estimated_cost      = COALESCE($21, estimated_cost),
-        actual_cost         = COALESCE($22, actual_cost),
-        is_inactive         = COALESCE($23, is_inactive),
-        updated_at          = NOW()
-      WHERE id = $20
+        ${sets.join(',\n        ')},
+        updated_at = NOW()
+      WHERE id = $${params.length}
       RETURNING *
-    `, [
-      parent_task_id !== undefined ? (parent_task_id || null) : undefined,
-      title?.trim() || null,
-      description !== undefined ? (description || null) : undefined,
-      start_date !== undefined ? (start_date || null) : undefined,
-      end_date !== undefined ? (end_date || null) : undefined,
-      progress ?? null,
-      color !== undefined ? (color || null) : undefined,
-      assignee_user_id !== undefined ? (assignee_user_id || null) : undefined,
-      priority || null,
-      status || null,
-      is_milestone ?? null,
-      linked_entity_type !== undefined ? (linked_entity_type || null) : undefined,
-      linked_entity_id !== undefined ? (linked_entity_id || null) : undefined,
-      sort_order ?? null,
-      department !== undefined ? (department || null) : undefined,
-      task_type !== undefined ? (task_type || null) : undefined,
-      actual_start_date !== undefined ? (actual_start_date || null) : undefined,
-      actual_end_date !== undefined ? (actual_end_date || null) : undefined,
-      blocker_reason !== undefined ? (blocker_reason || null) : undefined,
-      req.params.taskId,
-      estimated_cost !== undefined ? (estimated_cost || null) : undefined,
-      actual_cost !== undefined ? (actual_cost || null) : undefined,
-      is_inactive !== undefined ? Boolean(is_inactive) : undefined
-    ]);
+    `, params);
     await client.query('COMMIT');
     res.json({ success: true, data: result.rows[0] });
   } catch (error) {
