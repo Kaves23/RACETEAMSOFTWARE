@@ -296,49 +296,62 @@
     .pm-task-row.pm-drop-child  { background: rgba(166,77,255,0.14); box-shadow: inset 16px 0 0 0 rgba(166,77,255,0.5); }
 
     .pm-expand-btn {
-      background: #f4f1fb;
-      border: 1px solid #d7c7f3;
+      background: transparent;
+      border: 0;
       border-radius: 4px;
-      padding: 0 3px;
+      padding: 0 2px;
       min-width: 28px;
       height: 15px;
       cursor: pointer;
-      color: #4c287d;
+      color: #6b5c7d;
       line-height: 1;
       display: flex; align-items: center; justify-content: center;
       gap: 2px;
       transition: background 0.1s, border-color 0.1s, color 0.1s, box-shadow 0.1s;
     }
     .pm-expand-btn:hover {
-      background: #eadffd;
-      border-color: #a64dff;
+      background: #f3eefb;
       color: #1a0d2e;
-      box-shadow: 0 0 0 2px rgba(166,77,255,0.10);
     }
     .pm-expand-btn:focus-visible {
       outline: 2px solid #a64dff;
       outline-offset: 1px;
     }
     .pm-expand-icon {
-      width: 0; height: 0;
-      border-top: 4px solid transparent;
-      border-bottom: 4px solid transparent;
-      border-left: 5px solid currentColor;
+      width: 13px;
+      height: 13px;
+      border: 1px solid #c8b7df;
+      border-radius: 3px;
+      background: #fff;
+      position: relative;
       transition: transform 0.12s ease;
       flex-shrink: 0;
+    }
+    .pm-expand-icon::before {
+      content: "";
+      position: absolute;
+      left: 4px;
+      top: 3px;
+      width: 4px;
+      height: 4px;
+      border-right: 1.5px solid currentColor;
+      border-bottom: 1.5px solid currentColor;
+      transform: rotate(-45deg);
     }
     .pm-expand-btn[aria-expanded="true"] .pm-expand-icon { transform: rotate(90deg); }
     .pm-expand-count {
       font-size: 9px;
-      font-weight: 800;
+      font-weight: 700;
       min-width: 9px;
       text-align: center;
+      color: #8e829c;
     }
     .pm-expand-placeholder { width: 28px; height: 15px; display: inline-block; }
     .pm-task-row.parent-row .pm-wbs,
     .pm-task-row.parent-row .pm-task-title-text { font-weight: 700; color: #262034; }
-    .pm-task-row.parent-row.collapsed-row { background: rgba(166,77,255,0.035); }
-    .pm-task-row.parent-row.collapsed-row .pm-expand-btn { background: #1a0d2e; border-color: #1a0d2e; color: #fff; }
+    .pm-task-row.parent-row.collapsed-row { background: #faf8fd; box-shadow: inset 2px 0 0 rgba(166,77,255,0.55); }
+    .pm-task-row.parent-row.collapsed-row .pm-expand-icon { background: #1a0d2e; border-color: #1a0d2e; color: #fff; }
+    .pm-task-row.parent-row.collapsed-row .pm-expand-count { color: #4c287d; }
     .pm-open-detail-btn {
       background: none; border: none; padding: 0;
       width: 14px; height: 14px; cursor: pointer;
@@ -2462,18 +2475,70 @@
     } catch { return hex; }
   }
 
+  function sortTasks(a, b) {
+    const so = (a.sort_order || 0) - (b.sort_order || 0);
+    if (so !== 0) return so;
+    return a.created_at < b.created_at ? -1 : 1;
+  }
+
+  function buildTaskTreeMeta() {
+    const byId = new Map(state.tasks.map(task => [task.id, task]));
+    const childrenByParent = new Map();
+    state.tasks.forEach(task => {
+      const parentId = task.parent_task_id || null;
+      if (!childrenByParent.has(parentId)) childrenByParent.set(parentId, []);
+      childrenByParent.get(parentId).push(task);
+    });
+    childrenByParent.forEach(children => children.sort(sortTasks));
+
+    const roots = childrenByParent.get(null) || [];
+    const depth = {};
+    const rootById = {};
+    const descendantCounts = {};
+    const rollupProgress = {};
+
+    function visit(task, currentDepth, root) {
+      depth[task.id] = currentDepth;
+      rootById[task.id] = root;
+      const children = childrenByParent.get(task.id) || [];
+      let descendants = 0;
+      let progressSum = 0;
+      let leafCount = 0;
+
+      if (!children.length) {
+        progressSum = Number(task.progress || 0);
+        leafCount = 1;
+      } else {
+        children.forEach(child => {
+          const childStats = visit(child, currentDepth + 1, root);
+          descendants += 1 + childStats.descendants;
+          progressSum += childStats.progressSum;
+          leafCount += childStats.leafCount;
+        });
+      }
+
+      descendantCounts[task.id] = descendants;
+      rollupProgress[task.id] = leafCount ? Math.round(progressSum / leafCount) : null;
+      return { descendants, progressSum, leafCount };
+    }
+
+    roots.forEach(root => visit(root, 0, root));
+    return { byId, childrenByParent, roots, depth, rootById, descendantCounts, rollupProgress };
+  }
+
   // Compute effective color for a task (inherit from root parent, lighten by depth)
-  function taskColor(task) {
+  function taskColor(task, treeMeta) {
     if (task.status === 'completed') return '#27ae60';
     if (task.color) return task.color;
     if (!task.parent_task_id) return '#cccccc';
-    const root = getTaskRoot(task);
-    const depth = getTaskDepth(task);
+    const root = getTaskRoot(task, treeMeta);
+    const depth = getTaskDepth(task, treeMeta);
     const rootColor = root.color || '#a64dff';
     return lightenColor(rootColor, depth * 22);
   }
 
-  function getTaskRoot(task) {
+  function getTaskRoot(task, treeMeta) {
+    if (treeMeta?.rootById?.[task.id]) return treeMeta.rootById[task.id];
     let t = task;
     while (t.parent_task_id) {
       const p = state.tasks.find(x => x.id === t.parent_task_id);
@@ -2481,7 +2546,8 @@
     }
     return t;
   }
-  function getTaskDepth(task) {
+  function getTaskDepth(task, treeMeta) {
+    if (treeMeta?.depth?.[task.id] != null) return treeMeta.depth[task.id];
     let t = task, d = 0;
     while (t.parent_task_id) {
       const p = state.tasks.find(x => x.id === t.parent_task_id);
@@ -2490,71 +2556,36 @@
     return d;
   }
 
-  function computeTaskDescendantCounts() {
-    const childrenByParent = new Map();
-    state.tasks.forEach(task => {
-      if (!task.parent_task_id) return;
-      if (!childrenByParent.has(task.parent_task_id)) childrenByParent.set(task.parent_task_id, []);
-      childrenByParent.get(task.parent_task_id).push(task);
-    });
-    const counts = {};
-    const countFor = taskId => {
-      if (counts[taskId] != null) return counts[taskId];
-      const children = childrenByParent.get(taskId) || [];
-      counts[taskId] = children.reduce((count, child) => count + 1 + countFor(child.id), 0);
-      return counts[taskId];
-    };
-    state.tasks.forEach(task => countFor(task.id));
-    return counts;
-  }
-
   // Build sorted visible task list (tree-order, respecting collapse)
-  function buildVisibleTasks() {
-    const roots = state.tasks.filter(t => !t.parent_task_id)
-      .sort((a,b) => {
-        const so = (a.sort_order || 0) - (b.sort_order || 0);
-        if (so !== 0) return so;
-        return a.created_at < b.created_at ? -1 : 1;
-      });
+  function buildVisibleTasks(treeMeta = buildTaskTreeMeta()) {
     const vis = [];
     function walk(tasks) {
       for (const t of tasks) {
         vis.push(t);
         if (!state.collapsed.has(t.id)) {
-          const children = state.tasks.filter(c => c.parent_task_id === t.id)
-            .sort((a,b) => {
-              const so = (a.sort_order || 0) - (b.sort_order || 0);
-              if (so !== 0) return so;
-              return a.created_at < b.created_at ? -1 : 1;
-            });
+          const children = treeMeta.childrenByParent.get(t.id) || [];
           if (children.length) walk(children);
         }
       }
     }
-    walk(roots);
+    walk(treeMeta.roots);
     return vis;
   }
 
   // Compute WBS string (1, 1.1, 1.1.2, …)
-  function computeWbs() {
+  function computeWbs(treeMeta = buildTaskTreeMeta()) {
     const wbs = {};
-    const counters = {};
     function walk(tasks, prefix) {
       let i = 0;
       for (const t of tasks) {
         i++;
         const key = prefix ? `${prefix}.${i}` : String(i);
         wbs[t.id] = key;
-        const children = state.tasks.filter(c => c.parent_task_id === t.id)
-          .sort((a,b) => a.sort_order - b.sort_order);
+        const children = treeMeta.childrenByParent.get(t.id) || [];
         if (children.length) walk(children, key);
       }
     }
-    walk(state.tasks.filter(t => !t.parent_task_id).sort((a,b) => {
-      const so = (a.sort_order || 0) - (b.sort_order || 0);
-      if (so !== 0) return so;
-      return a.created_at < b.created_at ? -1 : 1;
-    }), '');
+    walk(treeMeta.roots, '');
     return wbs;
   }
 
@@ -2568,7 +2599,8 @@
   }
 
   // Roll up progress from leaf descendants for summary tasks
-  function rollupProgress(taskId) {
+  function rollupProgress(taskId, treeMeta) {
+    if (treeMeta?.rollupProgress?.[taskId] != null) return treeMeta.rollupProgress[taskId];
     const getLeaves = id => {
       const kids = state.tasks.filter(c => c.parent_task_id === id);
       if (!kids.length) { const t = state.tasks.find(t => t.id === id); return t ? [t] : []; }
@@ -2710,7 +2742,8 @@
 
     updateHealthPanel();
 
-    let visibleTasks = buildVisibleTasks();
+    const treeMeta = buildTaskTreeMeta();
+    let visibleTasks = buildVisibleTasks(treeMeta);
     const today = new Date(); today.setHours(0,0,0,0);
     const me = state.users.find(u => u.id === localStorage.getItem('rts_user_id'));
 
@@ -2729,9 +2762,9 @@
       visibleTasks = visibleTasks.filter(t => t.title.toLowerCase().includes(q));
     }
 
-    const wbs = computeWbs();
-    renderOutline(visibleTasks, wbs);
-    renderChart(visibleTasks);
+    const wbs = computeWbs(treeMeta);
+    renderOutline(visibleTasks, wbs, treeMeta);
+    renderChart(visibleTasks, treeMeta);
     renderPlanList();
   }
 
@@ -2790,7 +2823,7 @@
   // ════════════════════════════════════════════════════════════════
   //  RENDER — OUTLINE
   // ════════════════════════════════════════════════════════════════
-  function renderOutline(visibleTasks, wbs) {
+  function renderOutline(visibleTasks, wbs, treeMeta) {
     const body = document.getElementById('pm-outline-body');
     if (!visibleTasks.length) {
       body.innerHTML = '<div style="padding:16px 12px;color:#bbb;text-align:center;">No tasks yet.<br>Click <b>+ Task</b> to add one.</div>';
@@ -2798,18 +2831,17 @@
       body.innerHTML += renderEmptyRows(20);
       return;
     }
-    const descendantCounts = computeTaskDescendantCounts();
     body.innerHTML = visibleTasks.map(task => {
-      const depth = getTaskDepth(task);
+      const depth = getTaskDepth(task, treeMeta);
       const indentPx = depth * 14;
-      const children = state.tasks.filter(c => c.parent_task_id === task.id);
+      const children = treeMeta.childrenByParent.get(task.id) || [];
       const hasChildren = children.length > 0;
-      const descendantCount = descendantCounts[task.id] || 0;
+      const descendantCount = treeMeta.descendantCounts[task.id] || 0;
       const collapsed = state.collapsed.has(task.id);
       const selected = task.id === state.selectedTaskId ? ' selected' : '';
       const isMilestone = task.is_milestone;
       const isCompleted = task.status === 'completed';
-      const color = taskColor(task);
+      const color = taskColor(task, treeMeta);
       const user = state.users.find(u => u.id === task.assignee_user_id);
       const initials = user ? (user.full_name || user.username || '?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase() : '';
       const assigneeTitle = user ? (user.full_name || user.username) : 'Unassigned';
@@ -2829,7 +2861,7 @@
         ? `<span class="pm-entity-chip entity-chip-${task.linked_entity_type}" data-entity-task="${task.id}" title="${task.linked_entity_type}">${esc(task.linked_entity_label||task.linked_entity_id||'linked')}</span>`
         : '';
 
-      const displayProgress = hasChildren ? (rollupProgress(task.id) ?? task.progress ?? 0) : (task.progress || 0);
+      const displayProgress = hasChildren ? (rollupProgress(task.id, treeMeta) ?? task.progress ?? 0) : (task.progress || 0);
       const progressFill = `<div class="pm-progress-bar-mini"><div class="pm-progress-fill" style="width:${displayProgress}%;background:${color};"></div></div>`;
 
       const assigneeChip = initials
@@ -2838,7 +2870,7 @@
 
       const isCritical = state.criticalPath.has(task.id);
       const isInactive = !!task.is_inactive;
-      const indentBorderColor = depth > 0 ? taskColor(task) : 'transparent';
+      const indentBorderColor = depth > 0 ? taskColor(task, treeMeta) : 'transparent';
 
       // Predecessor notation (e.g. "3", "4FS", "9FF+2d")
       const predLinks = state.links.filter(l => l.to_task_id === task.id);
@@ -2915,9 +2947,9 @@
   // ════════════════════════════════════════════════════════════════
   //  RENDER — GANTT CHART
   // ════════════════════════════════════════════════════════════════
-  function renderChart(visibleTasks) {
+  function renderChart(visibleTasks, treeMeta) {
     renderChartHeader();
-    renderChartBody(visibleTasks);
+    renderChartBody(visibleTasks, treeMeta);
     // syncChartScroll is only wired once (see initScrollSync)
   }
 
@@ -3086,7 +3118,7 @@
     });
   }
 
-  function renderChartBody(visibleTasks) {
+  function renderChartBody(visibleTasks, treeMeta) {
     const W = totalChartWidth();
     const px = pxPerDay();
     const today = new Date(); today.setHours(0,0,0,0);
@@ -3120,7 +3152,7 @@
 
     // Task rows
     const rowsHtml = visibleTasks.map(task => {
-      const color = taskColor(task);
+      const color = taskColor(task, treeMeta);
       const barUser = state.users.find(u => u.id === task.assignee_user_id);
       const barResource = barUser ? (barUser.full_name || barUser.username || '').trim() : '';
       const inactiveStyle = task.is_inactive ? 'opacity:0.35;filter:grayscale(0.7);' : '';
