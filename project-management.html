@@ -244,7 +244,7 @@
     }
     #pm-outline-header {
       display: grid;
-      grid-template-columns: 16px 18px 26px 1fr var(--pm-col-dur) var(--pm-col-start) var(--pm-col-end) var(--pm-col-pct) var(--pm-col-pred) var(--pm-col-res);
+      grid-template-columns: 16px 30px 26px 1fr var(--pm-col-dur) var(--pm-col-start) var(--pm-col-end) var(--pm-col-pct) var(--pm-col-pred) var(--pm-col-res);
       align-items: center;
       padding: 0 4px;
       height: 28px;
@@ -266,7 +266,7 @@
     }
     .pm-task-row {
       display: grid;
-      grid-template-columns: 16px 18px 26px 1fr var(--pm-col-dur) var(--pm-col-start) var(--pm-col-end) var(--pm-col-pct) var(--pm-col-pred) var(--pm-col-res);
+      grid-template-columns: 16px 30px 26px 1fr var(--pm-col-dur) var(--pm-col-start) var(--pm-col-end) var(--pm-col-pct) var(--pm-col-pred) var(--pm-col-res);
       align-items: center;
       height: 16px;
       padding: 0 4px;
@@ -296,11 +296,49 @@
     .pm-task-row.pm-drop-child  { background: rgba(166,77,255,0.14); box-shadow: inset 16px 0 0 0 rgba(166,77,255,0.5); }
 
     .pm-expand-btn {
-      background: none; border: none; padding: 0;
-      width: 16px; height: 16px; cursor: pointer;
-      color: #999; font-size: 10px; line-height: 1;
+      background: #f4f1fb;
+      border: 1px solid #d7c7f3;
+      border-radius: 4px;
+      padding: 0 3px;
+      min-width: 28px;
+      height: 15px;
+      cursor: pointer;
+      color: #4c287d;
+      line-height: 1;
       display: flex; align-items: center; justify-content: center;
+      gap: 2px;
+      transition: background 0.1s, border-color 0.1s, color 0.1s, box-shadow 0.1s;
     }
+    .pm-expand-btn:hover {
+      background: #eadffd;
+      border-color: #a64dff;
+      color: #1a0d2e;
+      box-shadow: 0 0 0 2px rgba(166,77,255,0.10);
+    }
+    .pm-expand-btn:focus-visible {
+      outline: 2px solid #a64dff;
+      outline-offset: 1px;
+    }
+    .pm-expand-icon {
+      width: 0; height: 0;
+      border-top: 4px solid transparent;
+      border-bottom: 4px solid transparent;
+      border-left: 5px solid currentColor;
+      transition: transform 0.12s ease;
+      flex-shrink: 0;
+    }
+    .pm-expand-btn[aria-expanded="true"] .pm-expand-icon { transform: rotate(90deg); }
+    .pm-expand-count {
+      font-size: 9px;
+      font-weight: 800;
+      min-width: 9px;
+      text-align: center;
+    }
+    .pm-expand-placeholder { width: 28px; height: 15px; display: inline-block; }
+    .pm-task-row.parent-row .pm-wbs,
+    .pm-task-row.parent-row .pm-task-title-text { font-weight: 700; color: #262034; }
+    .pm-task-row.parent-row.collapsed-row { background: rgba(166,77,255,0.035); }
+    .pm-task-row.parent-row.collapsed-row .pm-expand-btn { background: #1a0d2e; border-color: #1a0d2e; color: #fff; }
     .pm-open-detail-btn {
       background: none; border: none; padding: 0;
       width: 14px; height: 14px; cursor: pointer;
@@ -2452,6 +2490,24 @@
     return d;
   }
 
+  function computeTaskDescendantCounts() {
+    const childrenByParent = new Map();
+    state.tasks.forEach(task => {
+      if (!task.parent_task_id) return;
+      if (!childrenByParent.has(task.parent_task_id)) childrenByParent.set(task.parent_task_id, []);
+      childrenByParent.get(task.parent_task_id).push(task);
+    });
+    const counts = {};
+    const countFor = taskId => {
+      if (counts[taskId] != null) return counts[taskId];
+      const children = childrenByParent.get(taskId) || [];
+      counts[taskId] = children.reduce((count, child) => count + 1 + countFor(child.id), 0);
+      return counts[taskId];
+    };
+    state.tasks.forEach(task => countFor(task.id));
+    return counts;
+  }
+
   // Build sorted visible task list (tree-order, respecting collapse)
   function buildVisibleTasks() {
     const roots = state.tasks.filter(t => !t.parent_task_id)
@@ -2742,11 +2798,13 @@
       body.innerHTML += renderEmptyRows(20);
       return;
     }
+    const descendantCounts = computeTaskDescendantCounts();
     body.innerHTML = visibleTasks.map(task => {
       const depth = getTaskDepth(task);
       const indentPx = depth * 14;
       const children = state.tasks.filter(c => c.parent_task_id === task.id);
       const hasChildren = children.length > 0;
+      const descendantCount = descendantCounts[task.id] || 0;
       const collapsed = state.collapsed.has(task.id);
       const selected = task.id === state.selectedTaskId ? ' selected' : '';
       const isMilestone = task.is_milestone;
@@ -2756,9 +2814,12 @@
       const initials = user ? (user.full_name || user.username || '?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase() : '';
       const assigneeTitle = user ? (user.full_name || user.username) : 'Unassigned';
 
+      const toggleLabel = collapsed
+        ? `Expand ${descendantCount} hidden subtask${descendantCount === 1 ? '' : 's'}`
+        : `Collapse ${descendantCount} subtask${descendantCount === 1 ? '' : 's'}`;
       const expandBtn = hasChildren
-        ? `<button class="pm-expand-btn" data-toggle="${task.id}" title="${collapsed?'Expand':'Collapse'}">${collapsed?'+':'-'}</button>`
-        : `<span style="width:16px;display:inline-block;"></span>`;
+        ? `<button class="pm-expand-btn" data-toggle="${task.id}" aria-expanded="${collapsed ? 'false' : 'true'}" aria-label="${esc(toggleLabel)}" title="${esc(toggleLabel)}"><span class="pm-expand-icon" aria-hidden="true"></span><span class="pm-expand-count">${descendantCount}</span></button>`
+        : `<span class="pm-expand-placeholder" aria-hidden="true"></span>`;
 
       const colorDot = isMilestone
         ? `<span class="pm-milestone-icon" style="color:${color}">M</span>`
@@ -2808,7 +2869,7 @@
         });
       const depWarn = hasDepWarn ? `<span title="Predecessor constraint conflict" style="color:#ff6b35;font-size:10px;flex-shrink:0;font-weight:700;">!</span>` : '';
 
-      return `<div class="pm-task-row${selected}${isMilestone?' milestone-row':''}${isCompleted?' completed-row':''}${isCritical?' critical-row':''}${isInactive?' pm-inactive-row':''}"
+      return `<div class="pm-task-row${selected}${hasChildren?' parent-row':''}${collapsed?' collapsed-row':''}${isMilestone?' milestone-row':''}${isCompleted?' completed-row':''}${isCritical?' critical-row':''}${isInactive?' pm-inactive-row':''}"
                    data-task-id="${task.id}" tabindex="0" draggable="true"
                    style="border-left:3px solid ${indentBorderColor};">
         <button class="pm-open-detail-btn" data-open-detail="${task.id}" title="Open task details">☰</button>
