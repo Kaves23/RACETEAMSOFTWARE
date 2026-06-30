@@ -209,6 +209,29 @@
     .pm-toolbar-btn.primary { background: #a64dff; color: #fff; border-color: #a64dff; }
     .pm-toolbar-btn.primary:hover { background: #8e3de0; }
     #pm-link-mode-btn.active { background: #ff6b35; color: #fff; border-color: #ff6b35; }
+    .pm-bulk-bar {
+      display: flex; align-items: center; gap: 5px;
+      padding: 2px 6px; border: 1px solid #d6d9df;
+      border-radius: 5px; background: #fff;
+    }
+    .pm-bulk-bar[hidden] { display: none; }
+    .pm-bulk-count {
+      font-size: 10px; font-weight: 700; color: #1a0d2e;
+      padding-right: 2px; white-space: nowrap;
+    }
+    .pm-bulk-input {
+      height: 22px; border: 1px solid #cdd3db; border-radius: 4px;
+      padding: 2px 5px; font-size: 11px; background: #fff;
+    }
+    .pm-bulk-input[type="number"] { width: 58px; text-align: right; }
+    .pm-bulk-input[type="date"] { width: 122px; }
+    .pm-bulk-action {
+      height: 22px; padding: 2px 7px; border: 1px solid #cdd3db;
+      border-radius: 4px; background: #f8f9fa; font-size: 10px;
+      font-weight: 700; cursor: pointer; color: #333;
+    }
+    .pm-bulk-action:hover { background: #f0f0f0; border-color: #a64dff; }
+    .pm-bulk-clear { color: #777; padding: 2px 5px; }
     #pm-empty-state {
       flex: 1; display: flex; flex-direction: column;
       align-items: center; justify-content: center;
@@ -225,6 +248,7 @@
 
     /* OUTLINE TABLE */
     :root {
+      --pm-col-task: 150px;
       --pm-col-dur:   44px;
       --pm-col-start: 72px;
       --pm-col-end:   72px;
@@ -244,7 +268,7 @@
     }
     #pm-outline-header {
       display: grid;
-      grid-template-columns: 16px 30px 26px 1fr var(--pm-col-dur) var(--pm-col-start) var(--pm-col-end) var(--pm-col-pct) var(--pm-col-pred) var(--pm-col-res);
+      grid-template-columns: 16px 30px 26px minmax(var(--pm-col-task), 1fr) var(--pm-col-dur) var(--pm-col-start) var(--pm-col-end) var(--pm-col-pct) var(--pm-col-pred) var(--pm-col-res);
       align-items: center;
       padding: 0 4px;
       height: 28px;
@@ -266,7 +290,7 @@
     }
     .pm-task-row {
       display: grid;
-      grid-template-columns: 16px 30px 26px 1fr var(--pm-col-dur) var(--pm-col-start) var(--pm-col-end) var(--pm-col-pct) var(--pm-col-pred) var(--pm-col-res);
+      grid-template-columns: 16px 30px 26px minmax(var(--pm-col-task), 1fr) var(--pm-col-dur) var(--pm-col-start) var(--pm-col-end) var(--pm-col-pct) var(--pm-col-pred) var(--pm-col-res);
       align-items: center;
       height: 16px;
       padding: 0 4px;
@@ -1361,6 +1385,15 @@
         <button class="pm-toolbar-btn" id="pm-csv-btn" title="Export current task list to CSV">Export CSV</button>
         <button class="pm-toolbar-btn" id="pm-fullscreen-btn" title="Toggle full-screen mode">Full Screen</button>
         <div class="pm-toolbar-sep"></div>
+        <div class="pm-bulk-bar" id="pm-bulk-bar" hidden>
+          <span class="pm-bulk-count" id="pm-bulk-count">0 selected</span>
+          <input class="pm-bulk-input" type="date" id="pm-bulk-end-date" title="Set selected tasks end date">
+          <button class="pm-bulk-action" id="pm-bulk-set-end" title="Apply this end date to selected tasks">Set End</button>
+          <input class="pm-bulk-input" type="number" id="pm-bulk-duration" min="1" max="3650" placeholder="Days" title="Set selected tasks duration in days">
+          <button class="pm-bulk-action" id="pm-bulk-set-duration" title="Apply this duration to selected tasks">Set Duration</button>
+          <button class="pm-bulk-action pm-bulk-clear" id="pm-bulk-clear" title="Clear selection">Clear</button>
+        </div>
+        <div class="pm-toolbar-sep"></div>
         <input type="text" id="pm-task-search" placeholder="Search tasks…"
           style="padding:3px 8px;font-size:11px;border:1px solid #d0d3d8;border-radius:4px;width:160px;outline:none;"
           oninput="pmSearchTasks(this.value)">
@@ -2366,6 +2399,8 @@
     zoom: 'week',       // 'day' | 'week' | 'month' | 'quarter'
     collapsed: new Set(), // task IDs that are collapsed
     selectedTaskId: null,
+    selectedTaskIds: new Set(),
+    selectionAnchorId: null,
     linkMode: false,
     linkFromId: null,
     colorTargetTaskId: null,
@@ -2664,6 +2699,8 @@
     state.tasks = [];
     state.links = [];
     state.selectedTaskId = null;
+    state.selectedTaskIds.clear();
+    state.selectionAnchorId = null;
     const [tasksData, linksData] = await Promise.all([
       api(`${API}/project-plans/${planId}/tasks`),
       api(`${API}/project-plans/${planId}/links`)
@@ -2754,6 +2791,7 @@
     renderOutline(visibleTasks, wbs, treeMeta);
     renderChart(visibleTasks, treeMeta);
     renderPlanList();
+    updateBulkSelectionUI();
   }
 
   function updateHealthPanel() {
@@ -2843,6 +2881,91 @@
     renderChartBody(visibleTasks, treeMeta);
     if (outlineBody) outlineBody.scrollTop = outlineTop;
     if (chartScroll) chartScroll.scrollTop = chartTop;
+    updateBulkSelectionUI();
+  }
+
+  function ganttRangeSignature() {
+    return `${state.ganttStartDate ? state.ganttStartDate.getTime() : ''}:${state.ganttTotalDays}`;
+  }
+
+  function refreshScheduleView() {
+    const before = ganttRangeSignature();
+    computeGanttRange();
+    if (ganttRangeSignature() === before) renderGanttRowsOnly();
+    else renderAll();
+  }
+
+  function isTaskSelected(taskId) {
+    return state.selectedTaskIds.has(taskId) || state.selectedTaskId === taskId;
+  }
+
+  function setPrimarySelectionState(taskId) {
+    state.selectedTaskIds.clear();
+    state.selectedTaskId = taskId || null;
+    state.selectionAnchorId = taskId || null;
+    if (taskId) state.selectedTaskIds.add(taskId);
+    updateBulkSelectionUI();
+  }
+
+  function getVisibleTaskIdsForSelection() {
+    return getFilteredVisibleTasks(buildTaskTreeMeta()).map(t => t.id);
+  }
+
+  function updateBulkSelectionUI() {
+    const count = state.selectedTaskIds.size;
+    const bar = document.getElementById('pm-bulk-bar');
+    const label = document.getElementById('pm-bulk-count');
+    if (label) label.textContent = `${count} selected`;
+    if (bar) bar.hidden = count === 0;
+  }
+
+  function applySelectionClasses() {
+    document.querySelectorAll('.pm-task-row[data-task-id], .pm-chart-row[data-task-id]').forEach(el => {
+      el.classList.toggle('selected', state.selectedTaskIds.has(el.dataset.taskId));
+    });
+    updateBulkSelectionUI();
+  }
+
+  function selectSingleTask(taskId) {
+    setPrimarySelectionState(taskId);
+    applySelectionClasses();
+  }
+
+  function toggleTaskSelection(taskId) {
+    if (state.selectedTaskIds.has(taskId)) {
+      state.selectedTaskIds.delete(taskId);
+      if (state.selectedTaskId === taskId) state.selectedTaskId = [...state.selectedTaskIds][0] || null;
+    } else {
+      state.selectedTaskIds.add(taskId);
+      state.selectedTaskId = taskId;
+      state.selectionAnchorId = state.selectionAnchorId || taskId;
+    }
+    applySelectionClasses();
+  }
+
+  function selectTaskRange(taskId) {
+    const ids = getVisibleTaskIdsForSelection();
+    const anchor = state.selectionAnchorId || state.selectedTaskId || taskId;
+    const a = ids.indexOf(anchor);
+    const b = ids.indexOf(taskId);
+    if (a < 0 || b < 0) { selectSingleTask(taskId); return; }
+    state.selectedTaskIds.clear();
+    ids.slice(Math.min(a, b), Math.max(a, b) + 1).forEach(id => state.selectedTaskIds.add(id));
+    state.selectedTaskId = taskId;
+    applySelectionClasses();
+  }
+
+  function handleTaskSelectionClick(taskId, event) {
+    if (event.shiftKey) selectTaskRange(taskId);
+    else if (event.metaKey || event.ctrlKey) toggleTaskSelection(taskId);
+    else selectSingleTask(taskId);
+  }
+
+  function clearTaskSelection() {
+    state.selectedTaskIds.clear();
+    state.selectedTaskId = null;
+    state.selectionAnchorId = null;
+    applySelectionClasses();
   }
 
   // ════════════════════════════════════════════════════════════════
@@ -2863,7 +2986,7 @@
       const hasChildren = children.length > 0;
       const descendantCount = treeMeta.descendantCounts[task.id] || 0;
       const collapsed = state.collapsed.has(task.id);
-      const selected = task.id === state.selectedTaskId ? ' selected' : '';
+      const selected = isTaskSelected(task.id) ? ' selected' : '';
       const isMilestone = task.is_milestone;
       const isCompleted = task.status === 'completed';
       const color = taskColor(task, treeMeta);
@@ -3239,7 +3362,7 @@
         }
       }
 
-      const selected = task.id === state.selectedTaskId ? ' selected' : '';
+      const selected = isTaskSelected(task.id) ? ' selected' : '';
       return `<div class="pm-chart-row${selected}" style="width:${W}px;" data-task-id="${task.id}">
         ${baselineBarHtml}
         ${barHtml}
@@ -3519,7 +3642,7 @@
       // Replace temp placeholder with real record from server
       const idx = state.tasks.findIndex(t => t.id === tempId);
       if (idx !== -1) state.tasks[idx] = res.data;
-      state.selectedTaskId = res.data.id;
+      setPrimarySelectionState(res.data.id);
       computeGanttRange();
       renderAll();
     }
@@ -3538,7 +3661,9 @@
     state.links = state.links.filter(l => !idsToRemove.has(l.from_task_id) && !idsToRemove.has(l.to_task_id));
     closeTaskModal();
     closeInspector();
-    state.selectedTaskId = null;
+    idsToRemove.forEach(id => state.selectedTaskIds.delete(id));
+    state.selectedTaskId = [...state.selectedTaskIds][0] || null;
+    state.selectionAnchorId = state.selectedTaskId;
     computeGanttRange();
     renderAll();
     await api(`${API}/project-plans/tasks/${taskId}`, { method:'DELETE' });
@@ -3565,8 +3690,9 @@
         title: 'New task',
         sort_order: nextSortOrder()
       })});
-      state.selectedTaskId = res.data.id;
       await loadPlan(state.activePlanId);
+      setPrimarySelectionState(res.data.id);
+      applySelectionClasses();
       // Focus the new title for inline editing
       requestAnimationFrame(() => {
         const titleEl = document.querySelector(`[data-edit-title="${res.data.id}"]`);
@@ -3589,7 +3715,8 @@
     if (!task) return;
     state.inspectorTaskId = task.id;
     state.inspectorTask = task;
-    state.selectedTaskId = task.id;
+    setPrimarySelectionState(task.id);
+    applySelectionClasses();
 
     // Header
     document.getElementById('pm-insp-title-input').value = task.title || '';
@@ -4360,18 +4487,87 @@
         if (start && end && end < start) {
           if (window.RTS?.showToast) RTS.showToast('End date cannot be before start date', 'error');
           else alert('End date cannot be before start date');
-          renderAll();
+          renderGanttRowsOnly();
           return;
         }
       }
     }
-    pushUndo(state.tasks.find(t => t.id === taskId));
-    await api(`${API}/project-plans/tasks/${taskId}`, { method:'PUT', body: JSON.stringify({ [field]: value || null }) });
+    if (!task) return;
+    const oldValue = task[field];
+    pushUndo({ ...task });
     if (task) task[field] = value || null;
-    computeGanttRange();
-    renderAll();
-    // Cascade FS constraints after date edit
-    if (field === 'end_date' || field === 'start_date') await enforceFS(taskId);
+    refreshScheduleView();
+    try {
+      await api(`${API}/project-plans/tasks/${taskId}`, { method:'PUT', body: JSON.stringify({ [field]: value || null }) });
+      // Cascade FS constraints after date edit. enforceFS handles the final refresh.
+      if (field === 'end_date' || field === 'start_date') await enforceFS(taskId);
+    } catch (err) {
+      task[field] = oldValue;
+      refreshScheduleView();
+      pmShowToast(err.message || 'Could not save task date', 'error');
+    }
+  }
+
+  function selectedTasks() {
+    const taskById = new Map(state.tasks.map(t => [t.id, t]));
+    return [...state.selectedTaskIds].map(id => taskById.get(id)).filter(Boolean);
+  }
+
+  async function applyBulkEndDate() {
+    const value = document.getElementById('pm-bulk-end-date')?.value;
+    if (!value) { pmShowToast('Choose an end date first', 'error'); return; }
+    const tasks = selectedTasks();
+    if (!tasks.length) return;
+    const updates = [];
+    let skipped = 0;
+    tasks.forEach(task => {
+      if (task.start_date && parseDateLocal(value) < parseDateLocal(task.start_date)) { skipped++; return; }
+      pushUndo({ ...task });
+      task.end_date = value;
+      updates.push({ task, body: { end_date: value } });
+    });
+    if (!updates.length) { pmShowToast('No selected tasks can use that end date', 'error'); return; }
+    refreshScheduleView();
+    try {
+      await Promise.all(updates.map(({ task, body }) =>
+        api(`${API}/project-plans/tasks/${task.id}`, { method:'PUT', body: JSON.stringify(body) })
+      ));
+      await enforceFSMany(updates.map(({ task }) => task.id));
+      pmShowToast(`Updated ${updates.length} task${updates.length === 1 ? '' : 's'}${skipped ? `, skipped ${skipped}` : ''}`, skipped ? 'warning' : 'success');
+    } catch (err) {
+      pmShowToast(err.message || 'Could not update selected tasks', 'error');
+      await loadPlan(state.activePlanId);
+    }
+  }
+
+  async function applyBulkDuration() {
+    const input = document.getElementById('pm-bulk-duration');
+    const rawDays = parseInt(input?.value, 10);
+    if (!Number.isFinite(rawDays) || rawDays < 1) { pmShowToast('Enter a duration in days', 'error'); return; }
+    const days = Math.min(3650, rawDays);
+    const tasks = selectedTasks();
+    if (!tasks.length) return;
+    const updates = [];
+    let skipped = 0;
+    tasks.forEach(task => {
+      if (!task.start_date || task.is_milestone) { skipped++; return; }
+      const endDate = fmtDate(addDays(parseDateLocal(task.start_date), days));
+      pushUndo({ ...task });
+      task.end_date = endDate;
+      updates.push({ task, body: { end_date: endDate } });
+    });
+    if (!updates.length) { pmShowToast('Selected tasks need start dates before duration can be set', 'error'); return; }
+    refreshScheduleView();
+    try {
+      await Promise.all(updates.map(({ task, body }) =>
+        api(`${API}/project-plans/tasks/${task.id}`, { method:'PUT', body: JSON.stringify(body) })
+      ));
+      await enforceFSMany(updates.map(({ task }) => task.id));
+      pmShowToast(`Updated ${updates.length} task${updates.length === 1 ? '' : 's'}${skipped ? `, skipped ${skipped}` : ''}`, skipped ? 'warning' : 'success');
+    } catch (err) {
+      pmShowToast(err.message || 'Could not update selected tasks', 'error');
+      await loadPlan(state.activePlanId);
+    }
   }
 
   // Indent / Outdent
@@ -4637,8 +4833,7 @@
         body.end_date = fmtDate(addDays(origEnd, daysDelta));
       }
       Object.assign(t, body);
-      computeGanttRange();
-      renderAll();
+      refreshScheduleView();
       try {
         await api(`${API}/project-plans/tasks/${taskId}`, { method:'PUT', body: JSON.stringify(body) });
         await enforceFS(taskId); // cascade FS constraints after drag
@@ -4723,19 +4918,37 @@
   // After task `changedId`'s dates change, shift dependent successors so their
   // links are satisfied, preserving each successor's duration. Cascades through
   // the chain. Renders once at the end (public wrapper) to avoid reflow churn.
-  async function enforceFS(changedId) {
-    await _enforceConstraints(changedId, new Set());
-    computeGanttRange();
-    renderAll();
+  function buildConstraintMeta() {
+    const taskById = new Map(state.tasks.map(task => [task.id, task]));
+    const linksByFrom = new Map();
+    state.links.forEach(link => {
+      if (!linksByFrom.has(link.from_task_id)) linksByFrom.set(link.from_task_id, []);
+      linksByFrom.get(link.from_task_id).push(link);
+    });
+    return { taskById, linksByFrom };
   }
 
-  async function _enforceConstraints(changedId, visited) {
+  async function enforceFS(changedId, { render = true } = {}) {
+    await _enforceConstraints(changedId, new Set(), buildConstraintMeta());
+    if (render) refreshScheduleView();
+  }
+
+  async function enforceFSMany(changedIds) {
+    const visited = new Set();
+    const meta = buildConstraintMeta();
+    for (const id of changedIds) {
+      await _enforceConstraints(id, visited, meta);
+    }
+    refreshScheduleView();
+  }
+
+  async function _enforceConstraints(changedId, visited, meta) {
     if (visited.has(changedId)) return; // cycle guard — stop, don't loop forever
     visited.add(changedId);
-    const links = state.links.filter(l => l.from_task_id === changedId);
+    const links = meta.linksByFrom.get(changedId) || [];
     for (const link of links) {
-      const pred = state.tasks.find(t => t.id === link.from_task_id);
-      const succ = state.tasks.find(t => t.id === link.to_task_id);
+      const pred = meta.taskById.get(link.from_task_id);
+      const succ = meta.taskById.get(link.to_task_id);
       if (!pred || !succ) continue;
       const lt  = link.link_type || 'finish_to_start';
       const lag = link.lag_days || 0;
@@ -4787,7 +5000,7 @@
       try {
         await api(`${API}/project-plans/tasks/${succ.id}`, { method:'PUT', body: JSON.stringify(body) });
       } catch(err) { console.warn('enforceFS save failed', err); }
-      await _enforceConstraints(succ.id, visited); // cascade
+      await _enforceConstraints(succ.id, visited, meta); // cascade
     }
   }
 
@@ -5031,15 +5244,26 @@
       if (!rh) return;
       e.preventDefault(); e.stopPropagation();
       const col = rh.dataset.col;
-      if (col === 'task') return; // 1fr — not resizable via variable
       const varName = `--pm-col-${col}`;
       const root = document.documentElement;
       const startX = e.clientX;
       const startW = parseInt(getComputedStyle(root).getPropertyValue(varName)) || 60;
+      const minW = col === 'task' ? 120 : 24;
+      const maxW = col === 'task' ? 720 : 260;
+      const outlineWrap = document.getElementById('pm-outline-wrap');
       rh.setPointerCapture(e.pointerId);
       const onMove = ev => {
-        const newW = Math.max(24, startW + (ev.clientX - startX));
+        const newW = Math.max(minW, Math.min(maxW, startW + (ev.clientX - startX)));
         root.style.setProperty(varName, newW + 'px');
+        if (col === 'task' && outlineWrap) {
+          const s = getComputedStyle(root);
+          const gridMin =
+            16 + 30 + 26 +
+            newW +
+            ['dur','start','end','pct','pred','res'].reduce((sum, name) => sum + (parseInt(s.getPropertyValue(`--pm-col-${name}`)) || 0), 0) +
+            18 + 8;
+          if (gridMin > outlineWrap.offsetWidth) outlineWrap.style.width = Math.min(1000, gridMin) + 'px';
+        }
       };
       const onUp = () => {
         rh.removeEventListener('pointermove', onMove);
@@ -5163,6 +5387,16 @@
     // Baseline buttons
     document.getElementById('pm-baseline-save-btn').addEventListener('click', saveBaseline);
     document.getElementById('pm-baseline-show-btn').addEventListener('click', toggleBaselineView);
+
+    document.getElementById('pm-bulk-set-end').addEventListener('click', applyBulkEndDate);
+    document.getElementById('pm-bulk-set-duration').addEventListener('click', applyBulkDuration);
+    document.getElementById('pm-bulk-clear').addEventListener('click', clearTaskSelection);
+    document.getElementById('pm-bulk-end-date').addEventListener('keydown', e => {
+      if (e.key === 'Enter') applyBulkEndDate();
+    });
+    document.getElementById('pm-bulk-duration').addEventListener('keydown', e => {
+      if (e.key === 'Enter') applyBulkDuration();
+    });
 
     // Full-screen toggle
     document.getElementById('pm-fullscreen-btn').addEventListener('click', () => {
@@ -5334,7 +5568,7 @@
         input.addEventListener('blur', done, { once: true });
         input.addEventListener('keydown', ev => {
           if (ev.key === 'Enter') done();
-          if (ev.key === 'Escape') { saved = true; renderAll(); }
+          if (ev.key === 'Escape') { saved = true; renderGanttRowsOnly(); }
         });
         return;
       }
@@ -5364,15 +5598,13 @@
         input.addEventListener('blur', done, { once: true });
         input.addEventListener('keydown', ev => {
           if (ev.key === 'Enter') done();
-          if (ev.key === 'Escape') { saved = true; renderAll(); }
+          if (ev.key === 'Escape') { saved = true; renderGanttRowsOnly(); }
         });
         return;
       }
       // Plain row click — just select (no inspector). Use the icon button to open detail.
       if (row) {
-        state.selectedTaskId = row.dataset.taskId;
-        document.querySelectorAll('.pm-task-row.selected').forEach(r => r.classList.remove('selected'));
-        row.classList.add('selected');
+        handleTaskSelectionClick(row.dataset.taskId, e);
       }
     });
 
@@ -5427,7 +5659,7 @@
       if (row) {
         e.preventDefault();
         state.ctxTaskId = row.dataset.taskId;
-        state.selectedTaskId = row.dataset.taskId;
+        if (!state.selectedTaskIds.has(row.dataset.taskId)) selectSingleTask(row.dataset.taskId);
         showCtxMenu(e.clientX, e.clientY);
       }
     });
@@ -5499,13 +5731,12 @@
       const bar = e.target.closest('.pm-bar-wrap,.pm-milestone-diamond');
       if (bar || row) {
         const taskId = (bar || row).dataset.taskId;
-        state.selectedTaskId = taskId;
         if (state.linkMode) {
           // Linking is handled on pointerdown (set predecessor → successor).
           // Do NOT open the inspector here, or the popup hides the link flow.
           return;
         } else {
-          renderAll();
+          handleTaskSelectionClick(taskId, e);
         }
       }
     });
@@ -5573,16 +5804,18 @@
         const res = await api(`${API}/project-plans/tasks`, { method:'POST', body: JSON.stringify({
           plan_id: state.activePlanId, parent_task_id: taskId, title: 'New subtask', sort_order: nextSortOrder()
         })});
-        state.selectedTaskId = res.data.id;
         await loadPlan(state.activePlanId);
+        setPrimarySelectionState(res.data.id);
+        applySelectionClasses();
         const el = document.querySelector(`[data-edit-title="${res.data.id}"]`);
         if (el) { el.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); }
       } else if (action === 'add-sibling') {
         const res = await api(`${API}/project-plans/tasks`, { method:'POST', body: JSON.stringify({
           plan_id: state.activePlanId, parent_task_id: task.parent_task_id, title: 'New task', sort_order: (task.sort_order||0)+1
         })});
-        state.selectedTaskId = res.data.id;
         await loadPlan(state.activePlanId);
+        setPrimarySelectionState(res.data.id);
+        applySelectionClasses();
       } else if (action === 'indent') { await indentTask(taskId); }
       else if (action === 'outdent') { await outdentTask(taskId); }
       else if (action === 'link-entity') { openEntityModal(taskId); }
@@ -5649,8 +5882,9 @@
         api(`${API}/project-plans/tasks`, { method:'POST', body: JSON.stringify({
           plan_id: state.activePlanId, parent_task_id: task?.parent_task_id, title: 'New task', sort_order: (task?.sort_order||0)+1
         })}).then(async res => {
-          state.selectedTaskId = res.data.id;
           await loadPlan(state.activePlanId);
+          setPrimarySelectionState(res.data.id);
+          applySelectionClasses();
         });
       } else if (e.key === 'Tab' && !e.shiftKey) {
         e.preventDefault();
@@ -6352,6 +6586,8 @@
   function pmShowToast(msg, type) {
     if (window.RTS && typeof window.RTS.showToast === 'function') {
       window.RTS.showToast(msg, type || 'success');
+    } else if (type === 'error') {
+      alert(msg);
     }
   }
 
