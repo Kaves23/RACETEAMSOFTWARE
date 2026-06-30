@@ -2,9 +2,9 @@
 // Include this before core.js on pages where you want to override defaults.
 window.RTS_CONFIG = {
   // Software build version — updated on every deployment
-  buildVersion: 'e1c3a48',
+  buildVersion: '93b4493',
   buildDate:    '2026-06-30',
-  buildNote:    'Improve Gantt task collapse controls',
+  buildNote:    'Refine Gantt collapse performance',
   // API Configuration
   api: {
     baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)

@@ -2483,6 +2483,12 @@
 
   function buildTaskTreeMeta() {
     const byId = new Map(state.tasks.map(task => [task.id, task]));
+    const usersById = new Map(state.users.map(user => [user.id, user]));
+    const predLinksByTask = new Map();
+    state.links.forEach(link => {
+      if (!predLinksByTask.has(link.to_task_id)) predLinksByTask.set(link.to_task_id, []);
+      predLinksByTask.get(link.to_task_id).push(link);
+    });
     const childrenByParent = new Map();
     state.tasks.forEach(task => {
       const parentId = task.parent_task_id || null;
@@ -2523,7 +2529,7 @@
     }
 
     roots.forEach(root => visit(root, 0, root));
-    return { byId, childrenByParent, roots, depth, rootById, descendantCounts, rollupProgress };
+    return { byId, usersById, predLinksByTask, childrenByParent, roots, depth, rootById, descendantCounts, rollupProgress };
   }
 
   // Compute effective color for a task (inherit from root parent, lighten by depth)
@@ -2743,25 +2749,7 @@
     updateHealthPanel();
 
     const treeMeta = buildTaskTreeMeta();
-    let visibleTasks = buildVisibleTasks(treeMeta);
-    const today = new Date(); today.setHours(0,0,0,0);
-    const me = state.users.find(u => u.id === localStorage.getItem('rts_user_id'));
-
-    if (state.chipFilter === 'overdue') {
-      visibleTasks = visibleTasks.filter(t => t.end_date && parseDateLocal(t.end_date) < today && t.status !== 'completed');
-    } else if (state.chipFilter === 'nodates') {
-      visibleTasks = visibleTasks.filter(t => !t.start_date && !t.end_date);
-    } else if (state.chipFilter === 'blocked') {
-      visibleTasks = visibleTasks.filter(t => t.status === 'blocked' || t.status === 'waiting_on');
-    } else if (state.chipFilter === 'mine') {
-      visibleTasks = visibleTasks.filter(t => me && t.assignee_user_id === me.id);
-    }
-
-    if (state.searchQuery) {
-      const q = state.searchQuery.toLowerCase();
-      visibleTasks = visibleTasks.filter(t => t.title.toLowerCase().includes(q));
-    }
-
+    const visibleTasks = getFilteredVisibleTasks(treeMeta);
     const wbs = computeWbs(treeMeta);
     renderOutline(visibleTasks, wbs, treeMeta);
     renderChart(visibleTasks, treeMeta);
@@ -2820,6 +2808,43 @@
     renderAll();
   }
 
+  function getFilteredVisibleTasks(treeMeta) {
+    let visibleTasks = buildVisibleTasks(treeMeta);
+    const today = new Date(); today.setHours(0,0,0,0);
+    const meId = localStorage.getItem('rts_user_id');
+
+    if (state.chipFilter === 'overdue') {
+      visibleTasks = visibleTasks.filter(t => t.end_date && parseDateLocal(t.end_date) < today && t.status !== 'completed');
+    } else if (state.chipFilter === 'nodates') {
+      visibleTasks = visibleTasks.filter(t => !t.start_date && !t.end_date);
+    } else if (state.chipFilter === 'blocked') {
+      visibleTasks = visibleTasks.filter(t => t.status === 'blocked' || t.status === 'waiting_on');
+    } else if (state.chipFilter === 'mine') {
+      visibleTasks = visibleTasks.filter(t => meId && t.assignee_user_id === meId);
+    }
+
+    if (state.searchQuery) {
+      const q = state.searchQuery.toLowerCase();
+      visibleTasks = visibleTasks.filter(t => (t.title || '').toLowerCase().includes(q));
+    }
+
+    return visibleTasks;
+  }
+
+  function renderGanttRowsOnly() {
+    const outlineBody = document.getElementById('pm-outline-body');
+    const chartScroll = document.getElementById('pm-chart-body-scroll');
+    const outlineTop = outlineBody ? outlineBody.scrollTop : 0;
+    const chartTop = chartScroll ? chartScroll.scrollTop : 0;
+    const treeMeta = buildTaskTreeMeta();
+    const visibleTasks = getFilteredVisibleTasks(treeMeta);
+    const wbs = computeWbs(treeMeta);
+    renderOutline(visibleTasks, wbs, treeMeta);
+    renderChartBody(visibleTasks, treeMeta);
+    if (outlineBody) outlineBody.scrollTop = outlineTop;
+    if (chartScroll) chartScroll.scrollTop = chartTop;
+  }
+
   // ════════════════════════════════════════════════════════════════
   //  RENDER — OUTLINE
   // ════════════════════════════════════════════════════════════════
@@ -2842,7 +2867,7 @@
       const isMilestone = task.is_milestone;
       const isCompleted = task.status === 'completed';
       const color = taskColor(task, treeMeta);
-      const user = state.users.find(u => u.id === task.assignee_user_id);
+      const user = treeMeta.usersById.get(task.assignee_user_id);
       const initials = user ? (user.full_name || user.username || '?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase() : '';
       const assigneeTitle = user ? (user.full_name || user.username) : 'Unassigned';
 
@@ -2873,7 +2898,7 @@
       const indentBorderColor = depth > 0 ? taskColor(task, treeMeta) : 'transparent';
 
       // Predecessor notation (e.g. "3", "4FS", "9FF+2d")
-      const predLinks = state.links.filter(l => l.to_task_id === task.id);
+      const predLinks = treeMeta.predLinksByTask.get(task.id) || [];
       const predStr = predLinks.map(l => {
         const predWbs = wbs[l.from_task_id] || '?';
         const lt = l.link_type || 'finish_to_start';
@@ -2886,10 +2911,9 @@
       const resourceStr = user ? (user.full_name || user.username || '').trim() : '';
 
       // Dependency constraint warning: predecessor overdue relative to this task's start
-      const hasDepWarn = task.start_date && state.links
-        .filter(l => l.to_task_id === task.id)
+      const hasDepWarn = task.start_date && predLinks
         .some(l => {
-          const pred = state.tasks.find(t => t.id === l.from_task_id);
+          const pred = treeMeta.byId.get(l.from_task_id);
           if (!pred) return false;
           const lt = l.link_type || 'finish_to_start';
           try {
@@ -3153,7 +3177,7 @@
     // Task rows
     const rowsHtml = visibleTasks.map(task => {
       const color = taskColor(task, treeMeta);
-      const barUser = state.users.find(u => u.id === task.assignee_user_id);
+      const barUser = treeMeta.usersById.get(task.assignee_user_id);
       const barResource = barUser ? (barUser.full_name || barUser.username || '').trim() : '';
       const inactiveStyle = task.is_inactive ? 'opacity:0.35;filter:grayscale(0.7);' : '';
       let barHtml = '';
@@ -3254,10 +3278,11 @@
   function renderArrows(visibleTasks) {
     const svg = document.getElementById('pm-arrows-svg');
     if (!svg) return;
+    const rowIndexByTask = new Map(visibleTasks.map((task, idx) => [task.id, idx]));
     const arrows = state.links.map(link => {
-      const fromIdx = visibleTasks.findIndex(t => t.id === link.from_task_id);
-      const toIdx   = visibleTasks.findIndex(t => t.id === link.to_task_id);
-      if (fromIdx < 0 || toIdx < 0) return '';
+      const fromIdx = rowIndexByTask.get(link.from_task_id);
+      const toIdx   = rowIndexByTask.get(link.to_task_id);
+      if (fromIdx == null || toIdx == null) return '';
       const fromTask = visibleTasks[fromIdx];
       const toTask   = visibleTasks[toIdx];
       const lt = link.link_type || 'finish_to_start';
@@ -5251,7 +5276,7 @@
         e.stopPropagation();
         const id = toggleBtn.dataset.toggle;
         state.collapsed.has(id) ? state.collapsed.delete(id) : state.collapsed.add(id);
-        renderAll();
+        renderGanttRowsOnly();
         return;
       }
       if (colorDot) {
