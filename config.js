@@ -2,9 +2,9 @@
 // Include this before core.js on pages where you want to override defaults.
 window.RTS_CONFIG = {
   // Software build version — updated on every deployment
-  buildVersion: '347c462',
+  buildVersion: '45586fa',
   buildDate:    '2026-07-01',
-  buildNote:    'Practice tracking: replace emojis with Bootstrap Icons (project rule: custom icons, no emoticons)',
+  buildNote:    'Mobile: add Practice Tracking page (view sessions, log practice/race days) + link in browse hub',
   // API Configuration
   api: {
     baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)

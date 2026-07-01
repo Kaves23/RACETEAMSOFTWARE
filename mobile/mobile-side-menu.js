@@ -70,6 +70,30 @@
     var navItems = Array.prototype.slice.call(navBar.querySelectorAll('.nav-item'));
     if (!navItems.length) return;
 
+    // Ensure a "Driver" section entry is present in the menu on every page,
+    // without having to hand-edit every page's nav bar.
+    var hasDriver = navItems.some(function (item) {
+      return (item.getAttribute('href') || '').toLowerCase().indexOf('tab=driver') !== -1;
+    });
+    if (!hasDriver) {
+      var page = (window.location.pathname.split('/').pop() || '').toLowerCase();
+      var onDriverPage = page === 'drivers.html' || page === 'practice-tracking.html';
+      var driverLink = document.createElement('a');
+      driverLink.className = 'nav-item' + (onDriverPage ? ' active' : '');
+      driverLink.setAttribute('href', 'browse.html?tab=driver');
+      driverLink.innerHTML =
+        '<span class="nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></span>' +
+        '<span class="nav-label">Driver</span>' +
+        '<div class="nav-dot"></div>';
+      // Insert right after the Academy item when present, otherwise at the end.
+      var academyIdx = -1;
+      navItems.forEach(function (item, i) {
+        if ((item.getAttribute('href') || '').toLowerCase().indexOf('tab=academy') !== -1) academyIdx = i;
+      });
+      if (academyIdx >= 0) navItems.splice(academyIdx + 1, 0, driverLink);
+      else navItems.push(driverLink);
+    }
+
     var logTripItem = navItems.find(function (item) {
       var href = (item.getAttribute('href') || '').toLowerCase();
       return href.indexOf('vehicles.html?log=1') !== -1;
