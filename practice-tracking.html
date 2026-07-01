@@ -27,8 +27,10 @@
     table.pt-matrix thead th{position:sticky;top:0;z-index:3;background:#f8f9fa;padding:4px 6px;text-align:center;font-weight:700;color:#1a1d24;vertical-align:bottom;}
     table.pt-matrix thead th.pt-corner{left:0;z-index:5;text-align:left;min-width:150px;}
     table.pt-matrix th.pt-rowhead,table.pt-matrix td.pt-rowhead{position:sticky;left:0;z-index:2;background:#fff;text-align:left;min-width:150px;padding:2px 8px;cursor:pointer;}
-    table.pt-matrix tbody tr:hover td{background:#f7f8ff;}
-    table.pt-matrix tbody tr:hover .pt-rowhead{background:#f0f1ff;}
+    table.pt-matrix tbody tr:nth-child(even) td{background:#f3f4f6;}
+    table.pt-matrix tbody tr:nth-child(even) td.pt-rowhead{background:#eceef1;}
+    table.pt-matrix tbody tr:hover td{background:#eef0ff;}
+    table.pt-matrix tbody tr:hover .pt-rowhead{background:#e6e8ff;}
     .pt-drv-col{min-width:52px;max-width:92px;}
     .pt-drv-name{font-weight:700;font-size:.66rem;line-height:1.02;}
     .pt-drv-sub{font-size:.56rem;color:#6c757d;font-weight:600;}
@@ -39,10 +41,11 @@
     .st-planned{background:#dbeafe;color:#1d4ed8;}
     .st-cancelled{background:#fef3c7;color:#92400e;}
     .st-no_show{background:#fee2e2;color:#b91c1c;}
-    .st-blank{background:#fff;color:#d0d5dd;}
+    .st-blank{background:transparent;color:#d0d5dd;}
     .pt-sess-date{font-weight:700;color:#1a1d24;font-size:.68rem;line-height:1.1;}
     .pt-sess-meta{font-size:.56rem;color:#6c757d;line-height:1.05;}
     .pt-ev-chip{display:inline-block;background:#ede9fe;color:#5b21b6;border-radius:8px;padding:0 6px;font-size:.58rem;font-weight:700;margin-left:4px;}
+    .pt-track-chip{display:inline-block;color:#fff;border-radius:5px;padding:0 6px;font-size:.6rem;font-weight:800;letter-spacing:.02em;line-height:1.55;vertical-align:middle;margin-left:5px;}
     .pt-legend{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:8px 2px 0;font-size:.7rem;color:#6c757d;}
     .pt-legend .sw{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:4px;vertical-align:middle;}
 
@@ -225,6 +228,7 @@ const jbody = obj => ({ body: JSON.stringify(obj) });
 function fmtDate(d){ const x=new Date(d); return isNaN(x)?'':x.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'}); }
 function colKey(c){ return c.id ? 'id:'+c.id : 'nm:'+(c.name||'').toLowerCase(); }
 function attKey(a){ return a.driver_id ? 'id:'+a.driver_id : 'nm:'+(a.driver_name||'').toLowerCase(); }
+function trackColor(t){ if(!t) return '#94a3b8'; let h=0; for(let i=0;i<t.length;i++) h=(h*31+t.charCodeAt(i))>>>0; return `hsl(${h%360} 58% 40%)`; }
 
 // ─── LOAD ────────────────────────────────────────────────────
 async function loadRefs(){
@@ -290,8 +294,9 @@ function renderMatrix(){
   }
   body.innerHTML = sessions.map(s=>{
     const ev = s.event_id ? events.find(e=>e.id===s.event_id) : null;
+    const trk = s.track ? `<span class="pt-track-chip" style="background:${trackColor(s.track)}" title="${esc(s.venue||s.track)}">${esc(s.track)}</span>` : '';
     const head = `<td class="pt-rowhead" onclick="openSession('${s.id}')">
-        <div class="pt-sess-date">${fmtDate(s.session_date)}${s.track?` · ${esc(s.track)}`:''}</div>
+        <div class="pt-sess-date">${fmtDate(s.session_date)}${trk}</div>
         <div class="pt-sess-meta">${esc(s.class_name||'')}${ev?`<span class="pt-ev-chip">${esc(ev.name||'event')}</span>`:''}${(s.staff&&s.staff.length)?` · 👤${s.staff.length}`:''}</div>
       </td>`;
     const cells = columns.map(c=>{
