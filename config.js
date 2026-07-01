@@ -2,9 +2,9 @@
 // Include this before core.js on pages where you want to override defaults.
 window.RTS_CONFIG = {
   // Software build version — updated on every deployment
-  buildVersion: '45586fa',
+  buildVersion: '08cc688',
   buildDate:    '2026-07-01',
-  buildNote:    'Mobile: add Practice Tracking page (view sessions, log practice/race days) + link in browse hub',
+  buildNote:    'Mobile menu: add Driver section (Drivers + Practice), move out of Sporting; inject Driver into side menu on all pages',
   // API Configuration
   api: {
     baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)

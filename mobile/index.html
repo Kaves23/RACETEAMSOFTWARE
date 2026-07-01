@@ -80,6 +80,12 @@
       .catch(function(e) { console.warn('SW registration failed:', e); });
   }
 
+  // Land on the last visited page when available, otherwise the dashboard.
+  function landing() {
+    var p = localStorage.getItem('mobile_last_page');
+    window.location.replace((p && p !== 'index.html') ? p : 'dashboard.html');
+  }
+
   // ── Init: redirect if already logged in ──────────────────────────────────
   (function init() {
     var token = localStorage.getItem('auth_token');
@@ -88,7 +94,7 @@
         .then(function(r) { return r.json(); })
         .then(function(d) {
           if (d.success) {
-            window.location.replace('browse.html');
+            landing();
           } else {
             localStorage.removeItem('auth_token');
             showLogin();
@@ -96,7 +102,7 @@
         })
         .catch(function() {
           // Network error — assume token ok, proceed
-          window.location.replace('browse.html');
+          landing();
         });
     } else {
       showLogin();
@@ -134,7 +140,7 @@
     .then(function(data) {
       if (data.success && data.token) {
         localStorage.setItem('auth_token', data.token);
-        window.location.replace('browse.html');
+        landing();
       } else {
         err.textContent = data.error || 'Invalid username or password.';
         btn.disabled = false;
