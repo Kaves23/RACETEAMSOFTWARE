@@ -113,11 +113,13 @@ router.post('/sessions', async (req, res, next) => {
     const b = req.body || {};
     if (!b.session_date) return res.status(400).json({ error: 'session_date required' });
     await client.query('BEGIN');
+    const sessionType = b.session_type === 'race' ? 'race' : 'practice';
     const s = (await client.query(
-      `INSERT INTO practice_sessions (session_date, track, venue, event_id, class_name, title, notes, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+      `INSERT INTO practice_sessions (session_date, track, venue, event_id, class_name, title, notes, session_type, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
       [b.session_date, b.track || null, b.venue || null, b.event_id || null,
-       b.class_name || null, b.title || null, b.notes || null, b.created_by || req.user?.username || null]
+       b.class_name || null, b.title || null, b.notes || null, sessionType,
+       b.created_by || req.user?.username || null]
     )).rows[0];
 
     const editor = req.user?.username || null;
@@ -145,12 +147,14 @@ router.post('/sessions', async (req, res, next) => {
 router.put('/sessions/:id', async (req, res, next) => {
   try {
     const b = req.body || {};
+    const sessionType = b.session_type === 'race' ? 'race' : (b.session_type === 'practice' ? 'practice' : null);
     const r = await pool.query(
       `UPDATE practice_sessions SET session_date=COALESCE($1,session_date), track=$2, venue=$3,
-              event_id=$4, class_name=$5, title=$6, notes=$7, updated_at=NOW()
-       WHERE id=$8 RETURNING *`,
+              event_id=$4, class_name=$5, title=$6, notes=$7,
+              session_type=COALESCE($8,session_type), updated_at=NOW()
+       WHERE id=$9 RETURNING *`,
       [b.session_date || null, b.track || null, b.venue || null, b.event_id || null,
-       b.class_name || null, b.title || null, b.notes || null, req.params.id]
+       b.class_name || null, b.title || null, b.notes || null, sessionType, req.params.id]
     );
     if (!r.rows.length) return res.status(404).json({ error: 'Not found' });
     const full = await loadSessions('WHERE id = $1', [req.params.id]);

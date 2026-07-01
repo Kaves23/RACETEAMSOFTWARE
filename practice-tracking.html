@@ -66,6 +66,14 @@
     .chip-multi{display:flex;flex-wrap:wrap;gap:5px;}
     .chip-pick{border:1px solid #dee2e6;border-radius:16px;padding:3px 10px;font-size:.75rem;cursor:pointer;background:#fff;user-select:none;}
     .chip-pick.on{background:#6366f1;color:#fff;border-color:#6366f1;}
+    /* Practice / Race segmented control in the log modal */
+    .pt-typeseg{display:inline-flex;border:1px solid #dee2e6;border-radius:8px;overflow:hidden;width:100%;}
+    .pt-typeseg button{flex:1;border:0;background:#fff;color:#6c757d;font-size:.85rem;font-weight:700;padding:8px 14px;cursor:pointer;transition:background .1s;}
+    .pt-typeseg button.active[data-type="practice"]{background:#6366f1;color:#fff;}
+    .pt-typeseg button.active[data-type="race"]{background:#dc2626;color:#fff;}
+    /* Race-day markers in the matrix */
+    .pt-race-chip{display:inline-block;background:#dc2626;color:#fff;border-radius:5px;padding:0 6px;font-size:.58rem;font-weight:800;letter-spacing:.03em;line-height:1.55;vertical-align:middle;margin-left:5px;}
+    table.pt-matrix tbody tr.pt-race-row td.pt-rowhead{box-shadow:inset 4px 0 0 #dc2626;}
     @media print{ #rtsTopNav,.pt-toolbar,.pt-stats-bar,.pt-actions,.pt-legend{display:none!important;} .pt-matrix-wrap{max-height:none;overflow:visible;} }
   </style>
 </head>
@@ -81,7 +89,7 @@
       <button class="btn btn-sm btn-outline-secondary" id="btnImport">Import sheet</button>
       <button class="btn btn-sm btn-outline-secondary" id="btnExport">Export CSV</button>
       <button class="btn btn-sm btn-outline-secondary" id="btnPrint">Print</button>
-      <button class="btn btn-sm text-white" id="btnQuick" style="background:#6366f1;border-color:#6366f1;">+ Log practice</button>
+      <button class="btn btn-sm text-white" id="btnQuick" style="background:#6366f1;border-color:#6366f1;">+ Log day</button>
     </div>
   </div>
 
@@ -121,6 +129,7 @@
       <span><span class="sw st-planned"></span>Planned</span>
       <span><span class="sw st-cancelled"></span>Cancelled</span>
       <span><span class="sw st-no_show"></span>No-show</span>
+      <span><span class="pt-race-chip">RACE</span> Race day (red bar)</span>
       <span class="ms-2">Click a cell to cycle · click a row date to edit the session</span>
     </div>
   </div>
@@ -140,22 +149,37 @@
       <div class="modal-body">
         <input type="hidden" id="sId">
         <div class="row g-2">
+          <div class="col-12">
+            <div class="pt-typeseg" id="sTypeSeg">
+              <button type="button" data-type="practice" class="active">🛠 Practice day</button>
+              <button type="button" data-type="race">🏁 Race day</button>
+            </div>
+          </div>
           <div class="col-md-3"><label class="form-label small fw-semibold mb-1">Date *</label>
             <input type="date" class="form-control form-control-sm" id="sDate"></div>
           <div class="col-md-3"><label class="form-label small fw-semibold mb-1">Track</label>
-            <input class="form-control form-control-sm" id="sTrack" list="trackList" placeholder="e.g. VKC"></div>
-          <div class="col-md-6"><label class="form-label small fw-semibold mb-1">Venue (full)</label>
-            <input class="form-control form-control-sm" id="sVenue" placeholder="Optional full venue name"></div>
+            <input class="form-control form-control-sm" id="sTrack" list="trackList" placeholder="Start typing…"></div>
+          <div class="col-md-6"><label class="form-label small fw-semibold mb-1">Venue <span class="text-secondary">(auto-fills from track)</span></label>
+            <input class="form-control form-control-sm" id="sVenue" placeholder="Full venue name"></div>
           <div class="col-md-4"><label class="form-label small fw-semibold mb-1">Class</label>
             <input class="form-control form-control-sm" id="sClass" list="classList" placeholder="e.g. Rok"></div>
-          <div class="col-md-8"><label class="form-label small fw-semibold mb-1">Link to event <span class="text-secondary">(optional — or leave free)</span></label>
+          <div class="col-md-8"><label class="form-label small fw-semibold mb-1">Link to event <span class="text-secondary">(optional)</span></label>
             <select class="form-select form-select-sm" id="sEvent"><option value="">— Not linked —</option></select></div>
           <div class="col-12"><label class="form-label small fw-semibold mb-1">Staff present</label>
             <div class="chip-multi" id="sStaffChips"></div>
             <input class="form-control form-control-sm mt-1" id="sStaffAdd" placeholder="Type a name + Enter to add someone not listed">
           </div>
-          <div class="col-12"><label class="form-label small fw-semibold mb-1">Drivers</label>
-            <div class="text-secondary mb-1" style="font-size:.72rem;">Click to set status · click again to cycle. Green = attended.</div>
+          <div class="col-12">
+            <div class="d-flex justify-content-between align-items-end flex-wrap gap-1 mb-1">
+              <label class="form-label small fw-semibold mb-0">Drivers <span class="text-secondary fw-normal" id="sDriverCount"></span></label>
+              <div class="d-flex gap-1 align-items-center">
+                <input class="form-control form-control-sm" id="sDriverFilter" placeholder="Find driver…" style="width:130px;">
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="sClassPick" title="Tick everyone in the class above"></button>
+                <button type="button" class="btn btn-sm btn-outline-success" id="sMarkAll">All present</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="sClearAll">Clear</button>
+              </div>
+            </div>
+            <div class="text-secondary mb-1" style="font-size:.72rem;">Click a driver to mark <b>attended</b> · click again to cycle Planned → Cancelled → No-show → blank.</div>
             <div class="chip-multi" id="sDriverChips"></div>
             <input class="form-control form-control-sm mt-1" id="sDriverAdd" placeholder="Type a driver not listed + Enter (override)">
           </div>
@@ -290,7 +314,7 @@ function renderMatrix(){
 
   const body = document.getElementById('matrixBody');
   if(!sessions.length){
-    body.innerHTML = `<tr><td class="text-secondary p-3" colspan="${columns.length+1}">No practice sessions yet. Click <b>+ Log practice</b> or <b>Import sheet</b>.</td></tr>`;
+    body.innerHTML = `<tr><td class="text-secondary p-3" colspan="${columns.length+1}">No sessions yet. Click <b>+ Log day</b> or <b>Import sheet</b>.</td></tr>`;
     return;
   }
   let prevDay = null;
@@ -298,9 +322,11 @@ function renderMatrix(){
     const dayKey = String(s.session_date||'').slice(0,10);
     const dayStart = dayKey !== prevDay; prevDay = dayKey;
     const ev = s.event_id ? events.find(e=>e.id===s.event_id) : null;
+    const isRace = s.session_type === 'race';
     const trk = s.track ? `<span class="pt-track-chip" style="background:${trackColor(s.track)}" title="${esc(s.venue||s.track)}">${esc(s.track)}</span>` : '';
+    const raceTag = isRace ? `<span class="pt-race-chip" title="Race day">RACE</span>` : '';
     const head = `<td class="pt-rowhead" onclick="openSession('${s.id}')">
-        <div class="pt-sess-date">${fmtDate(s.session_date)}${trk}</div>
+        <div class="pt-sess-date">${fmtDate(s.session_date)}${raceTag}${trk}</div>
         <div class="pt-sess-meta">${esc(s.class_name||'')}${ev?`<span class="pt-ev-chip">${esc(ev.name||'event')}</span>`:''}${(s.staff&&s.staff.length)?` · 👤${s.staff.length}`:''}</div>
       </td>`;
     const cells = columns.map(c=>{
@@ -311,7 +337,8 @@ function renderMatrix(){
       const who = a && a.updated_by ? ` · by ${esc(a.updated_by)}${a.updated_at?' '+fmtDate(a.updated_at):''}` : '';
       return `<td><div class="pt-cell ${cls}" onclick="cycleCell('${s.id}','${colKey(c)}')" title="${esc(c.name)} — ${st||'blank'}${a&&a.kart?' · '+esc(a.kart):''}${who}">${letter}</div></td>`;
     }).join('');
-    return `<tr class="${dayStart?'pt-day-start':''}">${head}${cells}</tr>`;
+    const rowCls = [dayStart?'pt-day-start':'', isRace?'pt-race-row':''].filter(Boolean).join(' ');
+    return `<tr class="${rowCls}">${head}${cells}</tr>`;
   }).join('');
 }
 
@@ -371,7 +398,8 @@ function populateFilters(){
 
 // ─── SESSION MODAL ───────────────────────────────────────────
 let modalStaff = [];   // [{staff_id,staff_name,role}]
-let modalDrivers = []; // [{driver_id,driver_name,status,color}]
+let modalDrivers = []; // [{driver_id,driver_name,status,color,cls}]
+let modalType = 'practice';
 
 function openQuick(){ openSession(null); }
 
@@ -400,7 +428,7 @@ function buildEventOptions(sessionDate){
 
 function openSession(id){
   const s = id ? sessions.find(x=>x.id===id) : null;
-  document.getElementById('sessTitle').textContent = s ? 'Edit practice session' : 'Log practice';
+  document.getElementById('sessTitle').textContent = s ? 'Edit session' : 'Log a session';
   document.getElementById('sId').value = s ? s.id : '';
   document.getElementById('sDate').value = s ? String(s.session_date||'').slice(0,10) : new Date().toISOString().slice(0,10);
   document.getElementById('sTrack').value = s ? (s.track||'') : '';
@@ -408,6 +436,9 @@ function openSession(id){
   document.getElementById('sClass').value = s ? (s.class_name||'') : (document.getElementById('fClass').value||'');
   document.getElementById('sNotes').value = s ? (s.notes||'') : '';
   document.getElementById('btnDelSess').classList.toggle('d-none', !s);
+  setModalType(s ? (s.session_type||'practice') : 'practice');
+  const filterEl = document.getElementById('sDriverFilter');
+  if(filterEl) filterEl.value = '';
 
   // events dropdown (closest dates surfaced first)
   const evSel = document.getElementById('sEvent');
@@ -422,14 +453,30 @@ function openSession(id){
   const existing = {};
   if(s) (s.attendance||[]).forEach(a=>{ existing[attKey(a)] = a.status; });
   modalDrivers = driverProfiles.map(d=>({ driver_id:d.id, driver_name:d.name, color:d.color||'#6366f1',
-      status: existing['id:'+d.id] || '' }));
+      cls:d.racing_class||'', status: existing['id:'+d.id] || '' }));
   // include overrides present on the session but not in roster
   if(s) (s.attendance||[]).forEach(a=>{
     if(!a.driver_id && !modalDrivers.some(m=>!m.driver_id && (m.driver_name||'').toLowerCase()===(a.driver_name||'').toLowerCase()))
-      modalDrivers.push({ driver_id:null, driver_name:a.driver_name, color:'#94a3b8', status:a.status });
+      modalDrivers.push({ driver_id:null, driver_name:a.driver_name, color:'#94a3b8', cls:'', status:a.status });
   });
+  updateClassPickBtn();
   renderModalDrivers();
   sessModal.show();
+}
+
+function setModalType(t){
+  modalType = t === 'race' ? 'race' : 'practice';
+  document.querySelectorAll('#sTypeSeg button').forEach(b=>b.classList.toggle('active', b.dataset.type===modalType));
+}
+
+// Show/hide the "Tick <class>" shortcut based on the Class field and matches.
+function updateClassPickBtn(){
+  const btn = document.getElementById('sClassPick');
+  if(!btn) return;
+  const cls = (document.getElementById('sClass').value||'').trim();
+  const n = cls ? modalDrivers.filter(d=>(d.cls||'').toLowerCase()===cls.toLowerCase()).length : 0;
+  if(cls && n){ btn.textContent = `Tick ${cls} (${n})`; btn.classList.remove('d-none'); }
+  else { btn.classList.add('d-none'); }
 }
 
 function renderModalStaff(){
@@ -451,26 +498,58 @@ function renderModalStaff(){
 
 function renderModalDrivers(){
   const box = document.getElementById('sDriverChips');
-  box.innerHTML = modalDrivers.map((d,i)=>{
+  const q = (document.getElementById('sDriverFilter')?.value||'').trim().toLowerCase();
+  const visible = modalDrivers
+    .map((d,i)=>({d,i}))
+    .filter(x=> !q || (x.d.driver_name||'').toLowerCase().includes(q) || (x.d.cls||'').toLowerCase().includes(q));
+  box.innerHTML = visible.map(({d,i})=>{
     const cls = d.status?('st-'+d.status):'';
     const lbl = d.status?` · ${STATUS_LETTER[d.status]||d.status}`:'';
     const style = d.status?'font-weight:700;border-color:currentColor;':('border-left:4px solid '+esc(d.color));
-    return `<span class="chip-pick ${cls}" data-i="${i}" style="${style}">${esc(d.driver_name)}${lbl}</span>`;
-  }).join('');
+    const sub = d.cls?` <span style="opacity:.6;font-size:.65rem;">${esc(d.cls)}</span>`:'';
+    return `<span class="chip-pick ${cls}" data-i="${i}" style="${style}">${esc(d.driver_name)}${sub}${lbl}</span>`;
+  }).join('') || '<span class="text-secondary" style="font-size:.75rem;">No matching drivers.</span>';
   box.querySelectorAll('.chip-pick').forEach(ch=>ch.onclick=()=>{
     const i=+ch.dataset.i, cur=modalDrivers[i].status;
     const idx=STATUS_CYCLE.indexOf(cur);
     modalDrivers[i].status = idx<0?STATUS_CYCLE[0]:(idx+1<STATUS_CYCLE.length?STATUS_CYCLE[idx+1]:'');
     renderModalDrivers();
   });
+  const countEl = document.getElementById('sDriverCount');
+  if(countEl){
+    const marked = modalDrivers.filter(d=>d.status).length;
+    countEl.textContent = marked ? `— ${marked} marked` : '';
+  }
 }
 
 document.getElementById('sStaffAdd').addEventListener('keydown', e=>{
   if(e.key==='Enter'){ e.preventDefault(); const v=e.target.value.trim(); if(v){ modalStaff.push({staff_id:null,staff_name:v,role:null}); e.target.value=''; renderModalStaff(); } }
 });
 document.getElementById('sDriverAdd').addEventListener('keydown', e=>{
-  if(e.key==='Enter'){ e.preventDefault(); const v=e.target.value.trim(); if(v){ modalDrivers.push({driver_id:null,driver_name:v,color:'#94a3b8',status:'attended'}); e.target.value=''; renderModalDrivers(); } }
+  if(e.key==='Enter'){ e.preventDefault(); const v=e.target.value.trim(); if(v){ modalDrivers.push({driver_id:null,driver_name:v,color:'#94a3b8',cls:'',status:'attended'}); e.target.value=''; updateClassPickBtn(); renderModalDrivers(); } }
 });
+// Practice / Race day toggle
+document.getElementById('sTypeSeg').addEventListener('click', e=>{
+  const b=e.target.closest('button'); if(!b) return; setModalType(b.dataset.type);
+});
+// Driver quick actions
+document.getElementById('sDriverFilter').addEventListener('input', renderModalDrivers);
+document.getElementById('sMarkAll').addEventListener('click', ()=>{
+  const q=(document.getElementById('sDriverFilter').value||'').trim().toLowerCase();
+  modalDrivers.forEach(d=>{ if(!q || (d.driver_name||'').toLowerCase().includes(q) || (d.cls||'').toLowerCase().includes(q)) d.status='attended'; });
+  renderModalDrivers();
+});
+document.getElementById('sClearAll').addEventListener('click', ()=>{
+  const q=(document.getElementById('sDriverFilter').value||'').trim().toLowerCase();
+  modalDrivers.forEach(d=>{ if(!q || (d.driver_name||'').toLowerCase().includes(q) || (d.cls||'').toLowerCase().includes(q)) d.status=''; });
+  renderModalDrivers();
+});
+document.getElementById('sClassPick').addEventListener('click', ()=>{
+  const cls=(document.getElementById('sClass').value||'').trim().toLowerCase(); if(!cls) return;
+  modalDrivers.forEach(d=>{ if((d.cls||'').toLowerCase()===cls) d.status='attended'; });
+  renderModalDrivers();
+});
+document.getElementById('sClass').addEventListener('input', updateClassPickBtn);
 
 async function saveSession(){
   const id = document.getElementById('sId').value;
@@ -480,6 +559,7 @@ async function saveSession(){
     venue: document.getElementById('sVenue').value.trim() || null,
     class_name: document.getElementById('sClass').value.trim() || null,
     event_id: document.getElementById('sEvent').value || null,
+    session_type: modalType,
     notes: document.getElementById('sNotes').value.trim() || null,
     attendance: modalDrivers.filter(d=>d.status).map(d=>({driver_id:d.driver_id,driver_name:d.driver_name,status:d.status})),
     staff: modalStaff
