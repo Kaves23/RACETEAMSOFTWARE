@@ -133,6 +133,7 @@
       { href: 'drivers.html',           label: 'Profiles',         key: 'P' },
       { href: 'driver-dashboard.html',  label: 'Driver Portal',    key: 'D' },
       { href: 'driver-calendar.html',   label: 'Calendar',         key: 'C' },
+      { href: 'practice-tracking.html', label: 'Practice',         key: 'A' },
       { href: 'driver-contracts.html',  label: 'Contracts',        key: 'T' },
       { href: 'simulator.html',         label: 'Simulator',        key: 'S' },
       { href: 'driver-fitness.html',    label: 'Fitness',          key: 'F' },

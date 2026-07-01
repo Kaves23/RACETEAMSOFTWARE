@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <link rel="icon" type="image/png" href="favicon.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Race Team OS – Practice Tracking</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="style.css?v=20260525" rel="stylesheet"/>
+  <style>
+    body{background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%);min-height:100vh;}
+    .pt-stats-bar{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;}
+    .pt-stat-card{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:10px 16px;box-shadow:0 2px 4px rgba(0,0,0,.06);min-width:120px;}
+    .pt-stat-label{font-size:.7rem;color:#6c757d;font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+    .pt-stat-value{font-size:1.5rem;font-weight:700;color:#1a1d24;line-height:1.2;}
+
+    .pt-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;}
+    .pt-toolbar select,.pt-toolbar input{font-size:.8rem;padding:4px 8px;border:1px solid #dee2e6;border-radius:6px;background:#fff;color:#1a1d24;}
+    .pt-viewtabs{display:inline-flex;border:1px solid #dee2e6;border-radius:8px;overflow:hidden;}
+    .pt-viewtabs button{border:0;background:#fff;color:#6c757d;font-size:.8rem;font-weight:600;padding:5px 14px;cursor:pointer;}
+    .pt-viewtabs button.active{background:#6366f1;color:#fff;}
+
+    /* Matrix */
+    .pt-matrix-wrap{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.06);overflow:auto;max-height:70vh;}
+    table.pt-matrix{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:.78rem;}
+    table.pt-matrix th,table.pt-matrix td{border-right:1px solid #eef0f2;border-bottom:1px solid #eef0f2;padding:0;}
+    table.pt-matrix thead th{position:sticky;top:0;z-index:3;background:#f8f9fa;padding:6px 8px;text-align:center;font-weight:700;color:#1a1d24;vertical-align:bottom;}
+    table.pt-matrix thead th.pt-corner{left:0;z-index:5;text-align:left;min-width:190px;}
+    table.pt-matrix th.pt-rowhead,table.pt-matrix td.pt-rowhead{position:sticky;left:0;z-index:2;background:#fff;text-align:left;min-width:190px;padding:6px 10px;cursor:pointer;}
+    table.pt-matrix tbody tr:hover td{background:#f7f8ff;}
+    table.pt-matrix tbody tr:hover .pt-rowhead{background:#f0f1ff;}
+    .pt-drv-col{min-width:74px;max-width:110px;}
+    .pt-drv-name{font-weight:700;font-size:.72rem;line-height:1.05;}
+    .pt-drv-sub{font-size:.6rem;color:#6c757d;font-weight:600;}
+    .pt-drv-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:3px;vertical-align:middle;}
+    .pt-cell{width:100%;height:100%;min-height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-weight:800;font-size:.8rem;user-select:none;transition:background .1s;}
+    .pt-cell:hover{outline:2px solid #c7cbff;outline-offset:-2px;}
+    .st-attended{background:#dcfce7;color:#15803d;}
+    .st-planned{background:#dbeafe;color:#1d4ed8;}
+    .st-cancelled{background:#fef3c7;color:#92400e;}
+    .st-no_show{background:#fee2e2;color:#b91c1c;}
+    .st-blank{background:#fff;color:#d0d5dd;}
+    .pt-sess-date{font-weight:700;color:#1a1d24;}
+    .pt-sess-meta{font-size:.62rem;color:#6c757d;}
+    .pt-ev-chip{display:inline-block;background:#ede9fe;color:#5b21b6;border-radius:8px;padding:0 6px;font-size:.58rem;font-weight:700;margin-left:4px;}
+    .pt-legend{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:8px 2px 0;font-size:.7rem;color:#6c757d;}
+    .pt-legend .sw{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:4px;vertical-align:middle;}
+
+    /* Analytics */
+    .pt-panel{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.06);padding:14px 16px;margin-bottom:14px;}
+    .pt-panel h6{font-weight:700;color:#1a1d24;margin-bottom:10px;}
+    .pt-table{width:100%;font-size:.78rem;}
+    .pt-table th{font-size:.66rem;text-transform:uppercase;letter-spacing:.03em;color:#6c757d;border-bottom:1px solid #dee2e6;padding:4px 8px;text-align:left;}
+    .pt-table td{padding:5px 8px;border-bottom:1px solid #f1f3f5;}
+    .pt-bar{height:7px;border-radius:4px;background:#e9ecef;overflow:hidden;min-width:60px;}
+    .pt-bar > span{display:block;height:100%;background:#22c55e;}
+    .pt-heat td{text-align:center;font-weight:700;font-size:.72rem;border:1px solid #f1f3f5;}
+    .pt-flag{display:inline-block;padding:1px 7px;border-radius:10px;font-size:.62rem;font-weight:700;}
+    .pt-flag.warn{background:#fee2e2;color:#b91c1c;}
+    .pt-flag.ok{background:#dcfce7;color:#15803d;}
+
+    .chip-multi{display:flex;flex-wrap:wrap;gap:5px;}
+    .chip-pick{border:1px solid #dee2e6;border-radius:16px;padding:3px 10px;font-size:.75rem;cursor:pointer;background:#fff;user-select:none;}
+    .chip-pick.on{background:#6366f1;color:#fff;border-color:#6366f1;}
+    @media print{ #rtsTopNav,.pt-toolbar,.pt-stats-bar,.pt-actions,.pt-legend{display:none!important;} .pt-matrix-wrap{max-height:none;overflow:visible;} }
+  </style>
+</head>
+<body class="light-mode">
+<div id="rtsTopNav"></div>
+<div class="rts-main container-fluid">
+  <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end flex-wrap gap-2">
+    <div>
+      <h1 class="h4 mb-1">Practice Tracking</h1>
+      <p class="text-secondary mb-0" style="font-size:.85rem;">Who ran which practice, where — tied to events, drivers &amp; staff</p>
+    </div>
+    <div class="pt-actions d-flex gap-2 flex-wrap">
+      <button class="btn btn-sm btn-outline-secondary" id="btnImport">Import sheet</button>
+      <button class="btn btn-sm btn-outline-secondary" id="btnExport">Export CSV</button>
+      <button class="btn btn-sm btn-outline-secondary" id="btnPrint">Print</button>
+      <button class="btn btn-sm text-white" id="btnQuick" style="background:#6366f1;border-color:#6366f1;">+ Log practice</button>
+    </div>
+  </div>
+
+  <div class="pt-stats-bar">
+    <div class="pt-stat-card"><div class="pt-stat-label">Sessions</div><div class="pt-stat-value" id="kpiSessions">—</div></div>
+    <div class="pt-stat-card"><div class="pt-stat-label">This month</div><div class="pt-stat-value" id="kpiMonth">—</div></div>
+    <div class="pt-stat-card"><div class="pt-stat-label">Drivers tracked</div><div class="pt-stat-value" id="kpiDrivers">—</div></div>
+    <div class="pt-stat-card"><div class="pt-stat-label">Tracks used</div><div class="pt-stat-value" id="kpiTracks">—</div></div>
+    <div class="pt-stat-card"><div class="pt-stat-label">Avg attendance</div><div class="pt-stat-value" id="kpiAvg">—</div></div>
+  </div>
+
+  <div class="pt-toolbar">
+    <div class="pt-viewtabs" id="viewTabs">
+      <button data-view="matrix" class="active">Matrix</button>
+      <button data-view="analytics">Analytics</button>
+    </div>
+    <span class="text-secondary" style="font-size:.78rem;">From</span>
+    <input type="date" id="fFrom">
+    <span class="text-secondary" style="font-size:.78rem;">To</span>
+    <input type="date" id="fTo">
+    <select id="fClass"><option value="">All classes</option></select>
+    <select id="fTrack"><option value="">All tracks</option></select>
+    <input type="search" id="fDriver" placeholder="Filter driver…" style="min-width:150px;">
+    <button class="btn btn-sm btn-outline-secondary" id="btnReset" style="font-size:.78rem;">Reset</button>
+  </div>
+
+  <!-- MATRIX VIEW -->
+  <div id="viewMatrix">
+    <div class="pt-matrix-wrap">
+      <table class="pt-matrix" id="matrix">
+        <thead><tr id="matrixHead"></tr></thead>
+        <tbody id="matrixBody"></tbody>
+      </table>
+    </div>
+    <div class="pt-legend">
+      <span><span class="sw st-attended"></span>Attended</span>
+      <span><span class="sw st-planned"></span>Planned</span>
+      <span><span class="sw st-cancelled"></span>Cancelled</span>
+      <span><span class="sw st-no_show"></span>No-show</span>
+      <span class="ms-2">Click a cell to cycle · click a row date to edit the session</span>
+    </div>
+  </div>
+
+  <!-- ANALYTICS VIEW -->
+  <div id="viewAnalytics" style="display:none;"></div>
+</div>
+
+<!-- Quick Log / Session modal -->
+<div class="modal fade" id="sessModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header py-2" style="background:#6366f1;">
+        <h6 class="modal-title text-white fw-bold" id="sessTitle">Log practice</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="sId">
+        <div class="row g-2">
+          <div class="col-md-3"><label class="form-label small fw-semibold mb-1">Date *</label>
+            <input type="date" class="form-control form-control-sm" id="sDate"></div>
+          <div class="col-md-3"><label class="form-label small fw-semibold mb-1">Track</label>
+            <input class="form-control form-control-sm" id="sTrack" list="trackList" placeholder="e.g. VKC"></div>
+          <div class="col-md-6"><label class="form-label small fw-semibold mb-1">Venue (full)</label>
+            <input class="form-control form-control-sm" id="sVenue" placeholder="Optional full venue name"></div>
+          <div class="col-md-4"><label class="form-label small fw-semibold mb-1">Class</label>
+            <input class="form-control form-control-sm" id="sClass" list="classList" placeholder="e.g. Rok"></div>
+          <div class="col-md-8"><label class="form-label small fw-semibold mb-1">Link to event <span class="text-secondary">(optional — or leave free)</span></label>
+            <select class="form-select form-select-sm" id="sEvent"><option value="">— Not linked —</option></select></div>
+          <div class="col-12"><label class="form-label small fw-semibold mb-1">Staff present</label>
+            <div class="chip-multi" id="sStaffChips"></div>
+            <input class="form-control form-control-sm mt-1" id="sStaffAdd" placeholder="Type a name + Enter to add someone not listed">
+          </div>
+          <div class="col-12"><label class="form-label small fw-semibold mb-1">Drivers</label>
+            <div class="text-secondary mb-1" style="font-size:.72rem;">Click to set status · click again to cycle. Green = attended.</div>
+            <div class="chip-multi" id="sDriverChips"></div>
+            <input class="form-control form-control-sm mt-1" id="sDriverAdd" placeholder="Type a driver not listed + Enter (override)">
+          </div>
+          <div class="col-12"><label class="form-label small fw-semibold mb-1">Session notes</label>
+            <textarea class="form-control form-control-sm" id="sNotes" rows="2"></textarea></div>
+        </div>
+      </div>
+      <div class="modal-footer py-2">
+        <button class="btn btn-sm btn-outline-danger me-auto d-none" id="btnDelSess">Delete session</button>
+        <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-sm text-white" id="btnSaveSess" style="background:#6366f1;">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Import modal -->
+<div class="modal fade" id="importModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header py-2" style="background:#6366f1;">
+        <h6 class="modal-title text-white fw-bold">Import practice sheet</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-secondary" style="font-size:.8rem;">Paste the sheet (including the header row of driver names). First column = date &amp; track (e.g. <code>13 Feb - RSR</code>), driver columns = <code>Yes</code> / <code>-</code>. Copy straight from Google Sheets.</p>
+        <div class="row g-2 mb-2">
+          <div class="col-md-4"><label class="form-label small fw-semibold mb-1">Default year</label>
+            <input type="number" class="form-control form-control-sm" id="impYear"></div>
+          <div class="col-md-4"><label class="form-label small fw-semibold mb-1">Class (optional)</label>
+            <input class="form-control form-control-sm" id="impClass" placeholder="e.g. Rok"></div>
+        </div>
+        <textarea class="form-control" id="impText" rows="8" placeholder="Paste rows here…" style="font-family:monospace;font-size:.75rem;"></textarea>
+        <div class="mt-2"><button class="btn btn-sm btn-outline-secondary" id="btnPreview">Preview</button></div>
+        <div id="impPreview" class="mt-2" style="font-size:.78rem;"></div>
+      </div>
+      <div class="modal-footer py-2">
+        <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-sm text-white" id="btnDoImport" style="background:#6366f1;" disabled>Import</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<datalist id="trackList"></datalist>
+<datalist id="classList"></datalist>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="topnav.js?v=20260613a"></script>
+<script src="core.js?v=20260420"></script>
+<script>
+const API = '/practice-tracking';
+const STATUS_CYCLE = ['attended','planned','cancelled','no_show'];   // blank -> attended -> ... -> blank
+const STATUS_LETTER = { attended:'✓', planned:'P', cancelled:'✕', no_show:'!' };
+const DEFAULT_TRACKS = ['RSR','CPT','VKC','Idube','Zwartkops','FK','Killarney'];
+
+let sessions = [];       // loaded practice sessions (each with .attendance[] and .staff[])
+let driverProfiles = []; // from collections/drivers
+let events = [];         // from collections/events
+let staffList = [];      // from collections/staff
+let columns = [];        // driver columns for the matrix
+const sessModal = new bootstrap.Modal(document.getElementById('sessModal'));
+const importModal = new bootstrap.Modal(document.getElementById('importModal'));
+
+const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const api = (path, opts) => RTS_API.request(API + path, opts);
+const jbody = obj => ({ body: JSON.stringify(obj) });
+function fmtDate(d){ const x=new Date(d); return isNaN(x)?'':x.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'}); }
+function colKey(c){ return c.id ? 'id:'+c.id : 'nm:'+(c.name||'').toLowerCase(); }
+function attKey(a){ return a.driver_id ? 'id:'+a.driver_id : 'nm:'+(a.driver_name||'').toLowerCase(); }
+
+// ─── LOAD ────────────────────────────────────────────────────
+async function loadRefs(){
+  const [d,e,s] = await Promise.all([
+    RTS_API.getCollectionItems('drivers').catch(()=>({items:[]})),
+    RTS_API.getCollectionItems('events').catch(()=>({items:[]})),
+    RTS_API.getCollectionItems('staff').catch(()=>({items:[]}))
+  ]);
+  driverProfiles = (d.items||d||[]).filter(x=>(x.status||'active')==='active');
+  events = (e.items||e||[]).slice().sort((a,b)=>String(b.start_date||'').localeCompare(String(a.start_date||'')));
+  staffList = (s.items||s||[]);
+}
+
+async function loadSessions(){
+  const q = new URLSearchParams();
+  const from=document.getElementById('fFrom').value, to=document.getElementById('fTo').value;
+  const cls=document.getElementById('fClass').value, trk=document.getElementById('fTrack').value;
+  if(from)q.set('from',from); if(to)q.set('to',to);
+  if(cls)q.set('class_name',cls); if(trk)q.set('track',trk);
+  sessions = await api('/sessions' + (q.toString()?`?${q}`:'')) || [];
+}
+
+function buildColumns(){
+  const map = new Map();
+  // roster first (active driver profiles)
+  driverProfiles.forEach(d=>{
+    const c = { id:d.id, name:d.name||'—', cls:d.racing_class||'', kart:d.kart||d.engine||'', color:d.color||'#6366f1', override:false };
+    map.set(colKey(c), c);
+  });
+  // any override / historic drivers present in data
+  sessions.forEach(s=>(s.attendance||[]).forEach(a=>{
+    const c = { id:a.driver_id||null, name:a.driver_name||'—', cls:'', kart:a.kart||'', color:'#94a3b8', override:!a.driver_id };
+    const k = colKey(c);
+    if(!map.has(k)) map.set(k, c);
+  }));
+  columns = [...map.values()];
+  // driver text filter
+  const q = document.getElementById('fDriver').value.trim().toLowerCase();
+  if(q) columns = columns.filter(c=>c.name.toLowerCase().includes(q));
+}
+
+// ─── MATRIX ──────────────────────────────────────────────────
+function cellFor(session, col){
+  return (session.attendance||[]).find(a=>attKey(a)===colKey(col));
+}
+
+function renderMatrix(){
+  buildColumns();
+  const head = document.getElementById('matrixHead');
+  head.innerHTML = `<th class="pt-corner pt-rowhead">Session</th>` + columns.map(c=>`
+    <th class="pt-drv-col" title="${esc(c.name)}${c.cls?' · '+esc(c.cls):''}">
+      <div class="pt-drv-name"><span class="pt-drv-dot" style="background:${esc(c.color)}"></span>${esc(c.name)}</div>
+      ${c.cls?`<div class="pt-drv-sub">${esc(c.cls)}</div>`:''}
+      ${c.kart?`<div class="pt-drv-sub">${esc(c.kart)}</div>`:''}
+    </th>`).join('');
+
+  const body = document.getElementById('matrixBody');
+  if(!sessions.length){
+    body.innerHTML = `<tr><td class="text-secondary p-3" colspan="${columns.length+1}">No practice sessions yet. Click <b>+ Log practice</b> or <b>Import sheet</b>.</td></tr>`;
+    return;
+  }
+  body.innerHTML = sessions.map(s=>{
+    const ev = s.event_id ? events.find(e=>e.id===s.event_id) : null;
+    const head = `<td class="pt-rowhead" onclick="openSession('${s.id}')">
+        <div class="pt-sess-date">${fmtDate(s.session_date)}${s.track?` · ${esc(s.track)}`:''}</div>
+        <div class="pt-sess-meta">${esc(s.class_name||'')}${ev?`<span class="pt-ev-chip">${esc(ev.name||'event')}</span>`:''}${(s.staff&&s.staff.length)?` · 👤${s.staff.length}`:''}</div>
+      </td>`;
+    const cells = columns.map(c=>{
+      const a = cellFor(s,c);
+      const st = a ? a.status : '';
+      const cls = st ? 'st-'+st : 'st-blank';
+      const letter = st ? (STATUS_LETTER[st]||'•') : '';
+      return `<td><div class="pt-cell ${cls}" onclick="cycleCell('${s.id}','${colKey(c)}')" title="${esc(c.name)} — ${st||'blank'}${a&&a.kart?' · '+esc(a.kart):''}">${letter}</div></td>`;
+    }).join('');
+    return `<tr>${head}${cells}</tr>`;
+  }).join('');
+}
+
+async function cycleCell(sessionId, key){
+  const s = sessions.find(x=>x.id===sessionId); if(!s) return;
+  const col = columns.find(c=>colKey(c)===key); if(!col) return;
+  const a = cellFor(s,col);
+  const cur = a ? a.status : '';
+  const idx = STATUS_CYCLE.indexOf(cur);
+  const next = idx < 0 ? STATUS_CYCLE[0] : (idx+1 < STATUS_CYCLE.length ? STATUS_CYCLE[idx+1] : ''); // wraps to blank
+  try{
+    const payload = { driver_id: col.id||null, driver_name: col.name, status: next||'' };
+    const resp = await api(`/sessions/${sessionId}/cell`, { method:'PUT', ...jbody(payload) });
+    // update local state
+    s.attendance = s.attendance || [];
+    const existingIdx = s.attendance.findIndex(x=>attKey(x)===key);
+    if(!next){ if(existingIdx>=0) s.attendance.splice(existingIdx,1); }
+    else if(existingIdx>=0){ s.attendance[existingIdx] = resp; }
+    else { s.attendance.push(resp); }
+    renderMatrix(); renderKPIs();
+  }catch(err){ alert('Could not save: '+err.message); }
+}
+
+// ─── KPIs ────────────────────────────────────────────────────
+function renderKPIs(){
+  const now = new Date(), ym = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  const monthCount = sessions.filter(s=>String(s.session_date||'').slice(0,7)===ym).length;
+  const drivers = new Set(); let attCells=0, totalCells=0;
+  sessions.forEach(s=>(s.attendance||[]).forEach(a=>{ drivers.add(attKey(a)); totalCells++; if(a.status==='attended')attCells++; }));
+  const tracks = new Set(sessions.map(s=>s.track).filter(Boolean));
+  document.getElementById('kpiSessions').textContent = sessions.length;
+  document.getElementById('kpiMonth').textContent = monthCount;
+  document.getElementById('kpiDrivers').textContent = drivers.size;
+  document.getElementById('kpiTracks').textContent = tracks.size;
+  document.getElementById('kpiAvg').textContent = sessions.length ? (attCells/sessions.length).toFixed(1) : '0';
+}
+
+function populateFilters(){
+  const classes = [...new Set([...driverProfiles.map(d=>d.racing_class), ...sessions.map(s=>s.class_name)].filter(Boolean))].sort();
+  const tracks = [...new Set([...sessions.map(s=>s.track), ...DEFAULT_TRACKS].filter(Boolean))].sort();
+  const fClass=document.getElementById('fClass'), fTrack=document.getElementById('fTrack');
+  fClass.innerHTML = '<option value="">All classes</option>'+classes.map(c=>`<option>${esc(c)}</option>`).join('');
+  fTrack.innerHTML = '<option value="">All tracks</option>'+tracks.map(t=>`<option>${esc(t)}</option>`).join('');
+  document.getElementById('classList').innerHTML = classes.map(c=>`<option value="${esc(c)}">`).join('');
+  document.getElementById('trackList').innerHTML = tracks.map(t=>`<option value="${esc(t)}">`).join('');
+}
+
+// ─── SESSION MODAL ───────────────────────────────────────────
+let modalStaff = [];   // [{staff_id,staff_name,role}]
+let modalDrivers = []; // [{driver_id,driver_name,status,color}]
+
+function openQuick(){ openSession(null); }
+
+function openSession(id){
+  const s = id ? sessions.find(x=>x.id===id) : null;
+  document.getElementById('sessTitle').textContent = s ? 'Edit practice session' : 'Log practice';
+  document.getElementById('sId').value = s ? s.id : '';
+  document.getElementById('sDate').value = s ? String(s.session_date||'').slice(0,10) : new Date().toISOString().slice(0,10);
+  document.getElementById('sTrack').value = s ? (s.track||'') : '';
+  document.getElementById('sVenue').value = s ? (s.venue||'') : '';
+  document.getElementById('sClass').value = s ? (s.class_name||'') : (document.getElementById('fClass').value||'');
+  document.getElementById('sNotes').value = s ? (s.notes||'') : '';
+  document.getElementById('btnDelSess').classList.toggle('d-none', !s);
+
+  // events dropdown (auto-suggest by date)
+  const evSel = document.getElementById('sEvent');
+  evSel.innerHTML = '<option value="">— Not linked —</option>'+events.map(e=>`<option value="${esc(e.id)}">${esc(e.name||'Event')}${e.start_date?` (${fmtDate(e.start_date)})`:''}</option>`).join('');
+  evSel.value = s ? (s.event_id||'') : '';
+
+  // staff
+  modalStaff = s ? (s.staff||[]).map(x=>({staff_id:x.staff_id,staff_name:x.staff_name,role:x.role})) : [];
+  renderModalStaff();
+
+  // drivers: start from roster, mark existing attendance status
+  const existing = {};
+  if(s) (s.attendance||[]).forEach(a=>{ existing[attKey(a)] = a.status; });
+  modalDrivers = driverProfiles.map(d=>({ driver_id:d.id, driver_name:d.name, color:d.color||'#6366f1',
+      status: existing['id:'+d.id] || '' }));
+  // include overrides present on the session but not in roster
+  if(s) (s.attendance||[]).forEach(a=>{
+    if(!a.driver_id && !modalDrivers.some(m=>!m.driver_id && (m.driver_name||'').toLowerCase()===(a.driver_name||'').toLowerCase()))
+      modalDrivers.push({ driver_id:null, driver_name:a.driver_name, color:'#94a3b8', status:a.status });
+  });
+  renderModalDrivers();
+  sessModal.show();
+}
+
+function renderModalStaff(){
+  const box = document.getElementById('sStaffChips');
+  const roster = staffList.map(st=>({staff_id:st.id, staff_name:st.name, role:st.role}));
+  const all = [...roster];
+  modalStaff.forEach(ms=>{ if(!all.some(r=>r.staff_id===ms.staff_id && ms.staff_id) && !all.some(r=>!ms.staff_id && r.staff_name.toLowerCase()===ms.staff_name.toLowerCase())) all.push(ms); });
+  box.innerHTML = all.map(st=>{
+    const on = modalStaff.some(m=>(m.staff_id&&m.staff_id===st.staff_id)||(!m.staff_id&&m.staff_name.toLowerCase()===st.staff_name.toLowerCase()));
+    return `<span class="chip-pick ${on?'on':''}" data-sid="${esc(st.staff_id||'')}" data-sname="${esc(st.staff_name)}">${esc(st.staff_name)}${st.role?` · ${esc(st.role)}`:''}</span>`;
+  }).join('') || '<span class="text-secondary" style="font-size:.75rem;">No staff on file — type below.</span>';
+  box.querySelectorAll('.chip-pick').forEach(ch=>ch.onclick=()=>{
+    const sid=ch.dataset.sid||null, sname=ch.dataset.sname;
+    const i = modalStaff.findIndex(m=>(sid&&m.staff_id===sid)||(!sid&&m.staff_name.toLowerCase()===sname.toLowerCase()));
+    if(i>=0) modalStaff.splice(i,1); else modalStaff.push({staff_id:sid,staff_name:sname,role:null});
+    renderModalStaff();
+  });
+}
+
+function renderModalDrivers(){
+  const box = document.getElementById('sDriverChips');
+  box.innerHTML = modalDrivers.map((d,i)=>{
+    const cls = d.status?('st-'+d.status):'';
+    const lbl = d.status?` · ${STATUS_LETTER[d.status]||d.status}`:'';
+    const style = d.status?'font-weight:700;border-color:currentColor;':('border-left:4px solid '+esc(d.color));
+    return `<span class="chip-pick ${cls}" data-i="${i}" style="${style}">${esc(d.driver_name)}${lbl}</span>`;
+  }).join('');
+  box.querySelectorAll('.chip-pick').forEach(ch=>ch.onclick=()=>{
+    const i=+ch.dataset.i, cur=modalDrivers[i].status;
+    const idx=STATUS_CYCLE.indexOf(cur);
+    modalDrivers[i].status = idx<0?STATUS_CYCLE[0]:(idx+1<STATUS_CYCLE.length?STATUS_CYCLE[idx+1]:'');
+    renderModalDrivers();
+  });
+}
+
+document.getElementById('sStaffAdd').addEventListener('keydown', e=>{
+  if(e.key==='Enter'){ e.preventDefault(); const v=e.target.value.trim(); if(v){ modalStaff.push({staff_id:null,staff_name:v,role:null}); e.target.value=''; renderModalStaff(); } }
+});
+document.getElementById('sDriverAdd').addEventListener('keydown', e=>{
+  if(e.key==='Enter'){ e.preventDefault(); const v=e.target.value.trim(); if(v){ modalDrivers.push({driver_id:null,driver_name:v,color:'#94a3b8',status:'attended'}); e.target.value=''; renderModalDrivers(); } }
+});
+
+async function saveSession(){
+  const id = document.getElementById('sId').value;
+  const body = {
+    session_date: document.getElementById('sDate').value,
+    track: document.getElementById('sTrack').value.trim() || null,
+    venue: document.getElementById('sVenue').value.trim() || null,
+    class_name: document.getElementById('sClass').value.trim() || null,
+    event_id: document.getElementById('sEvent').value || null,
+    notes: document.getElementById('sNotes').value.trim() || null,
+    attendance: modalDrivers.filter(d=>d.status).map(d=>({driver_id:d.driver_id,driver_name:d.driver_name,status:d.status})),
+    staff: modalStaff
+  };
+  if(!body.session_date){ alert('Pick a date'); return; }
+  try{
+    if(id){
+      await api(`/sessions/${id}`, { method:'PUT', ...jbody(body) });
+      await api(`/sessions/${id}/attendance`, { method:'PUT', ...jbody({attendance:body.attendance}) });
+      await api(`/sessions/${id}/staff`, { method:'PUT', ...jbody({staff:body.staff}) });
+    } else {
+      await api('/sessions', { method:'POST', ...jbody(body) });
+    }
+    sessModal.hide();
+    await refresh();
+  }catch(err){ alert('Save failed: '+err.message); }
+}
+
+async function deleteSession(){
+  const id = document.getElementById('sId').value; if(!id) return;
+  if(!confirm('Delete this practice session and all its attendance?')) return;
+  try{ await api(`/sessions/${id}`, { method:'DELETE' }); sessModal.hide(); await refresh(); }
+  catch(err){ alert('Delete failed: '+err.message); }
+}
+
+// ─── ANALYTICS ───────────────────────────────────────────────
+async function renderAnalytics(){
+  const box = document.getElementById('viewAnalytics');
+  box.innerHTML = '<div class="pt-panel text-secondary">Loading…</div>';
+  const q = new URLSearchParams();
+  const from=document.getElementById('fFrom').value, to=document.getElementById('fTo').value;
+  if(from)q.set('from',from); if(to)q.set('to',to);
+  let a;
+  try{ a = await api('/analytics'+(q.toString()?`?${q}`:'')); }
+  catch(err){ box.innerHTML = `<div class="pt-panel text-danger">Failed to load analytics: ${esc(err.message)}</div>`; return; }
+
+  const maxAtt = Math.max(1, ...a.perDriver.map(d=>+d.attended));
+  const now = new Date();
+  const driverRows = a.perDriver.map(d=>{
+    const last = d.last_attended ? new Date(d.last_attended) : null;
+    const daysSince = last ? Math.floor((now-last)/86400000) : null;
+    const inactive = daysSince===null || daysSince>42;
+    return `<tr>
+      <td>${esc(d.driver_name)}</td>
+      <td><div class="pt-bar"><span style="width:${(d.attended/maxAtt*100).toFixed(0)}%"></span></div></td>
+      <td class="fw-bold">${d.attended}</td>
+      <td>${d.planned}</td><td>${d.no_show}</td><td>${d.cancelled}</td>
+      <td>${d.tracks_run}</td>
+      <td>${last?fmtDate(d.last_attended):'—'}</td>
+      <td><span class="pt-flag ${inactive?'warn':'ok'}">${inactive?(daysSince===null?'never':daysSince+'d'):'active'}</span></td>
+    </tr>`;
+  }).join('');
+
+  // familiarity heatmap: drivers x tracks
+  const tracks = [...new Set(a.familiarity.map(f=>f.track))].sort();
+  const byDriver = {};
+  a.familiarity.forEach(f=>{ (byDriver[f.driver_name]=byDriver[f.driver_name]||{})[f.track]={n:+f.attended,last:f.last_date}; });
+  const heatHead = `<tr><th>Driver</th>${tracks.map(t=>`<th>${esc(t)}</th>`).join('')}</tr>`;
+  const heatRows = Object.keys(byDriver).sort().map(name=>{
+    const cells = tracks.map(t=>{
+      const cell = byDriver[name][t];
+      if(!cell) return `<td class="st-blank">–</td>`;
+      const shade = cell.n>=4?'st-attended':cell.n>=2?'st-planned':'st-cancelled';
+      return `<td class="${shade}" title="Last: ${cell.last?fmtDate(cell.last):'—'}">${cell.n}</td>`;
+    }).join('');
+    return `<tr><td style="text-align:left;font-weight:600;">${esc(name)}</td>${cells}</tr>`;
+  }).join('');
+
+  const trackRows = a.perTrack.map(t=>`<tr><td>${esc(t.track)}</td><td>${t.sessions}</td><td>${t.attendances}</td><td>${t.drivers}</td></tr>`).join('');
+
+  // next-event readiness
+  const upcoming = events.filter(e=>e.start_date && new Date(e.start_date)>=new Date()).sort((a,b)=>String(a.start_date).localeCompare(String(b.start_date)))[0];
+  let readiness = '';
+  if(upcoming){
+    const trk = (upcoming.circuit||'').trim();
+    const famAtTrack = a.familiarity.filter(f=> trk && (f.track||'').toLowerCase()===trk.toLowerCase());
+    readiness = `<div class="pt-panel"><h6>Next event readiness — ${esc(upcoming.name||'Event')} ${upcoming.start_date?`(${fmtDate(upcoming.start_date)})`:''}</h6>
+      ${trk?`<p class="text-secondary" style="font-size:.78rem;">Drivers who have practised at <b>${esc(trk)}</b>:</p>
+      ${famAtTrack.length?`<ul style="font-size:.8rem;">${famAtTrack.map(f=>`<li>${esc(f.driver_name)} — ${f.attended}× (last ${fmtDate(f.last_date)})</li>`).join('')}</ul>`:'<p class="text-danger" style="font-size:.8rem;">No logged practice at this circuit yet.</p>'}`
+      :'<p class="text-secondary" style="font-size:.78rem;">Set the event circuit to match a track code to see readiness.</p>'}</div>`;
+  }
+
+  box.innerHTML = `
+    <div class="pt-panel"><h6>Driver attendance</h6>
+      <table class="pt-table"><thead><tr><th>Driver</th><th>Volume</th><th>Attended</th><th>Planned</th><th>No-show</th><th>Cancelled</th><th>Tracks</th><th>Last</th><th>Status</th></tr></thead>
+      <tbody>${driverRows||'<tr><td colspan="9" class="text-secondary">No data.</td></tr>'}</tbody></table>
+      <div class="text-secondary mt-1" style="font-size:.7rem;">Status flags drivers with no practice in the last 6 weeks.</div>
+    </div>
+    ${readiness}
+    <div class="pt-panel"><h6>Track familiarity (attended count)</h6>
+      <div style="overflow:auto;"><table class="pt-table pt-heat">${tracks.length?heatHead+heatRows:'<tr><td class="text-secondary">No data.</td></tr>'}</table></div>
+    </div>
+    <div class="pt-panel"><h6>By track</h6>
+      <table class="pt-table"><thead><tr><th>Track</th><th>Sessions</th><th>Attendances</th><th>Drivers</th></tr></thead>
+      <tbody>${trackRows||'<tr><td colspan="4" class="text-secondary">No data.</td></tr>'}</tbody></table>
+    </div>`;
+}
+
+// ─── IMPORT ──────────────────────────────────────────────────
+let importPayload = null;
+const MONTHS = {jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
+function parseLooseDate(str, defYear){
+  str = str.trim();
+  let m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/); // M/D/YYYY
+  if(m){ let y=+m[3]; if(y<100)y+=2000; return `${y}-${String(+m[1]).padStart(2,'0')}-${String(+m[2]).padStart(2,'0')}`; }
+  m = str.match(/^(\d{1,2})\s*([A-Za-z]{3,})\.?\s*(\d{4})?$/); // "13 Feb" / "13 Feb 2026"
+  if(m){ const mo=MONTHS[m[2].slice(0,3).toLowerCase()]; if(mo!==undefined){ const y=m[3]?+m[3]:defYear; return `${y}-${String(mo+1).padStart(2,'0')}-${String(+m[1]).padStart(2,'0')}`; } }
+  m = str.match(/^([A-Za-z]{3,})\.?\s*(\d{1,2})[, ]*(\d{4})?$/); // "Feb 13"
+  if(m){ const mo=MONTHS[m[1].slice(0,3).toLowerCase()]; if(mo!==undefined){ const y=m[3]?+m[3]:defYear; return `${y}-${String(mo+1).padStart(2,'0')}-${String(+m[2]).padStart(2,'0')}`; } }
+  return null;
+}
+function matchDriverId(name){
+  const d = driverProfiles.find(x=>(x.name||'').toLowerCase()===name.toLowerCase());
+  return d ? d.id : null;
+}
+function parseImport(){
+  const text = document.getElementById('impText').value;
+  const defYear = +document.getElementById('impYear').value || new Date().getFullYear();
+  const cls = document.getElementById('impClass').value.trim() || null;
+  const rows = text.split(/\r?\n/).map(r=>r.split('\t').length>1 ? r.split('\t') : r.split(',')).filter(r=>r.some(c=>c.trim()));
+  if(rows.length<2) return { error:'Need a header row of driver names plus at least one date row.' };
+  // find header row: the row whose cells (after col 0) are mostly non Yes/-/blank names
+  let headerIdx = rows.findIndex(r=> r.slice(1).some(c=>c.trim()) && !r.slice(1).every(c=>/^(yes|-|\s*)$/i.test(c.trim())) && parseLooseDate((r[0]||'').split(/[-–]/)[0], defYear)===null );
+  if(headerIdx<0) headerIdx=0;
+  const header = rows[headerIdx];
+  const drivers = header.map((h,i)=>({i, name:h.trim()})).filter(x=>x.i>0 && x.name);
+  const sessionsOut = [];
+  for(let r=headerIdx+1; r<rows.length; r++){
+    const label = (rows[r][0]||'').trim(); if(!label) continue;
+    const parts = label.split(/[-–]/);
+    const date = parseLooseDate(parts[0], defYear); if(!date) continue;
+    const track = parts.slice(1).join('-').trim() || null;
+    const attendance = [];
+    drivers.forEach(d=>{
+      const v = (rows[r][d.i]||'').trim().toLowerCase();
+      if(v==='yes'||v==='y'||v==='✓'||v==='present'||v==='attended')
+        attendance.push({ driver_id:matchDriverId(d.name), driver_name:d.name, status:'attended' });
+    });
+    if(attendance.length || track) sessionsOut.push({ session_date:date, track, class_name:cls, attendance });
+  }
+  return { sessions:sessionsOut, drivers:drivers.map(d=>d.name) };
+}
+document.getElementById('btnPreview').addEventListener('click', ()=>{
+  const res = parseImport();
+  const box = document.getElementById('impPreview');
+  if(res.error){ box.innerHTML = `<span class="text-danger">${esc(res.error)}</span>`; document.getElementById('btnDoImport').disabled=true; return; }
+  importPayload = { sessions: res.sessions };
+  const matched = res.drivers.filter(n=>matchDriverId(n)).length;
+  const totalAtt = res.sessions.reduce((n,s)=>n+s.attendance.length,0);
+  box.innerHTML = `<div class="alert alert-light border py-2 mb-0">
+    <b>${res.sessions.length}</b> sessions · <b>${totalAtt}</b> attendance marks · drivers matched to profiles: <b>${matched}/${res.drivers.length}</b>
+    <div class="text-secondary mt-1" style="font-size:.72rem;">Unmatched drivers are stored as name-only overrides. Review the first few dates: ${res.sessions.slice(0,4).map(s=>esc(fmtDate(s.session_date)+(s.track?' '+s.track:''))).join(', ')||'—'}</div></div>`;
+  document.getElementById('btnDoImport').disabled = !res.sessions.length;
+});
+document.getElementById('btnDoImport').addEventListener('click', async ()=>{
+  if(!importPayload) return;
+  try{
+    const r = await api('/import', { method:'POST', ...jbody(importPayload) });
+    importModal.hide();
+    alert(`Imported ${r.createdSessions} sessions and ${r.createdAttendance} attendance records.`);
+    await refresh();
+  }catch(err){ alert('Import failed: '+err.message); }
+});
+
+// ─── EXPORT ──────────────────────────────────────────────────
+function exportCSV(){
+  buildColumns();
+  const head = ['Date','Track','Class','Event',...columns.map(c=>c.name)];
+  const lines = [head.map(csvCell).join(',')];
+  sessions.forEach(s=>{
+    const ev = s.event_id ? (events.find(e=>e.id===s.event_id)||{}).name : '';
+    const row = [fmtDate(s.session_date), s.track||'', s.class_name||'', ev||''];
+    columns.forEach(c=>{ const a=cellFor(s,c); row.push(a? (a.status==='attended'?'Yes':a.status) : ''); });
+    lines.push(row.map(csvCell).join(','));
+  });
+  const blob = new Blob([lines.join('\n')], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a'); link.href=url; link.download='practice-tracking.csv'; link.click();
+  URL.revokeObjectURL(url);
+}
+const csvCell = v => { v=String(v??''); return /[",\n]/.test(v)?`"${v.replace(/"/g,'""')}"`:v; };
+
+// ─── VIEW SWITCH & WIRING ────────────────────────────────────
+let currentView = 'matrix';
+document.getElementById('viewTabs').addEventListener('click', e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  currentView = b.dataset.view;
+  document.querySelectorAll('#viewTabs button').forEach(x=>x.classList.toggle('active',x===b));
+  document.getElementById('viewMatrix').style.display = currentView==='matrix'?'':'none';
+  document.getElementById('viewAnalytics').style.display = currentView==='analytics'?'':'none';
+  if(currentView==='analytics') renderAnalytics();
+});
+
+async function refresh(){
+  await loadSessions();
+  populateFilters();
+  renderMatrix();
+  renderKPIs();
+  if(currentView==='analytics') renderAnalytics();
+}
+
+['fFrom','fTo','fClass','fTrack'].forEach(id=>document.getElementById(id).addEventListener('change', refresh));
+document.getElementById('fDriver').addEventListener('input', ()=>renderMatrix());
+document.getElementById('btnReset').addEventListener('click', ()=>{
+  ['fFrom','fTo','fDriver'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('fClass').value=''; document.getElementById('fTrack').value=''; refresh();
+});
+document.getElementById('btnQuick').addEventListener('click', openQuick);
+document.getElementById('btnSaveSess').addEventListener('click', saveSession);
+document.getElementById('btnDelSess').addEventListener('click', deleteSession);
+document.getElementById('btnExport').addEventListener('click', exportCSV);
+document.getElementById('btnPrint').addEventListener('click', ()=>window.print());
+document.getElementById('btnImport').addEventListener('click', ()=>{
+  document.getElementById('impYear').value = new Date().getFullYear();
+  document.getElementById('impText').value=''; document.getElementById('impPreview').innerHTML='';
+  document.getElementById('btnDoImport').disabled=true; importPayload=null;
+  importModal.show();
+});
+window.openSession = openSession;
+window.cycleCell = cycleCell;
+
+(async function init(){
+  try{ await loadRefs(); }catch(e){ console.error('loadRefs',e); }
+  await refresh();
+})();
+</script>
+</body>
+</html>

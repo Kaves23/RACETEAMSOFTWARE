@@ -119,7 +119,8 @@ async function runMigrations() {
     '098_project_task_extra_fields.sql',
     '099_project_task_inactive.sql',
     '100_budget_lines_task_id.sql',
-    '101_academy_sort_order.sql'
+    '101_academy_sort_order.sql',
+    '102_practice_tracking.sql'
   ];
   
   let appliedCount = 0, skippedCount = 0;

@@ -290,6 +290,7 @@ app.use('/api/emergency-orders',     requireAuth, require('./routes/emergency-or
 app.use('/api/supplier-issues',      requireAuth, require('./routes/supplier-issues'));
 // Phase 3 — Driver
 app.use('/api/driver-calendar',      requireAuth, require('./routes/driver-calendar'));
+app.use('/api/practice-tracking',    requireAuth, require('./routes/practice-tracking'));
 app.use('/api/driver-contracts',     requireAuth, require('./routes/driver-contracts'));
 app.use('/api/simulator-sessions',   requireAuth, require('./routes/simulator-sessions'));
 app.use('/api/driver-fitness',       requireAuth, require('./routes/driver-fitness'));
