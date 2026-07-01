@@ -27,18 +27,25 @@
       <div class="stat-card"><div class="stat-label">Drivers</div><div class="stat-value" id="statDrivers">0</div></div>
       <div class="stat-card"><div class="stat-label">Tracks</div><div class="stat-value" id="statTracks">0</div></div>
     </div>
-    <div style="padding:0 16px 10px;">
-      <input id="searchInput" type="search" placeholder="Search track, class or driver..." autocomplete="off" style="width:100%;height:36px;border:1px solid var(--border);border-radius:var(--r);padding:0 12px;font-size:14px;background:var(--surface);outline:none;">
+    <div class="pt-viewseg" id="viewSeg">
+      <button type="button" class="active" data-view="sessions">Sessions</button>
+      <button type="button" data-view="analytics">Analytics</button>
     </div>
-    <div class="pill-strip" id="filterStrip" style="padding-top:0;padding-bottom:12px;">
-      <button class="pill pill-active" data-filter="all">All</button>
-      <button class="pill" data-filter="practice">Practice</button>
-      <button class="pill" data-filter="race">Race days</button>
+    <div id="sessionControls">
+      <div style="padding:0 16px 10px;">
+        <input id="searchInput" type="search" placeholder="Search track, class or driver..." autocomplete="off" style="width:100%;height:36px;border:1px solid var(--border);border-radius:var(--r);padding:0 12px;font-size:14px;background:var(--surface);outline:none;">
+      </div>
+      <div class="pill-strip" id="filterStrip" style="padding-top:0;padding-bottom:12px;">
+        <button class="pill pill-active" data-filter="all">All</button>
+        <button class="pill" data-filter="practice">Practice</button>
+        <button class="pill" data-filter="race">Race days</button>
+      </div>
     </div>
   </header>
 
   <main class="app-body">
     <div id="list"></div>
+    <div id="analyticsView" style="display:none;"></div>
   </main>
 
   <nav class="app-nav">
@@ -179,6 +186,41 @@
   .st-no_show   { background:#fee2e2; color:#b91c1c; }
   .empty { padding:36px 18px; text-align:center; color:var(--text-3); font-size:13px; }
 
+  /* View toggle */
+  .pt-viewseg { display:flex; gap:6px; padding:0 16px 12px; }
+  .pt-viewseg button { flex:1; background:#fff; border:1px solid var(--border); color:var(--text-2); font-size:13px; font-weight:700; padding:9px 0; border-radius:var(--r); cursor:pointer; -webkit-tap-highlight-color:transparent; transition:background .12s,color .12s; }
+  .pt-viewseg button.active { background:#4338ca; border-color:#4338ca; color:#fff; }
+
+  /* Analytics */
+  .an-panel { background:#fff; border:1px solid var(--border); border-radius:var(--r); margin:12px 16px; padding:14px; }
+  .an-h { font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:var(--text-2); margin:0 0 10px; }
+  .an-note { font-size:11px; color:var(--text-3); margin-top:10px; line-height:1.4; }
+  .an-drow { padding:11px 0; border-bottom:1px solid var(--border); }
+  .an-drow:last-child { border-bottom:none; }
+  .an-dtop { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .an-dname { font-size:14px; font-weight:700; color:var(--text); }
+  .an-bar { height:6px; border-radius:3px; background:var(--surface); overflow:hidden; margin:7px 0; }
+  .an-bar span { display:block; height:100%; background:#4338ca; border-radius:3px; }
+  .an-dstats { display:flex; flex-wrap:wrap; align-items:center; gap:5px; }
+  .an-meta { font-size:11px; color:var(--text-3); font-weight:600; }
+  .pt-flag { display:inline-flex; align-items:center; padding:2px 8px; border-radius:999px; font-size:10px; font-weight:800; letter-spacing:.03em; text-transform:uppercase; }
+  .pt-flag.ok { background:#dcfce7; color:#15803d; }
+  .pt-flag.warn { background:#fee2e2; color:#b91c1c; }
+  .an-heatwrap { overflow-x:auto; -webkit-overflow-scrolling:touch; margin:0 -14px; padding:0 14px; }
+  .an-heat { border-collapse:collapse; font-size:11px; }
+  .an-heat th, .an-heat td { padding:5px 7px; text-align:center; border:1px solid var(--border); white-space:nowrap; }
+  .an-heat th { background:var(--surface); font-weight:700; color:var(--text-2); position:sticky; }
+  .an-heat td.hd { text-align:left; font-weight:700; color:var(--text); }
+  .an-heat td.st-blank { color:var(--text-3); }
+  .an-heat td.h4 { background:#dcfce7; color:#15803d; font-weight:800; }
+  .an-heat td.h2 { background:#dbeafe; color:#1d4ed8; font-weight:700; }
+  .an-heat td.h1 { background:#fef3c7; color:#92400e; }
+  .an-trow { display:flex; justify-content:space-between; align-items:center; padding:9px 0; border-bottom:1px solid var(--border); }
+  .an-trow:last-child { border-bottom:none; }
+  .an-tname { font-size:13px; font-weight:700; color:var(--text); }
+  .an-tmeta { font-size:12px; color:var(--text-3); font-weight:600; }
+  .an-empty { color:var(--text-3); font-size:13px; padding:6px 0; }
+
   /* Sheet + form (mirrors vehicles.html) */
   .sheet-overlay { position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;opacity:0;pointer-events:none;transition:opacity .25s; }
   .sheet-overlay.active { opacity:1;pointer-events:auto; }
@@ -238,6 +280,7 @@
   let staff    = [];
   let filter   = 'all';
   let query    = '';
+  let view     = 'sessions';
 
   // Working state for the log sheet
   let sheetType = 'practice';
@@ -249,6 +292,7 @@
   const iso = v => v ? String(v).slice(0,10) : '';
   function dparts(v){ const d = new Date(iso(v) + 'T12:00:00'); if (isNaN(d)) return { day:'—', mon:'' }; return { day:d.getDate(), mon:d.toLocaleDateString('en-ZA',{month:'short'}) }; }
   function fmtLong(v){ if(!v) return '—'; const d=new Date(iso(v)+'T12:00:00'); return isNaN(d)?'—':d.toLocaleDateString('en-ZA',{weekday:'short',day:'numeric',month:'long',year:'numeric'}); }
+  function fmtShort(v){ if(!v) return '—'; const d=new Date(iso(v)+'T12:00:00'); return isNaN(d)?'—':d.toLocaleDateString('en-ZA',{day:'numeric',month:'short'}); }
   function todayISO(){ const d=new Date(); const p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; }
   function setOffline(){ const b=document.getElementById('offlineBanner'); if(b) b.classList.toggle('visible', !navigator.onLine); }
 
@@ -317,6 +361,129 @@
         </div>
       </div>`;
     }).join('') : '<div class="empty">No sessions yet. Tap <b>LOG DAY</b> to add a practice or race day.</div>';
+  }
+
+  // ── Analytics ────────────────────────────────────────────
+  function daysSince(dt){ if(!dt) return null; const d=new Date(dt+'T12:00:00'); if(isNaN(d)) return null; return Math.floor((Date.now()-d)/86400000); }
+  function buildAnalytics(){
+    const perDriver = {}, fam = {}, perTrack = {};
+    sessions.forEach(s => {
+      const track = (s.track||'').trim();
+      if (track){ perTrack[track] = perTrack[track] || { track, sessions:0, attendances:0, drivers:new Set() }; perTrack[track].sessions++; }
+      (s.attendance||[]).forEach(a => {
+        const name = a.driver_name || '—';
+        const d = perDriver[name] = perDriver[name] || { name, attended:0, planned:0, cancelled:0, no_show:0, tracks:new Set(), last_attended:null };
+        if (d[a.status] != null) d[a.status]++;
+        if (a.status === 'attended'){
+          const dt = iso(s.session_date);
+          if (dt && (!d.last_attended || dt > d.last_attended)) d.last_attended = dt;
+          if (track){
+            d.tracks.add(track);
+            fam[name] = fam[name] || {};
+            const f = fam[name][track] = fam[name][track] || { n:0, last:null };
+            f.n++; if (dt && (!f.last || dt > f.last)) f.last = dt;
+            perTrack[track].attendances++; perTrack[track].drivers.add(name);
+          }
+        }
+      });
+    });
+    return {
+      perDriver: Object.values(perDriver).map(d => ({ ...d, tracks_run: d.tracks.size })).sort((a,b)=>b.attended-a.attended),
+      perTrack:  Object.values(perTrack).map(t => ({ track:t.track, sessions:t.sessions, attendances:t.attendances, drivers:t.drivers.size })).sort((a,b)=>b.sessions-a.sessions),
+      fam
+    };
+  }
+  function renderAnalytics(){
+    const box = document.getElementById('analyticsView');
+    if (!sessions.length){ box.innerHTML = '<div class="empty">No data yet. Log a day to see analytics.</div>'; return; }
+    const a = buildAnalytics();
+    const maxAtt = Math.max(1, ...a.perDriver.map(d => d.attended));
+
+    const driverRows = a.perDriver.map(d => {
+      const ds = daysSince(d.last_attended);
+      const inactive = ds === null || ds > 42;
+      const flag = ds === null ? 'never' : (inactive ? ds+'d' : 'active');
+      const extra = STATUS_CYCLE.filter(k => k !== 'attended' && d[k]).map(k =>
+        `<span class="att-pill st-${k}"><span class="n">${d[k]}</span> ${esc(STATUS_LABEL[k])}</span>`).join('');
+      return `<div class="an-drow">
+        <div class="an-dtop"><span class="an-dname">${esc(d.name)}</span><span class="pt-flag ${inactive?'warn':'ok'}">${flag}</span></div>
+        <div class="an-bar"><span style="width:${(d.attended/maxAtt*100).toFixed(0)}%"></span></div>
+        <div class="an-dstats">
+          <span class="att-pill st-attended"><span class="n">${d.attended}</span> Attended</span>
+          ${extra}
+          <span class="an-meta">${d.tracks_run} track${d.tracks_run===1?'':'s'} · last ${d.last_attended?esc(fmtShort(d.last_attended)):'—'}</span>
+        </div>
+      </div>`;
+    }).join('');
+
+    // Next-event readiness
+    const today = todayISO();
+    const upcoming = events.filter(e => e.start_date && iso(e.start_date) >= today)
+      .sort((x,y)=>String(x.start_date).localeCompare(String(y.start_date)))[0];
+    let readiness = '';
+    if (upcoming){
+      const trk = String(upcoming.circuit || upcoming.track || '').trim();
+      const at = [];
+      if (trk) Object.keys(a.fam).forEach(name => { const f = a.fam[name][trk]; if (f) at.push({ name, n:f.n, last:f.last }); });
+      at.sort((x,y)=>y.n-x.n);
+      readiness = `<div class="an-panel"><div class="an-h">Next event readiness</div>
+        <div class="an-dname" style="margin-bottom:2px;">${esc(upcoming.name || upcoming.title || 'Event')}</div>
+        <div class="an-meta">${upcoming.start_date?esc(fmtShort(upcoming.start_date)):''}${trk?` · ${esc(trk)}`:''}</div>
+        ${trk
+          ? (at.length
+            ? `<div style="margin-top:10px;">${at.map(f=>`<div class="an-trow"><span class="an-tname">${esc(f.name)}</span><span class="an-tmeta">${f.n}× · last ${esc(fmtShort(f.last))}</span></div>`).join('')}</div>`
+            : '<div class="an-note" style="color:#b91c1c;">No logged practice at this circuit yet.</div>')
+          : '<div class="an-note">Set the event circuit to match a track to see readiness.</div>'}
+      </div>`;
+    }
+
+    // Track familiarity heatmap
+    const tracks = [...new Set(Object.values(a.fam).flatMap(o => Object.keys(o)))].sort();
+    const names = Object.keys(a.fam).sort();
+    let heat = '<div class="an-empty">No attendance logged yet.</div>';
+    if (tracks.length && names.length){
+      const head = `<tr><th>Driver</th>${tracks.map(t=>`<th>${esc(t)}</th>`).join('')}</tr>`;
+      const body = names.map(name => {
+        const cells = tracks.map(t => {
+          const c = a.fam[name][t];
+          if (!c) return '<td class="st-blank">–</td>';
+          const cls = c.n>=4?'h4':c.n>=2?'h2':'h1';
+          return `<td class="${cls}" title="last ${c.last?esc(fmtShort(c.last)):'—'}">${c.n}</td>`;
+        }).join('');
+        return `<tr><td class="hd">${esc(name)}</td>${cells}</tr>`;
+      }).join('');
+      heat = `<div class="an-heatwrap"><table class="an-heat"><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
+    }
+
+    const trackRows = a.perTrack.length
+      ? a.perTrack.map(t => `<div class="an-trow"><span class="an-tname">${esc(t.track)}</span><span class="an-tmeta">${t.sessions} session${t.sessions===1?'':'s'} · ${t.drivers} driver${t.drivers===1?'':'s'}</span></div>`).join('')
+      : '<div class="an-empty">No tracks logged.</div>';
+
+    box.innerHTML = `
+      <div class="an-panel">
+        <div class="an-h">Driver activity</div>
+        ${driverRows || '<div class="an-empty">No drivers logged.</div>'}
+        <div class="an-note">Flags drivers with no practice in the last 6 weeks.</div>
+      </div>
+      ${readiness}
+      <div class="an-panel">
+        <div class="an-h">Track familiarity (attended count)</div>
+        ${heat}
+      </div>
+      <div class="an-panel">
+        <div class="an-h">By track</div>
+        ${trackRows}
+      </div>`;
+  }
+  function setView(v){
+    view = (v === 'analytics') ? 'analytics' : 'sessions';
+    document.querySelectorAll('#viewSeg button').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+    const analytics = view === 'analytics';
+    document.getElementById('sessionControls').style.display = analytics ? 'none' : '';
+    document.getElementById('list').style.display = analytics ? 'none' : '';
+    document.getElementById('analyticsView').style.display = analytics ? '' : 'none';
+    document.getElementById('fabLog').style.display = analytics ? 'none' : '';
+    if (analytics) renderAnalytics(); else render();
   }
 
   // ── Detail sheet ─────────────────────────────────────────
@@ -469,7 +636,7 @@
     const sel = document.getElementById('fEvent');
     sel.innerHTML = '<option value="">— no event —</option>' + events.map(e =>
       `<option value="${esc(e.id)}">${esc(e.name || e.title || 'Event')}</option>`).join('');
-    render();
+    if (view === 'analytics') renderAnalytics(); else render();
   }
 
   // ── Events / init ────────────────────────────────────────
@@ -482,6 +649,7 @@
     render();
   });
   document.getElementById('typeSeg').addEventListener('click', e => { const b=e.target.closest('button'); if(b) setType(b.dataset.type); });
+  document.getElementById('viewSeg').addEventListener('click', e => { const b=e.target.closest('button'); if(b) setView(b.dataset.view); });
   document.getElementById('driverFilter').addEventListener('input', renderDriverChips);
   document.getElementById('markAll').addEventListener('click', () => {
     const q = (document.getElementById('driverFilter').value||'').trim().toLowerCase();
