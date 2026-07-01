@@ -473,6 +473,11 @@
                     <input id="f_venue_name" class="form-control form-control-sm" type="text" placeholder="Red Star Raceway">
                   </div>
                   <div class="col-12">
+                    <label class="form-label">Track code / short name</label>
+                    <input id="f_venue_code" class="form-control form-control-sm" type="text" placeholder="RSR">
+                    <div class="form-text">Short code shown in Practice Tracking. Picking it auto-fills the full venue name.</div>
+                  </div>
+                  <div class="col-12">
                     <label class="form-label">Location</label>
                     <input id="f_venue_loc" class="form-control form-control-sm" type="text" placeholder="Province / City">
                   </div>
@@ -846,6 +851,7 @@
       f_assettype_name: document.getElementById('f_assettype_name'),
       f_assettype_color: document.getElementById('f_assettype_color'),
       f_venue_name: document.getElementById('f_venue_name'),
+      f_venue_code: document.getElementById('f_venue_code'),
       f_venue_loc: document.getElementById('f_venue_loc'),
       f_venue_notes: document.getElementById('f_venue_notes'),
 
@@ -1147,7 +1153,7 @@
       if(section==='suppliers') return suppliersCache || [];
       if(section==='locations') return locationsCache || [];
       if(section==='assetTypes') return assetTypesCache || []; // Use cache from database
-      if(section==='venues') return (settings.venues||[]).map(v=>({ id:v.id||RTS.uid('venue'), name:v.name, location:v.location||'', notes:v.notes||'' }));
+      if(section==='venues') return (settings.venues||[]).map(v=>({ id:v.id||RTS.uid('venue'), name:v.name, code:v.code||'', location:v.location||'', notes:v.notes||'' }));
       if(section==='eventTypes') return (settings.eventTypes||[]).map((e,i)=>({ id:'et_'+i, code:e.code, color:e.color }));
       if(section==='calendar') return [{ id:'cal_google', name:'Google Calendar', enabled:!!(settings.calendars && settings.calendars.google && settings.calendars.google.enabled) }];
       if(section==='setupTemplates') return (settings.setupTemplates||[]).map(t=>({ id:t.id||RTS.uid('setup'), name:t.name, fields:(t.fields||[]) }));
@@ -1169,7 +1175,7 @@
         // Will be saved individually when saveInspector is called
         return;
       }
-      if(section==='venues') settings.venues = arr.map(x=>({ id:x.id||RTS.uid('venue'), name:x.name, location:x.location, notes:x.notes })).filter(x=>x.name);
+      if(section==='venues') settings.venues = arr.map(x=>({ id:x.id||RTS.uid('venue'), name:x.name, code:x.code||'', location:x.location, notes:x.notes })).filter(x=>x.name);
       if(section==='eventTypes') settings.eventTypes = arr.map(x=>({ code:x.code, color:x.color })).filter(x=>x.code);
       if(section==='calendar') {
         settings.calendars = settings.calendars || {};
@@ -1207,7 +1213,7 @@
       else if(section==='suppliers') cols = ['Supplier','Lead','Email','Phone'];
       else if(section==='locations') cols = ['Location'];
       else if(section==='assetTypes') cols = ['Asset Type'];
-      else if(section==='venues') cols = ['Venue','Location','Notes'];
+      else if(section==='venues') cols = ['Venue','Code','Location','Notes'];
       else if(section==='eventTypes') cols = ['Type','Colour'];
       else if(section==='calendar') cols = ['Integration','Enabled'];
       else if(section==='setupTemplates') cols = ['Template','Fields'];
@@ -1318,7 +1324,7 @@
         else if(ui.section==='locations') tr.innerHTML = `<td>${r.name||''}</td>`;
         else if(ui.section==='assetTypes') tr.innerHTML = `<td><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${r.color||'#0ea5e9'};border:1px solid rgba(255,255,255,0.25);"></span> ${r.name||''}</td>`;
         else if(ui.section==='eventTypes') tr.innerHTML = `<td>${r.code||''}</td><td><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${r.color||'#e32636'};border:1px solid rgba(255,255,255,0.25);"></span> <span class="text-secondary" style="font-size:0.85rem;">${r.color||''}</span></td>`;
-        else if(ui.section==='venues') tr.innerHTML = `<td>${r.name||''}</td><td>${r.location||''}</td><td class="text-secondary">${r.notes||''}</td>`;
+        else if(ui.section==='venues') tr.innerHTML = `<td>${r.name||''}</td><td>${r.code||''}</td><td>${r.location||''}</td><td class="text-secondary">${r.notes||''}</td>`;
         else if(ui.section==='calendar') tr.innerHTML = `<td>${r.name||''}</td><td>${r.enabled ? 'Yes' : 'No'}</td>`;
         else if(ui.section==='setupTemplates') tr.innerHTML = `<td>${r.name||''}</td><td class="text-secondary">${(r.fields||[]).join(', ')}</td>`;
         else if(ui.section==='masterChecklists') tr.innerHTML = `<td>${r.name||''}</td><td class="text-secondary">${(r.items||[]).length} items</td>`;
@@ -1412,6 +1418,7 @@
       }
       if(ui.section==='venues') {
         els.f_venue_name.value = sel ? (sel.name||'') : '';
+        els.f_venue_code.value = sel ? (sel.code||'') : '';
         els.f_venue_loc.value = sel ? (sel.location||'') : '';
         els.f_venue_notes.value = sel ? (sel.notes||'') : '';
       }
@@ -1664,6 +1671,7 @@
       }
       if(ui.section==='venues') {
         cur.name = els.f_venue_name.value.trim();
+        cur.code = els.f_venue_code.value.trim();
         cur.location = els.f_venue_loc.value.trim();
         cur.notes = els.f_venue_notes.value.trim();
       }

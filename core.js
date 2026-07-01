@@ -246,12 +246,12 @@
         { name: 'Parts', color: '#ef4444' }
       ],
       venues: [
-        { id:'redstar', name:'Red Star Raceway', location:'Delmas, Gauteng', notes:'Clockwise/anti-clockwise, windy' },
-        { id:'killarney', name:'Killarney Kart Track', location:'Cape Town, Western Cape', notes:'Coastal, wind-sensitive' },
-        { id:'idube', name:'iDube Kart Circuit', location:'KwaZulu-Natal', notes:'Elevation, technical' },
-        { id:'formulak', name:'Formula K', location:'Benoni, Gauteng', notes:'High speed, chicanes' },
-        { id:'zwartkops', name:'Zwartkops Kart Circuit', location:'Pretoria, Gauteng', notes:'Club layout, braking focus' },
-        { id:'rheebok', name:'Rheebok', location:'George, Western Cape', notes:'Coastal, flowing' }
+        { id:'redstar', name:'Red Star Raceway', code:'RSR', location:'Delmas, Gauteng', notes:'Clockwise/anti-clockwise, windy' },
+        { id:'killarney', name:'Killarney Kart Track', code:'Killarney', location:'Cape Town, Western Cape', notes:'Coastal, wind-sensitive' },
+        { id:'idube', name:'iDube Kart Circuit', code:'Idube', location:'KwaZulu-Natal', notes:'Elevation, technical' },
+        { id:'formulak', name:'Formula K', code:'FK', location:'Benoni, Gauteng', notes:'High speed, chicanes' },
+        { id:'zwartkops', name:'Zwartkops Kart Circuit', code:'Zwartkops', location:'Pretoria, Gauteng', notes:'Club layout, braking focus' },
+        { id:'rheebok', name:'Rheebok', code:'Rheebok', location:'George, Western Cape', notes:'Coastal, flowing' }
       ],
       eventTypes: [
         { code:'National Weekend', color:'#e32636' },

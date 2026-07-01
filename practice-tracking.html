@@ -213,6 +213,7 @@ let driverProfiles = []; // from collections/drivers
 let events = [];         // from collections/events
 let staffList = [];      // from collections/staff
 let columns = [];        // driver columns for the matrix
+let venueList = [];      // tracks/venues defined in Settings › Venues
 let CURRENT_USER = '';
 try { CURRENT_USER = (JSON.parse(localStorage.getItem('user')||'{}').username) || ''; } catch(e){}
 const sessModal = new bootstrap.Modal(document.getElementById('sessModal'));
@@ -235,6 +236,8 @@ async function loadRefs(){
   driverProfiles = (d.items||d||[]).filter(x=>(x.status||'active')==='active');
   events = (e.items||e||[]).slice().sort((a,b)=>String(b.start_date||'').localeCompare(String(a.start_date||'')));
   staffList = (s.items||s||[]);
+  try { await RTS.syncSettingsFromDB(); } catch(_e){}
+  venueList = (RTS.getSettings().venues || []).filter(v=>v && (v.code || v.name));
 }
 
 async function loadSessions(){
@@ -344,12 +347,17 @@ function renderKPIs(){
 
 function populateFilters(){
   const classes = [...new Set([...driverProfiles.map(d=>d.racing_class), ...sessions.map(s=>s.class_name)].filter(Boolean))].sort();
-  const tracks = [...new Set([...sessions.map(s=>s.track), ...DEFAULT_TRACKS].filter(Boolean))].sort();
+  const venueCodes = venueList.map(v=>v.code||v.name).filter(Boolean);
+  const trackSource = venueCodes.length ? venueCodes : DEFAULT_TRACKS;
+  const tracks = [...new Set([...sessions.map(s=>s.track), ...trackSource].filter(Boolean))].sort();
   const fClass=document.getElementById('fClass'), fTrack=document.getElementById('fTrack');
   fClass.innerHTML = '<option value="">All classes</option>'+classes.map(c=>`<option>${esc(c)}</option>`).join('');
   fTrack.innerHTML = '<option value="">All tracks</option>'+tracks.map(t=>`<option>${esc(t)}</option>`).join('');
   document.getElementById('classList').innerHTML = classes.map(c=>`<option value="${esc(c)}">`).join('');
-  document.getElementById('trackList').innerHTML = tracks.map(t=>`<option value="${esc(t)}">`).join('');
+  // Track datalist: venues from Settings first (code -> full name hint), then any extra codes seen in data
+  const venueOpts = venueList.map(v=>`<option value="${esc(v.code||v.name)}">${esc(v.name)}${v.location?' — '+esc(v.location):''}</option>`).join('');
+  const extraOpts = tracks.filter(t=>!venueList.some(v=>(v.code||v.name)===t)).map(t=>`<option value="${esc(t)}">`).join('');
+  document.getElementById('trackList').innerHTML = venueOpts + extraOpts;
 }
 
 // ─── SESSION MODAL ───────────────────────────────────────────
@@ -357,6 +365,29 @@ let modalStaff = [];   // [{staff_id,staff_name,role}]
 let modalDrivers = []; // [{driver_id,driver_name,status,color}]
 
 function openQuick(){ openSession(null); }
+
+// Build the "Link to event" options with the closest-dated events grouped at the top.
+function buildEventOptions(sessionDate){
+  const dayMs = 86400000;
+  const ref = sessionDate ? new Date(sessionDate) : new Date();
+  ref.setHours(0,0,0,0);
+  const withDist = events.map(e=>{
+    const d = e.start_date ? new Date(e.start_date) : null;
+    const dist = d ? Math.round((d - ref)/dayMs) : null;   // days from the session date (neg = past)
+    return { e, d, dist };
+  });
+  const NEAR_PAST = 21, NEAR_FUTURE = 60;                  // last ~3 weeks + next ~2 months
+  const isNear = x => x.dist!==null && x.dist >= -NEAR_PAST && x.dist <= NEAR_FUTURE;
+  const near = withDist.filter(isNear).sort((a,b)=>Math.abs(a.dist)-Math.abs(b.dist));
+  const rest = withDist.filter(x=>!isNear(x)).sort((a,b)=>String(b.e.start_date||'').localeCompare(String(a.e.start_date||'')));
+  const rel = d => d===null?'' : d===0?'today' : d>0?`in ${d}d`:`${-d}d ago`;
+  const optNear = x => `<option value="${esc(x.e.id)}">${esc(x.e.name||'Event')}${x.d?` · ${fmtDate(x.e.start_date)}`:''}${x.dist!==null?` (${rel(x.dist)})`:''}</option>`;
+  const optRest = x => `<option value="${esc(x.e.id)}">${esc(x.e.name||'Event')}${x.e.start_date?` · ${fmtDate(x.e.start_date)}`:''}</option>`;
+  let html = '<option value="">— Not linked —</option>';
+  if(near.length) html += `<optgroup label="📅 Closest to this date">${near.map(optNear).join('')}</optgroup>`;
+  if(rest.length) html += `<optgroup label="All other events">${rest.map(optRest).join('')}</optgroup>`;
+  return html;
+}
 
 function openSession(id){
   const s = id ? sessions.find(x=>x.id===id) : null;
@@ -369,9 +400,9 @@ function openSession(id){
   document.getElementById('sNotes').value = s ? (s.notes||'') : '';
   document.getElementById('btnDelSess').classList.toggle('d-none', !s);
 
-  // events dropdown (auto-suggest by date)
+  // events dropdown (closest dates surfaced first)
   const evSel = document.getElementById('sEvent');
-  evSel.innerHTML = '<option value="">— Not linked —</option>'+events.map(e=>`<option value="${esc(e.id)}">${esc(e.name||'Event')}${e.start_date?` (${fmtDate(e.start_date)})`:''}</option>`).join('');
+  evSel.innerHTML = buildEventOptions(s ? s.session_date : document.getElementById('sDate').value);
   evSel.value = s ? (s.event_id||'') : '';
 
   // staff
@@ -650,6 +681,25 @@ document.getElementById('btnReset').addEventListener('click', ()=>{
 document.getElementById('btnQuick').addEventListener('click', openQuick);
 document.getElementById('btnSaveSess').addEventListener('click', saveSession);
 document.getElementById('btnDelSess').addEventListener('click', deleteSession);
+
+// Track -> auto-fill full venue name from Settings › Venues
+document.getElementById('sTrack').addEventListener('input', ()=>{
+  const v = document.getElementById('sTrack').value.trim().toLowerCase();
+  if(!v) return;
+  const match = venueList.find(x=>(x.code||'').toLowerCase()===v || (x.name||'').toLowerCase()===v);
+  if(!match) return;
+  const venueEl = document.getElementById('sVenue');
+  const cur = venueEl.value.trim();
+  // only auto-fill when empty or currently holding a known venue name (don't clobber a manual entry)
+  if(!cur || venueList.some(x=>x.name===cur)) venueEl.value = match.name || '';
+});
+// Session date -> re-rank the event list around the new date, keeping the current selection
+document.getElementById('sDate').addEventListener('change', ()=>{
+  const evSel = document.getElementById('sEvent'); const keep = evSel.value;
+  evSel.innerHTML = buildEventOptions(document.getElementById('sDate').value);
+  evSel.value = keep;
+});
+
 document.getElementById('btnExport').addEventListener('click', exportCSV);
 document.getElementById('btnPrint').addEventListener('click', ()=>window.print());
 document.getElementById('btnImport').addEventListener('click', ()=>{
