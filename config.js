@@ -2,9 +2,9 @@
 // Include this before core.js on pages where you want to override defaults.
 window.RTS_CONFIG = {
   // Software build version — updated on every deployment
-  buildVersion: 'd06c837',
+  buildVersion: '7ac1321',
   buildDate:    '2026-07-01',
-  buildNote:    'Academy schedule: show class and age on driver chips for kart prep',
+  buildNote:    'Add Practice Tracking module (sessions matrix, analytics, sheet import)',
   // API Configuration
   api: {
     baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)
