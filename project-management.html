@@ -232,6 +232,8 @@
     }
     .pm-bulk-action:hover { background: #f0f0f0; border-color: #a64dff; }
     .pm-bulk-clear { color: #777; padding: 2px 5px; }
+    .pm-bulk-delete { color: #c0392b; border-color: #e2b4ad; }
+    .pm-bulk-delete:hover { background: #fdecea; border-color: #c0392b; color: #a5281b; }
     #pm-empty-state {
       flex: 1; display: flex; flex-direction: column;
       align-items: center; justify-content: center;
@@ -1426,6 +1428,7 @@
           <button class="pm-bulk-action" id="pm-bulk-shift" title="Move selected tasks earlier/later by the number of days">Shift</button>
           <input class="pm-bulk-input" type="number" id="pm-bulk-duration" min="1" max="3650" placeholder="Days" title="Set selected tasks duration in days">
           <button class="pm-bulk-action" id="pm-bulk-set-duration" title="Apply this duration to selected tasks">Set Duration</button>
+          <button class="pm-bulk-action pm-bulk-delete" id="pm-bulk-delete" title="Delete all selected tasks (and their subtasks)">Delete</button>
           <button class="pm-bulk-action pm-bulk-clear" id="pm-bulk-clear" title="Clear selection">Clear</button>
         </div>
         <div class="pm-toolbar-sep"></div>
@@ -2697,6 +2700,10 @@
     allDates.push(today, addDays(today, 30));
     const min = new Date(Math.min(...allDates));
     const max = new Date(Math.max(...allDates));
+    // Clamp history: never scroll back further than ~6 months. Guards against
+    // corrupt/legacy dates (e.g. 1902) blowing the chart out to a century wide.
+    const historyFloor = addDays(today, -183);
+    if (min < historyFloor) min.setTime(historyFloor.getTime());
     min.setDate(min.getDate() - 7);
     max.setDate(max.getDate() + 14);
     state.ganttStartDate = min;
@@ -4693,6 +4700,41 @@
     }
   }
 
+  async function applyBulkDelete() {
+    const tasks = selectedTasks();
+    if (!tasks.length) { pmShowToast('Select one or more tasks first', 'error'); return; }
+    // Collect each selected task plus its whole subtree
+    const idsToRemove = new Set();
+    const collect = (id) => {
+      idsToRemove.add(id);
+      state.tasks.filter(t => t.parent_task_id === id).forEach(c => collect(c.id));
+    };
+    tasks.forEach(t => collect(t.id));
+    const total = idsToRemove.size;
+    const extra = total - tasks.length;
+    const msg = `Delete ${tasks.length} selected task${tasks.length === 1 ? '' : 's'}` +
+      (extra > 0 ? ` and ${extra} subtask${extra === 1 ? '' : 's'}` : '') + '? This cannot be undone.';
+    if (!confirm(msg)) return;
+
+    // Optimistic local removal
+    state.tasks = state.tasks.filter(t => !idsToRemove.has(t.id));
+    state.links = state.links.filter(l => !idsToRemove.has(l.from_task_id) && !idsToRemove.has(l.to_task_id));
+    clearTaskSelection();
+    closeInspector();
+    computeGanttRange();
+    renderAll();
+
+    try {
+      await Promise.all([...idsToRemove].map(id =>
+        api(`${API}/project-plans/tasks/${id}`, { method:'DELETE' })
+      ));
+      pmShowToast(`Deleted ${total} task${total === 1 ? '' : 's'}`, 'success');
+    } catch (err) {
+      pmShowToast(err.message || 'Could not delete selected tasks', 'error');
+      await loadPlan(state.activePlanId);
+    }
+  }
+
   // Indent / Outdent
   async function indentTask(taskId) {
     const idx = state.tasks.findIndex(t => t.id === taskId);
@@ -5515,6 +5557,7 @@
     document.getElementById('pm-bulk-set-duration').addEventListener('click', applyBulkDuration);
     document.getElementById('pm-bulk-set-start').addEventListener('click', applyBulkStartDate);
     document.getElementById('pm-bulk-shift').addEventListener('click', applyBulkShiftDates);
+    document.getElementById('pm-bulk-delete').addEventListener('click', applyBulkDelete);
     document.getElementById('pm-bulk-clear').addEventListener('click', clearTaskSelection);
     // Apply as soon as a date is picked — avoids the native picker swallowing the
     // first button click. The dedupe guard makes the later button click a no-op.
