@@ -283,6 +283,17 @@
       gap: 2px;
     }
     #pm-outline-header span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; position: relative; }
+
+    /* ─── Vertical grid lines: makes columns visible & shows where to drag to resize ── */
+    #pm-outline-header > span,
+    .pm-task-row > * {
+      border-right: 1px solid #dfe3ea;
+    }
+    #pm-outline-header > span:last-child,
+    .pm-task-row > *:last-child { border-right: none; }
+    .pm-task-row > * { align-self: stretch; line-height: 16px; }
+    #pm-outline-header > span { align-self: stretch; line-height: 28px; }
+
     #pm-outline-body {
       overflow-y: auto;
       overflow-x: hidden;
@@ -441,13 +452,28 @@
 
     /* OUTLINE RESIZER */
     #pm-outline-resizer {
-      width: 5px; cursor: col-resize;
-      background: transparent;
+      width: 6px; cursor: col-resize;
+      background: #eceef2;
+      border-left: 1px solid #cdd3db;
+      border-right: 1px solid #cdd3db;
       flex-shrink: 0;
       position: relative;
       z-index: 5;
     }
+    /* vertical grip dots so it's obvious this bar is draggable */
+    #pm-outline-resizer::after {
+      content: "";
+      position: absolute;
+      top: 50%; left: 50%;
+      width: 2px; height: 26px;
+      transform: translate(-50%, -50%);
+      background-image: radial-gradient(#9aa2ae 40%, transparent 45%);
+      background-size: 2px 5px;
+      background-repeat: repeat-y;
+      opacity: 0.9;
+    }
     #pm-outline-resizer:hover { background: rgba(166,77,255,0.3); }
+    #pm-outline-resizer:hover::after { background-image: radial-gradient(#fff 40%, transparent 45%); }
 
     /* ─── GANTT CHART PANEL ──────────────────────────────────────── */
     #pm-chart-wrap {
@@ -613,12 +639,17 @@
       overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
       padding-left: 3px;
     }
-    /* Column resize handle */
+    /* Column resize handle — visible divider so you can see where to grab */
     .pm-col-rh {
-      position: absolute; right: 0; top: 0; bottom: 0; width: 5px;
+      position: absolute; right: 0; top: 3px; bottom: 3px; width: 8px;
       cursor: col-resize; background: transparent; z-index: 2;
+      border-right: 2px solid #b5bcc7;
+      transition: border-color 0.1s, background 0.1s;
     }
-    .pm-col-rh:hover, .pm-col-rh:active { background: rgba(166,77,255,0.5); }
+    .pm-col-rh:hover, .pm-col-rh:active {
+      background: rgba(166,77,255,0.18);
+      border-right-color: #a64dff;
+    }
     #pm-outline-header span { position: relative; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     /* Milestone diamond */
     .pm-milestone-diamond {
@@ -1387,8 +1418,12 @@
         <div class="pm-toolbar-sep"></div>
         <div class="pm-bulk-bar" id="pm-bulk-bar" hidden>
           <span class="pm-bulk-count" id="pm-bulk-count">0 selected</span>
+          <input class="pm-bulk-input" type="date" id="pm-bulk-start-date" title="Set selected tasks start date">
+          <button class="pm-bulk-action" id="pm-bulk-set-start" title="Apply this start date to selected tasks">Set Start</button>
           <input class="pm-bulk-input" type="date" id="pm-bulk-end-date" title="Set selected tasks end date">
           <button class="pm-bulk-action" id="pm-bulk-set-end" title="Apply this end date to selected tasks">Set End</button>
+          <input class="pm-bulk-input" type="number" id="pm-bulk-shift-days" placeholder="±Days" title="Shift start & end of selected tasks by this many days (negative = earlier)">
+          <button class="pm-bulk-action" id="pm-bulk-shift" title="Move selected tasks earlier/later by the number of days">Shift</button>
           <input class="pm-bulk-input" type="number" id="pm-bulk-duration" min="1" max="3650" placeholder="Days" title="Set selected tasks duration in days">
           <button class="pm-bulk-action" id="pm-bulk-set-duration" title="Apply this duration to selected tasks">Set Duration</button>
           <button class="pm-bulk-action pm-bulk-clear" id="pm-bulk-clear" title="Clear selection">Clear</button>
@@ -4513,11 +4548,98 @@
     return [...state.selectedTaskIds].map(id => taskById.get(id)).filter(Boolean);
   }
 
+  // Signature of the current selection, used to dedupe repeat bulk applies.
+  function selectionSignature() {
+    return [...state.selectedTaskIds].sort().join(',');
+  }
+  // Guards against the same bulk action running twice in quick succession —
+  // e.g. a date-input `change` event immediately followed by the button click,
+  // or a first button click that was partly consumed dismissing a native picker.
+  let _lastBulkApply = { key: '', at: 0 };
+  function bulkShouldRun(key) {
+    const now = Date.now();
+    if (key === _lastBulkApply.key && now - _lastBulkApply.at < 900) return false;
+    _lastBulkApply = { key, at: now };
+    return true;
+  }
+
+  async function applyBulkStartDate() {
+    const value = document.getElementById('pm-bulk-start-date')?.value;
+    if (!value) { pmShowToast('Choose a start date first', 'error'); return; }
+    const tasks = selectedTasks();
+    if (!tasks.length) { pmShowToast('Select one or more tasks first', 'error'); return; }
+    if (!bulkShouldRun(`start:${value}:${selectionSignature()}`)) return;
+    const newStart = parseDateLocal(value);
+    const updates = [];
+    let skipped = 0;
+    tasks.forEach(task => {
+      // Don't push a start date past an existing end date
+      if (task.end_date && !task.is_milestone && newStart > parseDateLocal(task.end_date)) { skipped++; return; }
+      pushUndo({ ...task });
+      const body = { start_date: value };
+      task.start_date = value;
+      // Milestones are single-day: keep end in sync
+      if (task.is_milestone) { task.end_date = value; body.end_date = value; }
+      updates.push({ task, body });
+    });
+    if (!updates.length) { pmShowToast('No selected tasks can use that start date', 'error'); return; }
+    refreshScheduleView();
+    try {
+      await Promise.all(updates.map(({ task, body }) =>
+        api(`${API}/project-plans/tasks/${task.id}`, { method:'PUT', body: JSON.stringify(body) })
+      ));
+      await enforceFSMany(updates.map(({ task }) => task.id));
+      pmShowToast(`Updated ${updates.length} task${updates.length === 1 ? '' : 's'}${skipped ? `, skipped ${skipped}` : ''}`, skipped ? 'warning' : 'success');
+    } catch (err) {
+      pmShowToast(err.message || 'Could not update selected tasks', 'error');
+      await loadPlan(state.activePlanId);
+    }
+  }
+
+  async function applyBulkShiftDates() {
+    const input = document.getElementById('pm-bulk-shift-days');
+    const days = parseInt(input?.value, 10);
+    if (!Number.isFinite(days) || days === 0) { pmShowToast('Enter a number of days to shift (e.g. 7 or -3)', 'error'); return; }
+    const tasks = selectedTasks();
+    if (!tasks.length) { pmShowToast('Select one or more tasks first', 'error'); return; }
+    if (!bulkShouldRun(`shift:${days}:${selectionSignature()}`)) return;
+    const updates = [];
+    let skipped = 0;
+    tasks.forEach(task => {
+      if (!task.start_date && !task.end_date) { skipped++; return; }
+      pushUndo({ ...task });
+      const body = {};
+      if (task.start_date) {
+        const s = fmtDate(addDays(parseDateLocal(task.start_date), days));
+        task.start_date = s; body.start_date = s;
+      }
+      if (task.end_date) {
+        const e = fmtDate(addDays(parseDateLocal(task.end_date), days));
+        task.end_date = e; body.end_date = e;
+      }
+      updates.push({ task, body });
+    });
+    if (!updates.length) { pmShowToast('Selected tasks have no dates to shift', 'error'); return; }
+    refreshScheduleView();
+    try {
+      await Promise.all(updates.map(({ task, body }) =>
+        api(`${API}/project-plans/tasks/${task.id}`, { method:'PUT', body: JSON.stringify(body) })
+      ));
+      await enforceFSMany(updates.map(({ task }) => task.id));
+      const dir = days > 0 ? 'later' : 'earlier';
+      pmShowToast(`Shifted ${updates.length} task${updates.length === 1 ? '' : 's'} ${Math.abs(days)} day${Math.abs(days) === 1 ? '' : 's'} ${dir}${skipped ? `, skipped ${skipped}` : ''}`, skipped ? 'warning' : 'success');
+    } catch (err) {
+      pmShowToast(err.message || 'Could not shift selected tasks', 'error');
+      await loadPlan(state.activePlanId);
+    }
+  }
+
   async function applyBulkEndDate() {
     const value = document.getElementById('pm-bulk-end-date')?.value;
     if (!value) { pmShowToast('Choose an end date first', 'error'); return; }
     const tasks = selectedTasks();
-    if (!tasks.length) return;
+    if (!tasks.length) { pmShowToast('Select one or more tasks first', 'error'); return; }
+    if (!bulkShouldRun(`end:${value}:${selectionSignature()}`)) return;
     const updates = [];
     let skipped = 0;
     tasks.forEach(task => {
@@ -4546,7 +4668,8 @@
     if (!Number.isFinite(rawDays) || rawDays < 1) { pmShowToast('Enter a duration in days', 'error'); return; }
     const days = Math.min(3650, rawDays);
     const tasks = selectedTasks();
-    if (!tasks.length) return;
+    if (!tasks.length) { pmShowToast('Select one or more tasks first', 'error'); return; }
+    if (!bulkShouldRun(`dur:${days}:${selectionSignature()}`)) return;
     const updates = [];
     let skipped = 0;
     tasks.forEach(task => {
@@ -5390,9 +5513,21 @@
 
     document.getElementById('pm-bulk-set-end').addEventListener('click', applyBulkEndDate);
     document.getElementById('pm-bulk-set-duration').addEventListener('click', applyBulkDuration);
+    document.getElementById('pm-bulk-set-start').addEventListener('click', applyBulkStartDate);
+    document.getElementById('pm-bulk-shift').addEventListener('click', applyBulkShiftDates);
     document.getElementById('pm-bulk-clear').addEventListener('click', clearTaskSelection);
+    // Apply as soon as a date is picked — avoids the native picker swallowing the
+    // first button click. The dedupe guard makes the later button click a no-op.
+    document.getElementById('pm-bulk-start-date').addEventListener('change', applyBulkStartDate);
+    document.getElementById('pm-bulk-end-date').addEventListener('change', applyBulkEndDate);
     document.getElementById('pm-bulk-end-date').addEventListener('keydown', e => {
       if (e.key === 'Enter') applyBulkEndDate();
+    });
+    document.getElementById('pm-bulk-start-date').addEventListener('keydown', e => {
+      if (e.key === 'Enter') applyBulkStartDate();
+    });
+    document.getElementById('pm-bulk-shift-days').addEventListener('keydown', e => {
+      if (e.key === 'Enter') applyBulkShiftDates();
     });
     document.getElementById('pm-bulk-duration').addEventListener('keydown', e => {
       if (e.key === 'Enter') applyBulkDuration();
