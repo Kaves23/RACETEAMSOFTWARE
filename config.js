@@ -2,9 +2,9 @@
 // Include this before core.js on pages where you want to override defaults.
 window.RTS_CONFIG = {
   // Software build version — updated on every deployment
-  buildVersion: '35c3e5a',
+  buildVersion: 'f7d63f1',
   buildDate:    '2026-07-01',
-  buildNote:    'Academy pipeline: drag-to-reorder, compact leads to bottom, cancelled at very bottom with red overlay',
+  buildNote:    'Academy pipeline: add Tuesday Schedule view (next 2 months, AM/PM slots with booked drivers + empty slots)',
   // API Configuration
   api: {
     baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)
