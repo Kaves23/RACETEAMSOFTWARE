@@ -29,6 +29,7 @@
     table.pt-matrix th.pt-rowhead,table.pt-matrix td.pt-rowhead{position:sticky;left:0;z-index:2;background:#fff;text-align:left;min-width:150px;padding:2px 8px;cursor:pointer;}
     table.pt-matrix tbody tr:nth-child(even) td{background:#f3f4f6;}
     table.pt-matrix tbody tr:nth-child(even) td.pt-rowhead{background:#eceef1;}
+    table.pt-matrix tbody tr.pt-day-start td{border-top:2px solid #c3c9d4;}
     table.pt-matrix tbody tr:hover td{background:#eef0ff;}
     table.pt-matrix tbody tr:hover .pt-rowhead{background:#e6e8ff;}
     .pt-drv-col{min-width:52px;max-width:92px;}
@@ -292,7 +293,10 @@ function renderMatrix(){
     body.innerHTML = `<tr><td class="text-secondary p-3" colspan="${columns.length+1}">No practice sessions yet. Click <b>+ Log practice</b> or <b>Import sheet</b>.</td></tr>`;
     return;
   }
+  let prevDay = null;
   body.innerHTML = sessions.map(s=>{
+    const dayKey = String(s.session_date||'').slice(0,10);
+    const dayStart = dayKey !== prevDay; prevDay = dayKey;
     const ev = s.event_id ? events.find(e=>e.id===s.event_id) : null;
     const trk = s.track ? `<span class="pt-track-chip" style="background:${trackColor(s.track)}" title="${esc(s.venue||s.track)}">${esc(s.track)}</span>` : '';
     const head = `<td class="pt-rowhead" onclick="openSession('${s.id}')">
@@ -307,7 +311,7 @@ function renderMatrix(){
       const who = a && a.updated_by ? ` · by ${esc(a.updated_by)}${a.updated_at?' '+fmtDate(a.updated_at):''}` : '';
       return `<td><div class="pt-cell ${cls}" onclick="cycleCell('${s.id}','${colKey(c)}')" title="${esc(c.name)} — ${st||'blank'}${a&&a.kart?' · '+esc(a.kart):''}${who}">${letter}</div></td>`;
     }).join('');
-    return `<tr>${head}${cells}</tr>`;
+    return `<tr class="${dayStart?'pt-day-start':''}">${head}${cells}</tr>`;
   }).join('');
 }
 
