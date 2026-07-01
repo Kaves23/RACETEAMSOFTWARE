@@ -21,7 +21,7 @@ router.get('/', async (req, res, next) => {
     if (status) { p.push(status); c.push(`status=$${p.length}`); }
     if (search) { p.push(`%${search}%`); c.push(`(driver_name ILIKE $${p.length} OR parent_name ILIKE $${p.length})`); }
     const where = c.length ? 'WHERE ' + c.join(' AND ') : '';
-    const r = await pool.query(`SELECT * FROM academy_prospects ${where} ORDER BY created_at DESC`, p);
+    const r = await pool.query(`SELECT * FROM academy_prospects ${where} ORDER BY sort_order ASC NULLS LAST, created_at DESC`, p);
     res.json(r.rows);
   } catch (e) { next(e); }
 });
@@ -34,7 +34,7 @@ router.post('/', async (req, res, next) => {
       parent_name, parent_phone, parent_email,
       source, assigned_to, status, notes,
       sessions, attachments, activities, tasks, booked_dates,
-      test_fee, fee_currency, payment_status
+      test_fee, fee_currency, payment_status, sort_order
     } = req.body;
     if (!driver_name) return res.status(400).json({ error: 'driver_name required' });
     const r = await pool.query(
@@ -43,8 +43,8 @@ router.post('/', async (req, res, next) => {
           parent_name, parent_phone, parent_email,
           source, assigned_to, status, notes,
           sessions, attachments, activities, tasks, booked_dates,
-          test_fee, fee_currency, payment_status)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+          test_fee, fee_currency, payment_status, sort_order)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
        RETURNING *`,
       [
         driver_name, driver_dob || null, category || null, test_venue || null, nationality || null,
@@ -52,7 +52,8 @@ router.post('/', async (req, res, next) => {
         source || null, assigned_to || null, status || 'lead', notes || null,
         JSON.stringify(sessions || []), JSON.stringify(attachments || []),
         JSON.stringify(activities || []), JSON.stringify(tasks || []), JSON.stringify(booked_dates || []),
-        (test_fee === '' || test_fee == null) ? null : parseFloat(test_fee), fee_currency || 'ZAR', payment_status || 'unpaid'
+        (test_fee === '' || test_fee == null) ? null : parseFloat(test_fee), fee_currency || 'ZAR', payment_status || 'unpaid',
+        (sort_order === '' || sort_order == null) ? null : parseInt(sort_order, 10)
       ]
     );
     res.status(201).json(r.rows[0]);
@@ -67,7 +68,7 @@ router.put('/:id', async (req, res, next) => {
       parent_name, parent_phone, parent_email,
       source, assigned_to, status, notes,
       sessions, attachments, activities, tasks, booked_dates,
-      test_fee, fee_currency, payment_status
+      test_fee, fee_currency, payment_status, sort_order
     } = req.body;
     const r = await pool.query(
       `UPDATE academy_prospects SET
@@ -79,7 +80,8 @@ router.put('/:id', async (req, res, next) => {
          activities=COALESCE($15::jsonb, activities),
          tasks=COALESCE($16::jsonb, tasks),
          booked_dates=COALESCE($17::jsonb, booked_dates),
-         test_fee=$18, fee_currency=$19, payment_status=COALESCE($20, payment_status), updated_at=NOW()
+         test_fee=$18, fee_currency=$19, payment_status=COALESCE($20, payment_status),
+         sort_order=COALESCE($22, sort_order), updated_at=NOW()
        WHERE id=$21 RETURNING *`,
       [
         driver_name, driver_dob || null, category || null, test_venue || null, nationality || null,
@@ -87,7 +89,8 @@ router.put('/:id', async (req, res, next) => {
         source || null, assigned_to || null, status || 'lead', notes || null,
         jsonbParam(sessions), jsonbParam(attachments), jsonbParam(activities), jsonbParam(tasks), jsonbParam(booked_dates),
         (test_fee === '' || test_fee == null) ? null : parseFloat(test_fee), fee_currency || 'ZAR', payment_status || null,
-        req.params.id
+        req.params.id,
+        (sort_order === '' || sort_order == null) ? null : parseInt(sort_order, 10)
       ]
     );
     if (!r.rows.length) return res.status(404).json({ error: 'Not found' });

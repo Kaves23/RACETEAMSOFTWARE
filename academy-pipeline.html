@@ -56,6 +56,19 @@
     .acd-row-del { opacity: 0; transition: opacity 0.15s; background: none; border: none; color: #dc3545; font-size: 1rem; line-height: 1; padding: 0 4px; cursor: pointer; }
     .acd-list-table tbody tr:hover .acd-row-del { opacity: 1; }
 
+    /* Drag-to-reorder */
+    .acd-list-table tbody tr[draggable="true"] { cursor: grab; }
+    .acd-list-table tbody tr.acd-dragging { opacity: 0.4; }
+    .acd-list-table tbody tr.acd-drag-over td { box-shadow: inset 0 2px 0 0 #1a0d2e; }
+
+    /* Lead rows: compact height, shuffled to bottom */
+    .acd-list-table tbody tr.acd-lead-row td { padding-top: 2px; padding-bottom: 2px; font-size: 0.76rem; }
+    .acd-list-table tbody tr.acd-lead-row { opacity: 0.9; }
+
+    /* Cancelled rows: very bottom, slight red overlay across the whole line */
+    .acd-list-table tbody tr.acd-cancelled-row td { padding-top: 2px; padding-bottom: 2px; font-size: 0.76rem; background: rgba(220, 53, 69, 0.08) !important; }
+    .acd-list-table tbody tr.acd-cancelled-row:hover td { background: rgba(220, 53, 69, 0.14) !important; }
+
     /* Status badge colours */
     .badge-lead        { background: #e2e8f0; color: #475569; }
     .badge-qualified   { background: #dbeafe; color: #1d4ed8; }
@@ -916,7 +929,21 @@
           if (!hay.includes(q)) return false;
         }
         return true;
+      }).sort((a, b) => {
+        const ga = acdGroupRank(a), gb = acdGroupRank(b);
+        if (ga !== gb) return ga - gb;
+        const oa = (typeof a.sort_order === 'number') ? a.sort_order : 1e9;
+        const ob = (typeof b.sort_order === 'number') ? b.sort_order : 1e9;
+        if (oa !== ob) return oa - ob;
+        return String(a.created_at || '').localeCompare(String(b.created_at || ''));
       });
+    }
+
+    // Grouping for list order: active stages first, then leads, then cancelled (very bottom)
+    function acdGroupRank(p) {
+      if (p.status === 'cancelled') return 2;
+      if (p.status === 'lead') return 1;
+      return 0;
     }
 
     function renderList() {
@@ -938,7 +965,9 @@
       tbody.innerHTML = rows.map(p => {
         const s = stageByKey(p.status);
         const ls = lastSession(p);
-        return `<tr data-id="${esc(p.id)}" class="${p.id === selectedId ? 'acd-row-selected' : ''}">
+        const groupCls = p.status === 'cancelled' ? 'acd-cancelled-row' : (p.status === 'lead' ? 'acd-lead-row' : '');
+        const cls = [p.id === selectedId ? 'acd-row-selected' : '', groupCls].filter(Boolean).join(' ');
+        return `<tr data-id="${esc(p.id)}" draggable="true" class="${cls}">
           <td><strong>${esc(p.driver_name || '—')}</strong>${bookedDatesMiniHtml(p)}</td>
           <td>${esc(calcAge(p.driver_dob))}</td>
           <td>${esc(p.parent_name || '—')}</td>
@@ -950,18 +979,81 @@
         </tr>`;
       }).join('');
 
-      tbody.querySelectorAll('tr[data-id]').forEach(tr =>
+      tbody.querySelectorAll('tr[data-id]').forEach(tr => {
         tr.addEventListener('click', e => {
           if (e.target.closest('[data-del]')) return;
           selectProspect(tr.dataset.id);
-        })
-      );
+        });
+        tr.addEventListener('dragstart', acdHandleDragStart);
+        tr.addEventListener('dragover', acdHandleDragOver);
+        tr.addEventListener('drop', acdHandleDrop);
+        tr.addEventListener('dragend', acdHandleDragEnd);
+      });
       tbody.querySelectorAll('[data-del]').forEach(btn =>
         btn.addEventListener('click', e => {
           e.stopPropagation();
           if (btn.dataset.del) deleteProspect(btn.dataset.del);
         })
       );
+    }
+
+    /* ── Drag-to-reorder ──────────────────────────────────────────── */
+    let acdDragId = null;
+
+    function acdHandleDragStart(e) {
+      const tr = e.target.closest('tr[data-id]');
+      if (!tr) return;
+      acdDragId = tr.dataset.id;
+      tr.classList.add('acd-dragging');
+      if (e.dataTransfer) {
+        e.dataTransfer.effectAllowed = 'move';
+        try { e.dataTransfer.setData('text/plain', acdDragId); } catch (_) {}
+      }
+    }
+
+    function acdHandleDragOver(e) {
+      if (!acdDragId) return;
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+      const tbody = document.getElementById('acdTbody');
+      const tr = e.target.closest('tr[data-id]');
+      tbody.querySelectorAll('.acd-drag-over').forEach(el => el.classList.remove('acd-drag-over'));
+      if (tr && tr.dataset.id !== acdDragId) tr.classList.add('acd-drag-over');
+    }
+
+    function acdHandleDrop(e) {
+      e.preventDefault();
+      const tbody = document.getElementById('acdTbody');
+      tbody.querySelectorAll('.acd-drag-over').forEach(el => el.classList.remove('acd-drag-over'));
+      const targetTr = e.target.closest('tr[data-id]');
+      if (!acdDragId || !targetTr || targetTr.dataset.id === acdDragId) return;
+      const dragTr = tbody.querySelector(`tr[data-id="${CSS.escape(acdDragId)}"]`);
+      if (!dragTr) return;
+      const list = Array.from(tbody.querySelectorAll('tr[data-id]'));
+      if (list.indexOf(dragTr) < list.indexOf(targetTr)) targetTr.after(dragTr);
+      else targetTr.before(dragTr);
+      persistAcdOrder();
+    }
+
+    function acdHandleDragEnd() {
+      const tbody = document.getElementById('acdTbody');
+      tbody.querySelectorAll('.acd-dragging, .acd-drag-over').forEach(el =>
+        el.classList.remove('acd-dragging', 'acd-drag-over'));
+      acdDragId = null;
+    }
+
+    async function persistAcdOrder() {
+      const ids = Array.from(document.getElementById('acdTbody').querySelectorAll('tr[data-id]'))
+        .map(tr => tr.dataset.id);
+      const changed = [];
+      ids.forEach((id, i) => {
+        const p = prospects.find(x => String(x.id) === String(id));
+        if (p && p.sort_order !== i) { p.sort_order = i; changed.push(p); }
+      });
+      renderList();
+      for (const p of changed) {
+        try { await apiSave(p); } catch (err) { console.warn('Order save failed:', err); }
+      }
     }
 
     /* ── Inspector ────────────────────────────────────────────────── */
