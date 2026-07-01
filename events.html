@@ -133,6 +133,7 @@
     #evShell .ev-sub-table th { background: #f8f9fa; color: #6c757d; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; padding: 5px 8px; border-bottom: 1px solid #dee2e6; }
     #evShell .ev-sub-table td { padding: 4px 8px; border-bottom: 1px solid #f0f0f0; color: #1a1d24; vertical-align: middle; }
     #evShell .ev-sub-table .form-select, #evShell .ev-sub-table .form-control { font-size: 0.78rem; }
+    .ev-practice-tag { display:inline-block; margin-left:6px; font-size:0.6rem; font-weight:700; text-transform:uppercase; letter-spacing:0.03em; color:#6d28d9; background:#ede9fe; border:1px solid #ddd6fe; border-radius:4px; padding:0.05rem 0.3rem; vertical-align:middle; }
     /* Wrap a class for the table containers */
     .ev-table-wrap { border: 1px solid #dee2e6; border-radius: 6px; overflow: hidden; }
 
@@ -2310,6 +2311,82 @@
       });
     }
 
+    // Pull drivers & staff that were logged against this event in the Practice
+    // Tracking page and surface them here (read-only, badged "via practice"),
+    // so people added in practice also show up when you click the event here.
+    async function appendPracticeParticipants(eventId) {
+      if (!eventId || !window.RTS_API || typeof RTS_API.request !== 'function') return;
+      let sessions;
+      try {
+        sessions = await RTS_API.request('/practice-tracking/sessions?event_id=' + encodeURIComponent(eventId));
+      } catch (_e) { return; }
+      if (!Array.isArray(sessions) || !sessions.length) return;
+      // Guard against stale async: bail if the user moved to another event.
+      const cur = getSelected();
+      if (!cur || String(cur.id) !== String(eventId)) return;
+
+      const drivers = driverOptions();
+      const assignedDriverIds = new Set((Array.isArray(cur.drivers)?cur.drivers:[]).map(String));
+      const assignedStaffIds  = new Set((Array.isArray(cur.crew)?cur.crew:[]).map(c=>String(c.staffId||'')));
+
+      // ── Collect unique practice drivers (exclude cancelled / no-show) ──
+      const pDrivers = new Map(); // key -> {name, cls, race}
+      sessions.forEach(s => (s.attendance||[]).forEach(a => {
+        if (a.status === 'cancelled' || a.status === 'no_show') return;
+        const key = a.driver_id ? 'id:'+a.driver_id : 'nm:'+String(a.driver_name||'').toLowerCase();
+        if (a.driver_id && assignedDriverIds.has(String(a.driver_id))) return;
+        if (pDrivers.has(key)) return;
+        const prof = a.driver_id ? (drivers||[]).find(x=>String(x.id)===String(a.driver_id)) : null;
+        const name = (prof && (prof.displayName||prof.name||prof.full_name)) || a.driver_name || a.driver_id || '—';
+        const cls  = (prof && (prof.racing_class||prof.class)) || a.class_name || s.class_name || '';
+        const num  = (prof && (prof.race_number||prof.raceNumber)) || '';
+        pDrivers.set(key, { name, cls, race: num ? `#${num}` : '' });
+      }));
+
+      if (pDrivers.size) {
+        // Remove the "No drivers assigned" placeholder if present.
+        const ph = els.driversTbody.querySelector('td[colspan]');
+        if (ph) ph.closest('tr').remove();
+        pDrivers.forEach(d => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${escapeHtml(d.name)} <span class="ev-practice-tag">via practice</span></td>
+            <td>${escapeHtml(d.cls)}</td>
+            <td>${escapeHtml(d.race)}</td>
+            <td></td>`;
+          els.driversTbody.appendChild(tr);
+        });
+      }
+
+      // ── Collect unique practice staff (session staff + attendance coaches) ──
+      const pStaff = new Map(); // key -> {name, role}
+      const addStaff = (id, name, role) => {
+        const key = id ? 'id:'+id : 'nm:'+String(name||'').toLowerCase();
+        if (id && assignedStaffIds.has(String(id))) return;
+        if (!name && !id) return;
+        if (pStaff.has(key)) return;
+        pStaff.set(key, { name: name || id, role: role || '' });
+      };
+      sessions.forEach(s => {
+        (s.staff||[]).forEach(st => addStaff(st.staff_id, st.staff_name, st.role));
+        (s.attendance||[]).forEach(a => {
+          if (a.status === 'cancelled' || a.status === 'no_show') return;
+          if (a.coach_staff_id || a.coach_name) addStaff(a.coach_staff_id, a.coach_name, 'Coach');
+        });
+      });
+
+      if (pStaff.size) {
+        pStaff.forEach(st => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${escapeHtml(st.name)} <span class="ev-practice-tag">via practice</span></td>
+            <td>${escapeHtml(st.role)}</td>
+            <td></td>`;
+          els.crewTbody.appendChild(tr);
+        });
+      }
+    }
+
     function renderDocs(docsArr) {
       els.docsList.innerHTML = '';
       (docsArr||[]).forEach((d, idx)=> {
@@ -2681,6 +2758,9 @@
 
       // crew roster
       renderCrewRoster(Array.isArray(ev.crew)?ev.crew:[]);
+
+      // supplement with anyone logged against this event in Practice Tracking
+      appendPracticeParticipants(ev.id);
 
       // docs
       renderDocs(Array.isArray(ev.documents)?ev.documents:[]);

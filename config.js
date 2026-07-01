@@ -2,9 +2,9 @@
 // Include this before core.js on pages where you want to override defaults.
 window.RTS_CONFIG = {
   // Software build version — updated on every deployment
-  buildVersion: '65f7206',
+  buildVersion: '909be46',
   buildDate:    '2026-07-01',
-  buildNote:    'Practice matrix: zebra rows, colour-coded track chip in session cell',
+  buildNote:    'Practice matrix: day-group divider so same-day multi-circuit sessions read as a block',
   // API Configuration
   api: {
     baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)
