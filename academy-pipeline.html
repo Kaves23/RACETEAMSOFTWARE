@@ -69,6 +69,32 @@
     .acd-list-table tbody tr.acd-cancelled-row td { padding-top: 2px; padding-bottom: 2px; font-size: 0.76rem; background: rgba(220, 53, 69, 0.08) !important; }
     .acd-list-table tbody tr.acd-cancelled-row:hover td { background: rgba(220, 53, 69, 0.14) !important; }
 
+    /* ── Tuesday Schedule view ────────────────────────────────────── */
+    .acd-view-toggle .btn { font-size: 0.72rem; }
+    .acd-sched-head { display: flex; justify-content: flex-end; margin-bottom: 10px; }
+    .acd-sched-legend { display: flex; align-items: center; gap: 16px; font-size: 0.74rem; color: #6c757d; }
+    .acd-sched-legend .acd-sched-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+    .acd-sched-dot.am { background: #84cc16; }
+    .acd-sched-dot.pm { background: #eab308; }
+    .acd-sched-empty-key { color: #adb5bd; font-style: italic; }
+    .acd-sched-wrap { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; align-items: start; }
+    .acd-sched-day { border: 1px solid #dee2e6; border-radius: 8px; background: #fff; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    .acd-sched-day.this-week { border-color: #1a0d2e; box-shadow: 0 0 0 2px rgba(26,13,46,0.15); }
+    .acd-sched-day-head { background: #1a0d2e; color: #fff; padding: 8px 11px; display: flex; justify-content: space-between; align-items: baseline; }
+    .acd-sched-day-date { font-weight: 700; font-size: 0.9rem; }
+    .acd-sched-day-wk { font-size: 0.62rem; font-weight: 600; opacity: 0.65; text-transform: uppercase; letter-spacing: 0.04em; }
+    .acd-sched-period { padding: 8px 11px; }
+    .acd-sched-period + .acd-sched-period { border-top: 1px solid #f0f0f0; }
+    .acd-sched-period-label { font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; display: flex; align-items: center; gap: 5px; }
+    .acd-sched-period.am .acd-sched-period-label { color: #4d7c0f; }
+    .acd-sched-period.pm .acd-sched-period-label { color: #a16207; }
+    .acd-sched-period-label .acd-sched-count { margin-left: auto; color: #adb5bd; font-weight: 600; }
+    .acd-sched-chip { display: inline-flex; align-items: center; gap: 5px; background: #ede9fe; color: #4c1d95; border-radius: 12px; padding: 3px 10px; font-size: 0.76rem; font-weight: 600; margin: 0 5px 5px 0; cursor: pointer; transition: background 0.12s; }
+    .acd-sched-chip:hover { background: #ddd6fe; }
+    .acd-sched-chip .acd-sched-venue { font-size: 0.62rem; font-weight: 600; color: #7c3aed; opacity: 0.8; }
+    .acd-sched-empty { font-size: 0.74rem; color: #cbd5e1; font-style: italic; padding: 3px 8px; border: 1px dashed #e2e8f0; border-radius: 6px; background: #fbfcfd; display: inline-block; }
+    .acd-sched-period.is-empty { background: #fffdf5; }
+
     /* Status badge colours */
     .badge-lead        { background: #e2e8f0; color: #475569; }
     .badge-qualified   { background: #dbeafe; color: #1d4ed8; }
@@ -273,8 +299,8 @@
     </div>
 
     <!-- Stage Filter Bar -->
-    <div class="d-flex align-items-center gap-2 mb-2">
-      <ul class="acd-stage-bar mb-0 ps-0" id="acdStageList">
+    <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+      <ul class="acd-stage-bar mb-0 ps-0 flex-grow-1" id="acdStageList">
         <li class="active" data-filter="all">All Prospects <span class="badge text-bg-secondary ms-1" id="acdCountBadge" style="font-size:0.68rem;">0</span></li>
         <li data-filter="lead">Lead</li>
         <li data-filter="qualified">Qualified</li>
@@ -285,6 +311,10 @@
         <li data-filter="signed">Signed</li>
         <li data-filter="cancelled">Cancelled</li>
       </ul>
+      <div class="btn-group btn-group-sm acd-view-toggle" role="group" id="acdViewToggle">
+        <button type="button" class="btn btn-dark active" data-view="list"><i class="bi bi-list-ul me-1"></i>List</button>
+        <button type="button" class="btn btn-outline-dark" data-view="schedule"><i class="bi bi-calendar2-week me-1"></i>Tuesday Schedule</button>
+      </div>
     </div>
 
     <div class="mlo-shell" id="acdShell">
@@ -635,6 +665,18 @@
 
     </div><!-- mlo-shell -->
     <div class="acd-mobile-inspector-overlay" id="acdMobileInspectorOverlay"></div>
+
+    <!-- SCHEDULE VIEW -->
+    <div id="acdSchedule" style="display:none;">
+      <div class="acd-sched-head">
+        <div class="acd-sched-legend">
+          <span><span class="acd-sched-dot am"></span> AM</span>
+          <span><span class="acd-sched-dot pm"></span> PM</span>
+          <span class="acd-sched-empty-key">Empty slots are highlighted</span>
+        </div>
+      </div>
+      <div class="acd-sched-wrap" id="acdSchedGrid"></div>
+    </div>
   </div><!-- rts-main -->
 
   <!-- EMAIL INBOX MODAL -->
@@ -1054,6 +1096,104 @@
       for (const p of changed) {
         try { await apiSave(p); } catch (err) { console.warn('Order save failed:', err); }
       }
+    }
+
+    /* ── Tuesday Schedule view ────────────────────────────────────── */
+    let currentView = 'list';
+
+    function toISODate(d) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    }
+
+    // Next ~2 months of Tuesdays, starting from the coming Tuesday (incl. today if Tue)
+    function upcomingTuesdays() {
+      const out = [];
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const end = new Date(today); end.setMonth(end.getMonth() + 2);
+      const d = new Date(today);
+      d.setDate(d.getDate() + ((2 - d.getDay() + 7) % 7)); // advance to Tuesday (2)
+      while (d <= end) { out.push(new Date(d)); d.setDate(d.getDate() + 7); }
+      return out;
+    }
+
+    // Prospects booked for a given ISO date + period ('am' | 'pm'); empty period counts as AM
+    function bookingsFor(iso, period) {
+      const res = [];
+      prospects.forEach(p => {
+        if (!p.id || p.status === 'cancelled') return;
+        const dates = Array.isArray(p.booked_dates) ? p.booked_dates : [];
+        const match = dates.some(b => {
+          const date = typeof b === 'string' ? b : (b && b.date) || '';
+          const per  = typeof b === 'string' ? '' : ((b && b.period) || '');
+          if (date !== iso) return false;
+          return (per === 'pm' ? 'pm' : 'am') === period;
+        });
+        if (match) res.push(p);
+      });
+      return res;
+    }
+
+    function periodHtml(iso, period) {
+      const list = bookingsFor(iso, period);
+      const chips = list.map(p =>
+        `<span class="acd-sched-chip" data-sched-id="${esc(p.id)}" title="${esc(p.category || '')}${p.test_venue ? ' · ' + esc(p.test_venue) : ''}">` +
+        `${esc(p.driver_name || '—')}` +
+        `${p.test_venue ? `<span class="acd-sched-venue">${esc(p.test_venue)}</span>` : ''}</span>`
+      ).join('');
+      const body = list.length ? chips : `<span class="acd-sched-empty">Empty — no driver booked</span>`;
+      return `<div class="acd-sched-period ${period} ${list.length ? '' : 'is-empty'}">
+        <div class="acd-sched-period-label">${period.toUpperCase()}<span class="acd-sched-count">${list.length || ''}</span></div>
+        ${body}
+      </div>`;
+    }
+
+    function renderSchedule() {
+      const grid = document.getElementById('acdSchedGrid');
+      if (!grid) return;
+      const todayStr = toISODate(new Date());
+      const tuesdays = upcomingTuesdays();
+      grid.innerHTML = tuesdays.map((d, i) => {
+        const iso = toISODate(d);
+        const dateLabel = d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+        const isThisWeek = i === 0 && iso >= todayStr;
+        return `<div class="acd-sched-day ${isThisWeek ? 'this-week' : ''}">
+          <div class="acd-sched-day-head">
+            <span class="acd-sched-day-date">${esc(dateLabel)}</span>
+            <span class="acd-sched-day-wk">${isThisWeek ? 'This week' : 'Tue'}</span>
+          </div>
+          ${periodHtml(iso, 'am')}
+          ${periodHtml(iso, 'pm')}
+        </div>`;
+      }).join('');
+
+      grid.querySelectorAll('[data-sched-id]').forEach(chip =>
+        chip.addEventListener('click', () => {
+          setView('list');
+          document.querySelectorAll('#acdStageList li').forEach(x => x.classList.remove('active'));
+          const allLi = document.querySelector('#acdStageList li[data-filter="all"]');
+          if (allLi) allLi.classList.add('active');
+          filterStage = 'all';
+          renderList();
+          selectProspect(chip.dataset.schedId);
+        })
+      );
+    }
+
+    function setView(view) {
+      currentView = view;
+      const isSched = view === 'schedule';
+      document.getElementById('acdShell').style.display = isSched ? 'none' : '';
+      document.getElementById('acdSchedule').style.display = isSched ? '' : 'none';
+      document.querySelectorAll('#acdViewToggle button').forEach(b => {
+        const active = b.dataset.view === view;
+        b.classList.toggle('active', active);
+        b.classList.toggle('btn-dark', active);
+        b.classList.toggle('btn-outline-dark', !active);
+      });
+      if (isSched) renderSchedule();
     }
 
     /* ── Inspector ────────────────────────────────────────────────── */
@@ -1592,6 +1732,10 @@
         filterStage = li.dataset.filter;
         renderList();
       })
+    );
+
+    document.querySelectorAll('#acdViewToggle button').forEach(btn =>
+      btn.addEventListener('click', () => setView(btn.dataset.view))
     );
 
     /* ── Activity & Tasks ─────────────────────────────────────────── */
