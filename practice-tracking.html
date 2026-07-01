@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Race Team OS – Practice Tracking</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
   <link href="style.css?v=20260525" rel="stylesheet"/>
   <style>
     body{background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%);min-height:100vh;}
@@ -151,8 +152,8 @@
         <div class="row g-2">
           <div class="col-12">
             <div class="pt-typeseg" id="sTypeSeg">
-              <button type="button" data-type="practice" class="active">🛠 Practice day</button>
-              <button type="button" data-type="race">🏁 Race day</button>
+              <button type="button" data-type="practice" class="active"><i class="bi bi-tools"></i> Practice day</button>
+              <button type="button" data-type="race"><i class="bi bi-flag-fill"></i> Race day</button>
             </div>
           </div>
           <div class="col-md-3"><label class="form-label small fw-semibold mb-1">Date *</label>
@@ -179,7 +180,7 @@
                 <button type="button" class="btn btn-sm btn-outline-secondary" id="sClearAll">Clear</button>
               </div>
             </div>
-            <div class="text-secondary mb-1" style="font-size:.72rem;">Click a driver to mark <b>attended</b> · click again to cycle Planned → Cancelled → No-show → blank.</div>
+            <div class="text-secondary mb-1" style="font-size:.72rem;">Click a driver to mark <b>attended</b> · click again to cycle through Planned, Cancelled and No-show.</div>
             <div class="chip-multi" id="sDriverChips"></div>
             <input class="form-control form-control-sm mt-1" id="sDriverAdd" placeholder="Type a driver not listed + Enter (override)">
           </div>
@@ -233,7 +234,7 @@
 <script>
 const API = '/practice-tracking';
 const STATUS_CYCLE = ['attended','planned','cancelled','no_show'];   // blank -> attended -> ... -> blank
-const STATUS_LETTER = { attended:'✓', planned:'P', cancelled:'✕', no_show:'!' };
+const STATUS_LETTER = { attended:'<i class="bi bi-check-lg"></i>', planned:'<i class="bi bi-clock"></i>', cancelled:'<i class="bi bi-slash-circle"></i>', no_show:'<i class="bi bi-exclamation-lg"></i>' };
 const DEFAULT_TRACKS = ['RSR','CPT','VKC','Idube','Zwartkops','FK','Killarney'];
 
 let sessions = [];       // loaded practice sessions (each with .attendance[] and .staff[])
@@ -327,7 +328,7 @@ function renderMatrix(){
     const raceTag = isRace ? `<span class="pt-race-chip" title="Race day">RACE</span>` : '';
     const head = `<td class="pt-rowhead" onclick="openSession('${s.id}')">
         <div class="pt-sess-date">${fmtDate(s.session_date)}${raceTag}${trk}</div>
-        <div class="pt-sess-meta">${esc(s.class_name||'')}${ev?`<span class="pt-ev-chip">${esc(ev.name||'event')}</span>`:''}${(s.staff&&s.staff.length)?` · 👤${s.staff.length}`:''}</div>
+        <div class="pt-sess-meta">${esc(s.class_name||'')}${ev?`<span class="pt-ev-chip">${esc(ev.name||'event')}</span>`:''}${(s.staff&&s.staff.length)?` · <i class="bi bi-person-fill"></i>${s.staff.length}`:''}</div>
       </td>`;
     const cells = columns.map(c=>{
       const a = cellFor(s,c);
@@ -421,7 +422,7 @@ function buildEventOptions(sessionDate){
   const optNear = x => `<option value="${esc(x.e.id)}">${esc(x.e.name||'Event')}${x.d?` · ${fmtDate(x.e.start_date)}`:''}${x.dist!==null?` (${rel(x.dist)})`:''}</option>`;
   const optRest = x => `<option value="${esc(x.e.id)}">${esc(x.e.name||'Event')}${x.e.start_date?` · ${fmtDate(x.e.start_date)}`:''}</option>`;
   let html = '<option value="">— Not linked —</option>';
-  if(near.length) html += `<optgroup label="📅 Closest to this date">${near.map(optNear).join('')}</optgroup>`;
+  if(near.length) html += `<optgroup label="Closest to this date">${near.map(optNear).join('')}</optgroup>`;
   if(rest.length) html += `<optgroup label="All other events">${rest.map(optRest).join('')}</optgroup>`;
   return html;
 }
