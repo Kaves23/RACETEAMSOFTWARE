@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" type="image/png" href="../favicon.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>Practice Tracking · Race Team OS</title>
+  <link rel="stylesheet" href="mobile.css">
+  <script src="mobile-auth.js"></script>
+</head>
+<body>
+<div class="app">
+  <header class="app-header">
+    <div class="offline-banner" id="offlineBanner">Offline — showing cached data</div>
+    <div class="page-bar">
+      <div class="page-bar-brand" onclick="window.location.href='browse.html?tab=sporting'" style="cursor:pointer;">
+        <div class="page-bar-mark">RT</div>
+        <span class="page-bar-title">Practice Tracking</span>
+      </div>
+    </div>
+    <div class="stat-grid">
+      <div class="stat-card"><div class="stat-label">Sessions</div><div class="stat-value" id="statSessions">0</div></div>
+      <div class="stat-card"><div class="stat-label">This Month</div><div class="stat-value" id="statMonth">0</div></div>
+      <div class="stat-card"><div class="stat-label">Drivers</div><div class="stat-value" id="statDrivers">0</div></div>
+      <div class="stat-card"><div class="stat-label">Tracks</div><div class="stat-value" id="statTracks">0</div></div>
+    </div>
+    <div style="padding:0 16px 10px;">
+      <input id="searchInput" type="search" placeholder="Search track, class or driver..." autocomplete="off" style="width:100%;height:36px;border:1px solid var(--border);border-radius:var(--r);padding:0 12px;font-size:14px;background:var(--surface);outline:none;">
+    </div>
+    <div class="pill-strip" id="filterStrip" style="padding-top:0;padding-bottom:12px;">
+      <button class="pill pill-active" data-filter="all">All</button>
+      <button class="pill" data-filter="practice">Practice</button>
+      <button class="pill" data-filter="race">Race days</button>
+    </div>
+  </header>
+
+  <main class="app-body">
+    <div id="list"></div>
+  </main>
+
+  <nav class="app-nav">
+    <div class="nav-bar">
+      <a href="dashboard.html" class="nav-item"><span class="nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"/><polyline points="9 21 9 12 15 12 15 21"/></svg></span><span class="nav-label">Dashboard</span><div class="nav-dot"></div></a>
+      <a href="browse.html" class="nav-item"><span class="nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></span><span class="nav-label">Logistics</span><div class="nav-dot"></div></a>
+      <a href="browse.html?tab=sporting" class="nav-item active"><span class="nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span><span class="nav-label">Sporting</span><div class="nav-dot"></div></a>
+      <a href="browse.html?tab=projects" class="nav-item"><span class="nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="3" y1="5" x2="21" y2="5"/><rect x="4" y="8" width="9" height="3" rx="1"/><rect x="8" y="14" width="8" height="3" rx="1"/><line x1="3" y1="20" x2="21" y2="20"/></svg></span><span class="nav-label">Projects</span><div class="nav-dot"></div></a>
+      <a href="browse.html?tab=academy" class="nav-item"><span class="nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 9l10-5 10 5-10 5-10-5z"/><path d="M6 11.5v4.5c0 1.6 2.7 3 6 3s6-1.4 6-3v-4.5"/></svg></span><span class="nav-label">Academy</span><div class="nav-dot"></div></a>
+      <a href="vehicles.html?log=1" class="nav-item"><span class="nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 10l1-3a2 2 0 0 1 1.9-1.4h12.2A2 2 0 0 1 20 7l1 3v7H3v-7z"/><circle cx="7" cy="17" r="1.5"/><circle cx="17" cy="17" r="1.5"/><line x1="9" y1="17" x2="15" y2="17"/></svg></span><span class="nav-label">Log Trip</span><div class="nav-dot"></div></a>
+      <a href="scan.html" class="nav-item"><span class="nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><line x1="7" y1="12" x2="17" y2="12"/></svg></span><span class="nav-label">Scan</span><div class="nav-dot"></div></a>
+    </div>
+  </nav>
+</div>
+
+<!-- FAB: Log a day -->
+<button class="fab-log" id="fabLog" onclick="openSheet()" aria-label="Log a practice or race day">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  <span>LOG DAY</span>
+</button>
+
+<!-- Bottom sheet: log form -->
+<div class="sheet-overlay" id="sheetOverlay" onclick="closeSheet()"></div>
+<div class="bottom-sheet" id="logSheet">
+  <div class="sheet-handle-bar"></div>
+  <div class="sheet-header">
+    <div class="sheet-title">Log a day</div>
+    <button class="icon-btn" onclick="closeSheet()" aria-label="Close">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="sheet-body">
+    <div class="typeseg" id="typeSeg">
+      <button type="button" class="active" data-type="practice">Practice</button>
+      <button type="button" data-type="race">Race day</button>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="form-row">
+        <label class="form-label">Date *</label>
+        <input type="date" id="fDate" class="form-input">
+      </div>
+      <div class="form-row">
+        <label class="form-label">Class</label>
+        <input type="text" id="fClass" class="form-input" placeholder="e.g. Rotax Max">
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="form-row">
+        <label class="form-label">Track</label>
+        <input type="text" id="fTrack" class="form-input" placeholder="e.g. Killarney">
+      </div>
+      <div class="form-row">
+        <label class="form-label">Venue</label>
+        <input type="text" id="fVenue" class="form-input" placeholder="Full venue name">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <label class="form-label">Link to event</label>
+      <select id="fEvent" class="form-input"><option value="">— no event —</option></select>
+    </div>
+
+    <div class="form-row">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <label class="form-label" style="margin:0;">Drivers <span id="driverCount" style="color:var(--text-3);font-weight:600;"></span></label>
+        <div style="display:flex;gap:6px;">
+          <button type="button" class="mini-btn" id="markAll">All in</button>
+          <button type="button" class="mini-btn" id="clearAll">Clear</button>
+        </div>
+      </div>
+      <input type="search" id="driverFilter" class="form-input" placeholder="Filter drivers..." style="margin-bottom:8px;">
+      <div class="chip-wrap" id="driverChips"></div>
+      <div style="display:flex;gap:6px;margin-top:8px;">
+        <input type="text" id="driverAdd" class="form-input" placeholder="Add other driver + Enter" style="flex:1;">
+      </div>
+      <div class="chip-hint">Tap a driver to cycle: <b>attended → planned → cancelled → no-show → off</b></div>
+    </div>
+
+    <div class="form-row">
+      <label class="form-label">Staff</label>
+      <div class="chip-wrap" id="staffChips"></div>
+      <input type="text" id="staffAdd" class="form-input" placeholder="Add staff + Enter" style="margin-top:8px;">
+    </div>
+
+    <div class="form-row">
+      <label class="form-label">Notes</label>
+      <textarea id="fNotes" class="form-input" rows="2" placeholder="Anything worth remembering…" style="resize:none;"></textarea>
+    </div>
+
+    <button id="saveBtn" class="action-btn" onclick="saveSession()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="flex-shrink:0;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+      Save day
+    </button>
+  </div>
+</div>
+
+<!-- Detail sheet: view a session -->
+<div class="sheet-overlay" id="detailOverlay" onclick="closeDetail()"></div>
+<div class="bottom-sheet" id="detailSheet">
+  <div class="sheet-handle-bar"></div>
+  <div class="sheet-header">
+    <div class="sheet-title" id="detailTitle">Session</div>
+    <button class="icon-btn" onclick="closeDetail()" aria-label="Close">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="sheet-body" id="detailBody"></div>
+</div>
+
+<style>
+  .stat-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; padding:12px 16px; }
+  .stat-card { background:#fff; border:1px solid var(--border); border-radius:var(--r); padding:10px; }
+  .stat-label { font-size:10px; text-transform:uppercase; color:var(--text-3); font-weight:700; letter-spacing:.06em; }
+  .stat-value { font-size:18px; font-weight:800; color:var(--text); margin-top:4px; }
+
+  .ses-card { padding:14px 16px; border-bottom:1px solid var(--border); background:#fff; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .ses-card:active { background:var(--surface); }
+  .ses-top { display:flex; align-items:flex-start; gap:10px; }
+  .ses-date { width:52px; flex-shrink:0; text-align:center; border-radius:var(--r); background:var(--surface); border:1px solid var(--border); padding:6px 0; }
+  .ses-date.race { background:#fee2e2; border-color:#fecaca; }
+  .ses-day  { font-size:18px; font-weight:800; color:var(--text); line-height:1; }
+  .ses-mon  { font-size:10px; font-weight:700; text-transform:uppercase; color:var(--text-3); letter-spacing:.05em; margin-top:2px; }
+  .ses-date.race .ses-mon { color:#b91c1c; }
+  .ses-main { flex:1; min-width:0; }
+  .ses-title { font-size:14px; font-weight:700; color:var(--text); display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .ses-sub  { font-size:12px; color:var(--text-3); margin-top:3px; }
+  .type-tag { display:inline-flex; align-items:center; padding:1px 8px; border-radius:999px; font-size:10px; font-weight:800; letter-spacing:.03em; }
+  .type-practice { background:#e0e7ff; color:#4338ca; }
+  .type-race { background:#dc2626; color:#fff; }
+  .att-row { display:flex; flex-wrap:wrap; gap:5px; margin-top:9px; }
+  .att-pill { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:700; background:var(--surface); color:var(--text-2); }
+  .att-pill .n { font-variant-numeric:tabular-nums; }
+  .st-attended  { background:#dcfce7; color:#15803d; }
+  .st-planned   { background:#dbeafe; color:#1d4ed8; }
+  .st-cancelled { background:#fef3c7; color:#92400e; }
+  .st-no_show   { background:#fee2e2; color:#b91c1c; }
+  .empty { padding:36px 18px; text-align:center; color:var(--text-3); font-size:13px; }
+
+  /* Sheet + form (mirrors vehicles.html) */
+  .sheet-overlay { position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;opacity:0;pointer-events:none;transition:opacity .25s; }
+  .sheet-overlay.active { opacity:1;pointer-events:auto; }
+  .bottom-sheet { position:fixed;bottom:0;left:0;right:0;background:#fff;z-index:201;border-radius:20px 20px 0 0;max-height:94dvh;overflow-y:auto;transform:translateY(100%);transition:transform .3s cubic-bezier(.32,1,.23,1);padding-bottom:calc(16px + var(--safe-b)); }
+  .bottom-sheet.open { transform:translateY(0); }
+  .sheet-handle-bar { width:36px;height:4px;background:var(--border-2);border-radius:2px;margin:12px auto 4px; }
+  .sheet-header { display:flex;justify-content:space-between;align-items:center;padding:4px 16px 12px;border-bottom:1px solid var(--border); }
+  .sheet-title  { font-size:16px;font-weight:700;color:var(--text); }
+  .sheet-body   { padding:16px; }
+  .form-row   { margin-bottom:12px; }
+  .form-label { display:block;font-size:12px;font-weight:600;color:var(--text-2);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.04em; }
+  .form-input { width:100%;border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;font-size:14px;font-family:inherit;color:var(--text);background:var(--bg);outline:none;-webkit-appearance:none;transition:border-color .15s; }
+  .form-input:focus { border-color:#4338ca; }
+  .action-btn { display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px;border-radius:var(--r);background:#4338ca;color:#fff;font-size:15px;font-weight:600;border:none;cursor:pointer;margin-top:4px; }
+  .action-btn:active { opacity:.85; }
+  .action-btn.loading { opacity:.6;pointer-events:none; }
+  .icon-btn { width:36px;height:36px;border-radius:var(--r);display:flex;align-items:center;justify-content:center;border:1px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer;-webkit-tap-highlight-color:transparent; }
+  .mini-btn { border:1px solid var(--border);background:var(--bg);color:var(--text-2);border-radius:999px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer; }
+  .mini-btn:active { background:var(--surface); }
+
+  .typeseg { display:flex;border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:14px; }
+  .typeseg button { flex:1;background:#fff;color:var(--text-2);font-size:14px;font-weight:700;padding:11px 0;border:none;cursor:pointer;transition:background .12s; }
+  .typeseg button.active[data-type="practice"] { background:#4338ca;color:#fff; }
+  .typeseg button.active[data-type="race"] { background:#dc2626;color:#fff; }
+
+  .chip-wrap { display:flex;flex-wrap:wrap;gap:6px; }
+  .dchip { border:1px solid var(--border);border-radius:999px;padding:6px 12px;font-size:13px;font-weight:600;background:#fff;color:var(--text);cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;display:inline-flex;align-items:center;gap:5px; }
+  .dchip .sub { font-size:10px;color:var(--text-3);font-weight:600; }
+  .dchip.on-attended  { background:#dcfce7;border-color:#86efac;color:#15803d; }
+  .dchip.on-planned   { background:#dbeafe;border-color:#93c5fd;color:#1d4ed8; }
+  .dchip.on-cancelled { background:#fef3c7;border-color:#fcd34d;color:#92400e; }
+  .dchip.on-no_show   { background:#fee2e2;border-color:#fca5a5;color:#b91c1c; }
+  .dchip .mk { font-size:10px;font-weight:800; }
+  .chip-hint { font-size:11px;color:var(--text-3);margin-top:8px;line-height:1.4; }
+
+  .fab-log { position:fixed;bottom:calc(72px + var(--safe-b) + 16px);right:16px;z-index:90;display:flex;align-items:center;gap:8px;padding:0 20px 0 16px;height:52px;border-radius:26px;background:#4338ca;color:#fff;font-size:14px;font-weight:800;letter-spacing:0.06em;border:none;cursor:pointer;box-shadow:0 4px 18px rgba(67,56,202,.4);-webkit-tap-highlight-color:transparent;transition:opacity .15s,transform .15s; }
+  .fab-log:active { opacity:.9;transform:scale(.96); }
+
+  .toast { position:fixed;bottom:calc(88px + var(--safe-b));left:50%;transform:translateX(-50%);background:#0a0a0a;color:#fff;padding:11px 18px;border-radius:24px;font-size:13px;font-weight:600;z-index:300;box-shadow:0 6px 20px rgba(0,0,0,.3);opacity:0;transition:opacity .2s; }
+  .toast.show { opacity:1; }
+
+  @media (max-width: 420px) { .stat-grid { grid-template-columns:repeat(2, 1fr); } }
+</style>
+
+<script>
+(() => {
+  'use strict';
+  if (!localStorage.getItem('auth_token')) window.location.replace('index.html');
+
+  const STATUS_CYCLE = ['attended','planned','cancelled','no_show'];
+  const STATUS_MARK  = { attended:'\u2713', planned:'P', cancelled:'\u2715', no_show:'!' };
+  const STATUS_LABEL = { attended:'Attended', planned:'Planned', cancelled:'Cancelled', no_show:'No-show' };
+
+  let sessions = [];
+  let drivers  = [];
+  let events   = [];
+  let staff    = [];
+  let filter   = 'all';
+  let query    = '';
+
+  // Working state for the log sheet
+  let sheetType = 'practice';
+  let sheetDrivers = [];   // { driver_id, driver_name, cls, color, status }
+  let sheetStaff   = [];   // { staff_id, staff_name, role }
+
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const itemsFrom = p => Array.isArray(p) ? p : (p && Array.isArray(p.items) ? p.items : (p && Array.isArray(p.data) ? p.data : []));
+  const iso = v => v ? String(v).slice(0,10) : '';
+  function dparts(v){ const d = new Date(iso(v) + 'T12:00:00'); if (isNaN(d)) return { day:'—', mon:'' }; return { day:d.getDate(), mon:d.toLocaleDateString('en-ZA',{month:'short'}) }; }
+  function fmtLong(v){ if(!v) return '—'; const d=new Date(iso(v)+'T12:00:00'); return isNaN(d)?'—':d.toLocaleDateString('en-ZA',{weekday:'short',day:'numeric',month:'long',year:'numeric'}); }
+  function todayISO(){ const d=new Date(); const p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; }
+  function setOffline(){ const b=document.getElementById('offlineBanner'); if(b) b.classList.toggle('visible', !navigator.onLine); }
+
+  let toastTimer;
+  function toast(msg){
+    let t=document.getElementById('rtsToast');
+    if(!t){ t=document.createElement('div'); t.id='rtsToast'; t.className='toast'; document.body.appendChild(t); }
+    t.textContent=msg; requestAnimationFrame(()=>t.classList.add('show'));
+    clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'), 2200);
+  }
+
+  // ── Stats ────────────────────────────────────────────────
+  function renderStats(){
+    const mon = todayISO().slice(0,7);
+    const drvSet = new Set(), trkSet = new Set();
+    sessions.forEach(s => {
+      (s.attendance||[]).forEach(a => drvSet.add((a.driver_name||'').toLowerCase()));
+      if (s.track) trkSet.add(s.track.toLowerCase());
+    });
+    document.getElementById('statSessions').textContent = sessions.length;
+    document.getElementById('statMonth').textContent = sessions.filter(s => iso(s.session_date).slice(0,7)===mon).length;
+    document.getElementById('statDrivers').textContent = drvSet.size;
+    document.getElementById('statTracks').textContent = trkSet.size;
+  }
+
+  // ── List ─────────────────────────────────────────────────
+  function visible(){
+    return sessions.filter(s => {
+      if (filter === 'practice' && s.session_type === 'race') return false;
+      if (filter === 'race' && s.session_type !== 'race') return false;
+      if (query){
+        const hay = [s.track, s.venue, s.class_name, s.notes, ...(s.attendance||[]).map(a=>a.driver_name)].join(' ').toLowerCase();
+        if (!hay.includes(query)) return false;
+      }
+      return true;
+    });
+  }
+  function eventName(id){ const e = events.find(x => String(x.id)===String(id)); return e ? (e.name||e.title||'') : ''; }
+  function statusCounts(s){
+    const c = { attended:0, planned:0, cancelled:0, no_show:0 };
+    (s.attendance||[]).forEach(a => { if (c[a.status] != null) c[a.status]++; });
+    return c;
+  }
+  function render(){
+    renderStats();
+    const rows = visible();
+    document.getElementById('list').innerHTML = rows.length ? rows.map(s => {
+      const p = dparts(s.session_date);
+      const isRace = s.session_type === 'race';
+      const c = statusCounts(s);
+      const ev = eventName(s.event_id);
+      const attPills = STATUS_CYCLE.filter(k => c[k]).map(k =>
+        `<span class="att-pill st-${k}"><span class="n">${c[k]}</span> ${esc(STATUS_LABEL[k])}</span>`).join('');
+      const meta = [s.track || s.venue, s.class_name].filter(Boolean).map(esc).join(' · ');
+      return `<div class="ses-card" onclick="openDetail('${esc(s.id)}')">
+        <div class="ses-top">
+          <div class="ses-date${isRace?' race':''}"><div class="ses-day">${p.day}</div><div class="ses-mon">${esc(p.mon)}</div></div>
+          <div class="ses-main">
+            <div class="ses-title">
+              <span class="type-tag ${isRace?'type-race':'type-practice'}">${isRace?'RACE':'PRACTICE'}</span>
+              <span>${esc(s.track || s.venue || 'Session')}</span>
+            </div>
+            <div class="ses-sub">${meta || '—'}${ev?` · <b>${esc(ev)}</b>`:''}${(s.staff&&s.staff.length)?` · ${s.staff.length} staff`:''}</div>
+            ${attPills ? `<div class="att-row">${attPills}</div>` : `<div class="ses-sub" style="margin-top:8px;">No drivers marked</div>`}
+          </div>
+        </div>
+      </div>`;
+    }).join('') : '<div class="empty">No sessions yet. Tap <b>LOG DAY</b> to add a practice or race day.</div>';
+  }
+
+  // ── Detail sheet ─────────────────────────────────────────
+  window.openDetail = function(id){
+    const s = sessions.find(x => String(x.id)===String(id)); if(!s) return;
+    const isRace = s.session_type === 'race';
+    document.getElementById('detailTitle').textContent = (isRace?'Race day':'Practice') + ' · ' + dparts(s.session_date).day + ' ' + dparts(s.session_date).mon;
+    const ev = eventName(s.event_id);
+    const rows = (s.attendance||[]).slice().sort((a,b)=>String(a.driver_name||'').localeCompare(String(b.driver_name||'')));
+    const attHtml = rows.length ? rows.map(a =>
+      `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);">
+        <span style="font-size:14px;font-weight:600;">${esc(a.driver_name||'—')}</span>
+        <span class="att-pill st-${esc(a.status)}">${esc(STATUS_LABEL[a.status]||a.status)}</span>
+      </div>`).join('') : '<div style="color:var(--text-3);font-size:13px;padding:8px 0;">No drivers marked.</div>';
+    const staffHtml = (s.staff&&s.staff.length) ? s.staff.map(st =>
+      `<span class="att-pill">${esc(st.staff_name)}${st.role?` · ${esc(st.role)}`:''}</span>`).join(' ') : '<span style="color:var(--text-3);font-size:13px;">No staff logged.</span>';
+    document.getElementById('detailBody').innerHTML =
+      `<div style="font-size:13px;color:var(--text-2);margin-bottom:12px;line-height:1.6;">
+         <div><b>Date</b> · ${esc(fmtLong(s.session_date))}</div>
+         ${s.track?`<div><b>Track</b> · ${esc(s.track)}</div>`:''}
+         ${s.venue?`<div><b>Venue</b> · ${esc(s.venue)}</div>`:''}
+         ${s.class_name?`<div><b>Class</b> · ${esc(s.class_name)}</div>`:''}
+         ${ev?`<div><b>Event</b> · ${esc(ev)}</div>`:''}
+         ${s.notes?`<div style="margin-top:6px;"><b>Notes</b> · ${esc(s.notes)}</div>`:''}
+       </div>
+       <div class="form-label">Drivers (${rows.length})</div>
+       <div style="margin-bottom:16px;">${attHtml}</div>
+       <div class="form-label">Staff</div>
+       <div class="chip-wrap">${staffHtml}</div>`;
+    document.getElementById('detailOverlay').classList.add('active');
+    document.getElementById('detailSheet').classList.add('open');
+    document.body.style.overflow='hidden';
+  };
+  window.closeDetail = function(){
+    document.getElementById('detailOverlay').classList.remove('active');
+    document.getElementById('detailSheet').classList.remove('open');
+    document.body.style.overflow='';
+  };
+
+  // ── Log sheet ────────────────────────────────────────────
+  function seedSheetDrivers(){
+    sheetDrivers = drivers.map(d => ({
+      driver_id: d.id, driver_name: d.name || '—',
+      cls: d.racing_class || d.class || '', color: d.color || '#4338ca', status: ''
+    }));
+  }
+  function renderDriverChips(){
+    const q = (document.getElementById('driverFilter').value || '').trim().toLowerCase();
+    const box = document.getElementById('driverChips');
+    const list = sheetDrivers.map((d,i)=>({d,i})).filter(x => !q || (x.d.driver_name||'').toLowerCase().includes(q) || (x.d.cls||'').toLowerCase().includes(q));
+    box.innerHTML = list.map(({d,i}) =>
+      `<span class="dchip ${d.status?('on-'+d.status):''}" data-i="${i}">
+        ${d.status?`<span class="mk">${STATUS_MARK[d.status]}</span>`:''}${esc(d.driver_name)}${d.cls?`<span class="sub">${esc(d.cls)}</span>`:''}
+      </span>`).join('') || '<span style="color:var(--text-3);font-size:13px;">No matching drivers.</span>';
+    box.querySelectorAll('.dchip').forEach(ch => ch.onclick = () => {
+      const i = +ch.dataset.i, cur = sheetDrivers[i].status;
+      const idx = STATUS_CYCLE.indexOf(cur);
+      sheetDrivers[i].status = idx < 0 ? STATUS_CYCLE[0] : (idx+1 < STATUS_CYCLE.length ? STATUS_CYCLE[idx+1] : '');
+      renderDriverChips();
+    });
+    const marked = sheetDrivers.filter(d=>d.status).length;
+    document.getElementById('driverCount').textContent = marked ? `· ${marked} marked` : '';
+  }
+  function renderStaffChips(){
+    const box = document.getElementById('staffChips');
+    const roster = staff.map(st => ({ staff_id: st.id, staff_name: st.name, role: st.role }));
+    const all = roster.slice();
+    sheetStaff.forEach(ms => { if (!all.some(r => (ms.staff_id && r.staff_id===ms.staff_id) || (!ms.staff_id && (r.staff_name||'').toLowerCase()===(ms.staff_name||'').toLowerCase()))) all.push(ms); });
+    box.innerHTML = all.map(st => {
+      const on = sheetStaff.some(m => (m.staff_id && m.staff_id===st.staff_id) || (!m.staff_id && (m.staff_name||'').toLowerCase()===(st.staff_name||'').toLowerCase()));
+      return `<span class="dchip ${on?'on-attended':''}" data-sid="${esc(st.staff_id||'')}" data-sname="${esc(st.staff_name)}">${esc(st.staff_name)}${st.role?`<span class="sub">${esc(st.role)}</span>`:''}</span>`;
+    }).join('') || '<span style="color:var(--text-3);font-size:13px;">No staff on file — add below.</span>';
+    box.querySelectorAll('.dchip').forEach(ch => ch.onclick = () => {
+      const sid = ch.dataset.sid || null, sname = ch.dataset.sname;
+      const idx = sheetStaff.findIndex(m => (sid && m.staff_id===sid) || (!sid && (m.staff_name||'').toLowerCase()===sname.toLowerCase()));
+      if (idx >= 0) sheetStaff.splice(idx,1); else sheetStaff.push({ staff_id: sid, staff_name: sname, role: null });
+      renderStaffChips();
+    });
+  }
+  function setType(t){
+    sheetType = (t === 'race') ? 'race' : 'practice';
+    document.querySelectorAll('#typeSeg button').forEach(b => b.classList.toggle('active', b.dataset.type === sheetType));
+  }
+  window.openSheet = function(){
+    setType('practice');
+    document.getElementById('fDate').value = todayISO();
+    document.getElementById('fClass').value = '';
+    document.getElementById('fTrack').value = '';
+    document.getElementById('fVenue').value = '';
+    document.getElementById('fEvent').value = '';
+    document.getElementById('fNotes').value = '';
+    document.getElementById('driverFilter').value = '';
+    document.getElementById('driverAdd').value = '';
+    document.getElementById('staffAdd').value = '';
+    seedSheetDrivers(); sheetStaff = [];
+    renderDriverChips(); renderStaffChips();
+    document.getElementById('sheetOverlay').classList.add('active');
+    document.getElementById('logSheet').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  };
+  window.closeSheet = function(){
+    document.getElementById('sheetOverlay').classList.remove('active');
+    document.getElementById('logSheet').classList.remove('open');
+    document.body.style.overflow = '';
+  };
+
+  window.saveSession = async function(){
+    const date = document.getElementById('fDate').value;
+    if (!date) { toast('Pick a date first'); return; }
+    const btn = document.getElementById('saveBtn');
+    btn.classList.add('loading');
+    const body = {
+      session_date: date,
+      session_type: sheetType,
+      track:      document.getElementById('fTrack').value.trim() || null,
+      venue:      document.getElementById('fVenue').value.trim() || null,
+      class_name: document.getElementById('fClass').value.trim() || null,
+      event_id:   document.getElementById('fEvent').value || null,
+      notes:      document.getElementById('fNotes').value.trim() || null,
+      attendance: sheetDrivers.filter(d => d.status).map(d => ({ driver_id: d.driver_id, driver_name: d.driver_name, status: d.status })),
+      staff:      sheetStaff
+    };
+    try {
+      await mobileFetch('/api/practice-tracking/sessions', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+      });
+      closeSheet();
+      toast('Day logged');
+      await load();
+    } catch (e) {
+      toast('Save failed');
+    } finally {
+      btn.classList.remove('loading');
+    }
+  };
+
+  // ── Load ─────────────────────────────────────────────────
+  async function load(){
+    const [sess, drv, evs, stf] = await Promise.all([
+      mobileFetch('/api/practice-tracking/sessions').catch(() => []),
+      mobileFetch('/api/collections/drivers').catch(() => ({ items: [] })),
+      mobileFetch('/api/collections/events').catch(() => ({ items: [] })),
+      mobileFetch('/api/collections/staff').catch(() => ({ items: [] }))
+    ]);
+    sessions = itemsFrom(sess);
+    drivers  = itemsFrom(drv).filter(d => (d.status || 'active') === 'active');
+    events   = itemsFrom(evs).slice().sort((a,b)=>String(b.start_date||'').localeCompare(String(a.start_date||'')));
+    staff    = itemsFrom(stf);
+    // populate event select
+    const sel = document.getElementById('fEvent');
+    sel.innerHTML = '<option value="">— no event —</option>' + events.map(e =>
+      `<option value="${esc(e.id)}">${esc(e.name || e.title || 'Event')}</option>`).join('');
+    render();
+  }
+
+  // ── Events / init ────────────────────────────────────────
+  document.getElementById('searchInput').addEventListener('input', e => { query = e.target.value.trim().toLowerCase(); render(); });
+  document.getElementById('filterStrip').addEventListener('click', e => {
+    const btn = e.target.closest('[data-filter]'); if (!btn) return;
+    filter = btn.dataset.filter;
+    document.querySelectorAll('#filterStrip .pill').forEach(n => n.classList.remove('pill-active'));
+    btn.classList.add('pill-active');
+    render();
+  });
+  document.getElementById('typeSeg').addEventListener('click', e => { const b=e.target.closest('button'); if(b) setType(b.dataset.type); });
+  document.getElementById('driverFilter').addEventListener('input', renderDriverChips);
+  document.getElementById('markAll').addEventListener('click', () => {
+    const q = (document.getElementById('driverFilter').value||'').trim().toLowerCase();
+    sheetDrivers.forEach(d => { if (!q || (d.driver_name||'').toLowerCase().includes(q) || (d.cls||'').toLowerCase().includes(q)) d.status = 'attended'; });
+    renderDriverChips();
+  });
+  document.getElementById('clearAll').addEventListener('click', () => {
+    const q = (document.getElementById('driverFilter').value||'').trim().toLowerCase();
+    sheetDrivers.forEach(d => { if (!q || (d.driver_name||'').toLowerCase().includes(q) || (d.cls||'').toLowerCase().includes(q)) d.status = ''; });
+    renderDriverChips();
+  });
+  document.getElementById('driverAdd').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); const v=e.target.value.trim(); if(v){ sheetDrivers.push({ driver_id:null, driver_name:v, cls:'', color:'#a3a3a3', status:'attended' }); e.target.value=''; renderDriverChips(); } }
+  });
+  document.getElementById('staffAdd').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); const v=e.target.value.trim(); if(v){ sheetStaff.push({ staff_id:null, staff_name:v, role:null }); e.target.value=''; renderStaffChips(); } }
+  });
+
+  window.addEventListener('online', setOffline);
+  window.addEventListener('offline', setOffline);
+  setOffline();
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+  load();
+})();
+</script>
+<script src="mobile-side-menu.js"></script>
+</body>
+</html>
