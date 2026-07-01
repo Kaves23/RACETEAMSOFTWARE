@@ -213,6 +213,8 @@ let driverProfiles = []; // from collections/drivers
 let events = [];         // from collections/events
 let staffList = [];      // from collections/staff
 let columns = [];        // driver columns for the matrix
+let CURRENT_USER = '';
+try { CURRENT_USER = (JSON.parse(localStorage.getItem('user')||'{}').username) || ''; } catch(e){}
 const sessModal = new bootstrap.Modal(document.getElementById('sessModal'));
 const importModal = new bootstrap.Modal(document.getElementById('importModal'));
 
@@ -294,7 +296,8 @@ function renderMatrix(){
       const st = a ? a.status : '';
       const cls = st ? 'st-'+st : 'st-blank';
       const letter = st ? (STATUS_LETTER[st]||'•') : '';
-      return `<td><div class="pt-cell ${cls}" onclick="cycleCell('${s.id}','${colKey(c)}')" title="${esc(c.name)} — ${st||'blank'}${a&&a.kart?' · '+esc(a.kart):''}">${letter}</div></td>`;
+      const who = a && a.updated_by ? ` · by ${esc(a.updated_by)}${a.updated_at?' '+fmtDate(a.updated_at):''}` : '';
+      return `<td><div class="pt-cell ${cls}" onclick="cycleCell('${s.id}','${colKey(c)}')" title="${esc(c.name)} — ${st||'blank'}${a&&a.kart?' · '+esc(a.kart):''}${who}">${letter}</div></td>`;
     }).join('');
     return `<tr>${head}${cells}</tr>`;
   }).join('');
@@ -304,6 +307,11 @@ async function cycleCell(sessionId, key){
   const s = sessions.find(x=>x.id===sessionId); if(!s) return;
   const col = columns.find(c=>colKey(c)===key); if(!col) return;
   const a = cellFor(s,col);
+  // Guard: don't let one user silently overwrite another's mark.
+  if (a && a.updated_by && a.updated_by !== CURRENT_USER) {
+    const when = a.updated_at ? ' on ' + fmtDate(a.updated_at) : '';
+    if (!confirm(`${col.name} was last marked “${a.status}” by ${a.updated_by}${when}.\n\nChange it?`)) return;
+  }
   const cur = a ? a.status : '';
   const idx = STATUS_CYCLE.indexOf(cur);
   const next = idx < 0 ? STATUS_CYCLE[0] : (idx+1 < STATUS_CYCLE.length ? STATUS_CYCLE[idx+1] : ''); // wraps to blank

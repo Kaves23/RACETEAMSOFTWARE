@@ -32,7 +32,7 @@ async function loadSessions(where, params) {
   return sessions;
 }
 
-async function upsertAttendance(client, sessionId, row) {
+async function upsertAttendance(client, sessionId, row, editor) {
   const status = VALID_STATUS.includes(row.status) ? row.status : 'attended';
   const vals = [
     sessionId,
@@ -43,18 +43,20 @@ async function upsertAttendance(client, sessionId, row) {
     row.engine || null,
     row.coach_staff_id || null,
     row.coach_name || null,
-    row.notes || null
+    row.notes || null,
+    editor || null
   ];
   // Linked driver → upsert on (session_id, driver_id); override row → match on name.
   if (row.driver_id) {
     const r = await client.query(
       `INSERT INTO practice_attendance
-         (session_id, driver_id, driver_name, status, kart, engine, coach_staff_id, coach_name, notes)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+         (session_id, driver_id, driver_name, status, kart, engine, coach_staff_id, coach_name, notes, created_by, updated_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$10)
        ON CONFLICT (session_id, driver_id) WHERE driver_id IS NOT NULL
        DO UPDATE SET driver_name=EXCLUDED.driver_name, status=EXCLUDED.status, kart=EXCLUDED.kart,
                      engine=EXCLUDED.engine, coach_staff_id=EXCLUDED.coach_staff_id,
-                     coach_name=EXCLUDED.coach_name, notes=EXCLUDED.notes, updated_at=NOW()
+                     coach_name=EXCLUDED.coach_name, notes=EXCLUDED.notes,
+                     updated_by=EXCLUDED.updated_by, updated_at=NOW()
        RETURNING *`, vals);
     return r.rows[0];
   }
@@ -65,14 +67,14 @@ async function upsertAttendance(client, sessionId, row) {
   if (existing.rows.length) {
     const r = await client.query(
       `UPDATE practice_attendance SET status=$2, kart=$3, engine=$4, coach_staff_id=$5,
-              coach_name=$6, notes=$7, updated_at=NOW() WHERE id=$1 RETURNING *`,
-      [existing.rows[0].id, status, vals[4], vals[5], vals[6], vals[7], vals[8]]);
+              coach_name=$6, notes=$7, updated_by=$8, updated_at=NOW() WHERE id=$1 RETURNING *`,
+      [existing.rows[0].id, status, vals[4], vals[5], vals[6], vals[7], vals[8], editor || null]);
     return r.rows[0];
   }
   const r = await client.query(
     `INSERT INTO practice_attendance
-       (session_id, driver_id, driver_name, status, kart, engine, coach_staff_id, coach_name, notes)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`, vals);
+       (session_id, driver_id, driver_name, status, kart, engine, coach_staff_id, coach_name, notes, created_by, updated_by)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$10) RETURNING *`, vals);
   return r.rows[0];
 }
 
@@ -115,13 +117,14 @@ router.post('/sessions', async (req, res, next) => {
       `INSERT INTO practice_sessions (session_date, track, venue, event_id, class_name, title, notes, created_by)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
       [b.session_date, b.track || null, b.venue || null, b.event_id || null,
-       b.class_name || null, b.title || null, b.notes || null, b.created_by || null]
+       b.class_name || null, b.title || null, b.notes || null, b.created_by || req.user?.username || null]
     )).rows[0];
 
+    const editor = req.user?.username || null;
     if (Array.isArray(b.attendance)) {
       for (const row of b.attendance) {
         if (!(row.driver_name || '').trim() && !row.driver_id) continue;
-        await upsertAttendance(client, s.id, row);
+        await upsertAttendance(client, s.id, row, editor);
       }
     }
     if (Array.isArray(b.staff)) {
@@ -182,7 +185,7 @@ router.put('/sessions/:id/cell', async (req, res, next) => {
       }
       return res.json({ cleared: true });
     }
-    const row = await upsertAttendance(client, req.params.id, b);
+    const row = await upsertAttendance(client, req.params.id, b, req.user?.username || null);
     res.json(row);
   } catch (e) { next(e); }
   finally { client.release(); }
@@ -194,9 +197,10 @@ router.put('/sessions/:id/attendance', async (req, res, next) => {
   try {
     const rows = Array.isArray(req.body?.attendance) ? req.body.attendance : [];
     await client.query('BEGIN');
+    const editor = req.user?.username || null;
     for (const row of rows) {
       if (!(row.driver_name || '').trim() && !row.driver_id) continue;
-      await upsertAttendance(client, req.params.id, row);
+      await upsertAttendance(client, req.params.id, row, editor);
     }
     await client.query('COMMIT');
     const full = await loadSessions('WHERE id = $1', [req.params.id]);
@@ -211,9 +215,9 @@ router.put('/attendance/:id', async (req, res, next) => {
     const status = VALID_STATUS.includes(b.status) ? b.status : 'attended';
     const r = await pool.query(
       `UPDATE practice_attendance SET status=$1, kart=$2, engine=$3, coach_staff_id=$4,
-              coach_name=$5, notes=$6, updated_at=NOW() WHERE id=$7 RETURNING *`,
+              coach_name=$5, notes=$6, updated_by=$7, updated_at=NOW() WHERE id=$8 RETURNING *`,
       [status, b.kart || null, b.engine || null, b.coach_staff_id || null,
-       b.coach_name || null, b.notes || null, req.params.id]
+       b.coach_name || null, b.notes || null, req.user?.username || null, req.params.id]
     );
     if (!r.rows.length) return res.status(404).json({ error: 'Not found' });
     res.json(r.rows[0]);
@@ -317,6 +321,7 @@ router.post('/import', async (req, res, next) => {
   try {
     const sessions = Array.isArray(req.body?.sessions) ? req.body.sessions : [];
     await client.query('BEGIN');
+    const editor = req.user?.username || 'import';
     let createdSessions = 0, createdAttendance = 0;
     for (const b of sessions) {
       if (!b.session_date) continue;
@@ -324,13 +329,13 @@ router.post('/import', async (req, res, next) => {
         `INSERT INTO practice_sessions (session_date, track, venue, event_id, class_name, title, notes, created_by)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
         [b.session_date, b.track || null, b.venue || null, b.event_id || null,
-         b.class_name || null, b.title || null, b.notes || null, b.created_by || 'import']
+         b.class_name || null, b.title || null, b.notes || null, b.created_by || editor]
       )).rows[0];
       createdSessions++;
       const att = Array.isArray(b.attendance) ? b.attendance : [];
       for (const row of att) {
         if (!(row.driver_name || '').trim() && !row.driver_id) continue;
-        await upsertAttendance(client, s.id, row);
+        await upsertAttendance(client, s.id, row, editor);
         createdAttendance++;
       }
     }
