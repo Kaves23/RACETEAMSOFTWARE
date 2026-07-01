@@ -278,10 +278,39 @@
     return merged;
   }
 
-  function saveSettings(patch){
-    const cur = getSettings();
-    const next = deepMerge(cur, patch || {});
+  // Write settings into the LOCAL cache only (no cloud call). Arrays in the patch
+  // replace wholesale so deletions propagate (deepMerge alone merges arrays by index).
+  function cacheSettings(patch){
+    const next = deepMerge(getSettings(), patch || {});
+    if (isObj(patch)) for (const k of Object.keys(patch)) if (Array.isArray(patch[k])) next[k] = patch[k];
     safeSaveJSON(SETTINGS_KEY, next);
+    return next;
+  }
+
+  // Keys that live in their own database tables — don't duplicate them into the settings blob.
+  const CLOUD_SKIP_KEYS = new Set(['drivers','staff','suppliers','locations','assetTypes','invCategories','inventoryCategories']);
+
+  // Push a settings patch to the global (team-wide) settings table so every user/device shares it.
+  async function pushSettingsToDB(patch){
+    const token = localStorage.getItem('auth_token') || '';
+    if (!token || !isObj(patch)) return;
+    const cloudPatch = {};
+    for (const k of Object.keys(patch)) if (!CLOUD_SKIP_KEYS.has(k)) cloudPatch[k] = patch[k];
+    if (!Object.keys(cloudPatch).length) return;
+    const resp = await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(cloudPatch)
+    });
+    if (!resp.ok) { const e = await resp.json().catch(()=>({})); throw new Error(e.error || resp.statusText); }
+    return resp.json();
+  }
+
+  // Save settings: update the local cache AND write through to the cloud (the source of truth),
+  // so changes persist for every user, on every device, no matter where they log in from.
+  function saveSettings(patch){
+    const next = cacheSettings(patch);
+    pushSettingsToDB(patch).catch(e => { try { console.warn('Settings cloud save failed:', e.message); } catch(_e){} });
     return next;
   }
 
@@ -293,8 +322,9 @@
   // Expose as a global shortcut so any page can call window.curr()
   window.curr = getCurrencySymbol;
 
-  // Fetch settings from the server and merge into localStorage so all pages see the latest branding.
-  // Call this once on page load (fire-and-forget). Returns the merged settings object.
+  // Fetch settings from the server and refresh the local cache so all pages see the latest values.
+  // The cloud is authoritative: the cache is rebuilt from defaults + cloud (arrays replaced wholesale
+  // so deletions propagate). Cache-only — never echoes back to the DB.
   async function syncSettingsFromDB() {
     try {
       const token = localStorage.getItem('auth_token') || '';
@@ -303,7 +333,9 @@
       if (!resp.ok) return getSettings();
       const data = await resp.json();
       if (data.ok && data.settings && typeof data.settings === 'object') {
-        saveSettings(data.settings);
+        const merged = deepMerge(defaultSettings(), data.settings);
+        for (const k of Object.keys(data.settings)) if (Array.isArray(data.settings[k])) merged[k] = data.settings[k];
+        safeSaveJSON(SETTINGS_KEY, merged);
       }
     } catch(_e) {
       // Network failure — use cached localStorage value
@@ -910,6 +942,8 @@
     uid,
     getSettings,
     saveSettings,
+    cacheSettings,
+    pushSettingsToDB,
     syncSettingsFromDB,
     getCurrencySymbol,
     getQueryParam,

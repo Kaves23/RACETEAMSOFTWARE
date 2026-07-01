@@ -2,9 +2,9 @@
 // Include this before core.js on pages where you want to override defaults.
 window.RTS_CONFIG = {
   // Software build version — updated on every deployment
-  buildVersion: 'ceab0f0',
+  buildVersion: 'aae6b8e',
   buildDate:    '2026-07-01',
-  buildNote:    'Practice Tracking: record last editor per cell + confirm before overriding another user\'s mark',
+  buildNote:    'Practice log: Track list from Settings venues with auto-filled venue name; surface closest-dated events in link picker',
   // API Configuration
   api: {
     baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)
