@@ -4,6 +4,8 @@ const router  = express.Router();
 const { pool } = require('../db');
 
 const VALID_STATUS = ['planned', 'attended', 'cancelled', 'no_show'];
+const VALID_TYRE_BRAND = ['Levanto', 'Mojo'];
+const VALID_TYRE_SIZE = ['Mini', 'Senior'];
 
 // ─────────────────────────────────────────────────────────────
 // Helpers
@@ -34,6 +36,8 @@ async function loadSessions(where, params) {
 
 async function upsertAttendance(client, sessionId, row, editor) {
   const status = VALID_STATUS.includes(row.status) ? row.status : 'attended';
+  const tyreBrand = VALID_TYRE_BRAND.includes(row.tyre_brand) ? row.tyre_brand : null;
+  const tyreSize = VALID_TYRE_SIZE.includes(row.tyre_size) ? row.tyre_size : null;
   const vals = [
     sessionId,
     row.driver_id || null,
@@ -44,18 +48,21 @@ async function upsertAttendance(client, sessionId, row, editor) {
     row.coach_staff_id || null,
     row.coach_name || null,
     row.notes || null,
+    tyreBrand,
+    tyreSize,
     editor || null
   ];
   // Linked driver → upsert on (session_id, driver_id); override row → match on name.
   if (row.driver_id) {
     const r = await client.query(
       `INSERT INTO practice_attendance
-         (session_id, driver_id, driver_name, status, kart, engine, coach_staff_id, coach_name, notes, created_by, updated_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$10)
+         (session_id, driver_id, driver_name, status, kart, engine, coach_staff_id, coach_name, notes, tyre_brand, tyre_size, created_by, updated_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$12)
        ON CONFLICT (session_id, driver_id) WHERE driver_id IS NOT NULL
        DO UPDATE SET driver_name=EXCLUDED.driver_name, status=EXCLUDED.status, kart=EXCLUDED.kart,
                      engine=EXCLUDED.engine, coach_staff_id=EXCLUDED.coach_staff_id,
                      coach_name=EXCLUDED.coach_name, notes=EXCLUDED.notes,
+                     tyre_brand=EXCLUDED.tyre_brand, tyre_size=EXCLUDED.tyre_size,
                      updated_by=EXCLUDED.updated_by, updated_at=NOW()
        RETURNING *`, vals);
     return r.rows[0];
@@ -67,14 +74,15 @@ async function upsertAttendance(client, sessionId, row, editor) {
   if (existing.rows.length) {
     const r = await client.query(
       `UPDATE practice_attendance SET status=$2, kart=$3, engine=$4, coach_staff_id=$5,
-              coach_name=$6, notes=$7, updated_by=$8, updated_at=NOW() WHERE id=$1 RETURNING *`,
-      [existing.rows[0].id, status, vals[4], vals[5], vals[6], vals[7], vals[8], editor || null]);
+              coach_name=$6, notes=$7, tyre_brand=$8, tyre_size=$9,
+              updated_by=$10, updated_at=NOW() WHERE id=$1 RETURNING *`,
+      [existing.rows[0].id, status, vals[4], vals[5], vals[6], vals[7], vals[8], vals[9], vals[10], editor || null]);
     return r.rows[0];
   }
   const r = await client.query(
     `INSERT INTO practice_attendance
-       (session_id, driver_id, driver_name, status, kart, engine, coach_staff_id, coach_name, notes, created_by, updated_by)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$10) RETURNING *`, vals);
+       (session_id, driver_id, driver_name, status, kart, engine, coach_staff_id, coach_name, notes, tyre_brand, tyre_size, created_by, updated_by)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$12) RETURNING *`, vals);
   return r.rows[0];
 }
 
@@ -202,6 +210,7 @@ router.put('/sessions/:id/attendance', async (req, res, next) => {
     const rows = Array.isArray(req.body?.attendance) ? req.body.attendance : [];
     await client.query('BEGIN');
     const editor = req.user?.username || null;
+    await client.query('DELETE FROM practice_attendance WHERE session_id=$1', [req.params.id]);
     for (const row of rows) {
       if (!(row.driver_name || '').trim() && !row.driver_id) continue;
       await upsertAttendance(client, req.params.id, row, editor);
@@ -219,9 +228,13 @@ router.put('/attendance/:id', async (req, res, next) => {
     const status = VALID_STATUS.includes(b.status) ? b.status : 'attended';
     const r = await pool.query(
       `UPDATE practice_attendance SET status=$1, kart=$2, engine=$3, coach_staff_id=$4,
-              coach_name=$5, notes=$6, updated_by=$7, updated_at=NOW() WHERE id=$8 RETURNING *`,
+              coach_name=$5, notes=$6, tyre_brand=$7, tyre_size=$8,
+              updated_by=$9, updated_at=NOW() WHERE id=$10 RETURNING *`,
       [status, b.kart || null, b.engine || null, b.coach_staff_id || null,
-       b.coach_name || null, b.notes || null, req.user?.username || null, req.params.id]
+       b.coach_name || null, b.notes || null,
+       VALID_TYRE_BRAND.includes(b.tyre_brand) ? b.tyre_brand : null,
+       VALID_TYRE_SIZE.includes(b.tyre_size) ? b.tyre_size : null,
+       req.user?.username || null, req.params.id]
     );
     if (!r.rows.length) return res.status(404).json({ error: 'Not found' });
     res.json(r.rows[0]);
@@ -311,7 +324,19 @@ router.get('/analytics', async (req, res, next) => {
       LEFT JOIN practice_attendance a ON a.session_id = s.id
       ${where}`, p)).rows[0];
 
-    res.json({ perDriver, perTrack, familiarity, totals });
+    const tyreUsage = (await pool.query(`
+      SELECT COALESCE(a.tyre_brand,'Unspecified') AS tyre_brand,
+             COALESCE(a.tyre_size,'Unspecified') AS tyre_size,
+             COUNT(*) FILTER (WHERE a.status='attended') AS attended,
+             COUNT(DISTINCT a.driver_id) FILTER (WHERE a.status='attended' AND a.driver_id IS NOT NULL) AS linked_drivers,
+             COUNT(DISTINCT s.id) FILTER (WHERE a.status='attended') AS sessions
+      FROM practice_attendance a
+      JOIN practice_sessions s ON s.id = a.session_id
+      ${where}
+      GROUP BY a.tyre_brand, a.tyre_size
+      ORDER BY attended DESC, tyre_brand ASC, tyre_size ASC`, p)).rows;
+
+    res.json({ perDriver, perTrack, familiarity, totals, tyreUsage });
   } catch (e) { next(e); }
 });
 

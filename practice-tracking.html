@@ -33,11 +33,12 @@
     table.pt-matrix tbody tr.pt-day-start td{border-top:2px solid #c3c9d4;}
     table.pt-matrix tbody tr:hover td{background:#eef0ff;}
     table.pt-matrix tbody tr:hover .pt-rowhead{background:#e6e8ff;}
-    .pt-drv-col{min-width:52px;max-width:92px;}
+    .pt-drv-col{min-width:62px;max-width:104px;}
     .pt-drv-name{font-weight:700;font-size:.66rem;line-height:1.02;}
     .pt-drv-sub{font-size:.56rem;color:#6c757d;font-weight:600;}
     .pt-drv-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:3px;vertical-align:middle;}
-    .pt-cell{width:100%;height:100%;min-height:22px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-weight:800;font-size:.72rem;user-select:none;transition:background .1s;}
+    .pt-cell{width:100%;height:100%;min-height:28px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;font-weight:800;font-size:.72rem;user-select:none;transition:background .1s;line-height:1.05;}
+    .pt-cell-tyre{font-size:.54rem;font-weight:900;letter-spacing:.02em;margin-top:1px;opacity:.9;}
     .pt-cell:hover{outline:2px solid #c7cbff;outline-offset:-2px;}
     .st-attended{background:#dcfce7;color:#15803d;}
     .st-planned{background:#dbeafe;color:#1d4ed8;}
@@ -67,6 +68,12 @@
     .chip-multi{display:flex;flex-wrap:wrap;gap:5px;}
     .chip-pick{border:1px solid #dee2e6;border-radius:16px;padding:3px 10px;font-size:.75rem;cursor:pointer;background:#fff;user-select:none;}
     .chip-pick.on{background:#6366f1;color:#fff;border-color:#6366f1;}
+    .pt-tyre-tools{border:1px solid #e5e7eb;border-radius:8px;background:#f8fafc;padding:10px;margin-top:8px;}
+    .pt-tyre-table{width:100%;font-size:.76rem;margin-top:8px;}
+    .pt-tyre-table th{font-size:.62rem;text-transform:uppercase;letter-spacing:.04em;color:#6c757d;font-weight:800;border-bottom:1px solid #e5e7eb;padding:4px 6px;}
+    .pt-tyre-table td{padding:5px 6px;border-bottom:1px solid #edf0f3;vertical-align:middle;}
+    .pt-tyre-table select{font-size:.72rem;padding:3px 6px;border:1px solid #dee2e6;border-radius:6px;background:#fff;}
+    .pt-tyre-badge{display:inline-flex;align-items:center;border-radius:999px;padding:1px 7px;font-size:.6rem;font-weight:900;background:#111827;color:#fff;margin-left:5px;}
     /* Practice / Race segmented control in the log modal */
     .pt-typeseg{display:inline-flex;border:1px solid #dee2e6;border-radius:8px;overflow:hidden;width:100%;}
     .pt-typeseg button{flex:1;border:0;background:#fff;color:#6c757d;font-size:.85rem;font-weight:700;padding:8px 14px;cursor:pointer;transition:background .1s;}
@@ -183,6 +190,25 @@
             <div class="text-secondary mb-1" style="font-size:.72rem;">Click a driver to mark <b>attended</b> · click again to cycle through Planned, Cancelled and No-show.</div>
             <div class="chip-multi" id="sDriverChips"></div>
             <input class="form-control form-control-sm mt-1" id="sDriverAdd" placeholder="Type a driver not listed + Enter (override)">
+            <div class="pt-tyre-tools">
+              <div class="d-flex justify-content-between align-items-end flex-wrap gap-2">
+                <div>
+                  <div class="small fw-bold text-dark">Tyre allocation</div>
+                  <div class="text-secondary" style="font-size:.72rem;">Use defaults for the day, then adjust individual marked drivers below.</div>
+                </div>
+                <div class="d-flex gap-1 flex-wrap align-items-end">
+                  <select class="form-select form-select-sm" id="sDefaultTyreBrand" style="width:116px;">
+                    <option value="">Brand</option><option>Levanto</option><option>Mojo</option>
+                  </select>
+                  <select class="form-select form-select-sm" id="sDefaultTyreSize" style="width:106px;">
+                    <option value="">Size</option><option>Mini</option><option>Senior</option>
+                  </select>
+                  <button type="button" class="btn btn-sm btn-outline-secondary" id="sApplyTyres">Apply</button>
+                  <button type="button" class="btn btn-sm btn-outline-secondary" id="sClearTyres">Clear tyres</button>
+                </div>
+              </div>
+              <div id="sTyreRows"></div>
+            </div>
           </div>
           <div class="col-12"><label class="form-label small fw-semibold mb-1">Session notes</label>
             <textarea class="form-control form-control-sm" id="sNotes" rows="2"></textarea></div>
@@ -235,6 +261,8 @@
 const API = '/practice-tracking';
 const STATUS_CYCLE = ['attended','planned','cancelled','no_show'];   // blank -> attended -> ... -> blank
 const STATUS_LETTER = { attended:'<i class="bi bi-check-lg"></i>', planned:'<i class="bi bi-clock"></i>', cancelled:'<i class="bi bi-slash-circle"></i>', no_show:'<i class="bi bi-exclamation-lg"></i>' };
+const TYRE_BRANDS = ['Levanto','Mojo'];
+const TYRE_SIZES = ['Mini','Senior'];
 const DEFAULT_TRACKS = ['RSR','CPT','VKC','Idube','Zwartkops','FK','Killarney'];
 
 let sessions = [];       // loaded practice sessions (each with .attendance[] and .staff[])
@@ -255,6 +283,12 @@ function fmtDate(d){ const x=new Date(d); return isNaN(x)?'':x.toLocaleDateStrin
 function colKey(c){ return c.id ? 'id:'+c.id : 'nm:'+(c.name||'').toLowerCase(); }
 function attKey(a){ return a.driver_id ? 'id:'+a.driver_id : 'nm:'+(a.driver_name||'').toLowerCase(); }
 function trackColor(t){ if(!t) return '#94a3b8'; let h=0; for(let i=0;i<t.length;i++) h=(h*31+t.charCodeAt(i))>>>0; return `hsl(${h%360} 58% 40%)`; }
+function tyreLabel(a){
+  if(!a || (!a.tyre_brand && !a.tyre_size)) return '';
+  const brand = a.tyre_brand ? a.tyre_brand[0] : '?';
+  const size = a.tyre_size ? (a.tyre_size === 'Senior' ? 'Sr' : 'Mi') : '?';
+  return `${brand}/${size}`;
+}
 
 // ─── LOAD ────────────────────────────────────────────────────
 async function loadRefs(){
@@ -335,8 +369,9 @@ function renderMatrix(){
       const st = a ? a.status : '';
       const cls = st ? 'st-'+st : 'st-blank';
       const letter = st ? (STATUS_LETTER[st]||'•') : '';
+      const tyres = tyreLabel(a);
       const who = a && a.updated_by ? ` · by ${esc(a.updated_by)}${a.updated_at?' '+fmtDate(a.updated_at):''}` : '';
-      return `<td><div class="pt-cell ${cls}" onclick="cycleCell('${s.id}','${colKey(c)}')" title="${esc(c.name)} — ${st||'blank'}${a&&a.kart?' · '+esc(a.kart):''}${who}">${letter}</div></td>`;
+      return `<td><div class="pt-cell ${cls}" onclick="cycleCell('${s.id}','${colKey(c)}')" title="${esc(c.name)} — ${st||'blank'}${tyres?' · tyres '+esc(a.tyre_brand||'')+' '+esc(a.tyre_size||''):''}${a&&a.kart?' · '+esc(a.kart):''}${who}">${letter}${tyres?`<span class="pt-cell-tyre">${esc(tyres)}</span>`:''}</div></td>`;
     }).join('');
     const rowCls = [dayStart?'pt-day-start':'', isRace?'pt-race-row':''].filter(Boolean).join(' ');
     return `<tr class="${rowCls}">${head}${cells}</tr>`;
@@ -357,6 +392,7 @@ async function cycleCell(sessionId, key){
   const next = idx < 0 ? STATUS_CYCLE[0] : (idx+1 < STATUS_CYCLE.length ? STATUS_CYCLE[idx+1] : ''); // wraps to blank
   try{
     const payload = { driver_id: col.id||null, driver_name: col.name, status: next||'' };
+    if (a) { payload.tyre_brand = a.tyre_brand || null; payload.tyre_size = a.tyre_size || null; }
     const resp = await api(`/sessions/${sessionId}/cell`, { method:'PUT', ...jbody(payload) });
     // update local state
     s.attendance = s.attendance || [];
@@ -453,13 +489,20 @@ function openSession(id){
   // drivers: start from roster, mark existing attendance status
   const existing = {};
   if(s) (s.attendance||[]).forEach(a=>{ existing[attKey(a)] = a.status; });
-  modalDrivers = driverProfiles.map(d=>({ driver_id:d.id, driver_name:d.name, color:d.color||'#6366f1',
-      cls:d.racing_class||'', status: existing['id:'+d.id] || '' }));
+  const existingRows = {};
+  if(s) (s.attendance||[]).forEach(a=>{ existingRows[attKey(a)] = a; });
+  modalDrivers = driverProfiles.map(d=>{
+    const ex = existingRows['id:'+d.id] || {};
+    return { driver_id:d.id, driver_name:d.name, color:d.color||'#6366f1',
+      cls:d.racing_class||'', status: ex.status || '', tyre_brand: ex.tyre_brand || '', tyre_size: ex.tyre_size || '' };
+  });
   // include overrides present on the session but not in roster
   if(s) (s.attendance||[]).forEach(a=>{
     if(!a.driver_id && !modalDrivers.some(m=>!m.driver_id && (m.driver_name||'').toLowerCase()===(a.driver_name||'').toLowerCase()))
-      modalDrivers.push({ driver_id:null, driver_name:a.driver_name, color:'#94a3b8', cls:'', status:a.status });
+      modalDrivers.push({ driver_id:null, driver_name:a.driver_name, color:'#94a3b8', cls:'', status:a.status, tyre_brand:a.tyre_brand||'', tyre_size:a.tyre_size||'' });
   });
+  document.getElementById('sDefaultTyreBrand').value = '';
+  document.getElementById('sDefaultTyreSize').value = '';
   updateClassPickBtn();
   renderModalDrivers();
   sessModal.show();
@@ -508,12 +551,15 @@ function renderModalDrivers(){
     const lbl = d.status?` · ${STATUS_LETTER[d.status]||d.status}`:'';
     const style = d.status?'font-weight:700;border-color:currentColor;':('border-left:4px solid '+esc(d.color));
     const sub = d.cls?` <span style="opacity:.6;font-size:.65rem;">${esc(d.cls)}</span>`:'';
-    return `<span class="chip-pick ${cls}" data-i="${i}" style="${style}">${esc(d.driver_name)}${sub}${lbl}</span>`;
+    const tyres = d.status && (d.tyre_brand || d.tyre_size) ? `<span class="pt-tyre-badge">${esc(tyreLabel(d))}</span>` : '';
+    return `<span class="chip-pick ${cls}" data-i="${i}" style="${style}">${esc(d.driver_name)}${sub}${lbl}${tyres}</span>`;
   }).join('') || '<span class="text-secondary" style="font-size:.75rem;">No matching drivers.</span>';
   box.querySelectorAll('.chip-pick').forEach(ch=>ch.onclick=()=>{
     const i=+ch.dataset.i, cur=modalDrivers[i].status;
     const idx=STATUS_CYCLE.indexOf(cur);
     modalDrivers[i].status = idx<0?STATUS_CYCLE[0]:(idx+1<STATUS_CYCLE.length?STATUS_CYCLE[idx+1]:'');
+    if(modalDrivers[i].status && !modalDrivers[i].tyre_brand) modalDrivers[i].tyre_brand = document.getElementById('sDefaultTyreBrand').value || '';
+    if(modalDrivers[i].status && !modalDrivers[i].tyre_size) modalDrivers[i].tyre_size = document.getElementById('sDefaultTyreSize').value || '';
     renderModalDrivers();
   });
   const countEl = document.getElementById('sDriverCount');
@@ -521,6 +567,37 @@ function renderModalDrivers(){
     const marked = modalDrivers.filter(d=>d.status).length;
     countEl.textContent = marked ? `— ${marked} marked` : '';
   }
+  renderModalTyres();
+}
+
+function tyreOptions(values, current, placeholder){
+  return `<option value="">${placeholder}</option>` + values.map(v=>`<option value="${esc(v)}" ${current===v?'selected':''}>${esc(v)}</option>`).join('');
+}
+
+function renderModalTyres(){
+  const box = document.getElementById('sTyreRows');
+  if(!box) return;
+  const marked = modalDrivers.map((d,i)=>({d,i})).filter(x=>x.d.status);
+  if(!marked.length){
+    box.innerHTML = '<div class="text-secondary mt-2" style="font-size:.72rem;">Mark drivers first to assign tyre brand and size.</div>';
+    return;
+  }
+  box.innerHTML = `<div style="overflow:auto;"><table class="pt-tyre-table">
+    <thead><tr><th>Driver</th><th>Status</th><th>Brand</th><th>Size</th></tr></thead>
+    <tbody>${marked.map(({d,i})=>`<tr>
+      <td class="fw-semibold">${esc(d.driver_name)}</td>
+      <td><span class="pt-flag ok">${esc((d.status||'').replace('_',' '))}</span></td>
+      <td><select data-tyre-brand="${i}">${tyreOptions(TYRE_BRANDS, d.tyre_brand||'', 'Brand')}</select></td>
+      <td><select data-tyre-size="${i}">${tyreOptions(TYRE_SIZES, d.tyre_size||'', 'Size')}</select></td>
+    </tr>`).join('')}</tbody></table></div>`;
+  box.querySelectorAll('[data-tyre-brand]').forEach(sel=>sel.onchange=()=>{
+    modalDrivers[+sel.dataset.tyreBrand].tyre_brand = sel.value;
+    renderModalDrivers();
+  });
+  box.querySelectorAll('[data-tyre-size]').forEach(sel=>sel.onchange=()=>{
+    modalDrivers[+sel.dataset.tyreSize].tyre_size = sel.value;
+    renderModalDrivers();
+  });
 }
 
 document.getElementById('sStaffAdd').addEventListener('keydown', e=>{
@@ -537,20 +614,30 @@ document.getElementById('sTypeSeg').addEventListener('click', e=>{
 document.getElementById('sDriverFilter').addEventListener('input', renderModalDrivers);
 document.getElementById('sMarkAll').addEventListener('click', ()=>{
   const q=(document.getElementById('sDriverFilter').value||'').trim().toLowerCase();
-  modalDrivers.forEach(d=>{ if(!q || (d.driver_name||'').toLowerCase().includes(q) || (d.cls||'').toLowerCase().includes(q)) d.status='attended'; });
+  modalDrivers.forEach(d=>{ if(!q || (d.driver_name||'').toLowerCase().includes(q) || (d.cls||'').toLowerCase().includes(q)){ d.status='attended'; if(!d.tyre_brand)d.tyre_brand=document.getElementById('sDefaultTyreBrand').value||''; if(!d.tyre_size)d.tyre_size=document.getElementById('sDefaultTyreSize').value||''; } });
   renderModalDrivers();
 });
 document.getElementById('sClearAll').addEventListener('click', ()=>{
   const q=(document.getElementById('sDriverFilter').value||'').trim().toLowerCase();
-  modalDrivers.forEach(d=>{ if(!q || (d.driver_name||'').toLowerCase().includes(q) || (d.cls||'').toLowerCase().includes(q)) d.status=''; });
+  modalDrivers.forEach(d=>{ if(!q || (d.driver_name||'').toLowerCase().includes(q) || (d.cls||'').toLowerCase().includes(q)){ d.status=''; d.tyre_brand=''; d.tyre_size=''; } });
   renderModalDrivers();
 });
 document.getElementById('sClassPick').addEventListener('click', ()=>{
   const cls=(document.getElementById('sClass').value||'').trim().toLowerCase(); if(!cls) return;
-  modalDrivers.forEach(d=>{ if((d.cls||'').toLowerCase()===cls) d.status='attended'; });
+  modalDrivers.forEach(d=>{ if((d.cls||'').toLowerCase()===cls){ d.status='attended'; if(!d.tyre_brand)d.tyre_brand=document.getElementById('sDefaultTyreBrand').value||''; if(!d.tyre_size)d.tyre_size=document.getElementById('sDefaultTyreSize').value||''; } });
   renderModalDrivers();
 });
 document.getElementById('sClass').addEventListener('input', updateClassPickBtn);
+document.getElementById('sApplyTyres').addEventListener('click', ()=>{
+  const brand=document.getElementById('sDefaultTyreBrand').value;
+  const size=document.getElementById('sDefaultTyreSize').value;
+  modalDrivers.forEach(d=>{ if(d.status){ if(brand)d.tyre_brand=brand; if(size)d.tyre_size=size; } });
+  renderModalDrivers();
+});
+document.getElementById('sClearTyres').addEventListener('click', ()=>{
+  modalDrivers.forEach(d=>{ if(d.status){ d.tyre_brand=''; d.tyre_size=''; } });
+  renderModalDrivers();
+});
 
 async function saveSession(){
   const id = document.getElementById('sId').value;
@@ -562,7 +649,7 @@ async function saveSession(){
     event_id: document.getElementById('sEvent').value || null,
     session_type: modalType,
     notes: document.getElementById('sNotes').value.trim() || null,
-    attendance: modalDrivers.filter(d=>d.status).map(d=>({driver_id:d.driver_id,driver_name:d.driver_name,status:d.status})),
+    attendance: modalDrivers.filter(d=>d.status).map(d=>({driver_id:d.driver_id,driver_name:d.driver_name,status:d.status,tyre_brand:d.tyre_brand||null,tyre_size:d.tyre_size||null})),
     staff: modalStaff
   };
   if(!body.session_date){ alert('Pick a date'); return; }
@@ -630,6 +717,7 @@ async function renderAnalytics(){
   }).join('');
 
   const trackRows = a.perTrack.map(t=>`<tr><td>${esc(t.track)}</td><td>${t.sessions}</td><td>${t.attendances}</td><td>${t.drivers}</td></tr>`).join('');
+  const tyreRows = (a.tyreUsage||[]).map(t=>`<tr><td>${esc(t.tyre_brand)}</td><td>${esc(t.tyre_size)}</td><td>${t.attended}</td><td>${t.sessions}</td><td>${t.linked_drivers}</td></tr>`).join('');
 
   // next-event readiness
   const upcoming = events.filter(e=>e.start_date && new Date(e.start_date)>=new Date()).sort((a,b)=>String(a.start_date).localeCompare(String(b.start_date)))[0];
@@ -656,6 +744,10 @@ async function renderAnalytics(){
     <div class="pt-panel"><h6>By track</h6>
       <table class="pt-table"><thead><tr><th>Track</th><th>Sessions</th><th>Attendances</th><th>Drivers</th></tr></thead>
       <tbody>${trackRows||'<tr><td colspan="4" class="text-secondary">No data.</td></tr>'}</tbody></table>
+    </div>
+    <div class="pt-panel"><h6>Tyre usage</h6>
+      <table class="pt-table"><thead><tr><th>Brand</th><th>Size</th><th>Attended uses</th><th>Sessions</th><th>Drivers</th></tr></thead>
+      <tbody>${tyreRows||'<tr><td colspan="5" class="text-secondary">No tyre data yet.</td></tr>'}</tbody></table>
     </div>`;
 }
 

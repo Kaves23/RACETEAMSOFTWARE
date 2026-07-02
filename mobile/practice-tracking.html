@@ -126,6 +126,25 @@
       <div class="chip-hint">Tap a driver to cycle: <b>attended → planned → cancelled → no-show → off</b></div>
     </div>
 
+    <div class="form-row tyre-box">
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:8px;margin-bottom:8px;">
+        <div>
+          <label class="form-label" style="margin:0;">Tyres</label>
+          <div class="chip-hint" style="margin-top:2px;">Defaults apply to marked drivers; adjust each driver below.</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;">
+        <select id="defaultTyreBrand" class="form-input">
+          <option value="">Brand</option><option>Levanto</option><option>Mojo</option>
+        </select>
+        <select id="defaultTyreSize" class="form-input">
+          <option value="">Size</option><option>Mini</option><option>Senior</option>
+        </select>
+        <button type="button" class="mini-btn tyre-apply" id="applyTyres">Apply</button>
+      </div>
+      <div id="tyreRows"></div>
+    </div>
+
     <div class="form-row">
       <label class="form-label">Staff</label>
       <div class="chip-wrap" id="staffChips"></div>
@@ -254,6 +273,13 @@
   .dchip.on-cancelled { background:#fef3c7;border-color:#fcd34d;color:#92400e; }
   .dchip.on-no_show   { background:#fee2e2;border-color:#fca5a5;color:#b91c1c; }
   .dchip .mk { font-size:10px;font-weight:800; }
+  .tyre-mini { display:inline-flex;align-items:center;border-radius:999px;background:#111827;color:#fff;font-size:10px;font-weight:900;padding:1px 6px; }
+  .tyre-box { border:1px solid var(--border); border-radius:var(--r); padding:12px; background:var(--surface); }
+  .tyre-apply { border-radius:var(--r); padding:0 12px; background:#fff; }
+  .tyre-row { display:grid; grid-template-columns:minmax(0,1fr) 104px 96px; gap:7px; align-items:center; padding:8px 0; border-bottom:1px solid var(--border); }
+  .tyre-row:last-child { border-bottom:none; }
+  .tyre-name { min-width:0; font-size:13px; font-weight:700; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .tyre-row select { padding:7px 8px; font-size:12px; background:#fff; }
   .chip-hint { font-size:11px;color:var(--text-3);margin-top:8px;line-height:1.4; }
 
   .fab-log { position:fixed;bottom:calc(72px + var(--safe-b) + 16px);right:16px;z-index:90;display:flex;align-items:center;gap:8px;padding:0 20px 0 16px;height:52px;border-radius:26px;background:#4338ca;color:#fff;font-size:14px;font-weight:800;letter-spacing:0.06em;border:none;cursor:pointer;box-shadow:0 4px 18px rgba(67,56,202,.4);-webkit-tap-highlight-color:transparent;transition:opacity .15s,transform .15s; }
@@ -273,6 +299,8 @@
   const STATUS_CYCLE = ['attended','planned','cancelled','no_show'];
   const STATUS_MARK  = { attended:'\u2713', planned:'P', cancelled:'\u2715', no_show:'!' };
   const STATUS_LABEL = { attended:'Attended', planned:'Planned', cancelled:'Cancelled', no_show:'No-show' };
+  const TYRE_BRANDS = ['Levanto','Mojo'];
+  const TYRE_SIZES = ['Mini','Senior'];
 
   let sessions = [];
   let drivers  = [];
@@ -295,6 +323,10 @@
   function fmtShort(v){ if(!v) return '—'; const d=new Date(iso(v)+'T12:00:00'); return isNaN(d)?'—':d.toLocaleDateString('en-ZA',{day:'numeric',month:'short'}); }
   function todayISO(){ const d=new Date(); const p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; }
   function setOffline(){ const b=document.getElementById('offlineBanner'); if(b) b.classList.toggle('visible', !navigator.onLine); }
+  function tyreLabel(a){
+    if(!a || (!a.tyre_brand && !a.tyre_size)) return '';
+    return `${a.tyre_brand ? a.tyre_brand[0] : '?'}/${a.tyre_size ? (a.tyre_size === 'Senior' ? 'Sr' : 'Mi') : '?'}`;
+  }
 
   let toastTimer;
   function toast(msg){
@@ -346,6 +378,8 @@
       const ev = eventName(s.event_id);
       const attPills = STATUS_CYCLE.filter(k => c[k]).map(k =>
         `<span class="att-pill st-${k}"><span class="n">${c[k]}</span> ${esc(STATUS_LABEL[k])}</span>`).join('');
+      const tyrePills = [...new Set((s.attendance||[]).filter(a=>a.status==='attended' && (a.tyre_brand || a.tyre_size)).map(a=>tyreLabel(a)))].map(t =>
+        `<span class="att-pill"><span class="tyre-mini">${esc(t)}</span></span>`).join('');
       const meta = [s.track || s.venue, s.class_name].filter(Boolean).map(esc).join(' · ');
       return `<div class="ses-card" onclick="openDetail('${esc(s.id)}')">
         <div class="ses-top">
@@ -356,7 +390,7 @@
               <span>${esc(s.track || s.venue || 'Session')}</span>
             </div>
             <div class="ses-sub">${meta || '—'}${ev?` · <b>${esc(ev)}</b>`:''}${(s.staff&&s.staff.length)?` · ${s.staff.length} staff`:''}</div>
-            ${attPills ? `<div class="att-row">${attPills}</div>` : `<div class="ses-sub" style="margin-top:8px;">No drivers marked</div>`}
+            ${attPills ? `<div class="att-row">${attPills}${tyrePills}</div>` : `<div class="ses-sub" style="margin-top:8px;">No drivers marked</div>`}
           </div>
         </div>
       </div>`;
@@ -367,6 +401,7 @@
   function daysSince(dt){ if(!dt) return null; const d=new Date(dt+'T12:00:00'); if(isNaN(d)) return null; return Math.floor((Date.now()-d)/86400000); }
   function buildAnalytics(){
     const perDriver = {}, fam = {}, perTrack = {};
+    const tyres = {};
     sessions.forEach(s => {
       const track = (s.track||'').trim();
       if (track){ perTrack[track] = perTrack[track] || { track, sessions:0, attendances:0, drivers:new Set() }; perTrack[track].sessions++; }
@@ -375,6 +410,9 @@
         const d = perDriver[name] = perDriver[name] || { name, attended:0, planned:0, cancelled:0, no_show:0, tracks:new Set(), last_attended:null };
         if (d[a.status] != null) d[a.status]++;
         if (a.status === 'attended'){
+          const tk = `${a.tyre_brand || 'Unspecified'}|${a.tyre_size || 'Unspecified'}`;
+          tyres[tk] = tyres[tk] || { brand:a.tyre_brand || 'Unspecified', size:a.tyre_size || 'Unspecified', attended:0, sessions:new Set(), drivers:new Set() };
+          tyres[tk].attended++; tyres[tk].sessions.add(s.id); if(a.driver_name) tyres[tk].drivers.add(a.driver_name);
           const dt = iso(s.session_date);
           if (dt && (!d.last_attended || dt > d.last_attended)) d.last_attended = dt;
           if (track){
@@ -390,6 +428,7 @@
     return {
       perDriver: Object.values(perDriver).map(d => ({ ...d, tracks_run: d.tracks.size })).sort((a,b)=>b.attended-a.attended),
       perTrack:  Object.values(perTrack).map(t => ({ track:t.track, sessions:t.sessions, attendances:t.attendances, drivers:t.drivers.size })).sort((a,b)=>b.sessions-a.sessions),
+      tyres: Object.values(tyres).map(t => ({ brand:t.brand, size:t.size, attended:t.attended, sessions:t.sessions.size, drivers:t.drivers.size })).sort((a,b)=>b.attended-a.attended),
       fam
     };
   }
@@ -458,6 +497,9 @@
     const trackRows = a.perTrack.length
       ? a.perTrack.map(t => `<div class="an-trow"><span class="an-tname">${esc(t.track)}</span><span class="an-tmeta">${t.sessions} session${t.sessions===1?'':'s'} · ${t.drivers} driver${t.drivers===1?'':'s'}</span></div>`).join('')
       : '<div class="an-empty">No tracks logged.</div>';
+    const tyreRows = a.tyres.length
+      ? a.tyres.map(t => `<div class="an-trow"><span class="an-tname">${esc(t.brand)} · ${esc(t.size)}</span><span class="an-tmeta">${t.attended} use${t.attended===1?'':'s'} · ${t.sessions} day${t.sessions===1?'':'s'} · ${t.drivers} driver${t.drivers===1?'':'s'}</span></div>`).join('')
+      : '<div class="an-empty">No tyre data yet.</div>';
 
     box.innerHTML = `
       <div class="an-panel">
@@ -473,6 +515,10 @@
       <div class="an-panel">
         <div class="an-h">By track</div>
         ${trackRows}
+      </div>
+      <div class="an-panel">
+        <div class="an-h">Tyre usage</div>
+        ${tyreRows}
       </div>`;
   }
   function setView(v){
@@ -495,7 +541,7 @@
     const rows = (s.attendance||[]).slice().sort((a,b)=>String(a.driver_name||'').localeCompare(String(b.driver_name||'')));
     const attHtml = rows.length ? rows.map(a =>
       `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);">
-        <span style="font-size:14px;font-weight:600;">${esc(a.driver_name||'—')}</span>
+        <span style="font-size:14px;font-weight:600;">${esc(a.driver_name||'—')}${tyreLabel(a)?` <span class="tyre-mini">${esc(tyreLabel(a))}</span>`:''}</span>
         <span class="att-pill st-${esc(a.status)}">${esc(STATUS_LABEL[a.status]||a.status)}</span>
       </div>`).join('') : '<div style="color:var(--text-3);font-size:13px;padding:8px 0;">No drivers marked.</div>';
     const staffHtml = (s.staff&&s.staff.length) ? s.staff.map(st =>
@@ -527,7 +573,7 @@
   function seedSheetDrivers(){
     sheetDrivers = drivers.map(d => ({
       driver_id: d.id, driver_name: d.name || '—',
-      cls: d.racing_class || d.class || '', color: d.color || '#4338ca', status: ''
+      cls: d.racing_class || d.class || '', color: d.color || '#4338ca', status: '', tyre_brand:'', tyre_size:''
     }));
   }
   function renderDriverChips(){
@@ -536,16 +582,34 @@
     const list = sheetDrivers.map((d,i)=>({d,i})).filter(x => !q || (x.d.driver_name||'').toLowerCase().includes(q) || (x.d.cls||'').toLowerCase().includes(q));
     box.innerHTML = list.map(({d,i}) =>
       `<span class="dchip ${d.status?('on-'+d.status):''}" data-i="${i}">
-        ${d.status?`<span class="mk">${STATUS_MARK[d.status]}</span>`:''}${esc(d.driver_name)}${d.cls?`<span class="sub">${esc(d.cls)}</span>`:''}
+        ${d.status?`<span class="mk">${STATUS_MARK[d.status]}</span>`:''}${esc(d.driver_name)}${d.cls?`<span class="sub">${esc(d.cls)}</span>`:''}${d.status&&tyreLabel(d)?`<span class="tyre-mini">${esc(tyreLabel(d))}</span>`:''}
       </span>`).join('') || '<span style="color:var(--text-3);font-size:13px;">No matching drivers.</span>';
     box.querySelectorAll('.dchip').forEach(ch => ch.onclick = () => {
       const i = +ch.dataset.i, cur = sheetDrivers[i].status;
       const idx = STATUS_CYCLE.indexOf(cur);
       sheetDrivers[i].status = idx < 0 ? STATUS_CYCLE[0] : (idx+1 < STATUS_CYCLE.length ? STATUS_CYCLE[idx+1] : '');
+      if (sheetDrivers[i].status && !sheetDrivers[i].tyre_brand) sheetDrivers[i].tyre_brand = document.getElementById('defaultTyreBrand').value || '';
+      if (sheetDrivers[i].status && !sheetDrivers[i].tyre_size) sheetDrivers[i].tyre_size = document.getElementById('defaultTyreSize').value || '';
       renderDriverChips();
     });
     const marked = sheetDrivers.filter(d=>d.status).length;
     document.getElementById('driverCount').textContent = marked ? `· ${marked} marked` : '';
+    renderTyreRows();
+  }
+  function options(values, current, placeholder){
+    return `<option value="">${placeholder}</option>` + values.map(v=>`<option value="${esc(v)}" ${current===v?'selected':''}>${esc(v)}</option>`).join('');
+  }
+  function renderTyreRows(){
+    const box = document.getElementById('tyreRows');
+    const marked = sheetDrivers.map((d,i)=>({d,i})).filter(x=>x.d.status);
+    if(!marked.length){ box.innerHTML = '<div class="chip-hint">Mark drivers first to assign tyres.</div>'; return; }
+    box.innerHTML = marked.map(({d,i}) => `<div class="tyre-row">
+      <div class="tyre-name">${esc(d.driver_name)}</div>
+      <select class="form-input" data-brand="${i}">${options(TYRE_BRANDS, d.tyre_brand||'', 'Brand')}</select>
+      <select class="form-input" data-size="${i}">${options(TYRE_SIZES, d.tyre_size||'', 'Size')}</select>
+    </div>`).join('');
+    box.querySelectorAll('[data-brand]').forEach(sel => sel.onchange = () => { sheetDrivers[+sel.dataset.brand].tyre_brand = sel.value; renderDriverChips(); });
+    box.querySelectorAll('[data-size]').forEach(sel => sel.onchange = () => { sheetDrivers[+sel.dataset.size].tyre_size = sel.value; renderDriverChips(); });
   }
   function renderStaffChips(){
     const box = document.getElementById('staffChips');
@@ -578,6 +642,8 @@
     document.getElementById('driverFilter').value = '';
     document.getElementById('driverAdd').value = '';
     document.getElementById('staffAdd').value = '';
+    document.getElementById('defaultTyreBrand').value = '';
+    document.getElementById('defaultTyreSize').value = '';
     seedSheetDrivers(); sheetStaff = [];
     renderDriverChips(); renderStaffChips();
     document.getElementById('sheetOverlay').classList.add('active');
@@ -603,7 +669,7 @@
       class_name: document.getElementById('fClass').value.trim() || null,
       event_id:   document.getElementById('fEvent').value || null,
       notes:      document.getElementById('fNotes').value.trim() || null,
-      attendance: sheetDrivers.filter(d => d.status).map(d => ({ driver_id: d.driver_id, driver_name: d.driver_name, status: d.status })),
+      attendance: sheetDrivers.filter(d => d.status).map(d => ({ driver_id: d.driver_id, driver_name: d.driver_name, status: d.status, tyre_brand: d.tyre_brand || null, tyre_size: d.tyre_size || null })),
       staff:      sheetStaff
     };
     try {
@@ -653,16 +719,22 @@
   document.getElementById('driverFilter').addEventListener('input', renderDriverChips);
   document.getElementById('markAll').addEventListener('click', () => {
     const q = (document.getElementById('driverFilter').value||'').trim().toLowerCase();
-    sheetDrivers.forEach(d => { if (!q || (d.driver_name||'').toLowerCase().includes(q) || (d.cls||'').toLowerCase().includes(q)) d.status = 'attended'; });
+    sheetDrivers.forEach(d => { if (!q || (d.driver_name||'').toLowerCase().includes(q) || (d.cls||'').toLowerCase().includes(q)){ d.status = 'attended'; if(!d.tyre_brand)d.tyre_brand=document.getElementById('defaultTyreBrand').value||''; if(!d.tyre_size)d.tyre_size=document.getElementById('defaultTyreSize').value||''; } });
     renderDriverChips();
   });
   document.getElementById('clearAll').addEventListener('click', () => {
     const q = (document.getElementById('driverFilter').value||'').trim().toLowerCase();
-    sheetDrivers.forEach(d => { if (!q || (d.driver_name||'').toLowerCase().includes(q) || (d.cls||'').toLowerCase().includes(q)) d.status = ''; });
+    sheetDrivers.forEach(d => { if (!q || (d.driver_name||'').toLowerCase().includes(q) || (d.cls||'').toLowerCase().includes(q)){ d.status = ''; d.tyre_brand = ''; d.tyre_size = ''; } });
     renderDriverChips();
   });
   document.getElementById('driverAdd').addEventListener('keydown', e => {
-    if (e.key === 'Enter') { e.preventDefault(); const v=e.target.value.trim(); if(v){ sheetDrivers.push({ driver_id:null, driver_name:v, cls:'', color:'#a3a3a3', status:'attended' }); e.target.value=''; renderDriverChips(); } }
+    if (e.key === 'Enter') { e.preventDefault(); const v=e.target.value.trim(); if(v){ sheetDrivers.push({ driver_id:null, driver_name:v, cls:'', color:'#a3a3a3', status:'attended', tyre_brand:document.getElementById('defaultTyreBrand').value||'', tyre_size:document.getElementById('defaultTyreSize').value||'' }); e.target.value=''; renderDriverChips(); } }
+  });
+  document.getElementById('applyTyres').addEventListener('click', () => {
+    const brand = document.getElementById('defaultTyreBrand').value;
+    const size = document.getElementById('defaultTyreSize').value;
+    sheetDrivers.forEach(d => { if(d.status){ if(brand)d.tyre_brand=brand; if(size)d.tyre_size=size; } });
+    renderDriverChips();
   });
   document.getElementById('staffAdd').addEventListener('keydown', e => {
     if (e.key === 'Enter') { e.preventDefault(); const v=e.target.value.trim(); if(v){ sheetStaff.push({ staff_id:null, staff_name:v, role:null }); e.target.value=''; renderStaffChips(); } }

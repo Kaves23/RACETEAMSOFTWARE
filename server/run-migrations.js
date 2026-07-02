@@ -122,7 +122,8 @@ async function runMigrations() {
     '101_academy_sort_order.sql',
     '102_practice_tracking.sql',
     '103_practice_attendance_audit.sql',
-    '104_practice_session_type.sql'
+    '104_practice_session_type.sql',
+    '105_practice_attendance_tyres.sql'
   ];
   
   let appliedCount = 0, skippedCount = 0;
