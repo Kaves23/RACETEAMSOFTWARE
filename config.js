@@ -2,9 +2,9 @@
 // Include this before core.js on pages where you want to override defaults.
 window.RTS_CONFIG = {
   // Software build version — updated on every deployment
-  buildVersion: '9dbaddf',
+  buildVersion: '4f6ae44',
   buildDate:    '2026-07-02',
-  buildNote:    'Support multi-set practice tyres and staff crew roster',
+  buildNote:    'Add practice session report selection',
   // API Configuration
   api: {
     baseURL: '/api', // Relative URL - works with any hostname (Render, custom domain, localhost)

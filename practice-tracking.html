@@ -471,11 +471,86 @@ function reportBranding(){
   const teamName = (s.teamName || s.organisationName || 'Race Team').trim();
   const logoUrl = (s.teamLogoUrl || '').trim();
   const accent = /^#[0-9a-fA-F]{6}$/.test(s.brandColor||'') ? s.brandColor : '#1a0d2e';
-  return { teamName, logoUrl, accent };
+  return { teamName, logoUrl, accent, rtsName:'Race Team OS' };
 }
 
 function sessionStaffNames(s){
   return (s.staff||[]).map(st=>[st.staff_name, st.role].filter(Boolean).join(' · ')).filter(Boolean);
+}
+
+function firstText(...vals){
+  return vals.map(v=>String(v ?? '').trim()).find(Boolean) || '';
+}
+
+function getRunPlanInfo(ev){
+  if(!ev) return {};
+  const key = '__runPlanInfo';
+  if(ev.sessionLogs && typeof ev.sessionLogs === 'object' && ev.sessionLogs[key]) return ev.sessionLogs[key];
+  if(ev.runPlan && typeof ev.runPlan === 'object' && !Array.isArray(ev.runPlan) && ev.runPlan[key]) return ev.runPlan[key];
+  if(ev.run_plan && typeof ev.run_plan === 'object' && !Array.isArray(ev.run_plan) && ev.run_plan[key]) return ev.run_plan[key];
+  return {};
+}
+
+function matchingVenueForSession(s, ev){
+  const keys = [s?.track, s?.venue, ev?.circuit, ev?.venue, ev?.location]
+    .map(v=>String(v||'').trim().toLowerCase())
+    .filter(Boolean);
+  if(!keys.length) return null;
+  return venueList.find(v=>{
+    const code = String(v.code||'').trim().toLowerCase();
+    const name = String(v.name||'').trim().toLowerCase();
+    return keys.includes(code) || keys.includes(name);
+  }) || null;
+}
+
+function fieldFrom(obj, names){
+  if(!obj || typeof obj !== 'object') return '';
+  for(const name of names){
+    const val = obj[name];
+    if(val !== undefined && val !== null && String(val).trim() !== '') return val;
+  }
+  return '';
+}
+
+function weatherForSession(s){
+  const ev = eventForSession(s);
+  const info = getRunPlanInfo(ev);
+  const venue = matchingVenueForSession(s, ev) || {};
+  const weather = firstText(
+    fieldFrom(s, ['weather','weather_summary','weatherSummary','forecast','forecast_summary']),
+    fieldFrom(info, ['weather','weatherSummary']),
+    fieldFrom(ev, ['weather','weather_summary','weatherSummary','forecast','forecast_summary']),
+    fieldFrom(ev?.runbook, ['weather','weatherSummary'])
+  );
+  const pressure = firstText(
+    fieldFrom(s, ['pressure','pressure_hpa','pressureHpa','qnh','qfe']),
+    fieldFrom(info, ['pressure','pressure_hpa','pressureHpa','qnh','qfe']),
+    fieldFrom(ev, ['pressure','pressure_hpa','pressureHpa','qnh','qfe'])
+  );
+  const elevation = firstText(
+    fieldFrom(s, ['elevation','elevation_m','elevationM','altitude','altitude_m']),
+    fieldFrom(info, ['elevation','elevation_m','elevationM','altitude','altitude_m']),
+    fieldFrom(ev, ['elevation','elevation_m','elevationM','altitude','altitude_m']),
+    fieldFrom(venue, ['elevation','elevation_m','elevationM','altitude','altitude_m'])
+  );
+  const address = firstText(fieldFrom(info, ['trackAddress','address']), fieldFrom(ev, ['trackAddress','address']), fieldFrom(venue, ['address','location']));
+  return {
+    weather: weather || 'Not recorded',
+    pressure: pressure ? formatReportUnit(pressure, 'hPa') : pressureFromWeatherText(weather),
+    elevation: elevation ? formatReportUnit(elevation, 'm') : '',
+    address
+  };
+}
+
+function pressureFromWeatherText(txt){
+  const match = String(txt||'').match(/pressure\s*[: ]\s*([0-9]+(?:\.[0-9]+)?\s*hpa)/i);
+  return match ? match[1].replace(/\s+/g, ' ') : '';
+}
+
+function formatReportUnit(value, unit){
+  const str = String(value ?? '').trim();
+  if(!str) return '';
+  return new RegExp(`\\b${unit}\\b`, 'i').test(str) ? str : `${str} ${unit}`;
 }
 
 function reportDriverRows(s){
@@ -511,7 +586,7 @@ function eventSummaryForReport(selected){
 function generateSelectedReport(){
   const selected = selectedReportSessions();
   if(!selected.length){ alert('Tick one or more days first.'); return; }
-  const { teamName, logoUrl, accent } = reportBranding();
+  const { teamName, logoUrl, accent, rtsName } = reportBranding();
   const dateRange = selected.length === 1 ? fmtDate(selected[0].session_date) : `${fmtDate(selected[0].session_date)} – ${fmtDate(selected[selected.length-1].session_date)}`;
   const totalDrivers = new Set();
   const totalStaff = new Set();
@@ -526,6 +601,8 @@ function generateSelectedReport(){
   const sessionBlocks = selected.map(s=>{
     const ev = eventForSession(s);
     const staff = sessionStaffNames(s);
+    const wx = weatherForSession(s);
+    const dayType = s.session_type === 'race' ? 'Race day' : 'Practice';
     return `<section class="session">
       <div class="session-head">
         <div>
@@ -535,11 +612,16 @@ function generateSelectedReport(){
         ${ev?`<div class="linked-event">${esc(ev.name || ev.title || 'Linked event')}</div>`:''}
       </div>
       <div class="grid">
+        <div><span>Type of day</span><strong>${esc(dayType)}</strong></div>
         <div><span>Track</span><strong>${esc(s.track || '—')}</strong></div>
         <div><span>Venue</span><strong>${esc(s.venue || '—')}</strong></div>
         <div><span>Class</span><strong>${esc(s.class_name || '—')}</strong></div>
+        <div><span>Weather</span><strong>${esc(wx.weather || 'Not recorded')}</strong></div>
+        <div><span>Pressure</span><strong>${esc(wx.pressure || '—')}</strong></div>
+        <div><span>Elevation</span><strong>${esc(wx.elevation || '—')}</strong></div>
         <div><span>Staff</span><strong>${staff.length}</strong></div>
       </div>
+      ${wx.address?`<div class="weather-note"><strong>Track detail:</strong> ${esc(wx.address)}</div>`:''}
       ${staff.length?`<div class="staff-list"><strong>Staff:</strong> ${staff.map(esc).join(', ')}</div>`:''}
       ${s.notes?`<p class="notes"><strong>Notes:</strong> ${esc(s.notes)}</p>`:''}
       <table>
@@ -554,22 +636,31 @@ function generateSelectedReport(){
       header{background:${esc(accent)};color:#fff;padding:28px 34px;display:flex;justify-content:space-between;gap:24px;align-items:center;} header img{height:70px;max-width:220px;object-fit:contain;background:#fff;border-radius:6px;padding:6px;} .monogram{width:68px;height:68px;border:2px solid rgba(255,255,255,.7);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:900;letter-spacing:.08em;}
       h1{margin:0;font-size:30px;letter-spacing:.03em;} .subtitle{opacity:.85;margin-top:6px;font-size:13px;text-transform:uppercase;letter-spacing:.12em;} .content{padding:28px 34px;} .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:22px;} .kpi{border:1px solid #e5e7eb;padding:12px;background:#fafafa;} .kpi span,.grid span{display:block;color:#6b7280;font-size:11px;text-transform:uppercase;font-weight:700;letter-spacing:.06em;} .kpi strong{font-size:24px;}
       .event-card{border-left:4px solid ${esc(accent)};padding:10px 14px;background:#fafafa;margin-bottom:10px;} .event-title{font-weight:800;font-size:15px;} .session{page-break-inside:avoid;border-top:2px solid #111827;padding-top:18px;margin-top:24px;} .session-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;} h2{margin:0 0 4px;font-size:20px;} .muted{color:#6b7280;font-size:12px;} .linked-event{font-size:12px;font-weight:800;text-transform:uppercase;color:${esc(accent)};text-align:right;} .race-tag,.practice-tag{font-size:11px;border-radius:999px;padding:3px 8px;vertical-align:middle;color:#fff;background:#dc2626;} .practice-tag{background:#4f46e5;}
-      .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0;} .grid>div{border:1px solid #e5e7eb;padding:9px;background:#fcfcfc;} .grid strong{font-size:14px;} .staff-list,.notes{font-size:13px;margin:10px 0;} table{width:100%;border-collapse:collapse;margin-top:12px;font-size:12px;} th{background:#f3f4f6;text-align:left;color:#4b5563;text-transform:uppercase;font-size:10px;letter-spacing:.05em;} th,td{border:1px solid #e5e7eb;padding:8px;vertical-align:top;} .status{display:inline-block;border-radius:999px;padding:2px 7px;font-size:10px;font-weight:800;text-transform:uppercase;background:#e5e7eb;} .status.attended{background:#dcfce7;color:#15803d}.status.planned{background:#dbeafe;color:#1d4ed8}.status.cancelled{background:#fef3c7;color:#92400e}.status.no_show{background:#fee2e2;color:#b91c1c}
+      .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0;} .grid>div{border:1px solid #e5e7eb;padding:9px;background:#fcfcfc;min-height:58px;} .grid strong{font-size:14px;} .weather-note,.staff-list,.notes{font-size:13px;margin:10px 0;} table{width:100%;border-collapse:collapse;margin-top:12px;font-size:12px;} th{background:#f3f4f6;text-align:left;color:#4b5563;text-transform:uppercase;font-size:10px;letter-spacing:.05em;} th,td{border:1px solid #e5e7eb;padding:8px;vertical-align:top;} .status{display:inline-block;border-radius:999px;padding:2px 7px;font-size:10px;font-weight:800;text-transform:uppercase;background:#e5e7eb;} .status.attended{background:#dcfce7;color:#15803d}.status.planned{background:#dbeafe;color:#1d4ed8}.status.cancelled{background:#fef3c7;color:#92400e}.status.no_show{background:#fee2e2;color:#b91c1c}
+      .rts-brand{border:1px solid rgba(255,255,255,.45);padding:8px 10px;text-align:left;min-width:112px;} .rts-brand b{display:block;font-size:18px;letter-spacing:.16em;} .rts-brand span{display:block;font-size:9px;text-transform:uppercase;letter-spacing:.12em;opacity:.8;}
       footer{padding:18px 34px;color:#6b7280;font-size:11px;border-top:1px solid #e5e7eb;} @media print{body{background:#fff}.page{max-width:none}.no-print{display:none!important} header{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
     </style></head><body><div class="page">
-      <header><div>${logo}</div><div style="text-align:right;"><h1>Practice & Event Report</h1><div class="subtitle">${esc(teamName)} · ${esc(dateRange)}</div></div></header>
+      <header><div>${logo}</div><div style="text-align:right;flex:1;"><h1>Practice & Event Report</h1><div class="subtitle">${esc(teamName)} · ${esc(dateRange)}</div></div><div class="rts-brand"><b>RTS</b><span>${esc(rtsName)}</span></div></header>
       <div class="content">
         <div class="kpis"><div class="kpi"><span>Days</span><strong>${selected.length}</strong></div><div class="kpi"><span>Drivers attended</span><strong>${totalDrivers.size}</strong></div><div class="kpi"><span>Staff listed</span><strong>${totalStaff.size}</strong></div><div class="kpi"><span>Tyre sets</span><strong>${totalTyreSets}</strong></div></div>
         ${eventSummaryForReport(selected)}
         ${sessionBlocks}
       </div>
-      <footer>Generated ${esc(new Date().toLocaleString('en-GB'))} from Race Team OS.</footer>
+      <footer>Generated ${esc(new Date().toLocaleString('en-GB'))} from ${esc(rtsName)}.</footer>
     </div><script>setTimeout(()=>window.print(),350)<\/script></body></html>`;
   const w = window.open('', '_blank');
   if(!w){ alert('Popup blocked. Allow popups to generate the report.'); return; }
   w.document.open();
   w.document.write(html);
   w.document.close();
+}
+
+function printPracticeReport(){
+  if(selectedReportSessions().length){
+    generateSelectedReport();
+    return;
+  }
+  window.print();
 }
 
 async function cycleCell(sessionId, key){
@@ -1144,7 +1235,7 @@ document.getElementById('sDate').addEventListener('change', ()=>{
 });
 
 document.getElementById('btnExport').addEventListener('click', exportCSV);
-document.getElementById('btnPrint').addEventListener('click', ()=>window.print());
+document.getElementById('btnPrint').addEventListener('click', printPracticeReport);
 document.getElementById('btnImport').addEventListener('click', ()=>{
   document.getElementById('impYear').value = new Date().getFullYear();
   document.getElementById('impText').value=''; document.getElementById('impPreview').innerHTML='';
