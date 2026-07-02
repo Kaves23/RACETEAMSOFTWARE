@@ -187,6 +187,9 @@
               <button class="nav-link" data-bs-toggle="tab" data-bs-target="#pane-drv-events" type="button" role="tab">Events</button>
             </li>
             <li class="nav-item" role="presentation">
+              <button class="nav-link" data-bs-toggle="tab" data-bs-target="#pane-drv-tyres" type="button" role="tab">Tyre Usage</button>
+            </li>
+            <li class="nav-item" role="presentation">
               <button class="nav-link" data-bs-toggle="tab" data-bs-target="#pane-drv-equipment" type="button" role="tab">Equipment</button>
             </li>
             <li class="nav-item" role="presentation">
@@ -309,6 +312,17 @@
               </div>
             </div>
 
+            <!-- TYRE USAGE -->
+            <div class="tab-pane fade" id="pane-drv-tyres" role="tabpanel">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="text-secondary" style="font-size:0.78rem;">Backlog and practice tyre usage for this driver</span>
+                <a id="btnDrvTyresLink" href="driver-tyre-usage.html" class="btn btn-sm btn-outline-secondary" style="font-size:0.75rem;">Open Tyre Usage</a>
+              </div>
+              <div id="drvTyreSummary" style="font-size:0.8rem;color:#6c757d;border:1px solid #dee2e6;border-radius:6px;padding:10px;">
+                Select a driver to view tyre usage.
+              </div>
+            </div>
+
             <!-- EQUIPMENT -->
             <div class="tab-pane fade" id="pane-drv-equipment" role="tabpanel">
               <div class="d-flex justify-content-between align-items-center mb-2">
@@ -388,6 +402,7 @@
       inspBadge: document.getElementById('drvInspectorBadge'),
       complianceContent: document.getElementById('complianceContent'),
       eventsTbody: document.getElementById('drvEventsTbody'),
+      tyreSummary: document.getElementById('drvTyreSummary'),
       equipTbody: document.getElementById('drvEquipTbody'),
       resultsTbody: document.getElementById('drvResultsTbody'),
       docsTbody: document.getElementById('drvDocsTbody'),
@@ -537,6 +552,7 @@
       if (!d){
         Object.values(el.f).forEach(f=>{ if(f) f.value=''; });
         el.complianceContent.innerHTML='<p class="text-secondary" style="font-size:0.8rem;">Select a driver.</p>';
+        if (el.tyreSummary) el.tyreSummary.textContent = 'Select a driver to view tyre usage.';
         return;
       }
       el.f.name.value = d.name||'';
@@ -558,6 +574,7 @@
       if (d.photo_url){ el.photo.src=d.photo_url; el.photo.style.display='block'; } else el.photo.style.display='none';
       renderCompliance(d);
       renderDriverEvents(d);
+      renderDriverTyres(d);
       renderDriverEquipment(d);
       renderDriverResults(d);
       renderDriverDocs(d);
@@ -640,6 +657,35 @@
       if (!lines.length) lines.push('• Please check your compliance documents are up to date');
       const msg = `Hi ${d.name||'driver'}, this is a reminder from your race team regarding the following documents:\n\n${lines.join('\n')}\n\nPlease ensure these are updated before your next event. Thank you!`;
       window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
+    }
+
+    // ─── TYRE USAGE TAB ─────────────────────────────────────────
+    async function renderDriverTyres(d){
+      const link = document.getElementById('btnDrvTyresLink');
+      if (link) link.href = `driver-tyre-usage.html?driver=${encodeURIComponent(d.id)}`;
+      if (!el.tyreSummary) return;
+      el.tyreSummary.innerHTML = 'Loading tyre usage...';
+      try {
+        const rows = await RTS.apiFetch(`/api/driver-tyre-usage?driver_id=${encodeURIComponent(d.id)}`);
+        const sets = rows.reduce((sum,r)=>sum+(+r.sets_used||0),0);
+        const wet = rows.filter(r=>r.tyre_type==='Wet').reduce((sum,r)=>sum+(+r.sets_used||0),0);
+        const byTyre = {};
+        rows.forEach(r=>{
+          const k = [r.tyre_brand,r.tyre_size,r.tyre_type||'Slick'].filter(Boolean).join(' ') || 'Unspecified';
+          byTyre[k] = (byTyre[k]||0) + (+r.sets_used||0);
+        });
+        const top = Object.entries(byTyre).sort((a,b)=>b[1]-a[1]).slice(0,4);
+        el.tyreSummary.innerHTML = rows.length ? `
+          <div class="d-flex gap-2 flex-wrap mb-2">
+            <span class="badge text-bg-light border">${rows.length} rows</span>
+            <span class="badge text-bg-light border">${sets} sets</span>
+            <span class="badge text-bg-light border">${wet} wet sets</span>
+          </div>
+          ${top.map(([name,n])=>`<div class="d-flex justify-content-between border-top py-1"><strong>${escHtml(name)}</strong><span>${n} sets</span></div>`).join('')}
+        ` : 'No tyre usage recorded yet. Open Tyre Usage to add backlog rows.';
+      } catch(e){
+        el.tyreSummary.innerHTML = 'Could not load tyre usage.';
+      }
     }
 
     // ─── EVENTS TAB ──────────────────────────────────────────────

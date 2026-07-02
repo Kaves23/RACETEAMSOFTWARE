@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <link rel="icon" type="image/png" href="favicon.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Race Team OS – Driver Tyre Usage</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="style.css?v=20260525" rel="stylesheet"/>
+  <style>
+    body{background:linear-gradient(135deg,#f5f7fa 0%,#e8ecf1 100%);min-height:100vh;}
+    .tu-stats{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;}
+    .tu-stat{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;padding:10px 16px;min-width:120px;box-shadow:0 2px 4px rgba(0,0,0,.06);}
+    .tu-stat span{display:block;font-size:.68rem;color:#6c757d;font-weight:700;text-transform:uppercase;letter-spacing:.05em;}
+    .tu-stat strong{display:block;font-size:1.45rem;line-height:1.1;color:#1a1d24;}
+    .tu-shell{display:grid;grid-template-columns:260px minmax(420px,1fr) 360px;gap:10px;min-height:72vh;}
+    .tu-pane{background:#fff;border:1px solid rgba(0,0,0,.1);border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.06);overflow:hidden;display:flex;flex-direction:column;}
+    .tu-pane-head{background:#f8f9fa;border-bottom:1px solid #dee2e6;padding:9px 12px;font-weight:800;color:#1a1d24;font-size:.85rem;display:flex;justify-content:space-between;align-items:center;}
+    .tu-pane-body{padding:12px;overflow:auto;}
+    .tu-driver{display:flex;justify-content:space-between;gap:8px;align-items:center;border:1px solid #e5e7eb;border-radius:6px;padding:8px 10px;margin-bottom:6px;cursor:pointer;background:#fff;}
+    .tu-driver:hover{background:#f8fafc;}
+    .tu-driver.active{border-color:#1a0d2e;background:#f1f0f6;box-shadow:inset 4px 0 0 #1a0d2e;}
+    .tu-driver-name{font-size:.84rem;font-weight:800;color:#1f2937;}
+    .tu-driver-sub{font-size:.68rem;color:#6b7280;}
+    .tu-pill{display:inline-flex;align-items:center;border-radius:999px;padding:2px 8px;font-size:.65rem;font-weight:800;background:#eef2ff;color:#3730a3;white-space:nowrap;}
+    .tu-pill.manual{background:#fef3c7;color:#92400e;}
+    .tu-pill.practice{background:#dcfce7;color:#166534;}
+    .tu-pill.wet{background:#dbeafe;color:#1d4ed8;}
+    .tu-table{width:100%;border-collapse:collapse;font-size:.78rem;}
+    .tu-table th{background:#f8f9fa;color:#6b7280;font-size:.66rem;text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid #dee2e6;padding:7px 8px;text-align:left;}
+    .tu-table td{border-bottom:1px solid #edf0f3;padding:7px 8px;vertical-align:middle;color:#1f2937;}
+    .tu-table tbody tr{cursor:pointer;}
+    .tu-table tbody tr:hover{background:#f8fafc;}
+    .tu-table tbody tr.active{background:#f1f0f6;outline:2px solid #1a0d2e;outline-offset:-2px;}
+    .tu-summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:12px;}
+    .tu-summary{border:1px solid #e5e7eb;border-radius:6px;padding:8px;background:#fcfcfc;}
+    .tu-summary span{display:block;font-size:.62rem;text-transform:uppercase;color:#6b7280;font-weight:800;letter-spacing:.05em;}
+    .tu-summary strong{font-size:1.05rem;color:#111827;}
+    .tu-empty{color:#6b7280;font-size:.82rem;padding:16px;text-align:center;}
+    .tu-form label{font-size:.72rem;color:#495057;font-weight:700;margin-bottom:2px;}
+    .tu-form .form-control,.tu-form .form-select{font-size:.82rem;}
+    @media(max-width:1100px){.tu-shell{grid-template-columns:1fr}.tu-pane{min-height:260px;}}
+  </style>
+</head>
+<body class="light-mode">
+<div id="rtsTopNav"></div>
+<div class="rts-main container-fluid">
+  <div class="pt-3 pb-2 mb-3 border-bottom d-flex justify-content-between align-items-end flex-wrap gap-2">
+    <div>
+      <h1 class="h4 mb-1">Driver Tyre Usage</h1>
+      <p class="text-secondary mb-0" style="font-size:.85rem;">Backlog and practice tyre usage per driver, using the same Levanto/Mojo and Mini/Senior tyre options.</p>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="practice-tracking.html" class="btn btn-sm btn-outline-secondary">Practice Schedule</a>
+      <button class="btn btn-sm btn-primary" id="btnNew">Add Tyres</button>
+    </div>
+  </div>
+
+  <div class="tu-stats">
+    <div class="tu-stat"><span>Drivers</span><strong id="kpiDrivers">0</strong></div>
+    <div class="tu-stat"><span>Total Sets</span><strong id="kpiSets">0</strong></div>
+    <div class="tu-stat"><span>Backlog Rows</span><strong id="kpiManual">0</strong></div>
+    <div class="tu-stat"><span>Practice Rows</span><strong id="kpiPractice">0</strong></div>
+  </div>
+
+  <div class="tu-shell">
+    <section class="tu-pane">
+      <div class="tu-pane-head"><span>Drivers</span><span class="badge text-bg-secondary" id="driverCount">0</span></div>
+      <div class="tu-pane-body">
+        <input class="form-control form-control-sm mb-2" id="fSearch" placeholder="Search driver...">
+        <select class="form-select form-select-sm mb-2" id="fSource">
+          <option value="all">All sources</option>
+          <option value="manual">Backlog / manual</option>
+          <option value="practice">Practice schedule</option>
+        </select>
+        <div id="driverList"></div>
+      </div>
+    </section>
+
+    <section class="tu-pane">
+      <div class="tu-pane-head"><span id="mainTitle">All Drivers</span><span id="mainMeta" class="text-secondary" style="font-size:.72rem;"></span></div>
+      <div class="tu-pane-body">
+        <div class="tu-summary-grid" id="summaryGrid"></div>
+        <table class="tu-table">
+          <thead><tr><th>Date</th><th>Driver</th><th>Tyres</th><th>Sets</th><th>Linked To</th><th>Source</th></tr></thead>
+          <tbody id="usageTbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="tu-pane">
+      <div class="tu-pane-head"><span>Tyre Use Editor</span><span class="badge text-bg-secondary" id="editBadge">New</span></div>
+      <div class="tu-pane-body">
+        <form class="tu-form" id="usageForm">
+          <input type="hidden" id="fId">
+          <div class="mb-2">
+            <label>Driver</label>
+            <select class="form-select form-select-sm" id="fDriver"></select>
+          </div>
+          <div class="row g-2">
+            <div class="col-6"><label>Date</label><input class="form-control form-control-sm" id="fDate" type="date"></div>
+            <div class="col-6"><label>Sets</label><input class="form-control form-control-sm" id="fSets" type="number" min="1" max="99" value="1"></div>
+            <div class="col-4"><label>Brand</label><select class="form-select form-select-sm" id="fBrand"><option>Levanto</option><option>Mojo</option></select></div>
+            <div class="col-4"><label>Size</label><select class="form-select form-select-sm" id="fSize"><option>Mini</option><option>Senior</option></select></div>
+            <div class="col-4"><label>Type</label><select class="form-select form-select-sm" id="fType"><option>Slick</option><option>Wet</option></select></div>
+          </div>
+          <div class="mt-2">
+            <label>Source</label>
+            <select class="form-select form-select-sm" id="fEntrySource"><option value="backlog">Backlog</option><option value="manual">Manual</option></select>
+          </div>
+          <div class="mt-2">
+            <label>Link to event</label>
+            <select class="form-select form-select-sm" id="fEvent"><option value="">None</option></select>
+          </div>
+          <div class="mt-2">
+            <label>Link to practice day</label>
+            <select class="form-select form-select-sm" id="fPractice"><option value="">None</option></select>
+          </div>
+          <div class="mt-2">
+            <label>Notes</label>
+            <textarea class="form-control form-control-sm" id="fNotes" rows="4" placeholder="Historic summary, event context, invoice ref..."></textarea>
+          </div>
+          <div class="d-flex gap-2 mt-3">
+            <button class="btn btn-sm btn-primary" type="button" id="btnSave">Save</button>
+            <button class="btn btn-sm btn-outline-secondary" type="button" id="btnClear">Clear</button>
+            <button class="btn btn-sm btn-outline-danger ms-auto" type="button" id="btnDelete">Delete</button>
+          </div>
+          <div class="text-secondary mt-2" style="font-size:.74rem;">Practice-derived rows are read-only here. Edit those from Practice Schedule.</div>
+        </form>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="core.js?v=20260407-1700"></script>
+<script src="topnav.js?v=20260613a"></script>
+<script>
+(function(){
+  'use strict';
+  RTS.setActiveNav();
+  const TYRE_BRANDS = ['Levanto','Mojo'];
+  const TYRE_SIZES = ['Mini','Senior'];
+  const TYRE_TYPES = ['Slick','Wet'];
+  let drivers = [], events = [], sessions = [], usage = [], selectedDriver = '', selectedId = '';
+
+  const el = {
+    search: document.getElementById('fSearch'),
+    source: document.getElementById('fSource'),
+    driverList: document.getElementById('driverList'),
+    usageTbody: document.getElementById('usageTbody'),
+    summaryGrid: document.getElementById('summaryGrid'),
+    mainTitle: document.getElementById('mainTitle'),
+    mainMeta: document.getElementById('mainMeta'),
+    fId: document.getElementById('fId'),
+    fDriver: document.getElementById('fDriver'),
+    fDate: document.getElementById('fDate'),
+    fSets: document.getElementById('fSets'),
+    fBrand: document.getElementById('fBrand'),
+    fSize: document.getElementById('fSize'),
+    fType: document.getElementById('fType'),
+    fEntrySource: document.getElementById('fEntrySource'),
+    fEvent: document.getElementById('fEvent'),
+    fPractice: document.getElementById('fPractice'),
+    fNotes: document.getElementById('fNotes'),
+    editBadge: document.getElementById('editBadge')
+  };
+
+  function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function dateOnly(s){ return s ? String(s).slice(0,10) : ''; }
+  function fmtDate(s){ if(!s) return '—'; const d=new Date(s); return isNaN(d)?esc(s):d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'}); }
+  function driverName(d){ return d ? (d.name || d.displayName || d.full_name || '').trim() : ''; }
+  function rowDriverKey(r){ return r.driver_id ? 'id:'+r.driver_id : 'nm:'+String(r.driver_name||'').toLowerCase(); }
+  function rowTyreLabel(r){ return [r.tyre_brand, r.tyre_size, r.tyre_type || 'Slick'].filter(Boolean).join(' ') || 'Unspecified'; }
+  function linkedLabel(r){
+    if(r.practice_session_id) return `${r.practice_type === 'race' ? 'Race' : 'Practice'} ${fmtDate(r.usage_date)} ${r.practice_track ? '· '+esc(r.practice_track) : ''}`;
+    if(r.event_id) return esc(r.event_name || r.event_title || r.event_id);
+    return 'Backlog';
+  }
+  function isManualRow(r){ return r && r.source !== 'practice' && !String(r.id||'').startsWith('practice:'); }
+
+  async function api(path, opts){
+    return RTS.apiFetch(path, opts);
+  }
+
+  async function load(){
+    const [d,e,s,u] = await Promise.all([
+      RTS_API.getCollectionItems('drivers').catch(()=>({items:[]})),
+      RTS_API.getCollectionItems('events').catch(()=>({items:[]})),
+      api('/api/practice-tracking/sessions').catch(()=>[]),
+      api('/api/driver-tyre-usage').catch(()=>[])
+    ]);
+    drivers = (d.items||d||[]).sort((a,b)=>driverName(a).localeCompare(driverName(b)));
+    events = (e.items||e||[]).sort((a,b)=>String(b.start_date||b.start||'').localeCompare(String(a.start_date||a.start||'')));
+    sessions = (s||[]).sort((a,b)=>String(b.session_date||'').localeCompare(String(a.session_date||'')));
+    usage = Array.isArray(u) ? u : [];
+    populateLookups();
+    const params = new URLSearchParams(location.search);
+    const driver = params.get('driver');
+    if(driver) selectedDriver = 'id:'+driver;
+    render();
+  }
+
+  function populateLookups(){
+    el.fDriver.innerHTML = drivers.map(d=>`<option value="${esc(d.id||'')}" data-name="${esc(driverName(d))}">${esc(driverName(d))}${d.race_number?' #'+esc(d.race_number):''}</option>`).join('');
+    el.fEvent.innerHTML = '<option value="">None</option>' + events.map(ev=>`<option value="${esc(ev.id||'')}">${esc(ev.name || ev.title || ev.id)}${ev.start_date?' · '+fmtDate(ev.start_date):''}</option>`).join('');
+    el.fPractice.innerHTML = '<option value="">None</option>' + sessions.map(s=>`<option value="${esc(s.id)}">${fmtDate(s.session_date)} · ${esc([s.track,s.venue,s.class_name].filter(Boolean).join(' · ') || 'Practice')}</option>`).join('');
+  }
+
+  function filteredUsage(){
+    const q = el.search.value.trim().toLowerCase();
+    const src = el.source.value;
+    return usage.filter(r=>{
+      if(src !== 'all' && r.source !== src && !(src === 'manual' && r.source === 'backlog')) return false;
+      if(selectedDriver && rowDriverKey(r) !== selectedDriver) return false;
+      if(q && !`${r.driver_name} ${rowTyreLabel(r)} ${linkedLabel(r)}`.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }
+
+  function renderStats(rows){
+    document.getElementById('kpiDrivers').textContent = new Set(usage.map(rowDriverKey)).size;
+    document.getElementById('kpiSets').textContent = usage.reduce((sum,r)=>sum+(+r.sets_used||0),0);
+    document.getElementById('kpiManual').textContent = usage.filter(r=>r.source !== 'practice').length;
+    document.getElementById('kpiPractice').textContent = usage.filter(r=>r.source === 'practice').length;
+    el.mainMeta.textContent = `${rows.length} rows · ${rows.reduce((sum,r)=>sum+(+r.sets_used||0),0)} sets`;
+  }
+
+  function renderDrivers(){
+    const q = el.search.value.trim().toLowerCase();
+    const map = new Map();
+    usage.forEach(r=>{
+      const key = rowDriverKey(r);
+      if(q && !String(r.driver_name||'').toLowerCase().includes(q)) return;
+      const cur = map.get(key) || { key, name:r.driver_name||'Unknown', sets:0, rows:0, wet:0 };
+      cur.sets += +r.sets_used || 0;
+      cur.rows += 1;
+      if(r.tyre_type === 'Wet') cur.wet += +r.sets_used || 0;
+      map.set(key, cur);
+    });
+    const rows = [...map.values()].sort((a,b)=>a.name.localeCompare(b.name));
+    document.getElementById('driverCount').textContent = rows.length;
+    el.driverList.innerHTML = `<div class="tu-driver${!selectedDriver?' active':''}" data-key=""><div><div class="tu-driver-name">All Drivers</div><div class="tu-driver-sub">Whole tyre usage register</div></div><span class="tu-pill">${usage.length}</span></div>` +
+      rows.map(d=>`<div class="tu-driver${selectedDriver===d.key?' active':''}" data-key="${esc(d.key)}">
+        <div><div class="tu-driver-name">${esc(d.name)}</div><div class="tu-driver-sub">${d.rows} rows · ${d.sets} sets${d.wet ? ' · '+d.wet+' wet' : ''}</div></div>
+        <span class="tu-pill">${d.sets}</span>
+      </div>`).join('');
+    el.driverList.querySelectorAll('.tu-driver').forEach(node=>node.addEventListener('click', ()=>{
+      selectedDriver = node.dataset.key || '';
+      selectedId = '';
+      render();
+    }));
+  }
+
+  function renderSummary(rows){
+    const grouped = {};
+    rows.forEach(r=>{
+      const key = rowTyreLabel(r);
+      grouped[key] = (grouped[key] || 0) + (+r.sets_used || 0);
+    });
+    const cards = Object.entries(grouped).sort((a,b)=>b[1]-a[1]).slice(0,8);
+    el.summaryGrid.innerHTML = cards.length ? cards.map(([label, sets])=>`<div class="tu-summary"><span>${esc(label)}</span><strong>${sets} sets</strong></div>`).join('') : '<div class="tu-empty">No tyre usage recorded yet.</div>';
+  }
+
+  function renderRows(rows){
+    el.mainTitle.textContent = selectedDriver ? (rows[0]?.driver_name || 'Driver Tyre Usage') : 'All Drivers';
+    if(!rows.length){ el.usageTbody.innerHTML = '<tr><td colspan="6" class="tu-empty">No tyre usage rows match this view.</td></tr>'; return; }
+    el.usageTbody.innerHTML = rows.map(r=>`<tr data-id="${esc(r.id)}" class="${String(r.id)===selectedId?'active':''}">
+      <td>${fmtDate(r.usage_date)}</td>
+      <td><strong>${esc(r.driver_name||'—')}</strong></td>
+      <td>${esc(rowTyreLabel(r))}${r.tyre_type==='Wet'?' <span class="tu-pill wet">Wet</span>':''}</td>
+      <td><strong>${esc(r.sets_used||1)}</strong></td>
+      <td>${linkedLabel(r)}</td>
+      <td><span class="tu-pill ${r.source==='practice'?'practice':'manual'}">${esc(r.source==='practice'?'Practice':'Backlog')}</span></td>
+    </tr>`).join('');
+    el.usageTbody.querySelectorAll('tr[data-id]').forEach(tr=>tr.addEventListener('click', ()=>{
+      selectedId = tr.dataset.id;
+      const row = usage.find(x=>String(x.id)===selectedId);
+      hydrateForm(row);
+      renderRows(rows);
+    }));
+  }
+
+  function render(){
+    const rows = filteredUsage();
+    renderStats(rows);
+    renderDrivers();
+    renderSummary(rows);
+    renderRows(rows);
+  }
+
+  function hydrateForm(r){
+    const readOnly = r && !isManualRow(r);
+    el.editBadge.textContent = r ? (readOnly ? 'Practice' : 'Edit') : 'New';
+    el.fId.value = r && isManualRow(r) ? r.id : '';
+    const driver = drivers.find(d=>String(d.id)===String(r?.driver_id)) || drivers.find(d=>driverName(d)===r?.driver_name);
+    el.fDriver.value = driver ? driver.id : (drivers[0]?.id || '');
+    el.fDate.value = dateOnly(r?.usage_date);
+    el.fSets.value = r?.sets_used || 1;
+    el.fBrand.value = TYRE_BRANDS.includes(r?.tyre_brand) ? r.tyre_brand : 'Levanto';
+    el.fSize.value = TYRE_SIZES.includes(r?.tyre_size) ? r.tyre_size : 'Mini';
+    el.fType.value = TYRE_TYPES.includes(r?.tyre_type) ? r.tyre_type : 'Slick';
+    el.fEntrySource.value = r?.source === 'manual' ? 'manual' : 'backlog';
+    el.fEvent.value = r?.event_id || '';
+    el.fPractice.value = r?.practice_session_id || '';
+    el.fNotes.value = r?.notes || '';
+    document.getElementById('btnSave').disabled = readOnly;
+    document.getElementById('btnDelete').disabled = readOnly || !r;
+  }
+
+  function payload(){
+    const opt = el.fDriver.selectedOptions[0];
+    return {
+      driver_id: el.fDriver.value || null,
+      driver_name: opt ? (opt.dataset.name || opt.textContent || '').replace(/\s+#.*$/,'').trim() : '',
+      usage_date: el.fDate.value || null,
+      tyre_brand: el.fBrand.value,
+      tyre_size: el.fSize.value,
+      tyre_type: el.fType.value,
+      sets_used: el.fSets.value || 1,
+      source: el.fEntrySource.value,
+      event_id: el.fEvent.value || null,
+      practice_session_id: el.fPractice.value || null,
+      notes: el.fNotes.value.trim()
+    };
+  }
+
+  async function save(){
+    const id = el.fId.value;
+    const body = payload();
+    if(!body.driver_name){ alert('Select a driver first.'); return; }
+    const opts = { method:id?'PUT':'POST', headers:{'content-type':'application/json'}, body:JSON.stringify(body) };
+    await api('/api/driver-tyre-usage' + (id ? '/' + encodeURIComponent(id) : ''), opts);
+    if(RTS.showToast) RTS.showToast('Tyre usage saved','success');
+    selectedId = '';
+    await load();
+    hydrateForm(null);
+  }
+
+  async function remove(){
+    const id = el.fId.value;
+    if(!id || !confirm('Delete this tyre usage row?')) return;
+    await api('/api/driver-tyre-usage/' + encodeURIComponent(id), { method:'DELETE' });
+    if(RTS.showToast) RTS.showToast('Tyre usage deleted','success');
+    selectedId = '';
+    await load();
+    hydrateForm(null);
+  }
+
+  document.getElementById('btnNew').addEventListener('click', ()=>{ selectedId=''; hydrateForm(null); });
+  document.getElementById('btnClear').addEventListener('click', ()=>{ selectedId=''; hydrateForm(null); render(); });
+  document.getElementById('btnSave').addEventListener('click', ()=>save().catch(e=>{ if(RTS.showToast) RTS.showToast('Save failed: '+e.message,'error'); else alert(e.message); }));
+  document.getElementById('btnDelete').addEventListener('click', ()=>remove().catch(e=>{ if(RTS.showToast) RTS.showToast('Delete failed: '+e.message,'error'); else alert(e.message); }));
+  el.search.addEventListener('input', render);
+  el.source.addEventListener('change', render);
+  document.addEventListener('DOMContentLoaded', ()=>{ hydrateForm(null); load(); });
+})();
+</script>
+</body>
+</html>
