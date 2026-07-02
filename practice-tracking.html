@@ -26,12 +26,16 @@
     table.pt-matrix{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:.7rem;}
     table.pt-matrix th,table.pt-matrix td{border-right:1px solid #eef0f2;border-bottom:1px solid #eef0f2;padding:0;}
     table.pt-matrix thead th{position:sticky;top:0;z-index:3;background:#f8f9fa;padding:4px 6px;text-align:center;font-weight:700;color:#1a1d24;vertical-align:bottom;}
-    table.pt-matrix thead th.pt-corner{left:0;z-index:5;text-align:left;min-width:150px;}
-    table.pt-matrix th.pt-rowhead,table.pt-matrix td.pt-rowhead{position:sticky;left:0;z-index:2;background:#fff;text-align:left;min-width:150px;padding:2px 8px;cursor:pointer;}
+    table.pt-matrix thead th.pt-select-head{left:0;z-index:6;width:42px;min-width:42px;}
+    table.pt-matrix td.pt-select-cell{position:sticky;left:0;z-index:3;background:#fff;width:42px;min-width:42px;text-align:center;vertical-align:middle;padding:0;}
+    table.pt-matrix thead th.pt-corner{left:42px;z-index:5;text-align:left;min-width:150px;}
+    table.pt-matrix th.pt-rowhead,table.pt-matrix td.pt-rowhead{position:sticky;left:42px;z-index:2;background:#fff;text-align:left;min-width:150px;padding:2px 8px;cursor:pointer;}
     table.pt-matrix tbody tr:nth-child(even) td{background:#f3f4f6;}
+    table.pt-matrix tbody tr:nth-child(even) td.pt-select-cell{background:#eceef1;}
     table.pt-matrix tbody tr:nth-child(even) td.pt-rowhead{background:#eceef1;}
     table.pt-matrix tbody tr.pt-day-start td{border-top:2px solid #c3c9d4;}
     table.pt-matrix tbody tr:hover td{background:#eef0ff;}
+    table.pt-matrix tbody tr:hover .pt-select-cell{background:#e6e8ff;}
     table.pt-matrix tbody tr:hover .pt-rowhead{background:#e6e8ff;}
     .pt-drv-col{min-width:62px;max-width:104px;}
     .pt-drv-name{font-weight:700;font-size:.66rem;line-height:1.02;}
@@ -97,6 +101,7 @@
       <button class="btn btn-sm btn-outline-secondary" id="btnImport">Import sheet</button>
       <button class="btn btn-sm btn-outline-secondary" id="btnExport">Export CSV</button>
       <button class="btn btn-sm btn-outline-secondary" id="btnPrint">Print</button>
+      <button class="btn btn-sm btn-outline-secondary" id="btnReport">Report <span id="reportCount"></span></button>
       <button class="btn btn-sm text-white" id="btnQuick" style="background:#6366f1;border-color:#6366f1;">+ Log day</button>
     </div>
   </div>
@@ -138,7 +143,9 @@
       <span><span class="sw st-cancelled"></span>Cancelled</span>
       <span><span class="sw st-no_show"></span>No-show</span>
       <span><span class="pt-race-chip">RACE</span> Race day (red bar)</span>
-      <span class="ms-2">Click a cell to cycle · click a row date to edit the session</span>
+      <span class="ms-2">Tick days for a report · click a cell to cycle · click a row date to edit the session</span>
+      <button class="btn btn-sm btn-outline-secondary ms-auto" id="btnSelectVisible" type="button" style="font-size:.7rem;">Select shown</button>
+      <button class="btn btn-sm btn-outline-secondary" id="btnClearSelection" type="button" style="font-size:.7rem;">Clear selection</button>
     </div>
   </div>
 
@@ -220,6 +227,7 @@
       </div>
       <div class="modal-footer py-2">
         <button class="btn btn-sm btn-outline-danger me-auto d-none" id="btnDelSess">Delete session</button>
+        <button class="btn btn-sm btn-outline-secondary d-none" id="btnCloneSess">Clone next day</button>
         <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
         <button class="btn btn-sm text-white" id="btnSaveSess" style="background:#6366f1;">Save</button>
       </div>
@@ -276,15 +284,23 @@ let events = [];         // from collections/events
 let staffList = [];      // from collections/staff
 let columns = [];        // driver columns for the matrix
 let venueList = [];      // tracks/venues defined in Settings › Venues
+let selectedSessionIds = new Set();
 let CURRENT_USER = '';
 try { CURRENT_USER = (JSON.parse(localStorage.getItem('user')||'{}').username) || ''; } catch(e){}
 const sessModal = new bootstrap.Modal(document.getElementById('sessModal'));
 const importModal = new bootstrap.Modal(document.getElementById('importModal'));
 
 const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const escAttr = s => esc(s).replace(/'/g,'&#39;');
 const api = (path, opts) => RTS_API.request(API + path, opts);
 const jbody = obj => ({ body: JSON.stringify(obj) });
 function fmtDate(d){ const x=new Date(d); return isNaN(x)?'':x.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'}); }
+function addDaysISO(isoDate, days){
+  const d = new Date(String(isoDate||'').slice(0,10) + 'T12:00:00');
+  if (isNaN(d)) return new Date().toISOString().slice(0,10);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0,10);
+}
 function colKey(c){ return c.id ? 'id:'+c.id : 'nm:'+(c.name||'').toLowerCase(); }
 function attKey(a){ return a.driver_id ? 'id:'+a.driver_id : 'nm:'+(a.driver_name||'').toLowerCase(); }
 function trackColor(t){ if(!t) return '#94a3b8'; let h=0; for(let i=0;i<t.length;i++) h=(h*31+t.charCodeAt(i))>>>0; return `hsl(${h%360} 58% 40%)`; }
@@ -311,6 +327,12 @@ function tyreLabel(a){
     return `${x.sets > 1 ? x.sets + 'x ' : ''}${brand}/${size} ${type}`;
   }).join(' + ');
 }
+function displayDriverName(d){
+  return d ? (d.name || d.displayName || d.full_name || `${d.firstName||d.first_name||''} ${d.lastName||d.last_name||''}`.trim() || d.id || '') : '';
+}
+function eventForSession(s){
+  return s && s.event_id ? events.find(e=>String(e.id)===String(s.event_id)) : null;
+}
 
 // ─── LOAD ────────────────────────────────────────────────────
 async function loadRefs(){
@@ -333,6 +355,8 @@ async function loadSessions(){
   if(from)q.set('from',from); if(to)q.set('to',to);
   if(cls)q.set('class_name',cls); if(trk)q.set('track',trk);
   sessions = await api('/sessions' + (q.toString()?`?${q}`:'')) || [];
+  const visibleIds = new Set(sessions.map(s=>String(s.id)));
+  selectedSessionIds = new Set([...selectedSessionIds].filter(id=>visibleIds.has(id)));
 }
 
 function buildColumns(){
@@ -362,7 +386,7 @@ function cellFor(session, col){
 function renderMatrix(){
   buildColumns();
   const head = document.getElementById('matrixHead');
-  head.innerHTML = `<th class="pt-corner pt-rowhead">Session</th>` + columns.map(c=>`
+  head.innerHTML = `<th class="pt-select-head"><input type="checkbox" class="form-check-input" id="selectAllVisible" title="Select all shown"></th><th class="pt-corner pt-rowhead">Session</th>` + columns.map(c=>`
     <th class="pt-drv-col" title="${esc(c.name)}${c.cls?' · '+esc(c.cls):''}">
       <div class="pt-drv-name"><span class="pt-drv-dot" style="background:${esc(c.color)}"></span>${esc(c.name)}</div>
       ${c.cls?`<div class="pt-drv-sub">${esc(c.cls)}</div>`:''}
@@ -371,7 +395,7 @@ function renderMatrix(){
 
   const body = document.getElementById('matrixBody');
   if(!sessions.length){
-    body.innerHTML = `<tr><td class="text-secondary p-3" colspan="${columns.length+1}">No sessions yet. Click <b>+ Log day</b> or <b>Import sheet</b>.</td></tr>`;
+    body.innerHTML = `<tr><td class="text-secondary p-3" colspan="${columns.length+2}">No sessions yet. Click <b>+ Log day</b> or <b>Import sheet</b>.</td></tr>`;
     return;
   }
   let prevDay = null;
@@ -382,6 +406,8 @@ function renderMatrix(){
     const isRace = s.session_type === 'race';
     const trk = s.track ? `<span class="pt-track-chip" style="background:${trackColor(s.track)}" title="${esc(s.venue||s.track)}">${esc(s.track)}</span>` : '';
     const raceTag = isRace ? `<span class="pt-race-chip" title="Race day">RACE</span>` : '';
+    const checked = selectedSessionIds.has(String(s.id)) ? 'checked' : '';
+    const pick = `<td class="pt-select-cell"><input type="checkbox" class="form-check-input pt-session-pick" data-session-id="${esc(s.id)}" ${checked} title="Include this day in report"></td>`;
     const head = `<td class="pt-rowhead" onclick="openSession('${s.id}')">
         <div class="pt-sess-date">${fmtDate(s.session_date)}${raceTag}${trk}</div>
         <div class="pt-sess-meta">${esc(s.class_name||'')}${ev?`<span class="pt-ev-chip">${esc(ev.name||'event')}</span>`:''}${(s.staff&&s.staff.length)?` · <i class="bi bi-person-fill"></i>${s.staff.length}`:''}</div>
@@ -396,8 +422,154 @@ function renderMatrix(){
       return `<td><div class="pt-cell ${cls}" onclick="cycleCell('${s.id}','${colKey(c)}')" title="${esc(c.name)} — ${st||'blank'}${tyres?' · tyres '+esc(tyres):''}${a&&a.kart?' · '+esc(a.kart):''}${who}">${letter}${tyres?`<span class="pt-cell-tyre">${esc(tyres)}</span>`:''}</div></td>`;
     }).join('');
     const rowCls = [dayStart?'pt-day-start':'', isRace?'pt-race-row':''].filter(Boolean).join(' ');
-    return `<tr class="${rowCls}">${head}${cells}</tr>`;
+    return `<tr class="${rowCls}">${pick}${head}${cells}</tr>`;
   }).join('');
+  body.querySelectorAll('.pt-session-pick').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      if(cb.checked) selectedSessionIds.add(String(cb.dataset.sessionId));
+      else selectedSessionIds.delete(String(cb.dataset.sessionId));
+      updateReportControls();
+    });
+  });
+  const allBox = document.getElementById('selectAllVisible');
+  if(allBox){
+    allBox.checked = sessions.length > 0 && sessions.every(s=>selectedSessionIds.has(String(s.id)));
+    allBox.indeterminate = !allBox.checked && sessions.some(s=>selectedSessionIds.has(String(s.id)));
+    allBox.addEventListener('change', ()=>{
+      if(allBox.checked) sessions.forEach(s=>selectedSessionIds.add(String(s.id)));
+      else sessions.forEach(s=>selectedSessionIds.delete(String(s.id)));
+      renderMatrix();
+    });
+  }
+  updateReportControls();
+}
+
+function updateReportControls(){
+  const count = selectedReportSessions().length;
+  const reportCount = document.getElementById('reportCount');
+  if(reportCount) reportCount.textContent = count ? `(${count})` : '';
+}
+
+function selectedReportSessions(){
+  return sessions
+    .filter(s=>selectedSessionIds.has(String(s.id)))
+    .sort((a,b)=>String(a.session_date||'').localeCompare(String(b.session_date||'')) || String(a.track||'').localeCompare(String(b.track||'')));
+}
+
+function selectVisibleSessions(){
+  sessions.forEach(s=>selectedSessionIds.add(String(s.id)));
+  renderMatrix();
+}
+
+function clearSessionSelection(){
+  selectedSessionIds.clear();
+  renderMatrix();
+}
+
+function reportBranding(){
+  const s = RTS.getSettings ? RTS.getSettings() : {};
+  const teamName = (s.teamName || s.organisationName || 'Race Team').trim();
+  const logoUrl = (s.teamLogoUrl || '').trim();
+  const accent = /^#[0-9a-fA-F]{6}$/.test(s.brandColor||'') ? s.brandColor : '#1a0d2e';
+  return { teamName, logoUrl, accent };
+}
+
+function sessionStaffNames(s){
+  return (s.staff||[]).map(st=>[st.staff_name, st.role].filter(Boolean).join(' · ')).filter(Boolean);
+}
+
+function reportDriverRows(s){
+  const rows = (s.attendance||[]).slice().sort((a,b)=>String(a.driver_name||'').localeCompare(String(b.driver_name||'')));
+  if(!rows.length) return '<tr><td colspan="5" class="muted">No driver attendance marked.</td></tr>';
+  return rows.map(a=>{
+    const prof = a.driver_id ? driverProfiles.find(d=>String(d.id)===String(a.driver_id)) : null;
+    const cls = (prof && (prof.racing_class || prof.class)) || s.class_name || '';
+    const num = prof && (prof.race_number || prof.raceNumber) ? `#${prof.race_number || prof.raceNumber}` : '';
+    const tyres = tyreSetsFor(a);
+    const tyreText = tyres.length ? tyres.map(t=>`${t.sets || 1}x ${t.brand || '—'} ${t.size || '—'} ${t.type || 'Slick'}`).join('<br>') : '—';
+    return `<tr>
+      <td><strong>${esc(a.driver_name || displayDriverName(prof) || '—')}</strong>${num?`<div class="muted">${esc(num)}</div>`:''}</td>
+      <td>${esc(cls || '—')}</td>
+      <td><span class="status ${esc(a.status || '')}">${esc((a.status || '—').replace('_',' '))}</span></td>
+      <td>${tyreText}</td>
+      <td>${esc(a.notes || '')}</td>
+    </tr>`;
+  }).join('');
+}
+
+function eventSummaryForReport(selected){
+  const linked = selected.map(eventForSession).filter(Boolean);
+  const unique = [...new Map(linked.map(e=>[String(e.id), e])).values()];
+  if(!unique.length) return '';
+  return unique.map(e=>`<div class="event-card">
+    <div class="event-title">${esc(e.name || e.title || 'Linked event')}</div>
+    <div class="muted">${esc([e.start_date || e.start, e.end_date || e.end].filter(Boolean).join(' to ') || '')}${e.circuit||e.venue?` · ${esc(e.circuit || e.venue)}`:''}</div>
+    ${e.brief?`<p>${esc(e.brief)}</p>`:''}
+  </div>`).join('');
+}
+
+function generateSelectedReport(){
+  const selected = selectedReportSessions();
+  if(!selected.length){ alert('Tick one or more days first.'); return; }
+  const { teamName, logoUrl, accent } = reportBranding();
+  const dateRange = selected.length === 1 ? fmtDate(selected[0].session_date) : `${fmtDate(selected[0].session_date)} – ${fmtDate(selected[selected.length-1].session_date)}`;
+  const totalDrivers = new Set();
+  const totalStaff = new Set();
+  let totalTyreSets = 0;
+  selected.forEach(s=>{
+    (s.attendance||[]).forEach(a=>{ if(a.status==='attended') totalDrivers.add(attKey(a)); tyreSetsFor(a).forEach(t=>{ totalTyreSets += t.sets || 1; }); });
+    sessionStaffNames(s).forEach(n=>totalStaff.add(n));
+  });
+  const logo = logoUrl
+    ? `<img src="${escAttr(logoUrl)}" alt="${escAttr(teamName)}">`
+    : `<div class="monogram">${esc(teamName.split(/\s+/).map(w=>w[0]).join('').slice(0,3).toUpperCase() || 'RT')}</div>`;
+  const sessionBlocks = selected.map(s=>{
+    const ev = eventForSession(s);
+    const staff = sessionStaffNames(s);
+    return `<section class="session">
+      <div class="session-head">
+        <div>
+          <h2>${esc(fmtDate(s.session_date))} ${s.session_type === 'race' ? '<span class="race-tag">Race day</span>' : '<span class="practice-tag">Practice</span>'}</h2>
+          <div class="muted">${esc([s.track || s.venue, s.class_name].filter(Boolean).join(' · ') || 'Session')}</div>
+        </div>
+        ${ev?`<div class="linked-event">${esc(ev.name || ev.title || 'Linked event')}</div>`:''}
+      </div>
+      <div class="grid">
+        <div><span>Track</span><strong>${esc(s.track || '—')}</strong></div>
+        <div><span>Venue</span><strong>${esc(s.venue || '—')}</strong></div>
+        <div><span>Class</span><strong>${esc(s.class_name || '—')}</strong></div>
+        <div><span>Staff</span><strong>${staff.length}</strong></div>
+      </div>
+      ${staff.length?`<div class="staff-list"><strong>Staff:</strong> ${staff.map(esc).join(', ')}</div>`:''}
+      ${s.notes?`<p class="notes"><strong>Notes:</strong> ${esc(s.notes)}</p>`:''}
+      <table>
+        <thead><tr><th>Driver</th><th>Class</th><th>Status</th><th>Tyres</th><th>Notes</th></tr></thead>
+        <tbody>${reportDriverRows(s)}</tbody>
+      </table>
+    </section>`;
+  }).join('');
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(teamName)} Practice Report</title>
+    <style>
+      *{box-sizing:border-box} body{font-family:Arial,Helvetica,sans-serif;margin:0;color:#151923;background:#f3f4f6;} .page{max-width:1100px;margin:0 auto;background:#fff;min-height:100vh;}
+      header{background:${esc(accent)};color:#fff;padding:28px 34px;display:flex;justify-content:space-between;gap:24px;align-items:center;} header img{height:70px;max-width:220px;object-fit:contain;background:#fff;border-radius:6px;padding:6px;} .monogram{width:68px;height:68px;border:2px solid rgba(255,255,255,.7);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:900;letter-spacing:.08em;}
+      h1{margin:0;font-size:30px;letter-spacing:.03em;} .subtitle{opacity:.85;margin-top:6px;font-size:13px;text-transform:uppercase;letter-spacing:.12em;} .content{padding:28px 34px;} .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:22px;} .kpi{border:1px solid #e5e7eb;padding:12px;background:#fafafa;} .kpi span,.grid span{display:block;color:#6b7280;font-size:11px;text-transform:uppercase;font-weight:700;letter-spacing:.06em;} .kpi strong{font-size:24px;}
+      .event-card{border-left:4px solid ${esc(accent)};padding:10px 14px;background:#fafafa;margin-bottom:10px;} .event-title{font-weight:800;font-size:15px;} .session{page-break-inside:avoid;border-top:2px solid #111827;padding-top:18px;margin-top:24px;} .session-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;} h2{margin:0 0 4px;font-size:20px;} .muted{color:#6b7280;font-size:12px;} .linked-event{font-size:12px;font-weight:800;text-transform:uppercase;color:${esc(accent)};text-align:right;} .race-tag,.practice-tag{font-size:11px;border-radius:999px;padding:3px 8px;vertical-align:middle;color:#fff;background:#dc2626;} .practice-tag{background:#4f46e5;}
+      .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0;} .grid>div{border:1px solid #e5e7eb;padding:9px;background:#fcfcfc;} .grid strong{font-size:14px;} .staff-list,.notes{font-size:13px;margin:10px 0;} table{width:100%;border-collapse:collapse;margin-top:12px;font-size:12px;} th{background:#f3f4f6;text-align:left;color:#4b5563;text-transform:uppercase;font-size:10px;letter-spacing:.05em;} th,td{border:1px solid #e5e7eb;padding:8px;vertical-align:top;} .status{display:inline-block;border-radius:999px;padding:2px 7px;font-size:10px;font-weight:800;text-transform:uppercase;background:#e5e7eb;} .status.attended{background:#dcfce7;color:#15803d}.status.planned{background:#dbeafe;color:#1d4ed8}.status.cancelled{background:#fef3c7;color:#92400e}.status.no_show{background:#fee2e2;color:#b91c1c}
+      footer{padding:18px 34px;color:#6b7280;font-size:11px;border-top:1px solid #e5e7eb;} @media print{body{background:#fff}.page{max-width:none}.no-print{display:none!important} header{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+    </style></head><body><div class="page">
+      <header><div>${logo}</div><div style="text-align:right;"><h1>Practice & Event Report</h1><div class="subtitle">${esc(teamName)} · ${esc(dateRange)}</div></div></header>
+      <div class="content">
+        <div class="kpis"><div class="kpi"><span>Days</span><strong>${selected.length}</strong></div><div class="kpi"><span>Drivers attended</span><strong>${totalDrivers.size}</strong></div><div class="kpi"><span>Staff listed</span><strong>${totalStaff.size}</strong></div><div class="kpi"><span>Tyre sets</span><strong>${totalTyreSets}</strong></div></div>
+        ${eventSummaryForReport(selected)}
+        ${sessionBlocks}
+      </div>
+      <footer>Generated ${esc(new Date().toLocaleString('en-GB'))} from Race Team OS.</footer>
+    </div><script>setTimeout(()=>window.print(),350)<\/script></body></html>`;
+  const w = window.open('', '_blank');
+  if(!w){ alert('Popup blocked. Allow popups to generate the report.'); return; }
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
 }
 
 async function cycleCell(sessionId, key){
@@ -495,6 +667,7 @@ function openSession(id){
   document.getElementById('sClass').value = s ? (s.class_name||'') : (document.getElementById('fClass').value||'');
   document.getElementById('sNotes').value = s ? (s.notes||'') : '';
   document.getElementById('btnDelSess').classList.toggle('d-none', !s);
+  document.getElementById('btnCloneSess').classList.toggle('d-none', !s);
   setModalType(s ? (s.session_type||'practice') : 'practice');
   const filterEl = document.getElementById('sDriverFilter');
   if(filterEl) filterEl.value = '';
@@ -530,6 +703,21 @@ function openSession(id){
   updateClassPickBtn();
   renderModalDrivers();
   sessModal.show();
+}
+
+function cloneSessionNextDay(){
+  const sourceId = document.getElementById('sId').value;
+  const source = sessions.find(x=>x.id===sourceId);
+  if(!source) return;
+  document.getElementById('sessTitle').textContent = 'Clone session';
+  document.getElementById('sId').value = '';
+  document.getElementById('sDate').value = addDaysISO(source.session_date, 1);
+  document.getElementById('btnDelSess').classList.add('d-none');
+  document.getElementById('btnCloneSess').classList.add('d-none');
+  setModalType(source.session_type || 'practice');
+  const evSel = document.getElementById('sEvent');
+  evSel.innerHTML = buildEventOptions(document.getElementById('sDate').value);
+  evSel.value = source.event_id || '';
 }
 
 function setModalType(t){
@@ -932,6 +1120,10 @@ document.getElementById('btnReset').addEventListener('click', ()=>{
 document.getElementById('btnQuick').addEventListener('click', openQuick);
 document.getElementById('btnSaveSess').addEventListener('click', saveSession);
 document.getElementById('btnDelSess').addEventListener('click', deleteSession);
+document.getElementById('btnCloneSess').addEventListener('click', cloneSessionNextDay);
+document.getElementById('btnReport').addEventListener('click', generateSelectedReport);
+document.getElementById('btnSelectVisible').addEventListener('click', selectVisibleSessions);
+document.getElementById('btnClearSelection').addEventListener('click', clearSessionSelection);
 
 // Track -> auto-fill full venue name from Settings › Venues
 document.getElementById('sTrack').addEventListener('input', ()=>{
