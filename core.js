@@ -770,16 +770,20 @@
     try {
       const tpl = `
         <div class="modal fade" id="rtsConfirmModal" tabindex="-1" aria-hidden="true">
-          <div class="modal-dialog modal-sm modal-dialog-centered">
-            <div class="modal-content bg-dark text-white border-0">
-              <div class="modal-header border-0">
-                <h5 class="modal-title">Confirm</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+          <div class="modal-dialog modal-dialog-centered rts-confirm-dialog">
+            <div class="modal-content rts-confirm-card">
+              <div class="modal-header rts-confirm-header">
+                <div class="rts-confirm-icon">!</div>
+                <div>
+                  <div class="rts-confirm-kicker">Please confirm</div>
+                  <h5 class="modal-title">Confirm action</h5>
+                </div>
+                <button type="button" class="btn-close rts-confirm-close" data-bs-dismiss="modal" aria-label="Close"></button>
               </div>
-              <div class="modal-body"></div>
-              <div class="modal-footer border-0">
-                <button type="button" class="btn btn-sm btn-outline-light rts-confirm-cancel" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-sm btn-danger rts-confirm-ok">Yes</button>
+              <div class="modal-body rts-confirm-message"></div>
+              <div class="modal-footer rts-confirm-actions">
+                <button type="button" class="btn btn-sm btn-outline-secondary rts-confirm-cancel" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-sm btn-danger rts-confirm-ok">Yes, continue</button>
               </div>
             </div>
           </div>
@@ -807,7 +811,7 @@
           return resolve(Boolean(ok));
         }
 
-        modalEl.querySelector('.modal-body').textContent = String(message || 'Are you sure?');
+        modalEl.querySelector('.rts-confirm-message').textContent = String(message || 'Are you sure?');
         const okBtn = modalEl.querySelector('.rts-confirm-ok');
         const cancelBtn = modalEl.querySelector('.rts-confirm-cancel');
 
