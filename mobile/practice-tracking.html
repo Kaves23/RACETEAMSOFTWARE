@@ -133,13 +133,19 @@
           <div class="chip-hint" style="margin-top:2px;">Defaults apply to marked drivers; adjust each driver below.</div>
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
         <select id="defaultTyreBrand" class="form-input">
           <option value="">Brand</option><option>Levanto</option><option>Mojo</option>
         </select>
         <select id="defaultTyreSize" class="form-input">
           <option value="">Size</option><option>Mini</option><option>Senior</option>
         </select>
+        <select id="defaultTyreType" class="form-input">
+          <option>Slick</option><option>Wet</option>
+        </select>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:8px;">
+        <input id="defaultTyreSets" class="form-input" type="number" min="1" max="99" value="1" aria-label="Sets">
         <button type="button" class="mini-btn tyre-apply" id="applyTyres">Apply</button>
       </div>
       <div id="tyreRows"></div>
@@ -276,10 +282,11 @@
   .tyre-mini { display:inline-flex;align-items:center;border-radius:999px;background:#111827;color:#fff;font-size:10px;font-weight:900;padding:1px 6px; }
   .tyre-box { border:1px solid var(--border); border-radius:var(--r); padding:12px; background:var(--surface); }
   .tyre-apply { border-radius:var(--r); padding:0 12px; background:#fff; }
-  .tyre-row { display:grid; grid-template-columns:minmax(0,1fr) 104px 96px; gap:7px; align-items:center; padding:8px 0; border-bottom:1px solid var(--border); }
+  .tyre-row { padding:9px 0; border-bottom:1px solid var(--border); }
   .tyre-row:last-child { border-bottom:none; }
-  .tyre-name { min-width:0; font-size:13px; font-weight:700; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .tyre-row select { padding:7px 8px; font-size:12px; background:#fff; }
+  .tyre-name { min-width:0; font-size:13px; font-weight:700; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-bottom:7px; }
+  .tyre-set-grid { display:grid; grid-template-columns:48px 1fr 1fr 82px 34px; gap:6px; align-items:center; margin-bottom:6px; }
+  .tyre-set-grid select, .tyre-set-grid input { padding:7px 6px; font-size:12px; background:#fff; }
   .chip-hint { font-size:11px;color:var(--text-3);margin-top:8px;line-height:1.4; }
 
   .fab-log { position:fixed;bottom:calc(72px + var(--safe-b) + 16px);right:16px;z-index:90;display:flex;align-items:center;gap:8px;padding:0 20px 0 16px;height:52px;border-radius:26px;background:#4338ca;color:#fff;font-size:14px;font-weight:800;letter-spacing:0.06em;border:none;cursor:pointer;box-shadow:0 4px 18px rgba(67,56,202,.4);-webkit-tap-highlight-color:transparent;transition:opacity .15s,transform .15s; }
@@ -301,6 +308,7 @@
   const STATUS_LABEL = { attended:'Attended', planned:'Planned', cancelled:'Cancelled', no_show:'No-show' };
   const TYRE_BRANDS = ['Levanto','Mojo'];
   const TYRE_SIZES = ['Mini','Senior'];
+  const TYRE_TYPES = ['Slick','Wet'];
 
   let sessions = [];
   let drivers  = [];
@@ -323,9 +331,28 @@
   function fmtShort(v){ if(!v) return '—'; const d=new Date(iso(v)+'T12:00:00'); return isNaN(d)?'—':d.toLocaleDateString('en-ZA',{day:'numeric',month:'short'}); }
   function todayISO(){ const d=new Date(); const p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; }
   function setOffline(){ const b=document.getElementById('offlineBanner'); if(b) b.classList.toggle('visible', !navigator.onLine); }
+  function tyreSetsFor(a){
+    const raw = Array.isArray(a?.tyre_sets) ? a.tyre_sets : [];
+    const sets = raw.map(x => ({
+      brand: TYRE_BRANDS.includes(x?.brand) ? x.brand : '',
+      size: TYRE_SIZES.includes(x?.size) ? x.size : '',
+      type: TYRE_TYPES.includes(x?.type) ? x.type : 'Slick',
+      sets: Math.max(1, Math.min(99, parseInt(x?.sets, 10) || 1))
+    })).filter(x => x.brand || x.size || x.type);
+    if (!sets.length && a && (a.tyre_brand || a.tyre_size || a.tyre_type)) {
+      sets.push({ brand:a.tyre_brand || '', size:a.tyre_size || '', type:a.tyre_type || 'Slick', sets:1 });
+    }
+    return sets;
+  }
   function tyreLabel(a){
-    if(!a || (!a.tyre_brand && !a.tyre_size)) return '';
-    return `${a.tyre_brand ? a.tyre_brand[0] : '?'}/${a.tyre_size ? (a.tyre_size === 'Senior' ? 'Sr' : 'Mi') : '?'}`;
+    const sets = tyreSetsFor(a);
+    if(!sets.length) return '';
+    return sets.map(x => {
+      const brand = x.brand ? x.brand[0] : '?';
+      const size = x.size ? (x.size === 'Senior' ? 'Sr' : 'Mi') : '?';
+      const type = x.type === 'Wet' ? 'W' : 'S';
+      return `${x.sets > 1 ? x.sets + 'x ' : ''}${brand}/${size} ${type}`;
+    }).join(' + ');
   }
 
   let toastTimer;
@@ -378,7 +405,7 @@
       const ev = eventName(s.event_id);
       const attPills = STATUS_CYCLE.filter(k => c[k]).map(k =>
         `<span class="att-pill st-${k}"><span class="n">${c[k]}</span> ${esc(STATUS_LABEL[k])}</span>`).join('');
-      const tyrePills = [...new Set((s.attendance||[]).filter(a=>a.status==='attended' && (a.tyre_brand || a.tyre_size)).map(a=>tyreLabel(a)))].map(t =>
+      const tyrePills = [...new Set((s.attendance||[]).filter(a=>a.status==='attended' && tyreLabel(a)).map(a=>tyreLabel(a)))].map(t =>
         `<span class="att-pill"><span class="tyre-mini">${esc(t)}</span></span>`).join('');
       const meta = [s.track || s.venue, s.class_name].filter(Boolean).map(esc).join(' · ');
       return `<div class="ses-card" onclick="openDetail('${esc(s.id)}')">
@@ -410,9 +437,11 @@
         const d = perDriver[name] = perDriver[name] || { name, attended:0, planned:0, cancelled:0, no_show:0, tracks:new Set(), last_attended:null };
         if (d[a.status] != null) d[a.status]++;
         if (a.status === 'attended'){
-          const tk = `${a.tyre_brand || 'Unspecified'}|${a.tyre_size || 'Unspecified'}`;
-          tyres[tk] = tyres[tk] || { brand:a.tyre_brand || 'Unspecified', size:a.tyre_size || 'Unspecified', attended:0, sessions:new Set(), drivers:new Set() };
-          tyres[tk].attended++; tyres[tk].sessions.add(s.id); if(a.driver_name) tyres[tk].drivers.add(a.driver_name);
+          tyreSetsFor(a).forEach(set => {
+            const tk = `${set.brand || 'Unspecified'}|${set.size || 'Unspecified'}|${set.type || 'Slick'}`;
+            tyres[tk] = tyres[tk] || { brand:set.brand || 'Unspecified', size:set.size || 'Unspecified', type:set.type || 'Slick', sets:0, sessions:new Set(), drivers:new Set() };
+            tyres[tk].sets += set.sets || 1; tyres[tk].sessions.add(s.id); if(a.driver_name) tyres[tk].drivers.add(a.driver_name);
+          });
           const dt = iso(s.session_date);
           if (dt && (!d.last_attended || dt > d.last_attended)) d.last_attended = dt;
           if (track){
@@ -428,7 +457,7 @@
     return {
       perDriver: Object.values(perDriver).map(d => ({ ...d, tracks_run: d.tracks.size })).sort((a,b)=>b.attended-a.attended),
       perTrack:  Object.values(perTrack).map(t => ({ track:t.track, sessions:t.sessions, attendances:t.attendances, drivers:t.drivers.size })).sort((a,b)=>b.sessions-a.sessions),
-      tyres: Object.values(tyres).map(t => ({ brand:t.brand, size:t.size, attended:t.attended, sessions:t.sessions.size, drivers:t.drivers.size })).sort((a,b)=>b.attended-a.attended),
+      tyres: Object.values(tyres).map(t => ({ brand:t.brand, size:t.size, type:t.type, sets:t.sets, sessions:t.sessions.size, drivers:t.drivers.size })).sort((a,b)=>b.sets-a.sets),
       fam
     };
   }
@@ -498,7 +527,7 @@
       ? a.perTrack.map(t => `<div class="an-trow"><span class="an-tname">${esc(t.track)}</span><span class="an-tmeta">${t.sessions} session${t.sessions===1?'':'s'} · ${t.drivers} driver${t.drivers===1?'':'s'}</span></div>`).join('')
       : '<div class="an-empty">No tracks logged.</div>';
     const tyreRows = a.tyres.length
-      ? a.tyres.map(t => `<div class="an-trow"><span class="an-tname">${esc(t.brand)} · ${esc(t.size)}</span><span class="an-tmeta">${t.attended} use${t.attended===1?'':'s'} · ${t.sessions} day${t.sessions===1?'':'s'} · ${t.drivers} driver${t.drivers===1?'':'s'}</span></div>`).join('')
+      ? a.tyres.map(t => `<div class="an-trow"><span class="an-tname">${esc(t.brand)} · ${esc(t.size)} · ${esc(t.type)}</span><span class="an-tmeta">${t.sets} set${t.sets===1?'':'s'} · ${t.sessions} day${t.sessions===1?'':'s'} · ${t.drivers} driver${t.drivers===1?'':'s'}</span></div>`).join('')
       : '<div class="an-empty">No tyre data yet.</div>';
 
     box.innerHTML = `
@@ -573,7 +602,7 @@
   function seedSheetDrivers(){
     sheetDrivers = drivers.map(d => ({
       driver_id: d.id, driver_name: d.name || '—',
-      cls: d.racing_class || d.class || '', color: d.color || '#4338ca', status: '', tyre_brand:'', tyre_size:''
+      cls: d.racing_class || d.class || '', color: d.color || '#4338ca', status: '', tyre_sets:[]
     }));
   }
   function renderDriverChips(){
@@ -588,8 +617,7 @@
       const i = +ch.dataset.i, cur = sheetDrivers[i].status;
       const idx = STATUS_CYCLE.indexOf(cur);
       sheetDrivers[i].status = idx < 0 ? STATUS_CYCLE[0] : (idx+1 < STATUS_CYCLE.length ? STATUS_CYCLE[idx+1] : '');
-      if (sheetDrivers[i].status && !sheetDrivers[i].tyre_brand) sheetDrivers[i].tyre_brand = document.getElementById('defaultTyreBrand').value || '';
-      if (sheetDrivers[i].status && !sheetDrivers[i].tyre_size) sheetDrivers[i].tyre_size = document.getElementById('defaultTyreSize').value || '';
+      if (sheetDrivers[i].status && !tyreSetsFor(sheetDrivers[i]).length) addDefaultTyreSet(sheetDrivers[i]);
       renderDriverChips();
     });
     const marked = sheetDrivers.filter(d=>d.status).length;
@@ -599,17 +627,55 @@
   function options(values, current, placeholder){
     return `<option value="">${placeholder}</option>` + values.map(v=>`<option value="${esc(v)}" ${current===v?'selected':''}>${esc(v)}</option>`).join('');
   }
+  function defaultTyreSet(typeOverride){
+    return {
+      brand: document.getElementById('defaultTyreBrand').value || '',
+      size: document.getElementById('defaultTyreSize').value || '',
+      type: typeOverride || document.getElementById('defaultTyreType').value || 'Slick',
+      sets: Math.max(1, Math.min(99, parseInt(document.getElementById('defaultTyreSets').value, 10) || 1))
+    };
+  }
+  function addDefaultTyreSet(driver, typeOverride){
+    const next = defaultTyreSet(typeOverride);
+    if(!typeOverride && !next.brand && !next.size) return;
+    driver.tyre_sets = tyreSetsFor(driver);
+    driver.tyre_sets.push(next);
+  }
   function renderTyreRows(){
     const box = document.getElementById('tyreRows');
     const marked = sheetDrivers.map((d,i)=>({d,i})).filter(x=>x.d.status);
     if(!marked.length){ box.innerHTML = '<div class="chip-hint">Mark drivers first to assign tyres.</div>'; return; }
     box.innerHTML = marked.map(({d,i}) => `<div class="tyre-row">
       <div class="tyre-name">${esc(d.driver_name)}</div>
-      <select class="form-input" data-brand="${i}">${options(TYRE_BRANDS, d.tyre_brand||'', 'Brand')}</select>
-      <select class="form-input" data-size="${i}">${options(TYRE_SIZES, d.tyre_size||'', 'Size')}</select>
+      ${(tyreSetsFor(d).map((set,j) => `<div class="tyre-set-grid">
+        <input class="form-input" type="number" min="1" max="99" value="${esc(set.sets)}" data-driver-index="${i}" data-set-index="${j}" data-set-field="sets">
+        <select class="form-input" data-driver-index="${i}" data-set-index="${j}" data-set-field="brand">${options(TYRE_BRANDS, set.brand, 'Brand')}</select>
+        <select class="form-input" data-driver-index="${i}" data-set-index="${j}" data-set-field="size">${options(TYRE_SIZES, set.size, 'Size')}</select>
+        <select class="form-input" data-driver-index="${i}" data-set-index="${j}" data-set-field="type">${options(TYRE_TYPES, set.type, 'Type')}</select>
+        <button type="button" class="mini-btn" data-driver-index="${i}" data-remove-set="${j}" aria-label="Remove tyre set">×</button>
+      </div>`).join('') || '<div class="chip-hint">No tyres assigned.</div>')}
+      <div style="display:flex;gap:6px;margin-top:6px;">
+        <button type="button" class="mini-btn" data-add-slick="${i}">+ Slick</button>
+        <button type="button" class="mini-btn" data-add-wet="${i}">+ Wet</button>
+      </div>
     </div>`).join('');
-    box.querySelectorAll('[data-brand]').forEach(sel => sel.onchange = () => { sheetDrivers[+sel.dataset.brand].tyre_brand = sel.value; renderDriverChips(); });
-    box.querySelectorAll('[data-size]').forEach(sel => sel.onchange = () => { sheetDrivers[+sel.dataset.size].tyre_size = sel.value; renderDriverChips(); });
+    box.querySelectorAll('[data-set-field]').forEach(el => el.onchange = () => {
+      const driver = sheetDrivers[+el.dataset.driverIndex];
+      const sets = tyreSetsFor(driver);
+      const set = sets[+el.dataset.setIndex]; if(!set) return;
+      set[el.dataset.setField] = el.dataset.setField === 'sets' ? Math.max(1, Math.min(99, parseInt(el.value, 10) || 1)) : el.value;
+      driver.tyre_sets = sets;
+      renderDriverChips();
+    });
+    box.querySelectorAll('[data-remove-set]').forEach(btn => btn.onclick = () => {
+      const driver = sheetDrivers[+btn.dataset.driverIndex];
+      const sets = tyreSetsFor(driver);
+      sets.splice(+btn.dataset.removeSet, 1);
+      driver.tyre_sets = sets;
+      renderDriverChips();
+    });
+    box.querySelectorAll('[data-add-slick]').forEach(btn => btn.onclick = () => { addDefaultTyreSet(sheetDrivers[+btn.dataset.addSlick], 'Slick'); renderDriverChips(); });
+    box.querySelectorAll('[data-add-wet]').forEach(btn => btn.onclick = () => { addDefaultTyreSet(sheetDrivers[+btn.dataset.addWet], 'Wet'); renderDriverChips(); });
   }
   function renderStaffChips(){
     const box = document.getElementById('staffChips');
@@ -644,6 +710,8 @@
     document.getElementById('staffAdd').value = '';
     document.getElementById('defaultTyreBrand').value = '';
     document.getElementById('defaultTyreSize').value = '';
+    document.getElementById('defaultTyreType').value = 'Slick';
+    document.getElementById('defaultTyreSets').value = '1';
     seedSheetDrivers(); sheetStaff = [];
     renderDriverChips(); renderStaffChips();
     document.getElementById('sheetOverlay').classList.add('active');
@@ -669,7 +737,11 @@
       class_name: document.getElementById('fClass').value.trim() || null,
       event_id:   document.getElementById('fEvent').value || null,
       notes:      document.getElementById('fNotes').value.trim() || null,
-      attendance: sheetDrivers.filter(d => d.status).map(d => ({ driver_id: d.driver_id, driver_name: d.driver_name, status: d.status, tyre_brand: d.tyre_brand || null, tyre_size: d.tyre_size || null })),
+      attendance: sheetDrivers.filter(d => d.status).map(d => {
+        const sets = tyreSetsFor(d);
+        const first = sets[0] || {};
+        return { driver_id: d.driver_id, driver_name: d.driver_name, status: d.status, tyre_brand: first.brand || null, tyre_size: first.size || null, tyre_type: first.type || null, tyre_sets: sets };
+      }),
       staff:      sheetStaff
     };
     try {
@@ -719,21 +791,23 @@
   document.getElementById('driverFilter').addEventListener('input', renderDriverChips);
   document.getElementById('markAll').addEventListener('click', () => {
     const q = (document.getElementById('driverFilter').value||'').trim().toLowerCase();
-    sheetDrivers.forEach(d => { if (!q || (d.driver_name||'').toLowerCase().includes(q) || (d.cls||'').toLowerCase().includes(q)){ d.status = 'attended'; if(!d.tyre_brand)d.tyre_brand=document.getElementById('defaultTyreBrand').value||''; if(!d.tyre_size)d.tyre_size=document.getElementById('defaultTyreSize').value||''; } });
+    sheetDrivers.forEach(d => { if (!q || (d.driver_name||'').toLowerCase().includes(q) || (d.cls||'').toLowerCase().includes(q)){ d.status = 'attended'; if(!tyreSetsFor(d).length) addDefaultTyreSet(d); } });
     renderDriverChips();
   });
   document.getElementById('clearAll').addEventListener('click', () => {
     const q = (document.getElementById('driverFilter').value||'').trim().toLowerCase();
-    sheetDrivers.forEach(d => { if (!q || (d.driver_name||'').toLowerCase().includes(q) || (d.cls||'').toLowerCase().includes(q)){ d.status = ''; d.tyre_brand = ''; d.tyre_size = ''; } });
+    sheetDrivers.forEach(d => { if (!q || (d.driver_name||'').toLowerCase().includes(q) || (d.cls||'').toLowerCase().includes(q)){ d.status = ''; d.tyre_sets = []; } });
     renderDriverChips();
   });
   document.getElementById('driverAdd').addEventListener('keydown', e => {
-    if (e.key === 'Enter') { e.preventDefault(); const v=e.target.value.trim(); if(v){ sheetDrivers.push({ driver_id:null, driver_name:v, cls:'', color:'#a3a3a3', status:'attended', tyre_brand:document.getElementById('defaultTyreBrand').value||'', tyre_size:document.getElementById('defaultTyreSize').value||'' }); e.target.value=''; renderDriverChips(); } }
+    if (e.key === 'Enter') { e.preventDefault(); const v=e.target.value.trim(); if(v){ const d={ driver_id:null, driver_name:v, cls:'', color:'#a3a3a3', status:'attended', tyre_sets:[] }; addDefaultTyreSet(d); sheetDrivers.push(d); e.target.value=''; renderDriverChips(); } }
   });
   document.getElementById('applyTyres').addEventListener('click', () => {
     const brand = document.getElementById('defaultTyreBrand').value;
     const size = document.getElementById('defaultTyreSize').value;
-    sheetDrivers.forEach(d => { if(d.status){ if(brand)d.tyre_brand=brand; if(size)d.tyre_size=size; } });
+    const type = document.getElementById('defaultTyreType').value || 'Slick';
+    const sets = Math.max(1, Math.min(99, parseInt(document.getElementById('defaultTyreSets').value, 10) || 1));
+    sheetDrivers.forEach(d => { if(d.status){ d.tyre_sets = [{ brand, size, type, sets }]; } });
     renderDriverChips();
   });
   document.getElementById('staffAdd').addEventListener('keydown', e => {

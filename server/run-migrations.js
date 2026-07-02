@@ -123,7 +123,8 @@ async function runMigrations() {
     '102_practice_tracking.sql',
     '103_practice_attendance_audit.sql',
     '104_practice_session_type.sql',
-    '105_practice_attendance_tyres.sql'
+    '105_practice_attendance_tyres.sql',
+    '106_practice_attendance_tyre_sets.sql'
   ];
   
   let appliedCount = 0, skippedCount = 0;

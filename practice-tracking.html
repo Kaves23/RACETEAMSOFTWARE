@@ -203,6 +203,10 @@
                   <select class="form-select form-select-sm" id="sDefaultTyreSize" style="width:106px;">
                     <option value="">Size</option><option>Mini</option><option>Senior</option>
                   </select>
+                  <select class="form-select form-select-sm" id="sDefaultTyreType" style="width:96px;">
+                    <option>Slick</option><option>Wet</option>
+                  </select>
+                  <input class="form-control form-control-sm" id="sDefaultTyreSets" type="number" min="1" max="99" value="1" style="width:74px;" title="Sets">
                   <button type="button" class="btn btn-sm btn-outline-secondary" id="sApplyTyres">Apply</button>
                   <button type="button" class="btn btn-sm btn-outline-secondary" id="sClearTyres">Clear tyres</button>
                 </div>
@@ -263,6 +267,7 @@ const STATUS_CYCLE = ['attended','planned','cancelled','no_show'];   // blank ->
 const STATUS_LETTER = { attended:'<i class="bi bi-check-lg"></i>', planned:'<i class="bi bi-clock"></i>', cancelled:'<i class="bi bi-slash-circle"></i>', no_show:'<i class="bi bi-exclamation-lg"></i>' };
 const TYRE_BRANDS = ['Levanto','Mojo'];
 const TYRE_SIZES = ['Mini','Senior'];
+const TYRE_TYPES = ['Slick','Wet'];
 const DEFAULT_TRACKS = ['RSR','CPT','VKC','Idube','Zwartkops','FK','Killarney'];
 
 let sessions = [];       // loaded practice sessions (each with .attendance[] and .staff[])
@@ -283,11 +288,28 @@ function fmtDate(d){ const x=new Date(d); return isNaN(x)?'':x.toLocaleDateStrin
 function colKey(c){ return c.id ? 'id:'+c.id : 'nm:'+(c.name||'').toLowerCase(); }
 function attKey(a){ return a.driver_id ? 'id:'+a.driver_id : 'nm:'+(a.driver_name||'').toLowerCase(); }
 function trackColor(t){ if(!t) return '#94a3b8'; let h=0; for(let i=0;i<t.length;i++) h=(h*31+t.charCodeAt(i))>>>0; return `hsl(${h%360} 58% 40%)`; }
+function tyreSetsFor(a){
+  const raw = Array.isArray(a?.tyre_sets) ? a.tyre_sets : [];
+  const sets = raw.map(x=>({
+    brand: TYRE_BRANDS.includes(x?.brand) ? x.brand : '',
+    size: TYRE_SIZES.includes(x?.size) ? x.size : '',
+    type: TYRE_TYPES.includes(x?.type) ? x.type : 'Slick',
+    sets: Math.max(1, Math.min(99, parseInt(x?.sets, 10) || 1))
+  })).filter(x=>x.brand || x.size || x.type);
+  if(!sets.length && a && (a.tyre_brand || a.tyre_size || a.tyre_type)){
+    sets.push({ brand:a.tyre_brand||'', size:a.tyre_size||'', type:a.tyre_type||'Slick', sets:1 });
+  }
+  return sets;
+}
 function tyreLabel(a){
-  if(!a || (!a.tyre_brand && !a.tyre_size)) return '';
-  const brand = a.tyre_brand ? a.tyre_brand[0] : '?';
-  const size = a.tyre_size ? (a.tyre_size === 'Senior' ? 'Sr' : 'Mi') : '?';
-  return `${brand}/${size}`;
+  const sets = tyreSetsFor(a);
+  if(!sets.length) return '';
+  return sets.map(x=>{
+    const brand = x.brand ? x.brand[0] : '?';
+    const size = x.size ? (x.size === 'Senior' ? 'Sr' : 'Mi') : '?';
+    const type = x.type === 'Wet' ? 'W' : 'S';
+    return `${x.sets > 1 ? x.sets + 'x ' : ''}${brand}/${size} ${type}`;
+  }).join(' + ');
 }
 
 // ─── LOAD ────────────────────────────────────────────────────
@@ -371,7 +393,7 @@ function renderMatrix(){
       const letter = st ? (STATUS_LETTER[st]||'•') : '';
       const tyres = tyreLabel(a);
       const who = a && a.updated_by ? ` · by ${esc(a.updated_by)}${a.updated_at?' '+fmtDate(a.updated_at):''}` : '';
-      return `<td><div class="pt-cell ${cls}" onclick="cycleCell('${s.id}','${colKey(c)}')" title="${esc(c.name)} — ${st||'blank'}${tyres?' · tyres '+esc(a.tyre_brand||'')+' '+esc(a.tyre_size||''):''}${a&&a.kart?' · '+esc(a.kart):''}${who}">${letter}${tyres?`<span class="pt-cell-tyre">${esc(tyres)}</span>`:''}</div></td>`;
+      return `<td><div class="pt-cell ${cls}" onclick="cycleCell('${s.id}','${colKey(c)}')" title="${esc(c.name)} — ${st||'blank'}${tyres?' · tyres '+esc(tyres):''}${a&&a.kart?' · '+esc(a.kart):''}${who}">${letter}${tyres?`<span class="pt-cell-tyre">${esc(tyres)}</span>`:''}</div></td>`;
     }).join('');
     const rowCls = [dayStart?'pt-day-start':'', isRace?'pt-race-row':''].filter(Boolean).join(' ');
     return `<tr class="${rowCls}">${head}${cells}</tr>`;
@@ -392,7 +414,7 @@ async function cycleCell(sessionId, key){
   const next = idx < 0 ? STATUS_CYCLE[0] : (idx+1 < STATUS_CYCLE.length ? STATUS_CYCLE[idx+1] : ''); // wraps to blank
   try{
     const payload = { driver_id: col.id||null, driver_name: col.name, status: next||'' };
-    if (a) { payload.tyre_brand = a.tyre_brand || null; payload.tyre_size = a.tyre_size || null; }
+    if (a) { payload.tyre_brand = a.tyre_brand || null; payload.tyre_size = a.tyre_size || null; payload.tyre_type = a.tyre_type || null; payload.tyre_sets = tyreSetsFor(a); }
     const resp = await api(`/sessions/${sessionId}/cell`, { method:'PUT', ...jbody(payload) });
     // update local state
     s.attendance = s.attendance || [];
@@ -494,15 +516,17 @@ function openSession(id){
   modalDrivers = driverProfiles.map(d=>{
     const ex = existingRows['id:'+d.id] || {};
     return { driver_id:d.id, driver_name:d.name, color:d.color||'#6366f1',
-      cls:d.racing_class||'', status: ex.status || '', tyre_brand: ex.tyre_brand || '', tyre_size: ex.tyre_size || '' };
+      cls:d.racing_class||'', status: ex.status || '', tyre_sets: tyreSetsFor(ex) };
   });
   // include overrides present on the session but not in roster
   if(s) (s.attendance||[]).forEach(a=>{
     if(!a.driver_id && !modalDrivers.some(m=>!m.driver_id && (m.driver_name||'').toLowerCase()===(a.driver_name||'').toLowerCase()))
-      modalDrivers.push({ driver_id:null, driver_name:a.driver_name, color:'#94a3b8', cls:'', status:a.status, tyre_brand:a.tyre_brand||'', tyre_size:a.tyre_size||'' });
+      modalDrivers.push({ driver_id:null, driver_name:a.driver_name, color:'#94a3b8', cls:'', status:a.status, tyre_sets: tyreSetsFor(a) });
   });
   document.getElementById('sDefaultTyreBrand').value = '';
   document.getElementById('sDefaultTyreSize').value = '';
+  document.getElementById('sDefaultTyreType').value = 'Slick';
+  document.getElementById('sDefaultTyreSets').value = '1';
   updateClassPickBtn();
   renderModalDrivers();
   sessModal.show();
@@ -551,15 +575,14 @@ function renderModalDrivers(){
     const lbl = d.status?` · ${STATUS_LETTER[d.status]||d.status}`:'';
     const style = d.status?'font-weight:700;border-color:currentColor;':('border-left:4px solid '+esc(d.color));
     const sub = d.cls?` <span style="opacity:.6;font-size:.65rem;">${esc(d.cls)}</span>`:'';
-    const tyres = d.status && (d.tyre_brand || d.tyre_size) ? `<span class="pt-tyre-badge">${esc(tyreLabel(d))}</span>` : '';
+    const tyres = d.status && tyreLabel(d) ? `<span class="pt-tyre-badge">${esc(tyreLabel(d))}</span>` : '';
     return `<span class="chip-pick ${cls}" data-i="${i}" style="${style}">${esc(d.driver_name)}${sub}${lbl}${tyres}</span>`;
   }).join('') || '<span class="text-secondary" style="font-size:.75rem;">No matching drivers.</span>';
   box.querySelectorAll('.chip-pick').forEach(ch=>ch.onclick=()=>{
     const i=+ch.dataset.i, cur=modalDrivers[i].status;
     const idx=STATUS_CYCLE.indexOf(cur);
     modalDrivers[i].status = idx<0?STATUS_CYCLE[0]:(idx+1<STATUS_CYCLE.length?STATUS_CYCLE[idx+1]:'');
-    if(modalDrivers[i].status && !modalDrivers[i].tyre_brand) modalDrivers[i].tyre_brand = document.getElementById('sDefaultTyreBrand').value || '';
-    if(modalDrivers[i].status && !modalDrivers[i].tyre_size) modalDrivers[i].tyre_size = document.getElementById('sDefaultTyreSize').value || '';
+    if(modalDrivers[i].status && !tyreSetsFor(modalDrivers[i]).length) addDefaultTyreSet(modalDrivers[i]);
     renderModalDrivers();
   });
   const countEl = document.getElementById('sDriverCount');
@@ -574,6 +597,22 @@ function tyreOptions(values, current, placeholder){
   return `<option value="">${placeholder}</option>` + values.map(v=>`<option value="${esc(v)}" ${current===v?'selected':''}>${esc(v)}</option>`).join('');
 }
 
+function defaultTyreSet(typeOverride){
+  return {
+    brand: document.getElementById('sDefaultTyreBrand').value || '',
+    size: document.getElementById('sDefaultTyreSize').value || '',
+    type: typeOverride || document.getElementById('sDefaultTyreType').value || 'Slick',
+    sets: Math.max(1, Math.min(99, parseInt(document.getElementById('sDefaultTyreSets').value, 10) || 1))
+  };
+}
+
+function addDefaultTyreSet(driver, typeOverride){
+  const next = defaultTyreSet(typeOverride);
+  if(!typeOverride && !next.brand && !next.size) return;
+  driver.tyre_sets = tyreSetsFor(driver);
+  driver.tyre_sets.push(next);
+}
+
 function renderModalTyres(){
   const box = document.getElementById('sTyreRows');
   if(!box) return;
@@ -583,28 +622,52 @@ function renderModalTyres(){
     return;
   }
   box.innerHTML = `<div style="overflow:auto;"><table class="pt-tyre-table">
-    <thead><tr><th>Driver</th><th>Status</th><th>Brand</th><th>Size</th></tr></thead>
+    <thead><tr><th>Driver</th><th>Status</th><th>Tyres used</th><th></th></tr></thead>
     <tbody>${marked.map(({d,i})=>`<tr>
       <td class="fw-semibold">${esc(d.driver_name)}</td>
       <td><span class="pt-flag ok">${esc((d.status||'').replace('_',' '))}</span></td>
-      <td><select data-tyre-brand="${i}">${tyreOptions(TYRE_BRANDS, d.tyre_brand||'', 'Brand')}</select></td>
-      <td><select data-tyre-size="${i}">${tyreOptions(TYRE_SIZES, d.tyre_size||'', 'Size')}</select></td>
+      <td>${tyreSetEditor(d, i)}</td>
+      <td style="white-space:nowrap;">
+        <button type="button" class="btn btn-sm btn-outline-secondary py-0" data-add-slick="${i}">+ Slick</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary py-0" data-add-wet="${i}">+ Wet</button>
+      </td>
     </tr>`).join('')}</tbody></table></div>`;
-  box.querySelectorAll('[data-tyre-brand]').forEach(sel=>sel.onchange=()=>{
-    modalDrivers[+sel.dataset.tyreBrand].tyre_brand = sel.value;
+  box.querySelectorAll('[data-set-field]').forEach(el=>el.onchange=()=>{
+    const driver = modalDrivers[+el.dataset.driverIndex];
+    const sets = tyreSetsFor(driver);
+    const set = sets[+el.dataset.setIndex]; if(!set) return;
+    set[el.dataset.setField] = el.dataset.setField === 'sets' ? Math.max(1, Math.min(99, parseInt(el.value, 10) || 1)) : el.value;
+    driver.tyre_sets = sets;
     renderModalDrivers();
   });
-  box.querySelectorAll('[data-tyre-size]').forEach(sel=>sel.onchange=()=>{
-    modalDrivers[+sel.dataset.tyreSize].tyre_size = sel.value;
+  box.querySelectorAll('[data-remove-set]').forEach(btn=>btn.onclick=()=>{
+    const driver = modalDrivers[+btn.dataset.driverIndex];
+    const sets = tyreSetsFor(driver);
+    sets.splice(+btn.dataset.removeSet, 1);
+    driver.tyre_sets = sets;
     renderModalDrivers();
   });
+  box.querySelectorAll('[data-add-slick]').forEach(btn=>btn.onclick=()=>{ addDefaultTyreSet(modalDrivers[+btn.dataset.addSlick], 'Slick'); renderModalDrivers(); });
+  box.querySelectorAll('[data-add-wet]').forEach(btn=>btn.onclick=()=>{ addDefaultTyreSet(modalDrivers[+btn.dataset.addWet], 'Wet'); renderModalDrivers(); });
+}
+
+function tyreSetEditor(d, driverIndex){
+  const sets = tyreSetsFor(d);
+  if(!sets.length) return '<span class="text-secondary" style="font-size:.72rem;">No tyres assigned</span>';
+  return sets.map((set, setIndex)=>`<div class="d-flex gap-1 align-items-center flex-wrap mb-1">
+    <input type="number" min="1" max="99" value="${esc(set.sets)}" data-driver-index="${driverIndex}" data-set-index="${setIndex}" data-set-field="sets" style="width:52px;">
+    <select data-driver-index="${driverIndex}" data-set-index="${setIndex}" data-set-field="brand">${tyreOptions(TYRE_BRANDS, set.brand, 'Brand')}</select>
+    <select data-driver-index="${driverIndex}" data-set-index="${setIndex}" data-set-field="size">${tyreOptions(TYRE_SIZES, set.size, 'Size')}</select>
+    <select data-driver-index="${driverIndex}" data-set-index="${setIndex}" data-set-field="type">${tyreOptions(TYRE_TYPES, set.type, 'Type')}</select>
+    <button type="button" class="btn btn-sm btn-outline-danger py-0" data-driver-index="${driverIndex}" data-remove-set="${setIndex}">Remove</button>
+  </div>`).join('');
 }
 
 document.getElementById('sStaffAdd').addEventListener('keydown', e=>{
   if(e.key==='Enter'){ e.preventDefault(); const v=e.target.value.trim(); if(v){ modalStaff.push({staff_id:null,staff_name:v,role:null}); e.target.value=''; renderModalStaff(); } }
 });
 document.getElementById('sDriverAdd').addEventListener('keydown', e=>{
-  if(e.key==='Enter'){ e.preventDefault(); const v=e.target.value.trim(); if(v){ modalDrivers.push({driver_id:null,driver_name:v,color:'#94a3b8',cls:'',status:'attended'}); e.target.value=''; updateClassPickBtn(); renderModalDrivers(); } }
+  if(e.key==='Enter'){ e.preventDefault(); const v=e.target.value.trim(); if(v){ const d={driver_id:null,driver_name:v,color:'#94a3b8',cls:'',status:'attended',tyre_sets:[]}; addDefaultTyreSet(d); modalDrivers.push(d); e.target.value=''; updateClassPickBtn(); renderModalDrivers(); } }
 });
 // Practice / Race day toggle
 document.getElementById('sTypeSeg').addEventListener('click', e=>{
@@ -614,28 +677,30 @@ document.getElementById('sTypeSeg').addEventListener('click', e=>{
 document.getElementById('sDriverFilter').addEventListener('input', renderModalDrivers);
 document.getElementById('sMarkAll').addEventListener('click', ()=>{
   const q=(document.getElementById('sDriverFilter').value||'').trim().toLowerCase();
-  modalDrivers.forEach(d=>{ if(!q || (d.driver_name||'').toLowerCase().includes(q) || (d.cls||'').toLowerCase().includes(q)){ d.status='attended'; if(!d.tyre_brand)d.tyre_brand=document.getElementById('sDefaultTyreBrand').value||''; if(!d.tyre_size)d.tyre_size=document.getElementById('sDefaultTyreSize').value||''; } });
+  modalDrivers.forEach(d=>{ if(!q || (d.driver_name||'').toLowerCase().includes(q) || (d.cls||'').toLowerCase().includes(q)){ d.status='attended'; if(!tyreSetsFor(d).length) addDefaultTyreSet(d); } });
   renderModalDrivers();
 });
 document.getElementById('sClearAll').addEventListener('click', ()=>{
   const q=(document.getElementById('sDriverFilter').value||'').trim().toLowerCase();
-  modalDrivers.forEach(d=>{ if(!q || (d.driver_name||'').toLowerCase().includes(q) || (d.cls||'').toLowerCase().includes(q)){ d.status=''; d.tyre_brand=''; d.tyre_size=''; } });
+  modalDrivers.forEach(d=>{ if(!q || (d.driver_name||'').toLowerCase().includes(q) || (d.cls||'').toLowerCase().includes(q)){ d.status=''; d.tyre_sets=[]; } });
   renderModalDrivers();
 });
 document.getElementById('sClassPick').addEventListener('click', ()=>{
   const cls=(document.getElementById('sClass').value||'').trim().toLowerCase(); if(!cls) return;
-  modalDrivers.forEach(d=>{ if((d.cls||'').toLowerCase()===cls){ d.status='attended'; if(!d.tyre_brand)d.tyre_brand=document.getElementById('sDefaultTyreBrand').value||''; if(!d.tyre_size)d.tyre_size=document.getElementById('sDefaultTyreSize').value||''; } });
+  modalDrivers.forEach(d=>{ if((d.cls||'').toLowerCase()===cls){ d.status='attended'; if(!tyreSetsFor(d).length) addDefaultTyreSet(d); } });
   renderModalDrivers();
 });
 document.getElementById('sClass').addEventListener('input', updateClassPickBtn);
 document.getElementById('sApplyTyres').addEventListener('click', ()=>{
   const brand=document.getElementById('sDefaultTyreBrand').value;
   const size=document.getElementById('sDefaultTyreSize').value;
-  modalDrivers.forEach(d=>{ if(d.status){ if(brand)d.tyre_brand=brand; if(size)d.tyre_size=size; } });
+  const type=document.getElementById('sDefaultTyreType').value || 'Slick';
+  const sets=Math.max(1, Math.min(99, parseInt(document.getElementById('sDefaultTyreSets').value, 10) || 1));
+  modalDrivers.forEach(d=>{ if(d.status){ d.tyre_sets=[{brand,size,type,sets}]; } });
   renderModalDrivers();
 });
 document.getElementById('sClearTyres').addEventListener('click', ()=>{
-  modalDrivers.forEach(d=>{ if(d.status){ d.tyre_brand=''; d.tyre_size=''; } });
+  modalDrivers.forEach(d=>{ if(d.status){ d.tyre_sets=[]; } });
   renderModalDrivers();
 });
 
@@ -649,7 +714,11 @@ async function saveSession(){
     event_id: document.getElementById('sEvent').value || null,
     session_type: modalType,
     notes: document.getElementById('sNotes').value.trim() || null,
-    attendance: modalDrivers.filter(d=>d.status).map(d=>({driver_id:d.driver_id,driver_name:d.driver_name,status:d.status,tyre_brand:d.tyre_brand||null,tyre_size:d.tyre_size||null})),
+    attendance: modalDrivers.filter(d=>d.status).map(d=>{
+      const sets = tyreSetsFor(d);
+      const first = sets[0] || {};
+      return {driver_id:d.driver_id,driver_name:d.driver_name,status:d.status,tyre_brand:first.brand||null,tyre_size:first.size||null,tyre_type:first.type||null,tyre_sets:sets};
+    }),
     staff: modalStaff
   };
   if(!body.session_date){ alert('Pick a date'); return; }
@@ -717,7 +786,7 @@ async function renderAnalytics(){
   }).join('');
 
   const trackRows = a.perTrack.map(t=>`<tr><td>${esc(t.track)}</td><td>${t.sessions}</td><td>${t.attendances}</td><td>${t.drivers}</td></tr>`).join('');
-  const tyreRows = (a.tyreUsage||[]).map(t=>`<tr><td>${esc(t.tyre_brand)}</td><td>${esc(t.tyre_size)}</td><td>${t.attended}</td><td>${t.sessions}</td><td>${t.linked_drivers}</td></tr>`).join('');
+  const tyreRows = (a.tyreUsage||[]).map(t=>`<tr><td>${esc(t.tyre_brand)}</td><td>${esc(t.tyre_size)}</td><td>${esc(t.tyre_type)}</td><td>${t.sets_used}</td><td>${t.sessions}</td><td>${t.linked_drivers}</td></tr>`).join('');
 
   // next-event readiness
   const upcoming = events.filter(e=>e.start_date && new Date(e.start_date)>=new Date()).sort((a,b)=>String(a.start_date).localeCompare(String(b.start_date)))[0];
@@ -746,8 +815,8 @@ async function renderAnalytics(){
       <tbody>${trackRows||'<tr><td colspan="4" class="text-secondary">No data.</td></tr>'}</tbody></table>
     </div>
     <div class="pt-panel"><h6>Tyre usage</h6>
-      <table class="pt-table"><thead><tr><th>Brand</th><th>Size</th><th>Attended uses</th><th>Sessions</th><th>Drivers</th></tr></thead>
-      <tbody>${tyreRows||'<tr><td colspan="5" class="text-secondary">No tyre data yet.</td></tr>'}</tbody></table>
+      <table class="pt-table"><thead><tr><th>Brand</th><th>Size</th><th>Type</th><th>Sets used</th><th>Sessions</th><th>Drivers</th></tr></thead>
+      <tbody>${tyreRows||'<tr><td colspan="6" class="text-secondary">No tyre data yet.</td></tr>'}</tbody></table>
     </div>`;
 }
 

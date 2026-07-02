@@ -6,6 +6,7 @@ const { pool } = require('../db');
 const VALID_STATUS = ['planned', 'attended', 'cancelled', 'no_show'];
 const VALID_TYRE_BRAND = ['Levanto', 'Mojo'];
 const VALID_TYRE_SIZE = ['Mini', 'Senior'];
+const VALID_TYRE_TYPE = ['Slick', 'Wet'];
 
 // ─────────────────────────────────────────────────────────────
 // Helpers
@@ -34,10 +35,35 @@ async function loadSessions(where, params) {
   return sessions;
 }
 
+function sanitizeTyreSets(row) {
+  const raw = Array.isArray(row.tyre_sets) ? row.tyre_sets : [];
+  const out = raw.map(set => {
+    const brand = VALID_TYRE_BRAND.includes(set?.brand) ? set.brand : null;
+    const size = VALID_TYRE_SIZE.includes(set?.size) ? set.size : null;
+    const type = VALID_TYRE_TYPE.includes(set?.type) ? set.type : null;
+    const sets = Math.max(1, Math.min(99, parseInt(set?.sets, 10) || 1));
+    if (!brand && !size && !type) return null;
+    return { brand, size, type: type || 'Slick', sets };
+  }).filter(Boolean);
+
+  if (!out.length && (row.tyre_brand || row.tyre_size || row.tyre_type)) {
+    out.push({
+      brand: VALID_TYRE_BRAND.includes(row.tyre_brand) ? row.tyre_brand : null,
+      size: VALID_TYRE_SIZE.includes(row.tyre_size) ? row.tyre_size : null,
+      type: VALID_TYRE_TYPE.includes(row.tyre_type) ? row.tyre_type : 'Slick',
+      sets: Math.max(1, Math.min(99, parseInt(row.tyre_sets_count, 10) || 1))
+    });
+  }
+  return out;
+}
+
 async function upsertAttendance(client, sessionId, row, editor) {
   const status = VALID_STATUS.includes(row.status) ? row.status : 'attended';
-  const tyreBrand = VALID_TYRE_BRAND.includes(row.tyre_brand) ? row.tyre_brand : null;
-  const tyreSize = VALID_TYRE_SIZE.includes(row.tyre_size) ? row.tyre_size : null;
+  const tyreSets = sanitizeTyreSets(row);
+  const primaryTyre = tyreSets[0] || {};
+  const tyreBrand = VALID_TYRE_BRAND.includes(primaryTyre.brand) ? primaryTyre.brand : null;
+  const tyreSize = VALID_TYRE_SIZE.includes(primaryTyre.size) ? primaryTyre.size : null;
+  const tyreType = VALID_TYRE_TYPE.includes(primaryTyre.type) ? primaryTyre.type : null;
   const vals = [
     sessionId,
     row.driver_id || null,
@@ -50,19 +76,22 @@ async function upsertAttendance(client, sessionId, row, editor) {
     row.notes || null,
     tyreBrand,
     tyreSize,
+    tyreType,
+    tyreSets.length ? JSON.stringify(tyreSets) : null,
     editor || null
   ];
   // Linked driver → upsert on (session_id, driver_id); override row → match on name.
   if (row.driver_id) {
     const r = await client.query(
       `INSERT INTO practice_attendance
-         (session_id, driver_id, driver_name, status, kart, engine, coach_staff_id, coach_name, notes, tyre_brand, tyre_size, created_by, updated_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$12)
+         (session_id, driver_id, driver_name, status, kart, engine, coach_staff_id, coach_name, notes, tyre_brand, tyre_size, tyre_type, tyre_sets, created_by, updated_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,$14,$14)
        ON CONFLICT (session_id, driver_id) WHERE driver_id IS NOT NULL
        DO UPDATE SET driver_name=EXCLUDED.driver_name, status=EXCLUDED.status, kart=EXCLUDED.kart,
                      engine=EXCLUDED.engine, coach_staff_id=EXCLUDED.coach_staff_id,
                      coach_name=EXCLUDED.coach_name, notes=EXCLUDED.notes,
                      tyre_brand=EXCLUDED.tyre_brand, tyre_size=EXCLUDED.tyre_size,
+                     tyre_type=EXCLUDED.tyre_type, tyre_sets=EXCLUDED.tyre_sets,
                      updated_by=EXCLUDED.updated_by, updated_at=NOW()
        RETURNING *`, vals);
     return r.rows[0];
@@ -74,15 +103,15 @@ async function upsertAttendance(client, sessionId, row, editor) {
   if (existing.rows.length) {
     const r = await client.query(
       `UPDATE practice_attendance SET status=$2, kart=$3, engine=$4, coach_staff_id=$5,
-              coach_name=$6, notes=$7, tyre_brand=$8, tyre_size=$9,
-              updated_by=$10, updated_at=NOW() WHERE id=$1 RETURNING *`,
-      [existing.rows[0].id, status, vals[4], vals[5], vals[6], vals[7], vals[8], vals[9], vals[10], editor || null]);
+              coach_name=$6, notes=$7, tyre_brand=$8, tyre_size=$9, tyre_type=$10,
+              tyre_sets=$11::jsonb, updated_by=$12, updated_at=NOW() WHERE id=$1 RETURNING *`,
+      [existing.rows[0].id, status, vals[4], vals[5], vals[6], vals[7], vals[8], vals[9], vals[10], vals[11], vals[12], editor || null]);
     return r.rows[0];
   }
   const r = await client.query(
     `INSERT INTO practice_attendance
-       (session_id, driver_id, driver_name, status, kart, engine, coach_staff_id, coach_name, notes, tyre_brand, tyre_size, created_by, updated_by)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$12) RETURNING *`, vals);
+       (session_id, driver_id, driver_name, status, kart, engine, coach_staff_id, coach_name, notes, tyre_brand, tyre_size, tyre_type, tyre_sets, created_by, updated_by)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,$14,$14) RETURNING *`, vals);
   return r.rows[0];
 }
 
@@ -226,14 +255,18 @@ router.put('/attendance/:id', async (req, res, next) => {
   try {
     const b = req.body || {};
     const status = VALID_STATUS.includes(b.status) ? b.status : 'attended';
+    const tyreSets = sanitizeTyreSets(b);
+    const primaryTyre = tyreSets[0] || {};
     const r = await pool.query(
       `UPDATE practice_attendance SET status=$1, kart=$2, engine=$3, coach_staff_id=$4,
-              coach_name=$5, notes=$6, tyre_brand=$7, tyre_size=$8,
-              updated_by=$9, updated_at=NOW() WHERE id=$10 RETURNING *`,
+              coach_name=$5, notes=$6, tyre_brand=$7, tyre_size=$8, tyre_type=$9,
+              tyre_sets=$10::jsonb, updated_by=$11, updated_at=NOW() WHERE id=$12 RETURNING *`,
       [status, b.kart || null, b.engine || null, b.coach_staff_id || null,
        b.coach_name || null, b.notes || null,
-       VALID_TYRE_BRAND.includes(b.tyre_brand) ? b.tyre_brand : null,
-       VALID_TYRE_SIZE.includes(b.tyre_size) ? b.tyre_size : null,
+       VALID_TYRE_BRAND.includes(primaryTyre.brand) ? primaryTyre.brand : null,
+       VALID_TYRE_SIZE.includes(primaryTyre.size) ? primaryTyre.size : null,
+       VALID_TYRE_TYPE.includes(primaryTyre.type) ? primaryTyre.type : null,
+       tyreSets.length ? JSON.stringify(tyreSets) : null,
        req.user?.username || null, req.params.id]
     );
     if (!r.rows.length) return res.status(404).json({ error: 'Not found' });
@@ -324,17 +357,32 @@ router.get('/analytics', async (req, res, next) => {
       LEFT JOIN practice_attendance a ON a.session_id = s.id
       ${where}`, p)).rows[0];
 
+    const tyreWhere = (where ? where + ' AND ' : 'WHERE ') +
+      `(a.tyre_sets IS NOT NULL OR a.tyre_brand IS NOT NULL OR a.tyre_size IS NOT NULL OR a.tyre_type IS NOT NULL)`;
     const tyreUsage = (await pool.query(`
-      SELECT COALESCE(a.tyre_brand,'Unspecified') AS tyre_brand,
-             COALESCE(a.tyre_size,'Unspecified') AS tyre_size,
-             COUNT(*) FILTER (WHERE a.status='attended') AS attended,
+      SELECT COALESCE(t.set->>'brand','Unspecified') AS tyre_brand,
+             COALESCE(t.set->>'size','Unspecified') AS tyre_size,
+             COALESCE(t.set->>'type','Slick') AS tyre_type,
+             COALESCE(SUM(NULLIF(t.set->>'sets','')::int) FILTER (WHERE a.status='attended'), 0) AS sets_used,
+             COUNT(*) FILTER (WHERE a.status='attended') AS usage_rows,
              COUNT(DISTINCT a.driver_id) FILTER (WHERE a.status='attended' AND a.driver_id IS NOT NULL) AS linked_drivers,
              COUNT(DISTINCT s.id) FILTER (WHERE a.status='attended') AS sessions
       FROM practice_attendance a
       JOIN practice_sessions s ON s.id = a.session_id
-      ${where}
-      GROUP BY a.tyre_brand, a.tyre_size
-      ORDER BY attended DESC, tyre_brand ASC, tyre_size ASC`, p)).rows;
+      CROSS JOIN LATERAL jsonb_array_elements(
+        CASE
+          WHEN jsonb_typeof(a.tyre_sets) = 'array' AND jsonb_array_length(a.tyre_sets) > 0 THEN a.tyre_sets
+          ELSE jsonb_build_array(jsonb_build_object(
+            'brand', a.tyre_brand,
+            'size', a.tyre_size,
+            'type', COALESCE(a.tyre_type, 'Slick'),
+            'sets', 1
+          ))
+        END
+      ) AS t(set)
+      ${tyreWhere}
+      GROUP BY t.set->>'brand', t.set->>'size', t.set->>'type'
+      ORDER BY sets_used DESC, tyre_brand ASC, tyre_size ASC, tyre_type ASC`, p)).rows;
 
     res.json({ perDriver, perTrack, familiarity, totals, tyreUsage });
   } catch (e) { next(e); }
