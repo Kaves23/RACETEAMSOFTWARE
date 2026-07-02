@@ -49,7 +49,7 @@ async function manualRows(req) {
     SELECT u.id, u.driver_id, u.driver_name, u.usage_date, u.tyre_brand, u.tyre_size,
            COALESCE(u.tyre_type, 'Slick') AS tyre_type, u.sets_used,
            u.practice_session_id, u.event_id, u.source, u.notes, u.created_at, u.updated_at,
-           e.name AS event_name, e.title AS event_title,
+           e.name AS event_name, NULL::text AS event_title,
            ps.track AS practice_track, ps.venue AS practice_venue, ps.session_type AS practice_type
     FROM driver_tyre_usage u
     LEFT JOIN events e ON e.id = u.event_id
@@ -88,7 +88,7 @@ async function practiceRows(req) {
            COALESCE(NULLIF(t.set->>'sets','')::int, 1) AS sets_used,
            s.id AS practice_session_id, s.event_id, 'practice'::text AS source,
            a.notes,
-           a.created_at, a.updated_at, e.name AS event_name, e.title AS event_title,
+           a.created_at, a.updated_at, e.name AS event_name, NULL::text AS event_title,
            s.track AS practice_track, s.venue AS practice_venue, s.session_type AS practice_type
     FROM practice_attendance a
     JOIN practice_sessions s ON s.id = a.session_id

@@ -188,7 +188,7 @@
       RTS_API.getCollectionItems('drivers').catch(()=>({items:[]})),
       RTS_API.getCollectionItems('events').catch(()=>({items:[]})),
       api('/api/practice-tracking/sessions').catch(()=>[]),
-      api('/api/driver-tyre-usage').catch(()=>[])
+      api('/api/driver-tyre-usage')
     ]);
     drivers = (d.items||d||[]).sort((a,b)=>driverName(a).localeCompare(driverName(b)));
     events = (e.items||e||[]).sort((a,b)=>String(b.start_date||b.start||'').localeCompare(String(a.start_date||a.start||'')));
@@ -353,7 +353,14 @@
   document.getElementById('btnDelete').addEventListener('click', ()=>remove().catch(e=>{ if(RTS.showToast) RTS.showToast('Delete failed: '+e.message,'error'); else alert(e.message); }));
   el.search.addEventListener('input', render);
   el.source.addEventListener('change', render);
-  document.addEventListener('DOMContentLoaded', ()=>{ hydrateForm(null); load(); });
+  document.addEventListener('DOMContentLoaded', ()=>{
+    hydrateForm(null);
+    load().catch(e=>{
+      el.summaryGrid.innerHTML = `<div class="tu-empty">Could not load tyre usage: ${esc(e.message)}</div>`;
+      el.usageTbody.innerHTML = `<tr><td colspan="6" class="tu-empty">Could not load tyre usage: ${esc(e.message)}</td></tr>`;
+      if(RTS.showToast) RTS.showToast('Could not load tyre usage: '+e.message, 'error');
+    });
+  });
 })();
 </script>
 </body>
